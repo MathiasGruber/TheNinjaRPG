@@ -444,6 +444,7 @@ export const clanRouter = createTRPCRouter({
         return errorResponse("Rank too low");
       }
       // Start the battle
+      const background = await determineArenaBackground(ctx.drizzle, village.name);
       return await initiateBattle(
         {
           userIds: [ctx.userId],
@@ -451,7 +452,7 @@ export const clanRouter = createTRPCRouter({
           client: ctx.drizzle,
         },
         "CLAN_CHALLENGE",
-        determineArenaBackground(village.name),
+        background,
       );
     }),
   toBank: protectedProcedure
@@ -762,6 +763,7 @@ export const clanRouter = createTRPCRouter({
         return errorResponse("Clan battle not started yet");
       }
       // Start the battle
+      const background = await determineArenaBackground(ctx.drizzle, "default");
       const result = await initiateBattle(
         {
           userIds: challengerIds,
@@ -769,7 +771,7 @@ export const clanRouter = createTRPCRouter({
           client: ctx.drizzle,
         },
         "CLAN_BATTLE",
-        determineArenaBackground("default"),
+        background,
       );
 
       if (result.success && result.battleId) {

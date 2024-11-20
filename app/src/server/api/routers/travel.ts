@@ -235,6 +235,7 @@ export const travelRouter = createTRPCRouter({
           if (relation?.status === "ENEMY") {
             const chance = structureBoost("patrolsPerLvl", sectorVillage.structures);
             if (Math.random() < (travelLength * chance) / 100) {
+              const background = await determineCombatBackground(ctx.drizzle, "ground");
               const battle = await initiateBattle(
                 {
                   longitude: longitude,
@@ -246,7 +247,7 @@ export const travelRouter = createTRPCRouter({
                   scaleTarget: true,
                 },
                 "VILLAGE_PROTECTOR",
-                determineCombatBackground("ground"),
+                background,
               );
               if (battle.success) {
                 return { success: true, message: "Attacked by village protector" };

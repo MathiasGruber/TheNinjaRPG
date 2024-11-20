@@ -59,6 +59,7 @@ export const sparringRouter = createTRPCRouter({
         return errorResponse("Challenge not pending");
       }
       // Mutate
+      const background = await determineArenaBackground(ctx.drizzle, "default");
       const result = await initiateBattle(
         {
           sector: user.sector,
@@ -67,7 +68,7 @@ export const sparringRouter = createTRPCRouter({
           client: ctx.drizzle,
         },
         "SPARRING",
-        determineArenaBackground("default"),
+        background,
       );
       if (result.success) {
         await updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "SPAR");
