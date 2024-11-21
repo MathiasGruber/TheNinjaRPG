@@ -1061,7 +1061,7 @@ export const processUsersForBattle = (info: {
     // Add item effects
     const items: (UserItem & { item: Item; lastUsedRound: number })[] = [];
     user.items
-      .filter((useritem) => !useritem.item.preventBattleUsage)
+      .filter((useritem) => useritem.item && !useritem.item.preventBattleUsage)
       .forEach((useritem) => {
         const itemType = useritem.item.itemType;
         const effects = useritem.item.effects as UserEffect[];

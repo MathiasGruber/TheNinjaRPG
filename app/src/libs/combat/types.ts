@@ -773,7 +773,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
       // "cleanseprevent",
-      "buffprevent",
+      // "buffprevent",
       "decreasedamagegiven",
       "increasedamagetaken",
       "decreasehealgiven",

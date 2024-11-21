@@ -56,6 +56,7 @@ export const usePusherHandler = (userId?: string | null) => {
       const channel = pusher.subscribe(userId);
       channel.bind("event", async (data: UserEvent) => {
         if (data.type === "battle") {
+          await utils.profile.getUser.invalidate();
           router.push("/combat");
         } else if (data.type === "newInbox") {
           if (!pathname.includes("/inbox")) {

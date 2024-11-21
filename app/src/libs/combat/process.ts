@@ -152,7 +152,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         if (user) e.rounds = 0;
       } else {
         // Information on what was done
-        if (e.isNew && e.castThisRound && actor && e.type !== "visual") {
+        if (e.isNew && e.castThisRound && actor && e.type !== "visual" && e.rounds) {
           actionEffects.push({
             txt: `${actor.username} marked [${e.longitude}, ${e.latitude}] the ground with ${e.type} for the next ${e.rounds} rounds`,
             color: "blue",
