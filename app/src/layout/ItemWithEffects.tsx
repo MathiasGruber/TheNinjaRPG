@@ -16,6 +16,7 @@ import { cn } from "src/libs/shadui";
 import type { ItemRarity, GameAsset } from "@/drizzle/schema";
 import type { Bloodline, Item, Jutsu, Quest } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
+import type { backgroundSchema } from "@/drizzle/schema";
 
 export type GenericObject = {
   id: string;
@@ -34,11 +35,19 @@ export type GenericObject = {
 };
 
 export interface ItemWithEffectsProps {
-  item: Bloodline | Item | Jutsu | Quest | GameAsset | GenericObject;
+  item: Bloodline | Item | Jutsu | Quest | backgroundSchema | GameAsset | GenericObject;
   hideDetails?: boolean;
   imageBorder?: boolean;
   imageExtra?: React.ReactNode;
-  showEdit?: "bloodline" | "item" | "jutsu" | "ai" | "quest" | "badge" | "asset";
+  showEdit?:
+    | "bloodline"
+    | "item"
+    | "jutsu"
+    | "ai"
+    | "quest"
+    | "badge"
+    | "asset"
+    | "backgroundSchema";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
   hideTitle?: boolean;
   hideImage?: boolean;
@@ -58,7 +67,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
   // Extract objectives if they exist
   const objectives = "content" in props.item ? props.item.content.objectives : [];
-
   // Define image
   let image = (
     <div className="relative flex flex-col items-center justify-center">

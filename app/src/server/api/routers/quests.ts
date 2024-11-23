@@ -683,21 +683,27 @@ export const questsRouter = createTRPCRouter({
             // Initiate battle if needed
             ...[
               opponent
-                ? initiateBattle(
-                    {
-                      longitude: user.longitude,
-                      latitude: user.latitude,
-                      sector: user.sector,
-                      userIds: [user.userId],
-                      targetIds: [opponent.id],
-                      client: ctx.drizzle,
-                      scaleTarget: opponent.scaleStats ? true : false,
-                    },
-                    "QUEST",
-                    determineCombatBackground("ground"),
-                    opponent.scaleGains ?? 1,
-                  )
-                : undefined,
+                ? (async () => {
+                    const background = await determineCombatBackground(
+                      ctx.drizzle,
+                      "ground",
+                    );
+                    return initiateBattle(
+                      {
+                        longitude: user.longitude,
+                        latitude: user.latitude,
+                        sector: user.sector,
+                        userIds: [user.userId],
+                        targetIds: [opponent.id],
+                        client: ctx.drizzle,
+                        scaleTarget: opponent.scaleStats ? true : false,
+                      },
+                      "QUEST",
+                      background,
+                      opponent.scaleGains ?? 1,
+                    );
+                  })()
+                : Promise.resolve(),
             ],
           ]);
           return { success: true, notifications };

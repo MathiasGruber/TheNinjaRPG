@@ -35,6 +35,7 @@ import { tournamentRouter } from "./routers/tournament";
 import { villageRouter } from "./routers/village";
 import { marriageRouter } from "./routers/marriage";
 import { staffRouter } from "./routers/staff";
+import { backgroundSchemaRouter } from "./routers/backgroundSchema";
 
 /**
  * This is the primary router for your server.
@@ -77,6 +78,7 @@ export const appRouter = createTRPCRouter({
   tournament: tournamentRouter,
   village: villageRouter,
   marriage: marriageRouter,
+  backgroundSchema: backgroundSchemaRouter,
   staff: staffRouter,
 });
 

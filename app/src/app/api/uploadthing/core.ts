@@ -19,6 +19,33 @@ const f = createUploadthing({
   },
 });
 
+/**
+ * Check if user is admin
+ * @param file
+ * @param userId
+ */
+const adminMiddleware = async () => {
+  // Fetch & Guard
+  const sessionUser = await currentUser();
+  if (!sessionUser) throw new UploadThingError("Unauthorized");
+
+  const user = await drizzleDB.query.userData.findFirst({
+    where: eq(userData.userId, sessionUser.id),
+  });
+  if (!user) throw new UploadThingError("User not found");
+  if (user.isBanned) throw new UploadThingError("You are banned");
+
+  // Role Check
+  const allowedRoles = ["Admin", "CONTENT-ADMIN", "Coding Admin"];
+  if (!allowedRoles.includes(user.role)) {
+    throw new UploadThingError(
+      "You do not have permission to upload background images" + user.role,
+    );
+  }
+
+  return { userId: sessionUser.id };
+};
+
 export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "64KB" } })
     .middleware(async () => await avatarMiddleware())
@@ -57,6 +84,11 @@ export const ourFileRouter = {
     .middleware(async () => await avatarMiddleware("GOLD"))
     .onUploadComplete(async ({ metadata, file }) => {
       await uploadHistoricalAvatar(file, metadata.userId, true);
+    }),
+  backgroundImageUploader: f({ image: { maxFileSize: "8MB" } })
+    .middleware(adminMiddleware) // Use the adminMiddleware here
+    .onUploadComplete(async ({ metadata, file }) => {
+      console.log(`Background image uploaded by ${metadata.userId}: ${file.url}`);
     }),
 } satisfies FileRouter;
 

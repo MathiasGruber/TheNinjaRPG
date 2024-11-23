@@ -2261,10 +2261,13 @@ export const userRequestRelations = relations(userRequest, ({ one }) => ({
   }),
 }));
 
-export const backgroundSchemas = mysqlTable(
-  "BackgroundSchemas",
+export const backgroundSchema = mysqlTable(
+  "backgroundSchema",
   {
-    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    id: varchar("id", { length: 191 })
+      .primaryKey()
+      .notNull()
+      .default(sql`(UUID())`),
     schema: json("schema")
       .$type<{
         ocean: string;
@@ -2287,9 +2290,9 @@ export const backgroundSchemas = mysqlTable(
   },
   (table) => {
     return {
-      nameKey: uniqueIndex("BackgroundSchemas_name_key").on(table.name),
+      nameKey: uniqueIndex("backgroundSchema_name_key").on(table.name),
     };
   },
 );
-export type BackgroundSchemas = InferSelectModel<typeof backgroundSchemas>;
-export type BackgroundSchemaJson = BackgroundSchemas["schema"];
+export type backgroundSchema = InferSelectModel<typeof backgroundSchema>;
+export type BackgroundSchemaJson = backgroundSchema["schema"];

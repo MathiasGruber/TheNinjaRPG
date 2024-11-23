@@ -163,3 +163,7 @@ export const canChangePublicUser = (user: UserData) => {
     user.role,
   );
 };
+
+export const canChangeCombatBgScheme = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
