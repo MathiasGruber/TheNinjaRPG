@@ -20,6 +20,7 @@ import { useJutsuEditForm } from "@/libs/jutsu";
 import { useQuestEditForm } from "@/hooks/quest";
 import { useBloodlineEditForm } from "@/hooks/bloodline";
 import { useItemEditForm } from "@/hooks/item";
+import { useBackgroundSchemaEditForm } from "@/hooks/backgroundSchema";
 import { tagTypes } from "@/libs/combat/types";
 import { statFilters } from "@/libs/train";
 import { QuestTypes } from "@/drizzle/constants";
@@ -31,6 +32,8 @@ import type { Jutsu } from "@/drizzle/schema";
 import type { Bloodline } from "@/drizzle/schema";
 import type { Item } from "@/drizzle/schema";
 import type { Quest } from "@/drizzle/schema";
+import type { backgroundSchema } from "@/drizzle/schema";
+import { BackgroundSchemaValidator } from "@/validators/backgroundSchema";
 
 interface MassEditContentProps {
   title: string;
@@ -109,8 +112,23 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     },
   );
 
+  const {
+    data: backgroundSchema,
+    refetch: refetchBackgroundSchema,
+    isFetching: fetchingBackgroundSchema,
+  } = api.backgroundSchema.getAll.useInfiniteQuery(
+    { limit: 500 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      placeholderData: (previousData) => previousData,
+      enabled: props.type === "backgroundSchema" && showModal,
+    },
+  );
+
   // Get the data
-  const getTableData = (type: "jutsu" | "bloodline" | "item" | "quest") => {
+  const getTableData = (
+    type: "jutsu" | "bloodline" | "item" | "quest" | "backgroundSchema",
+  ) => {
     switch (type) {
       case "jutsu":
         return {
@@ -131,6 +149,11 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
         return {
           data: quests?.pages.map((page) => page.data).flat(),
           refetch: () => refetchQuests(),
+        };
+      case "backgroundSchema":
+        return {
+          data: backgroundSchema?.pages.map((page) => page.data).flat(),
+          refetch: () => refetchBackgroundSchema(),
         };
     }
   };
@@ -291,7 +314,6 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     );
   }
 };
-
 export default MassEditContent;
 
 interface MassEditQuestRowProps {
@@ -485,6 +507,41 @@ const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
           setEffects={setEffects}
         />
       )}
+    </div>
+  );
+};
+interface MassEditBackgroundSchemaRowProps {
+  backgroundSchema: BackgroundSchema;
+  idx: number;
+  refetch: () => void;
+}
+const MassEditBackgroundSchemaRow: React.FC<MassEditBackgroundSchemaRowProps> = (
+  props,
+) => {
+  // Define your form handling logic here
+  const { form, formData, handleBackgroundSchemaSubmit } = useBackgroundSchemaEditForm(
+    props.backgroundSchema,
+    props.refetch,
+  );
+
+  // Background color for this row
+  const bgColor = props.idx % 2 === 0 ? "bg-slate-600" : "";
+
+  return (
+    <div className={`flex flex-col`}>
+      <EditContent
+        schema={BackgroundSchemaValidator}
+        form={form}
+        formData={formData}
+        formClassName="flex flex-row w-screen"
+        showSubmit={false}
+        buttonTxt="Save to Database"
+        allowImageUpload={false}
+        fixedWidths="basis-96"
+        bgColor={bgColor}
+        onEnter={handleBackgroundSchemaSubmit}
+      />
+      {/* If you have additional fields or effects, you can add them here */}
     </div>
   );
 };

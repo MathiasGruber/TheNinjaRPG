@@ -1,7 +1,14 @@
+"use client";
+
 import ContentBox from "@/layout/ContentBox";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { canChangeContent } from "@/utils/permissions";
+import { useUserData } from "@/utils/UserContext";
 
 export default function ManualCombat() {
+  const { data: userData } = useUserData();
   return (
     <>
       <ContentBox title="Combat" subtitle="Fighting for survival" back_href="/manual">
@@ -18,6 +25,16 @@ export default function ManualCombat() {
           <li>If outside own territory, initiative is reduced by 10%</li>
           <li>For consecutive PVP kills, stacking bonus of 5-0.25% are added</li>
         </ul>
+        {userData && canChangeContent(userData.role) && (
+          <Button
+            className="mt-5"
+            onClick={() => {
+              window.location.href = "/manual/combat/backgroundSchema"; // Navigate to the new page
+            }}
+          >
+            Learn About Background Schemas
+          </Button>
+        )}
       </ContentBox>
     </>
   );

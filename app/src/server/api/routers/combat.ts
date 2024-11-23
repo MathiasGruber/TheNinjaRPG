@@ -50,7 +50,7 @@ import { getBattleGrid } from "@/libs/combat/util";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { BattleTypes } from "@/drizzle/constants";
 import { PvpBattleTypes } from "@/drizzle/constants";
-import { backgroundSchemas } from "@/drizzle/schema";
+import { backgroundSchema } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 import type { BattleUserState, StatSchemaType } from "@/libs/combat/types";
 import type { GroundEffect } from "@/libs/combat/types";
@@ -665,8 +665,8 @@ export const determineArenaBackground = async (
   villageName: string,
 ) => {
   // Query the database to get the active schema
-  const activeSchema = await client.query.backgroundSchemas.findFirst({
-    where: eq(backgroundSchemas.isActive, true),
+  const activeSchema = await client.query.backgroundSchema.findFirst({
+    where: eq(backgroundSchema.isActive, true),
   });
 
   if (!activeSchema) {
@@ -697,8 +697,8 @@ export const determineCombatBackground = async (
   asset: "ocean" | "ground" | "dessert" | "ice",
 ) => {
   // Query the database to get the active schema
-  const activeSchema = await client.query.backgroundSchemas.findFirst({
-    where: eq(backgroundSchemas.isActive, true),
+  const activeSchema = await client.query.backgroundSchema.findFirst({
+    where: eq(backgroundSchema.isActive, true),
   });
 
   if (!activeSchema) {
@@ -748,8 +748,8 @@ export const initiateBattle = async (
   // Fetch the background if not provided
   if (!background) {
     // Query the database to get the active schema
-    const activeSchema = await client.query.backgroundSchemas.findFirst({
-      where: eq(backgroundSchemas.isActive, true),
+    const activeSchema = await client.query.backgroundSchema.findFirst({
+      where: eq(backgroundSchema.isActive, true),
     });
 
     if (!activeSchema) {
