@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import React from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,24 +27,26 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
-import { fetchMap } from "@/libs/travel/globe";
+import { MonitorPlay } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
 import { registrationSchema } from "@/validators/register";
 import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { genders } from "@/validators/register";
-import { showMutationToast } from "@/libs/toast";
+import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
+import { Label } from "@/components/ui/label";
+import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import type { CarouselApi } from "@/components/ui/carousel";
 import type { RegistrationSchema } from "@/validators/register";
 
-const Map = dynamic(() => import("@/layout/Map"));
-
 const Register: React.FC = () => {
-  const [map, setMap] = useState<Awaited<ReturnType<typeof fetchMap>> | null>(null);
-  void useMemo(async () => {
-    setMap(await fetchMap());
-  }, []);
+  // Carousel state
+  const [cApi, setCApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
+  const [count, setCount] = useState(0);
 
   // Router
   const router = useRouter();
@@ -55,9 +56,6 @@ const Register: React.FC = () => {
 
   // User data
   const { data: userData, status: userStatus } = useUserData();
-
-  // Available villages
-  const { data: villages } = api.village.getAll.useQuery(undefined);
 
   // Create avatar mutation
   const createAvatar = api.avatar.createAvatar.useMutation();
@@ -76,11 +74,45 @@ const Register: React.FC = () => {
 
   // Form handling
   const form = useForm<RegistrationSchema>({
+    mode: "all",
     resolver: zodResolver(registrationSchema),
+    defaultValues: {
+      username: "",
+      gender: undefined,
+      hair_color: undefined,
+      eye_color: undefined,
+      skin_color: undefined,
+      attribute_1: undefined,
+      attribute_2: undefined,
+      attribute_3: undefined,
+      question1: undefined,
+      question2: undefined,
+      question3: undefined,
+      question4: undefined,
+      question5: undefined,
+      question6: undefined,
+    },
   });
+
+  // Carousel control
+  useEffect(() => {
+    void form.trigger();
+    if (!cApi) return;
+
+    setCount(cApi.scrollSnapList().length);
+    setCurrent(cApi.selectedScrollSnap() + 1);
+
+    cApi.on("select", () => {
+      setCurrent(cApi.selectedScrollSnap() + 1);
+    });
+  }, [cApi, form]);
 
   // Handle username changes
   const watchUsername = form.watch("username", "");
+  const watchGender = form.watch("gender", undefined);
+  const watchAttr1 = form.watch("attribute_1", undefined);
+  const watchAttr2 = form.watch("attribute_2", undefined);
+  const watchAttr3 = form.watch("attribute_3", undefined);
   const errors = form.formState.errors;
 
   // Checking for unique username
@@ -122,15 +154,10 @@ const Register: React.FC = () => {
   // Handle form submit
   const handleCreateCharacter = form.handleSubmit(
     (data) => createCharacter(data),
-    (errors) => console.error(errors),
+    (error) => showFormErrorsToast(error),
   );
 
   // Options used for select fields
-  const option_attributes = attributes.map((attribute, index) => (
-    <SelectItem key={index} value={attribute}>
-      {attribute}
-    </SelectItem>
-  ));
   const option_colors = colors.map((color, index) => (
     <SelectItem key={index} value={color}>
       {color}
@@ -143,294 +170,689 @@ const Register: React.FC = () => {
   ));
 
   return (
-    <ContentBox title="Create your Ninja" subtitle="Avatar created by AI">
-      {isPending && <Loader explanation="Creating character..." />}
+    <ContentBox title="Create your Ninja" subtitle="And unlock the mysteries of Seichi">
       {!isPending && (
-        <Form {...form}>
-          <form onSubmit={handleCreateCharacter} className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div className="space-y-2">
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Select username</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="village"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Select village</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {villages
-                            ?.filter((v) => v.type === "VILLAGE")
-                            .filter((v) => v.allianceSystem)
-                            .map((option) => (
-                              <SelectItem key={option.name} value={option.id}>
-                                {option.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+        <>
+          <Form {...form}>
+            <form onSubmit={handleCreateCharacter} className="relative">
+              <div className="px-12">
+                <Carousel setApi={setCApi}>
+                  <CarouselContent>
+                    <CarouselItem className="flex items-center">
+                      <FormField
+                        control={form.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem className="w-full basis-full">
+                            <FormLabel>Select username</FormLabel>
+                            <FormControl>
+                              <Input
+                                className="h-14 text-3xl"
+                                {...field}
+                                placeholder="ninja name"
+                              />
+                            </FormControl>
+                            <div className="flex flex-row">
+                              <FormDescription className="grow">
+                                Public display name.
+                              </FormDescription>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem className="flex items-center">
+                      <FormField
+                        control={form.control}
+                        name="gender"
+                        render={({ field }) => (
+                          <div className="flex flex-row items-center w-full">
+                            <FormItem className="w-full">
+                              <FormLabel>Select gender</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                value={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="h-14 text-3xl ">
+                                    <SelectValue placeholder={`None`} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {genders.map((gender, index) => (
+                                    <SelectItem key={index} value={gender}>
+                                      {gender}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <div className="flex flex-row">
+                                <FormDescription className="grow">
+                                  Gender of your ninja
+                                </FormDescription>
+                                <FormMessage />
+                              </div>
+                            </FormItem>
+                            <div>
+                              <div className="text-7xl basis-full flex-row">
+                                {watchGender === "Male" && (
+                                  <p className="text-blue-500">♂</p>
+                                )}
+                                {watchGender === "Female" && (
+                                  <p className="text-pink-500">♀</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem className="flex items-center gap-2">
+                      <FormField
+                        control={form.control}
+                        name="hair_color"
+                        render={({ field }) => (
+                          <FormItem className="w-1/3">
+                            <FormLabel>Hair color</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-14 text-3xl ">
+                                  <SelectValue placeholder={`None`} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>{option_colors}</SelectContent>
+                            </Select>
+                            <div className="flex flex-row">
+                              <FormDescription className="grow">
+                                Attribute 1
+                              </FormDescription>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="eye_color"
+                        render={({ field }) => (
+                          <FormItem className="w-1/3">
+                            <FormLabel>Eye color</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-14 text-3xl ">
+                                  <SelectValue placeholder={`None`} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>{option_colors}</SelectContent>
+                            </Select>
+                            <div className="flex flex-row">
+                              <FormDescription className="grow">
+                                Attribute 2
+                              </FormDescription>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="skin_color"
+                        render={({ field }) => (
+                          <FormItem className="w-1/3">
+                            <FormLabel>Skin color</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-14 text-3xl ">
+                                  <SelectValue placeholder={`None`} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>{option_skins}</SelectContent>
+                            </Select>
+                            <div className="flex flex-row">
+                              <FormDescription className="grow">
+                                Attribute 3
+                              </FormDescription>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem className="flex items-center gap-2">
+                      <FormField
+                        control={form.control}
+                        name="attribute_1"
+                        render={({ field }) => (
+                          <FormItem className="w-1/3">
+                            <FormLabel>Attribute #1</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-14 text-3xl basis-1/3">
+                                  <SelectValue placeholder={`None`} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {attributes
+                                  .filter((e) => ![watchAttr2, watchAttr3].includes(e))
+                                  .map((attribute, index) => (
+                                    <SelectItem key={index} value={attribute}>
+                                      {attribute}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <div className="flex flex-row">
+                              <FormDescription className="grow">
+                                Customize
+                              </FormDescription>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="attribute_2"
+                        render={({ field }) => (
+                          <FormItem className="w-1/3">
+                            <FormLabel>Attribute #2</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-14 text-3xl basis-1/3">
+                                  <SelectValue placeholder={`None`} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {attributes
+                                  .filter((e) => ![watchAttr1, watchAttr3].includes(e))
+                                  .map((attribute, index) => (
+                                    <SelectItem key={index} value={attribute}>
+                                      {attribute}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <div className="flex flex-row">
+                              <FormDescription className="grow">
+                                Customize
+                              </FormDescription>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="attribute_3"
+                        render={({ field }) => (
+                          <FormItem className="w-1/3">
+                            <FormLabel>Attribute #3</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-14 text-3xl basis-1/3">
+                                  <SelectValue placeholder={`None`} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {attributes
+                                  .filter((e) => ![watchAttr1, watchAttr2].includes(e))
+                                  .map((attribute, index) => (
+                                    <SelectItem key={index} value={attribute}>
+                                      {attribute}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <div className="flex flex-row">
+                              <FormDescription className="grow">
+                                Customize
+                              </FormDescription>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem>
+                      <FormField
+                        control={form.control}
+                        name="question1"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel className="font-bold">
+                              What environment feels most like home to you?
+                            </FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shine" id="r1" />
+                                  <Label htmlFor="r1">
+                                    Sunny deserts and glowing sands.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Tsukimori" id="r2" />
+                                  <Label htmlFor="r2">
+                                    Mystic forests with ancient trees.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Glacier" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Icy mountains and snowfields.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shroud" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Rain-soaked swamps and hidden lagoons.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Current" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Windy valleys and open skies.
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem>
+                      <FormField
+                        control={form.control}
+                        name="question2"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel className="font-bold">
+                              Which element do you feel most connected to?
+                            </FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shine" id="r1" />
+                                  <Label htmlFor="r1">
+                                    Fire, for its burning passion.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Tsukimori" id="r2" />
+                                  <Label htmlFor="r2">
+                                    Earth, for its steady and grounding strength.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Glacier" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Ice, for its sharp and enduring calm.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shroud" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Water, for its adaptability and flow.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Current" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Wind, for its freedom and swiftness.
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem>
+                      <FormField
+                        control={form.control}
+                        name="question3"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel className="font-bold">
+                              What type of activity do you prefer?
+                            </FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shine" id="r1" />
+                                  <Label htmlFor="r1">
+                                    Harnessing the power of the sun for creation
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Tsukimori" id="r2" />
+                                  <Label htmlFor="r2">
+                                    Walking peacefully through lush nature.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Glacier" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Conquering harsh challenges with persistence.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shroud" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Embracing storms and adapting to change.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Current" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Soaring through the air and embracing speed.
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem>
+                      <FormField
+                        control={form.control}
+                        name="question4"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel className="font-bold">
+                              How do you approach a problem?
+                            </FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shine" id="r1" />
+                                  <Label htmlFor="r1">
+                                    Dive in headfirst with fiery determination.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Tsukimori" id="r2" />
+                                  <Label htmlFor="r2">
+                                    Think it through with patience and wisdom.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Glacier" id="r3" />
+                                  <Label htmlFor="r3">Stand firm and outlast it.</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shroud" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Flow around it, adapting as needed.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Current" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Hit it from an unexpected angle.
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem>
+                      <FormField
+                        control={form.control}
+                        name="question5"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel className="font-bold">
+                              What kind of landscape inspires you the most?
+                            </FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shine" id="r1" />
+                                  <Label htmlFor="r1">
+                                    A desert shimmering under a blazing sun.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Tsukimori" id="r2" />
+                                  <Label htmlFor="r2">
+                                    A tranquil forest alive with spirit energy.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Glacier" id="r3" />
+                                  <Label htmlFor="r3">
+                                    A frozen peak under a starry sky
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shroud" id="r3" />
+                                  <Label htmlFor="r3">
+                                    A misty swamp buzzing with hidden life.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Current" id="r3" />
+                                  <Label htmlFor="r3">
+                                    A windswept valley under a vast, open sky.
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem>
+                      <FormField
+                        control={form.control}
+                        name="question6"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel className="font-bold">
+                              What motivates you the most?
+                            </FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shine" id="r1" />
+                                  <Label htmlFor="r1">
+                                    The brilliance of success and glory.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Tsukimori" id="r2" />
+                                  <Label htmlFor="r2">
+                                    Harmony with the world and others.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Glacier" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Overcoming the toughest obstacles.
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Shroud" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Faith and resilience through adversity
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="Current" id="r3" />
+                                  <Label htmlFor="r3">
+                                    Freedom and the thrill of the unknown.
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CarouselItem>
+                    <CarouselItem className="flex items-center justify-center">
+                      <div>
+                        <FormField
+                          control={form.control}
+                          name="read_tos"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel>
+                                  <Link
+                                    className="hover:opacity-70"
+                                    href="https://app.termly.io/document/terms-of-service/71d95c2f-d6eb-4e3c-b480-9f0b9bb87830"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {" "}
+                                    I have read & agree to the Terms of Service
+                                  </Link>
+                                </FormLabel>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="read_privacy"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel>
+                                  <Link
+                                    className="hover:opacity-70"
+                                    href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    I have read & agree to the Privacy Policy
+                                  </Link>
+                                </FormLabel>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="read_earlyaccess"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel>
+                                  I accept that this is Early Access
+                                </FormLabel>
+                                <FormDescription>
+                                  Things (even if purchased with real money) may
+                                  radically change.
+                                </FormDescription>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </CarouselItem>
 
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {villages && map && (
-                  <Map intersection={false} highlights={villages} hexasphere={map} />
-                )}
+                    <CarouselItem className="flex items-center justify-center">
+                      <div className="w-full">
+                        <Button
+                          id="create"
+                          type="submit"
+                          className="w-full animate-[wiggle_1s_ease-in-out_infinite]"
+                          decoration="gold"
+                          size="xl"
+                          animation="pulse"
+                        >
+                          <MonitorPlay className="mr-2 h-7 w-7" />
+                          Create & Start
+                        </Button>
+                      </div>
+                    </CarouselItem>
+                  </CarouselContent>
+                  <CarouselPrevious />
+                  <CarouselNext />
+                </Carousel>
               </div>
-              <div className="space-y-2">
-                <FormField
-                  control={form.control}
-                  name="gender"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Select gender</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {genders.map((gender, index) => (
-                            <SelectItem key={index} value={gender}>
-                              {gender}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="hair_color"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hair color</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>{option_colors}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="eye_color"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Eye color</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>{option_colors}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="skin_color"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Skin color</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>{option_skins}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="attribute_1"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Attribute #1</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>{option_attributes}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="attribute_2"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Attribute #2</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>{option_attributes}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="attribute_3"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Attribute #3</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>{option_attributes}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-            <FormField
-              control={form.control}
-              name="read_tos"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-4">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      <Link
-                        href="https://app.termly.io/document/terms-of-service/71d95c2f-d6eb-4e3c-b480-9f0b9bb87830"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {" "}
-                        I have read & agree to the Terms of Service
-                      </Link>
-                    </FormLabel>
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="read_privacy"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-4">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      <Link
-                        href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        I have read & agree to the Privacy Policy
-                      </Link>
-                    </FormLabel>
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="read_earlyaccess"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-4">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>I accept that this is Early Access</FormLabel>
-                    <FormDescription>
-                      Things (even if purchased with real money) may radically change.
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-            <Button id="create" type="submit" className="w-full" decoration="gold">
-              <UserPlus className="mr-2 h-5 w-5" />
-              Create Character
-            </Button>
-          </form>
-        </Form>
+            </form>
+          </Form>
+
+          <p className="text-center text-xl opacity-30 font-bold">
+            Step {current} / {count}
+          </p>
+        </>
       )}
+      {isPending && <Loader explanation="Creating character..." />}
     </ContentBox>
   );
 };

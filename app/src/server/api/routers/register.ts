@@ -1,11 +1,11 @@
 import { nanoid } from "nanoid";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { eq, sql } from "drizzle-orm";
+import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { registrationSchema } from "@/validators/register";
-import { fetchVillage } from "./village";
 import { secondsFromNow } from "@/utils/time";
-import { userData, userAttribute } from "@/drizzle/schema";
+import { getMostCommonElement } from "@/utils/array";
+import { userData, village, userAttribute } from "@/drizzle/schema";
 
 export const registerRouter = createTRPCRouter({
   // Create Character
@@ -14,12 +14,23 @@ export const registerRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const village = await fetchVillage(ctx.drizzle, input.village);
+      const villageName = getMostCommonElement([
+        input.question1,
+        input.question2,
+        input.question3,
+        input.question4,
+        input.question5,
+        input.question6,
+      ]);
+      const villageData = await ctx.drizzle.query.village.findFirst({
+        where: eq(village.name, villageName || "none"),
+      });
 
       // Guard
-      if (!village) return errorResponse("Village not found");
-      if (!village.allianceSystem) return errorResponse("Missing alliance system");
-      if (village.type !== "VILLAGE") return errorResponse("Can only join villages");
+      if (!villageData) return errorResponse("Village not found");
+      if (!villageData.allianceSystem) return errorResponse("Missing alliance system");
+      if (villageData.type !== "VILLAGE")
+        return errorResponse("Can only join villages");
 
       // Mutate
       const unique_attributes = [
@@ -49,9 +60,9 @@ export const registerRouter = createTRPCRouter({
           recruiterId: input.recruiter_userid,
           username: input.username,
           gender: input.gender,
-          villageId: input.village,
+          villageId: villageData.id,
           approvedTos: 1,
-          sector: village.sector,
+          sector: villageData.sector,
           immunityUntil: secondsFromNow(24 * 3600),
         }),
       ]);

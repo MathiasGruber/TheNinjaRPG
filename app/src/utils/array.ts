@@ -26,3 +26,28 @@ export const isInArray = <T, A extends T>(
 ): item is A => {
   return array.includes(item as A);
 };
+
+/**
+ * Get most common element out of an array
+ * @param arr
+ * @returns
+ */
+export const getMostCommonElement = <T extends string>(arr: T[]): T | undefined => {
+  const counts: Record<T, number> = {} as Record<T, number>;
+
+  for (const item of arr) {
+    counts[item] = (counts[item] || 0) + 1;
+  }
+
+  let maxCount = 0;
+  let mostCommon: T | undefined = undefined;
+
+  for (const item of arr) {
+    if (counts[item] > maxCount) {
+      maxCount = counts[item];
+      mostCommon = item;
+    }
+  }
+
+  return mostCommon;
+};

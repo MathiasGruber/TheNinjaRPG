@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { FederalStatuses } from "../../drizzle/constants";
+import { FederalStatuses } from "@/drizzle/constants";
+import { CoreVillages } from "@/drizzle/constants";
 
 // List of possible attributes
 export const attributes = [
@@ -26,7 +27,7 @@ export const usernameSchema = z
   .string()
   .trim()
   .regex(new RegExp("^[a-zA-Z0-9_]+$"), {
-    message: "Must only contain alphanumeric characters and no spaces",
+    message: "Alphanumeric, no spaces",
   })
   .min(2)
   .max(12);
@@ -34,7 +35,6 @@ export const usernameSchema = z
 export const registrationSchema = z
   .object({
     username: usernameSchema,
-    village: z.string(),
     gender: z.enum(genders),
     hair_color: z.enum(colors),
     eye_color: z.enum(colors),
@@ -46,6 +46,12 @@ export const registrationSchema = z
     read_privacy: z.literal(true),
     read_earlyaccess: z.literal(true),
     recruiter_userid: z.string().optional().nullish(),
+    question1: z.enum(CoreVillages),
+    question2: z.enum(CoreVillages),
+    question3: z.enum(CoreVillages),
+    question4: z.enum(CoreVillages),
+    question5: z.enum(CoreVillages),
+    question6: z.enum(CoreVillages),
   })
   .strict()
   .required()

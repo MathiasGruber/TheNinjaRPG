@@ -1,6 +1,14 @@
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
 
+export const CoreVillages = [
+  "Shine",
+  "Tsukimori",
+  "Glacier",
+  "Shroud",
+  "Current",
+] as const;
+
 export const LetterRanks = ["D", "C", "B", "A", "S", "H"] as const;
 export type LetterRank = (typeof LetterRanks)[number];
 
