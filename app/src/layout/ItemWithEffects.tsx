@@ -5,7 +5,7 @@ import ContentImage from "@/layout/ContentImage";
 import Confirm from "@/layout/Confirm";
 import { parseHtml } from "@/utils/parse";
 import ElementImage from "@/layout/ElementImage";
-import { canChangeContent } from "@/utils/permissions";
+import { canChangeCombatBgScheme, canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { SquarePen, Trash2, BarChartBig } from "lucide-react";
 import { getTagSchema } from "@/libs/combat/types";
@@ -174,7 +174,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                   <Link href={`/manual/${showEdit}/edit/${item.id}`}>
                     <SquarePen className="h-6 w-6 hover:text-popover-foreground/50" />
                   </Link>
-                  {onDelete && (
+                  {onDelete && canChangeCombatBgScheme(userData.role) && (
                     <Confirm
                       title="Confirm Deletion"
                       button={

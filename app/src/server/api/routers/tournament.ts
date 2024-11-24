@@ -239,7 +239,7 @@ export const tournamentRouter = createTRPCRouter({
       // Start the battle
       let result: BaseServerResponse | undefined;
       if (matchData.userId1 && matchData.userId2) {
-        const background = await determineArenaBackground(ctx.drizzle, "default");
+        const background = await determineArenaBackground(ctx.drizzle, "arena");
         result = await initiateBattle(
           {
             userIds: [matchData.userId2],

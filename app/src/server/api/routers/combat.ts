@@ -543,10 +543,7 @@ export const combatRouter = createTRPCRouter({
       }
       // Determine battle background
       if (selectedAI) {
-        const background = await determineArenaBackground(
-          ctx.drizzle,
-          user.village?.name || "default",
-        );
+        const background = await determineArenaBackground(ctx.drizzle, "arena");
         return await initiateBattle(
           {
             sector: user.sector,
@@ -686,6 +683,8 @@ export const determineArenaBackground = async (
     case "Konoki":
       return schema.arena || schema.default;
     case "Silence":
+      return schema.arena || schema.default;
+    case "arena":
       return schema.arena || schema.default;
     default:
       return schema.default;

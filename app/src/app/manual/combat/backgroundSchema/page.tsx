@@ -47,7 +47,7 @@ export default function ManualbackgroundSchema() {
     onSuccess: async (data) => {
       showMutationToast(data);
       await refetch();
-      router.push(`/manual/backgroundSchema/edit/${data.message}`);
+      router.push(`/manual/combat/backgroundSchema/edit/${data.message}`);
     },
   });
 
