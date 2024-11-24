@@ -143,7 +143,7 @@ const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
     <ContentBox
       title="Edit Background Schema"
       subtitle={`Editing schema: ${schema?.name || "New Schema"}`}
-      back_href="/manual/backgroundSchema"
+      back_href="/manual/combat/backgroundSchema"
     >
       <Form {...form}>
         <form onSubmit={onSubmit}>

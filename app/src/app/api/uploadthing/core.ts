@@ -8,6 +8,7 @@ import { getUserFederalStatus } from "@/utils/paypal";
 import { createThumbnail } from "@/libs/replicate";
 import type { FileRouter } from "uploadthing/next";
 import type { FederalStatuses } from "@/drizzle/constants";
+import { canChangeContent } from "@/utils/permissions";
 
 const f = createUploadthing({
   errorFormatter: (err) => {
@@ -36,10 +37,9 @@ const adminMiddleware = async () => {
   if (user.isBanned) throw new UploadThingError("You are banned");
 
   // Role Check
-  const allowedRoles = ["Admin", "CONTENT-ADMIN", "Coding Admin"];
-  if (!allowedRoles.includes(user.role)) {
+  if (!canChangeContent(user.role)) {
     throw new UploadThingError(
-      "You do not have permission to upload background images" + user.role,
+      `You do not have permission to upload background images. Your role: ${user.role}`,
     );
   }
 
