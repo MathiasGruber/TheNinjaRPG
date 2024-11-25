@@ -21,7 +21,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import { z } from "zod";
+import { BackgroundSchemaValidator } from "@/validators/backgroundSchema";
 
 export default function EditBackgroundSchemaPage({
   params,
@@ -57,53 +57,27 @@ interface EditBackgroundSchemaFormProps {
   refetch: () => void;
 }
 
-interface Schema {
-  ocean?: string;
-  ice?: string;
-  dessert?: string;
-  ground?: string;
-  arena?: string;
-  default?: string;
-}
-
-interface BackgroundSchema {
-  schema?: Schema;
-}
-
 const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
   schema,
   refetch,
 }) => {
   const router = useRouter();
   const utils = api.useUtils();
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({
-    ocean: schema?.schema?.ocean || "",
-    ice: schema?.schema?.ice || "",
-    dessert: schema?.schema?.dessert || "",
-    ground: schema?.schema?.ground || "",
-    arena: schema?.schema?.arena || "",
-    default: schema?.schema?.default || "",
-  });
-
-  // Define the validation schema using zod
-  const BackgroundSchemaValidator = z.object({
-    id: z.string().optional(),
-    name: z.string().min(1, "Name is required"),
-    description: z.string().min(1, "Description is required"),
-    isActive: z.boolean(),
-    schema: z.object({
-      ocean: z.string().url("Must be a valid URL"),
-      ice: z.string().url("Must be a valid URL"),
-      dessert: z.string().url("Must be a valid URL"),
-      ground: z.string().url("Must be a valid URL"),
-      arena: z.string().url("Must be a valid URL"),
-      default: z.string().url("Must be a valid URL"),
-    }),
-  });
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>(
+    schema?.schema || {
+      ocean: "",
+      ice: "",
+      dessert: "",
+      ground: "",
+      arena: "",
+      default: "",
+    },
+  );
 
   const form = useForm({
     resolver: zodResolver(BackgroundSchemaValidator),
     defaultValues: {
+      id: schema?.id || undefined,
       name: schema?.name || "",
       description: schema?.description || "",
       isActive: schema?.isActive || false,
@@ -113,7 +87,7 @@ const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
 
   const { mutate: updateSchema, isLoading: isUpdating } =
     api.backgroundSchema.update.useMutation({
-      onSuccess: async (data) => {
+      onSuccess: async () => {
         showMutationToast({
           success: true,
           message: "Schema saved successfully.",
