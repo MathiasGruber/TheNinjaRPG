@@ -515,19 +515,14 @@ export const itemRouter = createTRPCRouter({
       // Query
       const iid = input.itemId;
       const uid = ctx.userId;
-      const [user, info, useritems, structures, counts] = await Promise.all([
+      const [user, info, useritems, structures] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchItem(ctx.drizzle, iid),
         fetchUserItems(ctx.drizzle, uid),
         fetchStructures(ctx.drizzle, input.villageId),
-        ctx.drizzle
-          .select({ count: sql<number>`count(*)`.mapWith(Number), hidden: item.hidden })
-          .from(userItem)
-          .innerJoin(item, eq(userItem.itemId, item.id))
-          .where(and(eq(userItem.userId, uid), eq(item.hidden, false))),
       ]);
       // Derived
-      const userItemsCount = counts?.[0]?.count || 0;
+      const userItemsCount = useritems?.length || 0;
       const sDiscount = structureBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
       const factor = (100 - sDiscount - aDiscount) / 100;
