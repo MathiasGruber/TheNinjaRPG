@@ -93,6 +93,7 @@ const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
           message: "Schema saved successfully.",
         });
         utils.backgroundSchema.getAll.invalidate();
+        utils.backgroundSchema.get.invalidate({ id: schema.id });
         router.push("/manual/combat/backgroundSchema");
       },
       onError: (error) => {
