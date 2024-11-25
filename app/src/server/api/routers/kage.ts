@@ -5,7 +5,7 @@ import { kageDefendedChallenges } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
-import { initiateBattle, determineArenaBackground } from "@/routers/combat";
+import { initiateBattle } from "@/routers/combat";
 import { fetchVillage } from "@/routers/village";
 import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
 import { canChallengeKage } from "@/utils/kage";
@@ -51,9 +51,9 @@ export const kageRouter = createTRPCRouter({
           userIds: [ctx.userId],
           targetIds: [kage.userId],
           client: ctx.drizzle,
+          asset: "arena",
         },
         "KAGE_CHALLENGE",
-        background,
       );
     }),
   resignKage: protectedProcedure

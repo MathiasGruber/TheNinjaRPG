@@ -523,9 +523,9 @@ export const CONVERSATION_QUIET_MINS = 5;
 export const REPORT_CONTEXT_WINDOW = 10;
 
 // Kage config
-export const KAGE_PRESTIGE_REQUIREMENT = 4000;
+export const KAGE_PRESTIGE_REQUIREMENT = 30000;
 export const KAGE_RANK_REQUIREMENT = "JONIN";
-export const KAGE_PRESTIGE_COST = 1000;
+export const KAGE_PRESTIGE_COST = 10000;
 export const FRIENDLY_PRESTIGE_COST = 10000;
 export const WAR_FUNDS_COST = 100;
 export const KAGE_MAX_DAILIES = 3;

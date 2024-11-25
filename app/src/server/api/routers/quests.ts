@@ -15,7 +15,7 @@ import { canPlayHiddenQuests } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { LetterRanks } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
-import { initiateBattle, determineCombatBackground } from "@/routers/combat";
+import { initiateBattle } from "@/routers/combat";
 import { CollectItem } from "@/validators/objectives";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
@@ -684,10 +684,6 @@ export const questsRouter = createTRPCRouter({
             ...[
               opponent
                 ? (async () => {
-                    const background = await determineCombatBackground(
-                      ctx.drizzle,
-                      "ground",
-                    );
                     return initiateBattle(
                       {
                         longitude: user.longitude,
@@ -697,9 +693,9 @@ export const questsRouter = createTRPCRouter({
                         targetIds: [opponent.id],
                         client: ctx.drizzle,
                         scaleTarget: opponent.scaleStats ? true : false,
+                        asset: "ground",
                       },
                       "QUEST",
-                      background,
                       opponent.scaleGains ?? 1,
                     );
                   })()

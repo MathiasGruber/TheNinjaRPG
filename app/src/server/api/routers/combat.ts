@@ -57,6 +57,8 @@ import type { GroundEffect } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
+import { IMG_BG_FOREST } from "@/drizzle/constants";
+import { BgSchemaValidator, ZodBgSchemaType } from "@/validators/backgroundSchema";
 
 // Debug flag when testing battle
 const debug = false;
@@ -543,7 +545,6 @@ export const combatRouter = createTRPCRouter({
       }
       // Determine battle background
       if (selectedAI) {
-        const background = await determineArenaBackground(ctx.drizzle, "arena");
         return await initiateBattle(
           {
             sector: user.sector,
@@ -551,9 +552,9 @@ export const combatRouter = createTRPCRouter({
             targetIds: [selectedAI.userId],
             client: ctx.drizzle,
             statDistribution: input.stats ?? undefined,
+            asset: "arena",
           },
           input.stats ? "TRAINING" : "ARENA",
-          background,
         );
       } else {
         return { success: false, message: "No AI found" };
@@ -581,10 +582,6 @@ export const combatRouter = createTRPCRouter({
     )
     .output(baseServerResponse)
     .mutation(async ({ input, ctx }) => {
-      const background = await determineCombatBackground(
-        ctx.drizzle,
-        input.asset || "ground",
-      );
       return await initiateBattle(
         {
           longitude: input.longitude,
@@ -593,9 +590,9 @@ export const combatRouter = createTRPCRouter({
           userIds: [ctx.userId],
           targetIds: [input.userId],
           client: ctx.drizzle,
+          asset: input.asset || "ground",
         },
         "COMBAT",
-        background,
       );
     }),
   iAmHere: protectedProcedure
@@ -657,71 +654,23 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
   return result as CompleteBattle;
 };
 
-export const determineArenaBackground = async (
-  client: DrizzleClient,
-  villageName: string,
+const getBackground = (
+  asset?: "ocean" | "ground" | "dessert" | "ice" | "arena" | "default",
+  schema?: ZodBgSchemaType,
 ) => {
-  // Query the database to get the active schema
-  const activeSchema = await client.query.backgroundSchema.findFirst({
-    where: eq(backgroundSchema.isActive, true),
-  });
-
-  if (!activeSchema) {
-    throw new Error("No active background schema found");
-  }
-
-  const schema = activeSchema.schema as {
-    ocean: string;
-    ice: string;
-    dessert: string;
-    ground: string;
-    arena: string;
-    default: string;
-  };
-
-  switch (villageName) {
-    case "Konoki":
-      return schema.arena || schema.default;
-    case "Silence":
-      return schema.arena || schema.default;
-    case "arena":
-      return schema.arena || schema.default;
-    default:
-      return schema.default;
-  }
-};
-
-export const determineCombatBackground = async (
-  client: DrizzleClient,
-  asset: "ocean" | "ground" | "dessert" | "ice",
-) => {
-  // Query the database to get the active schema
-  const activeSchema = await client.query.backgroundSchema.findFirst({
-    where: eq(backgroundSchema.isActive, true),
-  });
-
-  if (!activeSchema) {
-    throw new Error("No active background schema found");
-  }
-
-  const schema = activeSchema.schema as {
-    ocean: string;
-    ice: string;
-    dessert: string;
-    ground: string;
-    arena: string;
-    default: string;
-  };
+  if (!schema) return IMG_BG_FOREST;
 
   switch (asset) {
     case "ocean":
-      return schema.ocean || schema.default;
+      return schema.ocean;
     case "ice":
-      return schema.ice || schema.default;
-    case "ground":
-      return schema.ground || schema.default;
+      return schema.ice;
     case "dessert":
-      return schema.dessert || schema.default;
+      return schema.dessert;
+    case "ground":
+      return schema.ground;
+    case "arena":
+      return schema.arena;
     default:
       return schema.default;
   }
@@ -736,96 +685,88 @@ export const initiateBattle = async (
     client: DrizzleClient;
     statDistribution?: StatSchemaType;
     scaleTarget?: boolean;
+    asset?: "ocean" | "ground" | "dessert" | "ice" | "arena" | "default";
   },
   battleType: BattleType,
-  background?: string, // Remove default value
   scaleGains = 1,
 ) => {
-  // Destructure
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
-  // Fetch the background if not provided
-  if (!background) {
-    // Query the database to get the active schema
-    const activeSchema = await client.query.backgroundSchema.findFirst({
+  // Use Promise.all to fetch all independent data in parallel
+  const [
+    activeSchema,
+    defaultProfile,
+    assets,
+    settings,
+    villages,
+    relations,
+    achievements,
+    users,
+  ] = await Promise.all([
+    // Conditionally Fetch background schema
+    client.query.backgroundSchema.findFirst({
       where: eq(backgroundSchema.isActive, true),
-    });
+    }),
+    // Fetch default AI profile
+    fetchAiProfileById(client, "Default"),
+    // Fetch game assets
+    fetchGameAssets(client),
+    // Fetch game settings
+    client.select().from(gameSetting),
+    // Fetch villages
+    client.select().from(village),
+    // Fetch village alliances
+    client.select().from(villageAlliance),
+    // Fetch achievements
+    client
+      .select()
+      .from(quest)
+      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, false))),
+    // Fetch user data
+    client.query.userData.findMany({
+      with: {
+        bloodline: true,
+        village: { with: { structures: true } },
+        loadout: { columns: { jutsuIds: true } },
+        clan: true,
+        items: {
+          with: { item: true },
+          where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
+          orderBy: (table, { desc }) => [desc(table.quantity)],
+        },
+        jutsus: {
+          with: { jutsu: true },
+          where: (jutsus) => eq(jutsus.equipped, 1),
+          orderBy: (table, { desc }) => [desc(table.level)],
+        },
+        userQuests: {
+          where: or(
+            and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
+            eq(questHistory.questType, "achievement"),
+          ),
+          with: { quest: true },
+        },
+        aiProfile: true,
+      },
+      where: or(inArray(userData.userId, userIds), inArray(userData.userId, targetIds)),
+    }),
+  ]);
 
-    if (!activeSchema) {
-      throw new Error("No active background schema found");
-    }
-
-    const schema = activeSchema.schema as {
-      ocean: string;
-      ice: string;
-      dessert: string;
-      ground: string;
-      arena: string;
-      default: string;
-    };
-
-    // Use the default background from the schema
-    background = schema.default;
-
-    if (!background) {
-      throw new Error("No default background defined in the active schema");
+  let background = IMG_BG_FOREST;
+  if (activeSchema) {
+    try {
+      const schema = BgSchemaValidator.parse(activeSchema.schema) as ZodBgSchemaType;
+      background = getBackground(info.asset, schema);
+    } catch (error) {
+      console.error("Schema validation failed", error);
+      // Still try to use the asset parameter even if schema validation fails
+      background = getBackground(info.asset);
     }
   }
-  // Get user & target data, to be inserted into battle
-  const [defaultProfile, assets, settings, villages, relations, achievements, users] =
-    await Promise.all([
-      fetchAiProfileById(client, "Default"),
-      fetchGameAssets(client),
-      client.select().from(gameSetting),
-      client.select().from(village),
-      client.select().from(villageAlliance),
-      client
-        .select()
-        .from(quest)
-        .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, false))),
-      client.query.userData.findMany({
-        with: {
-          bloodline: true,
-          village: {
-            with: { structures: true },
-          },
-          loadout: {
-            columns: { jutsuIds: true },
-          },
-          clan: true,
-          items: {
-            with: { item: true },
-            where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
-            orderBy: (table, { desc }) => [desc(table.quantity)],
-          },
-          jutsus: {
-            with: { jutsu: true },
-            where: (jutsus) => eq(jutsus.equipped, 1),
-            orderBy: (table, { desc }) => [desc(table.level)],
-          },
-          userQuests: {
-            where: or(
-              and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
-              eq(questHistory.questType, "achievement"),
-            ),
-            with: {
-              quest: true,
-            },
-          },
-          aiProfile: true,
-        },
-        where: or(
-          inArray(userData.userId, userIds),
-          inArray(userData.userId, targetIds),
-        ),
-      }),
-    ]);
-
   // Hide some information from quests
   users.forEach((user) =>
     user.userQuests?.forEach((q) => hideQuestInformation(q.quest, user)),
   );
-
   // Place attackers first
   users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
 

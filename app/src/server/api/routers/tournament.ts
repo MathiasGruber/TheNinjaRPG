@@ -10,7 +10,7 @@ import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { getServerPusher } from "@/libs/pusher";
 import { tournamentCreateSchema } from "@/validators/tournament";
-import { initiateBattle, determineArenaBackground } from "@/routers/combat";
+import { initiateBattle } from "@/routers/combat";
 import { TOURNAMENT_ROUND_SECONDS } from "@/drizzle/constants";
 import { secondsFromDate } from "@/utils/time";
 import { updateRewards } from "@/routers/quests";
@@ -239,15 +239,14 @@ export const tournamentRouter = createTRPCRouter({
       // Start the battle
       let result: BaseServerResponse | undefined;
       if (matchData.userId1 && matchData.userId2) {
-        const background = await determineArenaBackground(ctx.drizzle, "arena");
         result = await initiateBattle(
           {
             userIds: [matchData.userId2],
             targetIds: [matchData.userId1],
             client: ctx.drizzle,
+            asset: "arena",
           },
           "TOURNAMENT",
-          background,
         );
       }
       // We we failed to create battle, let this user win by default

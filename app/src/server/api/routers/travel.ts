@@ -10,7 +10,7 @@ import { secondsFromNow } from "@/utils/time";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { userData, village } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
-import { initiateBattle, determineCombatBackground } from "@/routers/combat";
+import { initiateBattle } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
 import { findRelationship } from "@/utils/alliance";
 import { structureBoost } from "@/utils/village";
@@ -235,7 +235,6 @@ export const travelRouter = createTRPCRouter({
           if (relation?.status === "ENEMY") {
             const chance = structureBoost("patrolsPerLvl", sectorVillage.structures);
             if (Math.random() < (travelLength * chance) / 100) {
-              const background = await determineCombatBackground(ctx.drizzle, "ground");
               const battle = await initiateBattle(
                 {
                   longitude: longitude,
@@ -245,9 +244,9 @@ export const travelRouter = createTRPCRouter({
                   targetIds: ["MJMzOE67Cx2YP3NX8SAbh"],
                   client: ctx.drizzle,
                   scaleTarget: true,
+                  asset: "ground",
                 },
                 "VILLAGE_PROTECTOR",
-                background,
               );
               if (battle.success) {
                 return { success: true, message: "Attacked by village protector" };

@@ -17,7 +17,7 @@ import {
   insertRequest,
   updateRequestState,
 } from "@/routers/sparring";
-import { initiateBattle, determineArenaBackground } from "@/routers/combat";
+import { initiateBattle } from "@/routers/combat";
 import { CLAN_LOBBY_SECONDS, CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_CREATE_RYO_COST, CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
 import { CLAN_CREATE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
@@ -444,15 +444,14 @@ export const clanRouter = createTRPCRouter({
         return errorResponse("Rank too low");
       }
       // Start the battle
-      const background = await determineArenaBackground(ctx.drizzle, "arena");
       return await initiateBattle(
         {
           userIds: [ctx.userId],
           targetIds: [clanData.leaderId],
           client: ctx.drizzle,
+          asset: "arena",
         },
         "CLAN_CHALLENGE",
-        background,
       );
     }),
   toBank: protectedProcedure
@@ -763,12 +762,12 @@ export const clanRouter = createTRPCRouter({
         return errorResponse("Clan battle not started yet");
       }
       // Start the battle
-      const background = await determineArenaBackground(ctx.drizzle, "arena");
       const result = await initiateBattle(
         {
           userIds: challengerIds,
           targetIds: defenderIds,
           client: ctx.drizzle,
+          asset: "arena",
         },
         "CLAN_BATTLE",
         background,

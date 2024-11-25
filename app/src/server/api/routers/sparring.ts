@@ -8,7 +8,7 @@ import { secondsFromNow } from "@/utils/time";
 import { userRequest } from "@/drizzle/schema";
 import { getServerPusher } from "@/libs/pusher";
 import { fetchUser } from "@/routers/profile";
-import { initiateBattle, determineArenaBackground } from "@/routers/combat";
+import { initiateBattle } from "@/routers/combat";
 import type { UserRequestState, UserRequestType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
@@ -59,16 +59,15 @@ export const sparringRouter = createTRPCRouter({
         return errorResponse("Challenge not pending");
       }
       // Mutate
-      const background = await determineArenaBackground(ctx.drizzle, "arena");
       const result = await initiateBattle(
         {
           sector: user.sector,
           userIds: [challenge.receiverId],
           targetIds: [challenge.senderId],
           client: ctx.drizzle,
+          asset: "arena",
         },
         "SPARRING",
-        background,
       );
       if (result.success) {
         await updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "SPAR");

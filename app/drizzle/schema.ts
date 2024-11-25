@@ -32,6 +32,7 @@ import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import type { AdditionalContext } from "@/validators/reports";
+import { ZodBgSchemaType } from "@/validators/backgroundSchema";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -2268,16 +2269,7 @@ export const backgroundSchema = mysqlTable(
       .primaryKey()
       .notNull()
       .default(sql`(UUID())`),
-    schema: json("schema")
-      .$type<{
-        ocean: string;
-        ice: string;
-        dessert: string;
-        ground: string;
-        arena: string;
-        default: string;
-      }>()
-      .notNull(),
+    schema: json("schema").$type<ZodBgSchemaType>().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
     description: varchar("description", { length: 191 }).notNull(),
     isActive: boolean("isActive").default(false).notNull(),
@@ -2295,4 +2287,4 @@ export const backgroundSchema = mysqlTable(
   },
 );
 export type backgroundSchema = InferSelectModel<typeof backgroundSchema>;
-export type BackgroundSchemaJson = backgroundSchema["schema"];
+export type BackgroundSchemaJson = ZodBgSchemaType;
