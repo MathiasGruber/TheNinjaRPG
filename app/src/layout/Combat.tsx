@@ -469,6 +469,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             group_users: group_users,
             users: battle.current.usersState,
             grid: grid.current,
+            playerId: suid,
           });
 
           // Draw all ground effects on the map

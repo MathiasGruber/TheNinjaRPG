@@ -1443,6 +1443,7 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
         newAi.longitude = effect.longitude;
         newAi.latitude = effect.latitude;
         newAi.villageId = user.villageId;
+        newAi.village = user.village;
         newAi.direction = user.direction;
         // Set level to summoner level
         newAi.level = user.level;

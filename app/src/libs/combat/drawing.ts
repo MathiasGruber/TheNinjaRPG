@@ -352,7 +352,11 @@ export const updateStatusBar = (name: string, userSpriteGroup: Group, perc: numb
 /**
  * User sprite, which loads the avatar image and displays the health bar as a js sprite
  */
-export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) => {
+export const createUserSprite = (
+  userData: ReturnedUserState,
+  hex: TerrainHex,
+  playerId: string | undefined,
+) => {
   // If not there, nope
   if (userData.curHealth <= 0 || userData.fledBattle) return undefined;
 
@@ -386,6 +390,15 @@ export const createUserSprite = (userData: ReturnedUserState, hex: TerrainHex) =
     sprite.scale.set(-1 * h * 0.8, h * 0.8, 1);
     sprite.position.set(w / 2, h * 0.6, -6);
     group.add(sprite);
+    // Star on summons
+    if (userData.isSummon && userData.controllerId === playerId) {
+      const marker = loadTexture(IMG_BATTLEFIELD_STAR);
+      const markerMat = new SpriteMaterial({ map: marker });
+      const markerSprite = new Sprite(markerMat);
+      markerSprite.scale.set(h / 2.5, h / 2.5, 1);
+      markerSprite.position.set(w / 2, h * 0.2, -6);
+      group.add(markerSprite);
+    }
   } else {
     // Highlight background in village color
     const highlightTexture = loadTexture(IMG_SECTOR_USER_MARKER);
@@ -530,9 +543,10 @@ export const drawCombatUsers = (info: {
   group_users: Group;
   users: ReturnedUserState[];
   grid: Grid<TerrainHex>;
+  playerId: string | undefined;
 }) => {
   // Destruct
-  const { users, group_users, grid } = info;
+  const { users, group_users, grid, playerId } = info;
   // Draw the users
   const drawnIds = new Set<string>();
   users.forEach((user) => {
@@ -544,7 +558,7 @@ export const drawCombatUsers = (info: {
       // Fetch / create the user mesh
       let userMesh = group_users.getObjectByName(user.userId) as Group | undefined;
       if (!userMesh && hex) {
-        userMesh = createUserSprite(user, hex);
+        userMesh = createUserSprite(user, hex, playerId);
         if (userMesh) group_users.add(userMesh);
       }
       // Get location
