@@ -491,7 +491,9 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         experience *= 1.5;
       } else if (battleType === "VILLAGE_PROTECTOR") {
         experience = 0;
-      } else if (battleType === "TRAINING") {
+      } else if (
+        ["CLAN_CHALLENGE", "KAGE_CHALLENGE", "TRAINING"].includes(battleType)
+      ) {
         experience = 0;
       }
 
@@ -833,6 +835,9 @@ export const processUsersForBattle = (info: {
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
+  const takenLocations: { x: number; y: number }[] = [];
+
+  // Loop through users
   const usersState = users.map((user, i) => {
     // Set controllerID and mark this user as the original
     user.controllerId = user.userId;
@@ -905,7 +910,6 @@ export const processUsersForBattle = (info: {
     user.actionPoints = 100;
 
     // Convenience function for assigning location of user
-    const takenLocations: { x: number; y: number }[] = [];
     const assignLocation = (min: number, max: number) => {
       let x = randomInt(min, max);
       let y = randomInt(1, 3);
