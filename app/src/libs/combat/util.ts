@@ -371,7 +371,9 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
       current.heal_sp = current.heal_sp ? current.heal_sp + val.heal_sp : val.heal_sp;
     }
     if (val.heal_cp) {
-      current.heal_cp = current.heal_cp ? current.heal_cp + val.heal_cp : val.heal_cp;
+      current.heal_cp = current.heal_cp
+        ? Math.max(current.heal_cp, val.heal_cp)
+        : val.heal_cp;
     }
     if (val.reflect) {
       current.reflect = current.reflect ? current.reflect + val.reflect : val.reflect;
