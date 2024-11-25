@@ -153,11 +153,11 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
       } else {
         // Information on what was done
         if (e.isNew && e.castThisRound && actor && e.type !== "visual" && e.rounds) {
-          actionEffects.push({
-            txt: `${actor.username} marked [${e.longitude}, ${e.latitude}] the ground with ${e.type} for the next ${e.rounds} rounds`,
-            color: "blue",
-          });
-          e.isNew = false;
+          const txt = `${actor.username} marked the ground with ${e.type} for the next ${e.rounds} rounds`;
+          if (!actionEffects.find((ae) => ae.txt === txt)) {
+            actionEffects.push({ txt, color: "blue" });
+            e.isNew = false;
+          }
         }
         // Apply all other ground effects to user
         const user = findUser(newUsersState, e.longitude, e.latitude);
