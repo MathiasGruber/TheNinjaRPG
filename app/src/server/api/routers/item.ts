@@ -542,7 +542,13 @@ export const itemRouter = createTRPCRouter({
       const repsCost = Math.ceil(info.repsCost * input.stack);
       // Figure out if we equip this
       let equipped: ItemSlot = "NONE";
-      if (!info.effects.find((e) => e.type.includes("bloodline"))) {
+      const instancesEquipped = useritems.filter(
+        (ui) => ui.itemId === info.id && ui.equipped !== "NONE",
+      ).length;
+      if (
+        !info.effects.find((e) => e.type.includes("bloodline")) &&
+        instancesEquipped < info.maxEquips
+      ) {
         ItemSlots.forEach((slot) => {
           if (slot.includes(info.slot) && !useritems.find((i) => i.equipped === slot)) {
             equipped = slot;
