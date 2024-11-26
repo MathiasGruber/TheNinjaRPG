@@ -51,6 +51,10 @@
     {
       "path": "/api/indexer",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/daily-reset",
+      "schedule": "0 */3 * * *"
     }
   ],
   "functions": {

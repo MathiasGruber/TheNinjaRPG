@@ -32,6 +32,7 @@ import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import type { AdditionalContext } from "@/validators/reports";
+import { dailyResetSchema, DailyResetSchema } from "@/validators"; // Adjust the path as needed
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -2260,3 +2261,42 @@ export const userRequestRelations = relations(userRequest, ({ one }) => ({
     references: [userData.userId],
   }),
 }));
+
+export const dailyReset = mysqlTable(
+  "DailyReset",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    resetType: mysqlEnum("resetType", [
+      "daily-bank",
+      "daily-counters",
+      "daily-pvp",
+      "daily-quest",
+    ]).notNull(),
+    scheduledDate: datetime("scheduledDate", { mode: "date", fsp: 3 }).notNull(),
+    executedDate: datetime("executedDate", { mode: "date", fsp: 3 }),
+    status: mysqlEnum("status", ["pending", "completed", "failed"])
+      .default("pending")
+      .notNull(),
+    lastChecked: datetime("lastChecked", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    errorLog: text("errorLog"),
+    isManualOverride: boolean("isManualOverride").default(false).notNull(),
+    retryCount: int("retryCount").default(0).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      resetTypeIdx: index("DailyReset_resetType_idx").on(table.resetType),
+      statusIdx: index("DailyReset_status_idx").on(table.status),
+      scheduledDateIdx: index("DailyReset_scheduledDate_idx").on(table.scheduledDate),
+    };
+  },
+);
+
+export type DailyReset = InferSelectModel<typeof dailyReset>;

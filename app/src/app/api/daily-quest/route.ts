@@ -1,6 +1,6 @@
 import { eq, inArray, isNull, isNotNull, and, or, sql } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { quest, questHistory, userData } from "@/drizzle/schema";
+import { quest, questHistory, userData, dailyReset } from "@/drizzle/schema";
 import { UserRanks } from "@/drizzle/constants";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { sleep } from "@/utils/time";
@@ -57,8 +57,31 @@ export async function GET() {
       // Await a bit to avoid too many open connections
       await sleep(500);
     }
+
+    await drizzleDB.insert(dailyReset).values({
+      id: crypto.randomUUID(), // Generate a unique ID for the reset entry
+      resetType: "daily-quest",
+      scheduledDate: new Date().toISOString(), // Use current timestamp for scheduled date
+      executedDate: new Date().toISOString(), // Log the execution timestamp
+      status: "completed", // Mark as completed since the reset was successful
+      lastChecked: new Date().toISOString(),
+      retryCount: 0,
+      isManualOverride: false,
+    });
+
     return Response.json(`OK`);
   } catch (cause) {
+    await drizzleDB.insert(dailyReset).values({
+      id: crypto.randomUUID(),
+      resetType: "daily-quest",
+      scheduledDate: new Date().toISOString(),
+      executedDate: null, // No execution timestamp since it failed
+      status: "failed",
+      lastChecked: new Date().toISOString(),
+      retryCount: 0,
+      isManualOverride: false,
+      errorLog: String(cause), // Capture the error for debugging
+    });
     return handleEndpointError(cause);
   }
 }

@@ -1,6 +1,6 @@
 import { eq, ne, and, or, sql, lt } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { userData } from "@/drizzle/schema";
+import { userData, dailyReset } from "@/drizzle/schema";
 import { lockWithGameTimer, handleEndpointError } from "@/libs/gamesettings";
 import { structureBoost } from "@/utils/village";
 import { calcBankInterest } from "@/utils/village";
@@ -86,8 +86,33 @@ export async function GET() {
         ]);
       }),
     );
+
+    // Log the reset into the DailyReset schema
+    await drizzleDB.insert(dailyReset).values({
+      id: crypto.randomUUID(), // Generate a unique ID for the reset entry
+      resetType: "daily-bank",
+      scheduledDate: new Date().toISOString(), // Use current timestamp for scheduled date
+      executedDate: new Date().toISOString(), // Log the execution timestamp
+      status: "completed", // Mark as completed since the reset was successful
+      lastChecked: new Date().toISOString(),
+      retryCount: 0,
+      isManualOverride: false,
+    });
+
     return Response.json(`OK`);
   } catch (cause) {
+    // Log the reset as failed if an error occurs
+    await drizzleDB.insert(dailyReset).values({
+      id: crypto.randomUUID(),
+      resetType: "daily-bank",
+      scheduledDate: new Date().toISOString(),
+      executedDate: null, // No execution timestamp since it failed
+      status: "failed",
+      lastChecked: new Date().toISOString(),
+      retryCount: 0,
+      isManualOverride: false,
+      errorLog: String(cause), // Capture the error for debugging
+    });
     return handleEndpointError(cause);
   }
 }
