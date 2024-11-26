@@ -38,6 +38,7 @@ import { canChangeContent, canModerateRoles } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
+import { fetchVillage } from "@/routers/village";
 import { getNewTrackers } from "@/libs/quest";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
 import { mutateContentSchema } from "@/validators/comments";
@@ -70,6 +71,8 @@ import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
@@ -395,15 +398,17 @@ export const profileRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Queries
-      const [user, target] = await Promise.all([
+      const [user, target, village] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, input.id),
           with: { jutsus: true, items: true },
         }),
+        fetchVillage(ctx.drizzle, input.data?.villageId || VILLAGE_SYNDICATE_ID),
       ]);
       // Guards
       const availableRoles = canChangeUserRole(user.role);
+      if (!village) return errorResponse("Village not found");
       if (!target) return errorResponse("User not found");
       if (!availableRoles) return errorResponse("Not allowed");
       if (!availableRoles.includes(target.role)) {
@@ -411,6 +416,11 @@ export const profileRouter = createTRPCRouter({
       }
       if (!availableRoles.includes(input.data.role)) {
         return errorResponse(`Only available roles: ${availableRoles.join(", ")}`);
+      }
+      if (village.id !== user.villageId) {
+        if (user.anbuId) return errorResponse("To change village, leave ANBU first");
+        if (user.clanId) return errorResponse("To change village, leave Clan first");
+        if (user.status !== "AWAKE") return errorResponse("Be AWAKE to change village");
       }
       // Update jutsus & items
       const { jutsuChanges, itemChanges } = await updateUserContent({
@@ -436,7 +446,17 @@ export const profileRouter = createTRPCRouter({
       await Promise.all([
         ctx.drizzle
           .update(userData)
-          .set(input.data)
+          .set({
+            ...input.data,
+            ...(village.id !== user.villageId
+              ? {
+                  isOutlaw: village.type === "OUTLAW" ? true : false,
+                  sector: village.sector,
+                  longitude: ALLIANCEHALL_LONG,
+                  latitude: ALLIANCEHALL_LAT,
+                }
+              : {}),
+          })
           .where(eq(userData.userId, target.userId)),
         ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
