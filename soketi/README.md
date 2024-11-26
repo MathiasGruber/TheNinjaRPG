@@ -9,5 +9,6 @@ curl http://127.0.0.1:9601/usage
 ```
 
 ```bash
+nvm use 18
 pm2 list
 ```
