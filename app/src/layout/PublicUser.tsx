@@ -711,7 +711,6 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
   const utils = api.useUtils();
 
   // Form handling
-  console.log("profile", profile);
   const { form, formData, handleUserSubmit } = useUserEditForm(
     userId,
     profile,

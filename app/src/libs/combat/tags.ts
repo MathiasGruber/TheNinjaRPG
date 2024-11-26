@@ -1085,7 +1085,9 @@ export const lifesteal = (
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
           const convert = Math.floor(consequence.damage * (power / 100)) * ratio;
-          consequence.lifesteal_hp = convert;
+          consequence.lifesteal_hp = consequence.lifesteal_hp
+            ? consequence.lifesteal_hp + convert
+            : convert;
         }
       }
     });
