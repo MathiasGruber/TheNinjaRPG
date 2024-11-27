@@ -365,10 +365,14 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
         : val.residual;
     }
     if (val.heal_hp) {
-      current.heal_hp = current.heal_hp ? current.heal_hp + val.heal_hp : val.heal_hp;
+      current.heal_hp = current.heal_hp
+        ? Math.max(current.heal_hp, val.heal_hp)
+        : val.heal_hp;
     }
     if (val.heal_sp) {
-      current.heal_sp = current.heal_sp ? current.heal_sp + val.heal_sp : val.heal_sp;
+      current.heal_sp = current.heal_sp
+        ? Math.max(current.heal_sp, val.heal_sp)
+        : val.heal_sp;
     }
     if (val.heal_cp) {
       current.heal_cp = current.heal_cp
