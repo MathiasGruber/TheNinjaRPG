@@ -84,7 +84,6 @@ export const aiRouter = createTRPCRouter({
         const effects = [...jutsus, ...items].flatMap((e) => e.effects);
         const hasMove = effects.some((e) => "type" in e && e.type === "move");
         const hasSummon = effects.some((e) => "type" in e && e.type === "summon");
-        console.log(effects, hasMove, hasSummon);
         if (hasMove) {
           return errorResponse("Items/jutsu with move effects are not allowed");
         }

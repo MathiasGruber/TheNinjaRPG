@@ -51,7 +51,7 @@ export const performAIaction = (
   const user = aiUsers.find((user) => user.userId === aiUserId);
   if (user) {
     // Is it a user or an AI
-    const isAnAi = user.userId.includes("user_");
+    const isUser = user.userId.includes("user_");
     // Possible actions
     const allActions = availableUserActions(nextBattle, user.userId, true, true).filter(
       (action) => {
@@ -59,7 +59,7 @@ export const performAIaction = (
         if (user.curHealth < costs.hpCost) return false;
         if (user.curChakra < costs.cpCost) return false;
         if (user.curStamina < costs.spCost) return false;
-        if (!isAnAi && action.id !== "move") {
+        if (isUser && action.id !== "move") {
           if (
             action.effects.some((e) => "type" in e && e.type === "move") ||
             action.effects.some((e) => "type" in e && e.type === "summon")
@@ -103,7 +103,7 @@ export const performAIaction = (
     astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
 
     // If this is a user AI, add the backup rules
-    if (isAnAi || user.aiProfile.includeDefaultRules) {
+    if (isUser || user.aiProfile.includeDefaultRules) {
       const backupRules = getBackupRules();
       enforceExtraRules(user.aiProfile.rules, backupRules);
     }
