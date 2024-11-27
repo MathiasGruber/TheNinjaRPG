@@ -282,15 +282,19 @@ interface FileEsque extends Blob {
  * Create a thumbnail for the image
  */
 export const createThumbnail = async (url: string) => {
-  const res = await fetch(url);
-  const blob = await res.arrayBuffer();
-  const resultBuffer = await sharp(blob).resize(64, 64).toBuffer();
-  const thumbnail = new Blob([resultBuffer]) as FileEsque;
-  thumbnail.name = "thumbnail.png";
-  const utapi = new UTApi();
-  const response = await utapi.uploadFiles(thumbnail);
-  const imageUrl = response.data?.url;
-  return imageUrl ?? url;
+  try {
+    const res = await fetch(url);
+    const blob = await res.arrayBuffer();
+    const resultBuffer = await sharp(blob).resize(64, 64).toBuffer();
+    const thumbnail = new Blob([resultBuffer]) as FileEsque;
+    thumbnail.name = "thumbnail.png";
+    const utapi = new UTApi();
+    const response = await utapi.uploadFiles(thumbnail);
+    const imageUrl = response.data?.url;
+    return imageUrl ?? url;
+  } catch (error) {
+    return url;
+  }
 };
 
 /**

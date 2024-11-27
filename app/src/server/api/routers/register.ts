@@ -22,11 +22,17 @@ export const registerRouter = createTRPCRouter({
         input.question5,
         input.question6,
       ]);
-      const villageData = await ctx.drizzle.query.village.findFirst({
-        where: eq(village.name, villageName || "none"),
-      });
+      const [villageData, user] = await Promise.all([
+        ctx.drizzle.query.village.findFirst({
+          where: eq(village.name, villageName || "none"),
+        }),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.username, input.username),
+        }),
+      ]);
 
       // Guard
+      if (user) return errorResponse("Username already taken");
       if (!villageData) return errorResponse("Village not found");
       if (!villageData.allianceSystem) return errorResponse("Missing alliance system");
       if (villageData.type !== "VILLAGE")
