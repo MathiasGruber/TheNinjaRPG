@@ -156,7 +156,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           const txt = `${actor.username} marked the ground with ${e.type} for the next ${e.rounds} rounds`;
           if (!actionEffects.find((ae) => ae.txt === txt)) {
             actionEffects.push({ txt, color: "blue" });
-            e.isNew = false;
           }
         }
         // Apply all other ground effects to user
@@ -191,6 +190,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
       }
       // Let ground effect continue, or is it done?
       if (isEffectActive(e) || e.type === "visual") {
+        e.isNew = false;
         newGroundEffects.push(e);
       } else if (e.disappearAnimation) {
         newGroundEffects.push(

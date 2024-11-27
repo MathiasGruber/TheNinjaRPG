@@ -753,13 +753,25 @@ export const calcApReduction = (
   battle?: ReturnedBattle | null,
   userId?: string | null,
 ) => {
-  const stunEffects = battle?.usersEffects.filter(
-    (e) =>
-      e.type === "stun" &&
-      e.targetId === userId &&
-      !e.castThisRound &&
-      isEffectActive(e),
-  );
+  const user = battle?.usersState.find((u) => u.userId === userId);
+  const stunEffects = [
+    ...(battle?.usersEffects.filter(
+      (e) =>
+        e.type === "stun" &&
+        e.targetId === userId &&
+        !e.castThisRound &&
+        isEffectActive(e),
+    ) || []),
+    ...(battle?.groundEffects.filter(
+      (e) =>
+        e.type === "stun" &&
+        e.longitude === user?.longitude &&
+        e.latitude === user?.latitude &&
+        !e.castThisRound &&
+        isEffectActive(e),
+    ) || []),
+    ,
+  ];
   const apReduction = stunEffects?.reduce((acc, e) => {
     if ("apReduction" in e) {
       acc = e.apReduction > acc ? e.apReduction : acc;

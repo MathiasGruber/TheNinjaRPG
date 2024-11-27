@@ -223,7 +223,12 @@ export const drawCombatEffect = (info: {
   const { effect, groupEffects, animationId, hex, drawnIds } = info;
   const { spriteMixer, gameAssets } = info;
   if (hex) {
-    if (effect.staticAssetPath || effect.appearAnimation || effect.disappearAnimation) {
+    if (
+      effect.staticAssetPath ||
+      effect.staticAnimation ||
+      effect.appearAnimation ||
+      effect.disappearAnimation
+    ) {
       const { height: h, width: w } = hex;
       let asset = groupEffects.getObjectByName(effect.id) as Group;
       if (!asset) {
