@@ -16,7 +16,7 @@ import { cn } from "src/libs/shadui";
 import type { ItemRarity, GameAsset } from "@/drizzle/schema";
 import type { Bloodline, Item, Jutsu, Quest } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
-import type { backgroundSchema } from "@/drizzle/schema";
+import type { BackgroundSchema } from "@/drizzle/schema";
 
 export type GenericObject = {
   id: string;
@@ -35,7 +35,7 @@ export type GenericObject = {
 };
 
 export interface ItemWithEffectsProps {
-  item: Bloodline | Item | Jutsu | Quest | backgroundSchema | GameAsset | GenericObject;
+  item: Bloodline | Item | Jutsu | Quest | BackgroundSchema | GameAsset | GenericObject;
   hideDetails?: boolean;
   imageBorder?: boolean;
   imageExtra?: React.ReactNode;
@@ -68,19 +68,20 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   // Extract objectives if they exist
   const objectives = "content" in props.item ? props.item.content.objectives : [];
   // Define image
-  let image = (
-    <div className="relative flex flex-col items-center justify-center">
-      <ContentImage
-        image={item.image}
-        frames={"frames" in item ? item.frames : undefined}
-        speed={"speed" in item ? item.speed : undefined}
-        rarity={"rarity" in item ? item.rarity : undefined}
-        alt={item.name}
-        className=""
-      />
-      {props.imageExtra}
-    </div>
-  );
+  let image =
+    "image" in item ? (
+      <div className="relative flex flex-col items-center justify-center">
+        <ContentImage
+          image={item.image}
+          frames={"frames" in item ? item.frames : undefined}
+          speed={"speed" in item ? item.speed : undefined}
+          rarity={"rarity" in item ? item.rarity : undefined}
+          alt={item.name}
+          className=""
+        />
+        {props.imageExtra}
+      </div>
+    ) : null;
   if ("href" in item && item.href) {
     image = <Link href={item.href}>{image}</Link>;
   }

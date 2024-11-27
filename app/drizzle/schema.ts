@@ -2286,5 +2286,4 @@ export const backgroundSchema = mysqlTable(
     };
   },
 );
-export type backgroundSchema = InferSelectModel<typeof backgroundSchema>;
-export type BackgroundSchemaJson = ZodBgSchemaType;
+export type BackgroundSchema = InferSelectModel<typeof backgroundSchema>;

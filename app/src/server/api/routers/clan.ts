@@ -770,7 +770,6 @@ export const clanRouter = createTRPCRouter({
           asset: "arena",
         },
         "CLAN_BATTLE",
-        background,
       );
 
       if (result.success && result.battleId) {

@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -10,7 +8,6 @@ import MassEditContent from "@/layout/MassEditContent";
 // import BackgroundFiltering, { useFiltering, getFilter } from "@/layout/BackgroundFiltering";
 import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen } from "lucide-react";
-import { useInfinitePagination } from "@/libs/pagination";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeCombatBgScheme } from "@/utils/permissions";
@@ -20,27 +17,16 @@ import { useUserData } from "@/utils/UserContext";
 export default function ManualbackgroundSchema() {
   // Settings
   const { data: userData } = useUserData();
-  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // Router for navigation
   const router = useRouter();
 
   // Data fetching using tRPC
   const {
-    data: backgroundSchema,
+    data: allbackgroundSchema,
     isFetching,
     refetch,
-    fetchNextPage,
-    hasNextPage,
-  } = api.backgroundSchema.getAll.useInfiniteQuery(
-    { limit: 10 }, // Adjust limit as needed
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      placeholderData: (previousData) => previousData,
-    },
-  );
-  const allbackgroundSchema = backgroundSchema?.pages.flat();
-  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
+  } = api.backgroundSchema.getAll.useQuery(undefined);
 
   // Mutations for creating deleting and activating background schemas
   const { mutate: create, isPending: load1 } = api.backgroundSchema.create.useMutation({
@@ -68,7 +54,7 @@ export default function ManualbackgroundSchema() {
 
   // Check if data is loading
   const totalLoading = isFetching || load1 || load2 || load3;
-  console.log(allbackgroundSchema);
+
   return (
     <>
       <ContentBox
@@ -112,26 +98,25 @@ export default function ManualbackgroundSchema() {
           initialBreak={true}
         >
           {totalLoading && <Loader explanation="Loading data" />}
-          {allbackgroundSchema?.map((backgroundSchema, i) => (
-            <div
-              key={backgroundSchema.id}
-              ref={i === allbackgroundSchema.length - 1 ? setLastElement : null}
-            >
+          {allbackgroundSchema?.map((backgroundSchema) => (
+            <div key={backgroundSchema.id} className="relative">
               <ItemWithEffects
                 item={backgroundSchema}
                 key={backgroundSchema.id}
                 onDelete={(id: string) => remove({ id })}
-                showEdit="combat/backgroundSchema"
+                showEdit="backgroundSchema"
                 hideImage={true}
               />
-              {userData && canChangeCombatBgScheme(userData.role) && (
-                <Button
-                  onClick={() => activate({ id: backgroundSchema.id })}
-                  className="mt-2"
-                >
-                  {backgroundSchema.isActive ? "Is Active" : "Activate"}
-                </Button>
-              )}
+              {userData &&
+                canChangeCombatBgScheme(userData.role) &&
+                !backgroundSchema.isActive && (
+                  <Button
+                    onClick={() => activate({ id: backgroundSchema.id })}
+                    className="mb-2 absolute bottom-[-2px] right-2 left-2"
+                  >
+                    Activate
+                  </Button>
+                )}
             </div>
           ))}
         </ContentBox>

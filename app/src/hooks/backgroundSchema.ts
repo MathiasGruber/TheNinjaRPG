@@ -1,5 +1,3 @@
-// src/hooks/backgroundSchema.ts
-
 import { useForm } from "react-hook-form";
 import { calculateContentDiff } from "@/utils/diff";
 import { api } from "@/app/_trpc/client";

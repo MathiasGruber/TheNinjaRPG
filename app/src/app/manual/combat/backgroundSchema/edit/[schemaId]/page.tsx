@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import Image from "next/image";
 import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
@@ -21,6 +22,10 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import type { BackgroundSchema } from "@/drizzle/schema";
+import type { ZodBgSchemaType } from "@/validators/backgroundSchema";
+import { bgTypes } from "@/validators/backgroundSchema";
+import { BgSchemaValidator } from "@/validators/backgroundSchema";
 import { BackgroundSchemaValidator } from "@/validators/backgroundSchema";
 
 export default function EditBackgroundSchemaPage({
@@ -40,38 +45,28 @@ export default function EditBackgroundSchemaPage({
   }, [userData, router]);
 
   // Fetch the background schema
-  const { data, isPending, refetch } = api.backgroundSchema.get.useQuery(
+  const { data, isPending } = api.backgroundSchema.get.useQuery(
     { id: schemaId },
     { enabled: !!schemaId && !!userData },
   );
 
-  if (isPending || !userData || !canChangeContent(userData.role)) {
+  if (isPending || !userData || !data || !canChangeContent(userData.role)) {
     return <Loader explanation="Loading data..." />;
   }
 
-  return <EditBackgroundSchemaForm schema={data} refetch={refetch} />;
+  return <EditBackgroundSchemaForm schema={data} />;
 }
 
 interface EditBackgroundSchemaFormProps {
-  schema: any; // Replace with the actual type of your background schema
-  refetch: () => void;
+  schema: BackgroundSchema;
 }
 
 const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
   schema,
-  refetch,
 }) => {
-  const router = useRouter();
   const utils = api.useUtils();
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>(
-    schema?.schema || {
-      ocean: "",
-      ice: "",
-      dessert: "",
-      ground: "",
-      arena: "",
-      default: "",
-    },
+  const [imageUrls, setImageUrls] = useState<ZodBgSchemaType>(
+    schema?.schema || BgSchemaValidator.parse({}),
   );
 
   const form = useForm({
@@ -85,16 +80,15 @@ const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
     },
   });
 
-  const { mutate: updateSchema, isLoading: isUpdating } =
+  const { mutate: updateSchema, isPending: isUpdating } =
     api.backgroundSchema.update.useMutation({
       onSuccess: async () => {
         showMutationToast({
           success: true,
           message: "Schema saved successfully.",
         });
-        utils.backgroundSchema.getAll.invalidate();
-        utils.backgroundSchema.get.invalidate({ id: schema.id });
-        router.push("/manual/combat/backgroundSchema");
+        await utils.backgroundSchema.getAll.invalidate();
+        await utils.backgroundSchema.get.invalidate({ id: schema.id });
       },
       onError: (error) => {
         const errorMessage = error.message || "There was an issue saving the schema.";
@@ -106,12 +100,13 @@ const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
     });
 
   const handleImageUpload = (key: string, url: string) => {
-    setImageUrls((prev) => ({ ...prev, [key]: url }));
-    form.setValue(`schema.${key}`, url);
+    const newImageUrls = { ...imageUrls, [key]: url };
+    setImageUrls(newImageUrls);
+    form.setValue("schema", newImageUrls);
   };
 
   const onSubmit = form.handleSubmit((values) => {
-    updateSchema({ ...values, id: schema.id });
+    updateSchema({ id: schema.id, data: values });
   });
 
   return (
@@ -153,7 +148,7 @@ const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
           />
 
           {/* Image Uploads */}
-          {["ocean", "ice", "dessert", "ground", "arena", "default"].map((key) => (
+          {bgTypes.map((key) => (
             <div key={key} className="mt-4">
               <Label>{capitalizeFirstLetter(key)} Background Image</Label>
               <UploadButton
@@ -169,8 +164,10 @@ const EditBackgroundSchemaForm: React.FC<EditBackgroundSchemaFormProps> = ({
               />
               {imageUrls[key] && (
                 <div className="mt-2">
-                  <img
+                  <Image
                     src={imageUrls[key]}
+                    width="1024"
+                    height="576"
                     alt={`${key} background`}
                     className="max-w-full h-auto"
                   />

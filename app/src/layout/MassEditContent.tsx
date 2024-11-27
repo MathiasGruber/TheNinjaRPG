@@ -32,12 +32,12 @@ import type { Jutsu } from "@/drizzle/schema";
 import type { Bloodline } from "@/drizzle/schema";
 import type { Item } from "@/drizzle/schema";
 import type { Quest } from "@/drizzle/schema";
-import type { backgroundSchema } from "@/drizzle/schema";
+import type { BackgroundSchema } from "@/drizzle/schema";
 import { BackgroundSchemaValidator } from "@/validators/backgroundSchema";
 
 interface MassEditContentProps {
   title: string;
-  type: "jutsu" | "bloodline" | "item" | "quest";
+  type: "jutsu" | "bloodline" | "item" | "quest" | "backgroundSchema";
   button: React.ReactNode;
   onAccept?: (
     e:
@@ -116,14 +116,9 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
     data: backgroundSchema,
     refetch: refetchBackgroundSchema,
     isFetching: fetchingBackgroundSchema,
-  } = api.backgroundSchema.getAll.useInfiniteQuery(
-    { limit: 500 },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      placeholderData: (previousData) => previousData,
-      enabled: props.type === "backgroundSchema" && showModal,
-    },
-  );
+  } = api.backgroundSchema.getAll.useQuery(undefined, {
+    enabled: props.type === "backgroundSchema" && showModal,
+  });
 
   // Get the data
   const getTableData = (
@@ -152,7 +147,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
         };
       case "backgroundSchema":
         return {
-          data: backgroundSchema?.pages.map((page) => page.data).flat(),
+          data: backgroundSchema,
           refetch: () => refetchBackgroundSchema(),
         };
     }
@@ -184,7 +179,12 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
   });
 
   // Loader
-  const loading = fetchingJutsu || fetchingBloodline || fetchingItem || fetchingQuest;
+  const loading =
+    fetchingJutsu ||
+    fetchingBloodline ||
+    fetchingItem ||
+    fetchingQuest ||
+    fetchingBackgroundSchema;
 
   if (showModal) {
     return (
@@ -289,6 +289,13 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
                   {props.type === "quest" && (
                     <MassEditQuestRow
                       quest={entry as Quest}
+                      idx={i}
+                      refetch={refetch}
+                    />
+                  )}
+                  {props.type === "backgroundSchema" && (
+                    <MassEditBackgroundSchemaRow
+                      backgroundSchema={entry as BackgroundSchema}
                       idx={i}
                       refetch={refetch}
                     />

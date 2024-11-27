@@ -1,12 +1,21 @@
 import { z } from "zod";
 
+export const bgTypes = [
+  "ocean",
+  "ice",
+  "dessert",
+  "ground",
+  "arena",
+  "default",
+] as const;
+
 export const BgSchemaValidator = z.object({
-  ocean: z.string().url(),
-  ice: z.string().url(),
-  dessert: z.string().url(),
-  ground: z.string().url(),
-  arena: z.string().url(),
-  default: z.string().url(),
+  ocean: z.string().url().default(""),
+  ice: z.string().url().default(""),
+  dessert: z.string().url().default(""),
+  ground: z.string().url().default(""),
+  arena: z.string().url().default(""),
+  default: z.string().url().default(""),
 });
 
 export type ZodBgSchemaType = z.infer<typeof BgSchemaValidator>;

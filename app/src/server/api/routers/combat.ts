@@ -58,7 +58,7 @@ import type { ActionEffect } from "@/libs/combat/types";
 import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 import { IMG_BG_FOREST } from "@/drizzle/constants";
-import { BgSchemaValidator, ZodBgSchemaType } from "@/validators/backgroundSchema";
+import type { ZodBgSchemaType } from "@/validators/backgroundSchema";
 
 // Debug flag when testing battle
 const debug = false;
@@ -752,17 +752,7 @@ export const initiateBattle = async (
     }),
   ]);
 
-  let background = IMG_BG_FOREST;
-  if (activeSchema) {
-    try {
-      const schema = BgSchemaValidator.parse(activeSchema.schema) as ZodBgSchemaType;
-      background = getBackground(info.asset, schema);
-    } catch (error) {
-      console.error("Schema validation failed", error);
-      // Still try to use the asset parameter even if schema validation fails
-      background = getBackground(info.asset);
-    }
-  }
+  const background = getBackground(info.asset, activeSchema?.schema);
   // Hide some information from quests
   users.forEach((user) =>
     user.userQuests?.forEach((q) => hideQuestInformation(q.quest, user)),

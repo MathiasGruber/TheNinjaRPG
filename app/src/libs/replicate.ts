@@ -292,6 +292,7 @@ export const createThumbnail = async (url: string) => {
     const response = await utapi.uploadFiles(thumbnail);
     const imageUrl = response.data?.url;
     return imageUrl ?? url;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     return url;
   }

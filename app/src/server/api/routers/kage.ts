@@ -45,7 +45,6 @@ export const kageRouter = createTRPCRouter({
       if (!canChallengeKage(user)) return errorResponse("Not eligible to challenge");
       if (previousCount >= KAGE_MAX_DAILIES) return errorResponse("Max for today");
       // Start the battle
-      const background = await determineArenaBackground(ctx.drizzle, "arena");
       return await initiateBattle(
         {
           userIds: [ctx.userId],
