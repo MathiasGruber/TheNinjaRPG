@@ -1,16 +1,19 @@
 import { sql } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { userData } from "@/drizzle/schema";
-import { lockWithGameTimer, handleEndpointError } from "@/libs/gamesettings";
+import { updateGameSetting } from "@/libs/gamesettings";
+import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
 import { cookies } from "next/headers";
+
+const ENDPOINT_NAME = "daily-counters";
 
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
   cookies();
 
   // Check timer
-  const response = await lockWithGameTimer(drizzleDB, 24, "h", "daily-counters");
-  if (response) return response;
+  const timerCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME);
+  if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
 
   try {
     await drizzleDB.update(userData).set({
@@ -22,6 +25,8 @@ export async function GET() {
     });
     return Response.json(`OK`);
   } catch (cause) {
+    // Rollback
+    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
     return handleEndpointError(cause);
   }
 }

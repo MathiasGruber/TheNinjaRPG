@@ -4,17 +4,20 @@ import { quest, questHistory, userData } from "@/drizzle/schema";
 import { UserRanks } from "@/drizzle/constants";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { sleep } from "@/utils/time";
-import { lockWithGameTimer, handleEndpointError } from "@/libs/gamesettings";
+import { updateGameSetting } from "@/libs/gamesettings";
+import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
 import { upsertQuestEntries } from "@/routers/quests";
 import { cookies } from "next/headers";
+
+const ENDPOINT_NAME = "daily-quest";
 
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
   cookies();
 
   // Check timer
-  const response = await lockWithGameTimer(drizzleDB, 24, "h", "daily-quest");
-  if (response) return response;
+  const timerCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME);
+  if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
 
   // Query
   const villages = await drizzleDB.query.village.findMany({
@@ -59,6 +62,8 @@ export async function GET() {
     }
     return Response.json(`OK`);
   } catch (cause) {
+    // Rollback
+    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
     return handleEndpointError(cause);
   }
 }

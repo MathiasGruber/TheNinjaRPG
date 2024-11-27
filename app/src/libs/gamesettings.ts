@@ -72,6 +72,26 @@ export const lockWithGameTimer = async (
 };
 
 /**
+ * Locks the game with a daily timer.
+ *
+ * @param client
+ * @param name
+ * @returns
+ */
+export const lockWithDailyTimer = async (client: DrizzleClient, name: string) => {
+  const timer = await getGameSetting(client, name);
+  const prevTime = timer.time;
+  const isNewDay = new Date().getUTCDate() !== prevTime.getUTCDate();
+  let response: string | null = null;
+  if (!isNewDay) {
+    response = "Wait until the next day to run this again";
+  } else {
+    await updateGameSetting(client, name, 0, new Date());
+  }
+  return { isNewDay, prevTime, response };
+};
+
+/**
  * Checks the game timer and returns a response indicating how much time is left before the game can be run again.
  * @param res - The NextApiResponse object used to send the response.
  * @param hours - The number of hours for the game timer.

@@ -14,39 +14,23 @@
     },
     {
       "path": "/api/daily-bank",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/daily-bank",
-      "schedule": "5 0 * * *"
+      "schedule": "0/5 0 * * *"
     },
     {
       "path": "/api/daily-counters",
-      "schedule": "1 0 * * *"
-    },
-    {
-      "path": "/api/daily-counters",
-      "schedule": "6 0 * * *"
+      "schedule": "0/5 0 * * *"
     },
     {
       "path": "/api/daily-pvp",
-      "schedule": "2 0 * * *"
-    },
-    {
-      "path": "/api/daily-pvp",
-      "schedule": "7 0 * * *"
+      "schedule": "0/5 0 * * *"
     },
     {
       "path": "/api/daily-quest",
-      "schedule": "3 0 * * *"
-    },
-    {
-      "path": "/api/daily-quest",
-      "schedule": "8 0 * * *"
+      "schedule": "0/5 0 * * *"
     },
     {
       "path": "/api/staffreview",
-      "schedule": "0 0 * * *"
+      "schedule": "0/5 0 * * *"
     },
     {
       "path": "/api/indexer",
