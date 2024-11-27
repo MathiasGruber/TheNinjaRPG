@@ -777,7 +777,7 @@ export const calcApReduction = (
     ,
   ];
   const apReduction = stunEffects?.reduce((acc, e) => {
-    if ("apReduction" in e) {
+    if (e && "apReduction" in e) {
       acc = e.apReduction > acc ? e.apReduction : acc;
     }
     return acc;
