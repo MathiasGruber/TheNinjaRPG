@@ -4,6 +4,7 @@ import { FED_GOLD_REPS_COST } from "@/drizzle/constants";
 import { FED_NORMAL_JUTSU_LOADOUTS } from "@/drizzle/constants";
 import { FED_SILVER_JUTSU_LOADOUTS } from "@/drizzle/constants";
 import { FED_GOLD_JUTSU_LOADOUTS } from "@/drizzle/constants";
+import { PAYPAL_DISCOUNT_PERCENT } from "@/drizzle/constants";
 import type { FederalStatus } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
 
@@ -31,11 +32,16 @@ export const fedJutsuLoadouts = (user?: UserData) => {
 };
 
 export const reps2dollars = (reps: number) => {
-  return Math.ceil(Math.pow(reps, 1 / 1.305) * 10) / 10;
+  const discount = (100 - PAYPAL_DISCOUNT_PERCENT) / 100;
+  const base = Math.pow(reps, 1 / 1.305);
+  return Math.ceil(base * discount * 10) / 10;
 };
 
 export const dollars2reps = (dollars: number) => {
-  return Math.round(Math.pow(dollars, 1.305));
+  const discountFactor = (100 - PAYPAL_DISCOUNT_PERCENT) / 100;
+  const s = dollars / discountFactor;
+  const reps = Math.floor(Math.pow(s, 1.305));
+  return reps;
 };
 
 export const calcFedUgradeCost = (a: FederalStatus, b: FederalStatus) => {

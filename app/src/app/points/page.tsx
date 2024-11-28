@@ -42,6 +42,7 @@ import { FED_GOLD_BANK_INTEREST } from "@/drizzle/constants";
 import { IMG_REPSHOP_BRONZE } from "@/drizzle/constants";
 import { IMG_REPSHOP_SILVER } from "@/drizzle/constants";
 import { IMG_REPSHOP_GOLD } from "@/drizzle/constants";
+import { PAYPAL_DISCOUNT_PERCENT } from "@/drizzle/constants";
 import {
   Form,
   FormControl,
@@ -187,6 +188,11 @@ const ReputationStore = (props: { currency: string }) => {
   return (
     <>
       <div className="text-center text-2xl">
+        {PAYPAL_DISCOUNT_PERCENT > 0 && (
+          <p className="text-red-500 font-bold text-3xl">
+            {PAYPAL_DISCOUNT_PERCENT}% Discount Applied!
+          </p>
+        )}
         <SliderField
           id="reputationPoints"
           default={20}
