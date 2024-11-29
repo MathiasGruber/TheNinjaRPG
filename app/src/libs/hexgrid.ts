@@ -108,15 +108,13 @@ export const getPossibleActionTiles = (
       action.method === "AOE_LINE_SHOOT" ||
       action.method === "AOE_WALL_SHOOT" ||
       action.method === "AOE_CIRCLE_SHOOT" ||
-      action.method === "AOE_SPIRAL_SHOOT"
+      action.method === "AOE_SPIRAL_SHOOT" ||
+      action.method === "AOE_CIRCLE_SPAWN"
     ) {
       const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius });
       highlights = grid.traverse(f);
     } else if (action.method === "ALL") {
       highlights = grid.forEach((hex) => hex);
-    } else if (action.method === "AOE_CIRCLE_SPAWN") {
-      const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius + 1 });
-      highlights = grid.traverse(f);
     }
   }
   return highlights;
