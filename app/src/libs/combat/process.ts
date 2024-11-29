@@ -188,21 +188,26 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           }
         }
       }
-      // Let ground effect continue, or is it done?
-      if (isEffectActive(e) || e.type === "visual") {
-        e.isNew = false;
-        newGroundEffects.push(e);
-      } else if (e.disappearAnimation) {
-        newGroundEffects.push(
-          getVisual(e.longitude, e.latitude, e.disappearAnimation, round),
-        );
-      }
     }
+
+    // Show once appearing animation
     if (e.appearAnimation && e.isNew && e.type !== "visual") {
       newGroundEffects.push(
         getVisual(e.longitude, e.latitude, e.appearAnimation, round),
       );
     }
+
+    // Process round reduction & tag removal
+    if (isEffectActive(e) || e.type === "visual") {
+      e.isNew = false;
+      newGroundEffects.push(e);
+    } else if (e.disappearAnimation) {
+      newGroundEffects.push(
+        getVisual(e.longitude, e.latitude, e.disappearAnimation, round),
+      );
+    }
+
+    // Add info to action effects if it exists
     if (info) actionEffects.push(info);
   });
 
