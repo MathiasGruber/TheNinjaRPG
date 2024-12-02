@@ -165,11 +165,14 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             const hasEffect = usersEffects.some((ue) => ue.id === e.id);
             const isInstant = ["damage", "heal", "pierce"].includes(e.type);
             if (!hasEffect) {
+              // NOTE:
+              // 1. If the effect is instant, it is applied immediately
+              // 2. User effects from Ground effects are not forwarded to the next round
               usersEffects.push({
                 ...e,
                 rounds: isInstant ? 0 : 1,
                 targetId: user.userId,
-                createdRound: curRound,
+                createdRound: isInstant ? curRound : curRound - 1,
                 fromGround: true,
               } as UserEffect);
             }
