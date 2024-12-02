@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,6 +40,17 @@ import { Label } from "@/components/ui/label";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  IMG_REGISTRATIN_STEP1,
+  IMG_REGISTRATIN_STEP2,
+  IMG_REGISTRATIN_STEP3,
+  IMG_REGISTRATIN_STEP4,
+  IMG_REGISTRATIN_STEP5,
+  IMG_REGISTRATIN_STEP6,
+  IMG_REGISTRATIN_STEP7,
+  IMG_REGISTRATIN_STEP8,
+  IMG_REGISTRATIN_STEP9,
+} from "@/drizzle/constants";
 import type { CarouselApi } from "@/components/ui/carousel";
 import type { RegistrationSchema } from "@/validators/register";
 
@@ -170,15 +182,28 @@ const Register: React.FC = () => {
   ));
 
   return (
-    <ContentBox title="Create your Ninja" subtitle="And unlock the mysteries of Seichi">
+    <ContentBox
+      title="Create your Ninja"
+      subtitle="And unlock the mysteries of Seichi"
+      padding={false}
+    >
       {!isPending && (
         <>
           <Form {...form}>
             <form onSubmit={handleCreateCharacter} className="relative">
-              <div className="px-12">
-                <Carousel setApi={setCApi}>
-                  <CarouselContent>
-                    <CarouselItem className="flex items-center">
+              <Carousel setApi={setCApi}>
+                <CarouselContent>
+                  <CarouselItem className="flex flex-col gap-4">
+                    <Image
+                      alt="step1"
+                      src={IMG_REGISTRATIN_STEP1}
+                      width={491}
+                      height={89}
+                      className="basis-full w-full"
+                      priority={true}
+                    />
+
+                    <div className="flex flex-wrap w-full gap-4 items-center px-10">
                       <FormField
                         control={form.control}
                         name="username"
@@ -201,8 +226,6 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem className="flex items-center">
                       <FormField
                         control={form.control}
                         name="gender"
@@ -238,23 +261,36 @@ const Register: React.FC = () => {
                             <div>
                               <div className="text-7xl basis-full flex-row">
                                 {watchGender === "Male" && (
-                                  <p className="text-blue-500">♂</p>
+                                  <p className="text-blue-500 p-2">♂</p>
                                 )}
                                 {watchGender === "Female" && (
-                                  <p className="text-pink-500">♀</p>
+                                  <p className="text-pink-500 p-2">♀</p>
+                                )}
+                                {watchGender === "Other" && (
+                                  <p className="text-slate-500 p-2">⚥</p>
                                 )}
                               </div>
                             </div>
                           </div>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem className="flex items-center gap-2">
+                    </div>
+                  </CarouselItem>
+                  <CarouselItem className="flex flex-col gap-4">
+                    <Image
+                      alt="step2"
+                      src={IMG_REGISTRATIN_STEP2}
+                      width={491}
+                      height={89}
+                      className="w-full basis-full"
+                      priority={true}
+                    />
+                    <div className="flex w-full gap-4 items-center px-10">
                       <FormField
                         control={form.control}
                         name="hair_color"
                         render={({ field }) => (
-                          <FormItem className="w-1/3">
+                          <FormItem className="basis-1/3">
                             <FormLabel>Hair color</FormLabel>
                             <Select
                               onValueChange={field.onChange}
@@ -281,7 +317,7 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="eye_color"
                         render={({ field }) => (
-                          <FormItem className="w-1/3">
+                          <FormItem className="basis-1/3">
                             <FormLabel>Eye color</FormLabel>
                             <Select
                               onValueChange={field.onChange}
@@ -308,7 +344,7 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="skin_color"
                         render={({ field }) => (
-                          <FormItem className="w-1/3">
+                          <FormItem className="basis-1/3">
                             <FormLabel>Skin color</FormLabel>
                             <Select
                               onValueChange={field.onChange}
@@ -331,13 +367,13 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem className="flex items-center gap-2">
+                    </div>
+                    <div className="flex w-full gap-4 items-center px-10">
                       <FormField
                         control={form.control}
                         name="attribute_1"
                         render={({ field }) => (
-                          <FormItem className="w-1/3">
+                          <FormItem className="basis-1/3">
                             <FormLabel>Attribute #1</FormLabel>
                             <Select
                               onValueChange={field.onChange}
@@ -345,7 +381,7 @@ const Register: React.FC = () => {
                               value={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger className="h-14 text-3xl basis-1/3">
+                                <SelectTrigger className="h-14 text-3xl">
                                   <SelectValue placeholder={`None`} />
                                 </SelectTrigger>
                               </FormControl>
@@ -372,7 +408,7 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="attribute_2"
                         render={({ field }) => (
-                          <FormItem className="w-1/3">
+                          <FormItem className="basis-1/3">
                             <FormLabel>Attribute #2</FormLabel>
                             <Select
                               onValueChange={field.onChange}
@@ -380,7 +416,7 @@ const Register: React.FC = () => {
                               value={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger className="h-14 text-3xl basis-1/3">
+                                <SelectTrigger className="h-14 text-3xl">
                                   <SelectValue placeholder={`None`} />
                                 </SelectTrigger>
                               </FormControl>
@@ -407,7 +443,7 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="attribute_3"
                         render={({ field }) => (
-                          <FormItem className="w-1/3">
+                          <FormItem className="basis-1/3">
                             <FormLabel>Attribute #3</FormLabel>
                             <Select
                               onValueChange={field.onChange}
@@ -415,7 +451,7 @@ const Register: React.FC = () => {
                               value={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger className="h-14 text-3xl basis-1/3">
+                                <SelectTrigger className="h-14 text-3xl">
                                   <SelectValue placeholder={`None`} />
                                 </SelectTrigger>
                               </FormControl>
@@ -438,13 +474,23 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem>
+                    </div>
+                  </CarouselItem>
+                  <CarouselItem className="flex flex-col gap-4">
+                    <Image
+                      alt="step3"
+                      src={IMG_REGISTRATIN_STEP3}
+                      width={491}
+                      height={89}
+                      className="w-full"
+                      priority={true}
+                    />
+                    <div className="px-10">
                       <FormField
                         control={form.control}
                         name="question1"
                         render={({ field }) => (
-                          <FormItem className="space-y-3">
+                          <FormItem className="">
                             <FormLabel className="font-bold">
                               What environment feels most like home to you?
                             </FormLabel>
@@ -489,8 +535,18 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem>
+                    </div>
+                  </CarouselItem>
+                  <CarouselItem className="flex flex-col gap-4">
+                    <Image
+                      alt="step4"
+                      src={IMG_REGISTRATIN_STEP4}
+                      width={491}
+                      height={89}
+                      className="w-full"
+                      priority={true}
+                    />
+                    <div className="px-10">
                       <FormField
                         control={form.control}
                         name="question2"
@@ -540,8 +596,18 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem>
+                    </div>
+                  </CarouselItem>
+                  <CarouselItem className="flex flex-col gap-4">
+                    <Image
+                      alt="step5"
+                      src={IMG_REGISTRATIN_STEP5}
+                      width={491}
+                      height={89}
+                      className="w-full"
+                      priority={true}
+                    />
+                    <div className="px-10">
                       <FormField
                         control={form.control}
                         name="question3"
@@ -591,8 +657,18 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem>
+                    </div>
+                  </CarouselItem>
+                  <CarouselItem className="flex flex-col gap-4">
+                    <Image
+                      alt="step6"
+                      src={IMG_REGISTRATIN_STEP6}
+                      width={491}
+                      height={89}
+                      className="w-full"
+                      priority={true}
+                    />
+                    <div className="px-10">
                       <FormField
                         control={form.control}
                         name="question4"
@@ -640,8 +716,18 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem>
+                    </div>
+                  </CarouselItem>
+                  <CarouselItem className="flex flex-col gap-4">
+                    <Image
+                      alt="step7"
+                      src={IMG_REGISTRATIN_STEP7}
+                      width={491}
+                      height={89}
+                      className="w-full"
+                      priority={true}
+                    />
+                    <div className="px-10">
                       <FormField
                         control={form.control}
                         name="question5"
@@ -691,8 +777,18 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem>
+                    </div>
+                  </CarouselItem>
+                  <CarouselItem className="flex flex-col gap-4">
+                    <Image
+                      alt="step8"
+                      src={IMG_REGISTRATIN_STEP8}
+                      width={491}
+                      height={89}
+                      className="w-full"
+                      priority={true}
+                    />
+                    <div className="px-10">
                       <FormField
                         control={form.control}
                         name="question6"
@@ -742,112 +838,115 @@ const Register: React.FC = () => {
                           </FormItem>
                         )}
                       />
-                    </CarouselItem>
-                    <CarouselItem className="flex items-center justify-center">
-                      <div>
-                        <FormField
-                          control={form.control}
-                          name="read_tos"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel>
-                                  <Link
-                                    className="hover:opacity-70"
-                                    href="https://app.termly.io/document/terms-of-service/71d95c2f-d6eb-4e3c-b480-9f0b9bb87830"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {" "}
-                                    I have read & agree to the Terms of Service
-                                  </Link>
-                                </FormLabel>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="read_privacy"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel>
-                                  <Link
-                                    className="hover:opacity-70"
-                                    href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    I have read & agree to the Privacy Policy
-                                  </Link>
-                                </FormLabel>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="read_earlyaccess"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel>
-                                  I accept that this is Early Access
-                                </FormLabel>
-                                <FormDescription>
-                                  Things (even if purchased with real money) may
-                                  radically change.
-                                </FormDescription>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </CarouselItem>
-
-                    <CarouselItem className="flex items-center justify-center">
-                      <div className="w-full">
-                        <Button
-                          id="create"
-                          type="submit"
-                          className="w-full animate-[wiggle_1s_ease-in-out_infinite]"
-                          decoration="gold"
-                          size="xl"
-                          animation="pulse"
-                        >
-                          <MonitorPlay className="mr-2 h-7 w-7" />
-                          Create & Start
-                        </Button>
-                      </div>
-                    </CarouselItem>
-                  </CarouselContent>
-                  <CarouselPrevious />
-                  <CarouselNext />
-                </Carousel>
-              </div>
+                    </div>
+                  </CarouselItem>
+                  <CarouselItem className="flex flex-col items-center justify-center gap-4">
+                    <Image
+                      alt="step9"
+                      src={IMG_REGISTRATIN_STEP9}
+                      width={491}
+                      height={89}
+                      className="w-full"
+                      priority={true}
+                    />
+                    <div className="px-10">
+                      <FormField
+                        control={form.control}
+                        name="read_tos"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>
+                                <Link
+                                  className="hover:opacity-70"
+                                  href="https://app.termly.io/document/terms-of-service/71d95c2f-d6eb-4e3c-b480-9f0b9bb87830"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {" "}
+                                  I have read & agree to the Terms of Service
+                                </Link>
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="read_privacy"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>
+                                <Link
+                                  className="hover:opacity-70"
+                                  href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  I have read & agree to the Privacy Policy
+                                </Link>
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="read_earlyaccess"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row space-x-3 space-y-0 p-4">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>I accept that this is Early Access</FormLabel>
+                              <FormDescription>
+                                Things (even if purchased with real money) may radically
+                                change.
+                              </FormDescription>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="w-full px-10">
+                      <Button
+                        id="create"
+                        type="submit"
+                        className="w-full animate-[wiggle_1s_ease-in-out_infinite]"
+                        decoration="gold"
+                        size="xl"
+                        animation="pulse"
+                      >
+                        <MonitorPlay className="mr-2 h-7 w-7" />
+                        Create & Start
+                      </Button>
+                    </div>
+                  </CarouselItem>
+                </CarouselContent>
+                <CarouselPrevious className="animate-[wiggle_1s_ease-in-out_infinite]" />
+                <CarouselNext className="animate-[wiggle_1s_ease-in-out_infinite]" />
+              </Carousel>
             </form>
           </Form>
 
-          <p className="text-center text-xl opacity-30 font-bold">
+          <p className="text-center text-lg italic opacity-30 font-bold m-2">
             Step {current} / {count}
           </p>
         </>

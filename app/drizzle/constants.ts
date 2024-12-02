@@ -539,6 +539,25 @@ export const ID_ANIMATION_HIT = "oh4kVNrAwF";
 export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
 // Images
+export const IMG_REGISTRATIN_STEP1 =
+  "https://utfs.io/f/Hzww9EQvYURJeKNAEEyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
+export const IMG_REGISTRATIN_STEP2 =
+  "https://utfs.io/f/Hzww9EQvYURJTOMd6Y5IU29dZYJPoOKSh5vmlqatMub3EigH";
+export const IMG_REGISTRATIN_STEP3 =
+  "https://utfs.io/f/Hzww9EQvYURJZlINOXaYQrBIUTu69nkMxWmS4ah0O7LVCp8b";
+export const IMG_REGISTRATIN_STEP4 =
+  "https://utfs.io/f/Hzww9EQvYURJqppFvGcdkOZgJQ8mGRcdx3SsWvPelyYFTt5V";
+export const IMG_REGISTRATIN_STEP5 =
+  "https://utfs.io/f/Hzww9EQvYURJ56sDpz797jl4ubX8xrRqTZasyMp2WA5eLGUP";
+export const IMG_REGISTRATIN_STEP6 =
+  "https://utfs.io/f/Hzww9EQvYURJwm1XDCT2j854CWbaITZyegfXimvd7s16cO0h";
+export const IMG_REGISTRATIN_STEP7 =
+  "https://utfs.io/f/Hzww9EQvYURJQU7pvzjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
+export const IMG_REGISTRATIN_STEP8 =
+  "https://utfs.io/f/Hzww9EQvYURJ8B9jC0rkkp45TvAnoIBa0rtCf1lbyXYjVKQ2";
+export const IMG_REGISTRATIN_STEP9 =
+  "https://utfs.io/f/Hzww9EQvYURJnjHXr3mojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+
 export const IMG_BADGE_PVPKILLS =
   "https://utfs.io/f/Hzww9EQvYURJyPU0OdukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
 export const IMG_BADGE_ARENAKILLS =
