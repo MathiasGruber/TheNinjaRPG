@@ -490,48 +490,65 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="question1"
                         render={({ field }) => (
-                          <FormItem className="">
-                            <FormLabel className="font-bold">
-                              What environment feels most like home to you?
-                            </FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shine" id="r1" />
-                                  <Label htmlFor="r1">
-                                    Sunny deserts and glowing sands.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Tsukimori" id="r2" />
-                                  <Label htmlFor="r2">
-                                    Mystic forests with ancient trees.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Glacier" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Icy mountains and snowfields.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shroud" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Rain-soaked swamps and hidden lagoons.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Current" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Windy valleys and open skies.
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
+                          <FormItem className=" flex flex-col items-center">
+                            <div>
+                              <FormLabel className="font-bold text-base sm:text-xl">
+                                What environment feels most like home to you?
+                              </FormLabel>
+                              <FormControl>
+                                <RadioGroup
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shine" id="r1" />
+                                    <Label
+                                      htmlFor="r1"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Sunny deserts and glowing sands.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Tsukimori" id="r2" />
+                                    <Label
+                                      htmlFor="r2"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Mystic forests with ancient trees.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Glacier" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Icy mountains and snowfields.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shroud" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Rain-soaked swamps and hidden lagoons.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Current" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Windy valleys and open skies.
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                            </div>
                           </FormItem>
                         )}
                       />
@@ -551,48 +568,65 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="question2"
                         render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel className="font-bold">
-                              Which element do you feel most connected to?
-                            </FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shine" id="r1" />
-                                  <Label htmlFor="r1">
-                                    Fire, for its burning passion.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Tsukimori" id="r2" />
-                                  <Label htmlFor="r2">
-                                    Earth, for its steady and grounding strength.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Glacier" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Ice, for its sharp and enduring calm.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shroud" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Water, for its adaptability and flow.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Current" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Wind, for its freedom and swiftness.
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
+                          <FormItem className=" flex flex-col items-center">
+                            <div>
+                              <FormLabel className="font-bold text-base sm:text-xl">
+                                Which element do you feel most connected to?
+                              </FormLabel>
+                              <FormControl>
+                                <RadioGroup
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shine" id="r1" />
+                                    <Label
+                                      htmlFor="r1"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Fire, for its burning passion.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Tsukimori" id="r2" />
+                                    <Label
+                                      htmlFor="r2"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Earth, for its steady and grounding strength.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Glacier" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Ice, for its sharp and enduring calm.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shroud" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Water, for its adaptability and flow.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Current" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Wind, for its freedom and swiftness.
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                            </div>
                           </FormItem>
                         )}
                       />
@@ -612,48 +646,65 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="question3"
                         render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel className="font-bold">
-                              What type of activity do you prefer?
-                            </FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shine" id="r1" />
-                                  <Label htmlFor="r1">
-                                    Harnessing the power of the sun for creation
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Tsukimori" id="r2" />
-                                  <Label htmlFor="r2">
-                                    Walking peacefully through lush nature.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Glacier" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Conquering harsh challenges with persistence.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shroud" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Embracing storms and adapting to change.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Current" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Soaring through the air and embracing speed.
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
+                          <FormItem className=" flex flex-col items-center">
+                            <div>
+                              <FormLabel className="font-bold text-base sm:text-xl">
+                                What type of activity do you prefer?
+                              </FormLabel>
+                              <FormControl>
+                                <RadioGroup
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shine" id="r1" />
+                                    <Label
+                                      htmlFor="r1"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Harnessing the power of the sun for creation
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Tsukimori" id="r2" />
+                                    <Label
+                                      htmlFor="r2"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Walking peacefully through lush nature.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Glacier" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Conquering harsh challenges with persistence.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shroud" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Embracing storms and adapting to change.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Current" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Soaring through the air and embracing speed.
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                            </div>
                           </FormItem>
                         )}
                       />
@@ -673,46 +724,65 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="question4"
                         render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel className="font-bold">
-                              How do you approach a problem?
-                            </FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shine" id="r1" />
-                                  <Label htmlFor="r1">
-                                    Dive in headfirst with fiery determination.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Tsukimori" id="r2" />
-                                  <Label htmlFor="r2">
-                                    Think it through with patience and wisdom.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Glacier" id="r3" />
-                                  <Label htmlFor="r3">Stand firm and outlast it.</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shroud" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Flow around it, adapting as needed.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Current" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Hit it from an unexpected angle.
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
+                          <FormItem className=" flex flex-col items-center">
+                            <div>
+                              <FormLabel className="font-bold text-base sm:text-xl">
+                                How do you approach a problem?
+                              </FormLabel>
+                              <FormControl>
+                                <RadioGroup
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shine" id="r1" />
+                                    <Label
+                                      htmlFor="r1"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Dive in headfirst with fiery determination.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Tsukimori" id="r2" />
+                                    <Label
+                                      htmlFor="r2"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Think it through with patience and wisdom.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Glacier" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Stand firm and outlast it.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shroud" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Flow around it, adapting as needed.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Current" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Hit it from an unexpected angle.
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                            </div>
                           </FormItem>
                         )}
                       />
@@ -732,48 +802,65 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="question5"
                         render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel className="font-bold">
-                              What kind of landscape inspires you the most?
-                            </FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shine" id="r1" />
-                                  <Label htmlFor="r1">
-                                    A desert shimmering under a blazing sun.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Tsukimori" id="r2" />
-                                  <Label htmlFor="r2">
-                                    A tranquil forest alive with spirit energy.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Glacier" id="r3" />
-                                  <Label htmlFor="r3">
-                                    A frozen peak under a starry sky
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shroud" id="r3" />
-                                  <Label htmlFor="r3">
-                                    A misty swamp buzzing with hidden life.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Current" id="r3" />
-                                  <Label htmlFor="r3">
-                                    A windswept valley under a vast, open sky.
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
+                          <FormItem className=" flex flex-col items-center">
+                            <div>
+                              <FormLabel className="font-bold text-base sm:text-xl">
+                                What kind of landscape inspires you the most?
+                              </FormLabel>
+                              <FormControl>
+                                <RadioGroup
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shine" id="r1" />
+                                    <Label
+                                      htmlFor="r1"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      A desert shimmering under a blazing sun.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Tsukimori" id="r2" />
+                                    <Label
+                                      htmlFor="r2"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      A tranquil forest alive with spirit energy.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Glacier" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      A frozen peak under a starry sky
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shroud" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      A misty swamp buzzing with hidden life.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Current" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      A windswept valley under a vast, open sky.
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                            </div>
                           </FormItem>
                         )}
                       />
@@ -793,48 +880,65 @@ const Register: React.FC = () => {
                         control={form.control}
                         name="question6"
                         render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel className="font-bold">
-                              What motivates you the most?
-                            </FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shine" id="r1" />
-                                  <Label htmlFor="r1">
-                                    The brilliance of success and glory.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Tsukimori" id="r2" />
-                                  <Label htmlFor="r2">
-                                    Harmony with the world and others.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Glacier" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Overcoming the toughest obstacles.
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Shroud" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Faith and resilience through adversity
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="Current" id="r3" />
-                                  <Label htmlFor="r3">
-                                    Freedom and the thrill of the unknown.
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
+                          <FormItem className=" flex flex-col items-center">
+                            <div>
+                              <FormLabel className="font-bold text-base sm:text-xl">
+                                What motivates you the most?
+                              </FormLabel>
+                              <FormControl>
+                                <RadioGroup
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shine" id="r1" />
+                                    <Label
+                                      htmlFor="r1"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      The brilliance of success and glory.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Tsukimori" id="r2" />
+                                    <Label
+                                      htmlFor="r2"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Harmony with the world and others.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Glacier" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Overcoming the toughest obstacles.
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Shroud" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Faith and resilience through adversity
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Current" id="r3" />
+                                    <Label
+                                      htmlFor="r3"
+                                      className="text-base sm:text-lg"
+                                    >
+                                      Freedom and the thrill of the unknown.
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                            </div>
                           </FormItem>
                         )}
                       />
@@ -864,7 +968,7 @@ const Register: React.FC = () => {
                             <div className="space-y-1 leading-none">
                               <FormLabel>
                                 <Link
-                                  className="hover:opacity-70"
+                                  className="hover:opacity-70 text-base sm:text-lg"
                                   href="https://app.termly.io/document/terms-of-service/71d95c2f-d6eb-4e3c-b480-9f0b9bb87830"
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -891,7 +995,7 @@ const Register: React.FC = () => {
                             <div className="space-y-1 leading-none">
                               <FormLabel>
                                 <Link
-                                  className="hover:opacity-70"
+                                  className="hover:opacity-70 text-base sm:text-lg"
                                   href="https://app.termly.io/document/privacy-policy/9fea0bba-1061-47c0-8f28-0f724f06cc0e"
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -915,7 +1019,9 @@ const Register: React.FC = () => {
                               />
                             </FormControl>
                             <div className="space-y-1 leading-none">
-                              <FormLabel>I accept that this is Early Access</FormLabel>
+                              <FormLabel className="text-base sm:text-lg">
+                                I accept that this is Early Access
+                              </FormLabel>
                               <FormDescription>
                                 Things (even if purchased with real money) may radically
                                 change.
