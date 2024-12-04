@@ -1,4 +1,4 @@
-FROM node:20.3-alpine3.17
+FROM node:22-alpine3.19
 
 RUN apk update && apk add bash
 RUN npm install -g pnpm
