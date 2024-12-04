@@ -59,14 +59,17 @@ export default function ConceptArt() {
 
   // Create a new image
   const { mutate: create, isPending } = api.conceptart.create.useMutation({
-    onSuccess: async (id) => {
-      promptForm.setValue("prompt", "");
-      promptForm.setValue("negative_prompt", "");
-      filterForm?.setValue("only_own", true);
-      filterForm?.setValue("sort", "Most Recent");
-      router.push(`/conceptart/${id}`);
-      await utils.conceptart.getAll.refetch();
-      await utils.profile.getUser.refetch();
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      if (result.success && result.imageId) {
+        promptForm.setValue("prompt", "");
+        promptForm.setValue("negative_prompt", "");
+        filterForm?.setValue("only_own", true);
+        filterForm?.setValue("sort", "Most Recent");
+        router.push(`/conceptart/${result.imageId}`);
+        await utils.conceptart.getAll.refetch();
+        await utils.profile.getUser.refetch();
+      }
     },
     onError: (error) => {
       console.log(error);

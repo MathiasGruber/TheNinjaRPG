@@ -331,7 +331,7 @@ export const syncImage = async (
       prediction.status = "failed";
     }
   }
-  if (prediction.status !== result.status) {
+  if (result && prediction.status !== result.status) {
     if (prediction.status === "failed") {
       await Promise.all([
         client.delete(conceptImage).where(eq(conceptImage.id, id)),

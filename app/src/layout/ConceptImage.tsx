@@ -18,6 +18,7 @@ import {
   IMG_ICON_REDDIT,
   IMG_ICON_TWITTER,
 } from "@/drizzle/constants";
+import { showMutationToast } from "@/libs/toast";
 import type { ImageWithRelations } from "@/routers/conceptart";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -44,7 +45,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
   // Create a new image
   const { mutate: check, isPending: isChecking } = api.conceptart.check.useMutation({
     onSuccess: (data, variables) => {
-      if (["starting", "processing"].includes(data.status)) {
+      if (data && ["starting", "processing"].includes(data.status)) {
         setTimeout(() => {
           check({ id: variables.id });
         }, 3000);
@@ -59,14 +60,16 @@ const ConceptImage: React.FC<InputProps> = (props) => {
 
   // Toggle emotion a new image
   const { mutate: emotion } = api.conceptart.toggleEmotion.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
+      showMutationToast(result);
       refetch();
     },
   });
 
   // Delete image
   const { mutate: remove } = api.conceptart.delete.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
+      showMutationToast(result);
       refetch();
     },
   });

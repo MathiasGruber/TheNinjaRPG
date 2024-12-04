@@ -1,5 +1,5 @@
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { serverError } from "../trpc";
+import { baseServerResponse, errorResponse } from "../trpc";
 import { sql, eq, and, isNotNull } from "drizzle-orm";
 import { userData, conceptImage, userLikes } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
@@ -26,8 +26,13 @@ export const conceptartRouter = createTRPCRouter({
     }),
   toggleEmotion: protectedProcedure
     .input(z.object({ imageId: z.string(), type: z.enum(SmileyEmotions) }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const result = await fetchImage(ctx.drizzle, input.imageId, ctx.userId);
+      // Guard
+      if (!result) return errorResponse("Image not found");
+      // Mutate
       const hasLike = result?.likes.find((like) => like.type === input.type);
       await ctx.drizzle
         .update(conceptImage)
@@ -60,25 +65,32 @@ export const conceptartRouter = createTRPCRouter({
           type: input.type,
         });
       }
-      return true;
+      return { success: true, message: "Emotion toggled" };
     }),
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const result = await fetchImage(ctx.drizzle, input.id, ctx.userId);
-      if (result.userId !== ctx.userId) {
-        throw serverError("PRECONDITION_FAILED", "Not authorized");
-      }
+      // Guard
+      if (!result) return errorResponse("Image not found");
+      if (result.userId !== ctx.userId) return errorResponse("Not authorized");
+      // Mutate
       await ctx.drizzle.delete(conceptImage).where(eq(conceptImage.id, input.id));
-      return true;
+      return { success: true, message: "Image deleted" };
     }),
   create: protectedProcedure
     .input(conceptArtPromptSchema)
+    .output(baseServerResponse.extend({ imageId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
+      // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (!user || user.reputationPoints < 1) {
-        throw serverError("PRECONDITION_FAILED", "Not enough reputation points");
+      // Guard
+      if (user.reputationPoints < 1) {
+        return errorResponse("Not enough reputation points");
       }
+      // Mutate
       const output = await txt2img({
         prompt:
           input.prompt +
@@ -103,7 +115,7 @@ export const conceptartRouter = createTRPCRouter({
           status: output.status,
         }),
       ]);
-      return output.id;
+      return { success: true, message: "Image created", imageId: output.id };
     }),
   getAll: publicProcedure
     .input(
@@ -169,7 +181,8 @@ export const conceptartRouter = createTRPCRouter({
   get: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return await fetchImage(ctx.drizzle, input.id, ctx.userId ?? "");
+      const image = await fetchImage(ctx.drizzle, input.id, ctx.userId ?? "");
+      return image || null;
     }),
 });
 
@@ -198,9 +211,6 @@ export const fetchImage = async (
       },
     },
   });
-  if (!result) {
-    throw serverError("PRECONDITION_FAILED", "Content not found");
-  }
   return result;
 };
 
