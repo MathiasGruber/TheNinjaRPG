@@ -219,7 +219,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       }
       // If success with data, then we moved
       const data = res.data;
-      if (res.success && data && pathFinder.current && origin.current) {
+      if (userData && res.success && data && pathFinder.current && origin.current) {
         // Get the path the user moved
         const target = findHex(grid.current, { x: data.longitude, y: data.latitude });
         if (!target) return;
@@ -308,7 +308,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     if (pusher) {
       const channel = pusher.subscribe(props.sector.toString());
       channel.bind("event", (data: UserData) => {
-        if (data.userId !== userData?.userId) {
+        if (data.userId && data.userId !== userData?.userId) {
           void updateUsersList(data);
         }
       });
