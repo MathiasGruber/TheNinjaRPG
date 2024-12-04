@@ -222,9 +222,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           ultimate destination for immersive ninja role-playing experiences. This
           profile is your window into {profile.username}&apos;s in-game journey,
           showcasing their ninja stats, rank, achievements, mission history,
-          affiliations, etc. Whether you're a seasoned player or a newcomer to the ninja
-          world, this profile offers a unique look at how {profile.username} has built
-          their ninja legacy within our dynamic RPG community. <br />
+          affiliations, etc. Whether you&apos;re a seasoned player or a newcomer to the
+          ninja world, this profile offers a unique look at how {profile.username} has
+          built their ninja legacy within our dynamic RPG community. <br />
           <br />
           In the ever-evolving ninja universe of The Ninja RPG, every profile tells a
           story. Explore {profile.username}&apos;s combat skills, elemental affinities,
@@ -638,7 +638,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <TabsContent value="nindo">
               <ContentBox
                 title="Nindo"
-                subtitle={`${profile.username}'s Ninja Way`}
+                subtitle={`${profile.username}&apos;s Ninja Way`}
                 initialBreak={true}
                 topRightContent={
                   <div className="flex flex-row gap-1">
