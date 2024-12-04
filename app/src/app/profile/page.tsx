@@ -43,7 +43,7 @@ export default function Profile() {
         topRightContent={
           <div className="flex flex-row gap-1">
             <Link href="/profile/recruit">
-              <Share2 className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+              <Share2 className="h-6 w-6 cursor-pointer hover:text-orange-500 animate-[wiggle_1s_ease-in-out_infinite]" />
             </Link>
             <Link href="/profile/edit">
               <Wrench className="h-6 w-6 cursor-pointer hover:text-orange-500" />
