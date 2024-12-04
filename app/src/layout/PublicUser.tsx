@@ -218,21 +218,21 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           back_href={back_href}
           initialBreak={initialBreak}
         >
-          Welcome to <b>{profile.username}</b>’s profile on The Ninja RPG, the ultimate
-          destination for immersive ninja role-playing experiences. This profile is your
-          window into {profile.username}’s in-game journey, showcasing their ninja
-          stats, rank, achievements, mission history, affiliations, etc. Whether you're
-          a seasoned player or a newcomer to the ninja world, this profile offers a
-          unique look at how {profile.username} has built their ninja legacy within our
-          dynamic RPG community. <br />
+          Welcome to <b>{profile.username}</b>&apos;s profile on The Ninja RPG, the
+          ultimate destination for immersive ninja role-playing experiences. This
+          profile is your window into {profile.username}&apos;s in-game journey,
+          showcasing their ninja stats, rank, achievements, mission history,
+          affiliations, etc. Whether you're a seasoned player or a newcomer to the ninja
+          world, this profile offers a unique look at how {profile.username} has built
+          their ninja legacy within our dynamic RPG community. <br />
           <br />
           In the ever-evolving ninja universe of The Ninja RPG, every profile tells a
-          story. Explore {profile.username}’s combat skills, elemental affinities,
-          strategic decisions, and progress through various ninja ranks. See how they’ve
-          tackled challenging missions, contributed to their clan’s strength, and
-          navigated the intricate politics of the ninja world. Profiles like this
-          highlight the creativity, strategy, and dedication that define our players’
-          adventures. <br />
+          story. Explore {profile.username}&apos;s combat skills, elemental affinities,
+          strategic decisions, and progress through various ninja ranks. See how
+          they&apos;ve tackled challenging missions, contributed to their clan&apos;s
+          strength, and navigated the intricate politics of the ninja world. Profiles
+          like this highlight the creativity, strategy, and dedication that define our
+          players&apos; adventures. <br />
           <br />
           Are you ready to start or improve your own ninja journey? Equip yourself with
           the tools you need! Dive into the comprehensive{" "}
@@ -254,27 +254,27 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             GitHub repository
           </Link>
           , where you can view the latest updates, report issues, and even contribute to
-          the game’s codebase. For detailed discussions, game tips, and debates about
-          ninja lore, visit the bustling{" "}
+          the game&apos;s codebase. For detailed discussions, game tips, and debates
+          about ninja lore, visit the bustling{" "}
           <Link className="font-bold" href="/forum">
             forums
           </Link>
           , the heart of our online ninja community.
           <br />
-          <br /> User profiles on The Ninja RPG are more than just stats; they’re a
-          reflection of each player’s unique path and impact on the game’s rich,
-          immersive world. By exploring profiles like {profile.username}’s, you can
-          learn about different playstyles, gain inspiration for your own ninja
-          character, and strategize for your next adventure. Whether you’re here to
+          <br /> User profiles on The Ninja RPG are more than just stats; they&apos;re a
+          reflection of each player&apos;s unique path and impact on the game&apos;s
+          rich, immersive world. By exploring profiles like {profile.username}&apos;s,
+          you can learn about different playstyles, gain inspiration for your own ninja
+          character, and strategize for your next adventure. Whether you&apos;re here to
           compete, collaborate, or simply learn, every page offers a wealth of insights.
           <br />
           <br />
-          Don’t forget that The Ninja RPG is always growing. New missions, challenges,
-          and features are constantly being added to enhance your gameplay experience.
-          Make sure to stay connected through our Discord server and forums to be the
-          first to hear about updates and special events. Ready to take your ninja
-          skills to the next level? Sign up today at theninja-rpg.com, start building
-          your ninja legacy, and become a legend in the ninja world.
+          Don&apos;t forget that The Ninja RPG is always growing. New missions,
+          challenges, and features are constantly being added to enhance your gameplay
+          experience. Make sure to stay connected through our Discord server and forums
+          to be the first to hear about updates and special events. Ready to take your
+          ninja skills to the next level? Sign up today at theninja-rpg.com, start
+          building your ninja legacy, and become a legend in the ninja world.
         </ContentBox>
       )}
       {/* USER STATISTICS */}
