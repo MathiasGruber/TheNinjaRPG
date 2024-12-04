@@ -20,6 +20,20 @@ export interface ContentBoxProps {
 }
 
 const ContentBox: React.FC<ContentBoxProps> = (props) => {
+  // Title to be shown
+  const title = props.back_href ? (
+    <Link
+      className="ml-1 flex flex-row items-center hover:text-orange-700"
+      onClick={() => props.onBack && props.onBack()}
+      href={props.back_href}
+    >
+      <ChevronsLeft className="h-6 w-6" />
+      {props.title}
+    </Link>
+  ) : (
+    <div>{props.title}</div>
+  );
+  // Show the content box
   return (
     <>
       {props.initialBreak && <div className="h-4"></div>}
@@ -32,22 +46,16 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
           }`}
         >
           <div className="self-start">
-            <h1 className="text-2xl font-bold text-background-foreground">
-              {props.back_href ? (
-                <Link
-                  className="ml-1 flex flex-row items-center hover:text-orange-700"
-                  onClick={() => props.onBack && props.onBack()}
-                  href={props.back_href}
-                >
-                  <ChevronsLeft className="h-6 w-6" />
-                  {props.title}
-                </Link>
-              ) : (
-                <div>{props.title}</div>
-              )}
-            </h1>
-            {props.subtitle && (
+            {props.padding ? (
+              <h2 className="text-2xl font-bold text-background-foreground">{title}</h2>
+            ) : (
+              <h1 className="text-2xl font-bold text-background-foreground">{title}</h1>
+            )}
+            {props.subtitle && !props.padding && (
               <h2 className=" text-background-foreground">{props.subtitle}</h2>
+            )}
+            {props.subtitle && props.padding && (
+              <h3 className=" text-background-foreground">{props.subtitle}</h3>
             )}
           </div>
           <div className="flex flex-row grow">
