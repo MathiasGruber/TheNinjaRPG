@@ -1,4 +1,5 @@
 import ReactHtmlParser from "react-html-parser";
+import { randomString } from "@/libs/random";
 
 /*
  * Parse HTML string into React components
@@ -6,7 +7,7 @@ import ReactHtmlParser from "react-html-parser";
  */
 export const parseHtml = (html: string) => {
   return ReactHtmlParser(html, {
-    transform: (node: { name: string; type: string }) => {
+    transform: (node: { name: string; type: string; attribs: { alt: string } }) => {
       if (
         node.type === "directive" ||
         node.type === "style" ||
@@ -18,6 +19,8 @@ export const parseHtml = (html: string) => {
         (node.type === "tag" && node.name === "head")
       ) {
         return null;
+      } else if (node.type === "tag" && node.name === "img") {
+        node.attribs.alt = randomString(10);
       }
     },
   });
