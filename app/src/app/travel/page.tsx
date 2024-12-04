@@ -60,7 +60,7 @@ export default function Travel() {
   const [targetSector, setTargetSector] = useState<number | null>(null);
 
   // Data from database
-  const { data: userData, timeDiff } = useRequiredUserData();
+  const { data: userData, timeDiff, updateUser } = useRequiredUserData();
   const { data } = api.village.getAll.useQuery(undefined, {
     enabled: !!userData,
   });
@@ -119,14 +119,14 @@ export default function Travel() {
 
   const { mutate: startGlobalMove, isPending: isStartingTravel } =
     api.travel.startGlobalMove.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success && data.sector) {
-          await utils.profile.getUser.invalidate();
+      onSuccess: async (result) => {
+        showMutationToast(result);
+        if (result.success && result.data) {
+          await updateUser(result.data);
           setShowModal(false);
           setActiveTab(globalLink);
           if (globe) {
-            setCurrentTile(globe.tiles[data.sector]!);
+            setCurrentTile(globe.tiles[result.data.sector]!);
           }
         }
       },
@@ -134,10 +134,10 @@ export default function Travel() {
 
   const { mutate: finishGlobalMove, isPending: isFinishingTravel } =
     api.travel.finishGlobalMove.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
+      onSuccess: async (result) => {
+        showMutationToast(result);
+        if (result.success) {
+          await updateUser({ status: "AWAKE", travelFinishAt: null });
           setActiveTab(sectorLink);
         }
       },

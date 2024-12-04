@@ -76,7 +76,8 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 
 export default function Training() {
   // Ensure user is in village
-  const { userData, timeDiff, access } = useRequireInVillage("/traininggrounds");
+  const { userData, timeDiff, access, updateUser } =
+    useRequireInVillage("/traininggrounds");
 
   // While loading userdata
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -88,9 +89,11 @@ export default function Training() {
   // Show components if we have user
   return (
     <>
-      <StatsTraining userData={userData} timeDiff={timeDiff} />
-      <JutsuTraining userData={userData} timeDiff={timeDiff} />
-      {showSenseiSystem && <SenseiSystem userData={userData} timeDiff={timeDiff} />}
+      <StatsTraining userData={userData} timeDiff={timeDiff} updateUser={updateUser} />
+      <JutsuTraining userData={userData} timeDiff={timeDiff} updateUser={updateUser} />
+      {showSenseiSystem && (
+        <SenseiSystem userData={userData} timeDiff={timeDiff} updateUser={updateUser} />
+      )}
     </>
   );
 }
@@ -98,6 +101,7 @@ export default function Training() {
 interface TrainingProps {
   userData: NonNullable<UserWithRelations>;
   timeDiff: number;
+  updateUser: (data: Partial<UserWithRelations>) => Promise<void>;
 }
 
 /**
@@ -326,7 +330,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
  */
 const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Settings
-  const { userData, timeDiff } = props;
+  const { userData, updateUser, timeDiff } = props;
   const efficiency = trainEfficiency(userData);
   const showCaptcha = userData && showTrainingCapcha(userData);
 
@@ -342,31 +346,39 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
   // Mutations
   const { mutate: startTraining, isPending: isStarting } =
     api.train.startTraining.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
+      onSuccess: async (result) => {
+        showMutationToast(result);
+        if (result.success && result.data) {
+          await updateUser(result.data);
         }
       },
     });
 
   const { mutate: stopTraining, isPending: isStopping } =
     api.train.stopTraining.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
+      onSuccess: async (result) => {
+        showMutationToast(result);
         await utils.misc.getCaptcha.invalidate();
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
+        if (result.success && result.data) {
+          await updateUser({
+            currentlyTraining: null,
+            trainingStartedAt: null,
+            experience: result.data.experience,
+            dailyTrainings: userData.dailyTrainings + 1,
+            [result.data.currentlyTraining]:
+              userData[result.data.currentlyTraining] + result.data.experience,
+            questData: result.data.questData,
+          });
         }
       },
     });
 
   const { mutate: changeSpeed, isPending: isChaning } =
     api.train.updateTrainingSpeed.useMutation({
-      onSuccess: async (data) => {
+      onSuccess: async (data, variables) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.profile.getUser.invalidate();
+          await updateUser({ trainingSpeed: variables.speed });
         }
       },
     });
@@ -557,7 +569,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
  */
 const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // Settings
-  const { userData, timeDiff } = props;
+  const { userData, updateUser, timeDiff } = props;
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -603,10 +615,10 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // Mutations
   const { mutate: train, isPending: isStartingTrain } =
     api.jutsu.startTraining.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
+      onSuccess: async (result) => {
+        showMutationToast(result);
+        if (result.success && result.data) {
+          await updateUser(result.data);
         }
         await utils.jutsu.getUserJutsus.invalidate();
       },
@@ -621,9 +633,6 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     api.jutsu.stopTraining.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
-        }
         await utils.jutsu.getUserJutsus.invalidate();
       },
       onSettled: () => {

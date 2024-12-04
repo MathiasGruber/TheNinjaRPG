@@ -174,7 +174,17 @@ export const hospitalRouter = createTRPCRouter({
   // Pay to heal & get out of hospital
   heal: protectedProcedure
     .input(z.object({ villageId: z.string().nullish() }))
-    .output(baseServerResponse.extend({ cost: z.number().optional() }))
+    .output(
+      baseServerResponse.extend({
+        data: z
+          .object({
+            curHealth: z.number(),
+            money: z.number(),
+            regenAt: z.date(),
+          })
+          .optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Query
       const [user, structures] = await Promise.all([
@@ -226,7 +236,15 @@ export const hospitalRouter = createTRPCRouter({
         void updateUserOnMap(pusher, user.sector, user);
       }
       if (result.rowsAffected === 1) {
-        return { success: true, message: "You have been healed", cost };
+        return {
+          success: true,
+          message: "You have been healed",
+          data: {
+            curHealth: user.maxHealth,
+            money: user.money - cost,
+            regenAt: new Date(),
+          },
+        };
       } else {
         const latestUser = await fetchUser(ctx.drizzle, ctx.userId);
         if (latestUser.status !== "HOSPITALIZED") {

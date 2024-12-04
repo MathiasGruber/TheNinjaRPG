@@ -66,7 +66,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Data from the DB
   const setBattleAtom = useSetAtom(userBattleAtom);
-  const { data: userData, pusher, timeDiff } = useRequiredUserData();
+  const { data: userData, pusher, timeDiff, updateUser } = useRequiredUserData();
   const [statDistribution] = useLocalStorage<StatSchemaType | undefined>(
     "statDistribution",
     undefined,
@@ -115,18 +115,22 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Mutation for starting a fight
   const { mutate: startArenaBattle } = api.combat.startArenaBattle.useMutation({
-    onSuccess: async (data) => {
-      if (data.success) {
+    onSuccess: async (result) => {
+      if (result.success && result.battleId) {
         showMutationToast({
-          success: data.success,
+          success: result.success,
           message: "You enter the arena again",
         });
         setBattleAtom(undefined);
         setBattleState({ battle: undefined, result: null, isPending: true });
+        await updateUser({
+          status: "BATTLE",
+          battleId: result.battleId,
+          updatedAt: new Date(),
+        });
         await utils.combat.getBattle.invalidate();
-        await utils.profile.getUser.invalidate();
       } else {
-        showMutationToast(data);
+        showMutationToast(result);
       }
     },
   });

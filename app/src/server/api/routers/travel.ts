@@ -15,6 +15,7 @@ import { fetchSectorVillage } from "@/routers/village";
 import { findRelationship } from "@/utils/alliance";
 import { structureBoost } from "@/utils/village";
 import * as map from "@/data/hexasphere.json";
+import { UserStatuses } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { GlobalMapData } from "@/libs/travel/types";
 
@@ -77,7 +78,17 @@ export const travelRouter = createTRPCRouter({
   // Initiate travel on the globe
   startGlobalMove: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
-    .output(baseServerResponse.extend({ sector: z.number().optional() }))
+    .output(
+      baseServerResponse.extend({
+        data: z
+          .object({
+            sector: z.number(),
+            travelFinishAt: z.date(),
+            status: z.enum(UserStatuses),
+          })
+          .optional(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (!isAtEdge({ x: user.longitude, y: user.latitude })) {
@@ -105,7 +116,11 @@ export const travelRouter = createTRPCRouter({
         user.status = "TRAVEL";
         user.travelFinishAt = endTime;
         void updateUserOnMap(pusher, user.sector, user);
-        return { success: true, message: "OK", sector: user.sector };
+        return {
+          success: true,
+          message: "OK",
+          data: { sector: input.sector, travelFinishAt: endTime, status: "TRAVEL" },
+        };
       } else {
         const userData = await fetchUser(ctx.drizzle, ctx.userId);
         if (userData.status !== "AWAKE") {

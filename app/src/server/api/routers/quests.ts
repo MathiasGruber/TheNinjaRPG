@@ -31,6 +31,7 @@ import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
 import { questFilteringSchema } from "@/validators/quest";
 import { hideQuestInformation, filterHiddenAndExpiredQuest } from "@/libs/quest";
+import { QuestTracker } from "@/validators/objectives";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
@@ -613,7 +614,14 @@ export const questsRouter = createTRPCRouter({
       };
     }),
   checkLocationQuest: protectedProcedure
-    .output(z.object({ success: z.boolean(), notifications: z.array(z.string()) }))
+    .output(
+      z.object({
+        success: z.boolean(),
+        notifications: z.array(z.string()),
+        questData: z.array(QuestTracker).optional(),
+        updateAt: z.date().optional(),
+      }),
+    )
     .mutation(async ({ ctx }) => {
       // Fetch
       const { user } = await fetchUpdatedUser({
@@ -702,7 +710,12 @@ export const questsRouter = createTRPCRouter({
                 : Promise.resolve(),
             ],
           ]);
-          return { success: true, notifications };
+          return {
+            success: true,
+            notifications,
+            questData: user.questData,
+            updateAt: new Date(),
+          };
         }
       }
       return { success: false, notifications };

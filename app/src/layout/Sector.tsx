@@ -83,7 +83,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const utils = api.useUtils();
 
   // Data from db
-  const { data: userData, pusher } = useRequiredUserData();
+  const { data: userData, pusher, updateUser } = useRequiredUserData();
   const { data } = api.travel.getSectorData.useQuery(
     { sector: sector },
     { enabled: sector !== undefined },
@@ -141,15 +141,17 @@ const Sector: React.FC<SectorProps> = (props) => {
   };
 
   const { mutate: checkQuest } = api.quests.checkLocationQuest.useMutation({
-    onSuccess: async (data) => {
-      if (data.success) {
-        data.notifications.forEach((notification) => {
+    onSuccess: async (result) => {
+      if (result.success) {
+        result.notifications.forEach((notification) => {
           showMutationToast({
             success: true,
             message: notification,
           });
         });
-        await utils.profile.getUser.invalidate();
+        if (result.questData && result.updateAt) {
+          await updateUser({ questData: result.questData, updatedAt: result.updateAt });
+        }
         await utils.item.getUserItems.invalidate();
       }
     },
@@ -238,7 +240,12 @@ const Sector: React.FC<SectorProps> = (props) => {
           setPosition({ x: tile.col, y: tile.row });
           setMoves((prev) => prev + 1);
           if (data.location !== userData?.location) {
-            await utils.profile.getUser.invalidate();
+            await updateUser({
+              location: data.location,
+              updatedAt: new Date(),
+              longitude: tile.col,
+              latitude: tile.row,
+            });
           }
           await sleep(50);
         }
@@ -275,7 +282,11 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { mutate: attack, isPending: isAttacking } = api.combat.attackUser.useMutation({
     onSuccess: async (data) => {
       if (data.success) {
-        await utils.profile.getUser.invalidate();
+        await updateUser({
+          status: "BATTLE",
+          battleId: data.battleId,
+          updatedAt: new Date(),
+        });
       } else {
         showMutationToast({
           success: false,
@@ -593,7 +604,6 @@ const Sector: React.FC<SectorProps> = (props) => {
         if (sceneRef.contains(renderer.domElement)) {
           sceneRef.removeChild(renderer.domElement);
         }
-        void utils.profile.getUser.invalidate();
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -15,13 +15,23 @@ import { showTrainingCapcha } from "@/libs/captcha";
 import { structureBoost } from "@/utils/village";
 import { validateCaptcha } from "@/routers/misc";
 import { fetchUpdatedUser } from "@/routers/profile";
+import { QuestTracker } from "@/validators/objectives";
 import { MAX_DAILY_TRAININGS } from "@/drizzle/constants";
 
 export const trainRouter = createTRPCRouter({
   // Start training of a specific attribute
   startTraining: protectedProcedure
     .input(z.object({ stat: z.enum(UserStatNames) }))
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        data: z
+          .object({
+            currentlyTraining: z.enum(UserStatNames),
+            trainingStartedAt: z.date(),
+          })
+          .optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Query
       const { user } = await fetchUpdatedUser({
@@ -48,12 +58,10 @@ export const trainRouter = createTRPCRouter({
         );
       }
       // Mutate
+      const data = { trainingStartedAt: new Date(), currentlyTraining: input.stat };
       const result = await ctx.drizzle
         .update(userData)
-        .set({
-          trainingStartedAt: new Date(),
-          currentlyTraining: input.stat,
-        })
+        .set(data)
         .where(
           and(
             eq(userData.userId, ctx.userId),
@@ -64,13 +72,23 @@ export const trainRouter = createTRPCRouter({
       if (result.rowsAffected === 0) {
         return errorResponse("You are already training");
       } else {
-        return { success: true, message: `Started training` };
+        return { success: true, message: `Started training`, data };
       }
     }),
   // Stop training
   stopTraining: protectedProcedure
     .input(z.object({ guess: z.string().optional() }))
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        data: z
+          .object({
+            experience: z.number(),
+            currentlyTraining: z.enum(UserStatNames),
+            questData: z.array(QuestTracker),
+          })
+          .optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Query
       const { user, settings } = await fetchUpdatedUser({
@@ -189,6 +207,11 @@ export const trainRouter = createTRPCRouter({
         return {
           success: true,
           message: `You gained ${trainingAmount} ${user.currentlyTraining}`,
+          data: {
+            experience: trainingAmount,
+            currentlyTraining: user.currentlyTraining,
+            questData: user.questData,
+          },
         };
       }
     }),

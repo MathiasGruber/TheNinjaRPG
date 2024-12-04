@@ -44,16 +44,13 @@ export default function Bank() {
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
   // User data
-  const { userData, access } = useRequireInVillage("/bank");
+  const { userData, updateUser, access } = useRequireInVillage("/bank");
   const money = userData?.money ?? 0;
   const bank = userData?.bank ?? 0;
 
   // Current interest
   const boost = structureBoost("bankInterestPerLvl", userData?.village?.structures);
   const interest = calcBankInterest(boost);
-
-  // tRPC utils
-  const utils = api.useUtils();
 
   // Schemas
   const fromPocketSchema = z.object({
@@ -78,8 +75,11 @@ export default function Bank() {
   const { mutate: toBank, isPending: l1 } = api.bank.toBank.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      if (data.success) {
-        await utils.profile.getUser.invalidate();
+      if (data.success && data.data) {
+        await updateUser({
+          bank: data.data.bank,
+          money: data.data.money,
+        });
         toBankForm.reset();
       }
     },
@@ -88,8 +88,11 @@ export default function Bank() {
   const { mutate: toPocket, isPending: l2 } = api.bank.toPocket.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      if (data.success) {
-        await utils.profile.getUser.invalidate();
+      if (data.success && data.data) {
+        await updateUser({
+          bank: data.data.bank,
+          money: data.data.money,
+        });
         toPocketForm.reset();
       }
     },
@@ -98,8 +101,10 @@ export default function Bank() {
   const { mutate: transfer, isPending: l3 } = api.bank.transfer.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      if (data.success) {
-        await utils.profile.getUser.invalidate();
+      if (data.success && data.data) {
+        await updateUser({
+          bank: data.data.bank,
+        });
         toUserForm.reset();
       }
     },

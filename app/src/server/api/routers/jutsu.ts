@@ -20,6 +20,7 @@ import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { JUTSU_MAX_RESIDUAL_EQUIPPED } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { jutsuFilteringSchema } from "@/validators/jutsu";
+import { QuestTracker } from "@/validators/objectives";
 import type { JutsuFilteringSchema } from "@/validators/jutsu";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -289,7 +290,13 @@ export const jutsuRouter = createTRPCRouter({
   // Start training a given jutsu
   startTraining: protectedProcedure
     .input(z.object({ jutsuId: z.string() }))
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        data: z
+          .object({ money: z.number(), questData: z.array(QuestTracker).nullable() })
+          .optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Fetch
       const [data, info, userjutsus] = await Promise.all([
@@ -367,7 +374,11 @@ export const jutsuRouter = createTRPCRouter({
               : 0,
         });
       }
-      return { success: true, message: `You started training: ${info.name}` };
+      return {
+        success: true,
+        message: `You started training: ${info.name}`,
+        data: { money: user.money - trainCost, questData },
+      };
     }),
   // Stop training jutsu
   stopTraining: protectedProcedure

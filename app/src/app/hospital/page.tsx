@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Clock, FastForward, Hand } from "lucide-react";
 import Countdown from "@/layout/Countdown";
@@ -23,7 +22,8 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 
 export default function Hospital() {
   // Settings
-  const { userData, access, timeDiff, updateUser } = useRequireInVillage("/hospital");
+  const { userData, notifications, access, timeDiff, updateUser, updateNotifications } =
+    useRequireInVillage("/hospital");
   const isHospitalized = userData?.status === "HOSPITALIZED";
 
   // Hospital name
@@ -31,23 +31,21 @@ export default function Hospital() {
     ? userData.village.name + " Hospital"
     : "Hospital";
 
-  const util = api.useUtils();
-
-  // Settings
-
-  // Router for forwarding
-  const router = useRouter();
-
   // Current interest
   const boost = structureBoost("hospitalSpeedupPerLvl", userData?.village?.structures);
 
   // Mutations
   const { mutate: heal, isPending } = api.hospital.heal.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await util.profile.getUser.invalidate();
-        router.push("/profile");
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      if (result.success && result.data) {
+        await updateNotifications(notifications?.filter((n) => n.href !== "/hospital"));
+        await updateUser({
+          curHealth: result.data.curHealth,
+          money: result.data.money,
+          regenAt: result.data.regenAt,
+          status: "AWAKE",
+        });
       }
     },
   });
@@ -204,70 +202,78 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
     refetchInterval: 5000,
     enabled: !!userData,
   });
-  const allHospitalized = hospitalized?.filter((user) => calcIsInVillage({x: user.longitude, y: user.latitude}) === true).map((user) => {
-    const missingHealth = user.maxHealth - user.curHealth;
-    return {
-      ...user,
-      info: (
-        <div>
-          {user.username}
-          <span className="hidden sm:inline">
-            , Lvl. {user.level} {user.rank}
-          </span>
-          <StatusBar
-            title="HP"
-            tooltip="Health"
-            color="bg-red-500"
-            showText={true}
-            lastRegenAt={user.userId === userData.userId ? userData.regenAt : undefined}
-            regen={user.userId === userData.userId ? userData.regeneration : undefined}
-            status={user.status}
-            current={user.curHealth}
-            total={user.maxHealth}
-            timeDiff={timeDiff}
-          />
-        </div>
-      ),
-      btns: (
-        <div className="grid grid-cols-2 gap-1">
-          <Button
-            role="combobox"
-            disabled={user.maxHealth * 0.25 > maxHeal}
-            onClick={() => userHeal({ userId: user.userId, healPercentage: 25 })}
-          >
-            25%
-          </Button>
-          <Button
-            role="combobox"
-            disabled={
-              user.maxHealth * 0.5 > maxHeal || missingHealth <= 0.25 * user.maxHealth
-            }
-            onClick={() => userHeal({ userId: user.userId, healPercentage: 50 })}
-          >
-            50%
-          </Button>
-          <Button
-            role="combobox"
-            disabled={
-              user.maxHealth * 0.75 > maxHeal || missingHealth <= 0.5 * user.maxHealth
-            }
-            onClick={() => userHeal({ userId: user.userId, healPercentage: 75 })}
-          >
-            75%
-          </Button>
-          <Button
-            role="combobox"
-            disabled={
-              user.maxHealth * 1.0 > maxHeal || missingHealth <= 0.75 * user.maxHealth
-            }
-            onClick={() => userHeal({ userId: user.userId, healPercentage: 100 })}
-          >
-            100%
-          </Button>
-        </div>
-      ),
-    };
-  });
+  const allHospitalized = hospitalized
+    ?.filter(
+      (user) => calcIsInVillage({ x: user.longitude, y: user.latitude }) === true,
+    )
+    .map((user) => {
+      const missingHealth = user.maxHealth - user.curHealth;
+      return {
+        ...user,
+        info: (
+          <div>
+            {user.username}
+            <span className="hidden sm:inline">
+              , Lvl. {user.level} {user.rank}
+            </span>
+            <StatusBar
+              title="HP"
+              tooltip="Health"
+              color="bg-red-500"
+              showText={true}
+              lastRegenAt={
+                user.userId === userData.userId ? userData.regenAt : undefined
+              }
+              regen={
+                user.userId === userData.userId ? userData.regeneration : undefined
+              }
+              status={user.status}
+              current={user.curHealth}
+              total={user.maxHealth}
+              timeDiff={timeDiff}
+            />
+          </div>
+        ),
+        btns: (
+          <div className="grid grid-cols-2 gap-1">
+            <Button
+              role="combobox"
+              disabled={user.maxHealth * 0.25 > maxHeal}
+              onClick={() => userHeal({ userId: user.userId, healPercentage: 25 })}
+            >
+              25%
+            </Button>
+            <Button
+              role="combobox"
+              disabled={
+                user.maxHealth * 0.5 > maxHeal || missingHealth <= 0.25 * user.maxHealth
+              }
+              onClick={() => userHeal({ userId: user.userId, healPercentage: 50 })}
+            >
+              50%
+            </Button>
+            <Button
+              role="combobox"
+              disabled={
+                user.maxHealth * 0.75 > maxHeal || missingHealth <= 0.5 * user.maxHealth
+              }
+              onClick={() => userHeal({ userId: user.userId, healPercentage: 75 })}
+            >
+              75%
+            </Button>
+            <Button
+              role="combobox"
+              disabled={
+                user.maxHealth * 1.0 > maxHeal || missingHealth <= 0.75 * user.maxHealth
+              }
+              onClick={() => userHeal({ userId: user.userId, healPercentage: 100 })}
+            >
+              100%
+            </Button>
+          </div>
+        ),
+      };
+    });
   type HospitalizedUser = ArrayElement<typeof allHospitalized>;
 
   // Table setup

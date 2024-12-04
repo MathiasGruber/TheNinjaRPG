@@ -10,7 +10,11 @@ import { RYO_CAP } from "@/drizzle/constants";
 export const bankRouter = createTRPCRouter({
   toBank: protectedProcedure
     .input(z.object({ amount: z.number().min(0) }))
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        data: z.object({ bank: z.number(), money: z.number() }).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -33,11 +37,19 @@ export const bankRouter = createTRPCRouter({
       if (result.rowsAffected === 0) {
         return { success: false, message: "Not enough money in pocket" };
       }
-      return { success: true, message: `Successfully deposited ${value} ryo` };
+      return {
+        success: true,
+        message: `Successfully deposited ${value} ryo`,
+        data: { bank: user.bank + value, money: user.money - value },
+      };
     }),
   toPocket: protectedProcedure
     .input(z.object({ amount: z.number().min(0) }))
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        data: z.object({ bank: z.number(), money: z.number() }).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -60,11 +72,19 @@ export const bankRouter = createTRPCRouter({
       if (result.rowsAffected === 0) {
         return { success: false, message: "Not enough money in bank" };
       }
-      return { success: true, message: `Successfully withdrew ${value} ryo` };
+      return {
+        success: true,
+        message: `Successfully withdrew ${value} ryo`,
+        data: { bank: user.bank - value, money: user.money + value },
+      };
     }),
   transfer: protectedProcedure
     .input(z.object({ amount: z.number().min(0), targetId: z.string() }))
-    .output(baseServerResponse)
+    .output(
+      baseServerResponse.extend({
+        data: z.object({ bank: z.number() }).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Query
       const [target, user] = await Promise.all([
@@ -99,6 +119,7 @@ export const bankRouter = createTRPCRouter({
       return {
         success: true,
         message: `Successfully transferred ${value} ryo to ${target.username}`,
+        data: { bank: user.bank - value },
       };
     }),
   getGraph: protectedProcedure.query(async ({ ctx }) => {

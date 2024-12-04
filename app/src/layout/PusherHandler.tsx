@@ -15,6 +15,7 @@ export type UserEvent = {
   message?: string;
   route?: string;
   routeText?: string;
+  battleId?: string;
 };
 
 export const usePusherHandler = (userId?: string | null) => {
@@ -56,8 +57,24 @@ export const usePusherHandler = (userId?: string | null) => {
       const channel = pusher.subscribe(userId);
       channel.bind("event", async (data: UserEvent) => {
         if (data.type === "battle") {
-          await utils.profile.getUser.invalidate();
-          router.push("/combat");
+          if (data?.battleId) {
+            // NOTE: for some reason using updateUser does not work from this hook
+            await utils.profile.getUser.cancel();
+            utils.profile.getUser.setData(undefined, (old) => {
+              return {
+                ...old,
+                userData: {
+                  ...old?.userData,
+                  ...{
+                    status: "BATTLE",
+                    battleId: data.battleId,
+                    updatedAt: new Date(),
+                  },
+                },
+              } as typeof old;
+            });
+            router.push("/combat");
+          }
         } else if (data.type === "newInbox") {
           if (!pathname.includes("/inbox")) {
             showMutationToast({

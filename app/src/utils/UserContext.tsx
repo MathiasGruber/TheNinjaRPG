@@ -39,6 +39,10 @@ export const UserContext = createContext<{
   timeDiff: number;
   userId: string | null | undefined;
   isClerkLoaded: boolean;
+  updateUser: (data: Partial<UserWithRelations>) => Promise<void>;
+  updateNotifications: (
+    notifications: NavBarDropdownLink[] | undefined,
+  ) => Promise<void>;
 }>({
   data: undefined,
   notifications: undefined,
@@ -47,6 +51,12 @@ export const UserContext = createContext<{
   timeDiff: 0,
   userId: null,
   isClerkLoaded: false,
+  updateUser: async () => {
+    // do nothing
+  },
+  updateNotifications: async () => {
+    // do nothing
+  },
 });
 
 /**
@@ -68,12 +78,33 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
   // Listen on user channel for live updates on things
   const pusher = usePusherHandler(userId);
 
+  // tRPC utility
+  const utils = api.useUtils();
+
   // Get user data
   const { data: data, status: userStatus } = api.profile.getUser.useQuery(undefined, {
     enabled: !!userId && isSignedIn && isLoaded,
     retry: false,
     refetchInterval: 300000,
   });
+
+  // Optimistic user info update function
+  const updateUser = async (updatedData: Partial<UserWithRelations>) => {
+    await utils.profile.getUser.cancel();
+    utils.profile.getUser.setData(undefined, (old) => {
+      return { ...old, userData: { ...old?.userData, ...updatedData } } as typeof old;
+    });
+  };
+
+  // Optimistic notification update function
+  const updateNotifications = async (
+    notifications: NavBarDropdownLink[] | undefined,
+  ) => {
+    await utils.profile.getUser.cancel();
+    utils.profile.getUser.setData(undefined, (old) => {
+      return { ...old, notifications } as typeof old;
+    });
+  };
 
   // Time diff setting
   useEffect(() => {
@@ -92,7 +123,8 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
       // e.g. in the battle system
       setTimeDiff(discrepancy);
     }
-  }, [data?.userData, data?.serverTime]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.serverTime]);
 
   // Show user notifications in toast
   useEffect(() => {
@@ -117,6 +149,8 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
         timeDiff: timeDiff,
         userId: userId,
         isClerkLoaded: isLoaded,
+        updateUser: updateUser,
+        updateNotifications: updateNotifications,
       }}
     >
       {props.children}
@@ -133,8 +167,6 @@ export const useUserData = () => {
 export const useRequiredUserData = () => {
   // Router for redirection
   const router = useRouter();
-  // tRPC utility
-  const utils = api.useUtils();
   // Get auth information
   const { isLoaded, isSignedIn } = useUser();
   // Get user information
@@ -147,15 +179,9 @@ export const useRequiredUserData = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, data, isLoaded, isSignedIn]);
-  // Optimistic user info update function
-  const updateUser = async (updatedData: Partial<UserWithRelations>) => {
-    await utils.profile.getUser.cancel();
-    utils.profile.getUser.setData(undefined, (old) => {
-      return { ...old, userData: { ...old?.userData, ...updatedData } } as typeof old;
-    });
-  };
-  // Return state and update function
-  return { ...info, updateUser };
+
+  // Return state
+  return info;
 };
 
 /**
@@ -167,7 +193,13 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
   // Access state
   const [access, setAccess] = useState<boolean>(false);
   // Get user information
-  const { data: userData, timeDiff, updateUser } = useRequiredUserData();
+  const {
+    data: userData,
+    notifications,
+    timeDiff,
+    updateUser,
+    updateNotifications,
+  } = useRequiredUserData();
   // Get sector information based on user data
   const { data: sectorVillage, isPending } = api.travel.getVillageInSector.useQuery(
     { sector: userData?.sector ?? -1, isOutlaw: userData?.isOutlaw ?? false },
@@ -197,5 +229,14 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
       }
     }
   }, [userData, sectorVillage, router, isPending, structureRoute, ownVillage]);
-  return { userData, updateUser, sectorVillage, ownVillage, timeDiff, access };
+  return {
+    userData,
+    notifications,
+    updateUser,
+    updateNotifications,
+    sectorVillage,
+    ownVillage,
+    timeDiff,
+    access,
+  };
 };
