@@ -406,7 +406,7 @@ export const USER_CAPS: {
 } as const;
 
 // Paypal shop config
-export const PAYPAL_DISCOUNT_PERCENT = 20;
+export const PAYPAL_DISCOUNT_PERCENT = 0;
 export const TRANSACTION_TYPES = ["REP_PURCHASE", "REFERRAL"] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
