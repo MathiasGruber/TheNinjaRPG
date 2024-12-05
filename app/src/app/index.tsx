@@ -48,16 +48,16 @@ export default function IndexPage({
   }, [userData, userId, userStatus]);
 
   // Guard
-  if (isLoaded && !isSignedIn)
+  if (!isSignedIn && !userData) {
     return (
       <>
         <Welcome />
         <FancyForumThreads board_name="News" initialData={initialNews} initialBreak />
       </>
     );
-
-  // If we're here, we're still fetching user data
-  return <Loader explanation="Fetching user data..." />;
+  } else {
+    return <Loader explanation="Already logged in, forwarding to profile" />;
+  }
 }
 
 const Welcome: React.FC = () => {
