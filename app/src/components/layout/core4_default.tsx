@@ -354,6 +354,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               ></div>
               <div className="w-full bg-background bg-opacity-50 md:bg-opacity-100 grow flex flex-col overflow-x-scroll min-h-[200px]">
                 <div className="p-3">{props.children}</div>
+                <div className="md:h-0 h-20"></div>
               </div>
               <div
                 className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
