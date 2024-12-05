@@ -22,6 +22,15 @@ const config = {
       "/api/trpc/[trpc]/route": ["./fonts/**"],
     },
   },
+  webpack(config) {
+    Object.defineProperty(config, "devtool", {
+      get() {
+        return "source-map";
+      },
+      set() {},
+    });
+    return config;
+  },
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -91,6 +100,7 @@ export default withSentryConfig(withBundleAnalyzer(config), {
 
   // Hides source maps from generated client bundles
   hideSourceMaps: true,
+  deleteSourceMapsAfterUpload: true,
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,

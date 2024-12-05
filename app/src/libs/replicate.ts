@@ -4,11 +4,10 @@ import { eq, sql, and, isNotNull } from "drizzle-orm";
 import { fetchImage } from "@/routers/conceptart";
 import sharp from "sharp";
 import { UTApi } from "uploadthing/server";
-import Replicate from "replicate";
 import { env } from "@/env/server.mjs";
+import Replicate, { type Prediction } from "replicate";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData, UserRank } from "@/drizzle/schema";
-import type { Prediction } from "replicate";
 
 /**
  * The prompt to be used for creating the avatar

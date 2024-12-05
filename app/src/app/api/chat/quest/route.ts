@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
   // Call LLM
   const { messages } = (await req.json()) as { messages: CoreMessage[] };
-  const result = await streamText({
+  const result = streamText({
     model: openai("gpt-4o"),
     system: `You are a helpful assistant tasked with creating new quests set in the ninja world of Seichi. 
     Your primary task is to call the function 'updateQuest' with appropriate parameters to update the quest shown to the user.

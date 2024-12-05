@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
   // Call LLM
   const { messages } = (await req.json()) as { messages: CoreMessage[] };
-  const result = await streamText({
+  const result = streamText({
     model: openai("gpt-3.5-turbo"),
     system: `You are a helpful assistant tasked with creating new bloodlines set in the ninja world of Seichi. 
     Your primary task is to call the function 'updateBloodline' with appropriate parameters to update the bloodline shown to the user.
