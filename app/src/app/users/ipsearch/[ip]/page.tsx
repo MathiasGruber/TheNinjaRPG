@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import ContentBox from "@/layout/ContentBox";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Loader from "@/layout/Loader";
@@ -11,7 +11,8 @@ import { showUserRank } from "@/libs/profile";
 import { useUserData } from "@/utils/UserContext";
 import type { ArrayElement } from "@/utils/typeutils";
 
-export default function PublicProfile({ params }: { params: { ip: string } }) {
+export default function PublicProfile(props: { params: Promise<{ ip: string }> }) {
+  const params = use(props.params);
   const { data: userData } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 

@@ -5,7 +5,7 @@ import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/_trpc/client";
-import { useEffect } from "react";
+import { useEffect, use } from "react";
 import { EditContent } from "@/layout/EditContent";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
@@ -14,7 +14,8 @@ import { BadgeValidator } from "@/validators/badge";
 import type { ZodBadgeType } from "@/validators/badge";
 import type { Badge } from "@/drizzle/schema";
 
-export default function BadgeEdit({ params }: { params: { badgeid: string } }) {
+export default function BadgeEdit(props: { params: Promise<{ badgeid: string }> }) {
+  const params = use(props.params);
   const badgeId = params.badgeid;
   const router = useRouter();
   const { data: userData } = useRequiredUserData();

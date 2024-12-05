@@ -5,7 +5,7 @@ import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
 import { nanoid } from "nanoid";
 import { api } from "@/app/_trpc/client";
-import { useEffect } from "react";
+import { useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
 import { ObjectiveFormWrapper } from "@/layout/EditContent";
@@ -20,11 +20,12 @@ import { getObjectiveSchema } from "@/validators/objectives";
 import type { ZodQuestType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
 
-export default function ManualBloodlineEdit({
-  params,
-}: {
-  params: { questid: string };
-}) {
+export default function ManualBloodlineEdit(
+  props: {
+    params: Promise<{ questid: string }>;
+  }
+) {
+  const params = use(props.params);
   // Setup
   const questId = params.questid;
   const router = useRouter();

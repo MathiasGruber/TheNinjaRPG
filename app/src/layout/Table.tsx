@@ -95,7 +95,7 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                     />
                   )}
                   {column.type === "string" && (row[column.key] as string)}
-                  {column.type === "jsx" && (row[column.key] as JSX.Element)}
+                  {column.type === "jsx" && (row[column.key] as React.ReactNode)}
                   {column.type === "capitalized" &&
                     capitalizeFirstLetter(row[column.key] as string)}
                   {column.type === "date" && (row[column.key] as Date).toLocaleString()}

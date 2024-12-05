@@ -481,7 +481,7 @@ const AllianceHall: React.FC<{
               </div>
             ))}
             {villages.map((villageRow, i) => {
-              const elements: JSX.Element[] = [
+              const elements: React.ReactNode[] = [
                 <VillageBlock key={`row-${i}`} village={villageRow} user={user} />,
               ];
               villages.map((villageCol, j) => {

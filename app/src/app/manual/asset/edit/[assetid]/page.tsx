@@ -4,7 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/_trpc/client";
-import { useEffect } from "react";
+import { useEffect, use } from "react";
 import { EditContent } from "@/layout/EditContent";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
@@ -12,7 +12,8 @@ import { useAssetEditForm } from "@/libs/asset";
 import { gameAssetValidator } from "@/validators/asset";
 import type { GameAsset } from "@/drizzle/schema";
 
-export default function AssetEdit({ params }: { params: { assetid: string } }) {
+export default function AssetEdit(props: { params: Promise<{ assetid: string }> }) {
+  const params = use(props.params);
   const assetId = params.assetid;
   const router = useRouter();
   const { data: userData } = useRequiredUserData();

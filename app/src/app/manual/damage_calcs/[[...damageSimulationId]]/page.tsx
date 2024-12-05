@@ -1,7 +1,7 @@
 "use client";
 
 import { nanoid } from "nanoid";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useForm } from "react-hook-form";
 import { useUserData } from "@/utils/UserContext";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,11 +42,12 @@ type ConfigSchema = z.infer<typeof confSchema>;
 const defaultsStats = statSchema.parse({});
 const statNames = Object.keys(defaultsStats) as (keyof typeof defaultsStats)[];
 
-export default function Simulator({
-  params,
-}: {
-  params: { damageSimulationId?: string };
-}) {
+export default function Simulator(
+  props: {
+    params: Promise<{ damageSimulationId?: string }>;
+  }
+) {
+  const params = use(props.params);
   // Fetch user data
   const { data: userData } = useUserData();
 

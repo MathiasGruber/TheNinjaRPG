@@ -1,15 +1,17 @@
-"use client";
+"use client";;
+import { use } from "react";
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { api } from "@/app/_trpc/client";
 import { UsageStats, LevelStats } from "@/layout/UsageStatistics";
 
-export default function BloodlineStatistics({
-  params,
-}: {
-  params: { bloodlineid: string };
-}) {
+export default function BloodlineStatistics(
+  props: {
+    params: Promise<{ bloodlineid: string }>;
+  }
+) {
+  const params = use(props.params);
   const bloodlineId = params.bloodlineid;
 
   // Queries

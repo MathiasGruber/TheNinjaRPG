@@ -19,7 +19,7 @@ import { openai } from "@ai-sdk/openai";
  */
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
-  cookies();
+  await cookies();
 
   // Check timer
   const frequency = 24 * 30;

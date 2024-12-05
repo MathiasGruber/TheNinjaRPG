@@ -84,7 +84,7 @@ interface EditContentProps<T, K, S extends FieldValues> {
 
 /**
  * Generic edit content component, used for creating and editing e.g. jutsu, bloodline, item, AI
- * @returns JSX.Element
+ * @returns React.ReactNode
  */
 export const EditContent = <
   T extends z.AnyZodObject,
@@ -468,7 +468,7 @@ interface EffectFormWrapperProps {
 
 /**
  * A wrapper component around EditContent for creating a form for a single tag
- * @returns JSX.Element
+ * @returns React.ReactNode
  */
 export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   // Destructure props
@@ -733,7 +733,7 @@ interface ObjectiveFormWrapperProps {
 
 /**
  * A wrapper component around EditContent for creating a form for a single tag
- * @returns JSX.Element
+ * @returns React.ReactNode
  */
 export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props) => {
   // Destructure props

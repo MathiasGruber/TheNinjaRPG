@@ -9,7 +9,7 @@ const ENDPOINT_NAME = "daily-counters";
 
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
-  cookies();
+  await cookies();
 
   // Check timer
   const timerCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME);

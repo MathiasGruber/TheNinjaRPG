@@ -545,7 +545,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
  *
  * @component
  * @param {ClanRequestsProps} props - The component props.
- * @returns {JSX.Element} The rendered component.
+ * @returns {React.ReactNode} The rendered component.
  */
 interface ClanRequestsProps {
   clanId: string;

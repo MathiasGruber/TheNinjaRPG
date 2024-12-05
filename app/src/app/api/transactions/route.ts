@@ -13,7 +13,7 @@ import { lockWithGameTimer, handleEndpointError } from "@/libs/gamesettings";
 
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
-  cookies();
+  await cookies();
 
   // Check timer
   const response = await lockWithGameTimer(drizzleDB, 1, "h", "transaction-sync");

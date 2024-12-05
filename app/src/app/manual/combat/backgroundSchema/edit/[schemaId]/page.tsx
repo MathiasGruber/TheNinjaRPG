@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,11 +28,12 @@ import { bgTypes } from "@/validators/backgroundSchema";
 import { BgSchemaValidator } from "@/validators/backgroundSchema";
 import { BackgroundSchemaValidator } from "@/validators/backgroundSchema";
 
-export default function EditBackgroundSchemaPage({
-  params,
-}: {
-  params: { schemaId: string };
-}) {
+export default function EditBackgroundSchemaPage(
+  props: {
+    params: Promise<{ schemaId: string }>;
+  }
+) {
+  const params = use(props.params);
   const router = useRouter();
   const schemaId = params.schemaId;
   const { data: userData } = useRequiredUserData();

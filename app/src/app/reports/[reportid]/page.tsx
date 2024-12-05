@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseHtml } from "@/utils/parse";
@@ -42,7 +42,8 @@ import type { ReportCommentSchema } from "@/validators/reports";
 import type { TimeUnit } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
 
-export default function Report({ params }: { params: { reportid: string } }) {
+export default function Report(props: { params: Promise<{ reportid: string }> }) {
+  const params = use(props.params);
   const { data: userData, timeDiff } = useRequiredUserData();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);

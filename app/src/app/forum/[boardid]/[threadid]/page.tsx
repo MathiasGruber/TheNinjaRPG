@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseHtml } from "@/utils/parse";
@@ -15,7 +15,8 @@ import { api } from "@/app/_trpc/client";
 import { mutateCommentSchema } from "@/validators/comments";
 import { type MutateCommentSchema } from "@/validators/comments";
 
-export default function Thread({ params }: { params: { threadid: string } }) {
+export default function Thread(props: { params: Promise<{ threadid: string }> }) {
+  const params = use(props.params);
   const limit = 10;
   const { data: userData } = useUserData();
   const [page, setPage] = useState(0);

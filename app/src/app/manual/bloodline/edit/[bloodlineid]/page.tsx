@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -20,7 +20,8 @@ import { getTagSchema } from "@/libs/combat/types";
 import type { ZodBloodlineType } from "@/libs/combat/types";
 import type { Bloodline } from "@/drizzle/schema";
 
-export default function BloodlineEdit({ params }: { params: { bloodlineid: string } }) {
+export default function BloodlineEdit(props: { params: Promise<{ bloodlineid: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const bloodlineId = params.bloodlineid;
   const { data: userData } = useRequiredUserData();

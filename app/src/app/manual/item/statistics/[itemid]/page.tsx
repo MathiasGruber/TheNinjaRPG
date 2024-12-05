@@ -1,11 +1,13 @@
-"use client";
+"use client";;
+import { use } from "react";
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { api } from "@/app/_trpc/client";
 import { UsageStats } from "@/layout/UsageStatistics";
 
-export default function ItemStatistics({ params }: { params: { itemid: string } }) {
+export default function ItemStatistics(props: { params: Promise<{ itemid: string }> }) {
+  const params = use(props.params);
   const itemId = params.itemid;
 
   // Queries

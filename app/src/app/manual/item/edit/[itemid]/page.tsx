@@ -4,7 +4,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
 import { api } from "@/app/_trpc/client";
-import { useEffect } from "react";
+import { useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
@@ -20,7 +20,8 @@ import { getTagSchema } from "@/libs/combat/types";
 import type { ZodItemType } from "@/libs/combat/types";
 import type { Item } from "@/drizzle/schema";
 
-export default function ItemEdit({ params }: { params: { itemid: string } }) {
+export default function ItemEdit(props: { params: Promise<{ itemid: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const itemId = params.itemid;
   const { data: userData } = useRequiredUserData();

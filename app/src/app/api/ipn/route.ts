@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   const body = (await req.json()) as IBody;
 
   // Verification of the webhook message
-  const headersList = headers();
+  const headersList = await headers();
   const token = await getPaypalAccessToken();
   const verification = {
     auth_algo: headersList.get("paypal-auth-algo"),

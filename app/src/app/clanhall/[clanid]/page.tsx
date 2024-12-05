@@ -1,10 +1,12 @@
-"use client";
+"use client";;
+import { use } from "react";
 
 import Loader from "@/layout/Loader";
 import { ClanProfile } from "@/layout/Clan";
 import { useRequireInVillage } from "@/utils/UserContext";
 
-export default function ClanInfo({ params }: { params: { clanid: string } }) {
+export default function ClanInfo(props: { params: Promise<{ clanid: string }> }) {
+  const params = use(props.params);
   // Get ID
   const clanId = params.clanid;
 

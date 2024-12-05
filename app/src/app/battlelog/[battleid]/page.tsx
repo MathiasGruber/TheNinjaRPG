@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, use } from "react";
 import dynamic from "next/dynamic";
 import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -11,7 +11,8 @@ import type { BattleState } from "@/libs/combat/types";
 
 const Combat = dynamic(() => import("@/layout/Combat"));
 
-export default function BattleLog({ params }: { params: { battleid: string } }) {
+export default function BattleLog(props: { params: Promise<{ battleid: string }> }) {
+  const params = use(props.params);
   // State
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [battleState, setBattleState] = useState<BattleState | undefined>(undefined);

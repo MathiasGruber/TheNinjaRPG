@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
-  cookies();
+  await cookies();
 
   try {
     const user = await drizzleDB.query.userData.findFirst({

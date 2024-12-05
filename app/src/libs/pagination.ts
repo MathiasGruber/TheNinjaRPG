@@ -13,7 +13,7 @@ export const useInfinitePagination = ({
   lastElement,
 }: Pagination) => {
   const [page, setPage] = useState(0);
-  const observer = useRef<IntersectionObserver | null>();
+  const observer = useRef<IntersectionObserver | null>(null);
 
   /**
    * Mount only once

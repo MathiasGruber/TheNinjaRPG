@@ -1,9 +1,10 @@
 import ConceptBox_ConceptImage from "./conceptimage";
 import type { Metadata } from "next";
 
-type Props = { params: { imageid: string } };
+type Props = { params: Promise<{ imageid: string }> };
 
-export function generateMetadata({ params }: Props): Metadata {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   // read route params
   const id = params.imageid;
 
@@ -39,6 +40,7 @@ export function generateMetadata({ params }: Props): Metadata {
   };
 }
 
-export default function ConceptArtImage({ params }: Props) {
+export default async function ConceptArtImage(props: Props) {
+  const params = await props.params;
   return <ConceptBox_ConceptImage imageid={params.imageid} back_href="/conceptart" />;
 }

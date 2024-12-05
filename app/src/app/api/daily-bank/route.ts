@@ -14,7 +14,7 @@ const ENDPOINT_NAME = "daily-bank";
 
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
-  cookies();
+  await cookies();
 
   // Query
   const villages = await drizzleDB.query.village.findMany({

@@ -9,9 +9,6 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import edgehandles from "cytoscape-edgehandles";
 import type { z } from "zod";
 
-// register controller in chart.js and ensure the defaults are set
-Cytoscape.use(edgehandles);
-
 interface GraphUsersGenericProps {
   hideDefault?: boolean;
   nodes: { id: string; label: string; img: string | null }[];
@@ -71,6 +68,9 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
         data: { ...e, weight: (5 * maxWeight) / e.weight, classes: "autorotate" },
       })),
   ];
+
+  // register controller in chart.js and ensure the defaults are set
+  Cytoscape.use(edgehandles);
 
   // Memo
   const graph = useMemo(() => {

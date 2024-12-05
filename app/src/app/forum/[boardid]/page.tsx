@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -29,7 +29,8 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { canModerate } from "@/utils/permissions";
 import { IMG_ICON_FORUM } from "@/drizzle/constants";
 
-export default function Board({ params }: { params: { boardid: string } }) {
+export default function Board(props: { params: Promise<{ boardid: string }> }) {
+  const params = use(props.params);
   const { data: userData } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const board_id = params.boardid;

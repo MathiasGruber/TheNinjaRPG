@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -20,7 +20,8 @@ import { getTagSchema } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";
 import type { Jutsu } from "@/drizzle/schema";
 
-export default function JutsuEdit({ params }: { params: { jutsuid: string } }) {
+export default function JutsuEdit(props: { params: Promise<{ jutsuid: string }> }) {
+  const params = use(props.params);
   const jutsuId = params.jutsuid;
 
   // State

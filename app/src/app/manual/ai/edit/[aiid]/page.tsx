@@ -5,7 +5,7 @@ import Loader from "@/layout/Loader";
 import AiProfileEdit from "@/layout/AiProfileEdit";
 import StatusBar from "@/layout/StatusBar";
 import NindoChange from "@/layout/NindoChange";
-import { useEffect } from "react";
+import { useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
@@ -21,7 +21,8 @@ import { useAiEditForm } from "@/libs/ais";
 import { showMutationToast } from "@/libs/toast";
 import type { AiWithRelations } from "@/routers/profile";
 
-export default function ManualAisEdit({ params }: { params: { aiid: string } }) {
+export default function ManualAisEdit(props: { params: Promise<{ aiid: string }> }) {
+  const params = use(props.params);
   // State
   const aiId = params.aiid;
   const router = useRouter();

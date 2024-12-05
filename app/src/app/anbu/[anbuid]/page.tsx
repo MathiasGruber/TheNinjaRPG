@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, use } from "react";
 import { parseHtml } from "@/utils/parse";
 import BanInfo from "@/layout/BanInfo";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
@@ -41,7 +41,8 @@ import type { MutateContentSchema } from "@/validators/comments";
 import type { UserNindo } from "@/drizzle/schema";
 import type { AnbuRouter } from "@/routers/anbu";
 
-export default function ANBUDetails({ params }: { params: { anbuid: string } }) {
+export default function ANBUDetails(props: { params: Promise<{ anbuid: string }> }) {
+  const params = use(props.params);
   // Get ID
   const squadId = params.anbuid;
 
@@ -404,7 +405,7 @@ const AnbuOrders: React.FC<AnbuOrdersProps> = (props) => {
  *
  * @component
  * @param {AnbuRequestsProps} props - The component props.
- * @returns {JSX.Element} The rendered component.
+ * @returns {React.ReactNode} The rendered component.
  */
 interface AnbuRequestsProps {
   squadId: string;

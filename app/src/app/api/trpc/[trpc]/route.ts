@@ -6,9 +6,9 @@ import { appRouter } from "@/api/root";
 
 export const runtime = "nodejs";
 
-const handler = (req: NextRequest) => {
-  const readCookies = cookies();
-  const readHeaders = headers();
+const handler = async (req: NextRequest) => {
+  const readCookies = await cookies();
+  const readHeaders = await headers();
 
   return fetchRequestHandler({
     endpoint: "/api/trpc",

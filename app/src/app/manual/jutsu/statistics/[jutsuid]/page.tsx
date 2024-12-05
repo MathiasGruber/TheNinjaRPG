@@ -1,11 +1,13 @@
-"use client";
+"use client";;
+import { use } from "react";
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { api } from "@/app/_trpc/client";
 import { UsageStats, LevelStats } from "@/layout/UsageStatistics";
 
-export default function JutsuStatistics({ params }: { params: { jutsuid: string } }) {
+export default function JutsuStatistics(props: { params: Promise<{ jutsuid: string }> }) {
+  const params = use(props.params);
   const jutsuId = params.jutsuid;
 
   // Queries

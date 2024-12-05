@@ -17,19 +17,8 @@ const config = {
   generateBuildId: () => process.env.VERCEL_GIT_COMMIT_SHA || "unknown",
   reactStrictMode: false,
   productionBrowserSourceMaps: true,
-  experimental: {
-    outputFileTracingIncludes: {
-      "/api/trpc/[trpc]/route": ["./fonts/**"],
-    },
-  },
-  webpack(config) {
-    Object.defineProperty(config, "devtool", {
-      get() {
-        return "source-map";
-      },
-      set() {},
-    });
-    return config;
+  outputFileTracingIncludes: {
+    "/api/trpc/[trpc]/route": ["./fonts/**"],
   },
   images: {
     unoptimized: true,
@@ -100,7 +89,11 @@ export default withSentryConfig(withBundleAnalyzer(config), {
 
   // Hides source maps from generated client bundles
   hideSourceMaps: true,
-  deleteSourceMapsAfterUpload: true,
+
+  // Sourcemaps
+  sourcemaps: {
+    deleteSourceMapsAfterUpload: true,
+  },
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,

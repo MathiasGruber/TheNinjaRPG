@@ -1,11 +1,13 @@
-"use client";
+"use client";;
+import { use } from "react";
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { api } from "@/app/_trpc/client";
 import { UsageStats } from "@/layout/UsageStatistics";
 
-export default function ManualAIsStatistcs({ params }: { params: { aiid: string } }) {
+export default function ManualAIsStatistcs(props: { params: Promise<{ aiid: string }> }) {
+  const params = use(props.params);
   const aiId = params.aiid;
 
   // Queries
