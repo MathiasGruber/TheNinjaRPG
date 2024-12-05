@@ -16,6 +16,7 @@ interface FancyForumThreadsProps {
   board_name: string;
   back_href?: string;
   initialData: Awaited<InfiniteThreads>;
+  initialBreak?: boolean;
   image?: string;
   canPost?: boolean;
 }
@@ -53,6 +54,7 @@ const FancyForumThreads: React.FC<FancyForumThreadsProps> = (props) => {
       title={board.name}
       subtitle={board.summary}
       back_href={props.back_href}
+      initialBreak={props.initialBreak}
       padding={false}
       topRightContent={
         props.canPost &&

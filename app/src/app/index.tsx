@@ -52,7 +52,7 @@ export default function IndexPage({
     return (
       <>
         <Welcome />
-        <FancyForumThreads board_name="News" initialData={initialNews} />
+        <FancyForumThreads board_name="News" initialData={initialNews} initialBreak />
       </>
     );
 

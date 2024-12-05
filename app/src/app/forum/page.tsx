@@ -19,6 +19,7 @@ export default function Forum() {
 
   const forum: React.ReactNode[] = [];
   const groups = groupBy(boards, "group");
+  let i = 0;
   groups.forEach((boards, group) => {
     const splits = group.split(":");
     forum.push(
@@ -26,6 +27,7 @@ export default function Forum() {
         <ContentBox
           title={splits?.[0] ? splits?.[0] : "Unknown"}
           subtitle={splits?.[1]}
+          initialBreak={i !== 0}
         >
           {boards.map((board) => {
             return (
@@ -61,9 +63,9 @@ export default function Forum() {
             );
           })}
         </ContentBox>
-        <br />
       </div>,
     );
+    i++;
   });
   return <div>{forum}</div>;
 }

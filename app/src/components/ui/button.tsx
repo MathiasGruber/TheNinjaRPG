@@ -93,14 +93,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {decoration === "gold" && (
           <>
             <Image
-              className="absolute top-[-1px] left-[-3px] scale-x-[-1] h-full aspect-square"
+              className="absolute top-[-1px] left-[-3px] scale-x-[-1] h-full w-auto"
               src={IMG_LAYOUT_BUTTONDECOR}
               alt="signup-decor-left"
               width={8}
               height={25}
             ></Image>
             <Image
-              className="absolute top-[-1px] right-[-3px] bottom-[0px] h-full aspect-square"
+              className="absolute top-[-1px] right-[-3px] bottom-[0px] h-full w-auto"
               src={IMG_LAYOUT_BUTTONDECOR}
               alt="signup-decor-right"
               width={8}
