@@ -46,15 +46,15 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
           }`}
         >
           <div className="self-start">
-            {props.padding ? (
+            {props.initialBreak ? (
               <h2 className="text-2xl font-bold text-background-foreground">{title}</h2>
             ) : (
               <h1 className="text-2xl font-bold text-background-foreground">{title}</h1>
             )}
-            {props.subtitle && !props.padding && (
+            {props.subtitle && !props.initialBreak && (
               <h2 className=" text-background-foreground">{props.subtitle}</h2>
             )}
-            {props.subtitle && props.padding && (
+            {props.subtitle && props.initialBreak && (
               <h3 className=" text-background-foreground">{props.subtitle}</h3>
             )}
           </div>
