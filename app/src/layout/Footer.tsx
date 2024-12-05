@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
           target="_blank"
           className="hover:text-gray-500"
         >
-          Terms of Service
+          ToS
         </Link>{" "}
         -{" "}
         <Link
@@ -18,7 +18,7 @@ const Footer: React.FC = () => {
           target="_blank"
           className="hover:text-gray-500"
         >
-          Privacy Policy
+          Privacy
         </Link>{" "}
         -{" "}
         <Link
@@ -26,11 +26,11 @@ const Footer: React.FC = () => {
           target="_blank"
           className="hover:text-gray-500"
         >
-          Cookie Policy
+          Cookies
         </Link>{" "}
         -{" "}
         <Link href="/rules" className="hover:text-gray-500">
-          Game Rules
+          Rules
         </Link>{" "}
         -{" "}
         <Link href="/staff" className="hover:text-gray-500">

@@ -17,12 +17,19 @@ import { Earth, House, MessageCircleWarning } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetHeader,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { SiGithub, SiDiscord } from "@icons-pack/react-simple-icons";
 import { api } from "@/app/_trpc/client";
 import { showUserRank } from "@/libs/profile";
 import { useUser } from "@clerk/nextjs";
 import { getCurrentSeason } from "@/utils/time";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import {
   IMG_WALLPAPER_WINTER,
   IMG_WALLPAPER_SPRING,
@@ -221,10 +228,10 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   );
 
   return (
-    <div className="w-full">
-      <div className="fixed right-5 bottom-5 z-50 bg-slate-500 rounded-full">
+    <div className="w-full absolute top-0 bottom-0 md:relative">
+      <div className="fixed right-1 bottom-1 md:right-5 md:bottom-5 z-50 bg-slate-500 rounded-full">
         <SendTicketBtn>
-          <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
+          <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-red-800 md:shadow-black border-2" />
         </SendTicketBtn>
       </div>
       {/* WALLPAPER BACKGROUND */}
@@ -238,7 +245,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         priority
         unoptimized
       />
-      <div className="max-w-[1280px] ml-auto mr-auto w-auto h-auto">
+      <div className="max-w-[1280px] ml-auto mr-auto w-full absolute top-0 bottom-0 md:relative">
         {/* LOGO */}
         <Link href="/">
           <Image
@@ -313,7 +320,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           alt="handsign"
           loading="lazy"
         />
-        <div className="relative top-[100px] md:top-[-122px] flex flex-row z-10">
+        <div className="relative top-[100px] md:top-[-122px] flex flex-row z-10 h-full">
           {/* LEFT SIDEBANNER DESKTOP */}
           <div className="hidden md:block relative w-[200px] lg:w-[250px] shrink-0">
             <div className="relative">
@@ -339,7 +346,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <StrongestUsersBanner />
           </div>
           {/* MAIN CONTENT */}
-          <div className="w-full flex-1 min-w-0 flex flex-col">
+          <div className="w-full flex-1 min-w-0 flex flex-col ">
             <div className="w-full flex flex-row">
               <div
                 className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
@@ -353,7 +360,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
               ></div>
             </div>
-            <div className="h-20 max-h-28 flex flex-col relative">
+            <div className="h-20 max-h-28 flex flex-col fixed bottom-0  w-full md:relative">
               <div className="absolute top-0 left-[-20px] right-0 md:right-[-20px] -z-30">
                 <div className="h-5 bg-gradient-to-b from-rose-950 to-rose-800"></div>
                 <div className="h-8 bg-rose-800"></div>
@@ -411,7 +418,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           </SheetTrigger>
           <SheetContent side="left">
             <SheetHeader className="text-left">
-              <SideBannerTitle>Main Menu</SideBannerTitle>
+              <SheetTitle>
+                <SideBannerTitle>Main Menu</SideBannerTitle>
+              </SheetTitle>
               <div className="mt-1 grid gap-3 grid-cols-2">
                 {navbarMenuItems.map((system, i) => {
                   return (
@@ -446,6 +455,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <Earth className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
           </SheetTrigger>
           <SheetContent onClick={() => setRightSideBarOpen(false)}>
+            <VisuallyHidden.Root>
+              <SheetTitle>Test</SheetTitle>
+            </VisuallyHidden.Root>
             <SheetHeader>{rightSideBar}</SheetHeader>
           </SheetContent>
         </Sheet>
