@@ -20,13 +20,17 @@ const Footer: React.FC = () => {
         >
           Privacy
         </Link>{" "}
-        -{" "}
+        - Cookie{" "}
         <Link
           href="https://app.termly.io/document/cookie-policy/971fe8a9-3613-41a0-86ad-8e08e7be93d7"
           target="_blank"
           className="hover:text-gray-500"
         >
-          Cookies
+          Policy
+        </Link>
+        {" / "}
+        <Link href="/conscent" className="hover:text-gray-500">
+          Conscent
         </Link>{" "}
         -{" "}
         <Link href="/rules" className="hover:text-gray-500">
