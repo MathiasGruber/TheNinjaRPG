@@ -56,7 +56,7 @@ export default function IndexPage({
       </>
     );
   } else {
-    return <Loader explanation="Already logged in, forwarding to profile" />;
+    return <Loader explanation="Forwarding to profile" />;
   }
 }
 

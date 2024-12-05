@@ -12,6 +12,7 @@ import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import SendTicketBtn from "@/layout/SendTicketButton";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { CircleUserRound, Inbox, Compass, Cog, Milk } from "lucide-react";
 import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
 import { Earth, House, MessageCircleWarning } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
@@ -231,7 +232,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
     <div className="w-full absolute top-0 bottom-0 md:relative">
       <div className="fixed right-1 bottom-1 md:right-5 md:bottom-5 z-50 bg-slate-500 rounded-full">
         <SendTicketBtn>
-          <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-red-800 md:shadow-black border-2" />
+          <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-red-800 md:shadow-black border-2  hidden md:block" />
         </SendTicketBtn>
       </div>
       {/* WALLPAPER BACKGROUND */}
@@ -347,7 +348,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           </div>
           {/* MAIN CONTENT */}
           <div className="w-full flex-1 min-w-0 flex flex-col ">
-            <div className="w-full flex flex-row">
+            <div className="w-full flex flex-row min-h-screen md:min-h-0">
               <div
                 className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
                 style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
@@ -383,9 +384,70 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 alt="rightbottomdecor"
                 loading="lazy"
               ></Image>
-              <div className="absolute top-4 left-0 right-0">
+              <div className="absolute top-4 left-0 right-0 hidden md:block">
                 <Footer />
               </div>
+              {userData ? (
+                <div className="absolute top-0 left-0 right-0 bottom-0 md:hidden grid grid-cols-5 items-center justify-center">
+                  <Link href="/profile" className="flex justify-center" prefetch={true}>
+                    <CircleUserRound className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                  </Link>
+                  <Link href="/inbox" className="flex justify-center" prefetch={true}>
+                    <Inbox className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                  </Link>
+                  {location ? (
+                    <>
+                      <Link
+                        href="/village"
+                        className="flex justify-center -top-8 relative"
+                        prefetch={true}
+                      >
+                        <div className="p-4 bg-gradient-to-b from-black/5 to-black/50 rounded-full">
+                          <House className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
+                        </div>
+                      </Link>
+                      <Link
+                        href="/travel"
+                        className="flex justify-center"
+                        prefetch={true}
+                      >
+                        <Compass className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/travel"
+                        className="flex justify-center -top-8 relative"
+                        prefetch={true}
+                      >
+                        <div className="p-4 bg-gradient-to-b from-black/5 to-black/50 rounded-full">
+                          <Compass className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
+                        </div>
+                      </Link>
+                      <Link
+                        href="/items"
+                        className="flex justify-center"
+                        prefetch={true}
+                      >
+                        <Milk className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                      </Link>
+                    </>
+                  )}
+
+                  <Link
+                    href="/profile/edit"
+                    className="flex justify-center"
+                    prefetch={true}
+                  >
+                    <Cog className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                  </Link>
+                </div>
+              ) : (
+                <div className="absolute top-4 left-0 right-0 block md:hidden">
+                  <Footer />
+                </div>
+              )}
             </div>
           </div>
           {/* RIGHT SIDEBANNER DESKTOP */}
