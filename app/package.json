@@ -72,6 +72,7 @@
     "dotenv": "^16.4.7",
     "drizzle-orm": "0.37.0",
     "drizzle-zod": "0.5.1",
+    "embla-carousel-autoplay": "^8.5.1",
     "embla-carousel-react": "^8.5.1",
     "emoji-picker-react": "^4.12.0",
     "eslint-plugin-drizzle": "^0.2.3",

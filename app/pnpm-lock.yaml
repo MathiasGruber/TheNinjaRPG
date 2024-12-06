@@ -162,6 +162,9 @@ importers:
       drizzle-zod:
         specifier: 0.5.1
         version: 0.5.1(drizzle-orm@0.37.0(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.6.1)(mysql2@3.11.5)(react@19.0.0)(types-react@19.0.0-rc.1))(zod@3.23.8)
+      embla-carousel-autoplay:
+        specifier: ^8.5.1
+        version: 8.5.1(embla-carousel@8.5.1)
       embla-carousel-react:
         specifier: ^8.5.1
         version: 8.5.1(react@19.0.0)
@@ -3414,6 +3417,11 @@ packages:
 
   electron-to-chromium@1.5.70:
     resolution: {integrity: sha512-P6FPqAWIZrC3sHDAwBitJBs7N7IF58m39XVny7DFseQXK2eiMn7nNQizFf63mWDDUnFvaqsM8FI0+ZZfLkdUGA==}
+
+  embla-carousel-autoplay@8.5.1:
+    resolution: {integrity: sha512-FnZklFpePfp8wbj177UwVaGFehgs+ASVcJvYLWTtHuYKURynCc3IdDn2qrn0E5Qpa3g9yeGwCS4p8QkrZmO8xg==}
+    peerDependencies:
+      embla-carousel: 8.5.1
 
   embla-carousel-react@8.5.1:
     resolution: {integrity: sha512-z9Y0K84BJvhChXgqn2CFYbfEi6AwEr+FFVVKm/MqbTQ2zIzO1VQri6w67LcfpVF0AjbhwVMywDZqY4alYkjW5w==}
@@ -8521,6 +8529,10 @@ snapshots:
       fast-check: 3.23.1
 
   electron-to-chromium@1.5.70: {}
+
+  embla-carousel-autoplay@8.5.1(embla-carousel@8.5.1):
+    dependencies:
+      embla-carousel: 8.5.1
 
   embla-carousel-react@8.5.1(react@19.0.0):
     dependencies:

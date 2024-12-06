@@ -539,6 +539,17 @@ export const ID_ANIMATION_HIT = "oh4kVNrAwF";
 export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
 // Images
+export const IMG_FRONTPAGE_SCREENSHOT_COMBAT =
+  "https://utfs.io/f/Hzww9EQvYURJhuLmX5MfUBdnwAX5LTajlNc4mrgzi0RJtqpM";
+export const IMG_FRONTPAGE_SCREENSHOT_JUTSUS =
+  "https://utfs.io/f/Hzww9EQvYURJAaVOt2SoZUC4muiGcQNzjfEndY5y1w20B8hT";
+export const IMG_FRONTPAGE_SCREENSHOT_GLOBAL =
+  "https://utfs.io/f/Hzww9EQvYURJvSzUp4EmSnXwslYEpV1yOeNL8gMtqhjPdf36";
+export const IMG_FRONTPAGE_SCREENSHOT_SECTOR =
+  "https://utfs.io/f/Hzww9EQvYURJXMBBarqIOpAoLKbZ4nW9Rsil2V67yuFwQhqv";
+export const IMG_FRONTPAGE_SCREENSHOT_VILLAGE =
+  "https://utfs.io/f/Hzww9EQvYURJRmBtUg0udmODoNtpa0FMcwI4k2Eq7nJhyvjl";
+
 export const IMG_REGISTRATIN_STEP1 =
   "https://utfs.io/f/Hzww9EQvYURJeKNAEEyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
 export const IMG_REGISTRATIN_STEP2 =
