@@ -44,6 +44,7 @@ import {
   IMG_ICON_GITHUB,
   IMG_ICON_GOOGLE,
   IMG_LAYOUT_NAVBAR,
+  IMG_LAYOUT_MOBILE_TOP,
   IMG_LAYOUT_NAVBAR_HALLOWEEN,
   IMG_LAYOUT_HANDSIGN,
   IMG_LAYOUT_HANDSIGN_HALLOWEEN,
@@ -353,7 +354,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
                 style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
               ></div>
-              <div className="w-full bg-background bg-opacity-50 md:bg-opacity-100 grow flex flex-col overflow-x-scroll min-h-[200px]">
+              <div className="w-full bg-background grow flex flex-col overflow-x-scroll min-h-[200px]">
+                <div
+                  className={`h-[15px] w-full shrink-0 bg-fill bg-repeat-x md:hidden`}
+                  style={{ backgroundImage: `url(${IMG_LAYOUT_MOBILE_TOP})` }}
+                ></div>
                 <div className="p-3">{props.children}</div>
                 <div className="md:h-0 h-20"></div>
               </div>

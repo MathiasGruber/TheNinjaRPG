@@ -681,6 +681,8 @@ export const IMG_LAYOUT_USERBANNER_MIDDLE =
   "https://utfs.io/f/Hzww9EQvYURJ6sgzOzDfT5pyNCaUruzhPtAJqb8Kj9mc1nlH";
 export const IMG_LAYOUT_SIDESCROLL =
   "https://utfs.io/f/Hzww9EQvYURJAElfIGoZUC4muiGcQNzjfEndY5y1w20B8hTW";
+export const IMG_LAYOUT_MOBILE_TOP =
+  "https://utfs.io/f/Hzww9EQvYURJHTt3S9QvYURJhgs76VZtf9wxpMa13Cq0iOnr";
 export const IMG_LAYOUT_SIDETOPBANNER_CONTENT =
   "https://utfs.io/f/Hzww9EQvYURJOG9gcTWVHevxIThUauQkGJEBY3D2cPqy8f5s";
 export const IMG_LAYOUT_SIDETOPBANNER_BOTTOM =

@@ -45,6 +45,7 @@ services:
       - "4000:4000"
     volumes:
       - ../app/:/workspace/app/
+      # Shared node modules (see guide: https://code.visualstudio.com/remote/advancedcontainers/improve-performance)
       - shared-node_modules:/workspace/app/node_modules
       - shared-pnpm-store:/workspace/app/.pnpm-store
     command: bash -c "pnpm dev"
