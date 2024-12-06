@@ -18,6 +18,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { Suspense } from "react";
 import { IMG_LAYOUT_WELCOME_IMG } from "@/drizzle/constants";
 import { IMG_FRONTPAGE_SCREENSHOT_COMBAT } from "@/drizzle/constants";
 import { IMG_FRONTPAGE_SCREENSHOT_JUTSUS } from "@/drizzle/constants";
@@ -32,13 +33,6 @@ export default function Index() {
 
   // Navigation
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Save referrer in local storage if present
-  useEffect(() => {
-    const ref = searchParams?.get("ref");
-    if (ref) localStorage.setItem("ref", ref);
-  }, [searchParams]);
 
   // Redirect based on user status
   useEffect(() => {
@@ -177,10 +171,10 @@ const Welcome: React.FC = () => {
                           Choose from a wide arsenal of techniques, including powerful
                           jutsu, precise attacks, and defensive maneuvers, to adapt to
                           any situation. Each round challenges you to anticipate your
-                          opponent's strategy while leveraging your unique abilities and
-                          character build. Timing, positioning, and strategy are key as
-                          you engage in battles that demand both tactical
-                          decision-making and foresight.
+                          opponent&apos;s strategy while leveraging your unique
+                          abilities and character build. Timing, positioning, and
+                          strategy are key as you engage in battles that demand both
+                          tactical decision-making and foresight.
                         </p>
                       </CardContent>
                     </Card>
@@ -290,6 +284,18 @@ const Welcome: React.FC = () => {
           </div>
         </div>
       </div>
+      <Suspense>
+        <SetReferal />
+      </Suspense>
     </>
   );
 };
+
+function SetReferal() {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const ref = searchParams?.get("ref");
+    if (ref) localStorage.setItem("ref", ref);
+  }, [searchParams]);
+  return null;
+}
