@@ -174,21 +174,6 @@ const Welcome: React.FC = () => {
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
                         <Image
-                          src={IMG_FRONTPAGE_SCREENSHOT_COMBAT}
-                          width={1024}
-                          height={702}
-                          className="w-full"
-                          alt="Screenshot from Combat"
-                        />
-                      </CardContent>
-                    </Card>
-                  </div>
-                </CarouselItem>
-                <CarouselItem className="basis-full">
-                  <div className="p-1">
-                    <Card>
-                      <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
-                        <Image
                           src={IMG_FRONTPAGE_SCREENSHOT_JUTSUS}
                           width={1024}
                           height={716}
@@ -199,6 +184,22 @@ const Welcome: React.FC = () => {
                     </Card>
                   </div>
                 </CarouselItem>
+                <CarouselItem className="basis-full">
+                  <div className="p-1">
+                    <Card>
+                      <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
+                        <Image
+                          src={IMG_FRONTPAGE_SCREENSHOT_COMBAT}
+                          width={1024}
+                          height={702}
+                          className="w-full"
+                          alt="Screenshot from Combat"
+                        />
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CarouselItem>
+
                 <CarouselItem className="basis-full">
                   <div className="p-1">
                     <Card>
@@ -253,25 +254,6 @@ const Welcome: React.FC = () => {
             <div className="flex flex-col gap-2">
               {current === 1 && (
                 <>
-                  <h2 className="text-2xl font-bold pt-4">Combat</h2>
-                  <p>
-                    Experience the thrill of ninja combat in dynamic, round-based 2D
-                    strategic battle system. Every encounter is a test of wit and skill,
-                    requiring players to carefully plan their moves, manage resources,
-                    and outthink their opponents.
-                  </p>
-                  <p>
-                    Choose from a wide arsenal of techniques, including powerful jutsu,
-                    precise attacks, and defensive maneuvers, to adapt to any situation.
-                    Each round challenges you to anticipate your opponent&apos;s
-                    strategy while leveraging your unique abilities and character build.
-                    Timing, positioning, and strategy are key as you engage in battles
-                    that demand both tactical decision-making and foresight.
-                  </p>
-                </>
-              )}
-              {current === 2 && (
-                <>
                   <h2 className="text-2xl font-bold pt-4">Jutsus</h2>
                   <p>
                     Jutsu are the cornerstone of strategic combat, blending skill,
@@ -286,6 +268,25 @@ const Welcome: React.FC = () => {
                     dominate the battlefield. Explore thousands of potential jutsu
                     combinations and refine your strategy to suit your playstyle—whether
                     you prefer brute strength, deception, or finesse.
+                  </p>
+                </>
+              )}
+              {current === 2 && (
+                <>
+                  <h2 className="text-2xl font-bold pt-4">Combat</h2>
+                  <p>
+                    Experience the thrill of ninja combat in dynamic, round-based 2D
+                    strategic battle system. Every encounter is a test of wit and skill,
+                    requiring players to carefully plan their moves, manage resources,
+                    and outthink their opponents.
+                  </p>
+                  <p>
+                    Choose from a wide arsenal of techniques, including powerful jutsu,
+                    precise attacks, and defensive maneuvers, to adapt to any situation.
+                    Each round challenges you to anticipate your opponent&apos;s
+                    strategy while leveraging your unique abilities and character build.
+                    Timing, positioning, and strategy are key as you engage in battles
+                    that demand both tactical decision-making and foresight.
                   </p>
                 </>
               )}

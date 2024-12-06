@@ -359,8 +359,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                   className={`h-[15px] w-full shrink-0 bg-fill bg-repeat-x md:hidden`}
                   style={{ backgroundImage: `url(${IMG_LAYOUT_MOBILE_TOP})` }}
                 ></div>
-                <div className="p-3">{props.children}</div>
-                <div className="md:h-0 h-20"></div>
+                <div className="p-3 pb-28 md:pb-3">{props.children}</div>
               </div>
               <div
                 className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
