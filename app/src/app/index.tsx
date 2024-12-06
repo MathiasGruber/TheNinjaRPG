@@ -19,7 +19,7 @@ export default function IndexPage({
   initialNews: Awaited<InfiniteThreads>;
 }) {
   // Fetch data
-  const { isLoaded, isSignedIn } = useUser();
+  const { isSignedIn } = useUser();
   const { data: userData, status: userStatus, userId } = useUserData();
 
   // Navigation
