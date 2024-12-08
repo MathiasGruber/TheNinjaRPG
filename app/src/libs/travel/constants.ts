@@ -1,5 +1,6 @@
 export const SECTOR_WIDTH = 20;
 export const SECTOR_HEIGHT = 15;
+export const SECTOR_LENGTH_TO_WIDTH = 0.885;
 
 export const ALLIANCEHALL_LONG = 10;
 export const ALLIANCEHALL_LAT = 7;

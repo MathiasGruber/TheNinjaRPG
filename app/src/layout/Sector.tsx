@@ -33,6 +33,7 @@ import { round } from "@/utils/math";
 import { sleep } from "@/utils/time";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
+import { SECTOR_LENGTH_TO_WIDTH } from "@/libs/travel/constants";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import { IMG_SECTOR_INFO, IMG_SECTOR_ATTACK, IMG_ICON_MOVE } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -382,12 +383,9 @@ const Sector: React.FC<SectorProps> = (props) => {
   useEffect(() => {
     const sceneRef = mountRef.current;
     if (sceneRef && userRef.current && fetchedUsers !== undefined) {
-      // Used for map size calculations
-      const hexagonLengthToWidth = 0.885;
-
       // Map size
       const WIDTH = sceneRef.getBoundingClientRect().width;
-      const HEIGHT = WIDTH * hexagonLengthToWidth;
+      const HEIGHT = WIDTH * SECTOR_LENGTH_TO_WIDTH;
 
       // Performance monitor
       // const stats = new Stats();
@@ -408,7 +406,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         sortObjects: false,
         color: color,
         colorAlpha: 1,
-        width2height: hexagonLengthToWidth,
+        width2height: SECTOR_LENGTH_TO_WIDTH,
       });
 
       // If no renderer, then we have an error with the browser, let the user know
@@ -481,7 +479,16 @@ const Sector: React.FC<SectorProps> = (props) => {
       scene.add(group_users);
 
       // Capture clicks to update move direction
-      const onClick = () => {
+      const onClick = (e: MouseEvent) => {
+        // Fix for mobile
+        const pointer = new Vector2();
+        const width = sceneRef.getBoundingClientRect().width;
+        const height = width * SECTOR_LENGTH_TO_WIDTH;
+        pointer.x = (e.offsetX / width) * 2 - 1;
+        pointer.y = -(e.offsetY / height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+
+        // Find intersects with the scene
         const intersects = raycaster.intersectObjects(scene.children);
         intersects
           .filter((i) => i.object.visible)
