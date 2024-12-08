@@ -62,12 +62,10 @@ const Welcome: React.FC = () => {
   // Carousel state
   const [cApi, setCApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
-  const [count, setCount] = useState(0);
 
   // Carousel control
   useEffect(() => {
     if (!cApi) return;
-    setCount(cApi.scrollSnapList().length);
     setCurrent(cApi.selectedScrollSnap() + 1);
     cApi.on("select", () => {
       setCurrent(cApi.selectedScrollSnap() + 1);
