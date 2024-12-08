@@ -540,14 +540,25 @@ export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
 // Images
 export const IMG_FRONTPAGE_SCREENSHOT_COMBAT =
-  "https://utfs.io/f/Hzww9EQvYURJhuLmX5MfUBdnwAX5LTajlNc4mrgzi0RJtqpM";
+  "https://utfs.io/f/Hzww9EQvYURJmap513HE4IMO5Goa7cgLxPJ0VC6lU8vbt1Ap";
 export const IMG_FRONTPAGE_SCREENSHOT_JUTSUS =
-  "https://utfs.io/f/Hzww9EQvYURJAaVOt2SoZUC4muiGcQNzjfEndY5y1w20B8hT";
+  "https://utfs.io/f/Hzww9EQvYURJhf79QHMfUBdnwAX5LTajlNc4mrgzi0RJtqpM";
 export const IMG_FRONTPAGE_SCREENSHOT_GLOBAL =
-  "https://utfs.io/f/Hzww9EQvYURJvSzUp4EmSnXwslYEpV1yOeNL8gMtqhjPdf36";
+  "https://utfs.io/f/Hzww9EQvYURJn24vk3mojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
 export const IMG_FRONTPAGE_SCREENSHOT_SECTOR =
-  "https://utfs.io/f/Hzww9EQvYURJXMBBarqIOpAoLKbZ4nW9Rsil2V67yuFwQhqv";
+  "https://utfs.io/f/Hzww9EQvYURJdVdE0WP62PI3ciLaYzgVX8FopBADxSrGmvQl";
 export const IMG_FRONTPAGE_SCREENSHOT_VILLAGE =
+  "https://utfs.io/f/Hzww9EQvYURJAPlRYqoZUC4muiGcQNzjfEndY5y1w20B8hTW";
+
+export const IMG_FRONTPAGE_SCREENSHOT_COMBAT_HR =
+  "https://utfs.io/f/Hzww9EQvYURJhuLmX5MfUBdnwAX5LTajlNc4mrgzi0RJtqpM";
+export const IMG_FRONTPAGE_SCREENSHOT_JUTSUS_HR =
+  "https://utfs.io/f/Hzww9EQvYURJAaVOt2SoZUC4muiGcQNzjfEndY5y1w20B8hT";
+export const IMG_FRONTPAGE_SCREENSHOT_GLOBAL_HR =
+  "https://utfs.io/f/Hzww9EQvYURJvSzUp4EmSnXwslYEpV1yOeNL8gMtqhjPdf36";
+export const IMG_FRONTPAGE_SCREENSHOT_SECTOR_HR =
+  "https://utfs.io/f/Hzww9EQvYURJXMBBarqIOpAoLKbZ4nW9Rsil2V67yuFwQhqv";
+export const IMG_FRONTPAGE_SCREENSHOT_VILLAGE_HR =
   "https://utfs.io/f/Hzww9EQvYURJRmBtUg0udmODoNtpa0FMcwI4k2Eq7nJhyvjl";
 
 export const IMG_REGISTRATIN_STEP1 =
@@ -707,7 +718,7 @@ export const IMG_LAYOUT_USERSBANNER_BOTTOM =
 export const IMG_AVATAR_DEFAULT =
   "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp";
 export const IMG_WALLPAPER_WINTER =
-  "https://utfs.io/f/Hzww9EQvYURJwpxgkdT2j854CWbaITZyegfXimvd7s16cO0h";
+  "https://utfs.io/f/Hzww9EQvYURJTUQ6Nm5IU29dZYJPoOKSh5vmlqatMub3EigH";
 export const IMG_WALLPAPER_SPRING =
   "https://utfs.io/f/Hzww9EQvYURJYq2fE0OMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
 export const IMG_WALLPAPER_SUMMER =
@@ -727,7 +738,7 @@ export const IMG_LAYOUT_HANDSIGN =
 export const IMG_LAYOUT_HANDSIGN_HALLOWEEN =
   "https://utfs.io/f/Hzww9EQvYURJcGYTUXSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
 export const IMG_LAYOUT_WELCOME_IMG =
-  "https://utfs.io/f/Hzww9EQvYURJSuVdlu3jWrEB7TyZlmpoAxMK5Qi16kNPVJuH";
+  "https://utfs.io/f/Hzww9EQvYURJqbkFzRdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
 export const IMG_LOGO_FULL =
   "https://utfs.io/f/Hzww9EQvYURJ8b0eqBkkp45TvAnoIBa0rtCf1lbyXYjVKQ2q";
 export const IMG_LOGO_SHORT =

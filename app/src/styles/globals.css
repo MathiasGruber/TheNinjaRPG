@@ -87,12 +87,10 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    @apply bg-[#dfdede];
+    @apply bg-slate-900 text-foreground;
   }
   .dark body {
-    @apply bg-background text-foreground;
-    @apply bg-zinc-700;
+    @apply bg-slate-900 text-foreground;
   }
 }
 
