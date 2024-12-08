@@ -1,5 +1,6 @@
 import { type MutableRefObject } from "react";
 import { Scene, WebGLRenderer, WebGL1Renderer, Raycaster } from "three";
+import { Vector2, OrthographicCamera, PerspectiveCamera } from "three";
 import { type Material, type BufferGeometry } from "three";
 
 /**
@@ -63,4 +64,18 @@ export const setupScene = (info: {
 
   // Return info
   return { scene, renderer, raycaster, handleResize };
+};
+
+export const setRaycasterFromMouse = (
+  raycaster: Raycaster,
+  sceneRef: HTMLDivElement,
+  event: MouseEvent,
+  camera: OrthographicCamera | PerspectiveCamera,
+) => {
+  const pointer = new Vector2();
+  const width = sceneRef.getBoundingClientRect().width;
+  const height = sceneRef.getBoundingClientRect().height;
+  pointer.x = (event.offsetX / width) * 2 - 1;
+  pointer.y = -(event.offsetY / height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
 };

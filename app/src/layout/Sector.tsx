@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import { PathCalculator, findHex } from "@/libs/hexgrid";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";
 import { getBackgroundColor } from "@/libs/travel/biome";
-import { cleanUp, setupScene } from "@/libs/travel/util";
+import { cleanUp, setupScene, setRaycasterFromMouse } from "@/libs/travel/util";
 import { drawSector, drawVillage, drawUsers, drawQuest } from "@/libs/travel/sector";
 import { intersectUsers } from "@/libs/travel/sector";
 import { intersectTiles } from "@/libs/travel/sector";
@@ -480,15 +480,8 @@ const Sector: React.FC<SectorProps> = (props) => {
 
       // Capture clicks to update move direction
       const onClick = (e: MouseEvent) => {
-        // Fix for mobile
-        const pointer = new Vector2();
-        const width = sceneRef.getBoundingClientRect().width;
-        const height = width * SECTOR_LENGTH_TO_WIDTH;
-        pointer.x = (e.offsetX / width) * 2 - 1;
-        pointer.y = -(e.offsetY / height) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-
         // Find intersects with the scene
+        setRaycasterFromMouse(raycaster, sceneRef, e, camera);
         const intersects = raycaster.intersectObjects(scene.children);
         intersects
           .filter((i) => i.object.visible)
