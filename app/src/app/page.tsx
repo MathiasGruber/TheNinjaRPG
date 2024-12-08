@@ -78,7 +78,7 @@ const Welcome: React.FC = () => {
   return (
     <>
       <div className="flex flex-col items-center">
-        <h1 className="text-center text-4xl font-bold">Welcome to TNR</h1>
+        <h1 className="text-center text-4xl font-bold">Welcome to The Ninja RPG</h1>
         <div className="pt-2 w-full px-3">
           <hr className="h-px border-primary border-2" />
         </div>
@@ -91,16 +91,19 @@ const Welcome: React.FC = () => {
           priority
         />
         <p className="p-2">
-          At the Path of the Shinobi lies many routes. What route will you take? Learn
-          the way of the Shinobi as you start as an aspiring Academy Student. Fight your
-          way to the top to become the Kage: the single shadow that protects your
-          village from any danger, or become your village&rsquo;s worst nightmare as a
-          wandering Outlaw of pure darkness.
+          Embark on an epic journey in this free online ninja RPG where your path as a
+          shinobi is yours to choose. Start as an Academy Student mastering powerful
+          jutsu, and rise through the ranks in an immersive ninja game experience. Will
+          you become a legendary Kage, protecting your village with ultimate ninja
+          abilities, or choose the path of an Outlaw, mastering forbidden jutsu and dark
+          arts? Your ninja adventure begins here in this unique multiplayer RPG world.
         </p>
         <p className="p-2">
-          <span className="font-bold">What?</span> This is a modernized version of an
-          long-running online browser-based game based on a new technology stack and
-          sprinkled with a bit of AI technology.
+          <span className="font-bold">What is TNR?</span> TNR is a free online ninja RPG
+          game that brings the world of jutsu and ninja combat to your browser. This
+          multiplayer ninja game offers an authentic shinobi experience where you can
+          master powerful jutsu, engage in strategic battles, and become a legendary
+          ninja warrior - all completely free to play.
         </p>
         <div className="w-full flex justify-center items-center py-6 gap-8">
           <Link href="/signup">
@@ -134,28 +137,29 @@ const Welcome: React.FC = () => {
           </p>
           <ul className="list-disc list-outside pl-6 flex flex-col gap-3">
             <li>
-              <strong>Master Your Jutsu</strong>
-              <br /> Train and customize your ninja with unique abilities and signature
-              moves.
+              <h3 className="font-bold">Master Your Jutsu</h3>
+              Unlock powerful jutsu, train your ninja, and create signature moves that
+              set you apart in the ninja world.
             </li>
             <li>
-              <strong>Immersive Villages</strong>
-              <br /> Choose your village allegiance and build your reputation in the
-              ninja world.
-            </li>{" "}
+              <h3 className="font-bold">Explore Immersive Villages</h3>
+              Align with a village, enhance your reputation, and immerse yourself in a
+              vibrant ninja community.
+            </li>
             <li>
-              <strong>Engage in Strategic Battles</strong>
-              <br /> Challenge opponents in thrilling PvP and team-based combat on a
-              hex-based 2D grid.
-            </li>{" "}
+              <h3 className="font-bold">Engage in Strategic Ninja Battles</h3>
+              Compete in intense PvP and team-based combat on a dynamic 2D hex-based
+              battlefield.
+            </li>
             <li>
-              <strong>Evolving Storylines</strong>
-              <br /> Complete missions, defeat rogue ninjas, and uncover the secrets of
-              the shinobi world.
-            </li>{" "}
+              <h3 className="font-bold">Uncover Evolving Storylines</h3>
+              Take on challenging missions, defeat rogue ninjas, and discover the hidden
+              truths of the shinobi universe.
+            </li>
             <li>
-              <strong>Community Driven</strong>
-              <br /> Join clans, form alliances, and participate in player-led events.
+              <h3 className="font-bold">Join a Thriving Ninja Community</h3>
+              Create clans, forge alliances, and participate in epic player-driven
+              events that shape the game.
             </li>
           </ul>
           <div className="w-full p-3">

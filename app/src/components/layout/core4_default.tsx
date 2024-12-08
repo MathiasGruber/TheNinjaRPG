@@ -322,6 +322,10 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           alt="handsign"
           loading="lazy"
         />
+        <div
+          className={`relative top-[100px] h-[15px] w-full shrink-0 bg-fill bg-repeat-x md:hidden`}
+          style={{ backgroundImage: `url(${IMG_LAYOUT_MOBILE_TOP})` }}
+        ></div>
         <div className="relative top-[100px] md:top-[-122px] flex flex-row z-10 h-full">
           {/* LEFT SIDEBANNER DESKTOP */}
           <div className="hidden md:block relative w-[200px] lg:w-[250px] shrink-0">
@@ -355,10 +359,6 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
               ></div>
               <div className="w-full bg-background grow flex flex-col overflow-x-scroll min-h-[200px]">
-                <div
-                  className={`h-[15px] w-full shrink-0 bg-fill bg-repeat-x md:hidden`}
-                  style={{ backgroundImage: `url(${IMG_LAYOUT_MOBILE_TOP})` }}
-                ></div>
                 <div className="p-3 pb-28 md:pb-3">{props.children}</div>
               </div>
               <div
