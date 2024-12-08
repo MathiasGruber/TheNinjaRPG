@@ -490,7 +490,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         </div>
         {/* LEFT SIDEBAR MOBILE */}
         <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
-          <SheetTrigger className="absolute top-4 left-4" id="homeBtn">
+          <SheetTrigger className="absolute top-4 left-4" id="homeBtn" name="homeBtn">
             <House className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
           </SheetTrigger>
           <SheetContent side="left">
@@ -528,7 +528,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
         {/* RIGHT SIDEBAR MOBILE */}
         <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
-          <SheetTrigger className="absolute top-4 right-4" id="gameBtn">
+          <SheetTrigger className="absolute top-4 right-4" id="gameBtn" name="gameBtn">
             <Earth className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
           </SheetTrigger>
           <SheetContent onClick={() => setRightSideBarOpen(false)}>

@@ -55,7 +55,9 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
 
   return (
     <Popover>
-      <PopoverTrigger id="helpBtn">{props.children}</PopoverTrigger>
+      <PopoverTrigger id="supportBtn" name="supportBtn">
+        {props.children}
+      </PopoverTrigger>
       <PopoverContent className="m-2 min-w-96 max-w-96">
         {isSuccess && (
           <div>
