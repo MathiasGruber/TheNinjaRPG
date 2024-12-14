@@ -209,12 +209,7 @@ export const travelRouter = createTRPCRouter({
       const [result, sectorVillage] = await Promise.all([
         ctx.drizzle
           .update(userData)
-          .set({
-            longitude,
-            latitude,
-            location,
-            updatedAt: sql`Now()`,
-          })
+          .set({ longitude, latitude, location })
           .where(
             and(
               eq(userData.userId, userId),

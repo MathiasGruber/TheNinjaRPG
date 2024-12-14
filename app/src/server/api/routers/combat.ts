@@ -1005,7 +1005,6 @@ export const initiateBattle = async (
         pveFights: !["SPARRING", "COMBAT"].includes(battleType)
           ? sql`${userData.pveFights} + 1`
           : sql`${userData.pveFights}`,
-        updatedAt: new Date(),
         immunityUntil: ["SPARRING", "COMBAT"].includes(battleType)
           ? sql`CASE WHEN userId IN (${userIds.join(", ")}) THEN NOW() ELSE immunityUntil END`
           : sql`immunityUntil`,
