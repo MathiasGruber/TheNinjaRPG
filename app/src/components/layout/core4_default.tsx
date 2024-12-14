@@ -69,6 +69,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   ReactDOM.prefetchDNS("https://consentcdn.cookiebot.com");
   ReactDOM.prefetchDNS("https://region1.analytics.google.com");
   ReactDOM.prefetchDNS("https://connect.facebook.net");
+  ReactDOM.prefetchDNS("https://api.github.com");
 
   // Get data
   const { data: userData, timeDiff, notifications } = useUserData();

@@ -261,6 +261,12 @@ export const bloodlineRouter = createTRPCRouter({
           success: true,
           message: "After thorough examination a bloodline was detected",
         };
+      } else {
+        return {
+          success: false,
+          message:
+            "Despite early indications, the doctors conclude you have no bloodline",
+        };
       }
     } else {
       await ctx.drizzle.insert(bloodlineRolls).values({
@@ -268,11 +274,12 @@ export const bloodlineRouter = createTRPCRouter({
         used: 0,
         userId: ctx.userId,
       });
+      return {
+        success: false,
+        message:
+          "After thorough examination the doctors conclude you have no bloodline",
+      };
     }
-    return {
-      success: false,
-      message: "After thorough examination the doctors conclude you have no bloodline",
-    };
   }),
   // Pity Roll a bloodline
   pityRoll: protectedProcedure
