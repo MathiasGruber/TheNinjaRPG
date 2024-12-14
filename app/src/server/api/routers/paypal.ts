@@ -133,25 +133,6 @@ export const paypalRouter = createTRPCRouter({
         type: "REP_PURCHASE",
         raw: order,
       });
-      // If this user was recruited, also give 10% to the recruiter
-      const referralBonus = Math.floor(dollars2reps(parseFloat(value)) * 0.1);
-      if (affectedUser.recruiterId && referralBonus > 0) {
-        await updateReps({
-          client: ctx.drizzle,
-          createdById: ctx.userId,
-          transactionId: capture.id,
-          transactionUpdatedDate: capture.update_time,
-          orderId: nanoid(),
-          affectedUserId: affectedUser.recruiterId,
-          invoiceId: capture.invoice_id,
-          value: 0,
-          currency: currency_code,
-          status: "COMPLETED",
-          reps: referralBonus,
-          type: "REFERRAL",
-          raw: {},
-        });
-      }
       return { success: true, message: "Reputation points purchased" };
     }),
   resolveTransaction: protectedProcedure
