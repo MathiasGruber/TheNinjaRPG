@@ -59,7 +59,7 @@ export async function GET() {
         and(
           gt(mainTransaction.reputationPoints, 0),
           gt(mainTransaction.amount, 0),
-          eq(mainTransaction.status, "REP_PURCHASE"),
+          eq(mainTransaction.type, "REP_PURCHASE"),
           isNotNull(buyerUser.recruiterId),
           isNull(refTransaction.id),
         ),
