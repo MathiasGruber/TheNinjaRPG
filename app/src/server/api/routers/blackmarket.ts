@@ -12,6 +12,7 @@ import { COST_RESET_STATS } from "@/drizzle/constants";
 import { RYO_FOR_REP_DAYS_FROZEN } from "@/drizzle/constants";
 import { COST_CUSTOM_TITLE } from "@/drizzle/constants";
 import { COST_EXTRA_ITEM_SLOT } from "@/drizzle/constants";
+import { COST_CHANGE_GENDER } from "@/drizzle/constants";
 import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
 import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
 import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
@@ -19,6 +20,7 @@ import { RYO_FOR_REP_MAX_LISTINGS } from "@/drizzle/constants";
 import { RYO_FOR_REP_MIN_REPS } from "@/drizzle/constants";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
+import { genders } from "@/validators/register";
 import { baseServerResponse, errorResponse } from "../trpc";
 import type { DrizzleClient } from "@/server/db";
 import { canChangeContent } from "@/utils/permissions";
@@ -263,6 +265,31 @@ export const blackMarketRouter = createTRPCRouter({
           relatedImage: user.avatar,
         });
         return { success: true, message: "Custom title updated" };
+      }
+    }),
+  changeUserGender: protectedProcedure
+    .input(z.object({ gender: z.enum(genders) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (user.reputationPoints < COST_CHANGE_GENDER) {
+        return errorResponse("Not enough reputation points");
+      }
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          gender: input.gender,
+          reputationPoints: sql`reputationPoints - ${COST_CHANGE_GENDER}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+      // Return message
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Could not update user" };
+      } else {
+        return { success: true, message: `Change gender in ${input.gender}` };
       }
     }),
   buyItemSlot: protectedProcedure

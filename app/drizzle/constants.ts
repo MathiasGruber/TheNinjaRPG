@@ -413,6 +413,7 @@ export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 // Reputation cost config
 export const COST_CHANGE_USERNAME = 5;
 export const COST_CUSTOM_TITLE = 5;
+export const COST_CHANGE_GENDER = 5;
 export const COST_SWAP_BLOODLINE = 0;
 export const COST_SWAP_VILLAGE = 0;
 export const COST_RESET_STATS = 15;

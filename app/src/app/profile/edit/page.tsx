@@ -1,7 +1,7 @@
 "use client";
 
 import { z } from "zod";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,8 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
+  FormDescription,
   FormMessage,
 } from "@/components/ui/form";
 import {
@@ -55,7 +57,9 @@ import { COST_RESET_STATS } from "@/drizzle/constants";
 import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
+import { COST_CHANGE_GENDER } from "@/drizzle/constants";
 import { round } from "@/utils/math";
+import { genders } from "@/validators/register";
 import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
@@ -63,10 +67,11 @@ import { canSwapVillage } from "@/utils/permissions";
 import { canSwapBloodline } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import type { Bloodline, Village } from "@/drizzle/schema";
 import UserSearchSelect from "@/layout/UserSearchSelect";
-import type { BaseServerResponse } from "@/server/api/trpc";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import type { Gender } from "@/validators/register";
+import type { BaseServerResponse } from "@/server/api/trpc";
+import type { Bloodline, Village } from "@/drizzle/schema";
 
 export default function EditProfile() {
   // State
@@ -155,6 +160,16 @@ export default function EditProfile() {
           onClick={setActiveElement}
         >
           <CustomTitle />
+        </Accordion>
+        <Accordion
+          title="Change Gender"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Change the gender of your character"
+          selectedSubtitle={`Change your gender for ${COST_CHANGE_GENDER} reputation points. You
+          have ${userData.reputationPoints} reputation points.`}
+          onClick={setActiveElement}
+        >
+          <ChangeGender />
         </Accordion>
         <Accordion
           title="Attribute Management"
@@ -1170,15 +1185,14 @@ const NameChange: React.FC = () => {
  */
 const CustomTitle: React.FC = () => {
   // State
-  const { data: userData } = useRequiredUserData();
-  const utils = api.useUtils();
+  const { data: userData, updateUser } = useRequiredUserData();
 
   // Mutations
   const { mutate: updateUsername } = api.blackmarket.updateCustomTitle.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.profile.getUser.invalidate();
+        await updateUser({ username: variables.title });
       }
     },
   });
@@ -1238,6 +1252,122 @@ const CustomTitle: React.FC = () => {
             Changing your custom title costs {COST_CUSTOM_TITLE} reputation points, and
             can only be changed by requesting another change. Are you sure you want to
             change your title to {curTitle}?
+          </Confirm>
+        </form>
+      </Form>
+    </div>
+  );
+};
+
+/**
+ * Change gender component
+ */
+const ChangeGender: React.FC = () => {
+  // State
+  const { data: userData, updateUser } = useRequiredUserData();
+
+  // Mutations
+  const { mutate: updateUsername } = api.blackmarket.changeUserGender.useMutation({
+    onSuccess: async (data, variables) => {
+      showMutationToast(data);
+      if (data.success) {
+        await updateUser({ gender: variables.gender });
+      }
+    },
+  });
+
+  // Title form
+  const FormSchema = z.object({ gender: z.enum(genders) });
+  type FormSchemaType = z.infer<typeof FormSchema>;
+  const form = useForm<FormSchemaType>({
+    resolver: zodResolver(FormSchema),
+  });
+  const watchGender = form.watch("gender");
+
+  // Set current user gender
+  useEffect(() => {
+    if (userData?.gender) {
+      form.setValue("gender", userData.gender as Gender);
+    }
+  }, [userData]);
+
+  // Form handlers
+  const onSubmit = form.handleSubmit((data) => {
+    updateUsername(data);
+  });
+
+  // Only show if we have userData
+  if (!userData) return <Loader explanation="Loading profile page..." />;
+
+  // Derived data
+  const canBuyUsername = userData.reputationPoints >= COST_CHANGE_GENDER;
+
+  return (
+    <div className="grid grid-cols-1">
+      <Form {...form}>
+        <form>
+          <FormField
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <div className="flex flex-row items-center w-full">
+                <FormItem className="w-full">
+                  <FormLabel>Select gender</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="h-14 text-3xl ">
+                        <SelectValue placeholder={userData.gender} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {genders.map((gender, index) => (
+                        <SelectItem key={index} value={gender}>
+                          {gender}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex flex-row">
+                    <FormDescription className="grow">
+                      Gender of your ninja
+                    </FormDescription>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+                <div>
+                  <div className="text-7xl basis-full flex-row">
+                    {watchGender === "Male" && <p className="text-blue-500 p-2">♂</p>}
+                    {watchGender === "Female" && (
+                      <p className="text-pink-500 p-2">♀</p>
+                    )}
+                    {watchGender === "Other" && <p className="text-slate-500 p-2">⚥</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+          />
+          <Confirm
+            title="Confirm Gender Change"
+            disabled={!canBuyUsername}
+            button={
+              <Button
+                id="create"
+                type="submit"
+                className="w-full my-3"
+                disabled={!canBuyUsername}
+              >
+                {canBuyUsername ? "Set new gender" : "Not enough points"}
+              </Button>
+            }
+            onAccept={onSubmit}
+          >
+            Changing your gender costs {COST_CHANGE_GENDER} reputation points, and can
+            only be changed by requesting another change. Are you sure you want to
+            change your gender to {watchGender}?
           </Confirm>
         </form>
       </Form>
