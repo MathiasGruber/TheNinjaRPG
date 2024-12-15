@@ -719,7 +719,8 @@ export const IMG_LAYOUT_USERSBANNER_BOTTOM =
 export const IMG_AVATAR_DEFAULT =
   "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp";
 export const IMG_WALLPAPER_WINTER =
-  "https://utfs.io/f/Hzww9EQvYURJTUQ6Nm5IU29dZYJPoOKSh5vmlqatMub3EigH";
+  "https://tnr-storage-cdn.b-cdn.net/wallpaper-winter-compressed.webp";
+// "https://utfs.io/f/Hzww9EQvYURJTUQ6Nm5IU29dZYJPoOKSh5vmlqatMub3EigH";
 export const IMG_WALLPAPER_SPRING =
   "https://utfs.io/f/Hzww9EQvYURJYq2fE0OMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
 export const IMG_WALLPAPER_SUMMER =

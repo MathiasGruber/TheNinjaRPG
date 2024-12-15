@@ -89,12 +89,13 @@ const Welcome: React.FC = () => {
           priority
         />
         <p className="p-2">
-          Embark on an epic journey in this free online ninja RPG where your path as a
-          shinobi is yours to choose. Start as an Academy Student mastering powerful
-          jutsu, and rise through the ranks in an immersive ninja game experience. Will
-          you become a legendary Kage, protecting your village with ultimate ninja
-          abilities, or choose the path of an Outlaw, mastering forbidden jutsu and dark
-          arts? Your ninja adventure begins here in this unique multiplayer RPG world.
+          TheNinja-RPG is an online browser RPG game set in the world of Seichi. Embark
+          on an epic journey in this free ninja RPG where your path as a shinobi is
+          yours to choose. Start as an Academy Student mastering powerful jutsu, and
+          rise through the ranks in an immersive ninja game experience. Will you become
+          a legendary Kage, protecting your village with ultimate ninja abilities, or
+          choose the path of an Outlaw, mastering forbidden jutsu and dark arts? Your
+          ninja adventure begins here in this unique multiplayer RPG world.
         </p>
         <p className="p-2">
           <span className="font-bold">What is TNR?</span> TNR is a free online ninja RPG
