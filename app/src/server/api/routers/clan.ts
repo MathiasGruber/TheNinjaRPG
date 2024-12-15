@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, and, or, gte, like, isNull } from "drizzle-orm";
+import { eq, sql, and, or, gte, like, isNull, inArray } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm";
 import { clan, mpvpBattleQueue, mpvpBattleUser, actionLog } from "@/drizzle/schema";
 import { userData, userRequest, historicalAvatar } from "@/drizzle/schema";
@@ -388,6 +388,7 @@ export const clanRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!fetchedClan) return errorResponse("Clan not found");
       if (!user.clanId) return errorResponse("Not in a clan");
+      if (user.status !== "AWAKE") return errorResponse("Must be awake to leave");
       if (user.clanId !== fetchedClan.id) return errorResponse("Wrong clan");
       if (user.villageId !== fetchedClan.villageId) {
         return errorResponse("Wrong village");
@@ -773,10 +774,22 @@ export const clanRouter = createTRPCRouter({
       );
 
       if (result.success && result.battleId) {
-        await ctx.drizzle
-          .update(mpvpBattleQueue)
-          .set({ battleId: result.battleId })
-          .where(eq(mpvpBattleQueue.id, input.clanBattleId));
+        await Promise.all([
+          ctx.drizzle
+            .update(mpvpBattleQueue)
+            .set({ battleId: result.battleId })
+            .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
+          ...(allIds.length > 0
+            ? [
+                ctx.drizzle
+                  .update(userData)
+                  .set({
+                    status: sql`CASE WHEN status = "QUEUED" THEN "AWAKE" ELSE status END`,
+                  })
+                  .where(inArray(userData.userId, allIds)),
+              ]
+            : []),
+        ]);
         return { success: true, message: "Clan battle initiated" };
       }
       return errorResponse("Failed to initiate clan battle");
@@ -811,7 +824,13 @@ export const removeFromClan = async (
   const coLeadersToRemove = isLeader ? [userId, otherUser?.userId ?? null] : [userId];
   // Mutate
   await Promise.all([
-    client.update(userData).set({ clanId: null }).where(eq(userData.userId, userId)),
+    client
+      .update(userData)
+      .set({
+        clanId: null,
+        status: sql`CASE WHEN status = "QUEUED" THEN "AWAKE" ELSE status END`,
+      })
+      .where(eq(userData.userId, userId)),
     client
       .delete(userRequest)
       .where(
@@ -820,6 +839,7 @@ export const removeFromClan = async (
           or(eq(userRequest.senderId, userId), eq(userRequest.receiverId, userId)),
         ),
       ),
+    client.delete(mpvpBattleUser).where(eq(mpvpBattleUser.userId, userId)),
     client.insert(actionLog).values({
       id: nanoid(),
       userId: userId,
@@ -832,9 +852,13 @@ export const removeFromClan = async (
     ...(!otherUser
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),
+          client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanData.id)),
           client
             .update(userData)
-            .set({ clanId: null })
+            .set({
+              clanId: null,
+              status: sql`CASE WHEN status = "QUEUED" THEN "AWAKE" ELSE status END`,
+            })
             .where(eq(userData.clanId, clanData.id)),
         ]
       : [
