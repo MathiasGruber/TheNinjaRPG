@@ -312,7 +312,7 @@ export const profileRouter = createTRPCRouter({
       if (user.inboxNews > 0) {
         notifications?.push({
           href: "/inbox",
-          name: `${user.inboxNews} new messages`,
+          name: `${user.inboxNews} messages`,
           color: "green",
         });
       }
@@ -320,7 +320,7 @@ export const profileRouter = createTRPCRouter({
       if (user.unreadNews > 0) {
         notifications?.push({
           href: "/news",
-          name: `${user.unreadNews} new news`,
+          name: `${user.unreadNews} news`,
           color: "green",
         });
       }
