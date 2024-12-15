@@ -82,6 +82,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
   // Derived data for layout
   const navbarMenuItems = getMainNavbarLinks();
+  const shownNotifications = notifications?.filter((n) => n.color !== "toast");
 
   // Split menu into two parts
   const navbarMenuItemsLeft = navbarMenuItems.slice(0, 3);
@@ -143,7 +144,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
     <>
       <SignedIn>
         <RightSideBar
-          notifications={notifications}
+          notifications={shownNotifications}
           systems={systems}
           userData={userData}
           location={location}
@@ -539,6 +540,28 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <SheetHeader>{rightSideBar}</SheetHeader>
           </SheetContent>
         </Sheet>
+
+        {/* MOBILE NOTIFICATIONS */}
+        <div className="absolute top-[75px] right-0 left-0 flex flex-row justify-end md:hidden p-1 gap-2">
+          {notifications?.map((notification, i) => (
+            <Link key={i} href={notification.href}>
+              <div
+                className={`flex flex-row text-xs items-center rounded-lg border-2 border-slate-800 py-[1px] px-3 hover:opacity-70 ${
+                  notification.color ? `bg-${notification.color}-600` : "bg-slate-500"
+                }`}
+              >
+                {notification.color === "red" && (
+                  <ShieldAlert className="mr-1 h-5 w-5" />
+                )}
+                {notification.color === "blue" && <Info className="mr-1 h-5 w-5" />}
+                {notification.color === "green" && (
+                  <ShieldCheck className="mr-1 h-5 w-5" />
+                )}
+                {notification.name}
+              </div>
+            </Link>
+          ))}
+        </div>
         {/* <div className="p-3 pt-24 min-h-[1200px] bg-background bg-opacity-50">
           {props.children}
         </div> */}
@@ -675,20 +698,17 @@ const RightSideBar: React.FC<{
   // Derived data
   const inBattle = userData?.status === "BATTLE";
 
-  // Shown notifications
-  const shownNotifications = notifications?.filter((n) => n.color !== "toast");
-
   // Render
   return (
     <>
       {/* COMBAT */}
       <MenuBoxCombat />
       {/* NOTIFICATIONS */}
-      {userData && shownNotifications && shownNotifications.length > 0 && (
+      {userData && notifications && notifications.length > 0 && (
         <>
           <SideBannerTitle>Notifications</SideBannerTitle>
           <ul className="grid grid-cols-1 gap-[1px]">
-            {shownNotifications.map((notification, i) => (
+            {notifications.map((notification, i) => (
               <Link key={i} href={notification.href}>
                 <div
                   className={`flex flex-row text-xs lg:text-base items-center rounded-lg border-2 border-slate-800 py-[1px] pl-3 hover:opacity-70 ${
