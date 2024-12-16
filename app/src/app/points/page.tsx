@@ -258,6 +258,8 @@ const ReputationStore = (props: { currency: string }) => {
                         {
                           item_id: "BASIC_REPS",
                           item_name: "REPUTATION POINTS",
+                          price: Number(value),
+                          quantity: 1,
                         },
                       ],
                     });
