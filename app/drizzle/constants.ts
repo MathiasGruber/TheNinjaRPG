@@ -740,7 +740,8 @@ export const IMG_LAYOUT_HANDSIGN =
 export const IMG_LAYOUT_HANDSIGN_HALLOWEEN =
   "https://utfs.io/f/Hzww9EQvYURJcGYTUXSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
 export const IMG_LAYOUT_WELCOME_IMG =
-  "https://utfs.io/f/Hzww9EQvYURJqbkFzRdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
+  "https://tnr-storage-cdn.b-cdn.net/welcomeimage_compressed.webp";
+// "https://utfs.io/f/Hzww9EQvYURJqbkFzRdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
 export const IMG_LOGO_FULL =
   "https://utfs.io/f/Hzww9EQvYURJ8b0eqBkkp45TvAnoIBa0rtCf1lbyXYjVKQ2q";
 export const IMG_LOGO_SHORT =
