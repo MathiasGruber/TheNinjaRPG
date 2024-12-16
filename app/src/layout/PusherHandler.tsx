@@ -73,6 +73,15 @@ export const usePusherHandler = (userId?: string | null) => {
                 },
               } as typeof old;
             });
+            utils.profile.getUser.setData(undefined, (old) => {
+              return {
+                ...old,
+                notifications: [
+                  ...(old?.notifications || []),
+                  { href: "/combat", name: "In combat", color: "red" },
+                ],
+              } as typeof old;
+            });
             router.push("/combat");
           }
         } else if (data.type === "newInbox") {
