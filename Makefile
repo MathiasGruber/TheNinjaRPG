@@ -57,7 +57,7 @@ setup: ## Install bun locally
 .PHONY: install
 install: ## Install bun locally
 	@echo "${GREEN}install${RESET}"
-	bun install --save-text-lockfile --cwd ./app
+	bun install --cwd ./app
 
 .PHONY: bun
 bun: install # Execute bun commands in local development.\nExamples:\n  make bun -- run build\n  make bun -- dbpush
