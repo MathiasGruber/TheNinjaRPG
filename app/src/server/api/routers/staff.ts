@@ -29,7 +29,7 @@ export const staffRouter = createTRPCRouter({
         ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
-          tableName: "userData",
+          tableName: "user",
           relatedId: input.userId,
           relatedMsg: `Force updated status to awake from status: ${targetUser.status}`,
           changes: [`Previous BattleId: ${targetUser.battleId}`],
