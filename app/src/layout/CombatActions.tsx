@@ -182,7 +182,7 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
         props.isGreyed ? "hover:opacity-80" : "hover:opacity-90"
       }`}
     >
-      <div className="relative">
+      <div className="relative w-full">
         <ContentImage
           image={props.src}
           alt={props.alt}
