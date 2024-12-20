@@ -33,7 +33,6 @@ export default function BattleLog(props: { params: Promise<{ battleid: string }>
       setUserId(userData.userId);
       setBattleState({ battle: data?.battle, result: undefined, isPending: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, data]);
 
   // Battle scene

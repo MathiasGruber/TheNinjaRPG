@@ -12,18 +12,16 @@ The codebase relies on a variety of external services for e.g. auth, websockets,
 
 To get started, copy `app/.env.example` to `app/.env` and fill in all variables related to services (`*CLERK*`, `REPLICATE*`, `UPLOADTHING*`).
 
-## Option 1) VSCode DevContainer (Easiest)
+```bash
+make setup # Install bun locally
+make install # Run bun install
+make dbpush # Setup database tables
+make seed # Seed database tables
+make start # Start development server
+```
 
-The project is bootstrapped with docker within a [VScode devcontainer](https://code.visualstudio.com/docs/devcontainers/containers), making it as easy as possible to get up and running within a consistent environment. Open the project in VSCode, and then open the VScode devcontainer in the lower left corner. This should set up the entire development environment.
-
-- Run `make dbpush` to setup database.
-- Run `make seed` to seed database.
 - Go to `http://localhost:3000` to view site
 - Go to `http://localhost:3001` to manage database.
-
-## Option 2) Running locally (Fastest)
-
-WIP
 
 # :books: Learning Guide
 
@@ -37,7 +35,8 @@ The following videos on youtube are recommended to get a quick introduction to t
 
 Various `make` commands are available; type `make help` at the root directory for list of available commands. Most importantly:
 
-- Use `make pnpm "add [package]"` if you need to add some package
+- Use `make bun add [package]` if you need to add some package
+- Use `make build` to build the project
 - Use `make makemigrations` to create migrations file for new database changes
 
 # :lock: Licensing

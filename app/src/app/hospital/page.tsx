@@ -180,7 +180,6 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
         clearInterval(interval);
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, timeDiff]);
 
   // Mutations

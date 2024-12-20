@@ -1,6 +1,7 @@
 import { type MutableRefObject } from "react";
 import { Scene, WebGLRenderer, WebGL1Renderer, Raycaster } from "three";
-import { Vector2, OrthographicCamera, PerspectiveCamera } from "three";
+import { Vector2 } from "three";
+import type { OrthographicCamera, PerspectiveCamera } from "three";
 import { type Material, type BufferGeometry } from "three";
 
 /**

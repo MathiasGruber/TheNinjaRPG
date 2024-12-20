@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, gte, sql, and, or, isNull, inArray } from "drizzle-orm";
+import { eq, gte, and, or, isNull, inArray } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";

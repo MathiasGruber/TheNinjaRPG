@@ -17,7 +17,7 @@
  *
  */
 import { drizzleDB } from "@/server/db";
-import * as Sentry from "@sentry/node";
+// import * as Sentry from "@sentry/node";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
@@ -91,11 +91,11 @@ const ratelimit = new Ratelimit({
   prefix: "trpc-ratelimit",
 });
 
-export const sentryMiddleware = t.middleware(
-  Sentry.trpcMiddleware({
-    attachRpcInput: true,
-  }),
-);
+// export const sentryMiddleware = t.middleware(
+//   Sentry.trpcMiddleware({
+//     attachRpcInput: true,
+//   }),
+// );
 
 export const ratelimitMiddleware = t.middleware(async ({ ctx, path, next }) => {
   if (!ctx.userId && !ctx.userIp) {
@@ -149,9 +149,7 @@ export const createTRPCRouter = t.router;
  * guarantee that a user querying is authorized, but you can still access user session data if they
  * are logged in.
  */
-export const publicProcedure = t.procedure
-  .use(sentryMiddleware)
-  .use(ratelimitMiddleware);
+export const publicProcedure = t.procedure.use(ratelimitMiddleware);
 
 const enforceUserIsAuthed = t.middleware(async ({ ctx, path, getRawInput, next }) => {
   // Check that the user is authed
@@ -166,9 +164,7 @@ const enforceUserIsAuthed = t.middleware(async ({ ctx, path, getRawInput, next }
   return next({ ctx: { userId: ctx.userId } });
 });
 
-export const protectedProcedure = t.procedure
-  .use(sentryMiddleware)
-  .use(enforceUserIsAuthed);
+export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
 
 /**
  * 4. EXPORTS

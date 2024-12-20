@@ -14,7 +14,7 @@ export const serverSchema = z.object({
   DISCORD_CONTENT_UPDATES: z.string().url().optional(),
   DISCORD_NEWS_UPDATES: z.string().url().optional(),
   DISCORD_TICKETS: z.string().url().optional(),
-  REPLICATE_API_TOKEN: z.string(),
+  REPLICATE_API_TOKEN: z.string().optional(),
   CAPTCHA_SALT: z.string(),
 });
 

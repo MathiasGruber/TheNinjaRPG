@@ -7,7 +7,7 @@ import { randomString } from "@/libs/random";
  */
 export const parseHtml = (html: string) => {
   return ReactHtmlParser(html, {
-    transform: (node) => {
+    transform: (node: { type: string; name: string; attribs: { alt: string } }) => {
       if (
         node.type === "directive" ||
         node.type === "style" ||

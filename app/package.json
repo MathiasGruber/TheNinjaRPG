@@ -15,7 +15,7 @@
     "preview": "next build && next start",
     "start": "next start",
     "test": "vitest",
-    "seed": "pnpm tsx drizzle/seed.ts",
+    "seed": "bun tsx drizzle/seed.ts",
     "dbpush": "drizzle-kit push",
     "makemigrations": "drizzle-kit generate",
     "emptymigration": "drizzle-kit generate --custom",
@@ -24,6 +24,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^1.0.7",
     "@clerk/nextjs": "^6.7.1",
+    "@eslint/eslintrc": "^3.2.0",
+    "@eslint/js": "^9.17.0",
     "@hookform/error-message": "^2.0.1",
     "@hookform/resolvers": "^3.9.1",
     "@icons-pack/react-simple-icons": "^10.2.0",
@@ -145,11 +147,5 @@
   },
   "ct3aMetadata": {
     "initVersion": "7.3.2"
-  },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "npm:types-react@19.0.0-rc.1",
-      "@types/react-dom": "npm:types-react-dom@19.0.0-rc.1"
-    }
   }
 }

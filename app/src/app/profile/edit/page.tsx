@@ -1289,6 +1289,7 @@ const ChangeGender: React.FC = () => {
     if (userData?.gender) {
       form.setValue("gender", userData.gender as Gender);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
   // Form handlers

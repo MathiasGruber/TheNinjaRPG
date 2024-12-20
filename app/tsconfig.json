@@ -55,5 +55,5 @@
     "src/libs/travel/SpriteMixer.js",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".pnpm-store", ".next"]
+  "exclude": ["node_modules", ".next"]
 }
