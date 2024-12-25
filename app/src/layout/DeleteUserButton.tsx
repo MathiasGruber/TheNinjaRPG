@@ -8,6 +8,7 @@ import { Trash2 } from "lucide-react";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
+import { sendGTMEvent } from "@next/third-parties/google";
 
 interface DeleteUserButtonProps {
   userData: {
@@ -48,6 +49,10 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
+          sendGTMEvent({
+            event: "toggle_deletion",
+            character: userData.userId,
+          });
           await utils.profile.getUser.invalidate();
           await utils.profile.getPublicUser.invalidate();
         }

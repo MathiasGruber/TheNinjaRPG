@@ -15,6 +15,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 /** @type {import("next").NextConfig} */
 const config = {
   experimental: {
+    nextScriptWorkers: true,
     turbo: {
       resolveExtensions: [".tsx", ".ts", ".jsx", ".js"],
     },

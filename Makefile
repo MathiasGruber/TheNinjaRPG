@@ -69,6 +69,7 @@ bun: install # Execute bun commands in local development.\nExamples:\n  make bun
 .PHONY: start
 start: # Run Next.js server locally outside of appcontainer for fast development.\nExamples:\n  make start
 	@echo "${GREEN}start${RESET}"
+	rm -rf app/.next
 	@make bun -- dev --experimental-https
 
 .PHONY: build
