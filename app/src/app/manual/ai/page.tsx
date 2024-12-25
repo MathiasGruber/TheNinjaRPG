@@ -52,7 +52,7 @@ export default function ManualAI() {
         rarity: "COMMON",
         createdAt: user.updatedAt,
         effects: [],
-        href: `/users/${user.userId}`,
+        href: `/username/${user.username}`,
         attacks: user.jutsus?.map((jutsu) =>
           "jutsu" in jutsu ? jutsu.jutsu?.name : "Unknown",
         ),

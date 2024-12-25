@@ -516,7 +516,7 @@ const Sector: React.FC<SectorProps> = (props) => {
               return false;
             } else if (showUsers.current && i.object.userData.type === "info") {
               const userId = i.object.userData.userId as string;
-              void router.push(`/users/${userId}`);
+              void router.push(`/userid/${userId}`);
               return false;
             } else if (showUsers.current && i.object.userData.type === "marker") {
               return true;
@@ -765,7 +765,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                 )}
               </div>
               <div className="absolute left-0 top-0 z-50 w-1/3 hover:opacity-80  hover:cursor-pointer">
-                <Link href={`/users/${user.userId}`}>
+                <Link href={`/userid/${user.userId}`}>
                   <Image
                     src={IMG_SECTOR_INFO}
                     width={40}

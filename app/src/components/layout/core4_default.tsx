@@ -616,7 +616,11 @@ const StrongestUsersBanner: React.FC = () => {
               className="text-orange-100 hover:text-orange-300"
             />
             {users?.map((user, i) => (
-              <Link href={`/users/${user.userId}`} key={i} className="hover:opacity-50">
+              <Link
+                href={`/username/${user.username}`}
+                key={i}
+                className="hover:opacity-50"
+              >
                 <div
                   className={`py-1 grid grid-cols-12 items-center justify-center relative top-2 left-8 lg:left-10 w-[154px] max-w-[154px] lg:w-[200px] lg:max-w-[200px] ${
                     i % 2 == 0 ? "bg-pink-900" : ""

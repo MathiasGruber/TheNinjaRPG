@@ -82,7 +82,7 @@ export default function PublicProfile(props: { params: Promise<{ ip: string }> }
           {
             label: <ExternalLink className="h-5 w-5" />,
             onClick: (user: User) => {
-              window.open(`/users/${user.userId}`, "_blank");
+              window.open(`/userid/${user.userId}`, "_blank");
             },
           },
         ]}

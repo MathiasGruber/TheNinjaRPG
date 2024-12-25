@@ -94,7 +94,7 @@ export default function Profile() {
                 ? marriages.map((x, i) => (
                     <Link
                       key={x.username}
-                      href={`/users/${x.userId}`}
+                      href={`/userid/${x.userId}`}
                       className="font-bold"
                     >
                       {i >= 1 ? ", " + x.username : x.username}

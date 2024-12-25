@@ -857,7 +857,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                 Founder:{" "}
                 <Link
                   className="font-bold hover:text-orange-500"
-                  href={`/users/${clanData.founder.userId}`}
+                  href={`/userid/${clanData.founder.userId}`}
                 >
                   {clanData.founder.username}
                 </Link>
@@ -866,7 +866,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                 Leader:{" "}
                 <Link
                   className="font-bold hover:text-orange-500"
-                  href={`/users/${clanData.leader.userId}`}
+                  href={`/userid/${clanData.leader.userId}`}
                 >
                   {clanData.leader.username}
                 </Link>

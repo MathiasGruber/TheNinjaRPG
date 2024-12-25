@@ -154,7 +154,7 @@ const Post: React.FC<PostProps> = (props) => {
       {props.image}
       {props.user && (
         <div className="... mr-3 basis-2/12 truncate text-center sm:basis-3/12 sm:text-base">
-          <Link href={`/users/${props.user.userId}`}>
+          <Link href={`/userid/${props.user.userId}`}>
             <AvatarImage
               href={props.user.avatar}
               userId={props.user.userId}
@@ -164,7 +164,7 @@ const Post: React.FC<PostProps> = (props) => {
           </Link>
           {props.user.nRecruited && props.user.nRecruited > 0 ? (
             <Link
-              href={`/users/${props.user.userId}`}
+              href={`/userid/${props.user.userId}`}
               className="font-bold hover:text-orange-500 text-xs"
             >
               Recruits: {props.user.nRecruited}

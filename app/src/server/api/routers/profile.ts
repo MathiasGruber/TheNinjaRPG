@@ -554,11 +554,10 @@ export const profileRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const username = await ctx.drizzle.query.userData.findFirst({
-        columns: { username: true },
+        columns: { username: true, userId: true },
         where: eq(userData.username, input.username),
       });
-      if (username) return username;
-      return null;
+      return username || null;
     }),
   // Update username
   updateUsername: protectedProcedure

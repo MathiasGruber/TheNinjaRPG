@@ -75,22 +75,23 @@ interface PublicUserComponentProps {
   showMarriages?: boolean;
 }
 
-const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
-  userId,
-  title,
-  back_href,
-  initialBreak,
-  showRecruited,
-  showStudents,
-  showBadges,
-  showNindo,
-  showReports,
-  showTransactions,
-  showActionLogs,
-  showTrainingLogs,
-  showCombatLogs,
-  showMarriages,
-}) => {
+const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
+  const {
+    userId,
+    title,
+    back_href,
+    initialBreak,
+    showRecruited,
+    showStudents,
+    showBadges,
+    showNindo,
+    showReports,
+    showTransactions,
+    showActionLogs,
+    showTrainingLogs,
+    showCombatLogs,
+    showMarriages,
+  } = props;
   // Get state
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
   const { data: userData } = useUserData();
@@ -353,7 +354,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
             <p>
               Sensei:{" "}
               {profile.rank === "GENIN" && profile.senseiId && profile.sensei ? (
-                <Link href={`/users/${profile.senseiId}`} className="font-bold">
+                <Link href={`/userid/${profile.senseiId}`} className="font-bold">
                   {profile.sensei?.username}
                 </Link>
               ) : (
@@ -463,7 +464,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {marriages.map((user, i) => (
               <Link
-                href={`/users/${user.userId}`}
+                href={`/userid/${user.userId}`}
                 className="text-center"
                 key={`marriage-${i}`}
               >
@@ -493,7 +494,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.recruitedUsers.map((user, i) => (
               <Link
-                href={`/users/${user.userId}`}
+                href={`/userid/${user.userId}`}
                 className="text-center"
                 key={`recruited-${i}`}
               >
@@ -522,7 +523,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.students.map((user, i) => (
               <Link
-                href={`/users/${user.userId}`}
+                href={`/userid/${user.userId}`}
                 className="text-center"
                 key={`student-${i}`}
               >

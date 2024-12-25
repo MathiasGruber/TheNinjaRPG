@@ -127,7 +127,7 @@ const ElderHall: React.FC<{
           <div className="grid grid-cols-3 pt-3">
             {elders?.map((elder, i) => (
               <div key={i} className="relative">
-                <Link href={`/users/${elder.userId}`} className="text-center">
+                <Link href={`/userid/${elder.userId}`} className="text-center">
                   <AvatarImage
                     href={elder.avatar}
                     alt={elder.username}
@@ -368,7 +368,7 @@ const KageHall: React.FC<{
           <div className="grid grid-cols-4 lggrid-cols-5">
             {village.defendedChallenges.map((challenge, i) => (
               <div key={i} className="p-2 text-center">
-                <Link href={`/users/${challenge.userId}`}>
+                <Link href={`/userid/${challenge.userId}`}>
                   <AvatarImage
                     href={challenge.user.avatar}
                     alt={challenge.user.username}
@@ -467,7 +467,7 @@ const AllianceHall: React.FC<{
             {villages.map((village, i) => (
               <div key={i} className="h-full flex flex-col justify-end">
                 {village.kage?.avatar && (
-                  <Link href={`/users/${village.kageId}`}>
+                  <Link href={`/userid/${village.kageId}`}>
                     <AvatarImage
                       href={village.kage.avatar}
                       alt={village.kage.username}

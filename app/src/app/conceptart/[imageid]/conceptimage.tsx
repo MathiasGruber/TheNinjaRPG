@@ -31,7 +31,7 @@ const ConceptBox_ConceptImage: React.FC<ConceptBox_ConceptImageProps> = (props) 
       topRightContent={
         image && (
           <div className="w-14">
-            <Link href={`/users/${image.userId}`}>
+            <Link href={`/username/${image?.user?.username}`}>
               <AvatarImage
                 href={image.user.avatar}
                 alt={image.userId}

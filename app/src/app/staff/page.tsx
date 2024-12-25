@@ -151,7 +151,7 @@ const UserList: React.FC<UserListProps> = (props) => {
         <Link
           className="text-center relative basis-1/2"
           key={`${user.role}-${i}`}
-          href={`/users/${user.userId}`}
+          href={`/username/${user.username}`}
         >
           <AvatarImage
             href={user.avatar}
