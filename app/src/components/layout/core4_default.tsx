@@ -547,7 +547,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
         {/* MOBILE NOTIFICATIONS */}
         <div className="absolute top-[75px] right-0 left-0 flex flex-row justify-end md:hidden p-1 gap-2">
-          {notifications?.map((notification, i) => (
+          {shownNotifications?.map((notification, i) => (
             <Link key={i} href={notification.href}>
               <div
                 className={`flex flex-row text-xs items-center rounded-lg border-2 border-slate-800 py-[1px] px-3 hover:opacity-70 ${
