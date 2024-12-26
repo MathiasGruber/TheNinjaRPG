@@ -12,7 +12,9 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { useUserSearch } from "@/utils/search";
 import type { ArrayElement } from "@/utils/typeutils";
 
-export default function VillageUsers(props: { params: Promise<{ villageid: string }> }) {
+export default function VillageUsers(props: {
+  params: Promise<{ villageid: string }>;
+}) {
   const params = use(props.params);
   const villageId = params.villageid;
   const tabNames = ["Online", "Strongest"] as const;
@@ -91,8 +93,8 @@ export default function VillageUsers(props: { params: Promise<{ villageid: strin
       <Table
         data={allUsers}
         columns={columns}
-        linkPrefix="/users/"
-        linkColumn={"userId"}
+        linkPrefix="/username/"
+        linkColumn={"username"}
         setLastElement={setLastElement}
       />
     </ContentBox>

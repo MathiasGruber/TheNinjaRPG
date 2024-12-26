@@ -774,7 +774,7 @@ export const TransactionHistory: React.FC<{ userId: string }> = (props) => {
       <Table
         data={allTransactions}
         columns={columns}
-        linkPrefix="/users/"
+        linkPrefix="/userid/"
         setLastElement={setLastElement}
       />
     </ContentBox>

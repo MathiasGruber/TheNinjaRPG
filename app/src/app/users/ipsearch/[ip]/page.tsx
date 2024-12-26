@@ -75,8 +75,8 @@ export default function PublicProfile(props: { params: Promise<{ ip: string }> }
       <Table
         data={allUsers}
         columns={columns}
-        linkPrefix="/users/"
-        linkColumn={"userId"}
+        linkPrefix="/username/"
+        linkColumn={"username"}
         setLastElement={setLastElement}
         buttons={[
           {

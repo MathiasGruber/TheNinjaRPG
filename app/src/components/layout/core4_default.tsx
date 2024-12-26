@@ -214,7 +214,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           }}
         />
       </SignedIn>
-      <Link href="/event" onClick={() => setLeftSideBarOpen(false)}>
+      <Link
+        href="/event"
+        onClick={() => setLeftSideBarOpen(false)}
+        aria-label="Event Notifications"
+      >
         <Megaphone className="h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 ml-2 p-1" />
       </Link>
       <Eclipse
@@ -237,7 +241,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
     <div className="w-full absolute top-0 bottom-0 md:relative">
       <div className="fixed right-1 bottom-1 md:right-5 md:bottom-5 z-50 bg-slate-500 rounded-full">
         <SendTicketBtn>
-          <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-red-800 md:shadow-black border-2  hidden md:block" />
+          <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-red-800 md:shadow-black border-2 hidden md:block" />
         </SendTicketBtn>
       </div>
       {/* WALLPAPER BACKGROUND */}
@@ -492,7 +496,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         </div>
         {/* LEFT SIDEBAR MOBILE */}
         <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
-          <SheetTrigger className="absolute top-4 left-4" id="homeBtn" name="homeBtn">
+          <SheetTrigger className="absolute top-4 left-4" aria-label="homeBtn">
             <House className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
           </SheetTrigger>
           <SheetContent side="left">
@@ -530,7 +534,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
         {/* RIGHT SIDEBAR MOBILE */}
         <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
-          <SheetTrigger className="absolute top-4 right-4" id="gameBtn" name="gameBtn">
+          <SheetTrigger className="absolute top-4 right-4" aria-label="gameBtn">
             <Earth className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
           </SheetTrigger>
           <SheetContent onClick={() => setRightSideBarOpen(false)}>

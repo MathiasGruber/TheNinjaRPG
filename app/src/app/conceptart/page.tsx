@@ -253,7 +253,7 @@ export default function ConceptArt() {
               ref={i === allImage.length - 1 ? setLastElement : null}
               className="p-2 text-white"
             >
-              <Link href={`/conceptart/${image.id}`}>
+              <Link href={`/conceptart/${image.id}`} aria-label={`Image ${image.id}`}>
                 <ConceptImage image={image} />
               </Link>
             </div>

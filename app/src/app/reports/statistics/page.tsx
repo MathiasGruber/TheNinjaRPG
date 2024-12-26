@@ -61,8 +61,8 @@ export default function Reports() {
       <Table
         data={processed}
         columns={columns}
-        linkPrefix="/users/"
-        linkColumn={"userId"}
+        linkPrefix="/username/"
+        linkColumn={"username"}
       />
     </ContentBox>
   );

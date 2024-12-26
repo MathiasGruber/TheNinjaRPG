@@ -1128,8 +1128,8 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
             { key: "pvpActivity", header: "PVP Activity", type: "string" },
             { key: "actions", header: "Actions", type: "jsx" },
           ]}
-          linkPrefix="/users/"
-          linkColumn={"userId"}
+          linkPrefix="/username/"
+          linkColumn={"username"}
         />
       )}
     </ContentBox>

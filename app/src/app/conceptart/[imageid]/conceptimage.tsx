@@ -31,7 +31,10 @@ const ConceptBox_ConceptImage: React.FC<ConceptBox_ConceptImageProps> = (props) 
       topRightContent={
         image && (
           <div className="w-14">
-            <Link href={`/username/${image?.user?.username}`}>
+            <Link
+              href={`/username/${image?.user?.username}`}
+              aria-label={image?.user?.username || "unknown user"}
+            >
               <AvatarImage
                 href={image.user.avatar}
                 alt={image.userId}

@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -55,7 +57,7 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
 
   return (
     <Popover>
-      <PopoverTrigger id="supportBtn" name="supportBtn">
+      <PopoverTrigger name="supportBtn" aria-label="supportBtn">
         {props.children}
       </PopoverTrigger>
       <PopoverContent className="m-2 min-w-96 max-w-96">

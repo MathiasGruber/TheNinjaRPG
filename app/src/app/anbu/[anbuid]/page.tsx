@@ -315,8 +315,8 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
       <Table
         data={members}
         columns={columns}
-        linkPrefix="/users/"
-        linkColumn={"userId"}
+        linkPrefix="/username/"
+        linkColumn={"username"}
       />
     </ContentBox>
   );

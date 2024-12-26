@@ -105,7 +105,7 @@ const Welcome: React.FC = () => {
           ninja warrior - all completely free to play.
         </p>
         <div className="w-full flex justify-center items-center py-6 gap-8">
-          <Link href="/signup">
+          <Link href="/signup" aria-label="Signup">
             <Button
               id="signup_btn"
               decoration="gold"
@@ -117,7 +117,7 @@ const Welcome: React.FC = () => {
             </Button>
           </Link>
           <p className="text-3xl font-bold italic">OR</p>
-          <Link href="/login">
+          <Link href="/login" aria-label="Login">
             <Button
               id="signin_btn"
               decoration="gold"

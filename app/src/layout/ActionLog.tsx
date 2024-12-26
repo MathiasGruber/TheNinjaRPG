@@ -82,8 +82,8 @@ const ActionLogs: React.FC<ActionLogsProps> = (props) => {
         <Table
           data={allEntries}
           columns={columns}
-          linkPrefix="/users/"
-          linkColumn={"userId"}
+          linkPrefix="/username/"
+          linkColumn={"username"}
           setLastElement={setLastElement}
         />
       )}

@@ -128,8 +128,8 @@ export default function Users() {
       <Table
         data={allUsers}
         columns={columns}
-        linkPrefix="/users/"
-        linkColumn={"userId"}
+        linkPrefix="/username/"
+        linkColumn={"username"}
         setLastElement={setLastElement}
         buttons={[
           {

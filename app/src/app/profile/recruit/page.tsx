@@ -103,8 +103,8 @@ export default function Recruit() {
           <Table
             data={allUsers}
             columns={columns}
-            linkPrefix="/users/"
-            linkColumn={"userId"}
+            linkPrefix="/username/"
+            linkColumn={"username"}
             setLastElement={setLastElement}
           />
         </ContentBox>
