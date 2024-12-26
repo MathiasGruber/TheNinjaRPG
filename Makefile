@@ -52,6 +52,7 @@ docker-stop: # Stop all docker containers.
 .PHONY: setup
 setup: ## Install bun locally
 	@echo "${GREEN}Installing bun locally${RESET}"
+	docker compose -f .devcontainer/docker-compose.yml up -d --wait
 	curl -fsSL https://bun.sh/install | bash
 
 .PHONY: install
