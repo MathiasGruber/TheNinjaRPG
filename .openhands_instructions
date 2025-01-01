@@ -4,10 +4,10 @@ Use bun building & testing this project! Please ensure that the project builds s
 cp app/.env.example app/.env
 ```
 
-Before finishing, make sure that the project builds with:
+Before finishing, make sure that the project passes all linting with:
 
 ```bash
-cd app/ && bun install && bun run build
+cd app/ && bun install && bun run lint
 ```
 
 Tests should be run using:
