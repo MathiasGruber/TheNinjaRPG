@@ -1,17 +1,5 @@
-Please ensure that the project builds successfully and that all tests pass. Before building the project or running tests, be sure to in copy environment example file as follows:
+Please ensure that the project both builds and lints successfully and that all tests pass. Before building the project, linting, or running tests, be sure to in copy environment example file as follows:
 
 ```bash
 cp app/.env.example app/.env
-```
-
-Before finishing, make sure that the project passes all linting with:
-
-```bash
-bun run lint
-```
-
-Tests should be run using:
-
-```bash
-bun run test
 ```
