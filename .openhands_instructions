@@ -1,0 +1,11 @@
+Please ensure that the project both builds and lints successfully and that all tests pass. Before building the project, linting, or running tests, be sure to in copy environment example file as follows:
+
+```bash
+cp app/.env.example app/.env
+```
+
+Finally, never commit lock-files or update package dependencies. Before running git commit commands, always run the following:
+
+```
+rm -rf app/package-lock.json
+```
