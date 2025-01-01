@@ -35,19 +35,19 @@ export const checkFriendlyFire = (
   const creator = usersState.find((u) => u.userId === effect.creatorId);
   if (!creator) return false;
 
-  // In clan battles and other battles, players from same village are allies
-  const isFriendly = creator.villageId === target.villageId;
-  const isSelf = creator.userId === target.userId;
+  // In PvP battles (SPARRING, CLAN_BATTLE, etc.), players are always enemies regardless of village
+  // In other battles, players from same village are allies
+  const isFriendly = creator.controllerId === target.controllerId;
 
   // Check if effect should be applied based on friendly fire settings
   if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
-    return true; // Allow all
+    return true; // No restrictions
   }
   if (effect.friendlyFire === "FRIENDLY") {
-    return isFriendly; // Only apply to friends (same village)
+    return isFriendly; // Only apply to friends
   }
   if (effect.friendlyFire === "ENEMIES") {
-    return !isFriendly; // Only apply to enemies (different village)
+    return !isFriendly; // Only apply to enemies
   }
   return false;
 };
