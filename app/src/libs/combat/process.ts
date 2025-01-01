@@ -31,14 +31,14 @@ export const checkFriendlyFire = (
   target: ReturnedUserState,
   usersState: BattleUserState[],
 ) => {
-  // In case of multiple villages in the battle; friendly based on villageId, otherwise based on controllerId
-  const villageIds = [
-    ...new Set(usersState.filter((u) => !u.isSummon).map((u) => u.villageId)),
-  ];
-  const isFriendly =
-    villageIds.length > 1
-      ? target.villageId === effect.villageId
-      : target.controllerId === effect.creatorId;
+  // Find the creator of the effect
+  const creator = usersState.find((u) => u.userId === effect.creatorId);
+  if (!creator) return false;
+
+  // In PvP battles (SPARRING, CLAN_BATTLE, etc.), players are always enemies regardless of village
+  // In other battles, players from same village are allies
+  const isFriendly = creator.controllerId === target.controllerId;
+
   // Check if effect should be applied based on friendly fire settings
   if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
     return true; // No restrictions
