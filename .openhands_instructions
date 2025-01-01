@@ -1,0 +1,11 @@
+Use bun for this project! Please ensure that the project builds with the following command:
+
+```bash
+bun install && bun run build
+```
+
+In order to run tests for this project use:
+
+```bash
+bun install && bun run test
+```
