@@ -1,4 +1,4 @@
-Use bun building & testing this project! Please ensure that the project builds successfully and that all tests pass. Before building the project or running tests, be sure to in copy environment example file as follows:
+Please ensure that the project builds successfully and that all tests pass. Before building the project or running tests, be sure to in copy environment example file as follows:
 
 ```bash
 cp app/.env.example app/.env
