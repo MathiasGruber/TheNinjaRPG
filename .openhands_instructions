@@ -3,3 +3,9 @@ Please ensure that the project both builds and lints successfully and that all t
 ```bash
 cp app/.env.example app/.env
 ```
+
+Finally, never commit lock-files or update package dependencies. Before running git commit commands, always run the following:
+
+```
+rm -rf app/package-lock.json
+```
