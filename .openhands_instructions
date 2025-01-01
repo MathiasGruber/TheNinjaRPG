@@ -1,11 +1,5 @@
-Use bun for this project! Please ensure that the project builds with the following command:
+Use bun building & testing this project! Please ensure that the project builds successfully and that all tests pass. Before building the project or running tests, be sure to in copy environment example file as follows:
 
 ```bash
-bun install && bun run build
-```
-
-In order to run tests for this project use:
-
-```bash
-bun install && bun run test
+cp .env.example .env
 ```
