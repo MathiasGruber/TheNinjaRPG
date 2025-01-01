@@ -39,15 +39,14 @@ export const checkFriendlyFire = (
     villageIds.length > 1
       ? target.villageId === effect.villageId
       : target.controllerId === effect.creatorId;
-  // Check if effect should be applied based on friendly fire settings
-  if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
-    return true; // No restrictions
-  }
-  if (effect.friendlyFire === "FRIENDLY") {
-    return isFriendly; // Only apply to friends
-  }
-  if (effect.friendlyFire === "ENEMIES") {
-    return !isFriendly; // Only apply to enemies
+  // Check if effect is friendly fire
+  if (
+    !effect.friendlyFire ||
+    effect.friendlyFire === "ALL" ||
+    (effect.friendlyFire === "FRIENDLY" && isFriendly) ||
+    (effect.friendlyFire === "ENEMIES" && !isFriendly)
+  ) {
+    return true;
   }
   return false;
 };
