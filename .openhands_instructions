@@ -7,11 +7,11 @@ cp app/.env.example app/.env
 Before finishing, make sure that the project passes all linting with:
 
 ```bash
-cd app/ && bun install && bun run lint
+bun run lint
 ```
 
 Tests should be run using:
 
 ```bash
-cd app/ && bun install && bun run test
+bun run test
 ```
