@@ -3,3 +3,15 @@ Use bun building & testing this project! Please ensure that the project builds s
 ```bash
 cp app/.env.example app/.env
 ```
+
+Before finishing, make sure that the project builds with:
+
+```bash
+cd app/ && bun install && bun run build
+```
+
+Tests should be run using:
+
+```bash
+cd app/ && bun install && bun run test
+```
