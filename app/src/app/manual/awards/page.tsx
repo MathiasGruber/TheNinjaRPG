@@ -84,7 +84,7 @@ export default function AwardsManual() {
       {allAwards && allAwards.length > 0 ? (
         <Table data={allAwards} columns={columns} setLastElement={setLastElement} />
       ) : (
-        <p>No awards found.</p>
+        <p className="p-3">No awards found.</p>
       )}
     </ContentBox>
   );
