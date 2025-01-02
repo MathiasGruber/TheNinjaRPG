@@ -52,13 +52,13 @@ export const absorb = (
           pools.map((pool) => {
             switch (pool) {
               case "Health":
-                consequence.absorb_hp = convert / nPools;
+                consequence.absorb_hp = (consequence.absorb_hp || 0) + convert / nPools;
                 break;
               case "Stamina":
-                consequence.absorb_sp = convert / nPools;
+                consequence.absorb_sp = (consequence.absorb_sp || 0) + convert / nPools;
                 break;
               case "Chakra":
-                consequence.absorb_cp = convert / nPools;
+                consequence.absorb_cp = (consequence.absorb_cp || 0) + convert / nPools;
                 break;
             }
           });
