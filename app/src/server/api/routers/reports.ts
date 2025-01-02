@@ -264,49 +264,69 @@ export const reportsRouter = createTRPCRouter({
     }),
   // Get user report
   getBan: protectedProcedure.query(async ({ ctx }) => {
-    const [user, report] = await Promise.all([
+    // Selector statement
+    const reportWith = {
+      with: {
+        reporterUser: {
+          columns: {
+            userId: true,
+            username: true,
+            avatar: true,
+            rank: true,
+            isOutlaw: true,
+            level: true,
+            role: true,
+            federalStatus: true,
+          },
+        },
+        reportedUser: {
+          columns: {
+            userId: true,
+            username: true,
+            avatar: true,
+            rank: true,
+            isOutlaw: true,
+            level: true,
+            role: true,
+            federalStatus: true,
+          },
+        },
+      },
+    };
+    const [user, banReport, silenceReport] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),
       ctx.drizzle.query.userReport.findFirst({
         where: and(
+          eq(userReport.status, "BAN_ACTIVATED"),
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
-        with: {
-          reporterUser: {
-            columns: {
-              userId: true,
-              username: true,
-              avatar: true,
-              rank: true,
-              isOutlaw: true,
-              level: true,
-              role: true,
-              federalStatus: true,
-            },
-          },
-          reportedUser: {
-            columns: {
-              userId: true,
-              username: true,
-              avatar: true,
-              rank: true,
-              isOutlaw: true,
-              level: true,
-              role: true,
-              federalStatus: true,
-            },
-          },
-        },
+        ...reportWith,
+      }),
+      ctx.drizzle.query.userReport.findFirst({
+        where: and(
+          eq(userReport.status, "SILENCE_ACTIVATED"),
+          eq(userReport.reportedUserId, ctx.userId),
+          gt(userReport.banEnd, new Date()),
+        ),
+        ...reportWith,
       }),
     ]);
+    // Unsilence user if ban no longer active
+    if (!silenceReport && user.isSilenced) {
+      await ctx.drizzle
+        .update(userData)
+        .set({ isSilenced: false })
+        .where(eq(userData.userId, ctx.userId));
+    }
     // Unban user if ban no longer active
-    if (!report && user.isBanned) {
+    if (!banReport && user.isBanned) {
       await ctx.drizzle
         .update(userData)
         .set({ isBanned: false })
         .where(eq(userData.userId, ctx.userId));
     }
-    return report ?? null;
+    return banReport ?? null;
   }),
   // Get a single report
   get: protectedProcedure
@@ -580,7 +600,7 @@ export const reportsRouter = createTRPCRouter({
         // Remove ban if no other active bans
         const bans = await ctx.drizzle.query.userReport.findMany({
           where: and(
-            eq(userReport.reportedUserId, report.reportedUserId),
+            eq(userReport.reportedUserId, report.reportedUserId ?? ""),
             eq(userReport.status, "BAN_ACTIVATED"),
             gte(userReport.banEnd, new Date()),
             ne(userReport.id, report.id),
@@ -595,7 +615,7 @@ export const reportsRouter = createTRPCRouter({
         // Remove silence if no other active bans
         const silences = await ctx.drizzle.query.userReport.findMany({
           where: and(
-            eq(userReport.reportedUserId, report.reportedUserId),
+            eq(userReport.reportedUserId, report.reportedUserId ?? ""),
             eq(userReport.status, "SILENCE_ACTIVATED"),
             gte(userReport.banEnd, new Date()),
             ne(userReport.id, report.id),
