@@ -40,15 +40,12 @@ export const absorb = (
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
-          const convert =
-            Math.ceil(
-              effect.calculation === "percentage"
-                ? consequence.damage * (power / 100)
-                : power > consequence.damage
-                  ? consequence.damage
-                  : power,
-            ) * ratio;
-          // consequence.damage -= convert;
+          // Calculate absorption amount for this effect
+          const absorbAmount = effect.calculation === "percentage"
+            ? consequence.damage * (power / 100)
+            : Math.min(power, consequence.damage);
+          const convert = Math.ceil(absorbAmount * ratio);
+          // Apply absorption to each pool
           pools.map((pool) => {
             switch (pool) {
               case "Health":
