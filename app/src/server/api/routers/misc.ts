@@ -2,18 +2,18 @@ import { z } from "zod";
 import path from "path";
 import TextToSVG from "text-to-svg";
 import { randomString } from "@/libs/random";
-import { sql, and, desc, eq } from "drizzle-orm";
+import { sql, and, desc, eq, inArray } from "drizzle-orm";
 import {
   notification,
   userData,
   gameSetting,
   gameAsset,
   captcha,
-  reputationAward,
+  userRewards,
 } from "@/drizzle/schema";
 import { canAwardReputation } from "@/utils/permissions";
 import { nanoid } from "nanoid";
-import { awardReputationSchema } from "@/validators/reputation";
+import { awardSchema } from "@/validators/reputation";
 import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
 import { baseServerResponse, errorResponse } from "../trpc";
@@ -131,44 +131,56 @@ export const miscRouter = createTRPCRouter({
     }),
 
   awardReputation: protectedProcedure
-    .input(awardReputationSchema.extend({ userId: z.string() }))
+    .input(awardSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      // Fetch section - get both admin and target user in parallel
-      const [admin, user] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchUser(ctx.drizzle, input.userId),
-      ]);
+      // Fetch admin user
+      const admin = await fetchUser(ctx.drizzle, ctx.userId);
 
       // Guard checks section
       if (!canAwardReputation(admin.role)) {
-        return errorResponse("Not authorized to award reputation points");
-      }
-      if (!user) {
-        return errorResponse("User not found");
+        return errorResponse("Not authorized to award points");
       }
 
-      // Mutation section - execute both database operations in parallel
+      // Fetch all target users in a single query
+      const users = await ctx.drizzle.query.userData.findMany({
+        where: inArray(userData.userId, input.userIds),
+      });
+
+      // Check if any users are missing
+      if (users.length !== input.userIds.length) {
+        return errorResponse("One or more users not found");
+      }
+
+      // Create rewards records for all users
+      const rewardsToInsert = users.map((user) => ({
+        id: nanoid(),
+        awardedById: admin.userId,
+        receiverId: user.userId,
+        reputationAmount: input.reputationAmount || 0,
+        moneyAmount: input.moneyAmount || 0,
+        reason: input.reason,
+      }));
+
+      // Execute both operations in parallel
       await Promise.all([
-        ctx.drizzle.insert(reputationAward).values({
-          id: nanoid(),
-          awardedById: admin.userId,
-          receiverId: user.userId,
-          amount: input.amount,
-          reason: input.reason,
-        }),
+        // Batch insert all rewards
+        ctx.drizzle.insert(userRewards).values(rewardsToInsert),
+
+        // Update all users in a single query
         ctx.drizzle
           .update(userData)
           .set({
-            reputationPoints: sql`reputationPoints + ${input.amount}`,
-            reputationPointsTotal: sql`reputationPointsTotal + ${input.amount}`,
+            reputationPoints: sql`reputationPoints + ${input.reputationAmount || 0}`,
+            reputationPointsTotal: sql`reputationPointsTotal + ${input.reputationAmount || 0}`,
+            money: sql`money + ${input.moneyAmount || 0}`,
           })
-          .where(eq(userData.userId, user.userId)),
+          .where(inArray(userData.userId, input.userIds)),
       ]);
 
       return {
         success: true,
-        message: "Reputation awarded successfully",
+        message: `Rewards awarded successfully to ${users.length} user(s)`,
       };
     }),
 
@@ -184,7 +196,7 @@ export const miscRouter = createTRPCRouter({
       const limit = input?.limit ? input.limit : 100;
       const skip = currentCursor * limit;
 
-      const results = await ctx.drizzle.query.reputationAward.findMany({
+      const results = await ctx.drizzle.query.userRewards.findMany({
         offset: skip,
         limit: limit,
         with: {
@@ -203,7 +215,7 @@ export const miscRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: [desc(reputationAward.createdAt)],
+        orderBy: [desc(userRewards.createdAt)],
       });
 
       const nextCursor = results.length < limit ? null : currentCursor + 1;

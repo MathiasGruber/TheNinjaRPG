@@ -2262,13 +2262,14 @@ export const userRequestRelations = relations(userRequest, ({ one }) => ({
   }),
 }));
 
-export const reputationAward = mysqlTable(
-  "ReputationAward",
+export const userRewards = mysqlTable(
+  "UserRewards",
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     awardedById: varchar("awardedById", { length: 191 }).notNull(),
     receiverId: varchar("receiverId", { length: 191 }).notNull(),
-    amount: float("amount").notNull(),
+    reputationAmount: float("reputationAmount").default(0).notNull(),
+    moneyAmount: bigint("moneyAmount", { mode: "number" }).default(0).notNull(),
     reason: text("reason").notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
@@ -2276,22 +2277,22 @@ export const reputationAward = mysqlTable(
   },
   (table) => {
     return {
-      awardedByIdIdx: index("ReputationAward_awardedById_idx").on(table.awardedById),
-      receiverIdIdx: index("ReputationAward_receiverId_idx").on(table.receiverId),
-      createdAtIdx: index("ReputationAward_createdAt_idx").on(table.createdAt),
+      awardedByIdIdx: index("UserRewards_awardedById_idx").on(table.awardedById),
+      receiverIdIdx: index("UserRewards_receiverId_idx").on(table.receiverId),
+      createdAtIdx: index("UserRewards_createdAt_idx").on(table.createdAt),
     };
   },
 );
 
-export type ReputationAward = InferSelectModel<typeof reputationAward>;
+export type UserRewards = InferSelectModel<typeof userRewards>;
 
-export const reputationAwardRelations = relations(reputationAward, ({ one }) => ({
+export const userRewardsRelations = relations(userRewards, ({ one }) => ({
   awardedBy: one(userData, {
-    fields: [reputationAward.awardedById],
+    fields: [userRewards.awardedById],
     references: [userData.userId],
   }),
   receiver: one(userData, {
-    fields: [reputationAward.receiverId],
+    fields: [userRewards.receiverId],
     references: [userData.userId],
   }),
 }));
