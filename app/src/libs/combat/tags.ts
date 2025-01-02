@@ -49,12 +49,15 @@ export const absorb = (
           pools.map((pool) => {
             switch (pool) {
               case "Health":
+                // Add to existing absorb value instead of overwriting
                 consequence.absorb_hp = (consequence.absorb_hp || 0) + convert / nPools;
                 break;
               case "Stamina":
+                // Add to existing absorb value instead of overwriting
                 consequence.absorb_sp = (consequence.absorb_sp || 0) + convert / nPools;
                 break;
               case "Chakra":
+                // Add to existing absorb value instead of overwriting
                 consequence.absorb_cp = (consequence.absorb_cp || 0) + convert / nPools;
                 break;
             }
