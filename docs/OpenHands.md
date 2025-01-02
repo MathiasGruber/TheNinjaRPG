@@ -19,3 +19,5 @@ Before the fix or feature can be merged, it must pass all our automatic checks. 
     a) Create a new comment containing @openhands-agent, which will prompt the AI to revise its solution according to your comment, or
 
     b) Add the 'fix-me' label to the PR, which will prompt the AI to read the entire PR conversation and try to revise its solution.
+
+**Step 5:** If the solution looks OK and you're reviewed the changes, create a comment on the PR with the result of your test and tag me @MathiasGruber, then I will perform a final review and merge the code.
