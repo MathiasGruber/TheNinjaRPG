@@ -1,7 +1,26 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import RichInput from "@/layout/RichInput";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Medal } from "lucide-react";
 import { parseHtml } from "@/utils/parse";
+import {
+  awardReputationSchema,
+  type AwardReputationSchema,
+} from "@/validators/reputation";
+
 import Link from "next/link";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
@@ -34,7 +53,11 @@ import {
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { canSeeSecretData, canSeeIps } from "@/utils/permissions";
-import { canModifyUserBadges, canUnstuckVillage } from "@/utils/permissions";
+import {
+  canModifyUserBadges,
+  canUnstuckVillage,
+  canAwardReputation,
+} from "@/utils/permissions";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { canChangePublicUser } from "@/utils/permissions";
@@ -95,6 +118,15 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   // Get state
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
   const { data: userData } = useUserData();
+
+  const form = useForm<AwardReputationSchema>({
+    resolver: zodResolver(awardReputationSchema),
+    defaultValues: {
+      amount: 0,
+      reason: "",
+    },
+  });
+
   const canSeeSecrets = userData && canSeeSecretData(userData.role);
   const enableReports = showReports && canSeeSecrets;
   const enablePaypal = showTransactions && canSeeSecrets;
@@ -183,6 +215,20 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         await utils.logs.getContentChanges.invalidate();
       }
     },
+  });
+
+  const awardMutation = api.misc.awardReputation.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+      }
+      form.reset();
+    },
+  });
+
+  const handleAwardSubmit = form.handleSubmit((data) => {
+    awardMutation.mutate({ userId: userId, ...data });
   });
 
   // Derived
@@ -302,17 +348,67 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 }}
               />
             )}
-            <ReportUser
-              user={profile}
-              content={{
-                id: profile.userId,
-                title: profile.username,
-                content:
-                  "General user behavior, justification must be provided in comments",
-              }}
-              system="user_profile"
-              button={<Flag className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
-            />
+            {userData && canAwardReputation(userData.role) && (
+              <Confirm
+                title="Award Reputation Points"
+                proceed_label="Award Points"
+                button={
+                  <Medal className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                }
+                isValid={form.formState.isValid}
+                onAccept={handleAwardSubmit}
+              >
+                <b>DO NOT</b> abuse this feature! All assignments are logged and visible
+                to ALL users. Feature abuse for personal gain will result in severe
+                consequences.
+                <Form {...form}>
+                  <form className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="any"
+                              placeholder="Enter amount"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <RichInput
+                      id="reason"
+                      height="100px"
+                      placeholder="Enter reason for awarding points"
+                      control={form.control}
+                      error={form.formState.errors.reason?.message}
+                    />
+                  </form>
+                </Form>
+              </Confirm>
+            )}
+
+            {userData && canUnstuckVillage(userData.role) && (
+              <ReportUser
+                user={profile}
+                content={{
+                  id: profile.userId,
+                  title: profile.username,
+                  content:
+                    "General user behavior, justification must be provided in comments",
+                }}
+                system="user_profile"
+                button={
+                  <Flag className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                }
+              />
+            )}
             {userData && canUnstuckVillage(userData.role) ? (
               <>
                 <Confirm
@@ -771,11 +867,11 @@ interface EditUserComponentProps {
 }
 
 const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }) => {
-  // Refetching public user
-  const refetchProfile = () => void utils.profile.getPublicUser.invalidate();
-
   // tRPC utility
   const utils = api.useUtils();
+
+  // Refetching public user
+  const refetchProfile = () => void utils.profile.getPublicUser.invalidate();
 
   // Form handling
   const { form, formData, handleUserSubmit } = useUserEditForm(

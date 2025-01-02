@@ -13,6 +13,7 @@ import {
   IMG_MANUAL_BADGE,
   IMG_MANUAL_ASSET,
   IMG_MANUAL_OPINION,
+  IMG_MANUAL_AWARDS,
 } from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
 
@@ -30,6 +31,7 @@ export default function ManualMain() {
     { name: "badge", img: IMG_MANUAL_BADGE },
     { name: "asset", img: IMG_MANUAL_ASSET },
     { name: "opinions", img: IMG_MANUAL_OPINION },
+    { name: "awards", img: IMG_MANUAL_AWARDS },
   ];
   return (
     <ContentBox

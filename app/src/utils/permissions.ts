@@ -164,6 +164,10 @@ export const canChangePublicUser = (user: UserData) => {
   );
 };
 
+export const canAwardReputation = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
+
 export const canChangeCombatBgScheme = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };

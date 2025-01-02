@@ -9,7 +9,11 @@ import {
   gameSetting,
   gameAsset,
   captcha,
+  reputationAward,
 } from "@/drizzle/schema";
+import { canAwardReputation } from "@/utils/permissions";
+import { nanoid } from "nanoid";
+import { awardReputationSchema } from "@/validators/reputation";
 import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
 import { baseServerResponse, errorResponse } from "../trpc";
@@ -124,6 +128,86 @@ export const miscRouter = createTRPCRouter({
       await callDiscordTicket(input.title, input.content, input.type, user);
       // Return message
       return { success: true, message: `Ticket sent` };
+    }),
+
+  awardReputation: protectedProcedure
+    .input(awardReputationSchema.extend({ userId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch section - get both admin and target user in parallel
+      const [admin, user] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
+
+      // Guard checks section
+      if (!canAwardReputation(admin.role)) {
+        return errorResponse("Not authorized to award reputation points");
+      }
+      if (!user) {
+        return errorResponse("User not found");
+      }
+
+      // Mutation section - execute both database operations in parallel
+      await Promise.all([
+        ctx.drizzle.insert(reputationAward).values({
+          id: nanoid(),
+          awardedById: admin.userId,
+          receiverId: user.userId,
+          amount: input.amount,
+          reason: input.reason,
+        }),
+        ctx.drizzle
+          .update(userData)
+          .set({
+            reputationPoints: sql`reputationPoints + ${input.amount}`,
+            reputationPointsTotal: sql`reputationPointsTotal + ${input.amount}`,
+          })
+          .where(eq(userData.userId, user.userId)),
+      ]);
+
+      return {
+        success: true,
+        message: "Reputation awarded successfully",
+      };
+    }),
+
+  getAllAwards: publicProcedure
+    .input(
+      z.object({
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(500),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const currentCursor = input?.cursor ? input.cursor : 0;
+      const limit = input?.limit ? input.limit : 100;
+      const skip = currentCursor * limit;
+
+      const results = await ctx.drizzle.query.reputationAward.findMany({
+        offset: skip,
+        limit: limit,
+        with: {
+          awardedBy: {
+            columns: {
+              userId: true,
+              username: true,
+              avatar: true,
+            },
+          },
+          receiver: {
+            columns: {
+              userId: true,
+              username: true,
+              avatar: true,
+            },
+          },
+        },
+        orderBy: [desc(reputationAward.createdAt)],
+      });
+
+      const nextCursor = results.length < limit ? null : currentCursor + 1;
+      return { data: results, nextCursor: nextCursor };
     }),
 });
 
