@@ -94,9 +94,7 @@ export const canSeeReport = (user: UserData, report: UserReport) => {
   return (
     report.reporterUserId === user.userId ||
     report.reportedUserId === user.userId ||
-    ["MODERATOR", "HEAD_MODERATOR", "MODERATOR-ADMIN", "CODING-ADMIN"].includes(
-      user.role,
-    )
+    canModerateRoles.includes(user.role)
   );
 };
 

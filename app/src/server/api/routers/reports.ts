@@ -27,6 +27,7 @@ import { TERR_BOT_ID } from "@/drizzle/constants";
 import { generateModerationDecision } from "@/libs/moderator";
 import { getAdditionalContext } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
+import { canModerateRoles } from "@/utils/permissions";
 import { reportFilteringSchema } from "@/validators/reports";
 import type { BanState } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
@@ -199,11 +200,12 @@ export const reportsRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       const reportedUser = alias(userData, "reportedUser");
       const reporterUser = alias(userData, "reporterUser");
+      const staffUser = canModerateRoles.includes(user.role);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { reporterUserId, ...rest } = getTableColumns(userReport);
       const reports = await ctx.drizzle
         .select({
-          UserReport: user.role === "USER" ? { ...rest } : getTableColumns(userReport),
+          UserReport: !staffUser ? { ...rest } : getTableColumns(userReport),
           reportedUser: { ...getTableColumns(reportedUser) },
         })
         .from(userReport)
@@ -218,7 +220,7 @@ export const reportsRouter = createTRPCRouter({
             ...(input.endDate !== undefined
               ? [lte(userReport.createdAt, new Date(input.endDate))]
               : []),
-            ...(user.role === "USER"
+            ...(!staffUser
               ? [
                   and(
                     eq(userReport.reportedUserId, ctx.userId),
