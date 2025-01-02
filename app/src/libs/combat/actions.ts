@@ -52,7 +52,7 @@ export const availableUserActions = (
   // Concatenate all actions
   let availableActions = [
     ...(basicMoves && !isStealth ? [basicActions.basicAttack] : []),
-    ...(basicMoves ? [basicActions.basicHeal] : []),
+    ...(basicMoves ? [basicActions.basicHeal] : []), // Basic heal is always available
     ...(!isImmobilized ? [basicActions.basicMove] : []),
     ...(basicMoves && !isStealth
       ? [basicActions.basicClear, basicActions.basicCleanse, basicActions.basicFlee]
