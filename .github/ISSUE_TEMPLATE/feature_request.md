@@ -1,14 +1,13 @@
 ---
 name: Feature request
 about: Suggest an idea for this project
-title: ''
-labels: ''
-assignees: ''
-
+title: ""
+labels: ""
+assignees: ""
 ---
 
 **Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]. It is very important to provide AS MUCH context as possible; the issue should be described as if the person solving the issue does not play the game or have any context. Also always only report one bug report at a time.
 
 **Describe the solution you'd like**
 A clear and concise description of what you want to happen.

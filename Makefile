@@ -50,31 +50,31 @@ docker-stop: # Stop all docker containers.
 
 -----------LocalDevelopment-------------: # -------------------------------------------------------
 .PHONY: setup
-setup: ## Install bun locally
+setup: # Start required services and install bun locally
 	@echo "${GREEN}Installing bun locally${RESET}"
 	docker compose -f .devcontainer/docker-compose.yml up -d --wait
 	curl -fsSL https://bun.sh/install | bash
 
 .PHONY: install
-install: ## Install bun locally
+install: # Install application dependencies with bun locally
 	@echo "${GREEN}install${RESET}"
 	bun install --cwd ./app
 
 .PHONY: bun
-bun: install # Execute bun commands in local development.\nExamples:\n  make bun -- run build\n  make bun -- dbpush
+bun: install ## Execute bun command in local development.
 	@echo "${GREEN}bun${RESET}"
 	docker compose -f .devcontainer/docker-compose.yml up -d --wait		
 	@echo $(DATABASE_URL)
 	cd app && bun $(ARGS)
 
 .PHONY: start
-start: # Run Next.js server locally outside of appcontainer for fast development.\nExamples:\n  make start
+start: # Run Next.js server, access at https://localhost:3000
 	@echo "${GREEN}start${RESET}"
 	rm -rf app/.next
 	@make bun -- dev --experimental-https
 
 .PHONY: build
-build: # Run Next.js server locally outside of appcontainer for fast development.\nExamples:\n  make build
+build: # Build Next.js app
 	@echo "${GREEN}build${RESET}"
 	cd app && bun run build
 

@@ -1,17 +1,17 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: ''
-labels: ''
+title: ""
+labels: ""
 assignees: MathiasGruber
-
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+A clear and concise description of what the bug is. It is very important to provide AS MUCH context as possible; the issue should be described as if the person solving the issue does not play the game or have any context. Also always only report one bug report at a time.
 
 **To Reproduce**
 Steps to reproduce the behavior:
+
 1. Go to '...'
 2. Click on '....'
 3. Scroll down to '....'
