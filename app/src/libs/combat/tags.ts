@@ -1008,6 +1008,10 @@ export const reflect = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
