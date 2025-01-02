@@ -20,5 +20,8 @@ Steps to reproduce the behavior:
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
+**Further Information**
+It could be you already have an idea of which code is at fault for this issue, but are not confident enough to attempt to fix it yourself; if so, please list any such additional information here.
+
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
