@@ -42,13 +42,18 @@ export const checkFriendlyFire = (
   // In spars and kage battles, village alliance is ignored
   const ignoreVillageAlliance = battleType === "SPARRING" || battleType === "KAGE_CHALLENGE";
 
-  // In clan battles and other battles, players from same village are allies
-  const isFriendly = !ignoreVillageAlliance && creator.villageId === target.villageId;
-
   // Check if effect should be applied based on friendly fire settings
   if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
     return true; // Allow all
   }
+
+  // In spars and kage battles, treat everyone as enemies
+  if (ignoreVillageAlliance) {
+    return effect.friendlyFire === "ENEMIES";
+  }
+
+  // In other battles, check village alliance
+  const isFriendly = creator.villageId === target.villageId;
   if (effect.friendlyFire === "FRIENDLY") {
     return isFriendly; // Only apply to friends (same village)
   }
