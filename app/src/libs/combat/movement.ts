@@ -33,6 +33,7 @@ export const isValidMove = (info: {
     } else if (action.target === "ALLY") {
       if (opponent && opponent?.villageId === villageId) return true;
     } else if (action.target === "SELF") {
+      // Allow self-targeting abilities like basic heal even when stealthed
       if (opponent && opponent?.userId === userId) return true;
     } else if (action.target === "EMPTY_GROUND") {
       if (!opponent || target !== clicked) return true;
