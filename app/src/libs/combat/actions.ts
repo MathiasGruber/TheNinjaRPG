@@ -462,7 +462,8 @@ export const insertAction = (info: {
                 targetGenders.push(target.gender);
                 // Check for stealth
                 const isStealthed = isUserStealthed(target.userId, usersEffects);
-                if (isStealthed) {
+                // Allow self-targeting abilities like basic heal even when stealthed
+                if (isStealthed && target.userId !== user.userId) {
                   action.battleDescription +=
                     ". The target is stealthed and cannot be targeted";
                 } else {
