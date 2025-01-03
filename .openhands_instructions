@@ -7,5 +7,5 @@ cp app/.env.example app/.env
 Always create tests to verify your implementation. Tests can be executed with the following statement:
 
 ```bash
-cd app/ && npm install --legacy-peer-deps && npm test
+cd app/ && npm install --legacy-peer-deps && CI=true npm test
 ```
