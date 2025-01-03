@@ -32,9 +32,10 @@ import {
   userReportComment,
   village,
   battleHistory,
+  linkPromotion,
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
-import { canChangeContent, canModerateRoles } from "@/utils/permissions";
+import { canChangeContent, canModerateRoles, canReviewLinkPromotions } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
@@ -89,6 +90,109 @@ import type { NavBarDropdownLink } from "@/libs/menus";
 const pusher = getServerPusher();
 
 export const profileRouter = createTRPCRouter({
+  // Get link promotions for a user
+  getLinkPromotions: protectedProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(100),
+      userId: z.string(),
+      cursor: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, ctx.userId),
+      });
+      if (!user) return { data: [], nextCursor: undefined };
+
+      const isAdmin = canReviewLinkPromotions(user.role);
+      const query = isAdmin
+        ? eq(linkPromotion.status, "PENDING")
+        : eq(linkPromotion.userId, input.userId);
+
+      const items = await ctx.drizzle.query.linkPromotion.findMany({
+        where: query,
+        limit: input.limit + 1,
+        orderBy: desc(linkPromotion.createdAt),
+        cursor: input.cursor ? { id: input.cursor } : undefined,
+      });
+
+      let nextCursor: typeof input.cursor | undefined = undefined;
+      if (items.length > input.limit) {
+        const nextItem = items.pop();
+        nextCursor = nextItem?.id;
+      }
+
+      return {
+        data: items,
+        nextCursor,
+      };
+    }),
+
+  // Submit a new link promotion
+  submitLinkPromotion: protectedProcedure
+    .input(z.object({
+      url: z.string().url(),
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.drizzle.insert(linkPromotion).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        url: input.url,
+      });
+
+      if (result.rowsAffected === 0) {
+        return errorResponse("Failed to submit link promotion");
+      }
+
+      return { success: true, message: "Link promotion submitted successfully" };
+    }),
+
+  // Review a link promotion
+  reviewLinkPromotion: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      points: z.number().min(0).max(100),
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [user, promotion] = await Promise.all([
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId),
+        }),
+        ctx.drizzle.query.linkPromotion.findFirst({
+          where: eq(linkPromotion.id, input.id),
+        }),
+      ]);
+
+      if (!user) return errorResponse("User not found");
+      if (!promotion) return errorResponse("Link promotion not found");
+      if (!canReviewLinkPromotions(user.role)) {
+        return errorResponse("Not authorized to review link promotions");
+      }
+      if (promotion.status !== "PENDING") {
+        return errorResponse("Link promotion already reviewed");
+      }
+
+      await ctx.drizzle.transaction(async (tx) => {
+        await Promise.all([
+          tx.update(linkPromotion)
+            .set({
+              status: "APPROVED",
+              reputationPoints: input.points,
+              reviewedBy: ctx.userId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(linkPromotion.id, input.id)),
+          tx.update(userData)
+            .set({
+              reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${input.points}`,
+            })
+            .where(eq(userData.userId, promotion.userId)),
+        ]);
+      });
+
+      return { success: true, message: `Awarded ${input.points} reputation points` };
+    }),
   // Get user blacklist
   getBlacklist: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userBlackList.findMany({

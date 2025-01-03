@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LinkPromotion {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  url         String
+  points      Int       @default(0)
+  reviewed    Boolean   @default(false)
+  reviewedBy  Int?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation("userPromotions", fields: [userId], references: [id])
+  reviewer    User?     @relation("reviewerPromotions", fields: [reviewedBy], references: [id])
+}
+
+model User {
+  id                Int             @id @default(autoincrement())
+  promotions        LinkPromotion[] @relation("userPromotions")
+  reviewedLinks     LinkPromotion[] @relation("reviewerPromotions")
+  rewards          UserReward[]
+}
+
+model UserReward {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  type        String    // e.g., "LINK_PROMOTION"
+  amount      Int
+  description String?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id])
+}
