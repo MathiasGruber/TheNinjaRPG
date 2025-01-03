@@ -11,9 +11,14 @@ describe("checkFriendlyFire", () => {
     isSummon: false,
   } as BattleUserState;
 
+  const baseBattle: CompleteBattle = {
+    battleType: "COMBAT",
+  } as CompleteBattle;
+
   const baseEffect: BattleEffect = {
     creatorId: "user1",
     villageId: "village1",
+    battle: baseBattle,
   } as BattleEffect;
 
   const users = [
@@ -106,6 +111,42 @@ describe("checkFriendlyFire", () => {
       const effect = { ...baseEffect, friendlyFire: "ENEMIES" };
       const target = multiVillageUsers[1]; // Same village, different controller
       expect(checkFriendlyFire(effect, target, multiVillageUsers)).toBe(false);
+    });
+  });
+
+  describe("Sparring Battle", () => {
+    const sparBattle: CompleteBattle = {
+      battleType: "SPARRING",
+    } as CompleteBattle;
+
+    it("should allow ENEMIES effects on same village in spar", () => {
+      const effect = { ...baseEffect, friendlyFire: "ENEMIES", battle: sparBattle };
+      const target = users[0]; // Same village
+      expect(checkFriendlyFire(effect, target, users)).toBe(true);
+    });
+
+    it("should block FRIENDLY effects on same village in spar", () => {
+      const effect = { ...baseEffect, friendlyFire: "FRIENDLY", battle: sparBattle };
+      const target = users[0]; // Same village
+      expect(checkFriendlyFire(effect, target, users)).toBe(false);
+    });
+  });
+
+  describe("Kage Challenge Battle", () => {
+    const kageBattle: CompleteBattle = {
+      battleType: "KAGE_CHALLENGE",
+    } as CompleteBattle;
+
+    it("should allow ENEMIES effects on same village in kage challenge", () => {
+      const effect = { ...baseEffect, friendlyFire: "ENEMIES", battle: kageBattle };
+      const target = users[0]; // Same village
+      expect(checkFriendlyFire(effect, target, users)).toBe(true);
+    });
+
+    it("should block FRIENDLY effects on same village in kage challenge", () => {
+      const effect = { ...baseEffect, friendlyFire: "FRIENDLY", battle: kageBattle };
+      const target = users[0]; // Same village
+      expect(checkFriendlyFire(effect, target, users)).toBe(false);
     });
   });
 });

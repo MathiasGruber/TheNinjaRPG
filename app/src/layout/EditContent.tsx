@@ -67,7 +67,7 @@ export type FormEntry<K> = {
 
 interface EditContentProps<T, K, S extends FieldValues> {
   schema: T;
-  form: UseFormReturn<S, any>;
+  form: UseFormReturn<S, unknown>;
   formData: FormEntry<K>[];
   showSubmit: boolean;
   formClassName?: string;
@@ -77,7 +77,7 @@ interface EditContentProps<T, K, S extends FieldValues> {
   type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge" | "asset";
   bgColor?: "bg-slate-600" | "";
   onAccept?: (
-    e: React.BaseSyntheticEvent<object, any, any> | undefined,
+    e: React.BaseSyntheticEvent<object, unknown, unknown> | undefined,
   ) => Promise<void>;
   onEnter?: () => Promise<void>;
 }
@@ -537,8 +537,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         // For all typed keys in shownTag, if the key exists in curTag, keep the value, except for type
         objectKeys(shownTag).map((key) => {
           if (!["type", "calculation", "direction"].includes(key) && key in curTag) {
-            // @ts-expect-error - we know this is a key of the object
-            shownTag[key] = curTag[key];
+              (shownTag as Record<string, unknown>)[key] = (curTag as Record<string, unknown>)[key];
           }
         });
         newEffects[idx] = shownTag;
