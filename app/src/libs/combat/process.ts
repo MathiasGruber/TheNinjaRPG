@@ -161,7 +161,12 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         // Apply all other ground effects to user
         const user = findUser(newUsersState, e.longitude, e.latitude);
         if (user && e.type !== "visual") {
-          if (checkFriendlyFire(e, user, newUsersState)) {
+          // For ground effects, if friendlyFire is not specified, default to ENEMIES
+          const effectWithFriendlyFire = {
+            ...e,
+            friendlyFire: e.friendlyFire || "ENEMIES"
+          };
+          if (checkFriendlyFire(effectWithFriendlyFire, user, newUsersState)) {
             const hasEffect = usersEffects.some((ue) => ue.id === e.id);
             const isInstant = ["damage", "heal", "pierce"].includes(e.type);
             if (!hasEffect) {
@@ -169,7 +174,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               // 1. If the effect is instant, it is applied immediately
               // 2. User effects from Ground effects are not forwarded to the next round
               usersEffects.push({
-                ...e,
+                ...effectWithFriendlyFire,
                 rounds: isInstant ? 0 : 1,
                 targetId: user.userId,
                 createdRound: isInstant ? curRound : curRound - 1,
