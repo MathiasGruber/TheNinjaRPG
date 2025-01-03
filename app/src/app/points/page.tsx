@@ -64,8 +64,9 @@ import type { ArrayElement } from "@/utils/typeutils";
 
 const CURRENCY = "USD";
 const OPTIONS = {
-  "client-id": process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
+  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
   currency: CURRENCY,
+  intent: "capture",
 };
 
 /**
@@ -225,6 +226,7 @@ const ReputationStore = (props: { currency: string }) => {
             forceReRender={[amount, watchedUsers, props.currency]}
             createOrder={(data, actions) => {
               return actions.order.create({
+                intent: "CAPTURE",
                 purchase_units: [
                   {
                     amount: {
@@ -241,9 +243,9 @@ const ReputationStore = (props: { currency: string }) => {
               invoiceId = nanoid();
               if (actions.order) {
                 return actions.order.capture().then((details) => {
-                  buyReps({ orderId: details.id });
+                  buyReps({ orderId: details.id ?? nanoid() });
                   // Send GTM event with conversion data
-                  const purchaseUnit = details.purchase_units[0];
+                  const purchaseUnit = details?.purchase_units?.[0];
                   const transaction_id = purchaseUnit?.invoice_id;
                   const currency = purchaseUnit?.amount?.currency_code;
                   const value = purchaseUnit?.amount?.value;
@@ -476,7 +478,7 @@ const PayPalSubscriptionButton = (props: {
             // Send GTM event with conversion data
             if (actions.order) {
               return actions.order.capture().then((details) => {
-                const purchaseUnit = details.purchase_units[0];
+                const purchaseUnit = details?.purchase_units?.[0];
                 const transaction_id = purchaseUnit?.invoice_id;
                 const currency = purchaseUnit?.amount?.currency_code;
                 const value = purchaseUnit?.amount?.value;

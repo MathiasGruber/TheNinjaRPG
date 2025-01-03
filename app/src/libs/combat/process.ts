@@ -37,7 +37,6 @@ export const checkFriendlyFire = (
 
   // In clan battles and other battles, players from same village are allies
   const isFriendly = creator.villageId === target.villageId;
-  const isSelf = creator.userId === target.userId;
 
   // Check if effect should be applied based on friendly fire settings
   if (!effect.friendlyFire || effect.friendlyFire === "ALL") {

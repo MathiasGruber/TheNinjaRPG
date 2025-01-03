@@ -105,4 +105,11 @@ emptymigration: # Create database migration file
 test: # Push schema to db without creating migrations
 	@echo "${YELLOW}Running unit tests ${RESET}"
 	cd app && bun test
+
+
+-------------DEPENDENCIES---------------: # -------------------------------------------------------
+.PHONY: deps-upgrade
+deps-upgrade: # Upgrade all dependencies to their latest version
+	@echo "${YELLOW}Upgrading all dependencies ${RESET}"
+	cd app && npx npm-check-updates -u
 	
