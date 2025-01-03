@@ -40,25 +40,25 @@ export const absorb = (
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
-          const convert =
-            Math.ceil(
-              effect.calculation === "percentage"
-                ? consequence.damage * (power / 100)
-                : power > consequence.damage
-                  ? consequence.damage
-                  : power,
-            ) * ratio;
-          // consequence.damage -= convert;
+          // Calculate absorption amount for this effect
+          const absorbAmount = effect.calculation === "percentage"
+            ? consequence.damage * (power / 100)
+            : Math.min(power, consequence.damage);
+          const convert = Math.ceil(absorbAmount * ratio);
+          // Apply absorption to each pool
           pools.map((pool) => {
             switch (pool) {
               case "Health":
-                consequence.absorb_hp = convert / nPools;
+                // Add to existing absorb value instead of overwriting
+                consequence.absorb_hp = (consequence.absorb_hp || 0) + convert / nPools;
                 break;
               case "Stamina":
-                consequence.absorb_sp = convert / nPools;
+                // Add to existing absorb value instead of overwriting
+                consequence.absorb_sp = (consequence.absorb_sp || 0) + convert / nPools;
                 break;
               case "Chakra":
-                consequence.absorb_cp = convert / nPools;
+                // Add to existing absorb value instead of overwriting
+                consequence.absorb_cp = (consequence.absorb_cp || 0) + convert / nPools;
                 break;
             }
           });
@@ -1008,6 +1008,10 @@ export const reflect = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {

@@ -94,9 +94,7 @@ export const canSeeReport = (user: UserData, report: UserReport) => {
   return (
     report.reporterUserId === user.userId ||
     report.reportedUserId === user.userId ||
-    ["MODERATOR", "HEAD_MODERATOR", "MODERATOR-ADMIN", "CODING-ADMIN"].includes(
-      user.role,
-    )
+    canModerateRoles.includes(user.role)
   );
 };
 
@@ -162,6 +160,10 @@ export const canChangePublicUser = (user: UserData) => {
   return ["MODERATOR", "HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(
     user.role,
   );
+};
+
+export const canAwardReputation = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };
 
 export const canChangeCombatBgScheme = (role: UserRole) => {

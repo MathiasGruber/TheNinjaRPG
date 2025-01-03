@@ -2,14 +2,18 @@ import { z } from "zod";
 import path from "path";
 import TextToSVG from "text-to-svg";
 import { randomString } from "@/libs/random";
-import { sql, and, desc, eq } from "drizzle-orm";
+import { sql, and, desc, eq, inArray } from "drizzle-orm";
 import {
   notification,
   userData,
   gameSetting,
   gameAsset,
   captcha,
+  userRewards,
 } from "@/drizzle/schema";
+import { canAwardReputation } from "@/utils/permissions";
+import { nanoid } from "nanoid";
+import { awardSchema } from "@/validators/reputation";
 import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
 import { baseServerResponse, errorResponse } from "../trpc";
@@ -124,6 +128,98 @@ export const miscRouter = createTRPCRouter({
       await callDiscordTicket(input.title, input.content, input.type, user);
       // Return message
       return { success: true, message: `Ticket sent` };
+    }),
+
+  awardReputation: protectedProcedure
+    .input(awardSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch admin user
+      const admin = await fetchUser(ctx.drizzle, ctx.userId);
+
+      // Guard checks section
+      if (!canAwardReputation(admin.role)) {
+        return errorResponse("Not authorized to award points");
+      }
+
+      // Fetch all target users in a single query
+      const users = await ctx.drizzle.query.userData.findMany({
+        where: inArray(userData.userId, input.userIds),
+      });
+
+      // Check if any users are missing
+      if (users.length !== input.userIds.length) {
+        return errorResponse("One or more users not found");
+      }
+
+      // Create rewards records for all users
+      const rewardsToInsert = users.map((user) => ({
+        id: nanoid(),
+        awardedById: admin.userId,
+        receiverId: user.userId,
+        reputationAmount: input.reputationAmount || 0,
+        moneyAmount: input.moneyAmount || 0,
+        reason: input.reason,
+      }));
+
+      // Execute both operations in parallel
+      await Promise.all([
+        // Batch insert all rewards
+        ctx.drizzle.insert(userRewards).values(rewardsToInsert),
+
+        // Update all users in a single query
+        ctx.drizzle
+          .update(userData)
+          .set({
+            reputationPoints: sql`reputationPoints + ${input.reputationAmount || 0}`,
+            reputationPointsTotal: sql`reputationPointsTotal + ${input.reputationAmount || 0}`,
+            money: sql`money + ${input.moneyAmount || 0}`,
+          })
+          .where(inArray(userData.userId, input.userIds)),
+      ]);
+
+      return {
+        success: true,
+        message: `Rewards awarded successfully to ${users.length} user(s)`,
+      };
+    }),
+
+  getAllAwards: publicProcedure
+    .input(
+      z.object({
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(500),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const currentCursor = input?.cursor ? input.cursor : 0;
+      const limit = input?.limit ? input.limit : 100;
+      const skip = currentCursor * limit;
+
+      const results = await ctx.drizzle.query.userRewards.findMany({
+        offset: skip,
+        limit: limit,
+        with: {
+          awardedBy: {
+            columns: {
+              userId: true,
+              username: true,
+              avatar: true,
+            },
+          },
+          receiver: {
+            columns: {
+              userId: true,
+              username: true,
+              avatar: true,
+            },
+          },
+        },
+        orderBy: [desc(userRewards.createdAt)],
+      });
+
+      const nextCursor = results.length < limit ? null : currentCursor + 1;
+      return { data: results, nextCursor: nextCursor };
     }),
 });
 
