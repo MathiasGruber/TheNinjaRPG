@@ -88,7 +88,7 @@ export const lockWithDailyTimer = async (client: DrizzleClient, name: string) =>
   } else {
     await updateGameSetting(client, name, 0, new Date());
   }
-  return { isNewDay, prevTime, response };
+  return { isNewDay, prevTime, response: Response.json(response, { status: 200 }) };
 };
 
 /**
