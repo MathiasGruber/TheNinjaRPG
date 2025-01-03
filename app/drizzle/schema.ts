@@ -32,7 +32,7 @@ import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import type { AdditionalContext } from "@/validators/reports";
-import { ZodBgSchemaType } from "@/validators/backgroundSchema";
+import type { ZodBgSchemaType } from "@/validators/backgroundSchema";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -2258,6 +2258,41 @@ export const userRequestRelations = relations(userRequest, ({ one }) => ({
   }),
   receiver: one(userData, {
     fields: [userRequest.receiverId],
+    references: [userData.userId],
+  }),
+}));
+
+export const userRewards = mysqlTable(
+  "UserRewards",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    awardedById: varchar("awardedById", { length: 191 }).notNull(),
+    receiverId: varchar("receiverId", { length: 191 }).notNull(),
+    reputationAmount: float("reputationAmount").default(0).notNull(),
+    moneyAmount: bigint("moneyAmount", { mode: "number" }).default(0).notNull(),
+    reason: text("reason").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      awardedByIdIdx: index("UserRewards_awardedById_idx").on(table.awardedById),
+      receiverIdIdx: index("UserRewards_receiverId_idx").on(table.receiverId),
+      createdAtIdx: index("UserRewards_createdAt_idx").on(table.createdAt),
+    };
+  },
+);
+
+export type UserRewards = InferSelectModel<typeof userRewards>;
+
+export const userRewardsRelations = relations(userRewards, ({ one }) => ({
+  awardedBy: one(userData, {
+    fields: [userRewards.awardedById],
+    references: [userData.userId],
+  }),
+  receiver: one(userData, {
+    fields: [userRewards.receiverId],
     references: [userData.userId],
   }),
 }));

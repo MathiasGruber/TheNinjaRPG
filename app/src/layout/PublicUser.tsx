@@ -1,7 +1,24 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import type { z } from "zod";
+import UserSearchSelect from "@/layout/UserSearchSelect";
+import { getSearchValidator } from "@/validators/register";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import RichInput from "@/layout/RichInput";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Medal } from "lucide-react";
 import { parseHtml } from "@/utils/parse";
+import { awardSchema } from "@/validators/reputation";
 import Link from "next/link";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
@@ -34,7 +51,11 @@ import {
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { canSeeSecretData, canSeeIps } from "@/utils/permissions";
-import { canModifyUserBadges, canUnstuckVillage } from "@/utils/permissions";
+import {
+  canModifyUserBadges,
+  canUnstuckVillage,
+  canAwardReputation,
+} from "@/utils/permissions";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { canChangePublicUser } from "@/utils/permissions";
@@ -95,6 +116,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   // Get state
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
   const { data: userData } = useUserData();
+
   const canSeeSecrets = userData && canSeeSecretData(userData.role);
   const enableReports = showReports && canSeeSecrets;
   const enablePaypal = showTransactions && canSeeSecrets;
@@ -124,6 +146,50 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     { userId: userId },
     {},
   );
+
+  // Forms
+  const form = useForm<z.infer<typeof awardSchema>>({
+    resolver: zodResolver(awardSchema),
+    defaultValues: {
+      reputationAmount: 0,
+      moneyAmount: 0,
+      reason: "",
+      userIds: [userId],
+    },
+  });
+
+  const userSearchSchema = getSearchValidator({ max: 10 });
+  const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
+    resolver: zodResolver(userSearchSchema),
+  });
+  const watchedUsers = userSearchMethods.watch("users");
+
+  // Effects
+  useEffect(() => {
+    if (profile) {
+      userSearchMethods.setValue("users", [
+        {
+          userId: profile.userId,
+          username: profile.username,
+          rank: profile.rank,
+          level: profile.level,
+          avatar: profile.avatar,
+          federalStatus: profile.federalStatus,
+        },
+      ]);
+    }
+  }, [profile, userSearchMethods]);
+
+  useEffect(() => {
+    const users = userSearchMethods.watch("users");
+    if (users && users.length > 0) {
+      form.setValue(
+        "userIds",
+        users.map((u) => u.userId),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedUsers, form]);
 
   // tRPC utility
   const utils = api.useUtils();
@@ -183,6 +249,25 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         await utils.logs.getContentChanges.invalidate();
       }
     },
+  });
+
+  const awardMutation = api.misc.awardReputation.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+      }
+      form.reset();
+    },
+  });
+
+  const handleAwardSubmit = form.handleSubmit((data) => {
+    awardMutation.mutate({
+      userIds: data.userIds,
+      reputationAmount: data.reputationAmount,
+      moneyAmount: data.moneyAmount,
+      reason: data.reason,
+    });
   });
 
   // Derived
@@ -302,17 +387,94 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 }}
               />
             )}
-            <ReportUser
-              user={profile}
-              content={{
-                id: profile.userId,
-                title: profile.username,
-                content:
-                  "General user behavior, justification must be provided in comments",
-              }}
-              system="user_profile"
-              button={<Flag className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
-            />
+            {userData && canAwardReputation(userData.role) && (
+              <Confirm
+                title="Award Reputation Points"
+                proceed_label="Award Points"
+                button={
+                  <Medal className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                }
+                isValid={form.formState.isValid}
+                onAccept={handleAwardSubmit}
+              >
+                <b>DO NOT</b> abuse this feature! All assignments are logged and visible
+                to ALL users. Feature abuse for personal gain will result in severe
+                consequences.
+                <Form {...form}>
+                  <form className="space-y-4">
+                    <UserSearchSelect
+                      useFormMethods={userSearchMethods}
+                      label="Users to award"
+                      showAi={false}
+                      showYourself={false}
+                      maxUsers={10}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="reputationAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Reputation Amount</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="any"
+                              placeholder="Enter reputation amount"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="moneyAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Money Amount</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="1"
+                              placeholder="Enter money amount"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <RichInput
+                      id="reason"
+                      height="100px"
+                      placeholder="Enter reason for awarding"
+                      control={form.control}
+                      error={form.formState.errors.reason?.message}
+                    />
+                  </form>
+                </Form>
+              </Confirm>
+            )}
+
+            {userData && canUnstuckVillage(userData.role) && (
+              <ReportUser
+                user={profile}
+                content={{
+                  id: profile.userId,
+                  title: profile.username,
+                  content:
+                    "General user behavior, justification must be provided in comments",
+                }}
+                system="user_profile"
+                button={
+                  <Flag className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                }
+              />
+            )}
             {userData && canUnstuckVillage(userData.role) ? (
               <>
                 <Confirm
@@ -771,11 +933,11 @@ interface EditUserComponentProps {
 }
 
 const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }) => {
-  // Refetching public user
-  const refetchProfile = () => void utils.profile.getPublicUser.invalidate();
-
   // tRPC utility
   const utils = api.useUtils();
+
+  // Refetching public user
+  const refetchProfile = () => void utils.profile.getPublicUser.invalidate();
 
   // Form handling
   const { form, formData, handleUserSubmit } = useUserEditForm(

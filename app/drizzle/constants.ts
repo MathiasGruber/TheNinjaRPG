@@ -676,6 +676,8 @@ export const IMG_HOME_SLEEP =
   "https://utfs.io/f/Hzww9EQvYURJu8FpvZCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
 export const IMG_HOME_AWAKE =
   "https://utfs.io/f/Hzww9EQvYURJ1BKctL6bo95WClq4K0wxZUmJcvThgdVenO3P";
+export const IMG_MANUAL_AWARDS =
+  "https://utfs.io/f/Hzww9EQvYURJD2QXqVzEwoh0WXMnscL279N8ayVQUCbRzS3p";
 export const IMG_MANUAL_COMBAT =
   "https://utfs.io/f/Hzww9EQvYURJUvE8xxILCIhwPniJ69VxpvAbTDWkOyGzS8rM";
 export const IMG_MANUAL_TRAVEL =
