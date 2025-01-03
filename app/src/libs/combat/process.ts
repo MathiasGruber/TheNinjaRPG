@@ -47,13 +47,20 @@ export const checkFriendlyFire = (
     return true; // Allow all
   }
 
-  // In spars and kage battles, treat everyone as enemies
+  // Get village alliance status
+  const isFriendly = creator.villageId === target.villageId;
+
+  // In spars and kage battles, treat everyone as enemies regardless of village
   if (ignoreVillageAlliance) {
-    return effect.friendlyFire === "ENEMIES";
+    if (effect.friendlyFire === "FRIENDLY") {
+      return false; // No friendly effects in spars/kage battles
+    }
+    if (effect.friendlyFire === "ENEMIES") {
+      return true; // Enemy effects hit everyone in spars/kage battles
+    }
   }
 
   // In other battles, check village alliance
-  const isFriendly = creator.villageId === target.villageId;
   if (effect.friendlyFire === "FRIENDLY") {
     return isFriendly; // Only apply to friends (same village)
   }
