@@ -860,6 +860,9 @@ export const processUsersForBattle = (info: {
     // Set controllerID and mark this user as the original
     user.controllerId = user.userId;
 
+    // Set battle type in user state
+    user.battle = { battleType };
+
     // Set direction
     user.direction = i % 2 === 0 ? "right" : "left";
 
