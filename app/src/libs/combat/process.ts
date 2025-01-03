@@ -31,22 +31,23 @@ export const checkFriendlyFire = (
   target: ReturnedUserState,
   usersState: BattleUserState[],
 ) => {
-  // In case of multiple villages in the battle; friendly based on villageId, otherwise based on controllerId
-  const villageIds = [
-    ...new Set(usersState.filter((u) => !u.isSummon).map((u) => u.villageId)),
-  ];
-  const isFriendly =
-    villageIds.length > 1
-      ? target.villageId === effect.villageId
-      : target.controllerId === effect.creatorId;
-  // Check if effect is friendly fire
-  if (
-    !effect.friendlyFire ||
-    effect.friendlyFire === "ALL" ||
-    (effect.friendlyFire === "FRIENDLY" && isFriendly) ||
-    (effect.friendlyFire === "ENEMIES" && !isFriendly)
-  ) {
-    return true;
+  // Find the creator of the effect
+  const creator = usersState.find((u) => u.userId === effect.creatorId);
+  if (!creator) return false;
+
+  // In clan battles and other battles, players from same village are allies
+  const isFriendly = creator.villageId === target.villageId;
+  const isSelf = creator.userId === target.userId;
+
+  // Check if effect should be applied based on friendly fire settings
+  if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
+    return true; // Allow all
+  }
+  if (effect.friendlyFire === "FRIENDLY") {
+    return isFriendly; // Only apply to friends (same village)
+  }
+  if (effect.friendlyFire === "ENEMIES") {
+    return !isFriendly; // Only apply to enemies (different village)
   }
   return false;
 };
