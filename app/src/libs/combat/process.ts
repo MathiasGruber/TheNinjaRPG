@@ -35,18 +35,25 @@ export const checkFriendlyFire = (
   const creator = usersState.find((u) => u.userId === effect.creatorId);
   if (!creator) return false;
 
+  // Get battle type from effect
+  const battle = effect.battle as CompleteBattle;
+  
+  // In spars and kage challenges between same village players, they are considered enemies
+  const isSameVillagePvP = (battle.battleType === "SPARRING" || battle.battleType === "KAGE_CHALLENGE") && 
+                          creator.villageId === target.villageId;
+  
   // In clan battles and other battles, players from same village are allies
-  const isFriendly = creator.villageId === target.villageId;
+  const isFriendly = creator.villageId === target.villageId && !isSameVillagePvP;
 
   // Check if effect should be applied based on friendly fire settings
   if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
     return true; // Allow all
   }
   if (effect.friendlyFire === "FRIENDLY") {
-    return isFriendly; // Only apply to friends (same village)
+    return isFriendly; // Only apply to friends (same village, except in spars/kage challenges)
   }
   if (effect.friendlyFire === "ENEMIES") {
-    return !isFriendly; // Only apply to enemies (different village)
+    return !isFriendly; // Only apply to enemies (different village or same village in spars/kage challenges)
   }
   return false;
 };
@@ -62,6 +69,7 @@ export const realizeTag = <T extends BattleEffect>(props: {
   level: number | undefined;
   round?: number;
   barrierAbsorb?: number;
+  battle?: CompleteBattle;
 }): T => {
   const { tag, user, target, level, round, barrierAbsorb } = props;
   if ("rounds" in tag) {
@@ -83,6 +91,7 @@ export const realizeTag = <T extends BattleEffect>(props: {
   tag.highestGenerals = user.highestGenerals;
   tag.barrierAbsorb = barrierAbsorb || 0;
   tag.actionId = props.actionId;
+  tag.battle = props.battle;
   if (target) {
     tag.targetHighestOffence = target.highestOffence;
     tag.targetHighestDefence = target.highestDefence;

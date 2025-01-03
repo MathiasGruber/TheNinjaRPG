@@ -239,6 +239,8 @@ const BaseAttributes = {
   target: z.enum(BaseTagTargets).optional().default("INHERIT"),
   // Enable / disables applying to friendlies. Default is to apply to all users
   friendlyFire: z.enum(["ALL", "FRIENDLY", "ENEMIES"]).optional(),
+  // Battle information for friendly fire checks
+  battle: z.any().optional(),
   // Default is for calculation to be static
   calculation: z.enum(["static"]).default("static"),
 };
