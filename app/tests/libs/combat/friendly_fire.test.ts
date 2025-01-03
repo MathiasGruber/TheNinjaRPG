@@ -108,4 +108,42 @@ describe("checkFriendlyFire", () => {
       expect(checkFriendlyFire(effect, target, multiVillageUsers)).toBe(false);
     });
   });
+
+  describe("Sparring Battle", () => {
+    const sparUsers = [
+      { ...baseUser, battle: { battleType: "SPARRING" } },
+      { ...baseUser, userId: "user2", villageId: "village1", controllerId: "controller2", battle: { battleType: "SPARRING" } },
+    ];
+
+    it("should allow ENEMIES effects on same village in spars", () => {
+      const effect = { ...baseEffect, friendlyFire: "ENEMIES" };
+      const target = sparUsers[1]; // Same village, different controller
+      expect(checkFriendlyFire(effect, target, sparUsers)).toBe(true);
+    });
+
+    it("should block FRIENDLY effects on same village in spars", () => {
+      const effect = { ...baseEffect, friendlyFire: "FRIENDLY" };
+      const target = sparUsers[1]; // Same village, different controller
+      expect(checkFriendlyFire(effect, target, sparUsers)).toBe(false);
+    });
+  });
+
+  describe("Kage Challenge Battle", () => {
+    const kageUsers = [
+      { ...baseUser, battle: { battleType: "KAGE_CHALLENGE" } },
+      { ...baseUser, userId: "user2", villageId: "village1", controllerId: "controller2", battle: { battleType: "KAGE_CHALLENGE" } },
+    ];
+
+    it("should allow ENEMIES effects on same village in kage challenges", () => {
+      const effect = { ...baseEffect, friendlyFire: "ENEMIES" };
+      const target = kageUsers[1]; // Same village, different controller
+      expect(checkFriendlyFire(effect, target, kageUsers)).toBe(true);
+    });
+
+    it("should block FRIENDLY effects on same village in kage challenges", () => {
+      const effect = { ...baseEffect, friendlyFire: "FRIENDLY" };
+      const target = kageUsers[1]; // Same village, different controller
+      expect(checkFriendlyFire(effect, target, kageUsers)).toBe(false);
+    });
+  });
 });

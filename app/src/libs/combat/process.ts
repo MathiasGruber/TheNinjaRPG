@@ -35,8 +35,15 @@ export const checkFriendlyFire = (
   const creator = usersState.find((u) => u.userId === effect.creatorId);
   if (!creator) return false;
 
+  // Get battle type from the battle state
+  const battle = usersState[0]?.battle;
+  const battleType = battle?.battleType;
+
+  // In spars and kage battles, village alliance is ignored
+  const ignoreVillageAlliance = battleType === "SPARRING" || battleType === "KAGE_CHALLENGE";
+
   // In clan battles and other battles, players from same village are allies
-  const isFriendly = creator.villageId === target.villageId;
+  const isFriendly = !ignoreVillageAlliance && creator.villageId === target.villageId;
 
   // Check if effect should be applied based on friendly fire settings
   if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
