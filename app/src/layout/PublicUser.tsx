@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
+import type { z } from "zod";
+import UserSearchSelect from "@/layout/UserSearchSelect";
+import { getSearchValidator } from "@/validators/register";
 import {
   Form,
   FormControl,
@@ -16,11 +18,7 @@ import RichInput from "@/layout/RichInput";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Medal } from "lucide-react";
 import { parseHtml } from "@/utils/parse";
-import {
-  awardReputationSchema,
-  type AwardReputationSchema,
-} from "@/validators/reputation";
-
+import { awardSchema } from "@/validators/reputation";
 import Link from "next/link";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
@@ -119,14 +117,6 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
   const { data: userData } = useUserData();
 
-  const form = useForm<AwardReputationSchema>({
-    resolver: zodResolver(awardReputationSchema),
-    defaultValues: {
-      amount: 0,
-      reason: "",
-    },
-  });
-
   const canSeeSecrets = userData && canSeeSecretData(userData.role);
   const enableReports = showReports && canSeeSecrets;
   const enablePaypal = showTransactions && canSeeSecrets;
@@ -156,6 +146,50 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     { userId: userId },
     {},
   );
+
+  // Forms
+  const form = useForm<z.infer<typeof awardSchema>>({
+    resolver: zodResolver(awardSchema),
+    defaultValues: {
+      reputationAmount: 0,
+      moneyAmount: 0,
+      reason: "",
+      userIds: [userId],
+    },
+  });
+
+  const userSearchSchema = getSearchValidator({ max: 10 });
+  const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
+    resolver: zodResolver(userSearchSchema),
+  });
+  const watchedUsers = userSearchMethods.watch("users");
+
+  // Effects
+  useEffect(() => {
+    if (profile) {
+      userSearchMethods.setValue("users", [
+        {
+          userId: profile.userId,
+          username: profile.username,
+          rank: profile.rank,
+          level: profile.level,
+          avatar: profile.avatar,
+          federalStatus: profile.federalStatus,
+        },
+      ]);
+    }
+  }, [profile, userSearchMethods]);
+
+  useEffect(() => {
+    const users = userSearchMethods.watch("users");
+    if (users && users.length > 0) {
+      form.setValue(
+        "userIds",
+        users.map((u) => u.userId),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedUsers, form]);
 
   // tRPC utility
   const utils = api.useUtils();
@@ -228,7 +262,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   });
 
   const handleAwardSubmit = form.handleSubmit((data) => {
-    awardMutation.mutate({ userId: userId, ...data });
+    awardMutation.mutate({
+      userIds: data.userIds,
+      reputationAmount: data.reputationAmount,
+      moneyAmount: data.moneyAmount,
+      reason: data.reason,
+    });
   });
 
   // Derived
@@ -363,17 +402,44 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 consequences.
                 <Form {...form}>
                   <form className="space-y-4">
+                    <UserSearchSelect
+                      useFormMethods={userSearchMethods}
+                      label="Users to award"
+                      showAi={false}
+                      showYourself={false}
+                      maxUsers={10}
+                    />
+
                     <FormField
                       control={form.control}
-                      name="amount"
+                      name="reputationAmount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Amount</FormLabel>
+                          <FormLabel>Reputation Amount</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               step="any"
-                              placeholder="Enter amount"
+                              placeholder="Enter reputation amount"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="moneyAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Money Amount</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="1"
+                              placeholder="Enter money amount"
                               {...field}
                             />
                           </FormControl>
@@ -385,7 +451,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                     <RichInput
                       id="reason"
                       height="100px"
-                      placeholder="Enter reason for awarding points"
+                      placeholder="Enter reason for awarding"
                       control={form.control}
                       error={form.formState.errors.reason?.message}
                     />

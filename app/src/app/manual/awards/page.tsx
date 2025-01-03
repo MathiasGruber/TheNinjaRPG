@@ -60,6 +60,12 @@ export default function AwardsManual() {
           </Link>
         </div>
       ),
+      rewards: (
+        <div>
+          {award.reputationAmount > 0 && <p>Reputation: {award.reputationAmount}</p>}
+          {award.moneyAmount > 0 && <p>Money: {award.moneyAmount}</p>}
+        </div>
+      ),
     }));
 
   // Table configuration
@@ -67,7 +73,7 @@ export default function AwardsManual() {
   const columns: ColumnDefinitionType<AwardWithUsers, keyof AwardWithUsers>[] = [
     { key: "receiver", header: "Awarded To", type: "jsx" },
     { key: "awardedBy", header: "Awarded By", type: "jsx" },
-    { key: "amount", header: "Amount", type: "string" },
+    { key: "rewards", header: "Rewards", type: "jsx" },
     { key: "reason", header: "Reason", type: "string" },
     { key: "createdAt", header: "Date", type: "date" },
   ];
@@ -76,8 +82,8 @@ export default function AwardsManual() {
 
   return (
     <ContentBox
-      title="Reputation Awards"
-      subtitle="History of all reputation points awarded"
+      title="User Rewards"
+      subtitle="History of all reputation points and money awarded"
       padding={false}
       back_href="/manual"
     >
