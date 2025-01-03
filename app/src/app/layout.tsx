@@ -48,22 +48,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 
 export const metadata: Metadata = {
-  title: "TheNinja-RPG.com - a free browser based mmorpg",
+  title: "TheNinja-RPG - Online RPG game - Free Browser Game with Ninjas",
   description:
-    "A free browser based game set in the ninja world of the Seichi. A multiplayer game with 2D travel and combat system",
+    "A free browser game with ninja set in the world of Seichi. A multiplayer RPG game with 2D travel and combat system. Works on Desktop, Phone or Tablet devices.",
   keywords: [
-    "mmorpg",
-    "online",
-    "rpg",
-    "game",
     "anime",
-    "manga",
-    "strategy",
-    "multiplayer",
-    "ninja",
     "community",
     "core 3",
     "core 4",
+    "free",
+    "game",
+    "manga",
+    "mmorpg",
+    "multiplayer",
+    "naruto",
+    "ninja",
+    "online",
+    "rpg",
+    "strategy",
     "theninja-rpg",
   ],
   authors: [
@@ -74,7 +76,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "TheNinja-RPG",
     description:
-      "A free browser based game set in the ninja world of the Seichi. A multiplayer game with 2D travel and combat system",
+      "A free browser game with ninja set in the world of Seichi. A multiplayer RPG game with 2D travel and combat system. Works on Desktop, Phone or Tablet devices.",
     url: "https://www.theninja-rpg.com",
     siteName: "TheNinja-RPG",
     images: [
@@ -92,7 +94,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "The Ninja-RPG.com - a free browser based mmorpg",
     description:
-      "A free browser based game set in the ninja world of the Seichi. A multiplayer game with 2D travel and combat system",
+      "A free browser game with ninja set in the world of Seichi. A multiplayer RPG game with 2D travel and combat system. Works on Desktop, Phone or Tablet devices.",
     siteId: "137431404",
     creator: "@nextjs",
     creatorId: "137431404",

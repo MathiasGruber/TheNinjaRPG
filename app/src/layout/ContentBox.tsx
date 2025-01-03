@@ -16,6 +16,7 @@ export interface ContentBoxProps {
   noBorder?: boolean;
   initialBreak?: boolean;
   noRightAlign?: boolean;
+  alreadyHasH1?: boolean;
   onBack?: () => void;
 }
 
@@ -46,15 +47,15 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
           }`}
         >
           <div className="self-start">
-            {props.initialBreak ? (
+            {props.initialBreak || props.alreadyHasH1 ? (
               <h2 className="text-2xl font-bold text-background-foreground">{title}</h2>
             ) : (
               <h1 className="text-2xl font-bold text-background-foreground">{title}</h1>
             )}
-            {props.subtitle && !props.initialBreak && (
+            {props.subtitle && !props.initialBreak && !props.alreadyHasH1 && (
               <h2 className=" text-background-foreground">{props.subtitle}</h2>
             )}
-            {props.subtitle && props.initialBreak && (
+            {props.subtitle && (props.initialBreak || props.alreadyHasH1) && (
               <h3 className=" text-background-foreground">{props.subtitle}</h3>
             )}
           </div>

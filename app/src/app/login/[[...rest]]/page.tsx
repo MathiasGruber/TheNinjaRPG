@@ -5,7 +5,11 @@ import { SignIn } from "@clerk/nextjs";
 
 export default function LoginUser() {
   return (
-    <ContentBox title="Login" subtitle="To login please use one of below providers">
+    <ContentBox
+      title="Login"
+      subtitle="To login please use one of below providers"
+      alreadyHasH1
+    >
       <SignIn
         path="/login"
         routing="path"

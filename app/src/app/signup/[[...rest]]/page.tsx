@@ -8,6 +8,7 @@ export default function SignupUser() {
     <ContentBox
       title="Create Account"
       subtitle="To create please use one of below providers"
+      alreadyHasH1
     >
       <SignUp
         path="/signup"

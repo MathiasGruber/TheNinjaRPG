@@ -122,7 +122,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
           unoptimized={true}
           placeholder="blur"
           blurDataURL="data:text/plain;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mPU0Mg4AwACvgGGUxJrcQAAAABJRU5ErkJggg=="
-          alt={image.prompt}
+          alt={image.prompt || image.id}
           className="w-full cursor-pointer rounded-md"
         />
         <div className="absolute right-2 top-2">
