@@ -53,7 +53,11 @@ export const checkFriendlyFire = (
     return isFriendly; // Only apply to friends (same village, except in spars/kage challenges)
   }
   if (effect.friendlyFire === "ENEMIES") {
-    return !isFriendly; // Only apply to enemies (different village or same village in spars/kage challenges)
+    // In spars/kage challenges between same village players, treat them as enemies
+    if (isSameVillagePvP) {
+      return true;
+    }
+    return !isFriendly; // For other cases, only apply to enemies (different village)
   }
   return false;
 };
