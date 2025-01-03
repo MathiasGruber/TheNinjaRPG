@@ -31,17 +31,13 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
-        uses: bahmutov/npm-install@v1
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-      # If pnpm is used, you need to switch the previous step with the following one. pnpm does not create a package-lock.json
-      # so the step above will fail to pull dependencies
-      # - uses: pnpm/action-setup@v2
-      #   name: Install pnpm
-      #   id: pnpm-install
-      #   with:
-      #     version: 7
-      #     run_install: true
+      - name: Install Dependencies
+        run: bun install
 
       - name: Restore next build
         uses: actions/cache@v3
