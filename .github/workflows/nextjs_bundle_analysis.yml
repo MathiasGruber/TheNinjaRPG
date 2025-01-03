@@ -57,7 +57,7 @@ jobs:
       - name: Build next.js app
         # change this if your site requires a custom build command
         run: ./node_modules/.bin/next build
-        secrets:
+        env:
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
 
       # Here's the first place where next-bundle-analysis' own script is used
