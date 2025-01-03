@@ -57,6 +57,7 @@ export type BattleUserState = UserWithRelations & {
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
   hex?: TerrainHex;
   clan?: Clan | null;
+  battle?: { battleType: BattleType };
 };
 
 // Create type for battle, which contains information on user current state
