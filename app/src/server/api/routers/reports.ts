@@ -265,34 +265,6 @@ export const reportsRouter = createTRPCRouter({
   // Get user report
   getBan: protectedProcedure.query(async ({ ctx }) => {
     // Selector statement
-    const reportWith = {
-      with: {
-        reporterUser: {
-          columns: {
-            userId: true,
-            username: true,
-            avatar: true,
-            rank: true,
-            isOutlaw: true,
-            level: true,
-            role: true,
-            federalStatus: true,
-          },
-        },
-        reportedUser: {
-          columns: {
-            userId: true,
-            username: true,
-            avatar: true,
-            rank: true,
-            isOutlaw: true,
-            level: true,
-            role: true,
-            federalStatus: true,
-          },
-        },
-      },
-    };
     const [user, banReport, silenceReport] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),
       ctx.drizzle.query.userReport.findFirst({
@@ -301,7 +273,32 @@ export const reportsRouter = createTRPCRouter({
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
-        ...reportWith,
+        with: {
+          reporterUser: {
+            columns: {
+              userId: true,
+              username: true,
+              avatar: true,
+              rank: true,
+              isOutlaw: true,
+              level: true,
+              role: true,
+              federalStatus: true,
+            },
+          },
+          reportedUser: {
+            columns: {
+              userId: true,
+              username: true,
+              avatar: true,
+              rank: true,
+              isOutlaw: true,
+              level: true,
+              role: true,
+              federalStatus: true,
+            },
+          },
+        },
       }),
       ctx.drizzle.query.userReport.findFirst({
         where: and(
@@ -309,7 +306,6 @@ export const reportsRouter = createTRPCRouter({
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
-        ...reportWith,
       }),
     ]);
     // Unsilence user if ban no longer active
