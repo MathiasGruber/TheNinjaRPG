@@ -38,7 +38,7 @@ export default function AwardsManual() {
       ...award,
       awardedBy: (
         <div className="w-20 text-center">
-          <Link href={`/userid/${award.awardedBy.userId}`}>
+          <Link href={`/username/${award.awardedBy.username}`}>
             <AvatarImage
               href={award.awardedBy?.avatar}
               alt={award.awardedBy.username}
@@ -50,7 +50,7 @@ export default function AwardsManual() {
       ),
       receiver: (
         <div className="w-20 text-center">
-          <Link href={`/userid/${award.receiver.userId}`}>
+          <Link href={`/username/${award.receiver.username}`}>
             <AvatarImage
               href={award.receiver?.avatar}
               alt={award.receiver.username}

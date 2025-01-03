@@ -40,6 +40,7 @@ const ActionLogs: React.FC<ActionLogsProps> = (props) => {
     .map((entry) => {
       return {
         ...entry,
+        username: entry?.user?.username,
         changes: (
           <div>
             <h3>{entry.relatedMsg}</h3>
@@ -82,8 +83,8 @@ const ActionLogs: React.FC<ActionLogsProps> = (props) => {
         <Table
           data={allEntries}
           columns={columns}
-          linkPrefix="/userid/"
-          linkColumn={"userId"}
+          linkPrefix="/username/"
+          linkColumn={"username"}
           setLastElement={setLastElement}
         />
       )}

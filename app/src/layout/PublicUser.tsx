@@ -516,8 +516,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             <p>
               Sensei:{" "}
               {profile.rank === "GENIN" && profile.senseiId && profile.sensei ? (
-                <Link href={`/userid/${profile.senseiId}`} className="font-bold">
-                  {profile.sensei?.username}
+                <Link
+                  href={`/username/${profile.sensei.username}`}
+                  className="font-bold"
+                >
+                  {profile.sensei.username}
                 </Link>
               ) : (
                 "None"
@@ -626,7 +629,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {marriages.map((user, i) => (
               <Link
-                href={`/userid/${user.userId}`}
+                href={`/username/${user.username}`}
                 className="text-center"
                 key={`marriage-${i}`}
               >
@@ -656,7 +659,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.recruitedUsers.map((user, i) => (
               <Link
-                href={`/userid/${user.userId}`}
+                href={`/username/${user.username}`}
                 className="text-center"
                 key={`recruited-${i}`}
               >
@@ -685,7 +688,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.students.map((user, i) => (
               <Link
-                href={`/userid/${user.userId}`}
+                href={`/username/${user.username}`}
                 className="text-center"
                 key={`student-${i}`}
               >

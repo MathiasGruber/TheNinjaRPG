@@ -8,7 +8,7 @@ export default async function PublicProfile(props: {
 }) {
   const params = await props.params;
   const user = await drizzleDB.query.userData.findFirst({
-    where: eq(userData.username, params.username),
+    where: eq(userData.username, params.username.replace("%20", " ")),
   });
   return (
     <PublicUserComponent
