@@ -253,17 +253,19 @@ const ReputationStore = (props: { currency: string }) => {
                     sendGTMEvent({ ecommerce: null });
                     sendGTMEvent({
                       event: "purchase",
-                      transaction_id: transaction_id,
-                      currency: currency,
-                      value: Number(value),
-                      items: [
-                        {
-                          item_id: "BASIC_REPS",
-                          item_name: "REPUTATION POINTS",
-                          price: Number(value),
-                          quantity: 1,
-                        },
-                      ],
+                      ecommerce: {
+                        transaction_id: transaction_id,
+                        value: Number(value),
+                        currency: currency,
+                        items: [
+                          {
+                            item_id: "BASIC_REPS",
+                            item_name: "REPUTATION POINTS",
+                            price: Number(value),
+                            quantity: 1,
+                          },
+                        ],
+                      },
                     });
                   }
                 });
