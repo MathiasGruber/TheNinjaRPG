@@ -2355,6 +2355,7 @@ export const linkPromotionRelations = relations(linkPromotion, ({ one }) => ({
   user: one(userData, {
     fields: [linkPromotion.userId],
     references: [userData.userId],
+    relationName: "userPromotions",
   }),
   reviewer: one(userData, {
     fields: [linkPromotion.reviewedBy],

@@ -225,11 +225,13 @@ export const profileRouter = createTRPCRouter({
       }
     }
     // Link promotion
-    notifications.push({
-      href: "/profile/recruit",
-      name: `Win a S-rank`,
-      color: "blue",
-    });
+    if (user.promotions.length === 0) {
+      notifications.push({
+        href: "/profile/recruit",
+        name: `Win a S-rank`,
+        color: "blue",
+      });
+    }
     // Settings
     const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
     if (trainingBoost) {
@@ -1209,6 +1211,9 @@ export const fetchUpdatedUser = async (props: {
         },
         loadout: {
           columns: { jutsuIds: true },
+        },
+        promotions: {
+          limit: 1,
         },
         userQuests: {
           where: or(
