@@ -1533,6 +1533,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.aiProfileId],
     references: [aiProfile.id],
   }),
+  promotions: many(linkPromotion, { relationName: "userPromotions" }),
 }));
 
 export const userReview = mysqlTable(
@@ -2322,3 +2323,41 @@ export const backgroundSchema = mysqlTable(
   },
 );
 export type BackgroundSchema = InferSelectModel<typeof backgroundSchema>;
+
+export const linkPromotion = mysqlTable(
+  "LinkPromotion",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    url: varchar("url", { length: 191 }).notNull(),
+    points: int("points").default(0).notNull(),
+    reviewed: boolean("reviewed").default(false).notNull(),
+    reviewedBy: varchar("reviewedBy", { length: 191 }),
+    reviewedAt: datetime("reviewedAt", { mode: "date", fsp: 3 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("LinkPromotion_userId_idx").on(table.userId),
+      reviewedByIdx: index("LinkPromotion_reviewedBy_idx").on(table.reviewedBy),
+    };
+  },
+);
+
+export type LinkPromotion = InferSelectModel<typeof linkPromotion>;
+
+export const linkPromotionRelations = relations(linkPromotion, ({ one }) => ({
+  user: one(userData, {
+    fields: [linkPromotion.userId],
+    references: [userData.userId],
+  }),
+  reviewer: one(userData, {
+    fields: [linkPromotion.reviewedBy],
+    references: [userData.userId],
+  }),
+}));
