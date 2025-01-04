@@ -224,14 +224,6 @@ export const profileRouter = createTRPCRouter({
         });
       }
     }
-    // Link promotion
-    if (user.promotions.length === 0) {
-      notifications.push({
-        href: "/profile/recruit",
-        name: `Win a S-rank`,
-        color: "blue",
-      });
-    }
     // Settings
     const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
     if (trainingBoost) {
@@ -251,6 +243,14 @@ export const profileRouter = createTRPCRouter({
     }
     // User specific
     if (user) {
+      // Link promotion
+      if (user.promotions.length === 0) {
+        notifications.push({
+          href: "/profile/recruit",
+          name: `Win a S-rank`,
+          color: "blue",
+        });
+      }
       // Get number of un-resolved user reports
       if (canModerateRoles.includes(user.role)) {
         const reportCounts = await ctx.drizzle
