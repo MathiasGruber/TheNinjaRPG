@@ -115,7 +115,11 @@ export default function Recruit() {
   const rawPromotions = promotions?.pages.map((page) => page.data).flat() ?? [];
   const allPromotions = rawPromotions.map((promotion) => ({
     ...promotion,
-    reviewed: promotion.reviewed ? "Reviewed" : "Pending",
+    reviewed: promotion.reviewed
+      ? promotion.points > 0
+        ? "Reviewed"
+        : "Rejected"
+      : "Pending",
     user: canReviewLinkPromotions(userData?.role) ? (
       <div className="w-20 text-center">
         <AvatarImage

@@ -84,7 +84,6 @@ export const linkPromotionRouter = createTRPCRouter({
       if (!canReviewLinkPromotions(user.role)) {
         return errorResponse("Cannot review promotion links");
       }
-      if (input.points <= 0) return errorResponse("More than 0 points needed");
       // Mutate
       await Promise.all([
         ctx.drizzle
@@ -96,20 +95,24 @@ export const linkPromotionRouter = createTRPCRouter({
             reviewedAt: new Date(),
           })
           .where(eq(linkPromotion.id, input.id)),
-        ctx.drizzle.insert(userRewards).values({
-          id: nanoid(),
-          awardedById: ctx.userId,
-          receiverId: promotion.userId,
-          reputationAmount: input.points,
-          reason: `Link promotion reward for ${promotion.url}`,
-        }),
-        ctx.drizzle
-          .update(userData)
-          .set({
-            reputationPoints: sql`reputationPoints + ${input.points || 0}`,
-            reputationPointsTotal: sql`reputationPointsTotal + ${input.points || 0}`,
-          })
-          .where(eq(userData.userId, promotion.userId)),
+        ...(input.points > 0
+          ? [
+              ctx.drizzle.insert(userRewards).values({
+                id: nanoid(),
+                awardedById: ctx.userId,
+                receiverId: promotion.userId,
+                reputationAmount: input.points,
+                reason: `Link promotion reward for ${promotion.url}`,
+              }),
+              ctx.drizzle
+                .update(userData)
+                .set({
+                  reputationPoints: sql`reputationPoints + ${input.points || 0}`,
+                  reputationPointsTotal: sql`reputationPointsTotal + ${input.points || 0}`,
+                })
+                .where(eq(userData.userId, promotion.userId)),
+            ]
+          : []),
       ]);
       return { success: true, message: `Reward for ${promotion.url}` };
     }),
