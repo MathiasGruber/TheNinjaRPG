@@ -224,6 +224,12 @@ export const profileRouter = createTRPCRouter({
         });
       }
     }
+    // Link promotion
+    notifications.push({
+      href: "/profile/recruit",
+      name: `Win a S-rank`,
+      color: "blue",
+    });
     // Settings
     const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
     if (trainingBoost) {
