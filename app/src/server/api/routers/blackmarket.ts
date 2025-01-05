@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, sql, gt, and, asc, desc, isNull, isNotNull } from "drizzle-orm";
+import { eq, sql, gte, gt, and, asc, desc, isNull, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { fetchUser } from "./profile";
@@ -190,47 +190,68 @@ export const blackMarketRouter = createTRPCRouter({
   takeOffer: protectedProcedure
     .input(z.object({ offerId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Query
-      const [offer, user] = await Promise.all([
-        fetchOffer(ctx.drizzle, input.offerId),
-        fetchUser(ctx.drizzle, ctx.userId),
-      ]);
-      // Guard
+      // Query offer first to validate it exists
+      const offer = await fetchOffer(ctx.drizzle, input.offerId);
       if (!offer) return errorResponse("Offer not found");
       if (offer.purchaserUserId) return errorResponse("Offer already taken");
       if (offer.creatorUserId === ctx.userId) return errorResponse("Your own offer");
-      if (user.money < offer.requestedRyo) return errorResponse("Not enough ryo");
       if (offer.allowedPurchaserId && offer.allowedPurchaserId !== ctx.userId) {
         return errorResponse("You are not allowed to purchase this offer");
       }
-      // Mutate
-      await ctx.drizzle.transaction(async (tx) => {
-        await tx
-          .update(ryoTrade)
-          .set({ purchaserUserId: ctx.userId })
-          .where(eq(ryoTrade.id, input.offerId));
-        await tx
-          .update(userData)
-          .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
-          .where(eq(userData.userId, offer.creatorUserId));
-        await tx
-          .update(userData)
-          .set({
-            money: sql`${userData.money} - ${offer.requestedRyo}`,
-            reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
-          })
-          .where(
-            and(
-              eq(userData.userId, ctx.userId),
-              gt(userData.money, offer.requestedRyo),
+
+      try {
+        // Perform all checks and updates in a single transaction
+        await ctx.drizzle.transaction(async (tx) => {
+          // First verify the offer is still available
+          const currentOffer = await tx.query.ryoTrade.findFirst({
+            where: and(
+              eq(ryoTrade.id, input.offerId),
+              isNull(ryoTrade.purchaserUserId),
             ),
-          );
-      });
-      // Response
-      return {
-        success: true,
-        message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
-      };
+          });
+          if (!currentOffer) {
+            throw new Error("Offer no longer available");
+          }
+
+          // Get current user state within transaction
+          const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
+          if (currentUser.money < offer.requestedRyo) {
+            throw new Error("Insufficient funds");
+          }
+          await tx
+            .update(ryoTrade)
+            .set({ purchaserUserId: ctx.userId })
+            .where(eq(ryoTrade.id, input.offerId));
+          await tx
+            .update(userData)
+            .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
+            .where(eq(userData.userId, offer.creatorUserId));
+          const buyerResult = await tx
+            .update(userData)
+            .set({
+              money: sql`${userData.money} - ${offer.requestedRyo}`,
+              reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
+            })
+            .where(
+              and(
+                eq(userData.userId, ctx.userId),
+                gte(userData.money, offer.requestedRyo),
+              ),
+            );
+          if (buyerResult.rowsAffected === 0) {
+            throw new Error("Failed to update buyer");
+          }
+        });
+
+        return {
+          success: true,
+          message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
+        };
+      } catch (error) {
+        return errorResponse(
+          error instanceof Error ? error.message : "Transaction failed",
+        );
+      }
     }),
   // Update custom title
   updateCustomTitle: protectedProcedure
