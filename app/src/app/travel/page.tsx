@@ -101,10 +101,17 @@ export default function Travel() {
 
   useEffect(() => {
     if (userData && globe) {
-      setCurrentPosition({ x: userData.longitude, y: userData.latitude });
-      setCurrentTile(globe.tiles[userData.sector]!);
+      // If user is traveling, only show travel status
+      if (userData.status === "TRAVELING") {
+        setCurrentPosition(null);
+        setCurrentTile(null);
+        setActiveTab(globalLink);
+      } else {
+        setCurrentPosition({ x: userData.longitude, y: userData.latitude });
+        setCurrentTile(globe.tiles[userData.sector]!);
+      }
     }
-  }, [userData, currentSector, globe]);
+  }, [userData, currentSector, globe, globalLink]);
 
   useEffect(() => {
     setActiveTab(sectorLink);
@@ -113,6 +120,11 @@ export default function Travel() {
   useEffect(() => {
     if (userData?.status === "BATTLE") {
       void router.push(`/combat`);
+    } else if (userData?.status === "TRAVELING") {
+      // Force all tabs to show travel status
+      setActiveTab(globalLink);
+      setCurrentPosition(null);
+      setCurrentTile(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData?.status]);
@@ -124,10 +136,10 @@ export default function Travel() {
         if (result.success && result.data) {
           await updateUser(result.data);
           setShowModal(false);
+          // Force all tabs to show travel status
           setActiveTab(globalLink);
-          if (globe) {
-            setCurrentTile(globe.tiles[result.data.sector]!);
-          }
+          setCurrentPosition(null);
+          setCurrentTile(null);
         }
       },
     });
@@ -138,7 +150,12 @@ export default function Travel() {
         showMutationToast(result);
         if (result.success) {
           await updateUser({ status: "AWAKE", travelFinishAt: null });
+          // Force all tabs to update to new sector
           setActiveTab(sectorLink);
+          if (globe) {
+            setCurrentTile(globe.tiles[result.data.sector]!);
+            setCurrentPosition({ x: result.data.longitude, y: result.data.latitude });
+          }
         }
       },
     });
