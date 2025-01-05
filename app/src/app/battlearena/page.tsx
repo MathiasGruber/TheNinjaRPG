@@ -26,6 +26,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import Loader from "@/layout/Loader";
+import { sendGTMEvent } from "@next/third-parties/google";
 import { Swords } from "lucide-react";
 import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
@@ -239,6 +240,7 @@ const ChallengeAI: React.FC<ChallengeAIProps> = (props) => {
           });
           router.push("/combat");
           showMutationToast({ ...result, message: "Entering the Arena" });
+          sendGTMEvent({ event: "enter_arena" });
         } else {
           showMutationToast(result);
         }

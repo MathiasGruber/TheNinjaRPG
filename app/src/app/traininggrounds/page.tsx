@@ -43,6 +43,7 @@ import { checkJutsuRank, checkJutsuVillage, checkJutsuBloodline } from "@/libs/t
 import { useInfinitePagination } from "@/libs/pagination";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
+import { sendGTMEvent } from "@next/third-parties/google";
 import { showMutationToast } from "@/libs/toast";
 import { Swords, ShieldAlert, XCircle, Fingerprint } from "lucide-react";
 import { CheckCheck, DoorOpen } from "lucide-react";
@@ -350,6 +351,7 @@ const StatsTraining: React.FC<TrainingProps> = (props) => {
         showMutationToast(result);
         if (result.success && result.data) {
           await updateUser(result.data);
+          sendGTMEvent({ event: "stats_training" });
         }
       },
     });
@@ -618,6 +620,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       onSuccess: async (result) => {
         showMutationToast(result);
         if (result.success && result.data) {
+          sendGTMEvent({ event: "jutsu_training" });
           await updateUser(result.data);
         }
         await utils.jutsu.getUserJutsus.invalidate();
