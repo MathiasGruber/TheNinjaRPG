@@ -1236,7 +1236,7 @@ export const rob = (
   if (instant || residual) {
     const primaryCheck = Math.random() < power / 100;
     if (primaryCheck && "robPercentage" in effect && effect.robPercentage) {
-      const targetMoney = target.money - target.moneyStolen;
+      const targetMoney = Math.max(0, target.money - target.moneyStolen);
       let stolen = Math.floor(targetMoney * (effect.robPercentage / 100));
       stolen = Math.floor(stolen > targetMoney ? targetMoney : stolen);
       if (stolen > 0) {
