@@ -1236,19 +1236,19 @@ export const rob = (
   if (instant || residual) {
     const primaryCheck = Math.random() < power / 100;
     if (primaryCheck && "robPercentage" in effect && effect.robPercentage) {
-      const targetMoney = Math.max(0, target.money - target.moneyStolen);
-      let stolen = Math.floor(targetMoney * (effect.robPercentage / 100));
-      stolen = Math.floor(stolen > targetMoney ? targetMoney : stolen);
+      const availableMoney = Math.max(0, target.money);
+      let stolen = Math.floor(availableMoney * (effect.robPercentage / 100));
+      stolen = Math.min(stolen, availableMoney);
       if (stolen > 0) {
-        origin.moneyStolen += stolen;
-        target.moneyStolen -= stolen;
+        origin.moneyStolen = (origin.moneyStolen || 0) + stolen;
+        target.money -= stolen;
         return {
           txt: `${origin.username} stole ${stolen} ryo from ${target.username}`,
           color: "blue",
         };
       } else {
         return {
-          txt: `${origin.username} failed to steal ryo from ${target.username} but there was nothing more to steal`,
+          txt: `${origin.username} failed to steal ryo from ${target.username} because they have no ryo`,
           color: "blue",
         };
       }
