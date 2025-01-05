@@ -1263,6 +1263,7 @@ export const rob = (
         let stolen = Math.floor(pocketMoney * (effect.robPercentage / 100));
         stolen = Math.min(stolen, pocketMoney); // Ensure we don't steal more than what's in pocket
         origin.moneyStolen = (origin.moneyStolen || 0) + stolen;
+        target.moneyStolen = (origin.moneyStolen || 0) - stolen;
         target.money -= stolen;
         return {
           txt: `${origin.username} stole ${stolen} ryo from ${target.username}'s pocket`,
