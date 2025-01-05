@@ -41,9 +41,10 @@ export const absorb = (
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
           // Calculate absorption amount for this effect
-          const absorbAmount = effect.calculation === "percentage"
-            ? consequence.damage * (power / 100)
-            : Math.min(power, consequence.damage);
+          const absorbAmount =
+            effect.calculation === "percentage"
+              ? consequence.damage * (power / 100)
+              : Math.min(power, consequence.damage);
           const convert = Math.ceil(absorbAmount * ratio);
           // Apply absorption to each pool
           pools.map((pool) => {
@@ -1242,6 +1243,7 @@ export const rob = (
         let stolen = Math.floor(pocketMoney * (effect.robPercentage / 100));
         stolen = Math.min(stolen, pocketMoney); // Ensure we don't steal more than what's in pocket
         origin.moneyStolen = (origin.moneyStolen || 0) + stolen;
+        target.moneyStolen = (origin.moneyStolen || 0) - stolen;
         target.money -= stolen;
         return {
           txt: `${origin.username} stole ${stolen} ryo from ${target.username}'s pocket`,
