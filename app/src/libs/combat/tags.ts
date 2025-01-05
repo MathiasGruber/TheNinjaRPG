@@ -549,9 +549,12 @@ const removeEffects = (
         e.rounds = 0;
       });
 
+    // Type guard to identify ground effects
+    const isGroundEffect = (e: UserEffect | GroundEffect): e is GroundEffect => !("targetId" in e);
+
     // Remove ground effects at the same location as the target
     usersEffects
-      .filter((e) => !("targetId" in e)) // Ground effects don't have targetId
+      .filter(isGroundEffect)
       .filter((e) => e.longitude === target.longitude && e.latitude === target.latitude)
       .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
       .map((e) => {
