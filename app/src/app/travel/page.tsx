@@ -103,8 +103,20 @@ export default function Travel() {
     if (userData && globe) {
       setCurrentPosition({ x: userData.longitude, y: userData.latitude });
       setCurrentTile(globe.tiles[userData.sector]!);
+      
+      // Subscribe to location updates
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          utils.profile.getUser.invalidate();
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
     }
-  }, [userData, currentSector, globe]);
+  }, [userData, currentSector, globe, utils.profile.getUser]);
 
   useEffect(() => {
     setActiveTab(sectorLink);
@@ -113,9 +125,12 @@ export default function Travel() {
   useEffect(() => {
     if (userData?.status === "BATTLE") {
       void router.push(`/combat`);
+    } else if (userData?.status === "TRAVELING" && !userData?.travelFinishAt) {
+      // If in travel status but no finish time, reset status
+      void updateUser({ status: "AWAKE", travelFinishAt: null });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData?.status]);
+  }, [userData?.status, userData?.travelFinishAt]);
 
   const { mutate: startGlobalMove, isPending: isStartingTravel } =
     api.travel.startGlobalMove.useMutation({
@@ -345,7 +360,7 @@ export default function Travel() {
             )}
           </Modal>
         )}
-        {userData?.travelFinishAt && (
+        {(userData?.travelFinishAt || userData?.status === "TRAVELING") && (
           <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
             <div className="m-auto text-center text-white">
               <p className="p-5  text-3xl">Traveling to Sector {userData?.sector}</p>
@@ -355,7 +370,13 @@ export default function Travel() {
                   targetDate={userData?.travelFinishAt}
                   timeDiff={timeDiff}
                   onFinish={() => {
-                    if (!isFinishingTravel) finishGlobalMove();
+                    if (!isFinishingTravel) {
+                      finishGlobalMove();
+                      // Force redirect to travel page on all tabs
+                      setActiveTab(sectorLink);
+                      // Force refresh user data
+                      utils.profile.getUser.invalidate();
+                    }
                   }}
                 />
               </p>
