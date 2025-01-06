@@ -546,6 +546,7 @@ const removeEffects = (
 
   // Note: add !effect.castThisRound && to remove effects only after the round
   if (effect.power === 100) {
+    // Remove user effects
     usersEffects
       .filter((e) => e.targetId === effect.targetId)
       .filter((e) => e.fromType !== "bloodline")
@@ -554,6 +555,19 @@ const removeEffects = (
       .map((e) => {
         e.rounds = 0;
       });
+
+    // Type guard to identify ground effects
+    const isGroundEffect = (e: UserEffect | GroundEffect): e is GroundEffect => !("targetId" in e);
+
+    // Remove ground effects at the same location as the target
+    usersEffects
+      .filter(isGroundEffect)
+      .filter((e) => e.longitude === target.longitude && e.latitude === target.latitude)
+      .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
+      .map((e) => {
+        e.rounds = 0;
+      });
+
     text = `${target.username} was cleared of all ${type} status effects. `;
     effect.rounds = 0;
   }
