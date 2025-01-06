@@ -97,13 +97,6 @@ export const linkPromotionRouter = createTRPCRouter({
           .where(eq(linkPromotion.id, input.id)),
         ...(input.points > 0
           ? [
-              ctx.drizzle.insert(userRewards).values({
-                id: nanoid(),
-                awardedById: ctx.userId,
-                receiverId: promotion.userId,
-                reputationAmount: input.points,
-                reason: `Link promotion reward for ${promotion.url}`,
-              }),
               ctx.drizzle
                 .update(userData)
                 .set({
