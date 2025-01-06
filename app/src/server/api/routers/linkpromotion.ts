@@ -8,7 +8,7 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { eq, desc, sql } from "drizzle-orm";
 import { canReviewLinkPromotions } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
-import { linkPromotion, userData, userRewards } from "@/drizzle/schema";
+import { linkPromotion, userData } from "@/drizzle/schema";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 
 export const linkPromotionRouter = createTRPCRouter({
