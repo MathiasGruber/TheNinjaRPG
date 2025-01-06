@@ -35,7 +35,22 @@ export const checkFriendlyFire = (
   const creator = usersState.find((u) => u.userId === effect.creatorId);
   if (!creator) return false;
 
-  // In clan battles and other battles, players from same village are allies
+  // Get unique village IDs from real (non-summoned) users
+  const uniqueVillages = new Set(
+    usersState
+      .filter(u => !u.isSummon)
+      .map(u => u.villageId)
+  );
+
+  // If all real users are from the same village, treat them as enemies
+  const isIntraVillageBattle = uniqueVillages.size === 1;
+  
+  // In same-village battles, everyone is an enemy
+  if (isIntraVillageBattle) {
+    return effect.friendlyFire !== 'FRIENDLY'; // Allow all except friendly-only effects
+  }
+
+  // In multi-village battles, players from same village are allies
   const isFriendly = creator.villageId === target.villageId;
 
   // Check if effect should be applied based on friendly fire settings
