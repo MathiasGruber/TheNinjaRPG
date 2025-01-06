@@ -2362,3 +2362,33 @@ export const linkPromotionRelations = relations(linkPromotion, ({ one }) => ({
     references: [userData.userId],
   }),
 }));
+
+export const userVotes = mysqlTable(
+  "UserVotes",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    siteId: varchar("siteId", { length: 191 }).notNull(),
+    lastVoteAt: datetime("lastVoteAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    votes: int("votes").default(0).notNull(),
+    lastRawJson: json("lastRawJson").notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("UserVotes_userId_idx").on(table.userId),
+      uniqueUserSite: uniqueIndex("UserVotes_userId_siteId_key").on(
+        table.userId,
+        table.siteId,
+      ),
+    };
+  },
+);
+
+export const userVotesRelations = relations(userVotes, ({ one }) => ({
+  user: one(userData, {
+    fields: [userVotes.userId],
+    references: [userData.userId],
+  }),
+}));

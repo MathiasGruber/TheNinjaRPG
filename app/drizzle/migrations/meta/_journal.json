@@ -1254,6 +1254,13 @@
       "when": 1735976577888,
       "tag": "0178_cuddly_mac_gargan",
       "breakpoints": false
+    },
+    {
+      "idx": 179,
+      "version": "5",
+      "when": 1736171582486,
+      "tag": "0179_broken_inertia",
+      "breakpoints": false
     }
   ]
 }
