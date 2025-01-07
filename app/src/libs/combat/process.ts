@@ -50,6 +50,12 @@ export const checkFriendlyFire = (
     return effect.friendlyFire !== 'FRIENDLY'; // Allow all except friendly-only effects
   }
 
+  // For summoned units, check if they belong to the creator
+  if (target.isSummon) {
+    const isFriendly = target.villageId === creator.villageId;
+    return effect.friendlyFire === 'FRIENDLY' ? isFriendly : !isFriendly;
+  }
+
   // In multi-village battles, players from same village are allies
   const isFriendly = creator.villageId === target.villageId;
 
