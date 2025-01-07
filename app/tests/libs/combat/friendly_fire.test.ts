@@ -108,4 +108,61 @@ describe("checkFriendlyFire", () => {
       expect(checkFriendlyFire(effect, target, multiVillageUsers)).toBe(false);
     });
   });
+
+  describe("Summons", () => {
+    const summonedUser: BattleUserState = {
+      ...baseUser,
+      userId: "summon1",
+      villageId: "village1",
+      controllerId: "user1",
+      username: "Summon 1",
+      isSummon: true,
+    } as BattleUserState;
+
+    const enemySummon: BattleUserState = {
+      ...baseUser,
+      userId: "summon2",
+      villageId: "village2",
+      controllerId: "user2",
+      username: "Summon 2",
+      isSummon: true,
+    } as BattleUserState;
+
+    const usersWithSummons = [
+      { ...baseUser },
+      {
+        ...baseUser,
+        userId: "user2",
+        villageId: "village2",
+        controllerId: "controller2",
+        username: "User 2",
+      },
+      summonedUser,
+      enemySummon,
+    ];
+
+    it("should allow FRIENDLY effects on own summons", () => {
+      const effect = { ...baseEffect, friendlyFire: "FRIENDLY" };
+      const target = summonedUser;
+      expect(checkFriendlyFire(effect, target, usersWithSummons)).toBe(true);
+    });
+
+    it("should block FRIENDLY effects on enemy summons", () => {
+      const effect = { ...baseEffect, friendlyFire: "FRIENDLY" };
+      const target = enemySummon;
+      expect(checkFriendlyFire(effect, target, usersWithSummons)).toBe(false);
+    });
+
+    it("should allow ENEMIES effects on enemy summons", () => {
+      const effect = { ...baseEffect, friendlyFire: "ENEMIES" };
+      const target = enemySummon;
+      expect(checkFriendlyFire(effect, target, usersWithSummons)).toBe(true);
+    });
+
+    it("should block ENEMIES effects on own summons", () => {
+      const effect = { ...baseEffect, friendlyFire: "ENEMIES" };
+      const target = summonedUser;
+      expect(checkFriendlyFire(effect, target, usersWithSummons)).toBe(false);
+    });
+  });
 });
