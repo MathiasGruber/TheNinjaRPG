@@ -136,12 +136,9 @@ export const questsRouter = createTRPCRouter({
                   ]
                 : []),
               ...(input.rank ? [inArray(quest.questRank, input.rank)] : []),
-              ...(input.level
-                ? [
-                    lte(quest.requiredLevel, input.level),
-                    gte(quest.maxLevel, input.level),
-                  ]
-                : []),
+              // Always check level requirements for events
+              lte(quest.requiredLevel, input.level ?? 0),
+              gte(quest.maxLevel, input.level ?? 0),
             ),
           ),
       ]);
