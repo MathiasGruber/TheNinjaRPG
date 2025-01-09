@@ -481,7 +481,7 @@ export const jutsuRouter = createTRPCRouter({
       );
       // Guard
       if (
-        residualJutsus.length > JUTSU_MAX_RESIDUAL_EQUIPPED &&
+        residualJutsus.length >= JUTSU_MAX_RESIDUAL_EQUIPPED &&
         newEquippedState === 1
       ) {
         return errorResponse(
