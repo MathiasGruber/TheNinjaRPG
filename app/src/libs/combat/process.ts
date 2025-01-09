@@ -35,18 +35,18 @@ export const checkFriendlyFire = (
   const creator = usersState.find((u) => u.userId === effect.creatorId);
   if (!creator) return false;
 
+  // For summoned units, always check if they belong to the creator
+  if (target.isSummon) {
+    const isFriendly = target.controllerId === creator.userId;
+    return effect.friendlyFire === 'FRIENDLY' ? isFriendly : !isFriendly;
+  }
+
   // Get unique village IDs from real (non-summoned) users
   const uniqueVillages = new Set(
     usersState
       .filter(u => !u.isSummon)
       .map(u => u.villageId)
   );
-
-  // For summoned units, always check if they belong to the creator
-  if (target.isSummon) {
-    const isFriendly = target.villageId === creator.villageId;
-    return effect.friendlyFire === 'FRIENDLY' ? isFriendly : !isFriendly;
-  }
 
   // If all real users are from the same village, treat them as enemies
   const isIntraVillageBattle = uniqueVillages.size === 1;
