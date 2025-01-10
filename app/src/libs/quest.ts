@@ -387,8 +387,8 @@ export const mockAchievementHistoryEntries = (
  * `hideLocation` property set to true and the user's sector does not match the objective's sector,
  * it will obfuscate the objective's location by setting its latitude, longitude, and sector to 1337.
  */
-export const hideQuestInformation = (quest: Quest, user?: UserData) => {
-  quest.content.objectives.forEach((objective) => {
+export const hideQuestInformation = (quest?: Quest, user?: UserData) => {
+  quest?.content.objectives.forEach((objective) => {
     if (
       "hideLocation" in objective &&
       objective.hideLocation &&

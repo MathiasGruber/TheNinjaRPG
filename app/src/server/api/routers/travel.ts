@@ -49,27 +49,34 @@ export const travelRouter = createTRPCRouter({
         userId: z.string(),
       }),
     )
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
       // Query
-      const [user, target] = await Promise.all([
+      const [user, target, sectorData] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.userId),
+        ctx.drizzle.query.village.findFirst({
+          where: eq(village.sector, input.sector),
+        }),
       ]);
 
       // Guard
-      if (!user.isOutlaw) {
-        return { success: false, message: "Only outlaws can rob other players" };
+      if (!user.isOutlaw) return errorResponse("Only outlaws can rob other players");
+      if (user.status !== "AWAKE") return errorResponse("You are not awake");
+      if (user.isBanned) return errorResponse("You are banned");
+      if (target.isBanned) return errorResponse("Target is banned");
+      if (sectorData?.pvpDisabled) {
+        return errorResponse("Cannot rob players in this zone");
       }
       if (target.robImmunityUntil && target.robImmunityUntil > new Date()) {
-        return { success: false, message: "Target is immune from being robbed" };
+        return errorResponse("Target is immune from being robbed");
       }
       if (
         target.sector !== input.sector ||
         target.longitude !== input.longitude ||
         target.latitude !== input.latitude
       ) {
-        return { success: false, message: "Target is not in the specified location" };
+        return errorResponse("Target is not in the specified location");
       }
 
       // 40% chance to rob successfully
@@ -83,9 +90,7 @@ export const travelRouter = createTRPCRouter({
           await Promise.all([
             tx
               .update(userData)
-              .set({
-                money: sql`${userData.money} + ${stolenAmount}`,
-              })
+              .set({ money: sql`${userData.money} + ${stolenAmount}` })
               .where(eq(userData.userId, ctx.userId)),
 
             tx
@@ -117,10 +122,18 @@ export const travelRouter = createTRPCRouter({
           "COMBAT",
         );
 
-        return {
-          success: false,
-          message: "Rob attempt failed! Prepare for combat!",
-        };
+        if (battle.success) {
+          return {
+            success: false,
+            message: "Rob attempt failed! Prepare for combat!",
+            battleId: battle.battleId,
+          };
+        } else {
+          return {
+            success: false,
+            message: battle.message,
+          };
+        }
       }
     }),
   // Get users within a given sector
