@@ -40,6 +40,7 @@ export interface SectorUser {
   level: number;
   rank: UserRank;
   immunityUntil: Date;
+  robImmunityUntil: Date;
   updatedAt: Date;
   allianceStatus: AllianceState;
   status: UserStatus;
