@@ -1,6 +1,11 @@
 import { z } from "zod";
-import { eq, gte, and, or, isNull, inArray } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { eq, gte, and, or, isNull, inArray, sql } from "drizzle-orm";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  ratelimitMiddleware,
+  hasUserMiddleware,
+} from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { calcIsInVillage } from "@/libs/travel/controls";
@@ -24,6 +29,100 @@ import type { GlobalMapData } from "@/libs/travel/types";
 const pusher = getServerPusher();
 
 export const travelRouter = createTRPCRouter({
+  // Rob another player
+  robPlayer: protectedProcedure
+    .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
+    .input(
+      z.object({
+        longitude: z
+          .number()
+          .int()
+          .min(0)
+          .max(SECTOR_WIDTH - 1),
+        latitude: z
+          .number()
+          .int()
+          .min(0)
+          .max(SECTOR_HEIGHT - 1),
+        sector: z.number().int(),
+        userId: z.string(),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ input, ctx }) => {
+      // Query
+      const [user, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
+
+      // Guard
+      if (!user.isOutlaw) {
+        return { success: false, message: "Only outlaws can rob other players" };
+      }
+      if (target.robImmunityUntil && target.robImmunityUntil > new Date()) {
+        return { success: false, message: "Target is immune from being robbed" };
+      }
+      if (
+        target.sector !== input.sector ||
+        target.longitude !== input.longitude ||
+        target.latitude !== input.latitude
+      ) {
+        return { success: false, message: "Target is not in the specified location" };
+      }
+
+      // 40% chance to rob successfully
+      const success = Math.random() < 0.4;
+      if (success) {
+        // Rob 30% of target's money
+        const stolenAmount = Math.floor(target.money * 0.3);
+
+        // Update both users' money and set immunity
+        await ctx.drizzle.transaction(async (tx) => {
+          await Promise.all([
+            tx
+              .update(userData)
+              .set({
+                money: sql`${userData.money} + ${stolenAmount}`,
+              })
+              .where(eq(userData.userId, ctx.userId)),
+
+            tx
+              .update(userData)
+              .set({
+                money: sql`${userData.money} - ${stolenAmount}`,
+                robImmunityUntil: secondsFromNow(90), // 90 seconds immunity
+              })
+              .where(eq(userData.userId, input.userId)),
+          ]);
+        });
+
+        return {
+          success: true,
+          message: `Successfully robbed ${stolenAmount} money from ${target.username}!`,
+        };
+      } else {
+        // Failed rob attempt - initiate combat
+        const battle = await initiateBattle(
+          {
+            longitude: input.longitude,
+            latitude: input.latitude,
+            sector: input.sector,
+            userIds: [ctx.userId],
+            targetIds: [input.userId],
+            client: ctx.drizzle,
+            asset: "ground",
+          },
+          "COMBAT",
+        );
+
+        return {
+          success: false,
+          message: "Rob attempt failed! Prepare for combat!",
+        };
+      }
+    }),
   // Get users within a given sector
   getSectorData: protectedProcedure
     .input(z.object({ sector: z.number().int() }))
@@ -46,6 +145,7 @@ export const travelRouter = createTRPCRouter({
             rank: true,
             isOutlaw: true,
             immunityUntil: true,
+            robImmunityUntil: true,
             updatedAt: true,
             villageId: true,
             battleId: true,
@@ -90,7 +190,7 @@ export const travelRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      let user = await fetchUser(ctx.drizzle, ctx.userId);
       if (!isAtEdge({ x: user.longitude, y: user.latitude })) {
         return { success: false, message: "You are not at the edge of a sector" };
       }
@@ -122,9 +222,12 @@ export const travelRouter = createTRPCRouter({
           data: { sector: input.sector, travelFinishAt: endTime, status: "TRAVEL" },
         };
       } else {
-        const userData = await fetchUser(ctx.drizzle, ctx.userId);
-        if (userData.status !== "AWAKE") {
-          return { success: false, message: `Status is: ${user.status.toLowerCase()}` };
+        user = await fetchUser(ctx.drizzle, ctx.userId);
+        if (user.status !== "AWAKE") {
+          return {
+            success: false,
+            message: `Status is: ${user.status.toLowerCase()}`,
+          };
         } else {
           return { success: false, message: "Failed to start travel" };
         }
@@ -270,17 +373,17 @@ export const travelRouter = createTRPCRouter({
         void updateUserOnMap(pusher, input.sector, output);
         return { success: true, message: "OK", data: output };
       } else {
-        const userData = await fetchUser(ctx.drizzle, userId);
-        if (userData.status !== "AWAKE") {
-          return errorResponse(`Status is: ${userData.status.toLowerCase()}`);
+        const user = await fetchUser(ctx.drizzle, userId);
+        if (user.status !== "AWAKE") {
+          return errorResponse(`Status is: ${user.status.toLowerCase()}`);
         }
-        if (userData.sector !== sector) {
+        if (user.sector !== sector) {
           return errorResponse("You are not in the correct sector");
         }
-        if (userData.longitude !== curLongitude || userData.latitude !== curLatitude) {
+        if (user.longitude !== curLongitude || user.latitude !== curLatitude) {
           return errorResponse("You have moved since you started this move");
         }
-        throw serverError("BAD_REQUEST", `Unknown error while moving`);
+        throw serverError("BAD_REQUEST", "Unknown error while moving");
       }
     }),
 });

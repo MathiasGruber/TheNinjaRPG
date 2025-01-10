@@ -1380,6 +1380,9 @@ export const userData = mysqlTable(
     immunityUntil: datetime("immunityUntil", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    robImmunityUntil: datetime("robImmunityUntil", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
     trainingStartedAt: datetime("trainingStartedAt", { mode: "date", fsp: 3 }),
     trainingSpeed: mysqlEnum("trainingSpeed", consts.TrainingSpeeds)
       .default("15min")
