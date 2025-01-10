@@ -7,6 +7,7 @@ import { seedBloodlines } from "./seeds/bloodline";
 import { seedItems } from "./seeds/items";
 import { seedQuests } from "./seeds/quests";
 import { seedAI } from "./seeds/ai";
+import { seedAssets } from "./seeds/assets";
 
 // Seed the database
 async function main() {
@@ -14,6 +15,7 @@ async function main() {
   await seedBloodlines(drizzleDB);
   await seedItems(drizzleDB);
   await seedAI(drizzleDB);
+  await seedAssets(drizzleDB);
   await seedForum(drizzleDB);
   await seedVillages(drizzleDB);
   await seedQuests(drizzleDB);
