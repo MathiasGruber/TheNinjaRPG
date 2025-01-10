@@ -5,7 +5,7 @@ import { availableUserActions, getBasicActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { secondsPassed } from "@/utils/time";
-import { realizeTag } from "./process";
+import { realizeTag, checkFriendlyFire } from "./process";
 import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/drizzle/constants";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { structureBoost } from "@/utils/village";
@@ -766,15 +766,20 @@ export const calcApReduction = (
         !e.castThisRound &&
         isEffectActive(e),
     ) || []),
-    ...(battle?.groundEffects.filter(
-      (e) =>
+    ...(battle?.groundEffects.filter((e) => {
+      // Basic checks for stun effect at user's location
+      const locationMatch =
         e.type === "stun" &&
         e.longitude === user?.longitude &&
         e.latitude === user?.latitude &&
         !e.castThisRound &&
-        isEffectActive(e),
-    ) || []),
-    ,
+        isEffectActive(e);
+
+      if (!locationMatch || !user) return false;
+
+      // Use the existing checkFriendlyFire function to determine if effect should be applied
+      return checkFriendlyFire(e, user, battle.usersState);
+    }) || []),
   ];
   const apReduction = stunEffects?.reduce((acc, e) => {
     if (e && "apReduction" in e) {

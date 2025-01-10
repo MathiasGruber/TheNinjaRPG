@@ -1232,9 +1232,9 @@ export const fetchUpdatedUser = async (props: {
   // Add in achievements
   if (user) {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
-    user.userQuests = user.userQuests.filter(
-      (q) => !q.quest.hidden || canChangeContent(user.role),
-    );
+    user.userQuests = user.userQuests
+      .filter((q) => q.quest)
+      .filter((q) => !q.quest.hidden || canChangeContent(user.role));
   }
 
   // Hide information relating to quests

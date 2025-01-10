@@ -29,7 +29,7 @@ import type { CompleteBattle, Consequence } from "./types";
 export const checkFriendlyFire = (
   effect: BattleEffect,
   target: ReturnedUserState,
-  usersState: BattleUserState[],
+  usersState: ReturnedUserState[],
 ) => {
   // Find the creator of the effect
   const creator = usersState.find((u) => u.userId === effect.creatorId);
@@ -38,22 +38,29 @@ export const checkFriendlyFire = (
   // For summoned units, always check if they belong to the creator
   if (target.isSummon) {
     const isFriendly = target.controllerId === creator.userId;
-    return effect.friendlyFire === 'FRIENDLY' ? isFriendly : !isFriendly;
+    return effect.friendlyFire === "FRIENDLY" ? isFriendly : !isFriendly;
   }
 
   // Get unique village IDs from real (non-summoned) users
   const uniqueVillages = new Set(
-    usersState
-      .filter(u => !u.isSummon)
-      .map(u => u.villageId)
+    usersState.filter((u) => !u.isSummon).map((u) => u.villageId),
   );
 
   // If all real users are from the same village, treat them as enemies
   const isIntraVillageBattle = uniqueVillages.size === 1;
-  
+
   // In same-village battles, everyone except summons is an enemy
   if (isIntraVillageBattle) {
-    return effect.friendlyFire !== 'FRIENDLY'; // Allow all except friendly-only effects
+    if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
+      return true; // Allow all
+    }
+    if (effect.friendlyFire === "FRIENDLY") {
+      return false; // Block friendly-only effects in intra-village battles
+    }
+    if (effect.friendlyFire === "ENEMIES") {
+      return effect.creatorId !== target.userId; // Only allow targeting others, not self
+    }
+    return false;
   }
 
   // In multi-village battles, players from same village are allies
