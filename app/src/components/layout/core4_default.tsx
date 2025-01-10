@@ -14,7 +14,7 @@ import SendTicketBtn from "@/layout/SendTicketButton";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { CircleUserRound, Inbox, Compass, Cog, Milk } from "lucide-react";
 import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
-import { Earth, House, MessageCircleWarning } from "lucide-react";
+import { Earth, House, MessageCircleWarning, Receipt } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
@@ -400,7 +400,8 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                 <Footer />
               </div>
               {userData ? (
-                <div className="absolute top-0 left-0 right-0 bottom-0 md:hidden grid grid-cols-5 items-center justify-center">
+                <div className="absolute top-0 left-0 right-0 bottom-0 md:hidden grid grid-cols-7 items-center justify-center">
+                  <div></div>
                   <Link
                     href="/profile"
                     className="flex justify-center -top-2 relative"
@@ -454,7 +455,13 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                       </Link>
                     </>
                   )}
-
+                  <Link
+                    href="/points"
+                    className="flex justify-center -top-2 relative"
+                    prefetch={true}
+                  >
+                    <Receipt className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                  </Link>
                   <Link
                     href="/profile/edit"
                     className="flex justify-center -top-2 relative"
