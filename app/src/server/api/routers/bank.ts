@@ -26,6 +26,7 @@ export const bankRouter = createTRPCRouter({
       if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.money < value) return errorResponse("Not enough money in pocket");
       if (user.isBanned) return errorResponse("You are banned");
+      if (user.status === "BATTLE") return errorResponse("Cannot access bank while in combat");
       // Update
       const result = await ctx.drizzle
         .update(userData)
@@ -61,6 +62,7 @@ export const bankRouter = createTRPCRouter({
       if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.bank < value) return errorResponse("Not enough money in bank");
       if (user.isBanned) return errorResponse("You are banned");
+      if (user.status === "BATTLE") return errorResponse("Cannot access bank while in combat");
       // Update
       const result = await ctx.drizzle
         .update(userData)
@@ -99,6 +101,7 @@ export const bankRouter = createTRPCRouter({
       if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.bank < value) return errorResponse("Not enough money in bank");
       if (user.isBanned) return errorResponse("You are banned");
+      if (user.status === "BATTLE") return errorResponse("Cannot access bank while in combat");
       // Update
       const result = await ctx.drizzle
         .update(userData)
