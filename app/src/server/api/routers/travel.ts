@@ -49,7 +49,12 @@ export const travelRouter = createTRPCRouter({
         userId: z.string(),
       }),
     )
-    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
+    .output(
+      baseServerResponse.extend({
+        battleId: z.string().optional(),
+        money: z.number().optional(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       // Query
       const [user, target, sectorData] = await Promise.all([
@@ -106,6 +111,7 @@ export const travelRouter = createTRPCRouter({
         return {
           success: true,
           message: `Successfully robbed ${stolenAmount} money from ${target.username}!`,
+          money: user.money + stolenAmount,
         };
       } else {
         // Failed rob attempt - initiate combat

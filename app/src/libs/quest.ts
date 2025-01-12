@@ -22,7 +22,10 @@ import type { QuestTrackerType } from "@/validators/objectives";
  * Get currently active quests for a user
  */
 export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
-  return user?.userQuests?.map((uq) => ({ ...uq, ...uq.quest })) ?? [];
+  return (
+    user?.userQuests.filter((uq) => !!uq.quest).map((uq) => ({ ...uq, ...uq.quest })) ??
+    []
+  );
 };
 
 /**
@@ -361,6 +364,7 @@ export const mockAchievementHistoryEntries = (
   user: NonNullable<UserWithRelations>,
 ) => {
   return quests
+    .filter((q) => q !== null)
     .filter((q) => !q.hidden || canChangeContent(user.role))
     .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))
     .map((a) => ({
