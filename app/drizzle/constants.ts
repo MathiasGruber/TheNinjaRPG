@@ -754,6 +754,8 @@ export const IMG_SECTOR_INFO =
   "https://utfs.io/f/ddab9f31-0491-4445-8e6e-98370533a93d-1xdpq.png";
 export const IMG_SECTOR_ATTACK =
   "https://utfs.io/f/d6587d1a-c11b-49e3-8e86-74bfb02a80a1-n9ug1k.png";
+export const IMG_SECTOR_ROB =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJvNL3jBEmSnXwslYEpV1yOeNL8gMtqhjPdf36";
 export const IMG_SECTOR_USER_MARKER =
   "https://utfs.io/f/cc347416-8bf6-40cf-9184-b4af64e6feae-n771t1.webp";
 export const IMG_SECTOR_USER_SPRITE_MASK =

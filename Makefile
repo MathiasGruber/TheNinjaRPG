@@ -68,10 +68,10 @@ bun: install ## Execute bun command in local development.
 	cd app && bun $(ARGS)
 
 .PHONY: start
-start: # Run Next.js server, access at https://localhost:3000
+start: # Run Next.js server, access at http://127.0.0.1:3000
 	@echo "${GREEN}start${RESET}"
 	rm -rf app/.next
-	@make bun -- dev --experimental-https
+	@make bun -- dev
 
 .PHONY: build
 build: # Build Next.js app

@@ -35,7 +35,12 @@ import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { SECTOR_LENGTH_TO_WIDTH } from "@/libs/travel/constants";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
-import { IMG_SECTOR_INFO, IMG_SECTOR_ATTACK, IMG_ICON_MOVE } from "@/drizzle/constants";
+import {
+  IMG_SECTOR_INFO,
+  IMG_SECTOR_ATTACK,
+  IMG_SECTOR_ROB,
+  IMG_ICON_MOVE,
+} from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
@@ -277,6 +282,20 @@ const Sector: React.FC<SectorProps> = (props) => {
           });
         });
       }
+    },
+  });
+
+  const { mutate: rob, isPending: isRobbing } = api.travel.robPlayer.useMutation({
+    onSuccess: async (result) => {
+      if (result?.battleId || result?.money) {
+        await updateUser({
+          ...(result.money ? { money: result.money } : {}),
+          ...(result.battleId
+            ? { battleId: result.battleId, updatedAt: new Date() }
+            : {}),
+        });
+      }
+      showMutationToast(result);
     },
   });
 
@@ -636,6 +655,17 @@ const Sector: React.FC<SectorProps> = (props) => {
               });
             }
           }}
+          robUser={(userId) => {
+            const target = sorrounding.find((u) => u.userId === userId);
+            if (target && !isRobbing) {
+              rob({
+                userId: target.userId,
+                longitude: target.longitude,
+                latitude: target.latitude,
+                sector: sector,
+              });
+            }
+          }}
           move={(longitude, latitude) => {
             setTarget({ x: longitude, y: latitude });
           }}
@@ -674,6 +704,7 @@ interface SorroundingUsersProps {
   storedLvl: number;
   setStoredLvl: React.Dispatch<React.SetStateAction<number>>;
   attackUser: (userId: string) => void;
+  robUser: (userId: string) => void;
   move: (longitude: number, latitude: number) => void;
 }
 
@@ -774,7 +805,8 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                   />
                 </Link>
               </div>
-              <div className="p-3">
+
+              <div className="p-3 relative">
                 <AvatarImage
                   href={user.avatar}
                   userId={user.userId}
@@ -782,6 +814,30 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                   size={512}
                   priority
                 />
+                {sameHex && userData.isOutlaw && (
+                  <div className="absolute right-0 bottom-0 z-50 w-1/3 hover:opacity-80  hover:cursor-pointer">
+                    <Image
+                      src={IMG_SECTOR_ROB}
+                      onClick={() => {
+                        if (
+                          user.robImmunityUntil &&
+                          user.robImmunityUntil > new Date()
+                        ) {
+                          showMutationToast({
+                            success: false,
+                            message: "Target is immune from being robbed",
+                          });
+                        } else {
+                          props.robUser(user.userId);
+                        }
+                      }}
+                      width={40}
+                      height={40}
+                      alt={`Rob-${user.userId}`}
+                      className={`ml-1 ${user.robImmunityUntil && user.robImmunityUntil > new Date() ? "opacity-50" : ""}`}
+                    />
+                  </div>
+                )}
               </div>
               <p className="leading-0">{user.username}</p>
               <p className="text-white leading-0  text-xs">

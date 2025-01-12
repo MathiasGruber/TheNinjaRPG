@@ -22,7 +22,10 @@ import type { QuestTrackerType } from "@/validators/objectives";
  * Get currently active quests for a user
  */
 export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
-  return user?.userQuests?.map((uq) => ({ ...uq, ...uq.quest })) ?? [];
+  return (
+    user?.userQuests.filter((uq) => !!uq.quest).map((uq) => ({ ...uq, ...uq.quest })) ??
+    []
+  );
 };
 
 /**
@@ -361,6 +364,7 @@ export const mockAchievementHistoryEntries = (
   user: NonNullable<UserWithRelations>,
 ) => {
   return quests
+    .filter((q) => q !== null)
     .filter((q) => !q.hidden || canChangeContent(user.role))
     .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))
     .map((a) => ({
@@ -387,8 +391,8 @@ export const mockAchievementHistoryEntries = (
  * `hideLocation` property set to true and the user's sector does not match the objective's sector,
  * it will obfuscate the objective's location by setting its latitude, longitude, and sector to 1337.
  */
-export const hideQuestInformation = (quest: Quest, user?: UserData) => {
-  quest.content.objectives.forEach((objective) => {
+export const hideQuestInformation = (quest?: Quest, user?: UserData) => {
+  quest?.content.objectives.forEach((objective) => {
     if (
       "hideLocation" in objective &&
       objective.hideLocation &&
