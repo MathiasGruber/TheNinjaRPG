@@ -54,7 +54,7 @@ const ActionTimer: React.FC<ActionTimerProps> = (props) => {
   useEffect(() => {
     const interval = setInterval(() => {
       // If not in focus, nothing
-      if (!document.hasFocus()) {
+      if (!document.hasFocus() && process.env.NODE_ENV !== "development") {
         setState({ label: `Not in Focus`, canAct: false, waiting: false });
         return;
       }

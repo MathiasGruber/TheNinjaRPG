@@ -286,7 +286,15 @@ const Sector: React.FC<SectorProps> = (props) => {
   });
 
   const { mutate: rob, isPending: isRobbing } = api.travel.robPlayer.useMutation({
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      if (result?.battleId || result?.money) {
+        await updateUser({
+          ...(result.money ? { money: result.money } : {}),
+          ...(result.battleId
+            ? { battleId: result.battleId, updatedAt: new Date() }
+            : {}),
+        });
+      }
       showMutationToast(result);
     },
   });
