@@ -20,8 +20,8 @@ make seed # Seed database tables
 make start # Start development server
 ```
 
-- Go to `https://localhost:3000` to view site
-- Go to `https://localhost:3001` to manage database
+- Go to `http://127.0.0.1:3000` to view site
+- Go to `http://127.0.0.1:3001` to manage database
 
 # :books: Learning Guide
 
