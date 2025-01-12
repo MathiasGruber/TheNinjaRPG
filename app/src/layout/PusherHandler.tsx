@@ -37,7 +37,7 @@ export const usePusherHandler = (userId?: string | null) => {
         process.env.NEXT_PUBLIC_PUSHER_APP_KEY,
         env.NEXT_PUBLIC_NODE_ENV === "development"
           ? {
-              wsHost: "localhost",
+              wsHost: "127.0.0.1",
               wsPort: 6001,
               wssPort: 6001,
               forceTLS: false,
