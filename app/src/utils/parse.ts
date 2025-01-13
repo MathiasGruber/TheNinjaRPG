@@ -1,14 +1,21 @@
-import ReactHtmlParser, { Transform } from "react-html-parser";
+import ReactHtmlParser from "react-html-parser";
+import type { Transform } from "react-html-parser";
 import { randomString } from "@/libs/random";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import React from "react";
+
+interface HtmlNode {
+  type: string;
+  name: string;
+  attribs?: Record<string, string>;
+}
 
 /*
  * Parse HTML string into React components
  * @param html - HTML string to parse
  */
 export const parseHtml = (html: string) => {
-  const transform: Transform = (node) => {
+  const transform: Transform = (node: HtmlNode) => {
     if (
       node.type === "directive" ||
       node.type === "style" ||
@@ -21,7 +28,7 @@ export const parseHtml = (html: string) => {
     ) {
       return null;
     } else if (node.type === "tag" && node.name === "img" && node.attribs) {
-      const props = {
+      const props: React.ImgHTMLAttributes<HTMLImageElement> = {
         ...node.attribs,
         alt: randomString(10),
         onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
