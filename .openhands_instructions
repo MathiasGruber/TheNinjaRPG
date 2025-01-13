@@ -1,11 +1,12 @@
 Please ensure that the project both builds and lints successfully and that all tests pass. Before building the project, linting, or running tests, be sure to in copy environment example file as follows:
 
 ```bash
+yes | sudo npm install -g bun
 cp app/.env.example app/.env
 ```
 
 Always create tests to verify your implementation. Tests can be executed with the following statement:
 
 ```bash
-cd app/ && npm install --legacy-peer-deps && CI=true npm test
+cd app && bun install && CI=true bun test
 ```

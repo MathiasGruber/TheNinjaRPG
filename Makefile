@@ -78,6 +78,24 @@ build: # Build Next.js app
 	@echo "${GREEN}build${RESET}"
 	cd app && bun run build
 
+.PHONY: openhands
+openhands: # Open OpenHands on http://127.0.0.1:3004
+	@echo "${GREEN}Launch Open Hands${RESET}"
+	$(eval WORKSPACE_BASE := $(shell pwd -P))
+	$(eval SANDBOX_USER_ID := $(shell id -u))
+	@docker run -it --rm --pull=always \
+		-e SANDBOX_RUNTIME_CONTAINER_IMAGE=docker.all-hands.dev/all-hands-ai/runtime:0.19-nikolaik \
+		-e SANDBOX_USER_ID=$(SANDBOX_USER_ID) \
+		-e WORKSPACE_MOUNT_PATH=$(WORKSPACE_BASE) \
+		-v $(WORKSPACE_BASE):/opt/workspace_base \
+		-e LOG_ALL_EVENTS=true \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v ~/.openhands-state:/.openhands-state \
+		-p 3004:3000 \
+		--add-host host.docker.internal:host-gateway \
+		--name openhands-app \
+		docker.all-hands.dev/all-hands-ai/openhands:0.19
+
 --------------Migrations----------------: # -------------------------------------------------------
 .PHONY: dbpush
 dbpush: # Push schema to db without creating migrations
