@@ -19,7 +19,7 @@ import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Users() {
   const { data: userData, isClerkLoaded } = useRequiredUserData();
-  const tabNames = ["Online", "Strongest", "PvP"] as const;
+  const tabNames = ["Online", "Strongest", "PvP", "Outlaws"] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -79,6 +79,8 @@ export default function Users() {
     columns.push({ key: "updatedAt", header: "Last Active", type: "time_passed" });
   } else if (activeTab === "PvP") {
     columns.push({ key: "pvpStreak", header: "PvP Streak", type: "string" });
+  } else if (activeTab === "Outlaws") {
+    columns.push({ key: "villagePrestige", header: "Notoriety", type: "string" });
   }
   if (userData && canSeeIps(userData.role)) {
     columns.push({ key: "lastIp", header: "LastIP", type: "string" });
@@ -102,8 +104,7 @@ export default function Users() {
           />
           <Link href="/staff">
             <Button>
-              <BriefcaseBusiness className="h-6 w-6 mr-2" />
-              Staff
+              <BriefcaseBusiness className="h-6 w-6" />
             </Button>
           </Link>
           <UserFiltering state={state} />
