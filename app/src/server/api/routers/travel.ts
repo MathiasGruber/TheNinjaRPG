@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { nanoid } from "nanoid";
 import { eq, gte, and, or, isNull, inArray, sql } from "drizzle-orm";
 import {
   createTRPCRouter,
@@ -13,7 +14,7 @@ import { isAtEdge, maxDistance } from "@/libs/travel/controls";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { secondsFromNow } from "@/utils/time";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
-import { userData, village } from "@/drizzle/schema";
+import { userData, village, actionLog } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { initiateBattle } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
@@ -105,6 +106,19 @@ export const travelRouter = createTRPCRouter({
                 robImmunityUntil: secondsFromNow(90), // 90 seconds immunity
               })
               .where(eq(userData.userId, input.userId)),
+            tx.insert(actionLog).values({
+              id: nanoid(),
+              userId: user.userId,
+              tableName: "user",
+              changes: [`Was robbed for ${stolenAmount} ryo by ${user.username}`],
+              relatedId: user.userId,
+              relatedMsg: `Was robbed by ${user.username}`,
+              relatedImage: user.avatar,
+            }),
+            pusher.trigger(target.userId, "event", {
+              type: "userMessage",
+              message: `You've been robbed by ${user.username}`,
+            }),
           ]);
         });
 
