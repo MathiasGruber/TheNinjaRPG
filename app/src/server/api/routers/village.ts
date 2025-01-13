@@ -156,7 +156,8 @@ export const villageRouter = createTRPCRouter({
         .update(userData)
         .set({
           villageId: VILLAGE_SYNDICATE_ID,
-          villagePrestige: 0,
+          villagePrestige:
+            user.villagePrestige >= 0 ? user.villagePrestige : -user.villagePrestige, // Converted to notoriety
           isOutlaw: true,
           ...(user.rank === "GENIN" && { senseiId: null }),
           ...(user.rank === "ELDER" && { rank: "JONIN" }),
@@ -251,7 +252,6 @@ export const villageRouter = createTRPCRouter({
           .set({
             villageId: village.id,
             reputationPoints: user.reputationPoints - cost,
-            // villagePrestige: 0,
             isOutlaw: village.type === "OUTLAW" ? true : false,
             sector: village.sector,
             longitude: ALLIANCEHALL_LONG,

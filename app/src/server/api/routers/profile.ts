@@ -1254,7 +1254,11 @@ export const fetchUpdatedUser = async (props: {
   // and it is mostly done to keep user updated on the overview pages
   if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
     const sinceUpdate = secondsPassed(user.updatedAt);
-    if (sinceUpdate > 300 || forceRegen || user.villagePrestige < 0) {
+    if (
+      sinceUpdate > 300 || // Update user in database every 5 minutes only so as to reduce server load
+      forceRegen || // Hard overwrite for e.g. debugging or simply ensuring updated user
+      (user.villagePrestige < 0 && !user.isOutlaw) // To trigger getting kicked out of village
+    ) {
       const regen = (user.regeneration * secondsPassed(user.regenAt)) / 60;
       user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
@@ -1280,7 +1284,7 @@ export const fetchUpdatedUser = async (props: {
           where: eq(village.type, "OUTLAW"),
         });
         if (faction) {
-          user.villagePrestige = 0;
+          user.villagePrestige = -user.villagePrestige;
           user.villageId = faction.id;
           user.isOutlaw = true;
           if (user.clanId) {
@@ -1373,6 +1377,8 @@ export const fetchPublicUsers = async (
         return [asc(userData.level), asc(userData.experience)];
       case "Staff":
         return [desc(userData.role)];
+      case "Outlaws":
+        return [desc(userData.villagePrestige)];
     }
   };
   const [users, user] = await Promise.all([
@@ -1389,6 +1395,7 @@ export const fetchPublicUsers = async (
         ...(input.village !== undefined ? [eq(userData.villageId, input.village)] : []),
         ...(input.recruiterId ? [eq(userData.recruiterId, input.recruiterId)] : []),
         ...(input.orderBy === "Staff" ? [notInArray(userData.role, ["USER"])] : []),
+        ...(input.orderBy === "Outlaws" ? [eq(userData.isOutlaw, true)] : []),
         ...(input.isAi ? [eq(userData.isAi, true)] : []),
         ...(input.inArena && input.isAi
           ? [eq(userData.inArena, true)]
@@ -1401,23 +1408,24 @@ export const fetchPublicUsers = async (
           : [eq(userData.isSummon, false)]),
       ),
       columns: {
-        userId: true,
-        username: true,
         avatar: true,
         avatarLight: true,
-        rank: true,
-        isOutlaw: true,
-        level: true,
-        role: true,
         experience: true,
-        updatedAt: true,
-        reputationPointsTotal: true,
-        lastIp: true,
-        pvpStreak: true,
-        isSummon: true,
-        isEvent: true,
         inArena: true,
         isAi: true,
+        isEvent: true,
+        isOutlaw: true,
+        isSummon: true,
+        lastIp: true,
+        level: true,
+        pvpStreak: true,
+        rank: true,
+        reputationPointsTotal: true,
+        role: true,
+        updatedAt: true,
+        userId: true,
+        username: true,
+        villagePrestige: true,
       },
       // If AI, also include relations information
       with: {

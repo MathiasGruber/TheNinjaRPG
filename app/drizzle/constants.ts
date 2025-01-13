@@ -410,6 +410,13 @@ export const PAYPAL_DISCOUNT_PERCENT = 0;
 export const TRANSACTION_TYPES = ["REP_PURCHASE", "REFERRAL"] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
+// Outlaw config
+export const ROBBING_SUCCESS_CHANCE = 0.4;
+export const ROBBING_STOLLEN_AMOUNT = 0.3;
+export const ROBBING_VILLAGE_PRESTIGE_GAIN = 5;
+export const ROBBING_IMMUNITY_DURATION = 90;
+export const KILLING_NOTORIETY_GAIN = 5;
+
 // Reputation cost config
 export const COST_CHANGE_USERNAME = 5;
 export const COST_CUSTOM_TITLE = 5;

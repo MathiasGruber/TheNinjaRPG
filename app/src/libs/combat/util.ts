@@ -20,6 +20,7 @@ import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { defineHex } from "../hexgrid";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
+import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -556,16 +557,20 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const vilId = user.villageId;
       if (didWin && battleType === "COMBAT" && user.isAggressor) {
         targetUsers.forEach((target) => {
-          // Prestige deduction for killing allies
-          const isAlly = target.relations
-            .filter((r) => r.status === "ALLY")
-            .find(
-              (r) =>
-                (r.villageIdA === vilId && r.villageIdB === target.villageId) ||
-                (r.villageIdA === target.villageId && r.villageIdB === vilId),
-            );
-          const sameVillage = target.villageId === vilId;
-          deltaPrestige -= isAlly || sameVillage ? FRIENDLY_PRESTIGE_COST : 0;
+          if (user.isOutlaw) {
+            deltaPrestige += KILLING_NOTORIETY_GAIN;
+          } else {
+            // Prestige deduction for killing allies
+            const isAlly = target.relations
+              .filter((r) => r.status === "ALLY")
+              .find(
+                (r) =>
+                  (r.villageIdA === vilId && r.villageIdB === target.villageId) ||
+                  (r.villageIdA === target.villageId && r.villageIdB === vilId),
+              );
+            const sameVillage = target.villageId === vilId;
+            deltaPrestige -= isAlly || sameVillage ? FRIENDLY_PRESTIGE_COST : 0;
+          }
 
           // Village tokens for killing enemies
           deltaTokens +=
