@@ -557,7 +557,8 @@ const removeEffects = (
       });
 
     // Type guard to identify ground effects
-    const isGroundEffect = (e: UserEffect | GroundEffect): e is GroundEffect => !("targetId" in e);
+    const isGroundEffect = (e: UserEffect | GroundEffect): e is GroundEffect =>
+      !("targetId" in e);
 
     // Remove ground effects at the same location as the target
     usersEffects
@@ -1686,7 +1687,7 @@ const preventCheck = (
   const preventTag = usersEffects.find(
     (e) => e.type == type && e.targetId === target.userId && !e.castThisRound,
   );
-  if (preventTag) {
+  if (preventTag && (preventTag.rounds === undefined || preventTag.rounds > 0)) {
     const power = preventTag.power + preventTag.level * preventTag.powerPerLevel;
     return { pass: Math.random() > power / 100, preventTag: preventTag };
   }
