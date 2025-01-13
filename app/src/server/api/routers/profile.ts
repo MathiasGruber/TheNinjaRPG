@@ -1254,7 +1254,11 @@ export const fetchUpdatedUser = async (props: {
   // and it is mostly done to keep user updated on the overview pages
   if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
     const sinceUpdate = secondsPassed(user.updatedAt);
-    if (sinceUpdate > 300 || forceRegen || user.villagePrestige < 0) {
+    if (
+      sinceUpdate > 300 || // Update user in database every 5 minutes only so as to reduce server load
+      forceRegen || // Hard overwrite for e.g. debugging or simply ensuring updated user
+      (user.villagePrestige < 0 && !user.isOutlaw) // To trigger getting kicked out of village
+    ) {
       const regen = (user.regeneration * secondsPassed(user.regenAt)) / 60;
       user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
@@ -1280,7 +1284,7 @@ export const fetchUpdatedUser = async (props: {
           where: eq(village.type, "OUTLAW"),
         });
         if (faction) {
-          user.villagePrestige = 0;
+          user.villagePrestige = -user.villagePrestige;
           user.villageId = faction.id;
           user.isOutlaw = true;
           if (user.clanId) {
