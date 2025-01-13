@@ -10,6 +10,10 @@ interface HtmlNode {
   attribs?: Record<string, string>;
 }
 
+const isValidStyle = (value: unknown): value is React.CSSProperties => {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+};
+
 /*
  * Parse HTML string into React components
  * @param html - HTML string to parse
@@ -37,12 +41,25 @@ export const parseHtml = (html: string) => {
         width,
         height,
       } = node.attribs;
+
+      let parsedStyle: React.CSSProperties | undefined;
+      if (style) {
+        try {
+          const parsed = JSON.parse(style) as unknown;
+          if (isValidStyle(parsed)) {
+            parsedStyle = parsed;
+          }
+        } catch {
+          // Invalid JSON style string, ignore it
+        }
+      }
+
       const props: React.ImgHTMLAttributes<HTMLImageElement> = {
         src,
         alt: originalAlt || randomString(10),
         className,
         id,
-        style: style ? JSON.parse(style) : undefined,
+        style: parsedStyle,
         width,
         height,
         onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
