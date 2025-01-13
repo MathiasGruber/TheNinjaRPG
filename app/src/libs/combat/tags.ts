@@ -1687,7 +1687,7 @@ const preventCheck = (
   const preventTag = usersEffects.find(
     (e) => e.type == type && e.targetId === target.userId && !e.castThisRound,
   );
-  if (preventTag) {
+  if (preventTag && (preventTag.rounds === undefined || preventTag.rounds > 0)) {
     const power = preventTag.power + preventTag.level * preventTag.powerPerLevel;
     return { pass: Math.random() > power / 100, preventTag: preventTag };
   }
