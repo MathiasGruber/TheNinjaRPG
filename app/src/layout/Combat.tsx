@@ -644,7 +644,10 @@ const Combat: React.FC<CombatProps> = (props) => {
               {result.intelligence > 0 && (
                 <p>Intelligence: {result.intelligence.toFixed(2)}</p>
               )}
-              {result.villagePrestige !== 0 && (
+              {userData?.isOutlaw && result.villagePrestige !== 0 && (
+                <p>Notoriety: {result.villagePrestige.toFixed(2)}</p>
+              )}
+              {!userData?.isOutlaw && result.villagePrestige !== 0 && (
                 <p>Village Prestige: {result.villagePrestige.toFixed(2)}</p>
               )}
               {result.villageTokens !== 0 && (

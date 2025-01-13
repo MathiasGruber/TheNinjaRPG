@@ -20,6 +20,12 @@ import { initiateBattle } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
 import { findRelationship } from "@/utils/alliance";
 import { structureBoost } from "@/utils/village";
+import {
+  ROBBING_SUCCESS_CHANCE,
+  ROBBING_STOLLEN_AMOUNT,
+  ROBBING_VILLAGE_PRESTIGE_GAIN,
+  ROBBING_IMMUNITY_DURATION,
+} from "@/drizzle/constants";
 import * as map from "@/data/hexasphere.json";
 import { UserStatuses } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -86,24 +92,26 @@ export const travelRouter = createTRPCRouter({
       }
 
       // 40% chance to rob successfully
-      const success = Math.random() < 0.4;
+      const success = Math.random() < ROBBING_SUCCESS_CHANCE;
       if (success) {
         // Rob 30% of target's money
-        const stolenAmount = Math.floor(target.money * 0.3);
+        const stolenAmount = Math.floor(target.money * ROBBING_STOLLEN_AMOUNT);
 
         // Update both users' money and set immunity
         await ctx.drizzle.transaction(async (tx) => {
           await Promise.all([
             tx
               .update(userData)
-              .set({ money: sql`${userData.money} + ${stolenAmount}` })
+              .set({
+                money: sql`${userData.money} + ${stolenAmount}`,
+                villagePrestige: sql`${userData.villagePrestige} + ${ROBBING_VILLAGE_PRESTIGE_GAIN}`,
+              })
               .where(eq(userData.userId, ctx.userId)),
-
             tx
               .update(userData)
               .set({
                 money: sql`${userData.money} - ${stolenAmount}`,
-                robImmunityUntil: secondsFromNow(90), // 90 seconds immunity
+                robImmunityUntil: secondsFromNow(ROBBING_IMMUNITY_DURATION),
               })
               .where(eq(userData.userId, input.userId)),
             tx.insert(actionLog).values({
