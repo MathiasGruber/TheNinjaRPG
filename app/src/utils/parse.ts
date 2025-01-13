@@ -28,16 +28,34 @@ export const parseHtml = (html: string) => {
     ) {
       return null;
     } else if (node.type === "tag" && node.name === "img" && node.attribs) {
+      const {
+        src,
+        alt: originalAlt,
+        className,
+        id,
+        style,
+        width,
+        height,
+      } = node.attribs;
       const props: React.ImgHTMLAttributes<HTMLImageElement> = {
-        ...node.attribs,
-        alt: randomString(10),
+        src,
+        alt: originalAlt || randomString(10),
+        className,
+        id,
+        style: style ? JSON.parse(style) : undefined,
+        width,
+        height,
         onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
           const target = e.currentTarget;
           target.onerror = null;
           target.src = IMG_AVATAR_DEFAULT;
         },
       };
-      return React.createElement("img", props);
+      const cleanProps = Object.fromEntries(
+        Object.entries(props).filter(([_, value]) => value !== undefined),
+      ) as React.ImgHTMLAttributes<HTMLImageElement>;
+
+      return React.createElement("img", cleanProps);
     } else if (node.type === "tag" && node.name === "h1") {
       node.name = "h2";
     }
