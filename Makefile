@@ -124,6 +124,11 @@ test: # Push schema to db without creating migrations
 	@echo "${YELLOW}Running unit tests ${RESET}"
 	cd app && bun test
 
+.PHONY: lint
+lint: # Push schema to db without creating migrations
+	@echo "${YELLOW}Running linting ${RESET}"
+	cd app && bun lint
+
 
 -------------DEPENDENCIES---------------: # -------------------------------------------------------
 .PHONY: deps-upgrade
