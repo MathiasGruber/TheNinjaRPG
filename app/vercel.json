@@ -41,7 +41,7 @@
       "schedule": "0/5 0 * * *"
     },
     {
-      "path": "/api/daily-reports",
+      "path": "/api/daily-link-cleaner",
       "schedule": "0/10 0 * * *"
     }
   ],
