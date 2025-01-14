@@ -301,8 +301,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           // Tags only applied when target is user or new
           if (isTargetOrNew) {
             if (e.type === "damage" && isTargetOrNew) {
-              const modifier = calcDmgModifier(e, curTarget, usersEffects);
-              info = damageUser(e, curUser, curTarget, consequences, modifier, config);
+              const modifier = calcDmgModifier(e, newTarget, usersEffects);
+              info = damageUser(e, curUser, newTarget, consequences, modifier, config);
             } else if (e.type === "pierce" && isTargetOrNew) {
               const modifier = calcDmgModifier(e, curTarget, usersEffects);
               info = damageUser(e, newUser, newTarget, consequences, modifier, config);
@@ -411,10 +411,10 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
     }
   });
 
-  // Apply consequences to users
-  Array.from(consequences.values())
-    .reduce(collapseConsequences, [] as Consequence[])
-    .forEach((c) => {
+  // Apply consequences to users in order
+  const orderedEffects = usersEffects.sort(sortEffects);
+  const orderedConsequences = orderedEffects.map(e => consequences.get(e.id)).filter(c => c) as Consequence[];
+  orderedConsequences.forEach((c) => {
       const user = newUsersState.find((u) => u.userId === c.userId);
       const target = newUsersState.find((u) => u.userId === c.targetId);
       if (target && user) {

@@ -783,8 +783,7 @@ export const damageCalc = (
   const calcSum = calcs.reduce((a, b) => a + b, 0);
   const calcMean = calcSum / calcs.length;
   const base = 1 + power * config.power_scaling;
-  let dmg =
-    calcSum > 0 ? base * calcMean * config.dmg_scaling + config.dmg_base : power;
+  let dmg = effect.calculation === "static" ? power : (calcSum > 0 ? base * calcMean * config.dmg_scaling + config.dmg_base : power);
   // If residual
   if (!effect.castThisRound && "residualModifier" in effect) {
     if (effect.residualModifier) dmg *= effect.residualModifier;
@@ -1109,11 +1108,17 @@ export const lifesteal = (
       if (consequence.userId === effect.targetId && consequence.damage) {
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
-          const ratio = getEfficiencyRatio(damageEffect, effect);
-          const convert = Math.floor(consequence.damage * (power / 100)) * ratio;
-          consequence.lifesteal_hp = consequence.lifesteal_hp
-            ? consequence.lifesteal_hp + convert
-            : convert;
+          // Find the target of the damage effect
+          const damageTarget = damageEffect.targetId;
+          const damageTargetUser = target;
+          // Only apply lifesteal if the target is still alive
+          if (damageTargetUser.curHealth > 0) {
+            const ratio = getEfficiencyRatio(damageEffect, effect);
+            const convert = Math.floor(consequence.damage * (power / 100)) * ratio;
+            consequence.lifesteal_hp = consequence.lifesteal_hp
+              ? consequence.lifesteal_hp + convert
+              : convert;
+          }
         }
       }
     });

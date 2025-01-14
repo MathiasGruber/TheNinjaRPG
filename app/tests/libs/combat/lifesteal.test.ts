@@ -34,13 +34,14 @@ describe("lifesteal", () => {
       highestOffence: "ninjutsuOffence",
       highestDefence: "ninjutsuDefence",
       highestGenerals: ["strength"],
+      experience: 0,
     };
 
     const user2: BattleUserState = {
       ...user1,
       userId: "2",
       username: "User2",
-      curHealth: 50, // Low health to test death
+      curHealth: 10, // Low health to test death
     };
 
     // Create a damage effect that will kill user2
@@ -49,18 +50,21 @@ describe("lifesteal", () => {
       type: "damage",
       creatorId: "1",
       targetId: "2",
-      power: 100,
+      power: 1000,
       powerPerLevel: 0,
       calculation: "static",
       statTypes: ["Ninjutsu"],
       generalTypes: ["Strength"],
       rounds: 0,
       createdRound: 1,
-      castThisRound: false,
-      isNew: false,
+      experience: 0,
+      castThisRound: true,
+      isNew: true,
       longitude: 0,
       latitude: 0,
       fromType: "jutsu",
+      barrierAbsorb: 0,
+      dmgModifier: 1,
     };
 
     // Create a lifesteal effect that would heal user1
@@ -74,8 +78,8 @@ describe("lifesteal", () => {
       calculation: "percentage",
       rounds: 0,
       createdRound: 1,
-      castThisRound: false,
-      isNew: false,
+      castThisRound: true,
+      isNew: true,
       longitude: 0,
       latitude: 0,
       fromType: "jutsu",
@@ -84,7 +88,7 @@ describe("lifesteal", () => {
     const battle = {
       id: "test-battle",
       type: "PVP" as const,
-      round: 1,
+      round: 2,
       usersState: [user1, user2],
       usersEffects: [damageEffect, lifestealEffect],
       groundEffects: [],
@@ -96,11 +100,11 @@ describe("lifesteal", () => {
     const { actionEffects } = applyEffects(battle, user1.userId);
 
     // User2 should be dead (health = 0)
-    const updatedUser2 = users.find((u) => u.userId === "2");
+    const updatedUser2 = battle.usersState.find((u) => u.userId === "2");
     expect(updatedUser2?.curHealth).toBe(0);
 
     // User1 should not have gained health from lifesteal since User2 died
-    const updatedUser1 = users.find((u) => u.userId === "1");
+    const updatedUser1 = battle.usersState.find((u) => u.userId === "1");
     expect(updatedUser1?.curHealth).toBe(100);
 
     // Check that no lifesteal message was generated

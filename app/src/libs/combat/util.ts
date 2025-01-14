@@ -285,11 +285,11 @@ export const sortEffects = (
     "decreasedamagetaken",
     "increasedamagegiven",
     "increasedamagetaken",
-    "lifesteal",
     // Piercing damage
     "pierce",
     // Post-modifiers after pierce
     "absorb",
+    "lifesteal",
     "recoil",
     "reflect",
     "decreaseheal",
