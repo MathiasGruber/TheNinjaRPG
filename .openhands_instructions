@@ -6,7 +6,7 @@ cp app/.env.example app/.env
 cd app && bun install
 ```
 
-Always create tests to verify your implementation. Tests can be executed with the following statement:
+ONLY create tests to verify your implementation if your changes involve critical or complicated business logic; for simple and small changes, you can skip writing tests. Tests can be executed with the following statement:
 
 ```bash
  CI=true bun test
