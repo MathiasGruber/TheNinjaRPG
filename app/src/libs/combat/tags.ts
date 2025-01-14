@@ -1111,8 +1111,8 @@ export const lifesteal = (
           // Find the target of the damage effect
           const damageTarget = damageEffect.targetId;
           const damageTargetUser = target;
-          // Only apply lifesteal if the target is still alive
-          if (damageTargetUser.curHealth > 0) {
+          // Only apply lifesteal if the target is still alive after taking damage
+          if (damageTargetUser.curHealth - consequence.damage > 0) {
             const ratio = getEfficiencyRatio(damageEffect, effect);
             const convert = Math.floor(consequence.damage * (power / 100)) * ratio;
             consequence.lifesteal_hp = consequence.lifesteal_hp

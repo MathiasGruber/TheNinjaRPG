@@ -53,8 +53,6 @@ describe("lifesteal", () => {
       power: 1000,
       powerPerLevel: 0,
       calculation: "static",
-      statTypes: ["Ninjutsu"],
-      generalTypes: ["Strength"],
       rounds: 0,
       createdRound: 1,
       experience: 0,
@@ -87,7 +85,7 @@ describe("lifesteal", () => {
 
     const battle = {
       id: "test-battle",
-      type: "PVP" as const,
+      battleType: "PVP" as const,
       round: 2,
       usersState: [user1, user2],
       usersEffects: [damageEffect, lifestealEffect],
