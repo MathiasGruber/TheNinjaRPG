@@ -1,12 +1,21 @@
-Please ensure that the project both builds and lints successfully and that all tests pass. Before building the project, linting, or running tests, be sure to in copy environment example file as follows:
+Please ensure that the project lints successfully and that all tests pass. Before linting or testing the project, be sure to set things up to use bun & use the correct environment variables as follows:
 
 ```bash
 yes | sudo npm install -g bun
 cp app/.env.example app/.env
+cd app && bun install
 ```
 
 Always create tests to verify your implementation. Tests can be executed with the following statement:
 
 ```bash
-cd app && bun install && CI=true bun test
+ CI=true bun test
 ```
+
+Linting can be executed with the following statement:
+
+```bash
+bun lint
+```
+
+Before you consider your solution final, please ensure that you also look at other possibly similar things in the codebase, so as to ensure a consistent approach to solving problems across the codebase; i.e. similar ways of structuring tRPC endpoints, similar way of using UI components, etc.
