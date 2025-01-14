@@ -967,7 +967,7 @@ export const heal = (
     : 0;
   // If rounds=0 apply immidiately, otherwise only on following rounds
   if (
-    (effect.castThisRound && effect.rounds <= 1) ||
+    (effect.castThisRound && (effect.rounds === undefined || effect.rounds <= 1)) ||
     (!effect.castThisRound && (effect.rounds === undefined || effect.rounds > 0))
   ) {
     consequences.set(effect.id, {
