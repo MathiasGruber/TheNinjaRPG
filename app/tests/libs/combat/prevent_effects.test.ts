@@ -56,6 +56,7 @@ describe("Prevent Effects", () => {
     it("should not affect existing healing effects", () => {
       // Create a healing effect
       const healEffect: UserEffect = {
+        id: "heal-1",
         type: "heal",
         power: 50,
         powerPerLevel: 1,
@@ -64,6 +65,7 @@ describe("Prevent Effects", () => {
         isNew: true,
         castThisRound: true,
         targetId: mockUser.userId,
+        creatorId: "healer-1",
         createdRound: 1,
       } as UserEffect;
 
@@ -80,15 +82,18 @@ describe("Prevent Effects", () => {
         createdRound: 2,
       } as UserEffect;
 
+      // Add both effects to the usersEffects array
+      const usersEffects = [healEffect, preventEffect];
+
       // Apply the healing effect first
       const consequences = new Map<string, Consequence>();
-      const healResult = heal(healEffect, [healEffect], consequences, mockUser);
+      const healResult = heal(healEffect, usersEffects, mockUser, consequences, 1);
       expect(healResult?.txt).toContain("will heal");
       expect(consequences.size).toBe(1);
 
       // Now apply prevent healing
       const preventResult = healPrevent(preventEffect, mockUser);
-      expect(preventResult?.txt).toBe("Test User cannot be healed");
+      expect(preventResult?.txt).toBe("Test User cannot be healed for the next 3 rounds");
       expect(preventEffect.rounds).toBe(2);
 
       // The existing healing should still be in effect
