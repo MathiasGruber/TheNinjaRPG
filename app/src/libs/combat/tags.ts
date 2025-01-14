@@ -942,8 +942,10 @@ export const heal = (
   applyTimes: number,
 ) => {
   // Prevent?
-  const { pass } = preventCheck(usersEffects, "healprevent", target);
-  if (!pass) return preventResponse(effect, target, "cannot be healed");
+  const { pass, preventTag } = preventCheck(usersEffects, "healprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be healed");
+  }
   // Calculate healing
   const { power } = getPower(effect);
   const parsedEffect = HealTag.parse(effect);
@@ -965,7 +967,7 @@ export const heal = (
     : 0;
   // If rounds=0 apply immidiately, otherwise only on following rounds
   if (
-    (effect.castThisRound && effect.rounds === 0) ||
+    (effect.castThisRound && effect.rounds <= 1) ||
     (!effect.castThisRound && (effect.rounds === undefined || effect.rounds > 0))
   ) {
     consequences.set(effect.id, {
