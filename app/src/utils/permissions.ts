@@ -77,6 +77,7 @@ export const canDeleteUsers = (role: UserRole) => {
 };
 
 export const canModerateRoles: UserRole[] = [
+  "JR_MODERATOR",
   "MODERATOR",
   "HEAD_MODERATOR",
   "MODERATOR-ADMIN",
@@ -109,6 +110,7 @@ export const canModerateReports = (user: UserData, report: UserReport) => {
       (user.role === "CODING-ADMIN" && report.status === "UNVIEWED") ||
       (user.role === "MODERATOR" && report.status === "UNVIEWED") ||
       (user.role === "HEAD_MODERATOR" && report.status === "UNVIEWED") ||
+      (user.role === "JR_MODERATOR" && report.status === "UNVIEWED") ||
       (user.role === "MODERATOR-ADMIN" && report.status === "OFFICIAL_WARNING") ||
       (user.role === "MODERATOR-ADMIN" && report.status === "BAN_ACTIVATED") ||
       (user.role === "MODERATOR-ADMIN" && report.status === "BAN_ESCALATED") ||
@@ -122,7 +124,11 @@ export const canModerateReports = (user: UserData, report: UserReport) => {
       (user.role === "HEAD_MODERATOR" && report.status === "BAN_ACTIVATED") ||
       (user.role === "HEAD_MODERATOR" && report.status === "BAN_ESCALATED") ||
       (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
-      (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ESCALATED"))
+      (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ESCALATED") ||
+      (user.role === "MODERATOR" && report.status === "OFFICIAL_WARNING") ||
+      (user.role === "MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
+      (user.role === "JR_MODERATOR" && report.status === "OFFICIAL_WARNING") ||
+      (user.role === "JR_MODERATOR" && report.status === "SILENCE_ACTIVATED"))
   );
 };
 
