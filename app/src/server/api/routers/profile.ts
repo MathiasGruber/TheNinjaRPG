@@ -1460,7 +1460,7 @@ export const fetchPublicUsers = async (
       : [null]),
   ]);
   // Guard
-  if (input.ip && (!user || !canSeeSecretData(user.role))) {
+  if (input.ip && (!user || !canSeeIps(user.role))) {
     throw serverError("FORBIDDEN", "You are not allowed to search IPs");
   }
   // Hide stuff

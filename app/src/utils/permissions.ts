@@ -42,7 +42,7 @@ export const canChangeUserRole = (role: UserRole) => {
   } else if (role === "CONTENT-ADMIN") {
     return ["USER", "CONTENT", "EVENT", "CONTENT-ADMIN"];
   } else if (role === "MODERATOR-ADMIN") {
-    return ["USER", "HEAD_MODERATOR", "MODERATOR"];
+    return ["USER", "HEAD_MODERATOR", "MODERATOR", "JR_MODERATOR"];
   }
 };
 
@@ -59,9 +59,13 @@ export const canSwapBloodline = (role: UserRole) => {
 };
 
 export const canSeeSecretData = (role: UserRole) => {
-  return ["MODERATOR", "HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(
-    role,
-  );
+  return [
+    "JR_MODERATOR",
+    "MODERATOR",
+    "HEAD_MODERATOR",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+  ].includes(role);
 };
 
 export const canSeeIps = (role: UserRole) => {
