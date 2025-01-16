@@ -966,10 +966,7 @@ export const heal = (
       : power * applyTimes
     : 0;
   // If rounds=0 apply immidiately, otherwise only on following rounds
-  if (
-    (effect.castThisRound && (effect.rounds === undefined || effect.rounds <= 1)) ||
-    (!effect.castThisRound && (effect.rounds === undefined || effect.rounds > 0))
-  ) {
+  if (!effect.castThisRound && (effect.rounds === undefined || effect.rounds > 0)) {
     consequences.set(effect.id, {
       userId: effect.creatorId,
       targetId: effect.targetId,
@@ -990,10 +987,6 @@ export const healPrevent = (
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     const info = getInfo(target, effect, "cannot be healed");
-    effect.power = 100;
-    if (effect.isNew && effect.rounds) {
-      effect.rounds -= 1;
-    }
     return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
@@ -1691,7 +1684,7 @@ const preventCheck = (
   target: BattleUserState,
 ) => {
   const preventTag = usersEffects.find(
-    (e) => e.type == type && e.targetId === target.userId && e.rounds !== 0,
+    (e) => e.type == type && e.targetId === target.userId && !e.castThisRound,
   );
   if (preventTag && (preventTag.rounds === undefined || preventTag.rounds > 0)) {
     const power = preventTag.power + preventTag.level * preventTag.powerPerLevel;
