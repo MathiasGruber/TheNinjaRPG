@@ -54,12 +54,12 @@ export default function MyItems() {
   const eventItems = nonEquipped?.filter((ui) => ui.item.isEventItem);
 
   // Calculate inventory limits
-  const maxNormalItems = calcMaxItems(userData);
-  const maxEventItems = userData.federalStatus === "GOLD"
+  const maxNormalItems = userData ? calcMaxItems(userData) : 0;
+  const maxEventItems = userData?.federalStatus === "GOLD"
     ? 25
-    : userData.federalStatus === "SILVER"
+    : userData?.federalStatus === "SILVER"
       ? 20
-      : userData.federalStatus === "NORMAL"
+      : userData?.federalStatus === "NORMAL"
         ? 15
         : 10;
 
