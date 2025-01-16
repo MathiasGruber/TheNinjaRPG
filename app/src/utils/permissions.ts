@@ -42,7 +42,7 @@ export const canChangeUserRole = (role: UserRole) => {
   } else if (role === "CONTENT-ADMIN") {
     return ["USER", "CONTENT", "EVENT", "CONTENT-ADMIN"];
   } else if (role === "MODERATOR-ADMIN") {
-    return ["USER", "HEAD_MODERATOR", "MODERATOR"];
+    return ["USER", "HEAD_MODERATOR", "MODERATOR", "JR_MODERATOR"];
   }
 };
 
@@ -59,9 +59,13 @@ export const canSwapBloodline = (role: UserRole) => {
 };
 
 export const canSeeSecretData = (role: UserRole) => {
-  return ["MODERATOR", "HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(
-    role,
-  );
+  return [
+    "JR_MODERATOR",
+    "MODERATOR",
+    "HEAD_MODERATOR",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+  ].includes(role);
 };
 
 export const canSeeIps = (role: UserRole) => {
@@ -77,6 +81,7 @@ export const canDeleteUsers = (role: UserRole) => {
 };
 
 export const canModerateRoles: UserRole[] = [
+  "JR_MODERATOR",
   "MODERATOR",
   "HEAD_MODERATOR",
   "MODERATOR-ADMIN",
@@ -109,6 +114,7 @@ export const canModerateReports = (user: UserData, report: UserReport) => {
       (user.role === "CODING-ADMIN" && report.status === "UNVIEWED") ||
       (user.role === "MODERATOR" && report.status === "UNVIEWED") ||
       (user.role === "HEAD_MODERATOR" && report.status === "UNVIEWED") ||
+      (user.role === "JR_MODERATOR" && report.status === "UNVIEWED") ||
       (user.role === "MODERATOR-ADMIN" && report.status === "OFFICIAL_WARNING") ||
       (user.role === "MODERATOR-ADMIN" && report.status === "BAN_ACTIVATED") ||
       (user.role === "MODERATOR-ADMIN" && report.status === "BAN_ESCALATED") ||
