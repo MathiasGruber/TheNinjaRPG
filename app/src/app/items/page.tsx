@@ -27,6 +27,7 @@ type UserItemWithItem = UserItem & { item: Item };
 export default function MyItems() {
   // State
   const { data: userData } = useRequiredUserData();
+  const [activeTab, setActiveTab] = useState<"normal" | "event">("normal");
 
   // tRPC utils
   const utils = api.useUtils();
@@ -49,6 +50,18 @@ export default function MyItems() {
 
   // Subtitle
   const nonEquipped = userItems?.filter((ui) => ui.equipped === "NONE");
+  const normalItems = nonEquipped?.filter((ui) => !ui.item.isEventItem);
+  const eventItems = nonEquipped?.filter((ui) => ui.item.isEventItem);
+
+  // Calculate inventory limits
+  const maxNormalItems = calcMaxItems(userData);
+  const maxEventItems = userData.federalStatus === "GOLD"
+    ? 25
+    : userData.federalStatus === "SILVER"
+      ? 20
+      : userData.federalStatus === "NORMAL"
+        ? 15
+        : 10;
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -61,45 +74,69 @@ export default function MyItems() {
   return (
     <ContentBox
       title="Item Management"
-      subtitle={`Inventory ${userItems?.length}/${calcMaxItems(userData)}`}
+      subtitle={activeTab === "normal"
+        ? `Normal Inventory ${normalItems?.length}/${maxNormalItems}`
+        : `Event Inventory ${eventItems?.length}/${maxEventItems}`
+      }
       padding={false}
       topRightContent={
-        <Confirm
-          title="Extra Item Slot"
-          proceed_label={
-            canAfford
-              ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
-              : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
-          }
-          isValid={!isPending}
-          button={
-            <Button animation="pulse">
-              <CircleFadingArrowUp className="h-6 w-6" />
-            </Button>
-          }
-          onAccept={(e) => {
-            e.preventDefault();
-            if (canAfford) buyItemSlot();
-          }}
-        >
-          <p>
-            You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
-            reputation points. You currently have {userData.reputationPoints} points.
-            Are you sure?
-          </p>
-        </Confirm>
+        activeTab === "normal" ? (
+          <Confirm
+            title="Extra Item Slot"
+            proceed_label={
+              canAfford
+                ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
+                : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
+            }
+            isValid={!isPending}
+            button={
+              <Button animation="pulse">
+                <CircleFadingArrowUp className="h-6 w-6" />
+              </Button>
+            }
+            onAccept={(e) => {
+              e.preventDefault();
+              if (canAfford) buyItemSlot();
+            }}
+          >
+            <p>
+              You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
+              reputation points. You currently have {userData.reputationPoints} points.
+              Are you sure?
+            </p>
+          </Confirm>
+        ) : null
       }
     >
-      <div className="flex flex-col sm:flex-row">
-        <div className="w-full basis-1/2 p-3">
-          <h2 className="text-2xl font-bold text-foreground">Equipped</h2>
-          <div className="relative">
-            <Character useritems={userItems} />
-          </div>
+      <div className="flex flex-col">
+        <div className="flex flex-row gap-2 p-3">
+          <Button
+            variant={activeTab === "normal" ? "default" : "outline"}
+            onClick={() => setActiveTab("normal")}
+          >
+            Normal Items
+          </Button>
+          <Button
+            variant={activeTab === "event" ? "default" : "outline"}
+            onClick={() => setActiveTab("event")}
+          >
+            Event Items
+          </Button>
         </div>
-        <div className="basis-1/2 p-3 bg-poppopover overflow-y-scroll max-h-full sm:max-h-[600px] border-t-2 sm:border-t-0 border-dashed sm:border-l-2">
-          <h2 className="text-2xl font-bold text-foreground">Backpack</h2>
-          <Backpack userData={userData} useritems={nonEquipped} />
+        <div className="flex flex-col sm:flex-row">
+          <div className="w-full basis-1/2 p-3">
+            <h2 className="text-2xl font-bold text-foreground">Equipped</h2>
+            <div className="relative">
+              <Character useritems={userItems} />
+            </div>
+          </div>
+          <div className="basis-1/2 p-3 bg-poppopover overflow-y-scroll max-h-full sm:max-h-[600px] border-t-2 sm:border-t-0 border-dashed sm:border-l-2">
+            <h2 className="text-2xl font-bold text-foreground">Backpack</h2>
+            <Backpack
+              userData={userData}
+              useritems={activeTab === "normal" ? normalItems : eventItems}
+            />
+          </div>
         </div>
       </div>
     </ContentBox>
