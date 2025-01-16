@@ -128,7 +128,11 @@ export const canModerateReports = (user: UserData, report: UserReport) => {
       (user.role === "HEAD_MODERATOR" && report.status === "BAN_ACTIVATED") ||
       (user.role === "HEAD_MODERATOR" && report.status === "BAN_ESCALATED") ||
       (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
-      (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ESCALATED"))
+      (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ESCALATED") ||
+      (user.role === "MODERATOR" && report.status === "OFFICIAL_WARNING") ||
+      (user.role === "MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
+      (user.role === "JR_MODERATOR" && report.status === "OFFICIAL_WARNING") ||
+      (user.role === "JR_MODERATOR" && report.status === "SILENCE_ACTIVATED"))
   );
 };
 
