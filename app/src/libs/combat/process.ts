@@ -436,7 +436,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             types: c.types,
           });
         }
-        if (c.heal_hp && c.heal_hp > 0) {
+        if (c.heal_hp && c.heal_hp > 0 && target.curHealth > 0) {
           target.curHealth += c.heal_hp;
           target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
@@ -476,7 +476,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             color: "red",
           });
         }
-        if (c.lifesteal_hp && c.lifesteal_hp > 0) {
+        if (c.lifesteal_hp && c.lifesteal_hp > 0 && target.curHealth > 0) {
           user.curHealth += c.lifesteal_hp;
           user.curHealth = Math.min(user.maxHealth, user.curHealth);
           actionEffects.push({
