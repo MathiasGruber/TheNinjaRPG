@@ -141,7 +141,10 @@ export default function ManualQuests() {
       >
         {totalLoading && <Loader explanation="Loading data" />}
         {allQuests?.map((quest, i) => (
-          <div key={quest.id} ref={i === allQuests.length - 1 ? setLastElement : null}>
+          <div
+            key={`${quest.id}-${i}`}
+            ref={i === allQuests.length - 1 ? setLastElement : null}
+          >
             <ItemWithEffects
               item={quest}
               key={quest.id}
