@@ -2,6 +2,10 @@ import { getUserFederalStatus } from "@/utils/paypal";
 import { FED_NORMAL_INVENTORY_SLOTS } from "@/drizzle/constants";
 import { FED_SILVER_INVENTORY_SLOTS } from "@/drizzle/constants";
 import { FED_GOLD_INVENTORY_SLOTS } from "@/drizzle/constants";
+import { FED_EVENT_ITEMS_NORMAL } from "@/drizzle/constants";
+import { FED_EVENT_ITEMS_SILVER } from "@/drizzle/constants";
+import { FED_EVENT_ITEMS_GOLD } from "@/drizzle/constants";
+import { FED_EVENT_ITEMS_DEFAULT } from "@/drizzle/constants";
 import { structureBoost } from "@/utils/village";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import type { Item, UserItem, UserData, VillageStructure } from "@/drizzle/schema";
@@ -39,30 +43,16 @@ export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
  * @returns The maximum number of event items.
  */
 export const calcMaxEventItems = (user: UserData) => {
-  const staffRoles = [
-    "CODING-ADMIN",
-    "CONTENT-ADMIN",
-    "MODERATOR-ADMIN",
-    "HEAD_MODERATOR",
-    "MODERATOR",
-    "JR_MODERATOR",
-    "CONTENT",
-    "EVENT",
-  ];
-  const isStaff = staffRoles.includes(user.role);
-  if (isStaff) {
-    return 25; // Staff roles get gold federal support capacity
-  }
   const status = getUserFederalStatus(user);
   switch (status) {
     case "NORMAL":
-      return 15;
+      return FED_EVENT_ITEMS_NORMAL + user.extraItemSlots;
     case "SILVER":
-      return 20;
+      return FED_EVENT_ITEMS_SILVER + user.extraItemSlots;
     case "GOLD":
-      return 25;
+      return FED_EVENT_ITEMS_GOLD + user.extraItemSlots;
     default:
-      return 10;
+      return FED_EVENT_ITEMS_DEFAULT + user.extraItemSlots;
   }
 };
 
@@ -74,21 +64,7 @@ export const calcMaxEventItems = (user: UserData) => {
  */
 export const calcMaxItems = (user: UserData) => {
   const base = 20;
-  const staffRoles = [
-    "CODING-ADMIN",
-    "CONTENT-ADMIN",
-    "MODERATOR-ADMIN",
-    "HEAD_MODERATOR",
-    "MODERATOR",
-    "JR_MODERATOR",
-    "CONTENT",
-    "EVENT",
-  ];
-  const isStaff = staffRoles.includes(user.role);
   const fedContrib = (user: UserData) => {
-    if (isStaff) {
-      return FED_GOLD_INVENTORY_SLOTS;
-    }
     const status = getUserFederalStatus(user);
     switch (status) {
       case "NORMAL":
