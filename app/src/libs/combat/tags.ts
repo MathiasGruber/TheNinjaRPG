@@ -907,7 +907,20 @@ export const flee = (
       : "";
   if (primaryCheck) {
     target.fledBattle = true;
-    text = `${target.username} manages to flee the battle!`;
+    // If the player successfully flees, handle money based on whether they were robbed or robbed others
+    if (target.moneyStolen < 0) {
+      // This player was robbed - restore their money
+      target.money -= target.moneyStolen; // Add back the stolen money (moneyStolen is negative)
+      target.moneyStolen = 0;
+      text = `${target.username} manages to flee the battle and recovers their stolen money!`;
+    } else if (target.moneyStolen > 0) {
+      // This player robbed others - they lose the stolen money when fleeing
+      target.money -= target.moneyStolen;
+      target.moneyStolen = 0;
+      text = `${target.username} manages to flee the battle but drops all the stolen money!`;
+    } else {
+      text = `${target.username} manages to flee the battle!`;
+    }
   } else {
     text += `${target.username} fails to flee the battle!`;
   }
@@ -1266,8 +1279,9 @@ export const rob = (
         let stolen = Math.floor(pocketMoney * (effect.robPercentage / 100));
         stolen = Math.min(stolen, pocketMoney); // Ensure we don't steal more than what's in pocket
         origin.moneyStolen = (origin.moneyStolen || 0) + stolen;
-        target.moneyStolen = (origin.moneyStolen || 0) - stolen;
+        target.moneyStolen = (target.moneyStolen || 0) - stolen;
         target.money -= stolen;
+        origin.money += stolen;
         return {
           txt: `${origin.username} stole ${stolen} ryo from ${target.username}'s pocket`,
           color: "blue",
