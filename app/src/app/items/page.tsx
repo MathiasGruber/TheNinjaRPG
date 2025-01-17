@@ -5,6 +5,7 @@ import { Merge, CircleDollarSign, Cookie, ArrowDownToLine } from "lucide-react";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
 import Confirm from "@/layout/Confirm";
@@ -26,8 +27,9 @@ type UserItemWithItem = UserItem & { item: Item };
 
 export default function MyItems() {
   // State
+  const availableTabs = ["normal", "event"];
   const { data: userData } = useRequiredUserData();
-  const [activeTab, setActiveTab] = useState<"normal" | "event">("normal");
+  const [activeTab, setActiveTab] = useState<(typeof availableTabs)[number]>("normal");
 
   // tRPC utils
   const utils = api.useUtils();
@@ -50,8 +52,8 @@ export default function MyItems() {
 
   // Subtitle
   const nonEquipped = userItems?.filter((ui) => ui.equipped === "NONE");
-  const normalItems = nonEquipped?.filter((ui) => !ui.item.isEventItem);
-  const eventItems = nonEquipped?.filter((ui) => ui.item.isEventItem);
+  const normalItems = userItems?.filter((ui) => !ui.item.isEventItem);
+  const eventItems = userItems?.filter((ui) => ui.item.isEventItem);
 
   // Calculate inventory limits
   const maxNormalItems = userData ? calcMaxItems(userData) : 0;
@@ -68,13 +70,20 @@ export default function MyItems() {
   return (
     <ContentBox
       title="Item Management"
-      subtitle={activeTab === "normal"
-        ? `Normal Inventory ${normalItems?.length}/${maxNormalItems}`
-        : `Event Inventory ${eventItems?.length}/${maxEventItems}`
+      subtitle={
+        activeTab === "normal"
+          ? `Normal Inventory ${normalItems?.length}/${maxNormalItems}`
+          : `Event Inventory ${eventItems?.length}/${maxEventItems}`
       }
       padding={false}
       topRightContent={
-        activeTab === "normal" ? (
+        <div className="flex flex-row gap-2">
+          <NavTabs
+            id="backpackSelection"
+            current={activeTab}
+            options={availableTabs}
+            setValue={setActiveTab}
+          />
           <Confirm
             title="Extra Item Slot"
             proceed_label={
@@ -99,24 +108,10 @@ export default function MyItems() {
               Are you sure?
             </p>
           </Confirm>
-        ) : null
+        </div>
       }
     >
       <div className="flex flex-col">
-        <div className="flex flex-row gap-2 p-3">
-          <Button
-            variant={activeTab === "normal" ? "default" : "outline"}
-            onClick={() => setActiveTab("normal")}
-          >
-            Normal Items
-          </Button>
-          <Button
-            variant={activeTab === "event" ? "default" : "outline"}
-            onClick={() => setActiveTab("event")}
-          >
-            Event Items
-          </Button>
-        </div>
         <div className="flex flex-col sm:flex-row">
           <div className="w-full basis-1/2 p-3">
             <h2 className="text-2xl font-bold text-foreground">Equipped</h2>
@@ -128,7 +123,11 @@ export default function MyItems() {
             <h2 className="text-2xl font-bold text-foreground">Backpack</h2>
             <Backpack
               userData={userData}
-              useritems={activeTab === "normal" ? normalItems : eventItems}
+              useritems={
+                activeTab === "normal"
+                  ? normalItems?.filter((ui) => ui.equipped === "NONE")
+                  : eventItems?.filter((ui) => ui.equipped === "NONE")
+              }
             />
           </div>
         </div>
