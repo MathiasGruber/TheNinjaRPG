@@ -2,6 +2,10 @@ import { getUserFederalStatus } from "@/utils/paypal";
 import { FED_NORMAL_INVENTORY_SLOTS } from "@/drizzle/constants";
 import { FED_SILVER_INVENTORY_SLOTS } from "@/drizzle/constants";
 import { FED_GOLD_INVENTORY_SLOTS } from "@/drizzle/constants";
+import { FED_EVENT_ITEMS_NORMAL } from "@/drizzle/constants";
+import { FED_EVENT_ITEMS_SILVER } from "@/drizzle/constants";
+import { FED_EVENT_ITEMS_GOLD } from "@/drizzle/constants";
+import { FED_EVENT_ITEMS_DEFAULT } from "@/drizzle/constants";
 import { structureBoost } from "@/utils/village";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import type { Item, UserItem, UserData, VillageStructure } from "@/drizzle/schema";
@@ -30,6 +34,26 @@ export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
   }
 
   return false;
+};
+
+/**
+ * Calculates the maximum number of event items for a user.
+ *
+ * @param user - The user data.
+ * @returns The maximum number of event items.
+ */
+export const calcMaxEventItems = (user: UserData) => {
+  const status = getUserFederalStatus(user);
+  switch (status) {
+    case "NORMAL":
+      return FED_EVENT_ITEMS_NORMAL + user.extraItemSlots;
+    case "SILVER":
+      return FED_EVENT_ITEMS_SILVER + user.extraItemSlots;
+    case "GOLD":
+      return FED_EVENT_ITEMS_GOLD + user.extraItemSlots;
+    default:
+      return FED_EVENT_ITEMS_DEFAULT + user.extraItemSlots;
+  }
 };
 
 /**

@@ -17,7 +17,7 @@ import { calcItemSellingPrice } from "@/libs/item";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import { nonCombatConsume } from "@/libs/item";
 import { getRandomElement } from "@/utils/array";
-import { calcMaxItems } from "@/libs/item";
+import { calcMaxItems, calcMaxEventItems } from "@/libs/item";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { HealTag } from "@/libs/combat/types";
@@ -535,7 +535,10 @@ export const itemRouter = createTRPCRouter({
       if (info.hidden && !canChangeContent(user.role)) {
         return errorResponse("Item is hidden, cannot be bought");
       }
-      if (userItemsCount >= calcMaxItems(user)) {
+      if (!info.isEventItem && userItemsCount >= calcMaxItems(user)) {
+        return errorResponse("Inventory is full");
+      }
+      if (info.isEventItem && userItemsCount >= calcMaxEventItems(user)) {
         return errorResponse("Inventory is full");
       }
       const ryoCost = Math.ceil(info.cost * input.stack * factor);

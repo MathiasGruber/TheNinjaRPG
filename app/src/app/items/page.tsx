@@ -5,6 +5,7 @@ import { Merge, CircleDollarSign, Cookie, ArrowDownToLine } from "lucide-react";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
 import Confirm from "@/layout/Confirm";
@@ -16,7 +17,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { calcMaxItems } from "@/libs/item";
+import { calcMaxItems, calcMaxEventItems } from "@/libs/item";
 import { CircleFadingArrowUp, Shirt } from "lucide-react";
 import { COST_EXTRA_ITEM_SLOT, IMG_EQUIP_SILHOUETTE } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -26,7 +27,9 @@ type UserItemWithItem = UserItem & { item: Item };
 
 export default function MyItems() {
   // State
+  const availableTabs = ["normal", "event"];
   const { data: userData } = useRequiredUserData();
+  const [activeTab, setActiveTab] = useState<(typeof availableTabs)[number]>("normal");
 
   // tRPC utils
   const utils = api.useUtils();
@@ -49,6 +52,12 @@ export default function MyItems() {
 
   // Subtitle
   const nonEquipped = userItems?.filter((ui) => ui.equipped === "NONE");
+  const normalItems = userItems?.filter((ui) => !ui.item.isEventItem);
+  const eventItems = userItems?.filter((ui) => ui.item.isEventItem);
+
+  // Calculate inventory limits
+  const maxNormalItems = userData ? calcMaxItems(userData) : 0;
+  const maxEventItems = userData ? calcMaxEventItems(userData) : 0;
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -61,45 +70,66 @@ export default function MyItems() {
   return (
     <ContentBox
       title="Item Management"
-      subtitle={`Inventory ${userItems?.length}/${calcMaxItems(userData)}`}
+      subtitle={
+        activeTab === "normal"
+          ? `Normal Inventory ${normalItems?.length}/${maxNormalItems}`
+          : `Event Inventory ${eventItems?.length}/${maxEventItems}`
+      }
       padding={false}
       topRightContent={
-        <Confirm
-          title="Extra Item Slot"
-          proceed_label={
-            canAfford
-              ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
-              : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
-          }
-          isValid={!isPending}
-          button={
-            <Button animation="pulse">
-              <CircleFadingArrowUp className="h-6 w-6" />
-            </Button>
-          }
-          onAccept={(e) => {
-            e.preventDefault();
-            if (canAfford) buyItemSlot();
-          }}
-        >
-          <p>
-            You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
-            reputation points. You currently have {userData.reputationPoints} points.
-            Are you sure?
-          </p>
-        </Confirm>
+        <div className="flex flex-row gap-2">
+          <NavTabs
+            id="backpackSelection"
+            current={activeTab}
+            options={availableTabs}
+            setValue={setActiveTab}
+          />
+          <Confirm
+            title="Extra Item Slot"
+            proceed_label={
+              canAfford
+                ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
+                : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
+            }
+            isValid={!isPending}
+            button={
+              <Button animation="pulse">
+                <CircleFadingArrowUp className="h-6 w-6" />
+              </Button>
+            }
+            onAccept={(e) => {
+              e.preventDefault();
+              if (canAfford) buyItemSlot();
+            }}
+          >
+            <p>
+              You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
+              reputation points. You currently have {userData.reputationPoints} points.
+              Are you sure?
+            </p>
+          </Confirm>
+        </div>
       }
     >
-      <div className="flex flex-col sm:flex-row">
-        <div className="w-full basis-1/2 p-3">
-          <h2 className="text-2xl font-bold text-foreground">Equipped</h2>
-          <div className="relative">
-            <Character useritems={userItems} />
+      <div className="flex flex-col">
+        <div className="flex flex-col sm:flex-row">
+          <div className="w-full basis-1/2 p-3">
+            <h2 className="text-2xl font-bold text-foreground">Equipped</h2>
+            <div className="relative">
+              <Character useritems={userItems} />
+            </div>
           </div>
-        </div>
-        <div className="basis-1/2 p-3 bg-poppopover overflow-y-scroll max-h-full sm:max-h-[600px] border-t-2 sm:border-t-0 border-dashed sm:border-l-2">
-          <h2 className="text-2xl font-bold text-foreground">Backpack</h2>
-          <Backpack userData={userData} useritems={nonEquipped} />
+          <div className="basis-1/2 p-3 bg-poppopover overflow-y-scroll max-h-full sm:max-h-[600px] border-t-2 sm:border-t-0 border-dashed sm:border-l-2">
+            <h2 className="text-2xl font-bold text-foreground">Backpack</h2>
+            <Backpack
+              userData={userData}
+              useritems={
+                activeTab === "normal"
+                  ? normalItems?.filter((ui) => ui.equipped === "NONE")
+                  : eventItems?.filter((ui) => ui.equipped === "NONE")
+              }
+            />
+          </div>
         </div>
       </div>
     </ContentBox>

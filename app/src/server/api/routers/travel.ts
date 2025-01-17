@@ -77,6 +77,9 @@ export const travelRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("You are not awake");
       if (user.isBanned) return errorResponse("You are banned");
       if (target.isBanned) return errorResponse("Target is banned");
+      if (target.rank === "STUDENT" || target.rank === "GENIN") {
+        return errorResponse("Cannot rob Academy Students or Genins");
+      }
       if (sectorData?.pvpDisabled) {
         return errorResponse("Cannot rob players in this zone");
       }
