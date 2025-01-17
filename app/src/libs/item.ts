@@ -33,6 +33,40 @@ export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
 };
 
 /**
+ * Calculates the maximum number of event items for a user.
+ *
+ * @param user - The user data.
+ * @returns The maximum number of event items.
+ */
+export const calcMaxEventItems = (user: UserData) => {
+  const staffRoles = [
+    "CODING-ADMIN",
+    "CONTENT-ADMIN",
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+    "JR_MODERATOR",
+    "CONTENT",
+    "EVENT",
+  ];
+  const isStaff = staffRoles.includes(user.role);
+  if (isStaff) {
+    return 25; // Staff roles get gold federal support capacity
+  }
+  const status = getUserFederalStatus(user);
+  switch (status) {
+    case "NORMAL":
+      return 15;
+    case "SILVER":
+      return 20;
+    case "GOLD":
+      return 25;
+    default:
+      return 10;
+  }
+};
+
+/**
  * Calculates the maximum number of items for a user.
  *
  * @param user - The user data.

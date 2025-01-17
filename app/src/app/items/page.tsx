@@ -16,7 +16,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { calcMaxItems } from "@/libs/item";
+import { calcMaxItems, calcMaxEventItems } from "@/libs/item";
 import { CircleFadingArrowUp, Shirt } from "lucide-react";
 import { COST_EXTRA_ITEM_SLOT, IMG_EQUIP_SILHOUETTE } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -55,13 +55,7 @@ export default function MyItems() {
 
   // Calculate inventory limits
   const maxNormalItems = userData ? calcMaxItems(userData) : 0;
-  const maxEventItems = userData?.federalStatus === "GOLD"
-    ? 25
-    : userData?.federalStatus === "SILVER"
-      ? 20
-      : userData?.federalStatus === "NORMAL"
-        ? 15
-        : 10;
+  const maxEventItems = userData ? calcMaxEventItems(userData) : 0;
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
