@@ -906,7 +906,7 @@ export const upsertQuestEntries = async (
   const users = await client
     .select({ userId: userData.userId })
     .from(userData)
-    .leftJoin(
+    .innerJoin(
       questHistory,
       and(eq(questHistory.userId, userData.userId), eq(questHistory.questId, quest.id)),
     )
