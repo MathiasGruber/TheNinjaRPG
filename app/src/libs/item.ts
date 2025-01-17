@@ -40,7 +40,21 @@ export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
  */
 export const calcMaxItems = (user: UserData) => {
   const base = 20;
+  const staffRoles = [
+    "CODING-ADMIN",
+    "CONTENT-ADMIN",
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+    "JR_MODERATOR",
+    "CONTENT",
+    "EVENT",
+  ];
+  const isStaff = staffRoles.includes(user.role);
   const fedContrib = (user: UserData) => {
+    if (isStaff) {
+      return FED_GOLD_INVENTORY_SLOTS;
+    }
     const status = getUserFederalStatus(user);
     switch (status) {
       case "NORMAL":
