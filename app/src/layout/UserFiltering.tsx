@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { canSeeSecretData } from "@/utils/permissions";
+import { canSeeIps } from "@/utils/permissions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -98,7 +98,7 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
             </Form>
           </div>
           {/* IP */}
-          {userData && canSeeSecretData(userData.role) && (
+          {userData && canSeeIps(userData.role) && (
             <div>
               <Form {...form}>
                 <Label htmlFor="rank">Last IP</Label>
