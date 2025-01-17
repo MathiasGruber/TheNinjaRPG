@@ -93,6 +93,13 @@ export const travelRouter = createTRPCRouter({
       ) {
         return errorResponse("Target is not in the specified location");
       }
+      if (
+        user.sector !== input.sector ||
+        user.longitude !== input.longitude ||
+        user.latitude !== input.latitude
+      ) {
+        return errorResponse("You are not in the correct sector");
+      }
 
       // 40% chance to rob successfully
       const success = Math.random() < ROBBING_SUCCESS_CHANCE;
