@@ -9,7 +9,7 @@ import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
 import { eq, sql, gte, and, or } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
-import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
+import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchRequests } from "@/routers/sparring";
 import { insertRequest, updateRequestState } from "@/routers/sparring";
 import { createConvo } from "@/routers/comments";
@@ -104,15 +104,8 @@ export const villageRouter = createTRPCRouter({
       if (user.money < cost) return errorResponse("You don't have enough money");
       if (user.isBanned) return errorResponse("You are banned");
       if (!sectorVillage) return errorResponse("Village does not exist");
-      if (
-        !user.isOutlaw &&
-        (!calcIsInVillage({ x: user.longitude, y: user.latitude }) ||
-          !canAccessStructure(user, "/ramenshop", sectorVillage))
-      ) {
-        return {
-          success: false,
-          message: "Must be in your allied village to go to arena",
-        };
+      if (!user.isOutlaw && !canAccessStructure(user, "/ramenshop", sectorVillage)) {
+        return errorResponse("Must be in your allied village to buy ramen");
       }
       // Mutate with guard
       const newHealth = Math.min(

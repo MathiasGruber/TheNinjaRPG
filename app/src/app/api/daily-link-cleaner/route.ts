@@ -3,7 +3,7 @@ import { drizzleDB } from "@/server/db";
 import { userNindo, forumPost } from "@/drizzle/schema";
 import { updateGameSetting } from "@/libs/gamesettings";
 import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 
 const ENDPOINT_NAME = "daily-link-cleaner";
 

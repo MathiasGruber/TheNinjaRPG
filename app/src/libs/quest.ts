@@ -12,7 +12,7 @@ import {
   IMG_MISSION_D,
   IMG_MISSION_E,
 } from "@/drizzle/constants";
-import type { LetterRank, UserRole } from "@/drizzle/constants";
+import type { LetterRank } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
 import type { Quest, UserData } from "@/drizzle/schema";
@@ -413,11 +413,21 @@ export const hideQuestInformation = (quest?: Quest, user?: UserData) => {
  * @param role - The role of the user.
  * @returns A boolean indicating whether the quest is either hidden and the user can play hidden quests, or the quest is not expired.
  */
-export const filterHiddenAndExpiredQuest = (
-  quest: { hidden: boolean; expiresAt?: string | null },
-  role: UserRole,
+export const isAvailableUserQuests = (
+  quest: {
+    hidden: boolean;
+    expiresAt?: string | null;
+    requiredVillage: string | null;
+    previousAttempts?: number | null;
+    completed?: number | null;
+  },
+  user: UserData,
 ) => {
-  const hideCheck = !quest.hidden;
+  const hideCheck = !quest.hidden || canPlayHiddenQuests(user.role);
   const expiresCheck = !quest.expiresAt || new Date(quest.expiresAt) > new Date();
-  return (hideCheck || canPlayHiddenQuests(role)) && expiresCheck;
+  const prevCheck =
+    !quest.previousAttempts || (quest.previousAttempts <= 1 && quest.completed === 0);
+  const villageCheck =
+    !quest.requiredVillage || quest.requiredVillage === user.villageId;
+  return hideCheck && expiresCheck && prevCheck && villageCheck;
 };

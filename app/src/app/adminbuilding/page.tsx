@@ -120,7 +120,12 @@ export default function AdministrationBuilding() {
                       imageExtra={
                         <Button
                           className="mt-2"
-                          onClick={() => startQuest({ questId: quest.id })}
+                          onClick={() =>
+                            startQuest({
+                              questId: quest.id,
+                              userSector: userData.sector,
+                            })
+                          }
                         >
                           <Gamepad2 className="mr-1 h-6 w-6" />
                           Take Quest

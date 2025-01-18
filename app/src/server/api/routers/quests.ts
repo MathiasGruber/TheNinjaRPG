@@ -22,6 +22,8 @@ import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { getMissionHallSettings } from "@/libs/quest";
+import { canAccessStructure } from "@/utils/village";
+import { fetchSectorVillage } from "@/routers/village";
 import { deleteSenseiRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
@@ -30,7 +32,7 @@ import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
 import { questFilteringSchema } from "@/validators/quest";
-import { hideQuestInformation, filterHiddenAndExpiredQuest } from "@/libs/quest";
+import { hideQuestInformation, isAvailableUserQuests } from "@/libs/quest";
 import { QuestTracker } from "@/validators/objectives";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
@@ -143,62 +145,103 @@ export const questsRouter = createTRPCRouter({
           ),
       ]);
       events.forEach((r) => hideQuestInformation(r));
-      return events
-        .filter((e) => filterHiddenAndExpiredQuest(e, user.role))
-        .filter(
-          (e) => !e.previousAttempts || (e.previousAttempts <= 1 && e.completed === 0),
-        );
+      return events.filter((e) => isAvailableUserQuests(e, user));
     }),
   missionHall: protectedProcedure
     .input(z.object({ villageId: z.string(), level: z.number() }))
     .query(async ({ ctx, input }) => {
       // Query
-      const [user, summary] = await Promise.all([
+      const [user, missions] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle
-          .select({
-            type: quest.questType,
-            rank: quest.questRank,
-            name: quest.name,
-            image: quest.image,
-            hidden: quest.hidden,
-            requiredVillage: quest.requiredVillage,
-            id: quest.id,
-          })
+          .select({ ...getTableColumns(questHistory), ...getTableColumns(quest) })
           .from(quest)
+          .leftJoin(
+            questHistory,
+            and(
+              eq(quest.id, questHistory.questId),
+              eq(questHistory.userId, ctx.userId),
+            ),
+          )
           .where(
             and(
               inArray(quest.questType, ["mission", "errand", "crime"]),
-              lte(quest.requiredLevel, input.level),
-              gte(quest.maxLevel, input.level),
-              or(
-                isNull(quest.requiredVillage),
-                eq(quest.requiredVillage, input.villageId ?? ""),
-              ),
+              ...(input.villageId
+                ? [
+                    or(
+                      isNull(quest.requiredVillage),
+                      eq(quest.requiredVillage, input.villageId ?? ""),
+                    ),
+                  ]
+                : []),
+              // Always check level requirements for events
+              lte(quest.requiredLevel, input.level ?? 0),
+              gte(quest.maxLevel, input.level ?? 0),
             ),
           ),
       ]);
       // Return
-      return summary
-        .filter((e) => filterHiddenAndExpiredQuest(e, user.role))
-        .filter((e) => e.requiredVillage === user.villageId || !e.requiredVillage);
+      missions.forEach((r) => hideQuestInformation(r));
+      return missions.filter((e) => isAvailableUserQuests(e, user));
     }),
   startRandom: protectedProcedure
     .input(
       z.object({
         type: z.enum(["errand", "mission", "crime"]),
         rank: z.enum(LetterRanks),
+        userLevel: z.number(),
+        userSector: z.number(),
+        userVillageId: z.string().nullish(),
       }),
     )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch user
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
-      if (!user) {
-        return errorResponse("User does not exist");
+      const [updatedUser, sectorVillage, results] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchSectorVillage(ctx.drizzle, input.userSector),
+        ctx.drizzle
+          .select({
+            ...getTableColumns(quest),
+            previousAttempts: questHistory.previousAttempts,
+            completed: questHistory.completed,
+          })
+          .from(quest)
+          .leftJoin(
+            questHistory,
+            and(
+              eq(quest.id, questHistory.questId),
+              eq(questHistory.userId, ctx.userId),
+            ),
+          )
+          .where(
+            and(
+              eq(quest.questType, input.type),
+              eq(quest.questRank, input.rank),
+              lte(quest.requiredLevel, input.userLevel),
+              gte(quest.maxLevel, input.userLevel),
+              or(
+                isNull(quest.requiredVillage),
+                eq(quest.requiredVillage, input.userVillageId ?? ""),
+              ),
+            ),
+          ),
+      ]);
+      // Destructure user & guard
+      const { user } = updatedUser;
+      if (!user) return errorResponse("User does not exist");
+      if (user.sector !== input.userSector) return errorResponse("Sector mismatch");
+      if (user.level !== input.userLevel) {
+        return errorResponse("User level does not match");
+      }
+      if (user.villageId !== input.userVillageId) {
+        return errorResponse("Village mismatch");
+      }
+      if (!(user.isOutlaw || canAccessStructure(user, "/missionhall", sectorVillage))) {
+        return errorResponse("Must be in your allied village to start a quest");
       }
       // Fetch settings
       const setting = getMissionHallSettings(user.isOutlaw).find(
@@ -227,20 +270,8 @@ export const questsRouter = createTRPCRouter({
         return errorResponse(`Already active ${current.questType}`);
       }
       // Fetch quest
-      const results = await ctx.drizzle.query.quest.findMany({
-        where: and(
-          eq(quest.questType, input.type),
-          eq(quest.questRank, input.rank),
-          lte(quest.requiredLevel, user.level),
-          gte(quest.maxLevel, user.level),
-          or(
-            isNull(quest.requiredVillage),
-            eq(quest.requiredVillage, user.villageId ?? ""),
-          ),
-        ),
-      });
       const result = getRandomElement(
-        results.filter((e) => filterHiddenAndExpiredQuest(e, user.role)),
+        results.filter((e) => isAvailableUserQuests(e, user)),
       );
       if (!result) return errorResponse("No assignments at this level could be found");
 
@@ -259,15 +290,16 @@ export const questsRouter = createTRPCRouter({
       return { success: true, message: `Quest started: ${result.name}` };
     }),
   startQuest: protectedProcedure
-    .input(z.object({ questId: z.string() }))
+    .input(z.object({ questId: z.string(), userSector: z.number() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [updatedUser, questData, prevAttempt] = await Promise.all([
+      const [updatedUser, sectorVillage, questData, prevAttempt] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
         }),
+        fetchSectorVillage(ctx.drizzle, input.userSector),
         fetchQuest(ctx.drizzle, input.questId),
         fetchUserQuestByQuestId(ctx.drizzle, ctx.userId, input.questId),
       ]);
@@ -276,11 +308,8 @@ export const questsRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
-      if (questData.hidden && !canPlayHiddenQuests(user.role)) {
-        return errorResponse("Quest is hidden / not released");
-      }
-      if (questData.expiresAt && new Date(questData.expiresAt) < new Date()) {
-        return errorResponse("Quest has expired");
+      if (!isAvailableUserQuests({ ...questData, ...prevAttempt }, user)) {
+        return errorResponse("Quest is not available for you");
       }
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.questRank)) {
@@ -293,6 +322,9 @@ export const questsRouter = createTRPCRouter({
         if (current && current.length >= 4) {
           return errorResponse(`Already 4 active event quests`);
         }
+        if (!canAccessStructure(user, "/adminbuilding", sectorVillage)) {
+          return errorResponse("Must be in your allied village to start quest");
+        }
         if (
           prevAttempt &&
           (prevAttempt.previousAttempts > 1 || prevAttempt.completed)
@@ -302,6 +334,9 @@ export const questsRouter = createTRPCRouter({
       } else {
         if (questData.questRank !== "A") {
           return errorResponse(`Only A rank missions/crimes are allowed`);
+        }
+        if (!canAccessStructure(user, "/missionhall", sectorVillage)) {
+          return errorResponse("Must be in your allied village to start quest");
         }
         const current = user?.userQuests?.find(
           (q) => ["mission", "crime", "errand"].includes(q.quest.questType) && !q.endAt,

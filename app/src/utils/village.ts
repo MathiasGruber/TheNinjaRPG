@@ -1,4 +1,5 @@
 import { findVillageUserRelationship } from "@/utils/alliance";
+import { calcIsInVillage } from "@/libs/travel/controls";
 import type { UserWithRelations } from "@/routers/profile";
 import type { Village, VillageStructure, VillageAlliance } from "@/drizzle/schema";
 import type { StructureRoute } from "@/drizzle/constants";
@@ -13,11 +14,13 @@ import type { StructureRoute } from "@/drizzle/constants";
 export const canAccessStructure = (
   userData: NonNullable<UserWithRelations>,
   structureRoute?: StructureRoute,
-  sectorVillage?: Village & {
-    relationshipA: VillageAlliance[];
-    relationshipB: VillageAlliance[];
-    structures: VillageStructure[];
-  },
+  sectorVillage?:
+    | (Village & {
+        relationshipA: VillageAlliance[];
+        relationshipB: VillageAlliance[];
+        structures: VillageStructure[];
+      })
+    | null,
 ) => {
   let structureAccess = true;
   const ownVillage = userData?.village?.sector === sectorVillage?.sector;
@@ -29,12 +32,20 @@ export const canAccessStructure = (
     );
     const isAlly = relationship?.status === "ALLY";
     const structure = sectorVillage?.structures.find((s) => s.route === structureRoute);
+    const inVillage =
+      calcIsInVillage({
+        x: userData.longitude,
+        y: userData.latitude,
+      }) || sectorVillage.type === "SAFEZONE";
     if (
       !structure ||
+      !inVillage ||
       (!ownVillage && !safeZone && (!isAlly || structure.allyAccess === 0))
     ) {
       structureAccess = false;
     }
+  } else if (structureRoute && !sectorVillage) {
+    structureAccess = false;
   }
   return structureAccess;
 };

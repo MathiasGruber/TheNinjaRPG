@@ -208,18 +208,12 @@ export const useRequireInVillage = (structureRoute?: StructureRoute) => {
   const ownVillage = userData?.village?.sector === sectorVillage?.sector;
   const router = useRouter();
   useEffect(() => {
-    if (userData && sectorVillage && !isPending) {
+    if (userData && !isPending) {
       if (!userData.isOutlaw) {
         // Check structure access
         const access = canAccessStructure(userData, structureRoute, sectorVillage);
-        // If not in village or village not exist
-        const inVillage =
-          calcIsInVillage({
-            x: userData.longitude,
-            y: userData.latitude,
-          }) || sectorVillage.type === "SAFEZONE";
         // Redirect user
-        if (!inVillage || !sectorVillage || !access) {
+        if (!sectorVillage || !access) {
           void router.push("/");
         } else {
           setAccess(true);
