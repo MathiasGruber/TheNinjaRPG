@@ -1169,7 +1169,7 @@ export const processUsersForBattle = async (info: {
     }
 
     return user;
-  });
+  }));
 
   return { userEffects, usersState, allSummons };
 };
