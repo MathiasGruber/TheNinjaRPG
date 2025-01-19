@@ -33,6 +33,7 @@ import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/sc
 import { userPreferences } from "@/drizzle/schema";
 import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
+import type { DrizzleClient } from "@/server/db";
 
 /**
  * Retrieves the battle grid.
