@@ -93,7 +93,11 @@ export const forumRouter = createTRPCRouter({
           .set({ nThreads: sql`nThreads + 1`, updatedAt: new Date() })
           .where(eq(forumBoard.id, input.board_id)),
         ...(isNews
-          ? [ctx.drizzle.update(userData).set({ unreadNews: sql`unreadNews + 1` })]
+          ? [
+              ctx.drizzle
+                .update(userData)
+                .set({ unreadNews: sql`LEAST(unreadNews + 1, 1000)` }),
+            ]
           : []),
       ]);
       return threadId;
