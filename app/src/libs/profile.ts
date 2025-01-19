@@ -241,14 +241,28 @@ export const getUserHighestStats = async (
     } else {
       // Fallback to highest values if preferences are invalid
       const sorted = [...generals].sort((a, b) => b.value - a.value);
-      highestGenerals = [sorted[0].type, sorted[1].type] as const;
-      highestGeneralValues = [sorted[0].value, sorted[1].value];
+      if (sorted.length < 2) {
+        // If we don't have enough stats, duplicate the highest one
+        const defaultStat = sorted[0] ?? { type: "strength", value: 0 };
+        highestGenerals = [defaultStat.type, defaultStat.type] as const;
+        highestGeneralValues = [defaultStat.value, defaultStat.value];
+      } else {
+        highestGenerals = [sorted[0].type, sorted[1].type] as const;
+        highestGeneralValues = [sorted[0].value, sorted[1].value];
+      }
     }
   } else {
     // Use highest values
     const sorted = [...generals].sort((a, b) => b.value - a.value);
-    highestGenerals = [sorted[0].type, sorted[1].type] as const;
-    highestGeneralValues = [sorted[0].value, sorted[1].value];
+    if (sorted.length < 2) {
+      // If we don't have enough stats, duplicate the highest one
+      const defaultStat = sorted[0] ?? { type: "strength", value: 0 };
+      highestGenerals = [defaultStat.type, defaultStat.type] as const;
+      highestGeneralValues = [defaultStat.value, defaultStat.value];
+    } else {
+      highestGenerals = [sorted[0].type, sorted[1].type] as const;
+      highestGeneralValues = [sorted[0].value, sorted[1].value];
+    }
   }
 
   return {
