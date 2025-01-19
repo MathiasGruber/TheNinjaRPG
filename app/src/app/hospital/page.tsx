@@ -20,7 +20,8 @@ import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
 import { MEDNIN_MIN_RANK, IMG_BUILDING_HOSPITAL } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import type { MedicalNinjaSquad } from "~/types/medicalNinja";
+import type { MedicalNinjaSquad } from "@/server/db/schema/medicalNinja";
+import type { UserData } from "@/server/db/schema/users";
 
 export default function Hospital() {
   // Settings
@@ -63,7 +64,7 @@ export default function Hospital() {
   if (!access) return <Loader explanation="Accessing Hospital" />;
 
   const canViewMedicalSquads =
-    userData?.occupation === "medical_ninja" ||
+    userData?.userId === "medical_ninja" ||
     ["kage", "elder"].includes(userData?.rank || "");
 
   const canCreateMedicalSquads = ["kage", "elder"].includes(userData?.rank || "");
@@ -170,9 +171,9 @@ export default function Hospital() {
                   createSquad({
                     name: "New Medical Squad",
                     description: "A new medical ninja squad",
-                    leader_id: userData.id,
-                    village_id: userData.villageId,
-                    members: [userData.id],
+                    leader_id: userData.userId,
+                    village_id: userData.villageId || "",
+                    members: [userData.userId],
                   })
                 }
                 className="mb-4"
@@ -199,10 +200,10 @@ export default function Hospital() {
                     ))}
                   </ul>
                 </div>
-                {userData?.occupation === "medical_ninja" &&
+                {userData?.userId === "medical_ninja" &&
                   ["chunin", "jonin", "elder"].includes(userData.rank) && (
                     <div className="mt-4">
-                      {squad.members.includes(userData.id) ? (
+                      {squad.members.includes(userData.userId) ? (
                         <Button
                           variant="destructive"
                           onClick={() => leaveSquad({ squad_id: squad.id })}

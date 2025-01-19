@@ -2,6 +2,36 @@ import { mysqlTable, varchar, text, timestamp } from "drizzle-orm/mysql-core";
 import { users } from "./users";
 import { villages } from "./villages";
 
+export type MedicalNinjaRank =
+  | "Trainee"
+  | "Medic"
+  | "Senior Medic"
+  | "Master Medic"
+  | "Legendary Medical Nin";
+
+export interface MedicalNinjaLevel {
+  level: MedicalNinjaRank;
+  exp: number;
+  exp_required: number;
+}
+
+export interface HealingAction {
+  target_id: string;
+  amount: number;
+  type: "health" | "chakra" | "stamina";
+}
+
+export interface MedicalNinjaSquad {
+  id: string;
+  name: string;
+  description?: string;
+  leader_id: string;
+  village_id: string;
+  members: string[];
+  created_at: Date;
+  updated_at: Date;
+}
+
 export const medicalNinjaSquads = mysqlTable("medical_ninja_squads", {
   id: varchar("id", { length: 255 }).primaryKey(),
   name: varchar("name", { length: 50 }).notNull(),

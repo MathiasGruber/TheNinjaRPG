@@ -1,10 +1,10 @@
 "use client";
 
-import { api } from "~/utils/api";
-import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
-import { useToast } from "~/components/ui/use-toast";
-import type { BaseServerResponse } from "~/server/api/trpc";
+import { api } from "@/app/_trpc/client";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
+import type { BaseServerResponse } from "@/server/api/trpc";
 
 export default function OccupationPage() {
   const { toast } = useToast();

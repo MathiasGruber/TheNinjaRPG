@@ -4,7 +4,7 @@ import type {
   MedicalNinjaLevel,
   MedicalNinjaRank,
   HealingAction,
-} from "~/types/medicalNinja";
+} from "@/server/db/schema/medicalNinja";
 
 export const medicalNinjaSquadSchema = z.object({
   id: z.string(),
