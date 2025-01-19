@@ -226,6 +226,15 @@ export default function EditProfile() {
           <RerollElement />
         </Accordion>
         <Accordion
+          title="Combat Preferences"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Set your preferred combat stats"
+          selectedSubtitle="Choose your preferred offense type and generals"
+          onClick={setActiveElement}
+        >
+          <CombatPreferences />
+        </Accordion>
+        <Accordion
           title="AI Profile"
           selectedTitle={activeElement}
           unselectedSubtitle="Adjust how your character is played by AI"
@@ -281,6 +290,148 @@ const AdjustAiProfile: React.FC<{ userId: string }> = ({ userId }) => {
       </p>
       <AiProfileEdit userData={profile} hideTitle />
     </div>
+  );
+};
+
+/**
+ * Combat Preferences
+ */
+const CombatPreferences: React.FC = () => {
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Form schema
+  const preferencesSchema = z.object({
+    highestOffense: z.enum(["ninjutsu", "genjutsu", "taijutsu", "bukijutsu"]).nullable(),
+    highestGeneral1: z.enum(["strength", "intelligence", "willpower", "speed"]).nullable(),
+    highestGeneral2: z.enum(["strength", "intelligence", "willpower", "speed"]).nullable(),
+  });
+
+  // Form setup
+  const form = useForm<z.infer<typeof preferencesSchema>>({
+    resolver: zodResolver(preferencesSchema),
+    defaultValues: {
+      highestOffense: null,
+      highestGeneral1: null,
+      highestGeneral2: null,
+    },
+  });
+
+  // Queries & mutations
+  const { data: preferences, isLoading } = api.profile.getPreferences.useQuery();
+  const { mutate: updatePreferences } = api.profile.updatePreferences.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await utils.profile.getPreferences.invalidate();
+    },
+  });
+
+  // Update form when preferences are loaded
+  useEffect(() => {
+    if (preferences) {
+      form.reset({
+        highestOffense: preferences.highestOffense,
+        highestGeneral1: preferences.highestGeneral1,
+        highestGeneral2: preferences.highestGeneral2,
+      });
+    }
+  }, [preferences, form]);
+
+  // Loading state
+  if (isLoading) return <Loader explanation="Loading preferences..." />;
+
+  // Form submission
+  const onSubmit = (values: z.infer<typeof preferencesSchema>) => {
+    updatePreferences(values);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4">
+        <FormField
+          control={form.control}
+          name="highestOffense"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Preferred Offense Type</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select preferred offense type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="ninjutsu">Ninjutsu</SelectItem>
+                  <SelectItem value="genjutsu">Genjutsu</SelectItem>
+                  <SelectItem value="taijutsu">Taijutsu</SelectItem>
+                  <SelectItem value="bukijutsu">Bukijutsu</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                This will be used as your highest offense type in combat instead of automatically choosing the highest stat.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="highestGeneral1"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>First Preferred General</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select first preferred general" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="strength">Strength</SelectItem>
+                  <SelectItem value="intelligence">Intelligence</SelectItem>
+                  <SelectItem value="willpower">Willpower</SelectItem>
+                  <SelectItem value="speed">Speed</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                This will be used as your first highest general in combat instead of automatically choosing the highest stat.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="highestGeneral2"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Second Preferred General</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select second preferred general" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="strength">Strength</SelectItem>
+                  <SelectItem value="intelligence">Intelligence</SelectItem>
+                  <SelectItem value="willpower">Willpower</SelectItem>
+                  <SelectItem value="speed">Speed</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                This will be used as your second highest general in combat instead of automatically choosing the highest stat.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit" className="w-full">Save Preferences</Button>
+      </form>
+    </Form>
   );
 };
 
