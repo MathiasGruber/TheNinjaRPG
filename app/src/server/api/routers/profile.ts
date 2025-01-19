@@ -903,11 +903,13 @@ export const profileRouter = createTRPCRouter({
       // Guard
       if (!user) return null;
       // Hide secrets
-      if (!requester || !canSeeSecretData(requester.role)) {
+      const isSelf = ctx.userId === user.userId;
+      if (!isSelf && (!requester || !canSeeSecretData(requester.role))) {
         user.earnedExperience = 8008;
         user.isBanned = false;
         user.jutsus = [];
         user.items = [];
+        user.aiProfileId = null;
       }
       if (!requester || !canSeeIps(requester.role)) {
         user.lastIp = "hidden";

@@ -14,7 +14,17 @@ export const aiRouter = createTRPCRouter({
   getAiProfile: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const profile = await fetchAiProfileById(ctx.drizzle, input.id);
+      // Query
+      const [user, profile] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchAiProfileById(ctx.drizzle, input.id),
+      ]);
+      // Guard
+      if (!profile) return errorResponse("Profile not found");
+      if (!canChangeContent(user.role) && profile.userId !== ctx.userId) {
+        return errorResponse("Unauthorized");
+      }
+      // Return
       return profile;
     }),
   createAiProfile: protectedProcedure
