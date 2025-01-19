@@ -906,6 +906,8 @@ export const profileRouter = createTRPCRouter({
       if (!requester || !canSeeSecretData(requester.role)) {
         user.earnedExperience = 8008;
         user.isBanned = false;
+        user.jutsus = [];
+        user.items = [];
       }
       if (!requester || !canSeeIps(requester.role)) {
         user.lastIp = "hidden";
