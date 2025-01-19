@@ -247,8 +247,11 @@ export const getUserHighestStats = async (
         highestGenerals = [defaultStat.type, defaultStat.type] as const;
         highestGeneralValues = [defaultStat.value, defaultStat.value];
       } else {
-        highestGenerals = [sorted[0].type, sorted[1].type] as const;
-        highestGeneralValues = [sorted[0].value, sorted[1].value];
+        // We know sorted has at least 2 elements here since we checked sorted.length < 2
+        const first = sorted[0]!;
+        const second = sorted[1]!;
+        highestGenerals = [first.type, second.type] as const;
+        highestGeneralValues = [first.value, second.value];
       }
     }
   } else {
@@ -260,8 +263,11 @@ export const getUserHighestStats = async (
       highestGenerals = [defaultStat.type, defaultStat.type] as const;
       highestGeneralValues = [defaultStat.value, defaultStat.value];
     } else {
-      highestGenerals = [sorted[0].type, sorted[1].type] as const;
-      highestGeneralValues = [sorted[0].value, sorted[1].value];
+      // We know sorted has at least 2 elements here since we checked sorted.length < 2
+      const first = sorted[0]!;
+      const second = sorted[1]!;
+      highestGenerals = [first.type, second.type] as const;
+      highestGeneralValues = [first.value, second.value];
     }
   }
 
