@@ -18,7 +18,7 @@ export default function OccupationPage() {
         title: data.success ? "Success" : "Error",
         description: data.message,
       });
-      void utils.profile.me.invalidate();
+      void utils.profile.getUser.invalidate();
     },
   });
 
@@ -28,7 +28,7 @@ export default function OccupationPage() {
         title: data.success ? "Success" : "Error",
         description: data.message,
       });
-      void utils.profile.me.invalidate();
+      void utils.profile.getUser.invalidate();
     },
   });
 
