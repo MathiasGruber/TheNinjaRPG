@@ -11,8 +11,9 @@ import {
   IMG_MISSION_C,
   IMG_MISSION_D,
   IMG_MISSION_E,
+  type LetterRank,
+  type QuestType,
 } from "@/drizzle/constants";
-import type { LetterRank } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
 import type { Quest, UserData } from "@/drizzle/schema";
@@ -416,6 +417,7 @@ export const hideQuestInformation = (quest?: Quest, user?: UserData) => {
 export const isAvailableUserQuests = (
   quest: {
     hidden: boolean;
+    questType: QuestType;
     expiresAt?: string | null;
     requiredVillage: string | null;
     previousAttempts?: number | null;
@@ -426,7 +428,9 @@ export const isAvailableUserQuests = (
   const hideCheck = !quest.hidden || canPlayHiddenQuests(user.role);
   const expiresCheck = !quest.expiresAt || new Date(quest.expiresAt) > new Date();
   const prevCheck =
-    !quest.previousAttempts || (quest.previousAttempts <= 1 && quest.completed === 0);
+    quest.questType !== "event" ||
+    !quest.previousAttempts ||
+    (quest.previousAttempts <= 1 && quest.completed === 0);
   const villageCheck =
     !quest.requiredVillage || quest.requiredVillage === user.villageId;
   return hideCheck && expiresCheck && prevCheck && villageCheck;
