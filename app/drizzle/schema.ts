@@ -2067,6 +2067,36 @@ export const gameSetting = mysqlTable(
 );
 export type GameSetting = InferSelectModel<typeof gameSetting>;
 
+export const userPreferences = mysqlTable(
+  "UserPreferences",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    highestOffense: mysqlEnum("highestOffense", ["ninjutsu", "genjutsu", "taijutsu", "bukijutsu"]),
+    highestGeneral1: mysqlEnum("highestGeneral1", ["strength", "intelligence", "willpower", "speed"]),
+    highestGeneral2: mysqlEnum("highestGeneral2", ["strength", "intelligence", "willpower", "speed"]),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdKey: uniqueIndex("UserPreferences_userId_key").on(table.userId),
+    };
+  },
+);
+export type UserPreferences = InferSelectModel<typeof userPreferences>;
+
+export const userPreferencesRelations = relations(userPreferences, ({ one }) => ({
+  user: one(userData, {
+    fields: [userPreferences.userId],
+    references: [userData.userId],
+  }),
+}));
+
 export const gameRule = mysqlTable(
   "GameRule",
   {

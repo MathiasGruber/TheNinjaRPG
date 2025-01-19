@@ -1,10 +1,13 @@
+import { eq } from "drizzle-orm";
 import type {
   UserData,
   Bloodline,
   Village,
   VillageStructure,
   GameSetting,
+  DrizzleClient,
 } from "@/drizzle/schema";
+import { userPreferences } from "@/drizzle/schema";
 import { USER_CAPS, HP_PER_LVL, SP_PER_LVL, CP_PER_LVL } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { structureBoost } from "@/utils/village";
@@ -167,6 +170,67 @@ export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
 };
 
 // Calculate user stats
+export const getUserHighestStats = async (
+  client: DrizzleClient,
+  user: UserData,
+) => {
+  // Get user preferences
+  const prefs = await client.query.userPreferences.findFirst({
+    where: eq(userPreferences.userId, user.userId),
+  });
+
+  // Get highest offense
+  let highestOffense = "ninjutsu";
+  let highestOffenseValue = user.ninjutsuOffence;
+
+  if (prefs?.highestOffense) {
+    // Use preferred offense type
+    highestOffense = prefs.highestOffense;
+    highestOffenseValue = user[`${prefs.highestOffense}Offence`];
+  } else {
+    // Find highest offense value
+    const offenses = [
+      { type: "ninjutsu", value: user.ninjutsuOffence },
+      { type: "genjutsu", value: user.genjutsuOffence },
+      { type: "taijutsu", value: user.taijutsuOffence },
+      { type: "bukijutsu", value: user.bukijutsuOffence },
+    ];
+    const highest = offenses.reduce((prev, curr) =>
+      curr.value > prev.value ? curr : prev
+    );
+    highestOffense = highest.type;
+    highestOffenseValue = highest.value;
+  }
+
+  // Get highest generals
+  let highestGenerals = ["strength", "intelligence"];
+  let highestGeneralValues = [user.strength, user.intelligence];
+
+  if (prefs?.highestGeneral1 && prefs?.highestGeneral2) {
+    // Use preferred generals
+    highestGenerals = [prefs.highestGeneral1, prefs.highestGeneral2];
+    highestGeneralValues = [user[prefs.highestGeneral1], user[prefs.highestGeneral2]];
+  } else {
+    // Find highest general values
+    const generals = [
+      { type: "strength", value: user.strength },
+      { type: "intelligence", value: user.intelligence },
+      { type: "willpower", value: user.willpower },
+      { type: "speed", value: user.speed },
+    ];
+    const sorted = generals.sort((a, b) => b.value - a.value);
+    highestGenerals = [sorted[0].type, sorted[1].type];
+    highestGeneralValues = [sorted[0].value, sorted[1].value];
+  }
+
+  return {
+    highestOffense,
+    highestOffenseValue,
+    highestGenerals,
+    highestGeneralValues,
+  };
+};
+
 export const deduceActiveUserRegen = (
   user: UserData & {
     bloodline?: Bloodline | null;
