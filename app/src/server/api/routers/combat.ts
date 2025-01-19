@@ -861,7 +861,7 @@ export const initiateBattle = async (
     battleType: battleType,
     hide: false,
     leftSideUserIds: userIds,
-    client: ctx.drizzle,
+    client: info.client,
   });
 
   // Set attacker to be the agressor
@@ -904,7 +904,7 @@ export const initiateBattle = async (
         relations: relations,
         villages: villages,
         defaultProfile: defaultProfile,
-        client: ctx.drizzle,
+        client: info.client,
         battleType: battleType,
         hide: true,
       });
