@@ -93,6 +93,13 @@ export const travelRouter = createTRPCRouter({
       ) {
         return errorResponse("Target is not in the specified location");
       }
+      if (
+        user.sector !== input.sector ||
+        user.longitude !== input.longitude ||
+        user.latitude !== input.latitude
+      ) {
+        return errorResponse("You are not in the correct sector");
+      }
 
       // 40% chance to rob successfully
       const success = Math.random() < ROBBING_SUCCESS_CHANCE;
@@ -100,37 +107,57 @@ export const travelRouter = createTRPCRouter({
         // Rob 30% of target's money
         const stolenAmount = Math.floor(target.money * ROBBING_STOLLEN_AMOUNT);
 
-        // Update both users' money and set immunity
-        await ctx.drizzle.transaction(async (tx) => {
-          await Promise.all([
-            tx
-              .update(userData)
-              .set({
-                money: sql`${userData.money} + ${stolenAmount}`,
-                villagePrestige: sql`${userData.villagePrestige} + ${ROBBING_VILLAGE_PRESTIGE_GAIN}`,
-              })
-              .where(eq(userData.userId, ctx.userId)),
-            tx
-              .update(userData)
-              .set({
-                money: sql`${userData.money} - ${stolenAmount}`,
-                robImmunityUntil: secondsFromNow(ROBBING_IMMUNITY_DURATION),
-              })
-              .where(eq(userData.userId, input.userId)),
-            tx.insert(actionLog).values({
-              id: nanoid(),
-              userId: user.userId,
-              tableName: "user",
-              changes: [`Was robbed for ${stolenAmount} ryo by ${user.username}`],
-              relatedId: user.userId,
-              relatedMsg: `Was robbed by ${user.username}`,
-              relatedImage: user.avatar,
-            }),
-            pusher.trigger(target.userId, "event", {
-              type: "userMessage",
-              message: `You've been robbed by ${user.username}`,
-            }),
-          ]);
+        // Update robber's money and prestige
+        const robberUpdate = await ctx.drizzle
+          .update(userData)
+          .set({
+            money: sql`${userData.money} + ${stolenAmount}`,
+            villagePrestige: sql`${userData.villagePrestige} + ${ROBBING_VILLAGE_PRESTIGE_GAIN}`,
+          })
+          .where(eq(userData.userId, ctx.userId));
+        if (robberUpdate.rowsAffected === 0) {
+          return errorResponse("Failed to update robber's data");
+        }
+
+        // Update target's money and set immunity
+        const targetUpdate = await ctx.drizzle
+          .update(userData)
+          .set({
+            money: sql`${userData.money} - ${stolenAmount}`,
+            robImmunityUntil: secondsFromNow(ROBBING_IMMUNITY_DURATION),
+          })
+          .where(eq(userData.userId, input.userId));
+        if (targetUpdate.rowsAffected === 0) {
+          // Rollback robber update if target update fails
+          await ctx.drizzle
+            .update(userData)
+            .set({
+              money: sql`${userData.money} - ${stolenAmount}`,
+              villagePrestige: sql`${userData.villagePrestige} - ${ROBBING_VILLAGE_PRESTIGE_GAIN}`,
+            })
+            .where(eq(userData.userId, ctx.userId));
+          return errorResponse("Failed to update target's data");
+        }
+
+        // Log the action
+        const logInsert = await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: user.userId,
+          tableName: "user",
+          changes: [`Was robbed for ${stolenAmount} ryo by ${user.username}`],
+          relatedId: user.userId,
+          relatedMsg: `Was robbed by ${user.username}`,
+          relatedImage: user.avatar,
+        });
+        if (logInsert.rowsAffected === 0) {
+          // Non-critical error, continue but log it
+          console.error("Failed to insert action log for robbery");
+        }
+
+        // Notify target (non-critical)
+        await pusher.trigger(target.userId, "event", {
+          type: "userMessage",
+          message: `You've been robbed by ${user.username}`,
         });
 
         return {

@@ -474,7 +474,6 @@ export const combatRouter = createTRPCRouter({
               result: result,
               logEntries: logEntries,
             };
-            // eslint-disable-next-line
           } catch (e) {
             console.error("Battle error: ", e);
             return {
@@ -537,16 +536,8 @@ export const combatRouter = createTRPCRouter({
       if (!input.stats && user.dailyArenaFights >= BATTLE_ARENA_DAILY_LIMIT) {
         return errorResponse("Daily arena limit reached");
       }
-      // Check if location is OK
-      if (
-        !user.isOutlaw &&
-        (!calcIsInVillage({ x: user.longitude, y: user.latitude }) ||
-          !canAccessStructure(user, "/battlearena", sectorVillage))
-      ) {
-        return {
-          success: false,
-          message: "Must be in your allied village to go to arena",
-        };
+      if (!(user.isOutlaw || canAccessStructure(user, "/battlearena", sectorVillage))) {
+        return errorResponse("Must be in your allied village to go to arena");
       }
       // Determine battle background
       if (selectedAI) {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { TRPCError } from "@trpc/server";
 import { eq, inArray } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
@@ -14,7 +15,19 @@ export const aiRouter = createTRPCRouter({
   getAiProfile: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const profile = await fetchAiProfileById(ctx.drizzle, input.id);
+      // Query
+      const [user, profile] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchAiProfileById(ctx.drizzle, input.id),
+      ]);
+      // Guard
+      if (!profile) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Profile not found" });
+      }
+      if (!canChangeContent(user.role) && profile.userId !== ctx.userId) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+      }
+      // Return
       return profile;
     }),
   createAiProfile: protectedProcedure

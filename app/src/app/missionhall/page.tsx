@@ -53,7 +53,9 @@ export default function MissionHall() {
   const missionsLeft = MISSIONS_PER_DAY - userData.dailyMissions;
   const errandsLeft = MISSIONS_PER_DAY - userData.dailyErrands;
   const classifier = userData.isOutlaw ? "crime" : "mission";
-  const aRanks = hallData?.filter((m) => m.type === classifier && m.rank === "A");
+  const aRanks = hallData?.filter(
+    (m) => m.questType === classifier && m.questRank === "A",
+  );
 
   return (
     <ContentBox
@@ -89,7 +91,8 @@ export default function MissionHall() {
             // Count how many of this type and rank are available
             const count =
               hallData?.filter(
-                (point) => point.type === setting.type && point.rank === setting.rank,
+                (point) =>
+                  point.questType === setting.type && point.questRank === setting.rank,
               )?.length ?? 0;
             // Check is user rank is high enough for this quest
             const isErrand = setting.type === "errand";
@@ -117,7 +120,12 @@ export default function MissionHall() {
                     <div className="grid grid-cols-3 gap-2">
                       {aRanks?.map((mission, i) => (
                         <div
-                          onClick={() => startQuest({ questId: mission.id })}
+                          onClick={() =>
+                            startQuest({
+                              questId: mission.id,
+                              userSector: userData.sector,
+                            })
+                          }
                           key={`specific-mission-${i}`}
                           className="hover:opacity-70 hover:cursor-pointer"
                         >
@@ -148,7 +156,13 @@ export default function MissionHall() {
                   }
                   onClick={(e) => {
                     e.preventDefault();
-                    startRandom({ type: setting.type, rank: setting.rank });
+                    startRandom({
+                      type: setting.type,
+                      rank: setting.rank,
+                      userLevel: userData.level,
+                      userSector: userData.sector,
+                      userVillageId: userData.villageId,
+                    });
                   }}
                 >
                   <Image alt="small" src={setting.image} width={256} height={256} />

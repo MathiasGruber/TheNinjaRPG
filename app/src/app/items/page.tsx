@@ -51,7 +51,6 @@ export default function MyItems() {
   });
 
   // Subtitle
-  const nonEquipped = userItems?.filter((ui) => ui.equipped === "NONE");
   const normalItems = userItems?.filter((ui) => !ui.item.isEventItem);
   const eventItems = userItems?.filter((ui) => ui.item.isEventItem);
 
