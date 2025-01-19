@@ -4,8 +4,8 @@ import type {
   Village,
   VillageStructure,
   GameSetting,
-  DrizzleClient,
 } from "@/drizzle/schema";
+import type { DrizzleClient } from "@/server/db";
 import { userPreferences } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { USER_CAPS, HP_PER_LVL, SP_PER_LVL, CP_PER_LVL } from "@/drizzle/constants";
