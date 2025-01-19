@@ -189,13 +189,16 @@ export const getUserHighestStats = async (
   ];
 
   // Get user preferences
-  const prefs = await (client as { query: { userPreferences: { findFirst: (args: { where: unknown }) => Promise<{ highestOffense?: string; highestGeneral1?: string; highestGeneral2?: string } | null> } } }).query.userPreferences.findFirst({
+  const prefs = await client.query.userPreferences.findFirst({
     where: eq(userPreferences.userId, user.userId),
   });
 
   // Use preferred offense type if valid, otherwise use highest value
-  const preferredOffense = prefs?.highestOffense as OffenseType | undefined;
-  if (preferredOffense && offenses.some(o => o.type === preferredOffense)) {
+  const preferredOffense = prefs?.highestOffense;
+  const isValidOffense = (type: string): type is OffenseType =>
+    offenses.some(o => o.type === type);
+
+  if (preferredOffense && isValidOffense(preferredOffense)) {
     highestOffense = preferredOffense;
     highestOffenseValue = offenses.find(o => o.type === preferredOffense)?.value ?? 0;
   } else {
@@ -222,14 +225,16 @@ export const getUserHighestStats = async (
   ];
 
   // Use preferred general types if both are valid, otherwise use highest values
-  const preferredGen1 = prefs?.highestGeneral1 as GeneralType | undefined;
-  const preferredGen2 = prefs?.highestGeneral2 as GeneralType | undefined;
+  const preferredGen1 = prefs?.highestGeneral1;
+  const preferredGen2 = prefs?.highestGeneral2;
+
+  const isValidGeneral = (type: string): type is GeneralType =>
+    generals.some(g => g.type === type);
+
   if (preferredGen1 && preferredGen2 &&
-      generals.some(g => g.type === preferredGen1) &&
-      generals.some(g => g.type === preferredGen2)) {
+      isValidGeneral(preferredGen1) && isValidGeneral(preferredGen2)) {
     const gen1 = generals.find(g => g.type === preferredGen1);
     const gen2 = generals.find(g => g.type === preferredGen2);
-    // This check is redundant but TypeScript needs it
     if (gen1 && gen2) {
       highestGenerals = [gen1.type, gen2.type] as const;
       highestGeneralValues = [gen1.value, gen2.value];

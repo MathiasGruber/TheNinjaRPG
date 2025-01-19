@@ -910,7 +910,10 @@ export const processUsersForBattle = async (info: {
 
     // Set highest offense based on preferences or highest value
     if (prefs?.highestOffense) {
-      user.highestOffence = `${prefs.highestOffense}Offence` as offenceKey;
+      const key = `${prefs.highestOffense}Offence`;
+      if (Object.keys(offences).includes(key)) {
+        user.highestOffence = key as offenceKey;
+      }
     } else {
       user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
         offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur,
