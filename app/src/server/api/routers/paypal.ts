@@ -476,14 +476,8 @@ export const updateReps = async (input: {
   type: TransactionType;
   raw: JsonData;
 }) => {
-  await input.client
-    .update(userData)
-    .set({
-      reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${input.reps}`,
-      reputationPoints: sql`${userData.reputationPoints} + ${input.reps}`,
-    })
-    .where(eq(userData.userId, input.affectedUserId));
-  return await input.client.insert(paypalTransaction).values({
+  // First see if we can insert transaction.
+  await input.client.insert(paypalTransaction).values({
     id: nanoid(),
     createdById: input.createdById,
     transactionId: input.transactionId,
@@ -498,6 +492,15 @@ export const updateReps = async (input: {
     type: input.type,
     rawData: input.raw,
   });
+  // If we succeed, that means the transaction was not already in the database.
+  // We can then update the user
+  return await input.client
+    .update(userData)
+    .set({
+      reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${input.reps}`,
+      reputationPoints: sql`${userData.reputationPoints} + ${input.reps}`,
+    })
+    .where(eq(userData.userId, input.affectedUserId));
 };
 
 /**

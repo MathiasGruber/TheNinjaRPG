@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { TRPCError } from "@trpc/server";
 import { eq, inArray } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
@@ -20,9 +21,11 @@ export const aiRouter = createTRPCRouter({
         fetchAiProfileById(ctx.drizzle, input.id),
       ]);
       // Guard
-      if (!profile) return errorResponse("Profile not found");
+      if (!profile) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Profile not found" });
+      }
       if (!canChangeContent(user.role) && profile.userId !== ctx.userId) {
-        return errorResponse("Unauthorized");
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
       }
       // Return
       return profile;
