@@ -6,6 +6,8 @@ import type {
   GameSetting,
   DrizzleClient,
 } from "@/drizzle/schema";
+import { userPreferences } from "@/drizzle/schema";
+import { eq } from "drizzle-orm";
 import { USER_CAPS, HP_PER_LVL, SP_PER_LVL, CP_PER_LVL } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { structureBoost } from "@/utils/village";
@@ -174,10 +176,10 @@ export const getUserHighestStats = async (
 ) => {
   // Get highest offense
   type OffenseType = "ninjutsu" | "genjutsu" | "taijutsu" | "bukijutsu";
-  let highestOffense: OffenseType = "ninjutsu";
-  let highestOffenseValue = user.ninjutsuOffence;
+  let highestOffense: OffenseType;
+  let highestOffenseValue: number;
 
-  // Find highest offense value
+  // Find highest offense value based on preference or highest value
   type OffenseWithValue = { type: OffenseType; value: number };
   const offenses: OffenseWithValue[] = [
     { type: "ninjutsu", value: user.ninjutsuOffence },
@@ -185,18 +187,32 @@ export const getUserHighestStats = async (
     { type: "taijutsu", value: user.taijutsuOffence },
     { type: "bukijutsu", value: user.bukijutsuOffence },
   ];
-  const highest = offenses.reduce((prev, curr) =>
-    curr.value > prev.value ? curr : prev
-  );
-  highestOffense = highest.type;
-  highestOffenseValue = highest.value;
+
+  // Get user preferences
+  const prefs = await (client as { query: { userPreferences: { findFirst: (args: { where: unknown }) => Promise<{ highestOffense?: string; highestGeneral1?: string; highestGeneral2?: string } | null> } } }).query.userPreferences.findFirst({
+    where: eq(userPreferences.userId, user.userId),
+  });
+
+  // Use preferred offense type if valid, otherwise use highest value
+  const preferredOffense = prefs?.highestOffense as OffenseType | undefined;
+  if (preferredOffense && offenses.some(o => o.type === preferredOffense)) {
+    highestOffense = preferredOffense;
+    highestOffenseValue = offenses.find(o => o.type === preferredOffense)?.value ?? 0;
+  } else {
+    // Use highest value
+    const highest = offenses.reduce((prev, curr) =>
+      curr.value > prev.value ? curr : prev
+    );
+    highestOffense = highest.type;
+    highestOffenseValue = highest.value;
+  }
 
   // Get highest generals
   type GeneralType = "strength" | "intelligence" | "willpower" | "speed";
-  let highestGenerals: readonly [GeneralType, GeneralType] = ["strength", "intelligence"];
-  let highestGeneralValues: [number, number] = [user.strength, user.intelligence];
+  let highestGenerals: readonly [GeneralType, GeneralType];
+  let highestGeneralValues: [number, number];
 
-  // Find highest general values
+  // Find highest general values based on preferences or highest values
   type GeneralWithValue = { type: GeneralType; value: number };
   const generals: GeneralWithValue[] = [
     { type: "strength", value: user.strength },
@@ -204,9 +220,31 @@ export const getUserHighestStats = async (
     { type: "willpower", value: user.willpower },
     { type: "speed", value: user.speed },
   ];
-  const sorted = [...generals].sort((a, b) => b.value - a.value);
-  highestGenerals = [sorted[0].type, sorted[1].type] as const;
-  highestGeneralValues = [sorted[0].value, sorted[1].value];
+
+  // Use preferred general types if both are valid, otherwise use highest values
+  const preferredGen1 = prefs?.highestGeneral1 as GeneralType | undefined;
+  const preferredGen2 = prefs?.highestGeneral2 as GeneralType | undefined;
+  if (preferredGen1 && preferredGen2 &&
+      generals.some(g => g.type === preferredGen1) &&
+      generals.some(g => g.type === preferredGen2)) {
+    const gen1 = generals.find(g => g.type === preferredGen1);
+    const gen2 = generals.find(g => g.type === preferredGen2);
+    // This check is redundant but TypeScript needs it
+    if (gen1 && gen2) {
+      highestGenerals = [gen1.type, gen2.type] as const;
+      highestGeneralValues = [gen1.value, gen2.value];
+    } else {
+      // Fallback to highest values if preferences are invalid
+      const sorted = [...generals].sort((a, b) => b.value - a.value);
+      highestGenerals = [sorted[0].type, sorted[1].type] as const;
+      highestGeneralValues = [sorted[0].value, sorted[1].value];
+    }
+  } else {
+    // Use highest values
+    const sorted = [...generals].sort((a, b) => b.value - a.value);
+    highestGenerals = [sorted[0].type, sorted[1].type] as const;
+    highestGeneralValues = [sorted[0].value, sorted[1].value];
+  }
 
   return {
     highestOffense,
