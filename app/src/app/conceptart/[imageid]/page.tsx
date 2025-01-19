@@ -18,7 +18,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
       siteName: "TheNinja-RPG",
       images: [
         {
-          url: `https://www.theninja-rpg.com/api/og?imageid=${id}`,
+          url: `https://www.theninja-rpg.com/conceptart/${id}`,
           width: 512,
           height: 768,
           alt: "AI generated image",
@@ -35,7 +35,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
       siteId: "137431404",
       creator: "@user",
       creatorId: "137431404",
-      images: [`https://www.theninja-rpg.com/api/og?imageid=${id}`],
+      images: [`https://www.theninja-rpg.com/conceptart/${id}`],
     },
   };
 }

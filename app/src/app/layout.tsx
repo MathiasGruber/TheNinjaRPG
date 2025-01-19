@@ -9,6 +9,7 @@ import { extractRouterConfig } from "uploadthing/server";
 import { ourFileRouter } from "@/app/api/uploadthing/core";
 import TrpcClientProvider from "@/app/_trpc/Provider";
 import LayoutCore4 from "@/components/layout/core4_default";
+import { IMG_LOGO_FULL } from "@/drizzle/constants";
 import type { Viewport, Metadata } from "next";
 
 import "../styles/globals.css";
@@ -81,10 +82,10 @@ export const metadata: Metadata = {
     siteName: "TheNinja-RPG",
     images: [
       {
-        url: "https://www.theninja-rpg.com/api/og?imageid=", // Must be an absolute URL
+        url: IMG_LOGO_FULL,
         width: 512,
         height: 768,
-        alt: "AI generated image",
+        alt: "TheNinja-RPG Logo",
       },
     ],
     locale: "en_US",
@@ -98,7 +99,7 @@ export const metadata: Metadata = {
     siteId: "137431404",
     creator: "@nextjs",
     creatorId: "137431404",
-    images: ["https://nextjs.org/og.png"], // Must be an absolute URL
+    images: [IMG_LOGO_FULL], // Must be an absolute URL
   },
   icons: {
     icon: "/favicon.ico",
