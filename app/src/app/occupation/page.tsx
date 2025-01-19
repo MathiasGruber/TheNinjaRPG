@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import type { BaseServerResponse } from "@/server/api/trpc";
+import type { UserData } from "@/server/db/schema/users";
 
 export default function OccupationPage() {
   const { toast } = useToast();
