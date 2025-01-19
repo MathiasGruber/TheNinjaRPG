@@ -24,7 +24,10 @@ export const aiRouter = createTRPCRouter({
       if (!profile) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Profile not found" });
       }
-      if (!canChangeContent(user.role) && profile.userId !== ctx.userId) {
+      if (
+        !canChangeContent(user.role) &&
+        input.id !== (user.aiProfileId ?? "Default")
+      ) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
       }
       // Return
