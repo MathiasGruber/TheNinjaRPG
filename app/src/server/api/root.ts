@@ -19,6 +19,7 @@ import { itemRouter } from "./routers/item";
 import { jutsuRouter } from "./routers/jutsu";
 import { kageRouter } from "./routers/kage";
 import { logsRouter } from "./routers/logs";
+import { medicalNinjaRouter } from "./routers/medicalNinja";
 import { miscRouter } from "./routers/misc";
 import { openaiRouter } from "./routers/openai";
 import { paypalRouter } from "./routers/paypal";
@@ -82,6 +83,7 @@ export const appRouter = createTRPCRouter({
   backgroundSchema: backgroundSchemaRouter,
   staff: staffRouter,
   linkPromotion: linkPromotionRouter,
+  medicalNinja: medicalNinjaRouter,
 });
 
 // export type definition of API

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
-import { Clock, FastForward, Hand } from "lucide-react";
+import { Clock, FastForward, Hand, Plus, UserPlus, UserMinus } from "lucide-react";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
@@ -9,6 +9,7 @@ import StatusBar, { calcCurrent } from "@/layout/StatusBar";
 import Image from "next/image";
 import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { structureBoost } from "@/utils/village";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { useRequireInVillage } from "@/utils/UserContext";
@@ -19,6 +20,7 @@ import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
 import { MEDNIN_MIN_RANK, IMG_BUILDING_HOSPITAL } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
+import type { MedicalNinjaSquad } from "~/types/medicalNinja";
 
 export default function Hospital() {
   // Settings
@@ -60,6 +62,39 @@ export default function Hospital() {
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Hospital" />;
 
+  const canViewMedicalSquads =
+    userData?.occupation === "medical_ninja" ||
+    ["kage", "elder"].includes(userData?.rank || "");
+
+  const canCreateMedicalSquads = ["kage", "elder"].includes(userData?.rank || "");
+
+  const { data: medicalSquads = [] } = api.medicalNinja.getSquads.useQuery(undefined, {
+    enabled: canViewMedicalSquads,
+  }) as { data: MedicalNinjaSquad[] };
+
+  const utils = api.useUtils();
+
+  const { mutate: createSquad } = api.medicalNinja.createSquad.useMutation({
+    onSuccess: (data) => {
+      showMutationToast(data);
+      void utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
+  const { mutate: joinSquad } = api.medicalNinja.joinSquad.useMutation({
+    onSuccess: (data) => {
+      showMutationToast(data);
+      void utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
+  const { mutate: leaveSquad } = api.medicalNinja.leaveSquad.useMutation({
+    onSuccess: (data) => {
+      showMutationToast(data);
+      void utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
   return (
     <ContentBox
       title={hospitalName}
@@ -75,47 +110,123 @@ export default function Hospital() {
         className="w-full"
         priority={true}
       />
-      {!isPending && isHospitalized && userData && healFinishAt && (
-        <div className="p-3">
-          <p>You are hospitalized, either wait or pay to expedite treatment.</p>
-          <div className="grid grid-cols-2 py-3 gap-2">
-            <Button
-              id="check"
-              className="w-full"
-              disabled={healFinishAt && healFinishAt > new Date()}
-              onClick={() => heal({ villageId: userData.villageId })}
-            >
-              <Clock className="mr-2 h-6 w-6" />
-              <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
-            </Button>
-            <Button
-              id="check"
-              className="w-full"
-              color={canAfford ? "default" : "red"}
-              disabled={healFinishAt && healFinishAt <= new Date()}
-              onClick={() => heal({ villageId: userData.villageId })}
-            >
-              {canAfford ? (
-                <FastForward className="mr-3 h-6 w-6" />
-              ) : (
-                <Hand className="mr-3 h-6 w-6" />
-              )}
-              <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
-            </Button>
-          </div>
-        </div>
-      )}
-      {!isPending && !isHospitalized && userData && !canHealOthers && (
-        <p className="p-3">You are not hospitalized.</p>
-      )}
-      {!isPending && !isHospitalized && canHealOthers && (
-        <HealOthersComponent
-          userData={userData}
-          timeDiff={timeDiff}
-          updateUser={updateUser}
-        />
-      )}
-      {isPending && <Loader explanation="Healing User" />}
+      <Tabs defaultValue="hospital" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="hospital">Hospital</TabsTrigger>
+          {canViewMedicalSquads && (
+            <TabsTrigger value="medical-squads">Medical Ninja Squads</TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="hospital">
+          {!isPending && isHospitalized && userData && healFinishAt && (
+            <div className="p-3">
+              <p>You are hospitalized, either wait or pay to expedite treatment.</p>
+              <div className="grid grid-cols-2 py-3 gap-2">
+                <Button
+                  id="check"
+                  className="w-full"
+                  disabled={healFinishAt && healFinishAt > new Date()}
+                  onClick={() => heal({ villageId: userData.villageId })}
+                >
+                  <Clock className="mr-2 h-6 w-6" />
+                  <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
+                </Button>
+                <Button
+                  id="check"
+                  className="w-full"
+                  color={canAfford ? "default" : "red"}
+                  disabled={healFinishAt && healFinishAt <= new Date()}
+                  onClick={() => heal({ villageId: userData.villageId })}
+                >
+                  {canAfford ? (
+                    <FastForward className="mr-3 h-6 w-6" />
+                  ) : (
+                    <Hand className="mr-3 h-6 w-6" />
+                  )}
+                  <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
+                </Button>
+              </div>
+            </div>
+          )}
+          {!isPending && !isHospitalized && userData && !canHealOthers && (
+            <p className="p-3">You are not hospitalized.</p>
+          )}
+          {!isPending && !isHospitalized && canHealOthers && (
+            <HealOthersComponent
+              userData={userData}
+              timeDiff={timeDiff}
+              updateUser={updateUser}
+            />
+          )}
+          {isPending && <Loader explanation="Healing User" />}
+        </TabsContent>
+
+        {canViewMedicalSquads && (
+          <TabsContent value="medical-squads" className="p-3">
+            {canCreateMedicalSquads && (
+              <Button
+                onClick={() =>
+                  createSquad({
+                    name: "New Medical Squad",
+                    description: "A new medical ninja squad",
+                    leader_id: userData.id,
+                    village_id: userData.villageId,
+                    members: [userData.id],
+                  })
+                }
+                className="mb-4"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Medical Ninja Squad
+              </Button>
+            )}
+
+            {medicalSquads?.map((squad) => (
+              <div
+                key={squad.id}
+                className="mb-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700"
+              >
+                <h3 className="text-lg font-semibold">{squad.name}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {squad.description}
+                </p>
+                <div className="mt-2">
+                  <h4 className="font-medium">Members:</h4>
+                  <ul className="list-inside list-disc">
+                    {squad.members.map((memberId) => (
+                      <li key={memberId}>{memberId}</li>
+                    ))}
+                  </ul>
+                </div>
+                {userData?.occupation === "medical_ninja" &&
+                  ["chunin", "jonin", "elder"].includes(userData.rank) && (
+                    <div className="mt-4">
+                      {squad.members.includes(userData.id) ? (
+                        <Button
+                          variant="destructive"
+                          onClick={() => leaveSquad({ squad_id: squad.id })}
+                        >
+                          <UserMinus className="mr-2 h-4 w-4" />
+                          Leave Squad
+                        </Button>
+                      ) : (
+                        <Button onClick={() => joinSquad({ squad_id: squad.id })}>
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Join Squad
+                        </Button>
+                      )}
+                    </div>
+                  )}
+              </div>
+            ))}
+
+            {(!medicalSquads || medicalSquads.length === 0) && (
+              <p>No medical ninja squads found.</p>
+            )}
+          </TabsContent>
+        )}
+      </Tabs>
     </ContentBox>
   );
 }
