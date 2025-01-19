@@ -1389,7 +1389,7 @@ export const userData = mysqlTable(
       .notNull(),
     currentlyTraining: mysqlEnum("currentlyTraining", consts.UserStatNames),
     unreadNotifications: smallint("unreadNotifications").default(0).notNull(),
-    unreadNews: tinyint("unreadNews").default(0).notNull(),
+    unreadNews: smallint("unreadNews").default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
     senseiId: varchar("senseiId", { length: 191 }),
     medicalExperience: int("medicalExperience").default(0).notNull(),
