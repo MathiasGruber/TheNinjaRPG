@@ -9,7 +9,8 @@ import type { BaseServerResponse } from "@/server/api/trpc";
 export default function OccupationPage() {
   const { toast } = useToast();
   const utils = api.useUtils();
-  const { data: user } = api.profile.me.useQuery() as { data: { occupation: string | null } | undefined };
+  const { data: userData } = api.profile.getUser.useQuery();
+  const user = userData?.userData;
 
   const { mutate: signUpMedicalNinja } = api.medicalNinja.signUp.useMutation({
     onSuccess: (data: BaseServerResponse) => {
