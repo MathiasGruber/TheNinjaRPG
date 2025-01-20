@@ -150,8 +150,8 @@ export const hospitalRouter = createTRPCRouter({
           .update(userData)
           .set({
             curHealth: sql`LEAST(${t.curHealth + toHeal}, ${t.maxHealth})`,
-            curChakra: medicalNinja.rank === "legendary" ? sql`LEAST(${t.curChakra + toHeal}, ${t.maxChakra})` : t.curChakra,
-            curStamina: medicalNinja.rank === "legendary" ? sql`LEAST(${t.curStamina + toHeal}, ${t.maxStamina})` : t.curStamina,
+            curChakra: medicalNinja?.rank === "legendary" ? sql`LEAST(${t.curChakra + toHeal}, ${t.maxChakra})` : t.curChakra,
+            curStamina: medicalNinja?.rank === "legendary" ? sql`LEAST(${t.curStamina + toHeal}, ${t.maxStamina})` : t.curStamina,
             regenAt: new Date(),
             status: "AWAKE",
           })
