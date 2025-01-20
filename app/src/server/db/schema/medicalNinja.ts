@@ -37,6 +37,7 @@ export const medicalNinjaSquadMembers = mysqlTable("medical_ninja_squad_members"
   squadId: varchar("squad_id", { length: 255 }).notNull().references(() => medicalNinjaSquads.id),
   userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
   joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  primaryKey: ["squadId", "userId"],
 });
 
 export const medicalNinjasRelations = relations(medicalNinjas, ({ one }) => ({
