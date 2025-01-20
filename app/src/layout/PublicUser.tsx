@@ -19,6 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Medal } from "lucide-react";
 import { parseHtml } from "@/utils/parse";
 import { awardSchema } from "@/validators/reputation";
+import { publicUserText } from "@/layout/seoTexts";
 import Link from "next/link";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
@@ -304,63 +305,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           back_href={back_href}
           initialBreak={initialBreak}
         >
-          Welcome to <b>{profile.username}</b>&apos;s profile on The Ninja RPG, the
-          ultimate destination for immersive ninja role-playing experiences. This
-          profile is your window into {profile.username}&apos;s in-game journey,
-          showcasing their ninja stats, rank, achievements, mission history,
-          affiliations, etc. Whether you&apos;re a seasoned player or a newcomer to the
-          ninja world, this profile offers a unique look at how {profile.username} has
-          built their ninja legacy within our dynamic RPG community. <br />
-          <br />
-          In the ever-evolving ninja universe of The Ninja RPG, every profile tells a
-          story. Explore {profile.username}&apos;s combat skills, elemental affinities,
-          strategic decisions, and progress through various ninja ranks. See how
-          they&apos;ve tackled challenging missions, contributed to their clan&apos;s
-          strength, and navigated the intricate politics of the ninja world. Profiles
-          like this highlight the creativity, strategy, and dedication that define our
-          players&apos; adventures. <br />
-          <br />
-          Are you ready to start or improve your own ninja journey? Equip yourself with
-          the tools you need! Dive into the comprehensive{" "}
-          <Link className="font-bold" href="/manual">
-            game manual
-          </Link>
-          , your guide to mastering everything from battle mechanics and skill trees to
-          mission strategies and crafting. Join the vibrant{" "}
-          <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
-            Discord community
-          </Link>
-          , where ninjas from across the globe come together to discuss game updates,
-          share strategies, and make lifelong connections. Engage directly with
-          developers and fellow enthusiasts through our{" "}
-          <Link
-            className="font-bold"
-            href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
-          >
-            GitHub repository
-          </Link>
-          , where you can view the latest updates, report issues, and even contribute to
-          the game&apos;s codebase. For detailed discussions, game tips, and debates
-          about ninja lore, visit the bustling{" "}
-          <Link className="font-bold" href="/forum">
-            forums
-          </Link>
-          , the heart of our online ninja community.
-          <br />
-          <br /> User profiles on The Ninja RPG are more than just stats; they&apos;re a
-          reflection of each player&apos;s unique path and impact on the game&apos;s
-          rich, immersive world. By exploring profiles like {profile.username}&apos;s,
-          you can learn about different playstyles, gain inspiration for your own ninja
-          character, and strategize for your next adventure. Whether you&apos;re here to
-          compete, collaborate, or simply learn, every page offers a wealth of insights.
-          <br />
-          <br />
-          Don&apos;t forget that The Ninja RPG is always growing. New missions,
-          challenges, and features are constantly being added to enhance your gameplay
-          experience. Make sure to stay connected through our Discord server and forums
-          to be the first to hear about updates and special events. Ready to take your
-          ninja skills to the next level? Sign up today at theninja-rpg.com, start
-          building your ninja legacy, and become a legend in the ninja world.
+          {publicUserText(profile.username)}
         </ContentBox>
       )}
       {/* USER STATISTICS */}
