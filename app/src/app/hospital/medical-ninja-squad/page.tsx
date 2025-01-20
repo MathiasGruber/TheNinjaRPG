@@ -1,7 +1,7 @@
-import { api } from "~/trpc/server";
-import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
+import { api } from "@/trpc/server";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { redirect } from "next/navigation";
 
 export default async function MedicalNinjaSquadPage() {
