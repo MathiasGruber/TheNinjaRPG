@@ -24,7 +24,15 @@ export default async function MedicalNinjaSquadPage() {
             const name = formData.get("name") as string;
             await api.medicalNinja.createSquad.mutate({ name });
           }} className="flex gap-2">
-            <Input name="name" placeholder="Squad name" required minLength={3} maxLength={50} />
+            <Input
+              name="name"
+              placeholder="Squad name"
+              required
+              minLength={3}
+              maxLength={50}
+              pattern="^[a-zA-Z0-9\s-]+$"
+              title="Squad name can only contain letters, numbers, spaces, and hyphens"
+            />
             <Button type="submit">Create</Button>
           </form>
         </Card>
