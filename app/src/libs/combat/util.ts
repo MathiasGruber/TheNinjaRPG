@@ -28,9 +28,12 @@ import type { ReturnedUserState, Consequence } from "./types";
 import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
+import { eq } from "drizzle-orm";
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
+import { userPreferences } from "@/drizzle/schema";
 import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
+import type { DrizzleClient } from "@/server/db";
 
 /**
  * Retrieves the battle grid.
@@ -848,7 +851,7 @@ export const rollInitiative = (
  * @param hide - A boolean indicating whether to hide user on map. Defaults to `false`.
  * @returns An object containing the processed user effects, updated user states, and all summons.
  */
-export const processUsersForBattle = (info: {
+export const processUsersForBattle = async (info: {
   users: BattleUserState[];
   settings: GameSetting[];
   relations: VillageAlliance[];
@@ -857,16 +860,17 @@ export const processUsersForBattle = (info: {
   battleType: BattleType;
   hide: boolean;
   leftSideUserIds?: string[];
+  client: DrizzleClient;
 }) => {
   // Destructure
-  const { users, settings, relations, battleType, hide, leftSideUserIds } = info;
+  const { users, settings, relations, battleType, hide, leftSideUserIds, client } = info;
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
   const takenLocations: { x: number; y: number }[] = [];
 
   // Loop through users
-  const usersState = users.map((user, i) => {
+  const usersState = await Promise.all(users.map(async (user, i) => {
     // Set controllerID and mark this user as the original
     user.controllerId = user.userId;
 
@@ -898,9 +902,23 @@ export const processUsersForBattle = (info: {
       bukijutsuOffence: user.bukijutsuOffence,
     };
     type offenceKey = keyof typeof offences;
-    user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
-      offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur,
-    ) as offenceKey;
+
+    // Get user preferences
+    const prefs = await client.query.userPreferences.findFirst({
+      where: eq(userPreferences.userId, user.userId),
+    });
+
+    // Set highest offense based on preferences or highest value
+    if (prefs?.highestOffense) {
+      const key = `${prefs.highestOffense}Offence`;
+      if (Object.keys(offences).includes(key)) {
+        user.highestOffence = key as offenceKey;
+      }
+    } else {
+      user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
+        offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur,
+      ) as offenceKey;
+    }
 
     // Starting round
     user.round = 0;
@@ -925,10 +943,15 @@ export const processUsersForBattle = (info: {
       speed: user.speed,
     };
     type generalKey = keyof typeof generals;
-    // The the two highest generals
-    user.highestGenerals = Object.keys(generals)
-      .sort((a, b) => generals[b as generalKey] - generals[a as generalKey])
-      .slice(0, 2) as generalKey[];
+
+    // Set highest generals based on preferences or highest values
+    if (prefs?.highestGeneral1 && prefs?.highestGeneral2) {
+      user.highestGenerals = [prefs.highestGeneral1, prefs.highestGeneral2] as generalKey[];
+    } else {
+      user.highestGenerals = Object.keys(generals)
+        .sort((a, b) => generals[b as generalKey] - generals[a as generalKey])
+        .slice(0, 2) as generalKey[];
+    }
 
     // By default set iAmHere to false
     user.iAmHere = false;
@@ -1150,7 +1173,7 @@ export const processUsersForBattle = (info: {
     }
 
     return user;
-  });
+  }));
 
   return { userEffects, usersState, allSummons };
 };

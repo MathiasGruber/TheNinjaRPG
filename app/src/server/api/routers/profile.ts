@@ -30,6 +30,7 @@ import {
   userRequest,
   userReport,
   userReportComment,
+  userPreferences,
   village,
   battleHistory,
 } from "@/drizzle/schema";
@@ -59,6 +60,7 @@ import {
   updateGameSetting,
 } from "@/libs/gamesettings";
 import { updateUserSchema } from "@/validators/user";
+import { updateUserPreferencesSchema } from "@/validators/userPreferences";
 import { canChangeUserRole } from "@/utils/permissions";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
@@ -89,6 +91,47 @@ import type { NavBarDropdownLink } from "@/libs/menus";
 const pusher = getServerPusher();
 
 export const profileRouter = createTRPCRouter({
+  // Get user preferences
+  getPreferences: protectedProcedure.query(async ({ ctx }) => {
+    const prefs = await ctx.drizzle.query.userPreferences.findFirst({
+      where: eq(userPreferences.userId, ctx.userId),
+    });
+    return prefs;
+  }),
+  // Update user preferences
+  updatePreferences: protectedProcedure
+    .input(updateUserPreferencesSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Check if preferences exist
+      const existingPrefs = await ctx.drizzle.query.userPreferences.findFirst({
+        where: eq(userPreferences.userId, ctx.userId),
+      });
+
+      if (existingPrefs) {
+        // Update existing preferences
+        const result = await ctx.drizzle
+          .update(userPreferences)
+          .set({
+            ...input,
+            updatedAt: new Date(),
+          })
+          .where(eq(userPreferences.userId, ctx.userId));
+
+        if (result.rowsAffected === 0) {
+          return errorResponse("Failed to update preferences");
+        }
+      } else {
+        // Create new preferences
+        await ctx.drizzle.insert(userPreferences).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          ...input,
+        });
+      }
+
+      return { success: true, message: "Preferences updated successfully" };
+    }),
   // Get user blacklist
   getBlacklist: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userBlackList.findMany({

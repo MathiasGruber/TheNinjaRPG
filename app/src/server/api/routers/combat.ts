@@ -852,7 +852,7 @@ export const initiateBattle = async (
   }
 
   // Create the users array to be inserted into the battle
-  const { userEffects, usersState, allSummons } = processUsersForBattle({
+  const { userEffects, usersState, allSummons } = await processUsersForBattle({
     users: users as BattleUserState[],
     settings: settings,
     relations: relations,
@@ -861,6 +861,7 @@ export const initiateBattle = async (
     battleType: battleType,
     hide: false,
     leftSideUserIds: userIds,
+    client: info.client,
   });
 
   // Set attacker to be the agressor
@@ -897,12 +898,13 @@ export const initiateBattle = async (
       where: inArray(userData.userId, uniqueSummons),
     });
     const { userEffects: summonEffects, usersState: summonState } =
-      processUsersForBattle({
+      await processUsersForBattle({
         users: summons as BattleUserState[],
         settings: settings,
         relations: relations,
         villages: villages,
         defaultProfile: defaultProfile,
+        client: info.client,
         battleType: battleType,
         hide: true,
       });

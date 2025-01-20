@@ -5,6 +5,9 @@ import type {
   VillageStructure,
   GameSetting,
 } from "@/drizzle/schema";
+import type { DrizzleClient } from "@/server/db";
+import { userPreferences } from "@/drizzle/schema";
+import { eq } from "drizzle-orm";
 import { USER_CAPS, HP_PER_LVL, SP_PER_LVL, CP_PER_LVL } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { structureBoost } from "@/utils/village";
@@ -167,6 +170,115 @@ export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
 };
 
 // Calculate user stats
+export const getUserHighestStats = async (
+  client: DrizzleClient,
+  user: UserData,
+) => {
+  // Get highest offense
+  type OffenseType = "ninjutsu" | "genjutsu" | "taijutsu" | "bukijutsu";
+  let highestOffense: OffenseType;
+  let highestOffenseValue: number;
+
+  // Find highest offense value based on preference or highest value
+  type OffenseWithValue = { type: OffenseType; value: number };
+  const offenses: OffenseWithValue[] = [
+    { type: "ninjutsu", value: user.ninjutsuOffence },
+    { type: "genjutsu", value: user.genjutsuOffence },
+    { type: "taijutsu", value: user.taijutsuOffence },
+    { type: "bukijutsu", value: user.bukijutsuOffence },
+  ];
+
+  // Get user preferences
+  const prefs = await client.query.userPreferences.findFirst({
+    where: eq(userPreferences.userId, user.userId),
+  });
+
+  // Use preferred offense type if valid, otherwise use highest value
+  const preferredOffense = prefs?.highestOffense;
+  const isValidOffense = (type: string): type is OffenseType =>
+    offenses.some(o => o.type === type);
+
+  if (preferredOffense && isValidOffense(preferredOffense)) {
+    highestOffense = preferredOffense;
+    highestOffenseValue = offenses.find(o => o.type === preferredOffense)?.value ?? 0;
+  } else {
+    // Use highest value
+    const highest = offenses.reduce((prev, curr) =>
+      curr.value > prev.value ? curr : prev
+    );
+    highestOffense = highest.type;
+    highestOffenseValue = highest.value;
+  }
+
+  // Get highest generals
+  type GeneralType = "strength" | "intelligence" | "willpower" | "speed";
+  let highestGenerals: readonly [GeneralType, GeneralType];
+  let highestGeneralValues: [number, number];
+
+  // Find highest general values based on preferences or highest values
+  type GeneralWithValue = { type: GeneralType; value: number };
+  const generals: GeneralWithValue[] = [
+    { type: "strength", value: user.strength },
+    { type: "intelligence", value: user.intelligence },
+    { type: "willpower", value: user.willpower },
+    { type: "speed", value: user.speed },
+  ];
+
+  // Use preferred general types if both are valid, otherwise use highest values
+  const preferredGen1 = prefs?.highestGeneral1;
+  const preferredGen2 = prefs?.highestGeneral2;
+
+  const isValidGeneral = (type: string): type is GeneralType =>
+    generals.some(g => g.type === type);
+
+  if (preferredGen1 && preferredGen2 &&
+      isValidGeneral(preferredGen1) && isValidGeneral(preferredGen2)) {
+    const gen1 = generals.find(g => g.type === preferredGen1);
+    const gen2 = generals.find(g => g.type === preferredGen2);
+    if (gen1 && gen2) {
+      highestGenerals = [gen1.type, gen2.type] as const;
+      highestGeneralValues = [gen1.value, gen2.value];
+    } else {
+      // Fallback to highest values if preferences are invalid
+      const sorted = [...generals].sort((a, b) => b.value - a.value);
+      if (sorted.length < 2) {
+        // If we don't have enough stats, duplicate the highest one
+        const defaultStat = sorted[0] ?? { type: "strength", value: 0 };
+        highestGenerals = [defaultStat.type, defaultStat.type] as const;
+        highestGeneralValues = [defaultStat.value, defaultStat.value];
+      } else {
+        // We know sorted has at least 2 elements here since we checked sorted.length < 2
+        const first = sorted[0]!;
+        const second = sorted[1]!;
+        highestGenerals = [first.type, second.type] as const;
+        highestGeneralValues = [first.value, second.value];
+      }
+    }
+  } else {
+    // Use highest values
+    const sorted = [...generals].sort((a, b) => b.value - a.value);
+    if (sorted.length < 2) {
+      // If we don't have enough stats, duplicate the highest one
+      const defaultStat = sorted[0] ?? { type: "strength", value: 0 };
+      highestGenerals = [defaultStat.type, defaultStat.type] as const;
+      highestGeneralValues = [defaultStat.value, defaultStat.value];
+    } else {
+      // We know sorted has at least 2 elements here since we checked sorted.length < 2
+      const first = sorted[0]!;
+      const second = sorted[1]!;
+      highestGenerals = [first.type, second.type] as const;
+      highestGeneralValues = [first.value, second.value];
+    }
+  }
+
+  return {
+    highestOffense,
+    highestOffenseValue,
+    highestGenerals,
+    highestGeneralValues,
+  };
+};
+
 export const deduceActiveUserRegen = (
   user: UserData & {
     bloodline?: Bloodline | null;
