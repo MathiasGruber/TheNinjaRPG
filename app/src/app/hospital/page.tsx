@@ -9,6 +9,7 @@ import StatusBar, { calcCurrent } from "@/layout/StatusBar";
 import Image from "next/image";
 import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { structureBoost } from "@/utils/village";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { useRequireInVillage } from "@/utils/UserContext";
@@ -19,6 +20,7 @@ import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
 import { MEDNIN_MIN_RANK, IMG_BUILDING_HOSPITAL } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
+
 
 export default function Hospital() {
   // Settings
@@ -75,47 +77,64 @@ export default function Hospital() {
         className="w-full"
         priority={true}
       />
-      {!isPending && isHospitalized && userData && healFinishAt && (
-        <div className="p-3">
-          <p>You are hospitalized, either wait or pay to expedite treatment.</p>
-          <div className="grid grid-cols-2 py-3 gap-2">
-            <Button
-              id="check"
-              className="w-full"
-              disabled={healFinishAt && healFinishAt > new Date()}
-              onClick={() => heal({ villageId: userData.villageId })}
-            >
-              <Clock className="mr-2 h-6 w-6" />
-              <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
-            </Button>
-            <Button
-              id="check"
-              className="w-full"
-              color={canAfford ? "default" : "red"}
-              disabled={healFinishAt && healFinishAt <= new Date()}
-              onClick={() => heal({ villageId: userData.villageId })}
-            >
-              {canAfford ? (
-                <FastForward className="mr-3 h-6 w-6" />
-              ) : (
-                <Hand className="mr-3 h-6 w-6" />
-              )}
-              <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
-            </Button>
-          </div>
-        </div>
-      )}
-      {!isPending && !isHospitalized && userData && !canHealOthers && (
-        <p className="p-3">You are not hospitalized.</p>
-      )}
-      {!isPending && !isHospitalized && canHealOthers && (
-        <HealOthersComponent
-          userData={userData}
-          timeDiff={timeDiff}
-          updateUser={updateUser}
-        />
-      )}
-      {isPending && <Loader explanation="Healing User" />}
+      <Tabs defaultValue="treatment" className="w-full">
+        <TabsList className="w-full">
+          <TabsTrigger value="treatment" className="flex-1">Treatment</TabsTrigger>
+          {(userData?.isMedicalNinja || userData?.isKage || userData?.isElder) && (
+            <TabsTrigger value="squad" className="flex-1">Medical Ninja Squad</TabsTrigger>
+          )}
+        </TabsList>
+        <TabsContent value="treatment">
+          {!isPending && isHospitalized && userData && healFinishAt && (
+            <div className="p-3">
+              <p>You are hospitalized, either wait or pay to expedite treatment.</p>
+              <div className="grid grid-cols-2 py-3 gap-2">
+                <Button
+                  id="check"
+                  className="w-full"
+                  disabled={healFinishAt && healFinishAt > new Date()}
+                  onClick={() => heal({ villageId: userData.villageId })}
+                >
+                  <Clock className="mr-2 h-6 w-6" />
+                  <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
+                </Button>
+                <Button
+                  id="check"
+                  className="w-full"
+                  color={canAfford ? "default" : "red"}
+                  disabled={healFinishAt && healFinishAt <= new Date()}
+                  onClick={() => heal({ villageId: userData.villageId })}
+                >
+                  {canAfford ? (
+                    <FastForward className="mr-3 h-6 w-6" />
+                  ) : (
+                    <Hand className="mr-3 h-6 w-6" />
+                  )}
+                  <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
+                </Button>
+              </div>
+            </div>
+          )}
+          {!isPending && !isHospitalized && userData && !canHealOthers && (
+            <p className="p-3">You are not hospitalized.</p>
+          )}
+          {!isPending && !isHospitalized && canHealOthers && (
+            <HealOthersComponent
+              userData={userData}
+              timeDiff={timeDiff}
+              updateUser={updateUser}
+            />
+          )}
+          {isPending && <Loader explanation="Healing User" />}
+        </TabsContent>
+        {(userData?.isMedicalNinja || userData?.isKage || userData?.isElder) && (
+          <TabsContent value="squad">
+            <div className="p-3">
+              <MedicalNinjaSquadComponent userData={userData} />
+            </div>
+          </TabsContent>
+        )}
+      </Tabs>
     </ContentBox>
   );
 }
@@ -291,6 +310,162 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
         <p className="p-3">There are nobody injured for you to heal</p>
       )}
       {isPending && <Loader explanation="Healing User" />}
+    </div>
+  );
+};
+
+interface MedicalNinjaSquadComponentProps {
+  userData: NonNullable<UserWithRelations>;
+}
+
+const MedicalNinjaSquadComponent: React.FC<MedicalNinjaSquadComponentProps> = ({ userData }) => {
+  const router = useRouter();
+  const utils = api.useUtils();
+
+  const { data: squads } = api.medicalNinja.getSquads.useQuery(undefined, {
+    refetchInterval: 5000,
+  });
+
+  const { mutate: createSquad, isPending: isCreating } = api.medicalNinja.createSquad.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      await utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
+  const { mutate: deleteSquad, isPending: isDeleting } = api.medicalNinja.deleteSquad.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      await utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
+  const { mutate: setLeader, isPending: isSettingLeader } = api.medicalNinja.setLeader.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      await utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
+  const { mutate: setCoLeader, isPending: isSettingCoLeader } = api.medicalNinja.setCoLeader.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      await utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
+  const { mutate: kickMember, isPending: isKicking } = api.medicalNinja.kickMember.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      await utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
+  const { mutate: joinSquad, isPending: isJoining } = api.medicalNinja.joinSquad.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      await utils.medicalNinja.getSquads.invalidate();
+    },
+  });
+
+  const isPending = isCreating || isDeleting || isSettingLeader || isSettingCoLeader || isKicking || isJoining;
+
+  return (
+    <div className="space-y-4">
+      {userData.isKage && (
+        <Card className="p-4">
+          <h2 className="text-xl font-semibold mb-4">Create Squad</h2>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const name = formData.get("name") as string;
+            await createSquad({ name });
+          }} className="flex gap-2">
+            <Input name="name" placeholder="Squad name" required minLength={3} maxLength={50} />
+            <Button type="submit">Create</Button>
+          </form>
+        </Card>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {squads?.map((squad) => (
+          <Card key={squad.id} className="p-4">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-semibold">{squad.name}</h3>
+              {userData.isKage && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => deleteSquad({ squadId: squad.id })}
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-2 mb-4">
+              <p>
+                Leader: {squad.leader?.name ?? "None"}
+                {userData.isKage && !squad.leader && (
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    const userId = formData.get("userId") as string;
+                    await setLeader({ squadId: squad.id, userId });
+                  }} className="mt-1 flex gap-2">
+                    <Input name="userId" placeholder="User ID" required />
+                    <Button type="submit" size="sm">Set</Button>
+                  </form>
+                )}
+              </p>
+
+              <p>
+                Co-Leader: {squad.coLeader?.name ?? "None"}
+                {(userData.isKage || squad.leaderId === userData.id) && !squad.coLeader && (
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    const userId = formData.get("userId") as string;
+                    await setCoLeader({ squadId: squad.id, userId });
+                  }} className="mt-1 flex gap-2">
+                    <Input name="userId" placeholder="User ID" required />
+                    <Button type="submit" size="sm">Set</Button>
+                  </form>
+                )}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-semibold">Members ({squad.members.length}/10):</h4>
+              {squad.members.map((member) => (
+                <div key={member.userId} className="flex justify-between items-center">
+                  <span>{member.user.name}</span>
+                  {(userData.isKage || squad.leaderId === userData.id || squad.coLeaderId === userData.id) && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => kickMember({ squadId: squad.id, userId: member.userId })}
+                    >
+                      Kick
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {userData.isMedicalNinja && !squad.members.some(m => m.userId === userData.id) && squad.members.length < 10 && (
+              <Button
+                className="w-full mt-4"
+                onClick={() => joinSquad({ squadId: squad.id })}
+              >
+                Join Squad
+              </Button>
+            )}
+          </Card>
+        ))}
+      </div>
+
+      {isPending && <Loader explanation="Processing request..." />}
     </div>
   );
 };
