@@ -11,7 +11,7 @@ export default function OccupationPage() {
   const { toast } = useToast();
   const utils = api.useUtils();
   const { data: userData } = api.profile.getUser.useQuery();
-  const user = userData?.userData;
+  const user = userData?.userData as UserData | undefined;
 
   const { mutate: signUpMedicalNinja } = api.medicalNinja.signUp.useMutation({
     onSuccess: (data: BaseServerResponse) => {
