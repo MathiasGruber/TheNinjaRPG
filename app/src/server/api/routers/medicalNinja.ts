@@ -67,7 +67,9 @@ export const medicalNinjaRouter = createTRPCRouter({
       let newRank = medicalNinja[0].rank;
 
       // Check for rank up
-      for (const [rank, reqExp] of Object.entries(rankExperienceRequirements)) {
+      const sortedRanks = Object.entries(rankExperienceRequirements).sort((a, b) => a[1] - b[1]);
+
+      for (const [rank, reqExp] of sortedRanks) {
         if (newExperience >= reqExp) {
           newRank = rank as keyof typeof medicalNinjaRanks;
         }
