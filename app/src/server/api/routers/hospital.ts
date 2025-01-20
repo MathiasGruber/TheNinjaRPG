@@ -2,19 +2,14 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { sql, eq, gte, lte, and, or, inArray, isNull } from "drizzle-orm";
+import { medicalNinjas, type MedicalNinja } from "@/server/db/schema/medicalNinja";
 import { userData } from "@/drizzle/schema";
-import { hasRequiredRank } from "@/libs/train";
-import { calcHealFinish } from "@/libs/hospital/hospital";
-import { calcHealCost } from "@/libs/hospital/hospital";
+import { calcHealFinish, calcHealCost, calcHealthToChakra } from "@/libs/hospital/hospital";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
 import { structureBoost } from "@/utils/village";
-import { calcIsInVillage } from "@/libs/travel/controls";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
-import { calcHealthToChakra } from "@/libs/hospital/hospital";
-import { MEDNIN_MIN_RANK } from "@/drizzle/constants";
-import { MEDNIN_HEAL_TO_EXP } from "@/drizzle/constants";
-import { MEDNIN_HEALABLE_STATES } from "@/drizzle/constants";
+import { MEDNIN_HEAL_TO_EXP, MEDNIN_HEALABLE_STATES } from "@/drizzle/constants";
 import type { ExecutedQuery } from "@planetscale/database";
 
 const pusher = getServerPusher();
@@ -82,7 +77,7 @@ export const hospitalRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Query for fetching latest user & target
-      const [updatedUser, updatedTarget] = await Promise.all([
+      const [updatedUser, updatedTarget, medicalNinja]: [typeof updatedUser, typeof updatedTarget, MedicalNinja | undefined] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
@@ -94,16 +89,16 @@ export const hospitalRouter = createTRPCRouter({
           userId: input.userId,
           forceRegen: true,
         }),
+        ctx.drizzle.query.medicalNinjas.findFirst({
+          where: eq(medicalNinjas.userId, ctx.userId),
+        }),
       ]);
       // Extract user & target to shorthand variables
       const { user: u } = updatedUser;
       const { user: t } = updatedTarget;
       if (!u) return errorResponse("Your user was not found");
       if (!t) return errorResponse("Your target was not found");
-      // Derived
-      const uInVillage = calcIsInVillage({ x: u.longitude, y: u.latitude });
-      const tInVillage = calcIsInVillage({ x: t.longitude, y: t.latitude });
-      const inVillage = uInVillage && tInVillage;
+      // Check if users are in the same location
       const sameLocation = u.longitude === t.longitude && u.latitude === t.latitude;
       const toHeal = t.maxHealth * (input.healPercentage / 100);
       const chakraCost = calcHealthToChakra(u, toHeal);
@@ -120,14 +115,14 @@ export const hospitalRouter = createTRPCRouter({
       if (t.maxHealth - t.curHealth <= 0) {
         return errorResponse("User did not need this healing anymore");
       }
-      if (!hasRequiredRank(u.rank, MEDNIN_MIN_RANK)) {
-        return errorResponse("You need to be at least a GENIN to heal other users");
+      if (!medicalNinja) {
+        return errorResponse("You must be a medical ninja to heal other users");
       }
       if (u.sector !== t.sector) {
         return errorResponse("You can only heal users in the same sector as you");
       }
-      if (!inVillage && !sameLocation) {
-        return errorResponse("Target user is not in your village");
+      if (!sameLocation) {
+        return errorResponse("Target user is not in the same location as you");
       }
       if (chakraCost > u.curChakra) {
         return errorResponse("You don't have enough chakra to heal this much");
@@ -146,6 +141,8 @@ export const hospitalRouter = createTRPCRouter({
           .update(userData)
           .set({
             curHealth: sql`LEAST(${t.curHealth + toHeal}, ${t.maxHealth})`,
+            curChakra: medicalNinja?.rank === "legendary" ? sql`LEAST(${t.curChakra + toHeal}, ${t.maxChakra})` : t.curChakra,
+            curStamina: medicalNinja?.rank === "legendary" ? sql`LEAST(${t.curStamina + toHeal}, ${t.maxStamina})` : t.curStamina,
             regenAt: new Date(),
             status: "AWAKE",
           })
@@ -153,7 +150,7 @@ export const hospitalRouter = createTRPCRouter({
         if (tResult.rowsAffected === 1) {
           void pusher.trigger(t.userId, "event", {
             type: "userMessage",
-            message: `You've been healed for ${toHeal}HP by ${u.username}`,
+            message: `You've been healed for ${toHeal}HP${medicalNinja.rank === "legendary" ? `, Chakra, and Stamina` : ""} by ${u.username}`,
             route: "/profile",
             routeText: "To profile",
           });
@@ -187,9 +184,12 @@ export const hospitalRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [user, structures] = await Promise.all([
+      const [user, structures, medicalNinja] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchStructures(ctx.drizzle, input.villageId),
+        ctx.drizzle.query.medicalNinjas.findFirst({
+          where: eq(medicalNinjas.userId, ctx.userId),
+        }),
       ]);
       // Guard
       if (user.villageId !== input.villageId) {
@@ -214,7 +214,7 @@ export const hospitalRouter = createTRPCRouter({
             and(eq(userData.userId, ctx.userId), eq(userData.status, "HOSPITALIZED")),
           );
       } else {
-        cost = calcHealCost(user);
+        cost = calcHealCost(user) * (medicalNinja ? 0.7 : 1);
         if (user.money < cost) {
           return errorResponse("You don't have enough money");
         }
