@@ -1424,6 +1424,7 @@ export const userData = mysqlTable(
     marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
     aiProfileId: varchar("aiProfileId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
+    showBattleDescription: boolean("showBattleDescription").default(true).notNull(),
   },
   (table) => {
     return {

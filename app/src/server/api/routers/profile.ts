@@ -89,6 +89,26 @@ import type { NavBarDropdownLink } from "@/libs/menus";
 const pusher = getServerPusher();
 
 export const profileRouter = createTRPCRouter({
+  // Update battle description setting
+  updateBattleDescription: protectedProcedure
+    .input(z.object({ showBattleDescription: z.boolean() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ showBattleDescription: input.showBattleDescription })
+        .where(eq(userData.userId, ctx.userId));
+      // Potential errors
+      if (result.rowsAffected === 0) {
+        return errorResponse("Could not update battle description setting");
+      }
+      // Information
+      return {
+        success: true,
+        message: `Battle descriptions ${input.showBattleDescription ? "enabled" : "disabled"}`,
+      };
+    }),
   // Get user blacklist
   getBlacklist: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userBlackList.findMany({
