@@ -169,11 +169,7 @@ export const bloodlineRouter = createTRPCRouter({
         // Calculate diff
         const newData = {
           ...input.data,
-          effects: input.data.effects.map((e) => {
-            delete e.rounds;
-            delete e.friendlyFire;
-            return e;
-          }),
+          effects: input.data.effects.map(({ rounds: _rounds, friendlyFire: _friendlyFire, ...rest }) => rest),
         };
         const diff = calculateContentDiff(entry, {
           id: entry.id,
