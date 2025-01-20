@@ -8,7 +8,7 @@ import { useUser } from "@clerk/nextjs";
 import { api } from "@/app/_trpc/client";
 import { secondsFromDate } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
-import { calcIsInVillage } from "@/libs/travel/controls";
+
 import { canAccessStructure } from "@/utils/village";
 import { atom } from "jotai";
 import { usePusherHandler } from "@/layout/PusherHandler";

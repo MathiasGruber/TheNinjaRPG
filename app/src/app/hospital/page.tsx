@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { Clock, FastForward, Hand } from "lucide-react";
 import Countdown from "@/layout/Countdown";
@@ -7,17 +8,16 @@ import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import StatusBar, { calcCurrent } from "@/layout/StatusBar";
 import Image from "next/image";
-import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { structureBoost } from "@/utils/village";
-import { calcIsInVillage } from "@/libs/travel/controls";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { calcHealFinish } from "@/libs/hospital/hospital";
-import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
-import { MEDNIN_MIN_RANK, IMG_BUILDING_HOSPITAL } from "@/drizzle/constants";
+import { calcHealFinish, calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
+import { IMG_BUILDING_HOSPITAL } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -56,7 +56,7 @@ export default function Hospital() {
   const healFinishAt = userData && calcHealFinish({ user: userData, timeDiff, boost });
   const healCost = userData && calcHealCost(userData);
   const canAfford = userData && healCost && userData.money >= healCost;
-  const canHealOthers = hasRequiredRank(userData?.rank, MEDNIN_MIN_RANK);
+  const canHealOthers = userData?.isMedicalNinja;
 
   // Heal finish time
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -220,11 +220,7 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
     refetchInterval: 5000,
     enabled: !!userData,
   });
-  const allHospitalized = hospitalized
-    ?.filter(
-      (user) => calcIsInVillage({ x: user.longitude, y: user.latitude }) === true,
-    )
-    .map((user) => {
+  const allHospitalized = hospitalized?.map((user) => {
       const missingHealth = user.maxHealth - user.curHealth;
       return {
         ...user,
@@ -319,7 +315,7 @@ interface MedicalNinjaSquadComponentProps {
 }
 
 const MedicalNinjaSquadComponent: React.FC<MedicalNinjaSquadComponentProps> = ({ userData }) => {
-  const router = useRouter();
+
   const utils = api.useUtils();
 
   const { data: squads } = api.medicalNinja.getSquads.useQuery(undefined, {
