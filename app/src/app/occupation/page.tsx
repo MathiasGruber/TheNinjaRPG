@@ -1,4 +1,4 @@
-import { api } from "@/trpc/server";
+import { api } from "~/trpc/server";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 
