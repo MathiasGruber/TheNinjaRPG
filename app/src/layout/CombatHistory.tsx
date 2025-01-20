@@ -5,6 +5,7 @@ import { api } from "@/app/_trpc/client";
 import { groupBy } from "@/utils/grouping";
 import { insertComponentsIntoText } from "@/utils/string";
 import { cn } from "src/libs/shadui";
+import { useRequiredUserData } from "@/utils/UserContext";
 import type { CombatResult } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 
@@ -19,6 +20,7 @@ interface CombatHistoryProps {
 const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
   // State
   const { battleId, battleVersion, battleRound, results, asc } = props;
+  const { data: userData } = useRequiredUserData();
 
   // From database
   const { data: allEntries, isFetching } = api.combat.getBattleEntries.useQuery(
@@ -79,7 +81,9 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
                 key={`v-${entry.battleVersion}`}
                 className="mb-4 text-base font-normal text-gray-500"
               >
-                #{entry.battleVersion}: {entry.description}
+                {userData?.showBattleDescription
+                  ? `#${entry.battleVersion}: ${entry.description}`
+                  : ""}
                 {effects?.map((effect, i) => {
                   const color =
                     effect.color === "red"

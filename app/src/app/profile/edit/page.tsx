@@ -35,6 +35,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
 import {
@@ -72,6 +73,49 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Bloodline, Village } from "@/drizzle/schema";
+
+/**
+ * Battle Settings Edit
+ */
+const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
+  // Queries & mutations
+  const { data: profile, isPending: isPendingProfile } =
+    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
+  const { data: userData } = useRequiredUserData();
+  const utils = api.useUtils();
+
+  // Update battle description setting
+  const { mutate: updateBattleDescription } =
+    api.profile.updateBattleDescription.useMutation({
+      onSuccess: async () => {
+        await utils.profile.getUser.invalidate();
+      },
+    });
+
+  // Loaders
+  if (!profile || isPendingProfile) return <Loader explanation="Loading profile" />;
+
+  // Render
+  return (
+    <div className="pb-3">
+      <div className="flex items-center space-x-2 m-2 mb-4 ">
+        <Switch
+          id="battle-description"
+          checked={userData?.showBattleDescription}
+          onCheckedChange={(checked) =>
+            updateBattleDescription({ showBattleDescription: checked })
+          }
+        />
+        <Label htmlFor="battle-description">Show battle descriptions</Label>
+      </div>
+      <AiProfileEdit userData={profile} hideTitle />
+      <p className="italic">
+        This allows you to change how your character behaves in the game in e.g. kage
+        battles.
+      </p>
+    </div>
+  );
+};
 
 export default function EditProfile() {
   // State
@@ -226,13 +270,13 @@ export default function EditProfile() {
           <RerollElement />
         </Accordion>
         <Accordion
-          title="AI Profile"
+          title="Battle Settings"
           selectedTitle={activeElement}
-          unselectedSubtitle="Adjust how your character is played by AI"
+          unselectedSubtitle="Customize battle preferences and AI behavior"
           selectedSubtitle=""
           onClick={setActiveElement}
         >
-          <AdjustAiProfile userId={userData.userId} />
+          <BattleSettingsEdit userId={userData.userId} />
         </Accordion>
         {canSwapBloodline(userData.role) && (
           <Accordion
@@ -260,29 +304,6 @@ export default function EditProfile() {
     </ContentBox>
   );
 }
-
-/**
- * AI Profile Edit
- */
-const AdjustAiProfile: React.FC<{ userId: string }> = ({ userId }) => {
-  // Queries & mutations
-  const { data: profile, isPending: isPendingProfile } =
-    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
-
-  // Loaders
-  if (!profile || isPendingProfile) return <Loader explanation="Loading profile" />;
-
-  // Render
-  return (
-    <div className="pb-3">
-      <p>
-        Play with the AI profile of your character. This allows you to change how your
-        character behaves in the game in e.g. kage battles.
-      </p>
-      <AiProfileEdit userData={profile} hideTitle />
-    </div>
-  );
-};
 
 /**
  * Marriage
