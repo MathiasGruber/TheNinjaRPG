@@ -19,7 +19,7 @@ import {
   ratelimitMiddleware,
   hasUserMiddleware,
 } from "@/server/api/trpc";
-import { serverError, baseServerResponse, errorResponse } from "../trpc";
+import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
 import { deleteCommentSchema } from "@/validators/comments";
@@ -116,34 +116,36 @@ export const commentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const thread = await fetchThread(ctx.drizzle, input.thread_id);
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const comments = await ctx.drizzle.query.forumPost.findMany({
-        offset: skip,
-        limit: input.limit,
-        where: eq(forumPost.threadId, thread.id),
-        with: {
-          user: {
-            columns: {
-              userId: true,
-              username: true,
-              avatar: true,
-              rank: true,
-              isOutlaw: true,
-              level: true,
-              role: true,
-              federalStatus: true,
+      const [thread, comments, counts] = await Promise.all([
+        fetchThread(ctx.drizzle, input.thread_id),
+        ctx.drizzle.query.forumPost.findMany({
+          offset: skip,
+          limit: input.limit,
+          where: eq(forumPost.threadId, input.thread_id),
+          with: {
+            user: {
+              columns: {
+                userId: true,
+                username: true,
+                avatar: true,
+                rank: true,
+                isOutlaw: true,
+                level: true,
+                role: true,
+                federalStatus: true,
+              },
             },
           },
-        },
-        orderBy: [asc(forumPost.createdAt)],
-      });
+          orderBy: [asc(forumPost.createdAt)],
+        }),
+        ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(forumPost)
+          .where(eq(forumPost.threadId, input.thread_id)),
+      ]);
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
-      const counts = await ctx.drizzle
-        .select({ count: sql<number>`count(*)`.mapWith(Number) })
-        .from(forumPost)
-        .where(eq(forumPost.threadId, thread.id));
       const totalComments = counts?.[0]?.count || 0;
       return {
         thread: thread,
@@ -157,12 +159,21 @@ export const commentsRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .use(hasUserMiddleware)
     .input(mutateCommentSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const thread = await fetchThread(ctx.drizzle, input.object_id);
+      // Query
+      const [user, thread] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchThread(ctx.drizzle, input.object_id),
+      ]);
+      // Guard
       if (user.isBanned || user.isSilenced) {
-        throw serverError("UNAUTHORIZED", "You are banned");
+        return errorResponse("You are banned");
       }
+      if (!thread) {
+        return errorResponse("Thread not found");
+      }
+      // Mutate
       const sanitized = sanitize(input.comment);
       const createdId = nanoid();
       await Promise.all([
@@ -184,7 +195,7 @@ export const commentsRouter = createTRPCRouter({
           .set({ nPosts: sql`nPosts + 1` })
           .where(eq(forumThread.id, thread.id)),
       ]);
-      return true;
+      return { success: true, message: "Comment posted" };
     }),
   editForumComment: protectedProcedure
     .input(mutateCommentSchema)

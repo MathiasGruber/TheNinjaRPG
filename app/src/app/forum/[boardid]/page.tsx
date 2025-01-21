@@ -21,6 +21,7 @@ import {
 import { forumText } from "@/layout/seoTexts";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { showMutationToast } from "@/libs/toast";
 import { Bookmark, Lock, Unlock, Trash2 } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { forumBoardSchema, type ForumBoardSchema } from "@/validators/forum";
@@ -62,34 +63,34 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
     resolver: zodResolver(forumBoardSchema),
   });
 
-  const { mutate: createThread, isPending: load1 } = api.forum.createThread.useMutation(
-    {
-      onSuccess: async () => {
-        await refetch();
-        form.reset();
-      },
+  const { mutate: createThread, isPending: l1 } = api.forum.createThread.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await refetch();
+      form.reset();
     },
-  );
+  });
 
-  const { mutate: pinThread, isPending: load2 } = api.forum.pinThread.useMutation({
-    onSuccess: async () => {
+  const { mutate: pinThread, isPending: l2 } = api.forum.pinThread.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
     },
   });
 
-  const { mutate: lockThread, isPending: load3 } = api.forum.lockThread.useMutation({
-    onSuccess: async () => {
+  const { mutate: lockThread, isPending: l3 } = api.forum.lockThread.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
     },
   });
 
-  const { mutate: deleteThread, isPending: load4 } = api.forum.deleteThread.useMutation(
-    {
-      onSuccess: async () => {
-        await refetch();
-      },
+  const { mutate: deleteThread, isPending: l4 } = api.forum.deleteThread.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await refetch();
     },
-  );
+  });
 
   useEffect(() => {
     if (board) {
@@ -103,7 +104,7 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
 
   if (!board) return <Loader explanation="Loading..."></Loader>;
 
-  const isPending = load1 || load2 || load3 || load4;
+  const isPending = l1 || l2 || l3 || l4;
   const canEdit = userData && canModerate(userData.role);
 
   return (
