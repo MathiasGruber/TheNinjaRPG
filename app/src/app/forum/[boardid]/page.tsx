@@ -18,8 +18,10 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { forumText } from "@/layout/seoTexts";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { showMutationToast } from "@/libs/toast";
 import { Bookmark, Lock, Unlock, Trash2 } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { forumBoardSchema, type ForumBoardSchema } from "@/validators/forum";
@@ -61,34 +63,34 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
     resolver: zodResolver(forumBoardSchema),
   });
 
-  const { mutate: createThread, isPending: load1 } = api.forum.createThread.useMutation(
-    {
-      onSuccess: async () => {
-        await refetch();
-        form.reset();
-      },
+  const { mutate: createThread, isPending: l1 } = api.forum.createThread.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await refetch();
+      form.reset();
     },
-  );
+  });
 
-  const { mutate: pinThread, isPending: load2 } = api.forum.pinThread.useMutation({
-    onSuccess: async () => {
+  const { mutate: pinThread, isPending: l2 } = api.forum.pinThread.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
     },
   });
 
-  const { mutate: lockThread, isPending: load3 } = api.forum.lockThread.useMutation({
-    onSuccess: async () => {
+  const { mutate: lockThread, isPending: l3 } = api.forum.lockThread.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
       await refetch();
     },
   });
 
-  const { mutate: deleteThread, isPending: load4 } = api.forum.deleteThread.useMutation(
-    {
-      onSuccess: async () => {
-        await refetch();
-      },
+  const { mutate: deleteThread, isPending: l4 } = api.forum.deleteThread.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await refetch();
     },
-  );
+  });
 
   useEffect(() => {
     if (board) {
@@ -102,173 +104,183 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
 
   if (!board) return <Loader explanation="Loading..."></Loader>;
 
-  const isPending = load1 || load2 || load3 || load4;
+  const isPending = l1 || l2 || l3 || l4;
   const canEdit = userData && canModerate(userData.role);
 
   return (
-    <ContentBox
-      title="Forum"
-      back_href="/forum"
-      subtitle={board.name}
-      topRightContent={
-        <>
-          {isPending && <Loader></Loader>}
-          {userData && !userData.isBanned && !userData.isSilenced && !isPending && (
-            <div className="flex flex-row items-center">
-              <Confirm
-                title="Create a new thread"
-                proceed_label="Submit"
-                button={<Button id="create">New Thread</Button>}
-                isValid={form.formState.isValid}
-                onAccept={onSubmit}
-              >
-                <Form {...form}>
-                  <form className="space-y-2" onSubmit={onSubmit}>
-                    <FormField
-                      control={form.control}
-                      name="title"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Title</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Title for your thread" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <RichInput
-                      id="content"
-                      label="Contents of your thread"
-                      height="300"
-                      placeholder=""
-                      control={form.control}
-                      error={form.formState.errors.content?.message}
-                    />
-                  </form>
-                </Form>
-              </Confirm>
-            </div>
-          )}
-        </>
-      }
-    >
-      {allThreads?.length === 0 && <div>No threads found</div>}
-      {allThreads?.map((thread, i) => {
-        // Icons, which have to be clickable for moderators+, but just shown otherwise
-        const MyBookmark = (
-          <Bookmark
-            className={`mr-2 h-6 w-6 ${
-              thread.isPinned
-                ? "text-orange-500"
-                : canEdit
-                  ? "hover:text-orange-500"
-                  : ""
-            }`}
-          />
-        );
-        const MyLockIcon = thread.isLocked ? (
-          <Lock className="h-6 w-6 text-orange-500" />
-        ) : (
-          <Unlock className={`h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`} />
-        );
-        const MyDeleteIcon = (
-          <Trash2
-            className={`ml-2 h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`}
-          />
-        );
-        // Dynamic Names
-        const pinAction = thread.isPinned ? "unpin" : "pin";
-        const lockAction = thread.isLocked ? "unlock" : "lock";
-        let title = thread.title;
-        title = thread.isLocked ? "[Locked] " + title : title;
-        title = thread.isPinned ? "[Pinned] " + title : title;
+    <>
+      {!userData && (
+        <ContentBox title="Public Forum" back_href={"/forum/"}>
+          {forumText}
+        </ContentBox>
+      )}
+      <ContentBox
+        title="Forum"
+        back_href={userData ? "/forum/" : undefined}
+        initialBreak={userData ? false : true}
+        subtitle={board.name}
+        topRightContent={
+          <>
+            {isPending && <Loader></Loader>}
+            {userData && !userData.isBanned && !userData.isSilenced && !isPending && (
+              <div className="flex flex-row items-center">
+                <Confirm
+                  title="Create a new thread"
+                  proceed_label="Submit"
+                  button={<Button id="create">New Thread</Button>}
+                  isValid={form.formState.isValid}
+                  onAccept={onSubmit}
+                >
+                  <Form {...form}>
+                    <form className="space-y-2" onSubmit={onSubmit}>
+                      <FormField
+                        control={form.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Title for your thread" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <RichInput
+                        id="content"
+                        label="Contents of your thread"
+                        height="300"
+                        placeholder=""
+                        control={form.control}
+                        error={form.formState.errors.content?.message}
+                      />
+                    </form>
+                  </Form>
+                </Confirm>
+              </div>
+            )}
+          </>
+        }
+      >
+        {allThreads?.length === 0 && <div>No threads found</div>}
+        {allThreads?.map((thread, i) => {
+          // Icons, which have to be clickable for moderators+, but just shown otherwise
+          const MyBookmark = (
+            <Bookmark
+              className={`mr-2 h-6 w-6 ${
+                thread.isPinned
+                  ? "text-orange-500"
+                  : canEdit
+                    ? "hover:text-orange-500"
+                    : ""
+              }`}
+            />
+          );
+          const MyLockIcon = thread.isLocked ? (
+            <Lock className="h-6 w-6 text-orange-500" />
+          ) : (
+            <Unlock className={`h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`} />
+          );
+          const MyDeleteIcon = (
+            <Trash2
+              className={`ml-2 h-6 w-6 ${canEdit ? "hover:text-orange-500" : ""}`}
+            />
+          );
+          // Dynamic Names
+          const pinAction = thread.isPinned ? "unpin" : "pin";
+          const lockAction = thread.isLocked ? "unlock" : "lock";
+          let title = thread.title;
+          title = thread.isLocked ? "[Locked] " + title : title;
+          title = thread.isPinned ? "[Pinned] " + title : title;
 
-        return (
-          <div
-            key={thread.id}
-            ref={i === allThreads.length - 1 ? setLastElement : null}
-          >
-            <Link href={"/forum/" + board.id + "/" + thread.id}>
-              <Post
-                title={title}
-                hover_effect={true}
-                align_middle={true}
-                image={
-                  <div className="mr-3 basis-1/12">
-                    <Image
-                      src={IMG_ICON_FORUM}
-                      width={100}
-                      height={100}
-                      alt="Forum Icon"
-                      className={
-                        secondsPassed(thread.updatedAt) > 3600 * 24 ? "opacity-50" : ""
-                      }
-                    ></Image>
-                  </div>
-                }
-                options={
-                  <div className="ml-3">
-                    <div className="mt-2 flex flex-row items-center ">
-                      {userData && canModerate(userData.role) ? (
-                        <>
-                          <Confirm
-                            title={`Confirm ${pinAction}ning thread`}
-                            button={MyBookmark}
-                            onAccept={(e) => {
-                              e.preventDefault();
-                              pinThread({
-                                thread_id: thread.id,
-                                status: !thread.isPinned,
-                              });
-                            }}
-                          >
-                            You are about to {pinAction} a thread. Are you sure?
-                          </Confirm>
-                          <Confirm
-                            title={`Confirm ${lockAction}ing thread`}
-                            button={MyLockIcon}
-                            onAccept={(e) => {
-                              e.preventDefault();
-                              lockThread({
-                                thread_id: thread.id,
-                                status: !thread.isLocked,
-                              });
-                            }}
-                          >
-                            You are about to {lockAction} a thread. Are you sure?
-                          </Confirm>
-                          <Confirm
-                            title={`Confirm deleting thread`}
-                            button={MyDeleteIcon}
-                            onAccept={(e) => {
-                              e.preventDefault();
-                              deleteThread({ thread_id: thread.id });
-                            }}
-                          >
-                            You are about to delete a thread. Are you sure?
-                          </Confirm>
-                        </>
-                      ) : (
-                        <>
-                          {MyBookmark}
-                          {MyLockIcon}
-                        </>
-                      )}
+          return (
+            <div
+              key={thread.id}
+              ref={i === allThreads.length - 1 ? setLastElement : null}
+            >
+              <Link href={"/forum/" + board.id + "/" + thread.id}>
+                <Post
+                  title={title}
+                  hover_effect={true}
+                  align_middle={true}
+                  image={
+                    <div className="mr-3 basis-1/12">
+                      <Image
+                        src={IMG_ICON_FORUM}
+                        width={100}
+                        height={100}
+                        alt="Forum Icon"
+                        className={
+                          secondsPassed(thread.updatedAt) > 3600 * 24
+                            ? "opacity-50"
+                            : ""
+                        }
+                      ></Image>
                     </div>
-                    <div className="mt-2">
-                      <span className="font-bold">{board.nPosts} </span> replies
+                  }
+                  options={
+                    <div className="ml-3">
+                      <div className="mt-2 flex flex-row items-center ">
+                        {userData && canModerate(userData.role) ? (
+                          <>
+                            <Confirm
+                              title={`Confirm ${pinAction}ning thread`}
+                              button={MyBookmark}
+                              onAccept={(e) => {
+                                e.preventDefault();
+                                pinThread({
+                                  thread_id: thread.id,
+                                  status: !thread.isPinned,
+                                });
+                              }}
+                            >
+                              You are about to {pinAction} a thread. Are you sure?
+                            </Confirm>
+                            <Confirm
+                              title={`Confirm ${lockAction}ing thread`}
+                              button={MyLockIcon}
+                              onAccept={(e) => {
+                                e.preventDefault();
+                                lockThread({
+                                  thread_id: thread.id,
+                                  status: !thread.isLocked,
+                                });
+                              }}
+                            >
+                              You are about to {lockAction} a thread. Are you sure?
+                            </Confirm>
+                            <Confirm
+                              title={`Confirm deleting thread`}
+                              button={MyDeleteIcon}
+                              onAccept={(e) => {
+                                e.preventDefault();
+                                deleteThread({ thread_id: thread.id });
+                              }}
+                            >
+                              You are about to delete a thread. Are you sure?
+                            </Confirm>
+                          </>
+                        ) : (
+                          <>
+                            {MyBookmark}
+                            {MyLockIcon}
+                          </>
+                        )}
+                      </div>
+                      <div className="mt-2">
+                        <span className="font-bold">{board.nPosts} </span> replies
+                      </div>
                     </div>
-                  </div>
-                }
-              >
-                Started by {thread.user.username},{" "}
-                {thread.createdAt.toLocaleDateString()}
-              </Post>
-            </Link>
-          </div>
-        );
-      })}
-    </ContentBox>
+                  }
+                >
+                  Started by {thread.user.username},{" "}
+                  {thread.createdAt.toLocaleDateString()}
+                </Post>
+              </Link>
+            </div>
+          );
+        })}
+      </ContentBox>
+    </>
   );
 }

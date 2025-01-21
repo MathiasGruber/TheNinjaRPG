@@ -1,13 +1,17 @@
 import { z } from "zod";
 import { forumThread, forumBoard, forumPost } from "@/drizzle/schema";
 import { userData } from "@/drizzle/schema";
-import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
-import { serverError } from "../trpc";
+import {
+  createTRPCRouter,
+  publicProcedure,
+  protectedProcedure,
+} from "@/server/api/trpc";
+import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { eq, sql, desc, asc } from "drizzle-orm";
 import { forumBoardSchema } from "@/validators/forum";
 import { canModerate, canCreateNews } from "@/utils/permissions";
-import { callDiscordNews } from "../../../libs/discord";
-import { fetchUser } from "./profile";
+import { callDiscordNews } from "@/libs/discord";
+import { fetchUser } from "@/routers/profile";
 import { nanoid } from "nanoid";
 import { moderateContent } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
@@ -47,25 +51,29 @@ export const forumRouter = createTRPCRouter({
     }),
   createThread: protectedProcedure
     .input(forumBoardSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const threadId = nanoid();
       const [board, user] = await Promise.all([
         fetchBoard(ctx.drizzle, input.board_id),
         fetchUser(ctx.drizzle, ctx.userId),
       ]);
+      // Guard
       const isNews = board.name === "News";
       if (isNews && !canCreateNews(user.role)) {
-        throw serverError("UNAUTHORIZED", "You are not authorized to create news");
+        return errorResponse("You are not authorized to create news");
       }
       if (user.isBanned || user.isSilenced) {
-        throw serverError("UNAUTHORIZED", "You are banned");
+        return errorResponse("You are banned");
       }
       if (!board) {
-        throw serverError("UNAUTHORIZED", "Board does not exist");
+        return errorResponse("Board does not exist");
       }
       if (isNews) {
         await callDiscordNews(user.username, input.title, input.content, user.avatar);
       }
+      // Mutate
       const sanitized = sanitize(input.content);
       const postId = nanoid();
       await Promise.all([
@@ -100,59 +108,85 @@ export const forumRouter = createTRPCRouter({
             ]
           : []),
       ]);
-      return threadId;
+      return { success: true, message: "Thread created" };
     }),
   // Pin forum thread to be on top
   pinThread: protectedProcedure
-    .input(
-      z.object({
-        thread_id: z.string(),
-        status: z.boolean(),
-      }),
-    )
+    .input(z.object({ thread_id: z.string(), status: z.boolean() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const thread = await fetchThread(ctx.drizzle, input.thread_id);
+      // Query
+      const [user, thread] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchThread(ctx.drizzle, input.thread_id),
+      ]);
+      // Guard
       if (!canModerate(user.role)) {
-        throw serverError("UNAUTHORIZED", "You are not authorized");
+        return errorResponse("You are not authorized");
       }
-      return await ctx.drizzle
+      if (!thread) {
+        return errorResponse("Thread not found");
+      }
+      // Mutate
+      await ctx.drizzle
         .update(forumThread)
         .set({ isPinned: input.status ? 1 : 0 })
         .where(eq(forumThread.id, thread.id));
+      return {
+        success: true,
+        message: input.status ? "Thread pinned" : "Thread unpinned",
+      };
     }),
   lockThread: protectedProcedure
-    .input(
-      z.object({
-        thread_id: z.string(),
-        status: z.boolean(),
-      }),
-    )
+    .input(z.object({ thread_id: z.string(), status: z.boolean() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const thread = await fetchThread(ctx.drizzle, input.thread_id);
+      // Query
+      const [user, thread] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchThread(ctx.drizzle, input.thread_id),
+      ]);
+      // Guard
       if (!canModerate(user.role)) {
-        throw serverError("UNAUTHORIZED", "You are not authorized");
+        return errorResponse("You are not authorized");
       }
-      return await ctx.drizzle
+      if (!thread) {
+        return errorResponse("Thread not found");
+      }
+      // Mutate
+      await ctx.drizzle
         .update(forumThread)
         .set({ isLocked: input.status ? 1 : 0 })
         .where(eq(forumThread.id, thread.id));
+      return {
+        success: true,
+        message: input.status ? "Thread locked" : "Thread unlocked",
+      };
     }),
   deleteThread: protectedProcedure
     .input(z.object({ thread_id: z.string() }))
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const thread = await fetchThread(ctx.drizzle, input.thread_id);
+      // Query
+      const [user, thread] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchThread(ctx.drizzle, input.thread_id),
+      ]);
+      // Guard
       if (!canModerate(user.role)) {
-        throw serverError("UNAUTHORIZED", "You are not authorized");
+        return errorResponse("You are not authorized");
       }
+      if (!thread) {
+        return errorResponse("Thread not found");
+      }
+      // Mutate
       await ctx.drizzle.delete(forumThread).where(eq(forumThread.id, thread.id));
       await ctx.drizzle.delete(forumPost).where(eq(forumPost.threadId, thread.id));
       await ctx.drizzle
         .update(forumBoard)
         .set({ nThreads: sql`nThreads - 1` })
         .where(eq(forumBoard.id, thread.boardId));
+      return { success: true, message: "Thread deleted" };
     }),
 });
 
@@ -209,13 +243,9 @@ export const fetchBoard = async (
 };
 
 export const fetchThread = async (client: DrizzleClient, threadId: string) => {
-  const entry = await client.query.forumThread.findFirst({
+  return await client.query.forumThread.findFirst({
     where: eq(forumThread.id, threadId),
   });
-  if (!entry) {
-    throw new Error("Thread not found");
-  }
-  return entry;
 };
 
 export const readNews = async (client: DrizzleClient, userId: string) => {
