@@ -336,3 +336,102 @@ export const aiText = (name: string) => {
     </>
   );
 };
+
+export const changelogText = () => {
+  return (
+    <>
+      Welcome to The Ninja RPG&apos;s Activity Log, your central hub for tracking all
+      changes and developments in our dynamic ninja world. This comprehensive log
+      provides complete transparency into game updates, balance changes, new features,
+      and notable player achievements. Whether you&apos;re interested in recent content
+      additions, important bug fixes, or significant player milestones, this page offers
+      real-time insights into everything that shapes our gaming community. <br /> <br />
+      Our activity log covers a wide spectrum of updates, including gameplay mechanics
+      adjustments, new missions and areas, bloodline modifications, jutsu balancing, and
+      item introductions. You&apos;ll also find records of player achievements, clan
+      formations, rank advancements, and other community milestones that contribute to
+      our game&apos;s rich history. This transparency ensures you&apos;re always
+      informed about how The Ninja RPG evolves and grows. <br /> <br />
+      Want to stay even more connected to these developments? Join our active{" "}
+      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+        Discord community
+      </Link>{" "}
+      for real-time discussions about updates and changes. For technical details and
+      development insights, check our{" "}
+      <Link
+        className="font-bold"
+        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+      >
+        GitHub repository
+      </Link>
+      , where you can track issues and contribute to future improvements. The{" "}
+      <Link className="font-bold" href="/manual">
+        game manual
+      </Link>{" "}
+      is regularly updated to reflect these changes, while our{" "}
+      <Link className="font-bold" href="/forum">
+        forums
+      </Link>{" "}
+      offer in-depth discussions about updates and their impact on gameplay. <br />{" "}
+      <br />
+      This activity log represents our commitment to community engagement and game
+      transparency. By maintaining detailed records of changes and developments, we
+      ensure that every player can understand and participate in The Ninja RPG&apos;s
+      evolution. Whether you&apos;re a veteran ninja or just starting your journey,
+      these logs provide valuable context for your adventures and help you stay informed
+      about the forces shaping our ninja world. Ready to dive deeper into the
+      game&apos;s history and future? Sign up at theninja-rpg.com and become part of our
+      ever-growing story.
+    </>
+  );
+};
+
+export const battleCalcText = () => {
+  return (
+    <>
+      Welcome to The Ninja RPG&apos;s Battle Calculator, your essential tool for
+      understanding and mastering our game&apos;s combat mechanics. This interactive
+      testing ground lets you experiment with different stats, jutsu combinations, and
+      equipment setups to see exactly how our damage formulas work. Whether you&apos;re
+      planning your next build or analyzing combat effectiveness, this calculator
+      provides valuable insights into the mathematical foundations of ninja warfare.{" "}
+      <br /> <br />
+      By adjusting various parameters like attack power, defense values, bloodline
+      bonuses, and equipment modifiers, you can simulate battle scenarios and predict
+      outcomes before risking your ninja&apos;s life in actual combat. This tool is
+      invaluable for both newcomers learning the basics and veteran players optimizing
+      their strategies for high-stakes PvP encounters or challenging missions.
+      Understanding these mechanics is key to becoming a formidable force in our ninja
+      world. <br /> <br />
+      Ready to dive deeper into combat mechanics? Our{" "}
+      <Link className="font-bold" href="/manual">
+        game manual
+      </Link>{" "}
+      provides comprehensive details about combat formulas and strategies. Join our
+      thriving{" "}
+      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+        Discord community
+      </Link>{" "}
+      to discuss builds and tactics with fellow ninjas. Found something interesting?
+      Share your discoveries on our{" "}
+      <Link className="font-bold" href="/forum">
+        forums
+      </Link>
+      , or report potential issues through our{" "}
+      <Link
+        className="font-bold"
+        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+      >
+        GitHub repository
+      </Link>
+      . <br /> <br />
+      The Battle Calculator embodies our commitment to transparency and strategic depth
+      in The Ninja RPG. By providing this tool, we empower you to make informed
+      decisions about your character&apos;s development and combat approach. Whether
+      you&apos;re theory-crafting new builds or validating existing strategies, these
+      calculations help illuminate the path to ninja mastery. Ready to put your theories
+      to the test? Sign up at theninja-rpg.com and transform your mathematical insights
+      into battlefield victories.
+    </>
+  );
+};

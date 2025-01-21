@@ -86,7 +86,7 @@ export const staffRouter = createTRPCRouter({
           changes: [`Insert badge: ${badge.name}`],
           relatedId: input.userId,
           relatedMsg: `Insert badge: ${badge.name}`,
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         }),
       ]);
       return { success: true, message: "Badge added" };
@@ -128,7 +128,7 @@ export const staffRouter = createTRPCRouter({
           changes: [`Remove badge: ${badge.name}`],
           relatedId: input.userId,
           relatedMsg: `Remove badge: ${badge.name}`,
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         }),
       ]);
 

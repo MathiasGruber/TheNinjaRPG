@@ -493,7 +493,7 @@ export const profileRouter = createTRPCRouter({
           changes: diff,
           relatedId: target.userId,
           relatedMsg: `Update: ${target.username}`,
-          relatedImage: target.avatar,
+          relatedImage: target.avatarLight,
         }),
       ]);
       return { success: true, message: `Data updated: ${diff.join(". ")}` };
@@ -627,7 +627,7 @@ export const profileRouter = createTRPCRouter({
           changes: [`Username changed from ${user.username} to ${input.username}`],
           relatedId: ctx.userId,
           relatedMsg: `Update: ${user.username} -> ${input.username}`,
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         });
         return { success: true, message: "Username updated" };
       }

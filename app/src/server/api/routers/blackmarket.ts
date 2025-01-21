@@ -283,7 +283,7 @@ export const blackMarketRouter = createTRPCRouter({
           changes: [`Custom title changed from ${user.customTitle} to ${input.title}`],
           relatedId: ctx.userId,
           relatedMsg: `Update: ${user.customTitle} -> ${input.title}`,
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         });
         return { success: true, message: "Custom title updated" };
       }
@@ -340,7 +340,7 @@ export const blackMarketRouter = createTRPCRouter({
           changes: ["Item slot purchased"],
           relatedId: ctx.userId,
           relatedMsg: "Update: Item slot purchased",
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         });
         return { success: true, message: "Item slot purchased" };
       }
@@ -375,7 +375,7 @@ export const blackMarketRouter = createTRPCRouter({
           changes: ["Jutsu slot purchased"],
           relatedId: ctx.userId,
           relatedMsg: "Update: Jutsu slot purchased",
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         });
         return { success: true, message: "Jutsu slot purchased" };
       }
@@ -420,7 +420,7 @@ export const blackMarketRouter = createTRPCRouter({
           changes: ["Element rerolled"],
           relatedId: ctx.userId,
           relatedMsg: "Update: Element rerolled",
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         });
         return { success: true, message: "Element rerolled" };
       }
@@ -469,7 +469,7 @@ export const blackMarketRouter = createTRPCRouter({
           changes: [`User stats distribution changed`],
           relatedId: ctx.userId,
           relatedMsg: `Update: ${user.username} stats redistribution`,
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         });
         return {
           success: true,

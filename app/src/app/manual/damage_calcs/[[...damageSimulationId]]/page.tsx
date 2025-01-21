@@ -27,6 +27,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { battleCalcText } from "@/layout/seoTexts";
 import { Input } from "@/components/ui/input";
 import type { DamageSimulation } from "@/drizzle/schema";
 import type { z } from "zod";
@@ -42,11 +43,9 @@ type ConfigSchema = z.infer<typeof confSchema>;
 const defaultsStats = statSchema.parse({});
 const statNames = Object.keys(defaultsStats) as (keyof typeof defaultsStats)[];
 
-export default function Simulator(
-  props: {
-    params: Promise<{ damageSimulationId?: string }>;
-  }
-) {
+export default function Simulator(props: {
+  params: Promise<{ damageSimulationId?: string }>;
+}) {
   const params = use(props.params);
   // Fetch user data
   const { data: userData } = useUserData();
@@ -283,10 +282,20 @@ export default function Simulator(
 
   return (
     <>
+      {!userData && (
+        <ContentBox
+          title="Damage Simulator"
+          subtitle="Damage calculation tool"
+          back_href="/manual"
+        >
+          {battleCalcText()}
+        </ContentBox>
+      )}
       <ContentBox
         title="Damage Simulator"
         subtitle="Benchmark your build"
-        back_href="/manual"
+        initialBreak={!userData}
+        back_href={userData ? "/manual" : undefined}
         padding={false}
         topRightContent={
           <Toggle

@@ -147,7 +147,7 @@ export const travelRouter = createTRPCRouter({
           changes: [`Was robbed for ${stolenAmount} ryo by ${user.username}`],
           relatedId: user.userId,
           relatedMsg: `Was robbed by ${user.username}`,
-          relatedImage: user.avatar,
+          relatedImage: user.avatarLight,
         });
         if (logInsert.rowsAffected === 0) {
           // Non-critical error, continue but log it
