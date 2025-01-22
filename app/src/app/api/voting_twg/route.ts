@@ -5,18 +5,14 @@ import { nanoid } from "nanoid";
 import { handleEndpointError } from "@/libs/gamesettings";
 import { cookies } from "next/headers";
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ uid: string }> },
-) {
+export async function POST(request: Request) {
   // disable cache for this server action
   await cookies();
-  const results = await params;
-  console.error(results);
-  const uid = results.uid;
 
   try {
     const now = new Date();
+    const data = (await request.formData()) as { uid?: string };
+    const uid = data.uid;
 
     await drizzleDB.insert(userVotes).values({
       id: nanoid(),
