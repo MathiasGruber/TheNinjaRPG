@@ -1,0 +1,4 @@
+ALTER TABLE `Clan` ADD `regenBoost` double DEFAULT 0 NOT NULL;
+
+INSERT INTO `VillageStructure` (`id`, `name`, `image`, `villageId`, `level`, `maxLevel`, `curSp`, `maxSp`, `longitude`, `latitude`, `hasPage`, `anbuSquadsPerLvl`, `arenaRewardPerLvl`, `bankInterestPerLvl`, `blackDiscountPerLvl`, `clansPerLvl`, `hospitalSpeedupPerLvl`, `itemDiscountPerLvl`, `ramenDiscountPerLvl`, `regenIncreasePerLvl`, `sleepRegenPerLvl`, `structureDiscountPerLvl`, `trainBoostPerLvl`, `villageDefencePerLvl`, `patrolsPerLvl`, `baseCost`, `allyAccess`, `route`)
+VALUES ('qdc81Zy5sMtasdCTnGyCby', 'Factions', 'https://utfs.io/f/46c64044-028b-4192-b17b-501c7bd404c7-x6nvfu.webp', 'ryBk0qD4EgvPPyav2K4OC', 1, 10, 100, 100, 8, 4, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 10000, 0, '/clanhall');
