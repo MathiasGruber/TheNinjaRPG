@@ -423,6 +423,7 @@ export const clan = mysqlTable(
     leaderOrderId: varchar("leaderOrderId", { length: 191 }).notNull(),
     trainingBoost: double("trainingBoost").default(0).notNull(),
     ryoBoost: double("ryoBoost").default(0).notNull(),
+    regenBoost: double("regenBoost").default(0).notNull(),
     points: int("points").default(0).notNull(),
     bank: bigint("bank", { mode: "number" }).default(0).notNull(),
     pvpActivity: int("pvpActivity").default(0).notNull(),

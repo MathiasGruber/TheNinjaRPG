@@ -514,14 +514,16 @@ export const CLAN_MPVP_MAX_USERS_PER_SIDE = 3;
 export const CLAN_CREATE_PRESTIGE_REQUIREMENT = 100;
 export const CLAN_CREATE_RYO_COST = 1000000;
 export const CLAN_RANK_REQUIREMENT = "GENIN";
-export const CLAN_MAX_MEMBERS = 50;
+export const CLAN_MAX_MEMBERS = 100;
 export const CLANS_PER_STRUCTURE_LEVEL = 3;
 export const CLAN_LOBBY_SECONDS = 30;
 export const CLAN_BATTLE_REWARD_POINTS = 50;
-export const MAX_TRAINING_BOOST = 15;
-export const MAX_RYO_BOOST = 15;
-export const TRAINING_BOOST_COST = 300;
-export const RYO_BOOST_COST = 100;
+export const CLAN_MAX_TRAINING_BOOST = 15;
+export const CLAN_MAX_RYO_BOOST = 15;
+export const CLAN_MAX_REGEN_BOOST = 15;
+export const CLAN_TRAINING_BOOST_COST = 300;
+export const CLAN_RYO_BOOST_COST = 100;
+export const CLAN_REGEN_BOOST_COST = 300;
 
 // Tournament Config
 export const TOURNAMENT_ROUND_SECONDS = 30 * 60;

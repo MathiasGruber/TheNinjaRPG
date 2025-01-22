@@ -60,16 +60,20 @@ export default function Clans() {
   if (isCreating) return <Loader explanation="Creating clan" />;
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Clan Hall" />;
-  if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw clans" />;
 
   // Derived
   const inClan = userData.clanId;
   const enoughPrestige = userData.villagePrestige >= CLAN_CREATE_PRESTIGE_REQUIREMENT;
   const enoughRyo = userData.money >= CLAN_CREATE_RYO_COST;
   const canCreate = enoughPrestige && enoughRyo;
+  const isOutlaw = userData.isOutlaw;
+  const groupLabel = isOutlaw ? "Faction" : "Clan";
+  const groupLabelPlural = isOutlaw ? "Factions" : "Clans";
+  const prestigeLabel = isOutlaw ? "notoriety" : "village prestige";
+
   let proceedLabel = "Submit";
   if (!enoughPrestige) {
-    proceedLabel = `Missing ${CLAN_CREATE_PRESTIGE_REQUIREMENT - userData.villagePrestige} Prestige`;
+    proceedLabel = `Missing ${CLAN_CREATE_PRESTIGE_REQUIREMENT - userData.villagePrestige} ${prestigeLabel}`;
   } else if (!enoughRyo) {
     proceedLabel = `Missing ${CLAN_CREATE_RYO_COST - userData.money} Ryo`;
   }
@@ -80,7 +84,7 @@ export default function Clans() {
   } else {
     return (
       <ContentBox
-        title="Clans"
+        title={groupLabelPlural}
         subtitle="Fight together"
         back_href="/village"
         padding={false}
@@ -88,7 +92,7 @@ export default function Clans() {
           <>
             {hasRequiredRank(userData.rank, CLAN_RANK_REQUIREMENT) && !inClan && (
               <Confirm
-                title="Create new Clan"
+                title={`Create new ${groupLabel}`}
                 proceed_label={proceedLabel}
                 button={
                   <Button id="create-clan" className="w-full">
@@ -104,9 +108,10 @@ export default function Clans() {
                 isValid={createForm.formState.isValid}
                 onAccept={canCreate ? onSubmit : undefined}
               >
-                Create a clan requires at least {CLAN_CREATE_PRESTIGE_REQUIREMENT}{" "}
-                village prestige, and costs {CLAN_CREATE_RYO_COST} Ryo. You currently
-                have {userData.villagePrestige} prestige and {userData.money} Ryo.
+                Create a {groupLabel.toLowerCase()} requires at least{" "}
+                {CLAN_CREATE_PRESTIGE_REQUIREMENT} {prestigeLabel}, and costs{" "}
+                {CLAN_CREATE_RYO_COST} Ryo. You currently have{" "}
+                {userData.villagePrestige} {prestigeLabel} and {userData.money} Ryo.
                 {canCreate && (
                   <Form {...createForm}>
                     <form className="space-y-2" onSubmit={onSubmit}>
@@ -117,7 +122,10 @@ export default function Clans() {
                           <FormItem>
                             <FormLabel>Title</FormLabel>
                             <FormControl>
-                              <Input placeholder="Name of the new clan" {...field} />
+                              <Input
+                                placeholder={`Name of the new ${groupLabel.toLowerCase()}`}
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
