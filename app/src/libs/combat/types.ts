@@ -744,7 +744,6 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "decreasepoolcost",
       "heal",
       "lifesteal",
-      "healprevent",
       "increasedamagegiven",
       "increaseheal",
       "increasestat",
@@ -776,7 +775,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       // "buffprevent",
       "decreasedamagegiven",
       "increasedamagetaken",
-      "decreasehealgiven",
+      "decreaseheal",
       "increasepoolcost",
       "decreasestat",
       "clear",
@@ -791,6 +790,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "seal",
       "summonprevent",
       "weakness",
+      "healprevent",
     ].includes(tag.type)
   ) {
     return true;
