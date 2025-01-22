@@ -11,7 +11,9 @@ export async function GET(
 ) {
   // disable cache for this server action
   await cookies();
-  const uid = (await params).uid;
+  const results = await params;
+  console.error(results);
+  const uid = results.uid;
 
   try {
     const now = new Date();
