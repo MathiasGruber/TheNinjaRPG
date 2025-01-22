@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
   // disable cache for this server action
+  console.error(request);
   await cookies();
 
   try {
