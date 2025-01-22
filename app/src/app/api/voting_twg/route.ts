@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
   try {
     const now = new Date();
-    const data = (await request.formData()) as { uid?: string };
+    const data = (await request.formData()) as unknown as { uid: string };
     const uid = data.uid;
 
     await drizzleDB.insert(userVotes).values({
