@@ -11,19 +11,19 @@ export async function POST(request: Request) {
 
   try {
     const now = new Date();
-    const data = (await request.formData()) as { userId?: string; siteId?: string };
+    const data = (await request.formData()) as { uid?: string };
 
     await drizzleDB.insert(userVotes).values({
       id: nanoid(),
       userId: "sample",
-      siteId: "sample",
+      siteId: "topwebgames.com",
       lastVoteAt: now,
       lastRawJson: data, // Store full request data
     });
 
     // Validate data
-    const userId = data.userId || "unknown_user";
-    const siteId = data.siteId || "unknown_site";
+    const userId = data.uid || "unknown_user";
+    const siteId = "topwebgames.com";
 
     // First try to find existing vote record
     const existingVote = await drizzleDB.query.userVotes.findFirst({
