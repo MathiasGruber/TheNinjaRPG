@@ -2377,7 +2377,6 @@ export const userVotes = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     votes: int("votes").default(0).notNull(),
-    lastRawJson: json("lastRawJson").notNull(),
   },
   (table) => {
     return {

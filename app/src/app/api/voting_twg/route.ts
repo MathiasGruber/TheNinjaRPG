@@ -5,24 +5,26 @@ import { nanoid } from "nanoid";
 import { handleEndpointError } from "@/libs/gamesettings";
 import { cookies } from "next/headers";
 
-export async function POST(request: Request) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ uid: string }> },
+) {
   // disable cache for this server action
   await cookies();
+  const uid = (await params).uid;
 
   try {
     const now = new Date();
-    const data = (await request.formData()) as { uid?: string };
 
     await drizzleDB.insert(userVotes).values({
       id: nanoid(),
-      userId: "sample",
+      userId: uid,
       siteId: "topwebgames.com",
       lastVoteAt: now,
-      lastRawJson: data, // Store full request data
     });
 
     // Validate data
-    const userId = data.uid || "unknown_user";
+    const userId = uid || "unknown_user";
     const siteId = "topwebgames.com";
 
     // First try to find existing vote record
@@ -37,7 +39,6 @@ export async function POST(request: Request) {
         .set({
           votes: sql`${userVotes.votes} + 1`,
           lastVoteAt: now,
-          lastRawJson: data, // Store full request data
         })
         .where(and(eq(userVotes.userId, userId), eq(userVotes.siteId, siteId)));
     } else {
@@ -47,7 +48,6 @@ export async function POST(request: Request) {
         userId,
         siteId,
         lastVoteAt: now,
-        lastRawJson: data, // Store full request data
       });
     }
 
