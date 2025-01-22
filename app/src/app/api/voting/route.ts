@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   try {
     const now = new Date();
-    const data = (await request.json()) as { userId?: string; siteId?: string };
+    const data = (await request.formData()) as { userId?: string; siteId?: string };
 
     await drizzleDB.insert(userVotes).values({
       id: nanoid(),
