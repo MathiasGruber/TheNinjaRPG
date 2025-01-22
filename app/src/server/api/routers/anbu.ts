@@ -247,8 +247,8 @@ export const anbuRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (user.villageId !== squad.villageId) return errorResponse("Wrong village");
       if (!isKage && !isElder) return errorResponse("Must be kage or elder");
-      if (secondsFromDate(ANBU_DELAY_SECS, squad.createdAt) > new Date()) {
-        return errorResponse("Must wait 24 hours after squad creation");
+      if (user.village && secondsFromDate(ANBU_DELAY_SECS, user.village.leaderUpdatedAt) > new Date()) {
+        return errorResponse("Must have been kage for 24 hours");
       }
       // Mutate
       await Promise.all([
