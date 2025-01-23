@@ -899,7 +899,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                 <p>Training boost: {clanData.trainingBoost}%</p>
                 {(isLeader || isCoLeader) && (
                   <Confirm
-                    title="Boost ryo gain for clan members"
+                    title="Boost training gain for members"
                     proceed_label={
                       clanData.points >= CLAN_TRAINING_BOOST_COST
                         ? "Submit"
@@ -912,7 +912,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   >
                     {clanData.trainingBoost < CLAN_MAX_TRAINING_BOOST ? (
                       <p>
-                        Boost the training gain for clan members for{" "}
+                        Boost the training gain for members for{" "}
                         {CLAN_TRAINING_BOOST_COST} clan points. Note that this boost is
                         gradually reduced once per day. You currently have{" "}
                         {clanData.points} points.
@@ -927,7 +927,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                 <div className="flex flex-row items-center">
                   <p>Regen boost: {clanData.regenBoost}%</p>
                   <Confirm
-                    title="Boost regen for clan members"
+                    title="Boost regen for members"
                     proceed_label={
                       clanData.points >= CLAN_REGEN_BOOST_COST
                         ? "Submit"
@@ -940,9 +940,9 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   >
                     {clanData.regenBoost < CLAN_MAX_REGEN_BOOST ? (
                       <p>
-                        Boost the regen for clan members for {CLAN_REGEN_BOOST_COST}{" "}
-                        clan points. Note that this boost is gradually reduced once per
-                        day. You currently have {clanData.points} points.
+                        Boost the regen for members for {CLAN_REGEN_BOOST_COST} clan
+                        points. Note that this boost is gradually reduced once per day.
+                        You currently have {clanData.points} points.
                       </p>
                     ) : (
                       <p>Already maxed out the possible boost</p>
@@ -994,7 +994,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                 <p>Ryo gain boost: {clanData.ryoBoost}%</p>{" "}
                 {(isLeader || isCoLeader) && (
                   <Confirm
-                    title="Boost ryo gain for clan members"
+                    title="Boost ryo gain for members"
                     proceed_label={
                       clanData.points >= CLAN_RYO_BOOST_COST
                         ? "Submit"
@@ -1007,9 +1007,9 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   >
                     {clanData.ryoBoost < CLAN_MAX_RYO_BOOST ? (
                       <p>
-                        Boost the ryo gain for clan members for {CLAN_RYO_BOOST_COST}{" "}
-                        clan points. Note that this boost is gradually reduced once per
-                        day. You currently have {clanData.points} points.
+                        Boost the ryo gain for members for {CLAN_RYO_BOOST_COST} clan
+                        points. Note that this boost is gradually reduced once per day.
+                        You currently have {clanData.points} points.
                       </p>
                     ) : (
                       <p>Already maxed out the possible boost</p>
