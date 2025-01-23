@@ -512,7 +512,7 @@ export const MISSIONS_PER_DAY = 9;
 // Clans config
 export const CLAN_MPVP_MAX_USERS_PER_SIDE = 3;
 export const CLAN_CREATE_PRESTIGE_REQUIREMENT = 100;
-export const CLAN_CREATE_RYO_COST = 10000000;
+export const CLAN_CREATE_RYO_COST = 1000000;
 export const CLAN_RANK_REQUIREMENT = "GENIN";
 export const CLAN_MAX_MEMBERS = 100;
 export const CLANS_PER_STRUCTURE_LEVEL = 3;
