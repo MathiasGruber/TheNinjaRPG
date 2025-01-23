@@ -85,9 +85,6 @@ export const buffPrevent = (
   if (mainCheck) {
     const info = getInfo(target, effect, "cannot be buffed");
     effect.power = 100;
-    if (effect.isNew && effect.rounds) {
-      effect.rounds -= 1;
-    }
     return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
@@ -108,9 +105,6 @@ export const debuffPrevent = (
   if (mainCheck) {
     const info = getInfo(target, effect, "cannot be debuffed");
     effect.power = 100;
-    if (effect.isNew && effect.rounds) {
-      effect.rounds -= 1;
-    }
     return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
