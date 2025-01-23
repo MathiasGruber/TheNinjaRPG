@@ -10,21 +10,19 @@ export async function POST(request: Request) {
   await cookies();
 
   try {
-    const data = (await request.json()) as { userId?: string; siteId?: string };
+    const now = new Date();
+    const data = await request.formData();
+    console.error(data);
+    const reference = data.get("reference") as string;
 
     // Validate data
-    const userId = data.userId || 'unknown_user';
-    const siteId = data.siteId || 'unknown_site';
-    
-    // First try to find existing vote record
-    const now = new Date();
-    const existingVote = await drizzleDB.query.userVotes.findFirst({
-      where: and(
-        eq(userVotes.userId, userId),
-        eq(userVotes.siteId, siteId)
-      )
-    });
+    const userId = reference || "unknown_user";
+    const siteId = "topwebgames.com";
 
+    // First try to find existing vote record
+    const existingVote = await drizzleDB.query.userVotes.findFirst({
+      where: and(eq(userVotes.userId, userId), eq(userVotes.siteId, siteId)),
+    });
 
     if (existingVote) {
       // Update existing record
@@ -33,28 +31,20 @@ export async function POST(request: Request) {
         .set({
           votes: sql`${userVotes.votes} + 1`,
           lastVoteAt: now,
-          lastRawJson: data // Store full request data
         })
-        .where(
-          and(
-            eq(userVotes.userId, userId),
-            eq(userVotes.siteId, siteId)
-          )
-        );
+        .where(and(eq(userVotes.userId, userId), eq(userVotes.siteId, siteId)));
     } else {
       // Insert new record
       await drizzleDB.insert(userVotes).values({
         id: nanoid(),
         userId,
-        siteId, 
+        siteId,
         lastVoteAt: now,
-        lastRawJson: data // Store full request data
       });
     }
 
     return Response.json(`OK`);
-
   } catch (cause) {
     return handleEndpointError(cause);
   }
-} 
+}
