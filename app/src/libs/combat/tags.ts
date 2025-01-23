@@ -1678,7 +1678,8 @@ const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
   // Ratio for whether to apply the effect or not
   let baseRatio = false;
   dmgTags.forEach((stat) => {
-    if (effectTags.includes(stat)) {
+    // Don't match "None" element with any other element
+    if (stat !== "None" && effectTags.includes(stat)) {
       baseRatio = true;
     }
   });
