@@ -7,23 +7,23 @@ import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
   // disable cache for this server action
-  console.error(request);
   await cookies();
 
   try {
     const now = new Date();
-    const data = (await request.formData()) as unknown as { uid: string };
-    const uid = data.uid;
+    const data = (await request.formData()) as unknown as { reference: string };
+    console.error(data);
+    const reference = data.reference;
 
     await drizzleDB.insert(userVotes).values({
       id: nanoid(),
-      userId: uid,
+      userId: reference,
       siteId: "topwebgames.com",
       lastVoteAt: now,
     });
 
     // Validate data
-    const userId = uid || "unknown_user";
+    const userId = reference || "unknown_user";
     const siteId = "topwebgames.com";
 
     // First try to find existing vote record
