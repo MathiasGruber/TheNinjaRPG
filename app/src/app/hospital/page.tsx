@@ -13,7 +13,6 @@ import { structureBoost } from "@/utils/village";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
-import { showUserRank } from "@/libs/profile";
 import { showMutationToast } from "@/libs/toast";
 import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
@@ -26,6 +25,11 @@ export default function Hospital() {
   const { userData, notifications, access, timeDiff, updateUser, updateNotifications } =
     useRequireInVillage("/hospital");
   const isHospitalized = userData?.status === "HOSPITALIZED";
+
+  // Hospital name
+  const hospitalName = userData?.village?.name
+    ? userData.village.name + " Hospital"
+    : "Hospital";
 
   // Current interest
   const boost = structureBoost("hospitalSpeedupPerLvl", userData?.village?.structures);
@@ -56,21 +60,10 @@ export default function Hospital() {
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Hospital" />;
 
-  // Hospital name
-  const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
-  const ownVillage = userData.sector === userData.village?.sector;
-  const outlawOut = userData.isOutlaw && inVillage && !ownVillage;
-  const hospitalName = outlawOut
-    ? "Battlefield Healing"
-    : `${userData.village?.name} Hospital`;
-  const hospitalSubtitle = outlawOut
-    ? "Fallen outlaws from all factions"
-    : "Emergency Department";
-
   return (
     <ContentBox
       title={hospitalName}
-      subtitle={hospitalSubtitle}
+      subtitle="Emergency Department"
       back_href="/village"
       padding={false}
     >
@@ -220,7 +213,7 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
           <div>
             {user.username}
             <span className="hidden sm:inline">
-              , Lvl. {user.level} {showUserRank(user)}
+              , Lvl. {user.level} {user.rank}
             </span>
             <StatusBar
               title="HP"

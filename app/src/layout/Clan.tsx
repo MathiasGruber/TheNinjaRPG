@@ -40,9 +40,8 @@ import { hasRequiredRank } from "@/libs/train";
 import { CLAN_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
 import { CLAN_LOBBY_SECONDS } from "@/drizzle/constants";
-import { CLAN_MAX_TRAINING_BOOST, CLAN_TRAINING_BOOST_COST } from "@/drizzle/constants";
-import { CLAN_MAX_RYO_BOOST, CLAN_RYO_BOOST_COST } from "@/drizzle/constants";
-import { CLAN_MAX_REGEN_BOOST, CLAN_REGEN_BOOST_COST } from "@/drizzle/constants";
+import { MAX_TRAINING_BOOST, TRAINING_BOOST_COST } from "@/drizzle/constants";
+import { MAX_RYO_BOOST, RYO_BOOST_COST } from "@/drizzle/constants";
 import { CLAN_MPVP_MAX_USERS_PER_SIDE } from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
 import { clanRenameSchema } from "@/validators/clan";
@@ -61,9 +60,6 @@ import type { ClanRouter } from "@/routers/clan";
 export const ClansOverview: React.FC = () => {
   // Must be in allied village
   const { userData } = useRequireInVillage("/clanhall");
-  const locationLabel = userData?.isOutlaw ? "syndicate" : "village";
-  const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
-  const groupLabelPlural = userData?.isOutlaw ? "Factions" : "Clans";
 
   // Queries
   const { data } = api.clan.getAll.useQuery(
@@ -106,7 +102,7 @@ export const ClansOverview: React.FC = () => {
   // Table
   type Clan = ArrayElement<typeof allClans>;
   const columns: ColumnDefinitionType<Clan, keyof Clan>[] = [
-    { key: "clanInfo", header: groupLabel, type: "jsx" },
+    { key: "clanInfo", header: "Clan", type: "jsx" },
     { key: "leaderInfo", header: "Leader", type: "jsx" },
     { key: "memberCount", header: "# Members", type: "string" },
     { key: "pvpActivity", header: "PVP Activity", type: "string" },
@@ -114,6 +110,7 @@ export const ClansOverview: React.FC = () => {
 
   // Loaders
   if (!userData) return <Loader explanation="Loading user data" />;
+  if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw clans" />;
 
   // Render
   return (
@@ -127,9 +124,7 @@ export const ClansOverview: React.FC = () => {
         />
       )}
       {allClans?.length === 0 && (
-        <p className="p-3">
-          No current {groupLabelPlural.toLowerCase()} in this {locationLabel}
-        </p>
+        <p className="p-3">No current clans in this village</p>
       )}
     </>
   );
@@ -150,8 +145,6 @@ interface ClanOrdersProps {
 export const ClanOrders: React.FC<ClanOrdersProps> = (props) => {
   // Destructure
   const { clanId, order, canPost } = props;
-  const { userData } = useRequireInVillage("/clanhall");
-  const groupLabel = userData?.isOutlaw ? "faction" : "clan";
 
   // utils
   const utils = api.useUtils();
@@ -167,7 +160,7 @@ export const ClanOrders: React.FC<ClanOrdersProps> = (props) => {
   });
 
   // Content
-  const content = order?.content ?? `No current ${groupLabel} orders`;
+  const content = order?.content ?? "No current orders";
 
   // Order form
   const {
@@ -183,7 +176,7 @@ export const ClanOrders: React.FC<ClanOrdersProps> = (props) => {
   return (
     <ContentBox
       title="Orders"
-      subtitle={`From ${groupLabel} leader`}
+      subtitle="From clan leader"
       initialBreak={true}
       topRightContent={
         <div>
@@ -233,8 +226,6 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
   // Data
   const { clanId, canCreate } = props;
   const { userData, timeDiff } = useRequireInVillage("/clanhall");
-  const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
-  const groupLabelPlural = userData?.isOutlaw ? "Factions" : "Clans";
 
   // utils
   const utils = api.useUtils();
@@ -490,8 +481,8 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
 
   return (
     <ContentBox
-      title={`${groupLabel} Battles`}
-      subtitle={`From ${groupLabel.toLowerCase()} leader`}
+      title="Clan Battles"
+      subtitle="From clan leader"
       initialBreak={true}
       padding={false}
       topRightContent={
@@ -499,7 +490,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
           {canCreate && clanId && (
             <div className="flex flex-row items-center gap-1">
               <Confirm
-                title={`Challenge Other ${groupLabel}`}
+                title="Challenge Other Clan"
                 proceed_label="Submit"
                 button={
                   <Button id="create">
@@ -513,13 +504,13 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                   })
                 }
               >
-                Challenge another {groupLabel.toLowerCase()} to a battle royale.{" "}
-                {groupLabel} battles can be up to 5 vs. 5 users; it will always be an
-                equal number of users battling each other, so if 5 join from one side
-                and 3 from the other, it will be a 3 vs. 3 battle.
+                Challenge another clan to a battle royale. Clan battles can be up to 5
+                vs. 5 users; it will always be an equal number of users battling each
+                other, so if 5 join from one side and 3 from the other, it will be a 3
+                vs. 3 battle.
                 <ClanSearchSelect
                   useFormMethods={clanSearchMethods}
-                  label={`Search for ${groupLabel.toLowerCase()}`}
+                  label="Search for clan"
                   selectedClans={[]}
                   inline={true}
                   showOwn={false}
@@ -533,7 +524,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
       }
     >
       {clanBattles?.length === 0 && (
-        <p className="p-3 italic">No current {groupLabel.toLowerCase()} battles</p>
+        <p className="p-3 italic">No current clan battles</p>
       )}
       {clanBattles?.length !== 0 && (
         <Table
@@ -565,7 +556,6 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
   // Destructure
   const { userData } = useRequireInVillage("/clanhall");
   const { clanId, isLeader } = props;
-  const groupLabel = userData?.isOutlaw ? "faction" : "clan";
 
   // Get utils
   const utils = api.useUtils();
@@ -607,14 +597,14 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
   return (
     <ContentBox
       title="Request"
-      subtitle={`Requests for ${groupLabel}`}
+      subtitle="Requests for clan"
       initialBreak={true}
       padding={false}
     >
       {/* FOR THOSE WHO CAN SEND REQUESTS */}
       {sufficientRank && !userData.clanId && !hasPending && (
         <div className="p-2">
-          <p>Send a request to join this {groupLabel}</p>
+          <p>Send a request to join this clan</p>
           <Button id="send" className="mt-2 w-full" onClick={() => create({ clanId })}>
             <SendHorizontal className="h-5 w-5 mr-2" />
             Send Request
@@ -649,7 +639,6 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   const { userData } = useRequireInVillage("/clanhall");
   const { clanData, back_href } = props;
   const clanId = clanData.id;
-  const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
 
   // Get router
   const router = useRouter();
@@ -728,15 +717,6 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     },
   });
 
-  const { mutate: purchaseRegenBoost } = api.clan.purchaseRegenBoost.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.clan.get.invalidate();
-      }
-    },
-  });
-
   const { mutate: toBank, isPending: isDepositing } = api.clan.toBank.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -766,19 +746,18 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   const inClan = userData.clanId === clanData.id;
   const isLeader = userData.userId === clanData.leaderId;
   const isCoLeader = checkCoLeader(userData.userId, clanData);
-  const leaderLike = isLeader || isCoLeader;
 
   // Render
   return (
     <ContentBox
       title={clanData.name}
-      subtitle={`${groupLabel} Overview`}
+      subtitle="Clan Overview"
       back_href={back_href}
       topRightContent={
         <div className="flex flex-row gap-1">
           {isLeader && (
             <Confirm
-              title={`Edit ${groupLabel}`}
+              title="Edit Clan"
               proceed_label="Submit"
               button={
                 <Button id="rename-clan">
@@ -791,7 +770,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               <Form {...renameForm}>
                 <form className="space-y-2 grid grid-cols-2" onSubmit={onEdit}>
                   <div>
-                    <FormLabel>{groupLabel} Image</FormLabel>
+                    <FormLabel>Clan Image</FormLabel>
                     <AvatarImage
                       href={currentImage}
                       alt={clanId}
@@ -821,10 +800,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                       <FormItem>
                         <FormLabel>Title</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder={`Name of the new ${groupLabel.toLowerCase()}`}
-                            {...field}
-                          />
+                          <Input placeholder="Name of the new clan" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -836,7 +812,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
           )}
           {inClan && (
             <Confirm
-              title={`Village ${groupLabel} Overview`}
+              title="Village Clan Overview"
               button={
                 <Button id="send">
                   <List className="h-5 w-5" />
@@ -848,7 +824,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
           )}
           {inClan && (
             <Confirm
-              title={`Leave ${groupLabel}`}
+              title="Update Orders"
               proceed_label="Submit"
               button={
                 <Button id="send">
@@ -857,7 +833,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               }
               onAccept={() => leave({ clanId })}
             >
-              Confirm leaving this {groupLabel.toLowerCase()}
+              Confirm leaving this clan
             </Confirm>
           )}
         </div>
@@ -876,7 +852,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
         <div className="col-span-4 sm:col-span-6">
           <div className="pt-2 grid grid-cols-1 sm:grid-cols-2">
             <div>
-              {!userData?.isOutlaw && <p>Village: {clanData.village.name}</p>}
+              <p>Village: {clanData.village.name}</p>
               <p>
                 Founder:{" "}
                 <Link
@@ -901,7 +877,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   <Confirm
                     title="Boost ryo gain for clan members"
                     proceed_label={
-                      clanData.points >= CLAN_TRAINING_BOOST_COST
+                      clanData.points >= TRAINING_BOOST_COST
                         ? "Submit"
                         : "Cannot afford"
                     }
@@ -910,10 +886,10 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                     }
                     onAccept={() => boostTraining({ clanId })}
                   >
-                    {clanData.trainingBoost < CLAN_MAX_TRAINING_BOOST ? (
+                    {clanData.trainingBoost < MAX_TRAINING_BOOST ? (
                       <p>
                         Boost the training gain for clan members for{" "}
-                        {CLAN_TRAINING_BOOST_COST} clan points. Note that this boost is
+                        {TRAINING_BOOST_COST} clan points. Note that this boost is
                         gradually reduced once per day. You currently have{" "}
                         {clanData.points} points.
                       </p>
@@ -923,33 +899,6 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   </Confirm>
                 )}
               </div>
-              {leaderLike && userData?.isOutlaw && (
-                <div className="flex flex-row items-center">
-                  <p>Regen boost: {clanData.regenBoost}%</p>
-                  <Confirm
-                    title="Boost regen for clan members"
-                    proceed_label={
-                      clanData.points >= CLAN_REGEN_BOOST_COST
-                        ? "Submit"
-                        : "Cannot afford"
-                    }
-                    button={
-                      <ArrowBigUpDash className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
-                    }
-                    onAccept={() => purchaseRegenBoost({ clanId: clanData.id })}
-                  >
-                    {clanData.regenBoost < CLAN_MAX_REGEN_BOOST ? (
-                      <p>
-                        Boost the regen for clan members for {CLAN_REGEN_BOOST_COST}{" "}
-                        clan points. Note that this boost is gradually reduced once per
-                        day. You currently have {clanData.points} points.
-                      </p>
-                    ) : (
-                      <p>Already maxed out the possible boost</p>
-                    )}
-                  </Confirm>
-                </div>
-              )}
             </div>
             <div>
               <p>PvP Activity: {clanData.pvpActivity}</p>
@@ -996,20 +945,18 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   <Confirm
                     title="Boost ryo gain for clan members"
                     proceed_label={
-                      clanData.points >= CLAN_RYO_BOOST_COST
-                        ? "Submit"
-                        : "Cannot afford"
+                      clanData.points >= RYO_BOOST_COST ? "Submit" : "Cannot afford"
                     }
                     button={
                       <ArrowBigUpDash className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
                     }
                     onAccept={() => boostRyo({ clanId })}
                   >
-                    {clanData.ryoBoost < CLAN_MAX_RYO_BOOST ? (
+                    {clanData.ryoBoost < MAX_RYO_BOOST ? (
                       <p>
-                        Boost the ryo gain for clan members for {CLAN_RYO_BOOST_COST}{" "}
-                        clan points. Note that this boost is gradually reduced once per
-                        day. You currently have {clanData.points} points.
+                        Boost the ryo gain for clan members for {RYO_BOOST_COST} clan
+                        points. Note that this boost is gradually reduced once per day.
+                        You currently have {clanData.points} points.
                       </p>
                     ) : (
                       <p>Already maxed out the possible boost</p>
@@ -1063,8 +1010,6 @@ interface ClanMembersProps {
 export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
   // Destructure
   const { userId, clanId } = props;
-  const { userData } = useRequireInVillage("/clanhall");
-  const groupLabel = userData?.isOutlaw ? "faction" : "clan";
 
   // Get react query utility
   const utils = api.useUtils();
@@ -1168,7 +1113,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
   return (
     <ContentBox
       title="Members"
-      subtitle={`In the ${groupLabel} [${members.length} / ${CLAN_MAX_MEMBERS}]`}
+      subtitle={`In the clan [${members.length} / ${CLAN_MAX_MEMBERS}]`}
       initialBreak={true}
       padding={false}
     >
@@ -1204,7 +1149,6 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
   const [showActive, setShowActive] = useLocalStorage<string>("clanPageTab", "orders");
   const { userData } = useRequireInVillage("/clanhall");
   const { clanId, back_href } = props;
-  const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
 
   // Queries
   const { data: clanData } = api.clan.get.useQuery({ clanId: clanId });
@@ -1233,7 +1177,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="battles">Battles</TabsTrigger>
             <TabsTrigger value="requests">Requests</TabsTrigger>
-            <TabsTrigger value="tournaments">{groupLabel} Tournaments</TabsTrigger>
+            <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
           </TabsList>
           <TabsContent value="orders">
@@ -1254,7 +1198,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
               userData={userData}
               tournamentId={clanData.id}
               rewards={ObjectiveReward.parse({ reward_money: clanData.bank })}
-              title={`${groupLabel} Tournaments`}
+              title="Clan Tournaments"
               subtitle="Initiated by leader"
               type="CLAN"
               canCreate={(isLeader || isColeader) && clanData.bank > 0}
