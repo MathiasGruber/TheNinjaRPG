@@ -12,7 +12,6 @@ export async function POST(request: Request) {
   try {
     const now = new Date();
     const data = await request.formData();
-    console.error(data);
     const reference = data.get("reference") as string;
 
     // Validate data
@@ -37,6 +36,7 @@ export async function POST(request: Request) {
       // Insert new record
       await drizzleDB.insert(userVotes).values({
         id: nanoid(),
+        votes: 1,
         userId,
         siteId,
         lastVoteAt: now,
