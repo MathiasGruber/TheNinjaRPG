@@ -11,16 +11,9 @@ export async function POST(request: Request) {
 
   try {
     const now = new Date();
-    const data = (await request.formData()) as unknown as { reference: string };
+    const data = await request.formData();
     console.error(data);
-    const reference = data.reference;
-
-    await drizzleDB.insert(userVotes).values({
-      id: nanoid(),
-      userId: reference,
-      siteId: "topwebgames.com",
-      lastVoteAt: now,
-    });
+    const reference = data.get("reference") as string;
 
     // Validate data
     const userId = reference || "unknown_user";
