@@ -2368,31 +2368,36 @@ export const linkPromotionRelations = relations(linkPromotion, ({ one }) => ({
   }),
 }));
 
-export const userVotes = mysqlTable(
-  "UserVotes",
+export const userVote = mysqlTable(
+  "UserVote",
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
-    siteId: varchar("siteId", { length: 191 }).notNull(),
+    topWebGames: boolean("topWebGames").default(false).notNull(),
+    top100Arena: boolean("top100Arena").default(false).notNull(),
+    mmoHub: boolean("mmoHub").default(false).notNull(),
+    arenaTop100: boolean("arenaTop100").default(false).notNull(),
+    xtremeTop100: boolean("xtremeTop100").default(false).notNull(),
+    topOnlineMmorpg: boolean("topOnlineMmorpg").default(false).notNull(),
+    gamesTop200: boolean("gamesTop200").default(false).notNull(),
+    browserMmorpg: boolean("browserMmorpg").default(false).notNull(),
+    apexWebGaming: boolean("apexWebGaming").default(false).notNull(),
+    mmorpg100: boolean("mmorpg100").default(false).notNull(),
+    secret: varchar("secret", { length: 191 }).notNull(),
     lastVoteAt: datetime("lastVoteAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    votes: int("votes").default(0).notNull(),
   },
   (table) => {
     return {
-      userIdIdx: index("UserVotes_userId_idx").on(table.userId),
-      uniqueUserSite: uniqueIndex("UserVotes_userId_siteId_key").on(
-        table.userId,
-        table.siteId,
-      ),
+      userIdIdx: uniqueIndex("UserVote_userId_idx").on(table.userId),
     };
   },
 );
 
-export const userVotesRelations = relations(userVotes, ({ one }) => ({
+export const userVoteRelations = relations(userVote, ({ one }) => ({
   user: one(userData, {
-    fields: [userVotes.userId],
+    fields: [userVote.userId],
     references: [userData.userId],
   }),
 }));
