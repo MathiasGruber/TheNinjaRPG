@@ -5,7 +5,7 @@ import { HealTag } from "@/libs/combat/types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
-import type { DamageTagType, PierceTagType } from "@/libs/combat/types";
+import type { DamageTagType, PierceTagType, NormalTagType } from "@/libs/combat/types";
 import type { WeaknessTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
@@ -792,10 +792,38 @@ export const damageCalc = (
 
 /** Calculate damage modifier, e.g. from weakness tag */
 export const calcDmgModifier = (
-  dmgEffect: UserEffect & (DamageTagType | PierceTagType),
+  dmgEffect: UserEffect & (DamageTagType | PierceTagType | NormalTagType),
   target: BattleUserState,
   usersState: UserEffect[],
 ) => {
+  // Normal tags can't be boosted by bloodline abilities
+  if (dmgEffect.type === "normal") {
+    // For normal type, only apply effects from jutsu and items, not bloodline
+    const nonBloodlineEffects = usersState
+      .filter((e) => e.fromType !== "bloodline")
+      .filter((e) => e.targetId === target.userId)
+      .map((e) => e as UserEffect & WeaknessTagType)
+      .filter((e) => {
+        // Only apply effects from jutsu and items
+        const check1 = e.jutsus?.includes(dmgEffect.actionId);
+        const check2 = e.items?.includes(dmgEffect.actionId);
+        const check3 = e.elements?.some((we) => dmgEffect?.elements?.includes(we));
+        const check4 = e.statTypes?.some((we) => dmgEffect?.statTypes?.includes(we));
+        const check5 = e.generalTypes?.some((we) => dmgEffect?.generalTypes?.includes(we));
+        return check1 || check2 || check3 || check4 || check5;
+      });
+
+    // Calculate ratio for non-bloodline effects
+    let ratio = 1;
+    nonBloodlineEffects.forEach((effect) => {
+      if (effect.type === "weakness") {
+        const effectRatio = getEfficiencyRatio(dmgEffect, effect);
+        ratio *= 1 + effectRatio * (effect.power / 100);
+      }
+    });
+    return ratio;
+  }
+
   const weaknesses = usersState
     .filter((e) => e.type === "weakness" && e.targetId === target.userId)
     .map((e) => e as UserEffect & WeaknessTagType)

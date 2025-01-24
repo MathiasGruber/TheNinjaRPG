@@ -303,6 +303,9 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             if (e.type === "damage" && isTargetOrNew) {
               const modifier = calcDmgModifier(e, curTarget, usersEffects);
               info = damageUser(e, curUser, curTarget, consequences, modifier, config);
+            } else if (e.type === "normal" && isTargetOrNew) {
+              const modifier = calcDmgModifier(e, curTarget, usersEffects);
+              info = damageUser(e, curUser, curTarget, consequences, modifier, config);
             } else if (e.type === "pierce" && isTargetOrNew) {
               const modifier = calcDmgModifier(e, curTarget, usersEffects);
               info = damageUser(e, newUser, newTarget, consequences, modifier, config);
