@@ -1159,7 +1159,7 @@ export const lifesteal = (
 export const shield = (
   effect: UserEffect,
   target: BattleUserState,
-) => {
+): ActionEffect => {
   const { power } = getPower(effect);
   if (effect.isNew) {
     // Set initial shield health based on power
@@ -1178,7 +1178,7 @@ export const shield = (
   return getInfo(
     target,
     effect,
-    `has a shield with ${effect.curHealth.toFixed(2)} HP remaining`,
+    `has a shield with ${(effect.curHealth as number).toFixed(2)} HP remaining`,
   );
 };
 
