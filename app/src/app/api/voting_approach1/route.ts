@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const incentive = searchParams.get("payload")!;
+    const incentive = searchParams.get("postback")!;
     const [userId, secret, siteId] = incentive?.split("-") ?? [];
 
     if (!userId || !secret || !siteId) {
