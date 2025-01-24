@@ -861,7 +861,7 @@ export const damageUser = (
 
   if (instant || residual) {
     // Calculate final damage after shield absorption
-    const finalDamage = shieldEffect ? Math.max(0, damage - shieldEffect.curHealth) : damage;
+    const finalDamage = shieldEffect && "curHealth" in shieldEffect ? Math.max(0, damage - shieldEffect.curHealth) : damage;
 
     consequences.set(effect.id, {
       userId: effect.creatorId,
