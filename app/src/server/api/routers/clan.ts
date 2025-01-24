@@ -655,7 +655,6 @@ export const clanRouter = createTRPCRouter({
         fetchActiveUserClanBattles(ctx.drizzle, ctx.userId),
       ]);
       const groupLabel = user?.isOutlaw ? "faction" : "clan";
-      const locationLabel = user?.isOutlaw ? "syndicate" : "village";
       // Derived
       const isLeader = challenger?.leaderId === user.userId;
       const isCoLeader = checkCoLeader(ctx.userId, challenger);

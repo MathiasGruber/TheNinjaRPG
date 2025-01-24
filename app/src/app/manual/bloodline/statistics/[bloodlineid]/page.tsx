@@ -3,7 +3,6 @@ import { use } from "react";
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Link from "next/link";
 import { bloodlineText } from "@/layout/seoTexts";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";

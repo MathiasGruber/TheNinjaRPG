@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { userVote } from "@/drizzle/schema";
 import { nanoid } from "nanoid";
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   try {
     const data = await request.formData();
     const incentive = data.get("incentive") as string;
-    const [userId, secret, siteId] = incentive.split("-");
+    const [userId, secret, siteId] = incentive?.split("-") ?? [];
 
     if (!userId || !secret || !siteId) {
       return Response.json(`Invalid incentive: ${incentive}`, { status: 400 });
@@ -29,8 +29,8 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const incentive = searchParams.get("incentive") as string;
-    const [userId, secret, siteId] = incentive.split("-");
+    const incentive = searchParams.get("incentive")!;
+    const [userId, secret, siteId] = incentive?.split("-") ?? [];
 
     if (!userId || !secret || !siteId) {
       return Response.json(`Invalid incentive: ${incentive}`, { status: 400 });

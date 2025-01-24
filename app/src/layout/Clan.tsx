@@ -234,7 +234,6 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
   const { clanId, canCreate } = props;
   const { userData, timeDiff } = useRequireInVillage("/clanhall");
   const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
-  const groupLabelPlural = userData?.isOutlaw ? "Factions" : "Clans";
 
   // utils
   const utils = api.useUtils();

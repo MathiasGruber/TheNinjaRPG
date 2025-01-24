@@ -34,7 +34,6 @@ import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
 import { availableUserActions } from "@/libs/combat/actions";
-import { calcIsInVillage } from "@/libs/travel/controls";
 import { BarrierTag } from "@/libs/combat/types";
 import { fetchGameAssets } from "@/routers/misc";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
