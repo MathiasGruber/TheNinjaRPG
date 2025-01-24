@@ -798,7 +798,18 @@ export const calcDmgModifier = (
 ) => {
   // Normal tags can't be boosted by bloodline abilities
   if (dmgEffect.type === "normal") {
-    return 1;
+    // Filter out bloodline effects
+    const nonBloodlineEffects = usersState
+      .filter((e) => e.fromType !== "bloodline")
+      .filter((e) => e.type === "weakness" && e.targetId === target.userId);
+
+    // Calculate weakness ratio for non-bloodline effects
+    let ratio = 1;
+    nonBloodlineEffects.forEach((effect) => {
+      const effectRatio = getEfficiencyRatio(dmgEffect, effect);
+      ratio *= 1 + effectRatio * (effect.power / 100);
+    });
+    return ratio;
   }
 
   const weaknesses = usersState
