@@ -798,10 +798,17 @@ export const calcDmgModifier = (
 ) => {
   // Normal tags can't be boosted by bloodline abilities
   if (dmgEffect.type === "normal") {
-    // Filter out bloodline effects
+    // For normal type, only apply weakness effects from jutsu and items, not bloodline
     const nonBloodlineEffects = usersState
       .filter((e) => e.fromType !== "bloodline")
-      .filter((e) => e.type === "weakness" && e.targetId === target.userId);
+      .filter((e) => e.type === "weakness" && e.targetId === target.userId)
+      .map((e) => e as UserEffect & WeaknessTagType)
+      .filter((e) => {
+        // Only apply effects from jutsu and items
+        const check1 = e.jutsus.includes(dmgEffect.actionId);
+        const check2 = e.items.includes(dmgEffect.actionId);
+        return check1 || check2;
+      });
 
     // Calculate weakness ratio for non-bloodline effects
     let ratio = 1;
