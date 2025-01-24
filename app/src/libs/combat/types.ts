@@ -882,6 +882,8 @@ export type UserEffect = BattleEffect & {
   targetId: string;
   fromGround?: boolean;
   fromType?: "jutsu" | "armor" | "item" | "basic" | "bloodline";
+  curHealth?: number;
+  maxHealth?: number;
 };
 
 export type ActionEffect = {
