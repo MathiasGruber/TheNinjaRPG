@@ -8,6 +8,8 @@ import { cookies } from "next/headers";
 export async function POST(request: Request) {
   await cookies();
 
+  // https://topwebgames.com/game/theninja-rpg-core4/vote?incentive=testUser-testSecret-topwebgames&test=true&alwaysReward=true
+
   try {
     const data = await request.formData();
     const incentive = data.get("incentive") as string;
@@ -27,9 +29,11 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   await cookies();
 
+  // https://www.top100arena.com/listing/101116/vote?payload=testUser-testSecret-top100arena
+
   try {
     const { searchParams } = new URL(request.url);
-    const incentive = searchParams.get("incentive")!;
+    const incentive = searchParams.get("payload")!;
     const [userId, secret, siteId] = incentive?.split("-") ?? [];
 
     if (!userId || !secret || !siteId) {
