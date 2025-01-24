@@ -57,6 +57,15 @@ async function handleVote(userId: string, secret: string, siteId: string) {
       .update(userVote)
       .set({
         ...(siteId === "topwebgames" ? { topWebGames: true } : {}),
+        ...(siteId === "top100arena" ? { top100Arena: true } : {}),
+        ...(siteId === "mmohub" ? { mmoHub: true } : {}),
+        ...(siteId === "arenaTop100" ? { arenaTop100: true } : {}),
+        ...(siteId === "xtremeTop100" ? { xtremeTop100: true } : {}),
+        ...(siteId === "topOnlineMmorpg" ? { topOnlineMmorpg: true } : {}),
+        ...(siteId === "gamesTop200" ? { gamesTop200: true } : {}),
+        ...(siteId === "browserMmorpg" ? { browserMmorpg: true } : {}),
+        ...(siteId === "apexWebGaming" ? { apexWebGaming: true } : {}),
+        ...(siteId === "mmorpg100" ? { mmorpg100: true } : {}),
         lastVoteAt: now,
       })
       .where(and(eq(userVote.userId, userId), eq(userVote.secret, secret)));
@@ -67,6 +76,15 @@ async function handleVote(userId: string, secret: string, siteId: string) {
       userId,
       secret,
       ...(siteId === "topwebgames" ? { topWebGames: true } : {}),
+      ...(siteId === "top100arena" ? { top100Arena: true } : {}),
+      ...(siteId === "mmohub" ? { mmoHub: true } : {}),
+      ...(siteId === "arenaTop100" ? { arenaTop100: true } : {}),
+      ...(siteId === "xtremeTop100" ? { xtremeTop100: true } : {}),
+      ...(siteId === "topOnlineMmorpg" ? { topOnlineMmorpg: true } : {}),
+      ...(siteId === "gamesTop200" ? { gamesTop200: true } : {}),
+      ...(siteId === "browserMmorpg" ? { browserMmorpg: true } : {}),
+      ...(siteId === "apexWebGaming" ? { apexWebGaming: true } : {}),
+      ...(siteId === "mmorpg100" ? { mmorpg100: true } : {}),
       lastVoteAt: now,
     });
   }
