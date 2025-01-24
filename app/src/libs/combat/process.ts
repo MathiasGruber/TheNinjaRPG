@@ -5,7 +5,7 @@ import { collapseConsequences, sortEffects } from "./util";
 import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
-import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
+import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier, shield } from "./tags";
 import { absorb, reflect, recoil, lifesteal } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
@@ -302,10 +302,10 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           if (isTargetOrNew) {
             if (e.type === "damage" && isTargetOrNew) {
               const modifier = calcDmgModifier(e, curTarget, usersEffects);
-              info = damageUser(e, curUser, curTarget, consequences, modifier, config);
+              info = damageUser(e, curUser, curTarget, usersEffects, consequences, modifier, config);
             } else if (e.type === "pierce" && isTargetOrNew) {
               const modifier = calcDmgModifier(e, curTarget, usersEffects);
-              info = damageUser(e, newUser, newTarget, consequences, modifier, config);
+              info = damageUser(e, newUser, newTarget, usersEffects, consequences, modifier, config);
             } else if (e.type === "heal" && isTargetOrNew) {
               info = heal(e, newUsersEffects, curTarget, consequences, ratio);
             } else if (e.type === "flee" && isTargetOrNew) {
@@ -382,6 +382,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = summonPrevent(e, curTarget);
           } else if (e.type === "weakness") {
             info = weakness(e, curTarget);
+          } else if (e.type === "shield") {
+            info = shield(e, curTarget);
           }
           updateStatUsage(newTarget, e, true);
         }

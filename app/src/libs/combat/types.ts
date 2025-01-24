@@ -498,6 +498,19 @@ export const LifeStealTag = z.object({
   description: msg("Heal based on damage given"),
   calculation: z.enum(["percentage"]).default("percentage"),
 });
+
+export const ShieldTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("shield").default("shield"),
+  description: msg("Creates a temporary HP bar that lasts for a set amount of rounds"),
+  rounds: z.coerce.number().int().min(1).max(100).default(3),
+  curHealth: z.coerce.number().int().min(1).max(100000).default(100),
+  maxHealth: z.coerce.number().int().min(1).max(100000).default(100),
+  direction: type("defence"),
+});
+export type ShieldTagType = z.infer<typeof ShieldTag>;
+
 export const MoveTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -722,6 +735,7 @@ export const AllTags = z.union([
   VisualTag.default({}),
   WeaknessTag.default({}),
   IncreaseMarriageSlots.default({}),
+  ShieldTag.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 export const tagTypes = AllTags._def.options

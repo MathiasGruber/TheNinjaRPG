@@ -188,6 +188,7 @@ export const calcApplyRatio = (
     "stealth",
     "summonprevent",
     "weakness",
+    "shield",
   ];
   // If always apply, then apply 1 time, but not if rounds set to 0
   if (alwaysApply.includes(effect.type)) {
@@ -271,6 +272,7 @@ export const sortEffects = (
     "increasestat",
     // Mid-modifiers
     "barrier",
+    "shield",
     "clone",
     "damage",
     "flee",
