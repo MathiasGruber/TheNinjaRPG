@@ -7,6 +7,7 @@ import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
 import type { DamageTagType, PierceTagType } from "@/libs/combat/types";
 import type { WeaknessTagType } from "@/libs/combat/types";
+import type { ShieldTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -829,15 +830,14 @@ export const damageUser = (
   const shieldEffect = usersEffects.find(
     e => e.type === "shield" &&
     e.targetId === target.userId &&
-    !e.castThisRound &&
-    e.curHealth > 0
-  );
+    !e.castThisRound
+  ) as ShieldTagType | undefined;
 
   // Calculate final damage after shield and barrier absorption
   const damage = rawDamage * (1 - effect.barrierAbsorb);
 
   // If there's a shield, reduce its health by the damage
-  if (shieldEffect && "curHealth" in shieldEffect) {
+  if (shieldEffect && shieldEffect.curHealth > 0) {
     const shieldDamage = Math.min(shieldEffect.curHealth, damage);
     shieldEffect.curHealth -= shieldDamage;
 
@@ -861,7 +861,7 @@ export const damageUser = (
 
   if (instant || residual) {
     // Calculate final damage after shield absorption
-    const finalDamage = shieldEffect && "curHealth" in shieldEffect ? Math.max(0, damage - shieldEffect.curHealth) : damage;
+    const finalDamage = shieldEffect && shieldEffect.curHealth > 0 ? Math.max(0, damage - shieldEffect.curHealth) : damage;
 
     consequences.set(effect.id, {
       userId: effect.creatorId,
@@ -1161,11 +1161,13 @@ export const shield = (
   target: BattleUserState,
 ): ActionEffect => {
   const { power } = getPower(effect);
+  if (effect.type !== "shield") return { txt: "Invalid effect type", color: "red" };
+
   if (effect.isNew) {
     // Set initial shield health based on power
     effect.curHealth = power;
     effect.maxHealth = power;
-  } else if (!effect.castThisRound) {
+  } else if (!effect.castThisRound && effect.curHealth !== undefined) {
     // Shield already exists, check if it's still active
     if (effect.curHealth <= 0) {
       effect.rounds = 0;
@@ -1175,11 +1177,13 @@ export const shield = (
       };
     }
   }
-  return getInfo(
+  const info = getInfo(
     target,
     effect,
-    `has a shield with ${effect.curHealth!.toFixed(2)} HP remaining`,
+    `has a shield with ${effect.curHealth?.toFixed(2) ?? 0} HP remaining`,
   );
+  if (!info) return { txt: "Shield effect failed", color: "red" };
+  return info;
 };
 
 /**
