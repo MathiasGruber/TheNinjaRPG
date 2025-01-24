@@ -440,6 +440,18 @@ export const DamageTag = z.object({
 });
 export type DamageTagType = z.infer<typeof DamageTag>;
 
+export const NormalTag = z.object({
+  ...BaseAttributes,
+  ...IncludeStats,
+  ...PowerAttributes,
+  type: z.literal("normal").default("normal"),
+  description: msg("Deals normal damage that can't be boosted by Bloodline abilities"),
+  calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+  residualModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  dmgModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+});
+export type NormalTagType = z.infer<typeof NormalTag>;
+
 export const PierceTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
@@ -722,6 +734,7 @@ export const AllTags = z.union([
   VisualTag.default({}),
   WeaknessTag.default({}),
   IncreaseMarriageSlots.default({}),
+  NormalTag.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 export const tagTypes = AllTags._def.options

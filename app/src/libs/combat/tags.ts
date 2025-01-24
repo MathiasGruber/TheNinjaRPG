@@ -792,10 +792,15 @@ export const damageCalc = (
 
 /** Calculate damage modifier, e.g. from weakness tag */
 export const calcDmgModifier = (
-  dmgEffect: UserEffect & (DamageTagType | PierceTagType),
+  dmgEffect: UserEffect & (DamageTagType | PierceTagType | NormalTagType),
   target: BattleUserState,
   usersState: UserEffect[],
 ) => {
+  // Normal tags can't be boosted by bloodline abilities
+  if (dmgEffect.type === "normal") {
+    return 1;
+  }
+
   const weaknesses = usersState
     .filter((e) => e.type === "weakness" && e.targetId === target.userId)
     .map((e) => e as UserEffect & WeaknessTagType)
