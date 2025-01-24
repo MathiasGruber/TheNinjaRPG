@@ -1163,13 +1163,14 @@ export const shield = (
   const { power } = getPower(effect);
   if (effect.type !== "shield") return { txt: "Invalid effect type", color: "red" };
 
+  const shieldEffect = effect as ShieldTagType;
   if (effect.isNew) {
     // Set initial shield health based on power
-    effect.curHealth = power;
-    effect.maxHealth = power;
-  } else if (!effect.castThisRound && effect.curHealth !== undefined) {
+    shieldEffect.curHealth = power;
+    shieldEffect.maxHealth = power;
+  } else if (!effect.castThisRound) {
     // Shield already exists, check if it's still active
-    if (effect.curHealth <= 0) {
+    if (shieldEffect.curHealth <= 0) {
       effect.rounds = 0;
       return {
         txt: `${target.username}'s shield has been broken!`,
@@ -1180,7 +1181,7 @@ export const shield = (
   const info = getInfo(
     target,
     effect,
-    `has a shield with ${effect.curHealth?.toFixed(2) ?? 0} HP remaining`,
+    `has a shield with ${shieldEffect.curHealth.toFixed(2)} HP remaining`,
   );
   if (!info) return { txt: "Shield effect failed", color: "red" };
   return info;
