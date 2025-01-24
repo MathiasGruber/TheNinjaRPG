@@ -2383,6 +2383,7 @@ export const userVote = mysqlTable(
     browserMmorpg: boolean("browserMmorpg").default(false).notNull(),
     apexWebGaming: boolean("apexWebGaming").default(false).notNull(),
     mmorpg100: boolean("mmorpg100").default(false).notNull(),
+    claimed: boolean("claimed").default(false).notNull(),
     secret: varchar("secret", { length: 191 }).notNull(),
     lastVoteAt: datetime("lastVoteAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)

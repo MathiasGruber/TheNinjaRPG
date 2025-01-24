@@ -1310,6 +1310,13 @@
       "when": 1737692542288,
       "tag": "0186_noisy_maestro",
       "breakpoints": false
+    },
+    {
+      "idx": 187,
+      "version": "5",
+      "when": 1737694057529,
+      "tag": "0187_noisy_apocalypse",
+      "breakpoints": false
     }
   ]
 }
