@@ -52,6 +52,11 @@ async function handleVote(userId: string, secret: string, siteId: string) {
   });
 
   if (existingVote) {
+    // Check that the secret matches
+    if (existingVote.secret !== secret) {
+      throw new Error("Invalid secret");
+    }
+
     // Update existing record
     await drizzleDB
       .update(userVote)
