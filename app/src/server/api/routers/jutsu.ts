@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq, inArray, isNotNull, sql, and, or, gte, ne, like, desc } from "drizzle-orm";
+import { eq, inArray, sql, and, or, gte, ne, like, desc } from "drizzle-orm";
 import {
   jutsu,
   userJutsu,
@@ -775,16 +775,14 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
     // ---------------------------
     // Exclude: Single-value cols
     // ---------------------------
-        ...(input?.excludedJutsuTypes?.length
+    ...(input?.excludedJutsuTypes?.length
       ? input.excludedJutsuTypes.map((excludedType) =>
           ne(jutsu.jutsuType, excludedType as any),
         )
       : []),
-    
+
     ...(input?.excludedClassifications?.length
-      ? input.excludedClassifications.map((c) =>
-          ne(jutsu.statClassification, c as any),
-        )
+      ? input.excludedClassifications.map((c) => ne(jutsu.statClassification, c as any))
       : []),
     ...(input?.excludedRarities?.length
       ? input.excludedRarities.map((r) => ne(jutsu.jutsuRank, r as any))
