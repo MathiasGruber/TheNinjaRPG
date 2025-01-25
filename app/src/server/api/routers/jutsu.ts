@@ -723,26 +723,28 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
     // ---------------------------
     // Exclude: Single-value cols
     // ---------------------------
-    ...(input?.excludedJutsuTypes?.length
+        ...(input?.excludedJutsuTypes?.length
       ? input.excludedJutsuTypes.map((excludedType) =>
-          ne(jutsu.jutsuType, excludedType),
+          ne(jutsu.jutsuType, excludedType as any),
         )
       : []),
-
+    
     ...(input?.excludedClassifications?.length
-      ? input.excludedClassifications.map((c) => ne(jutsu.statClassification, c))
+      ? input.excludedClassifications.map((c) =>
+          ne(jutsu.statClassification, c as any),
+        )
       : []),
     ...(input?.excludedRarities?.length
-      ? input.excludedRarities.map((r) => ne(jutsu.jutsuRank, r))
+      ? input.excludedRarities.map((r) => ne(jutsu.jutsuRank, r as any))
       : []),
     ...(input?.excludedRanks?.length
-      ? input.excludedRanks.map((r) => ne(jutsu.requiredRank, r))
+      ? input.excludedRanks.map((r) => ne(jutsu.requiredRank, r as any))
       : []),
     ...(input?.excludedMethods?.length
-      ? input.excludedMethods.map((m) => ne(jutsu.method, m))
+      ? input.excludedMethods.map((m) => ne(jutsu.method, m as any))
       : []),
     ...(input?.excludedTargets?.length
-      ? input.excludedTargets.map((t) => ne(jutsu.target, t))
+      ? input.excludedTargets.map((t) => ne(jutsu.target, t as any))
       : []),
 
     // ---------------------------
