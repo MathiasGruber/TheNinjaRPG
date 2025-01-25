@@ -833,13 +833,15 @@ export const damageUser = (
     !e.castThisRound
   ) as ShieldTagType | undefined;
 
-  // Calculate final damage after shield and barrier absorption
+  // Calculate final damage after barrier absorption
   const damage = rawDamage * (1 - effect.barrierAbsorb);
 
-  // If there's a shield, reduce its health by the damage
+  // If there's a shield, absorb damage up to the shield's current health
+  let finalDamage = damage;
   if (shieldEffect && shieldEffect.curHealth > 0) {
     const shieldDamage = Math.min(shieldEffect.curHealth, damage);
     shieldEffect.curHealth -= shieldDamage;
+    finalDamage = damage - shieldDamage;
 
     // If shield is broken, set rounds to 0 to remove it
     if (shieldEffect.curHealth <= 0) {
@@ -860,8 +862,6 @@ export const damageUser = (
   const residual = !thisRound && (effect.rounds === undefined || effect.rounds > 0);
 
   if (instant || residual) {
-    // Calculate final damage after shield absorption
-    const finalDamage = shieldEffect && shieldEffect.curHealth > 0 ? Math.max(0, damage - shieldEffect.curHealth) : damage;
 
     consequences.set(effect.id, {
       userId: effect.creatorId,
@@ -1168,6 +1168,11 @@ export const shield = (
     // Set initial shield health based on power
     shieldEffect.curHealth = power;
     shieldEffect.maxHealth = power;
+    return getInfo(
+      target,
+      effect,
+      `gains a shield with ${shieldEffect.maxHealth.toFixed(2)} HP`,
+    ) || { txt: "Shield effect failed", color: "red" };
   } else if (!effect.castThisRound) {
     // Shield already exists, check if it's still active
     if (shieldEffect.curHealth <= 0) {
@@ -1177,14 +1182,13 @@ export const shield = (
         color: "red",
       };
     }
+    return getInfo(
+      target,
+      effect,
+      `has a shield with ${shieldEffect.curHealth.toFixed(2)} HP remaining`,
+    ) || { txt: "Shield effect failed", color: "red" };
   }
-  const info = getInfo(
-    target,
-    effect,
-    `has a shield with ${shieldEffect.curHealth.toFixed(2)} HP remaining`,
-  );
-  if (!info) return { txt: "Shield effect failed", color: "red" };
-  return info;
+  return { txt: "Shield effect active", color: "blue" };
 };
 
 /**
