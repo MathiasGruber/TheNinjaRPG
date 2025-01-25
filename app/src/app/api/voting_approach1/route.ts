@@ -1,26 +1,25 @@
 import { eq, and } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { userVote } from "@/drizzle/schema";
-import { nanoid } from "nanoid";
 import { handleEndpointError } from "@/libs/gamesettings";
 import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
   await cookies();
 
-  // https://topwebgames.com/game/theninja-rpg-core4/vote?incentive=testUser-testSecret-topwebgames&test=true&alwaysReward=true
+  // https://topwebgames.com/game/theninja-rpg-core4/vote?incentive=testSecret-topwebgames&test=true&alwaysReward=true
 
   try {
     const data = await request.formData();
     const incentive = data.get("incentive") as string;
-    const [userId, secret, siteId] = incentive?.split("-") ?? [];
+    const [secret, siteId] = incentive?.split("-") ?? [];
 
-    if (!userId || !secret || !siteId) {
+    if (!secret || !siteId) {
       return Response.json(`Invalid incentive: ${incentive}`, { status: 400 });
     }
 
-    await handleVote(userId, secret, siteId);
-    return Response.json(`OK: ${userId} ${secret} ${siteId}`);
+    await handleVote(secret, siteId);
+    return Response.json(`OK: ${secret} ${siteId}`);
   } catch (cause) {
     return handleEndpointError(cause);
   }
@@ -29,38 +28,33 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   await cookies();
 
-  // https://www.top100arena.com/listing/101116/vote?payload=testUser-testSecret-top100arena
+  // https://www.top100arena.com/listing/101116/vote?incentive=testSecret-top100arena
 
   try {
     const { searchParams } = new URL(request.url);
     const incentive = searchParams.get("postback")!;
-    const [userId, secret, siteId] = incentive?.split("-") ?? [];
+    const [secret, siteId] = incentive?.split("-") ?? [];
 
-    if (!userId || !secret || !siteId) {
+    if (!secret || !siteId) {
       return Response.json(`Invalid incentive: ${incentive}`, { status: 400 });
     }
 
-    await handleVote(userId, secret, siteId);
-    return Response.json(`OK: ${userId} ${secret} ${siteId}`);
+    await handleVote(secret, siteId);
+    return Response.json(`OK: ${secret} ${siteId}`);
   } catch (cause) {
     return handleEndpointError(cause);
   }
 }
 
-async function handleVote(userId: string, secret: string, siteId: string) {
+async function handleVote(secret: string, siteId: string) {
   const now = new Date();
 
   // First try to find existing vote record
   const existingVote = await drizzleDB.query.userVote.findFirst({
-    where: and(eq(userVote.userId, userId)),
+    where: and(eq(userVote.secret, secret)),
   });
 
   if (existingVote) {
-    // Check that the secret matches
-    if (existingVote.secret !== secret) {
-      throw new Error("Invalid secret");
-    }
-
     // Update existing record
     await drizzleDB
       .update(userVote)
@@ -77,24 +71,6 @@ async function handleVote(userId: string, secret: string, siteId: string) {
         ...(siteId === "mmorpg100" ? { mmorpg100: true } : {}),
         lastVoteAt: now,
       })
-      .where(and(eq(userVote.userId, userId), eq(userVote.secret, secret)));
-  } else {
-    // Insert new record
-    await drizzleDB.insert(userVote).values({
-      id: nanoid(),
-      userId,
-      secret,
-      ...(siteId === "topwebgames" ? { topWebGames: true } : {}),
-      ...(siteId === "top100arena" ? { top100Arena: true } : {}),
-      ...(siteId === "mmohub" ? { mmoHub: true } : {}),
-      ...(siteId === "arenaTop100" ? { arenaTop100: true } : {}),
-      ...(siteId === "xtremeTop100" ? { xtremeTop100: true } : {}),
-      ...(siteId === "topOnlineMmorpg" ? { topOnlineMmorpg: true } : {}),
-      ...(siteId === "gamesTop200" ? { gamesTop200: true } : {}),
-      ...(siteId === "browserMmorpg" ? { browserMmorpg: true } : {}),
-      ...(siteId === "apexWebGaming" ? { apexWebGaming: true } : {}),
-      ...(siteId === "mmorpg100" ? { mmorpg100: true } : {}),
-      lastVoteAt: now,
-    });
+      .where(eq(userVote.secret, secret));
   }
 }
