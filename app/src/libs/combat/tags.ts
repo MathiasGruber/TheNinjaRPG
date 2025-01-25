@@ -7,6 +7,7 @@ import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
 import type { DamageTagType, PierceTagType } from "@/libs/combat/types";
 import type { WeaknessTagType } from "@/libs/combat/types";
+import type { ShieldTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -817,17 +818,37 @@ export const damageUser = (
   effect: UserEffect,
   origin: BattleUserState | undefined,
   target: BattleUserState,
+  usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
   dmgModifier: number,
   config: DmgConfig,
 ) => {
   // Calculate the raw damage
-  const damage =
-    damageCalc(effect, origin, target, config) *
-    dmgModifier *
-    (1 - effect.barrierAbsorb);
-  // Find out if target has any weakness tag related to this damage effect
-  // const weaknessTags =
+  const rawDamage = damageCalc(effect, origin, target, config) * dmgModifier;
+
+  // Check for shield effects on target
+  const shieldEffect = usersEffects.find(
+    e => e.type === "shield" &&
+    e.targetId === target.userId &&
+    !e.castThisRound
+  ) as ShieldTagType | undefined;
+
+  // Calculate final damage after barrier absorption
+  const damage = rawDamage * (1 - effect.barrierAbsorb);
+
+  // If there's a shield, absorb damage up to the shield's current health
+  let finalDamage = damage;
+  if (shieldEffect && shieldEffect.curHealth > 0) {
+    const shieldDamage = Math.min(shieldEffect.curHealth, damage);
+    shieldEffect.curHealth -= shieldDamage;
+    finalDamage = damage - shieldDamage;
+
+    // If shield is broken, set rounds to 0 to remove it
+    if (shieldEffect.curHealth <= 0) {
+      shieldEffect.rounds = 0;
+    }
+  }
+
   // Fetch types to show to the user
   const types = [
     ...("statTypes" in effect && effect.statTypes ? effect.statTypes : []),
@@ -835,18 +856,22 @@ export const damageUser = (
     ...("elements" in effect && effect.elements ? effect.elements : []),
     ...("poolsAffected" in effect && effect.poolsAffected ? effect.poolsAffected : []),
   ];
+
   const thisRound = effect.castThisRound;
   const instant = thisRound && effect.rounds === 0;
   const residual = !thisRound && (effect.rounds === undefined || effect.rounds > 0);
+
   if (instant || residual) {
+
     consequences.set(effect.id, {
       userId: effect.creatorId,
       targetId: effect.targetId,
       types: types,
-      ...(instant ? { damage: damage } : {}),
-      ...(residual ? { residual: damage } : {}),
+      ...(instant ? { damage: finalDamage } : {}),
+      ...(residual ? { residual: finalDamage } : {}),
     });
   }
+
   return getInfo(target, effect, "will take damage");
 };
 
@@ -1128,6 +1153,42 @@ export const lifesteal = (
     });
   }
   return getInfo(target, effect, `will steal ${qualifier} damage as health`);
+};
+
+/** Create a temporary HP shield that absorbs damage */
+export const shield = (
+  effect: UserEffect,
+  target: BattleUserState,
+): ActionEffect => {
+  const { power } = getPower(effect);
+  if (effect.type !== "shield") return { txt: "Invalid effect type", color: "red" };
+
+  const shieldEffect = effect as ShieldTagType;
+  if (effect.isNew) {
+    // Set initial shield health based on power
+    shieldEffect.curHealth = power;
+    shieldEffect.maxHealth = power;
+    return getInfo(
+      target,
+      effect,
+      `gains a shield with ${shieldEffect.maxHealth.toFixed(2)} HP`,
+    ) || { txt: "Shield effect failed", color: "red" };
+  } else if (!effect.castThisRound) {
+    // Shield already exists, check if it's still active
+    if (shieldEffect.curHealth <= 0) {
+      effect.rounds = 0;
+      return {
+        txt: `${target.username}'s shield has been broken!`,
+        color: "red",
+      };
+    }
+    return getInfo(
+      target,
+      effect,
+      `has a shield with ${shieldEffect.curHealth.toFixed(2)} HP remaining`,
+    ) || { txt: "Shield effect failed", color: "red" };
+  }
+  return { txt: "Shield effect active", color: "blue" };
 };
 
 /**
