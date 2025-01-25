@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import {eq, inArray, sql, and, or, gte, ne, like, desc,} from "drizzle-orm";
-import {jutsu, userJutsu, userData, actionLog, jutsuLoadout, bloodline,} from "@/drizzle/schema";
+import {eq, inArray, sql, and, or, gte, ne, like, desc } from "drizzle-orm";
+import {jutsu, userJutsu, userData, actionLog, jutsuLoadout, bloodline } from "@/drizzle/schema";
 import { fetchUser, fetchUpdatedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
 import { getNewTrackers } from "@/libs/quest";
 import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
-import {calcJutsuTrainTime, calcJutsuTrainCost, calcJutsuEquipLimit,} from "@/libs/train";
+import {calcJutsuTrainTime, calcJutsuTrainCost, calcJutsuEquipLimit } from "@/libs/train";
 import { JutsuValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
