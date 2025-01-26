@@ -1574,7 +1574,7 @@ export const copy = (
       ...enemyEffect,
       id: nanoid(),
       targetId: effect.targetId,
-      userId: effect.userId,
+      creatorId: effect.creatorId,
       isNew: true,
       castThisRound: false,
       createdRound: effect.createdRound,
