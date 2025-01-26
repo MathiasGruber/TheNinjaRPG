@@ -59,7 +59,7 @@ import {
 } from "@/utils/permissions";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { canChangePublicUser } from "@/utils/permissions";
+import { canClearUserNindo, canEditPublicUser } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { useUserEditForm } from "@/hooks/profile";
 import { Chart as ChartJS } from "chart.js/auto";
@@ -272,7 +272,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   });
 
   // Derived
-  const canChange = userData && canChangePublicUser(userData);
+  const canChange = userData && canClearUserNindo(userData);
   const availableRoles = userData && canChangeUserRole(userData.role);
 
   // Loaders
@@ -322,16 +322,18 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 onClick={() => cloneUser.mutate({ userId: profile.userId })}
               />
             )}
-            {availableRoles && availableRoles.length > 0 && (
-              <EditUserComponent
-                userId={profile.userId}
-                profile={{
-                  ...profile,
-                  items: profile.items.map((ui) => ui.itemId),
-                  jutsus: profile.jutsus.map((ui) => ui.jutsuId),
-                }}
-              />
-            )}
+            {availableRoles &&
+              availableRoles.length > 0 &&
+              canEditPublicUser(userData) && (
+                <EditUserComponent
+                  userId={profile.userId}
+                  profile={{
+                    ...profile,
+                    items: profile.items.map((ui) => ui.itemId),
+                    jutsus: profile.jutsus.map((ui) => ui.jutsuId),
+                  }}
+                />
+              )}
             {userData && canAwardReputation(userData.role) && (
               <Confirm
                 title="Award Reputation Points"

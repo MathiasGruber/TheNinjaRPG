@@ -166,10 +166,14 @@ export const canClearReport = (user: UserData, report: UserReport) => {
   );
 };
 
-export const canChangePublicUser = (user: UserData) => {
+export const canClearUserNindo = (user: UserData) => {
   return ["MODERATOR", "HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(
     user.role,
   );
+};
+
+export const canEditPublicUser = (user: UserData) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(user.role);
 };
 
 export const canAwardReputation = (role: UserRole) => {

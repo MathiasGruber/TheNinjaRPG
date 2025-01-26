@@ -29,10 +29,14 @@ export async function GET(request: Request) {
   await cookies();
 
   // https://www.top100arena.com/listing/101116/vote?incentive=testSecret-top100arena
+  // https://mmohub.com/site/1054/vote/testSecret-mmohub
+  // https://www.arena-top100.com/index.php?a=in&u=Terriator&incentive=testSecret-arenaTop100
 
   try {
     const { searchParams } = new URL(request.url);
-    const incentive = searchParams.get("postback")!;
+    const incentive = (searchParams.get("incentive") ||
+      searchParams.get("param") ||
+      searchParams.get("userid"))!;
     const [secret, siteId] = incentive?.split("-") ?? [];
 
     if (!secret || !siteId) {
