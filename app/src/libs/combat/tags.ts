@@ -1556,6 +1556,49 @@ export const weakness = (effect: UserEffect, target: BattleUserState) => {
   }
 };
 
+/** Copy positive buffs from enemy to self */
+export const copy = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  // Only copy effects from enemies
+  const enemyEffects = usersEffects.filter(
+    (e) => e.targetId !== effect.targetId && isPositiveUserEffect(e),
+  );
+
+  // Copy each positive effect
+  enemyEffects.forEach((enemyEffect) => {
+    // Create a copy of the effect
+    const copiedEffect: UserEffect = {
+      ...enemyEffect,
+      id: nanoid(),
+      targetId: effect.targetId,
+      userId: effect.userId,
+      isNew: true,
+      castThisRound: false,
+      createdRound: effect.createdRound,
+    };
+
+    // Scale the power based on the copy effect's power
+    const { power } = getPower(effect);
+    copiedEffect.power = (copiedEffect.power * power) / 100;
+    if (copiedEffect.powerPerLevel) {
+      copiedEffect.powerPerLevel = (copiedEffect.powerPerLevel * power) / 100;
+    }
+
+    // Add the copied effect
+    usersEffects.push(copiedEffect);
+  });
+
+  const { power } = getPower(effect);
+  return getInfo(
+    target,
+    effect,
+    `copies ${enemyEffects.length} positive buffs from enemies at ${power}% effectiveness`,
+  );
+};
+
 /**
  * ***********************************************
  *              UTILITY METHODS
