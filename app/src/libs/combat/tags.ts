@@ -1562,22 +1562,30 @@ export const copy = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
-  // Only copy effects from enemies
-  const enemyEffects = usersEffects.filter(
-    (e) => e.targetId !== effect.targetId && isPositiveUserEffect(e),
+  // Only copy positive effects from the target to the caster
+  const targetEffects = usersEffects.filter(
+    (e) => e.targetId === target.id && isPositiveUserEffect(e),
   );
 
+  if (targetEffects.length === 0) {
+    return {
+      txt: `${target.username} has no positive effects to copy`,
+      color: "blue",
+    };
+  }
+
   // Copy each positive effect
-  enemyEffects.forEach((enemyEffect) => {
+  targetEffects.forEach((targetEffect) => {
     // Create a copy of the effect
     const copiedEffect: UserEffect = {
-      ...enemyEffect,
+      ...targetEffect,
       id: nanoid(),
-      targetId: effect.targetId,
+      targetId: effect.creatorId, // Apply to the caster
       creatorId: effect.creatorId,
       isNew: true,
       castThisRound: false,
       createdRound: effect.createdRound,
+      rounds: targetEffect.rounds, // Maintain the same duration
     };
 
     // Scale the power based on the copy effect's power
@@ -1595,7 +1603,7 @@ export const copy = (
   return getInfo(
     target,
     effect,
-    `copies ${enemyEffects.length} positive buffs from enemies at ${power}% effectiveness`,
+    `copied ${targetEffects.length} positive effect(s) from ${target.username} at ${power}% effectiveness`,
   );
 };
 
