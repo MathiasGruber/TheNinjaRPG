@@ -10,7 +10,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 
 const getDaysInVillage = (user: UserData) => {
   try {
-    const joinDate = user.villageJoinedAt ? new Date(user.villageJoinedAt as string) : new Date(0);
+    const joinDate = user.villageJoinedAt ? new Date(user.villageJoinedAt) : new Date(0);
     return Math.floor((new Date().getTime() - joinDate.getTime()) / (1000 * 3600 * 24));
   } catch {
     return 0;

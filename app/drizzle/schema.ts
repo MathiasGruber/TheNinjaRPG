@@ -1320,6 +1320,7 @@ export const userData = mysqlTable(
     isOutlaw: boolean("isOutlaw").default(false).notNull(),
     level: int("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
+    villageJoinedAt: datetime("villageJoinedAt", { mode: "date", fsp: 3 }),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
     status: mysqlEnum("status", consts.UserStatuses).default("AWAKE").notNull(),
     strength: double("strength").default(10).notNull(),
