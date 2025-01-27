@@ -401,8 +401,8 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, targetVillage, kagePrestigeRecord] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+      const [{ user }, targetVillage, kagePrestigeRecord] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
         fetchVillage(ctx.drizzle, input.targetVillageId),
         ctx.drizzle.query.kagePrestige.findFirst({
           where: eq(kagePrestige.userId, ctx.userId),
@@ -463,8 +463,8 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, kagePrestigeRecord] = await Promise.all([
-        fetchUser(ctx.drizzle, input.userId),
+      const [{ user }, kagePrestigeRecord] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: input.userId }),
         ctx.drizzle.query.kagePrestige.findFirst({
           where: eq(kagePrestige.userId, input.userId),
         }),
