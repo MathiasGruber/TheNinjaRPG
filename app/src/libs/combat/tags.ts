@@ -1585,7 +1585,7 @@ export const copy = (
       isNew: true,
       castThisRound: false,
       createdRound: effect.createdRound,
-      rounds: targetEffect.rounds, // Maintain the same duration
+      rounds: targetEffect.rounds ?? 1, // Maintain the same duration, default to 1 if undefined
       level: effect.level, // Copy the level from the original effect
     };
 
