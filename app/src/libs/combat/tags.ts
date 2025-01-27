@@ -1564,7 +1564,7 @@ export const copy = (
 ) => {
   // Only copy positive effects from the target to the caster
   const targetEffects = usersEffects.filter(
-    (e) => e.targetId === target.id && isPositiveUserEffect(e),
+    (e) => e.targetId === target.userId && isPositiveUserEffect(e),
   );
 
   if (targetEffects.length === 0) {
