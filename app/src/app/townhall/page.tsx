@@ -803,15 +803,15 @@ const WarRoom: React.FC<{
             {activeWars?.map((war) => {
               const attackerVillage = villages?.villages.find(v => v.id === war.attackerVillageId);
               const defenderVillage = villages?.villages.find(v => v.id === war.defenderVillageId);
-              const warStats = villages?.villages.map(v => ({
+              const warStats = villages?.villages?.map(v => ({
                 villageId: v.id,
                 townHallHp: 5000,
-              }));
-              const warFactions = villages?.villages.map(v => ({
+              })) ?? [];
+              const warFactions = villages?.villages?.map(v => ({
                 villageId: v.id,
                 warId: war.id,
                 tokensPaid: 10000,
-              }));
+              })) ?? [];
 
               return (
                 <div key={war.id} className="border p-4 rounded-lg">
