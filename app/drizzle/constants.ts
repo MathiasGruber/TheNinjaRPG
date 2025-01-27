@@ -394,9 +394,7 @@ export const REMOVAL_COST = 5;
 export const BankTransferTypes = ["bank", "sensei", "recruiter"] as const;
 
 // Caps lookup table
-export const USER_CAPS: {
-  [key in UserRank]: { GENS_CAP: number; STATS_CAP: number; LVL_CAP: number };
-} = {
+export const USER_CAPS: Record<UserRank, { GENS_CAP: number; STATS_CAP: number; LVL_CAP: number }> = {
   STUDENT: { GENS_CAP: 20000, STATS_CAP: 20000, LVL_CAP: 10 },
   GENIN: { GENS_CAP: 40000, STATS_CAP: 40000, LVL_CAP: 20 },
   CHUNIN: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
@@ -453,12 +451,12 @@ export const MEDNIN_MIN_RANK = "GENIN";
 export const MEDNIN_RANKS = ["NONE", "NOVICE", "APPRENTICE", "MASTER"] as const;
 export const MEDNIN_HEAL_TO_EXP = 0.1;
 export type MEDNIN_RANK = (typeof MEDNIN_RANKS)[number];
-export const MEDNIN_REQUIRED_EXP = {
+export const MEDNIN_REQUIRED_EXP: Record<MEDNIN_RANK, number> = {
   NONE: 0,
   NOVICE: 0,
   APPRENTICE: 100000,
   MASTER: 400000,
-} as { [key in MEDNIN_RANK]: number };
+};
 
 // Ai profile config
 export const AI_PROFILE_MAX_RULES = 20;
@@ -539,14 +537,21 @@ export const CONVERSATION_QUIET_MINS = 5;
 export const REPORT_CONTEXT_WINDOW = 10;
 
 // Kage config
-export const KAGE_PRESTIGE_REQUIREMENT = 4000;
+export const KAGE_PRESTIGE_REQUIREMENT = 30000;
 export const KAGE_RANK_REQUIREMENT = "JONIN";
-export const KAGE_PRESTIGE_COST = 1000;
-export const FRIENDLY_PRESTIGE_COST = 10000;
-export const WAR_FUNDS_COST = 100;
+export const KAGE_PRESTIGE_COST = 10000;
+export const KAGE_MIN_PRESTIGE = 4000;
+export const KAGE_DAILY_PRESTIGE_LOSS = 500;
+export const KAGE_MIN_DAYS_IN_VILLAGE = 40;
+export const KAGE_ELDER_MIN_DAYS = 100;
+export const KAGE_ANBU_DELETE_COST = 3000;
+export const KAGE_WAR_DECLARE_COST = 10000;
 export const KAGE_MAX_DAILIES = 3;
 export const KAGE_MAX_ELDERS = 5;
 export const KAGE_DELAY_SECS = 24 * 3600;
+export const KAGE_CHALLENGE_TIMEOUT_MINS = 30;
+export const WAR_FUNDS_COST = 100;
+export const FRIENDLY_PRESTIGE_COST = 10000;
 
 // Game assets
 export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";

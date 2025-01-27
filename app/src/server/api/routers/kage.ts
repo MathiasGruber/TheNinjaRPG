@@ -1,27 +1,35 @@
 import { z } from "zod";
-import { eq, and, ne, sql, gte, isNull } from "drizzle-orm";
-import { userData, village, villageStructure } from "@/drizzle/schema";
-import { kageDefendedChallenges } from "@/drizzle/schema";
+import { eq, and, ne, sql, gte, isNull, lt } from "drizzle-orm";
+import { userData, village, villageStructure, anbuSquad } from "@/drizzle/schema";
+import { kageDefendedChallenges, kagePrestige, kagePrestigeTransfer, kageChallengeRequest } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { initiateBattle } from "@/routers/combat";
 import { fetchVillage } from "@/routers/village";
 import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
-import { canChallengeKage } from "@/utils/kage";
+import { canChallengeKage, canBeElder, isKage } from "@/utils/kage";
 import { calcStructureUpgrade } from "@/utils/village";
-import { KAGE_MAX_DAILIES, KAGE_MAX_ELDERS } from "@/drizzle/constants";
-import { KAGE_DELAY_SECS } from "@/drizzle/constants";
+import {
+  KAGE_MAX_DAILIES,
+  KAGE_MAX_ELDERS,
+  KAGE_DELAY_SECS,
+  KAGE_MIN_PRESTIGE,
+  KAGE_DAILY_PRESTIGE_LOSS,
+  KAGE_ANBU_DELETE_COST,
+  KAGE_WAR_DECLARE_COST,
+  KAGE_CHALLENGE_TIMEOUT_MINS,
+} from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import { secondsFromDate } from "@/utils/time";
 
 export const kageRouter = createTRPCRouter({
-  fightKage: protectedProcedure
+  requestKageChallenge: protectedProcedure
     .input(z.object({ kageId: z.string(), villageId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, kage, village, previous] = await Promise.all([
+      const [user, kage, village, previous, existingRequest] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.kageId),
         fetchVillage(ctx.drizzle, input.villageId),
@@ -35,8 +43,16 @@ export const kageRouter = createTRPCRouter({
               gte(kageDefendedChallenges.createdAt, sql`NOW() - INTERVAL 1 DAY`),
             ),
           ),
+        ctx.drizzle.query.kageChallengeRequest.findFirst({
+          where: and(
+            eq(kageChallengeRequest.userId, ctx.userId),
+            eq(kageChallengeRequest.villageId, input.villageId),
+            gte(kageChallengeRequest.expiresAt, new Date()),
+          ),
+        }),
       ]);
       const previousCount = previous?.[0]?.count ?? 0;
+
       // Guards
       if (!village) return errorResponse("Village not found");
       if (kage.villageId !== village.id) return errorResponse("No longer kage");
@@ -44,13 +60,103 @@ export const kageRouter = createTRPCRouter({
       if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
       if (!canChallengeKage(user)) return errorResponse("Not eligible to challenge");
       if (previousCount >= KAGE_MAX_DAILIES) return errorResponse("Max for today");
+      if (existingRequest) return errorResponse("Already have a pending request");
+
+      // Create challenge request
+      await ctx.drizzle.insert(kageChallengeRequest).values({
+        id: crypto.randomUUID(),
+        userId: ctx.userId,
+        villageId: input.villageId,
+        kageId: input.kageId,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + KAGE_CHALLENGE_TIMEOUT_MINS * 60 * 1000),
+      });
+
+      return { success: true, message: "Challenge request sent" };
+    }),
+
+  acceptKageChallenge: protectedProcedure
+    .input(z.object({ requestId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const request = await ctx.drizzle.query.kageChallengeRequest.findFirst({
+        where: and(
+          eq(kageChallengeRequest.id, input.requestId),
+          eq(kageChallengeRequest.kageId, ctx.userId),
+          gte(kageChallengeRequest.expiresAt, new Date()),
+          eq(kageChallengeRequest.accepted, false),
+        ),
+      });
+
+      // Guards
+      if (!request) return errorResponse("Request not found or expired");
+
+      // Update request
+      await ctx.drizzle
+        .update(kageChallengeRequest)
+        .set({ accepted: true })
+        .where(eq(kageChallengeRequest.id, input.requestId));
+
       // Start the battle
+      return await initiateBattle(
+        {
+          userIds: [request.userId],
+          targetIds: [ctx.userId],
+          client: ctx.drizzle,
+          asset: "arena",
+        },
+        "KAGE_CHALLENGE",
+      );
+    }),
+
+  fightKage: protectedProcedure
+    .input(z.object({ kageId: z.string(), villageId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, kage, village, previous, request] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.kageId),
+        fetchVillage(ctx.drizzle, input.villageId),
+        ctx.drizzle
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(kageDefendedChallenges)
+          .where(
+            and(
+              eq(kageDefendedChallenges.villageId, input.villageId),
+              eq(kageDefendedChallenges.userId, ctx.userId),
+              gte(kageDefendedChallenges.createdAt, sql`NOW() - INTERVAL 1 DAY`),
+            ),
+          ),
+        ctx.drizzle.query.kageChallengeRequest.findFirst({
+          where: and(
+            eq(kageChallengeRequest.userId, ctx.userId),
+            eq(kageChallengeRequest.kageId, input.kageId),
+            lt(kageChallengeRequest.expiresAt, new Date()),
+            eq(kageChallengeRequest.accepted, false),
+          ),
+        }),
+      ]);
+      const previousCount = previous?.[0]?.count ?? 0;
+
+      // Guards
+      if (!village) return errorResponse("Village not found");
+      if (kage.villageId !== village.id) return errorResponse("No longer kage");
+      if (kage.villageId !== user.villageId) return errorResponse("Wrong village");
+      if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
+      if (!canChallengeKage(user)) return errorResponse("Not eligible to challenge");
+      if (previousCount >= KAGE_MAX_DAILIES) return errorResponse("Max for today");
+      if (!request) return errorResponse("No expired challenge request found");
+
+      // Start AI battle
       return await initiateBattle(
         {
           userIds: [ctx.userId],
           targetIds: [kage.userId],
           client: ctx.drizzle,
           asset: "arena",
+
         },
         "KAGE_CHALLENGE",
       );
@@ -84,11 +190,107 @@ export const kageRouter = createTRPCRouter({
       if (user.villageId !== villageId) return errorResponse("Wrong village");
       if (user.userId !== uVillage?.kageId) return errorResponse("Not kage");
       // Update
-      await ctx.drizzle
-        .update(village)
-        .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
-        .where(eq(village.id, user.villageId));
+      await Promise.all([
+        ctx.drizzle
+          .update(village)
+          .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
+          .where(eq(village.id, user.villageId)),
+        ctx.drizzle
+          .delete(kagePrestige)
+          .where(eq(kagePrestige.userId, user.userId)),
+      ]);
       return { success: true, message: "You have resigned as kage" };
+    }),
+
+  sendKagePrestige: protectedProcedure
+    .input(z.object({ kageId: z.string(), amount: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [{ user }, { user: kage }] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchUpdatedUser({ client: ctx.drizzle, userId: input.kageId }),
+      ]);
+
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!kage) return errorResponse("Kage not found");
+      if (user.rank !== "ELDER") return errorResponse("Must be an elder");
+      if (user.villageId !== kage.villageId) return errorResponse("Wrong village");
+      if (!isKage(kage)) return errorResponse("Not kage");
+      if (input.amount <= 0) return errorResponse("Invalid amount");
+      if (user.villagePrestige < input.amount) return errorResponse("Not enough prestige");
+
+      // Create transfer request
+      await ctx.drizzle.insert(kagePrestigeTransfer).values({
+        id: crypto.randomUUID(),
+        fromUserId: ctx.userId,
+        toUserId: input.kageId,
+        villageId: user.villageId!,
+        amount: input.amount,
+        createdAt: new Date(),
+      });
+
+      return { success: true, message: "Prestige transfer request sent" };
+    }),
+
+  acceptPrestigeTransfer: protectedProcedure
+    .input(z.object({ transferId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [{ user }, transfer] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        ctx.drizzle.query.kagePrestigeTransfer.findFirst({
+          where: and(
+            eq(kagePrestigeTransfer.id, input.transferId),
+            eq(kagePrestigeTransfer.toUserId, ctx.userId),
+            eq(kagePrestigeTransfer.accepted, false),
+          ),
+        }),
+      ]);
+
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!transfer) return errorResponse("Transfer not found");
+      if (!isKage(user)) return errorResponse("Not kage");
+
+      // Update prestige
+      const [kagePrestigeRecord] = await Promise.all([
+        ctx.drizzle.query.kagePrestige.findFirst({
+          where: eq(kagePrestige.userId, ctx.userId),
+        }),
+        ctx.drizzle
+          .update(kagePrestigeTransfer)
+          .set({ accepted: true })
+          .where(eq(kagePrestigeTransfer.id, input.transferId)),
+        ctx.drizzle
+          .update(userData)
+          .set({
+            villagePrestige: sql`${userData.villagePrestige} - ${transfer.amount}`,
+          })
+          .where(eq(userData.userId, transfer.fromUserId)),
+      ]);
+
+      if (kagePrestigeRecord) {
+        await ctx.drizzle
+          .update(kagePrestige)
+          .set({
+            prestige: sql`${kagePrestige.prestige} + ${transfer.amount}`,
+          })
+          .where(eq(kagePrestige.userId, ctx.userId));
+      } else {
+        await ctx.drizzle.insert(kagePrestige).values({
+          id: crypto.randomUUID(),
+          userId: ctx.userId,
+          villageId: user.villageId!,
+          prestige: 5000 + transfer.amount,
+          createdAt: new Date(),
+          lastPrestigeUpdate: new Date(),
+        });
+      }
+
+      return { success: true, message: "Prestige transfer accepted" };
     }),
   takeKage: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     // Fetch
@@ -113,6 +315,14 @@ export const kageRouter = createTRPCRouter({
           rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
         })
         .where(eq(userData.userId, user.userId)),
+      ctx.drizzle.insert(kagePrestige).values({
+        id: crypto.randomUUID(),
+        userId: user.userId,
+        villageId: user.villageId!,
+        prestige: 5000,
+        createdAt: new Date(),
+        lastPrestigeUpdate: new Date(),
+      }),
     ]);
     if (result.rowsAffected === 0) return errorResponse("No village found");
     return { success: true, message: "You have taken the kage position" };
@@ -139,10 +349,173 @@ export const kageRouter = createTRPCRouter({
       // Update
       return updateNindo(ctx.drizzle, village.id, input.content, "kageOrder");
     }),
+
+  deleteAnbuSquad: protectedProcedure
+    .input(z.object({ squadId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const { user } = await fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId });
+      if (!user) return errorResponse("User not found");
+      if (!isKage(user)) return errorResponse("Not kage");
+
+      const squadId = input.squadId;
+      const squad = await ctx.drizzle.query.anbuSquad.findFirst({
+        where: eq(anbuSquad.id, squadId),
+        columns: {
+          id: true,
+          villageId: true,
+        },
+      });
+      if (!squad?.id || !squad.villageId) return errorResponse("Squad not found");
+      if (user.villageId !== squad.villageId) return errorResponse("Wrong village");
+
+      const kagePrestigeRecord = await ctx.drizzle.query.kagePrestige.findFirst({
+        where: eq(kagePrestige.userId, ctx.userId),
+        columns: {
+          prestige: true,
+        },
+      });
+      if (!kagePrestigeRecord) return errorResponse("No kage prestige found");
+      if (kagePrestigeRecord.prestige < KAGE_ANBU_DELETE_COST) {
+        return errorResponse("Not enough kage prestige");
+      }
+
+      // Update
+      const deleteResult = await ctx.drizzle.delete(anbuSquad).where(eq(anbuSquad.id, squad.id));
+      if (deleteResult.rowsAffected === 0) return errorResponse("Failed to delete squad");
+
+      const updateResult = await ctx.drizzle
+        .update(kagePrestige)
+        .set({
+          prestige: sql`${kagePrestige.prestige} - ${KAGE_ANBU_DELETE_COST}`,
+        })
+        .where(eq(kagePrestige.userId, ctx.userId));
+      if (updateResult.rowsAffected === 0) return errorResponse("Failed to update prestige");
+
+      return { success: true, message: "ANBU squad deleted" };
+    }),
+
+  declareWar: protectedProcedure
+    .input(z.object({ targetVillageId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [{ user }, targetVillage, kagePrestigeRecord] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchVillage(ctx.drizzle, input.targetVillageId),
+        ctx.drizzle.query.kagePrestige.findFirst({
+          where: eq(kagePrestige.userId, ctx.userId),
+        }),
+      ]);
+
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!targetVillage) return errorResponse("Target village not found");
+      if (!kagePrestigeRecord) return errorResponse("No kage prestige found");
+      if (!isKage(user)) return errorResponse("Not kage");
+      if (user.villageId === input.targetVillageId) {
+        return errorResponse("Cannot declare war on your own village");
+      }
+      if (kagePrestigeRecord.prestige < KAGE_WAR_DECLARE_COST) {
+        return errorResponse("Not enough kage prestige");
+      }
+
+      // Update
+      await ctx.drizzle
+        .update(kagePrestige)
+        .set({
+          prestige: sql`${kagePrestige.prestige} - ${KAGE_WAR_DECLARE_COST}`,
+        })
+        .where(eq(kagePrestige.userId, ctx.userId));
+
+      // TODO: Implement war declaration logic
+
+      return { success: true, message: "War declared" };
+    }),
+
+  getKagePrestige: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.drizzle.query.kagePrestige.findFirst({
+        where: eq(kagePrestige.userId, input.userId),
+      });
+    }),
+
+  getKagePrestigeTransfers: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.drizzle.query.kagePrestigeTransfer.findMany({
+        where: and(
+          eq(kagePrestigeTransfer.toUserId, input.userId),
+          eq(kagePrestigeTransfer.accepted, false),
+        ),
+      });
+    }),
   getElders: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
       return await fetchElders(ctx.drizzle, input.villageId);
+    }),
+
+  updateKagePrestige: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [{ user }, kagePrestigeRecord] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: input.userId }),
+        ctx.drizzle.query.kagePrestige.findFirst({
+          where: eq(kagePrestige.userId, input.userId),
+        }),
+      ]);
+
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!kagePrestigeRecord) return errorResponse("No kage prestige found");
+      if (!isKage(user)) return errorResponse("Not kage");
+
+      // Calculate days since last update
+      const daysSinceUpdate = Math.floor(
+        (new Date().getTime() - new Date(kagePrestigeRecord.lastPrestigeUpdate).getTime()) /
+          (1000 * 3600 * 24),
+      );
+
+      if (daysSinceUpdate === 0) {
+        return { success: true, message: "Prestige already updated today" };
+      }
+
+      // Calculate new prestige
+      const prestigeLoss = daysSinceUpdate * KAGE_DAILY_PRESTIGE_LOSS;
+      const newPrestige = Math.max(0, kagePrestigeRecord.prestige - prestigeLoss);
+
+      // Update prestige
+      await ctx.drizzle
+        .update(kagePrestige)
+        .set({
+          prestige: newPrestige,
+          lastPrestigeUpdate: new Date(),
+        })
+        .where(eq(kagePrestige.userId, input.userId));
+
+      // Remove kage if prestige is too low
+      if (newPrestige < KAGE_MIN_PRESTIGE) {
+        const elders = await fetchElders(ctx.drizzle, user.villageId!);
+        const elder = elders[Math.floor(Math.random() * elders.length)];
+
+        if (elder) {
+          await Promise.all([
+            ctx.drizzle
+              .update(village)
+              .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
+              .where(eq(village.id, user.villageId!)),
+            ctx.drizzle.delete(kagePrestige).where(eq(kagePrestige.userId, input.userId)),
+          ]);
+          return { success: true, message: "Kage removed due to low prestige" };
+        }
+      }
+
+      return { success: true, message: "Prestige updated" };
     }),
   toggleElder: protectedProcedure
     .input(z.object({ userId: z.string(), villageId: z.string().nullish() }))
@@ -171,6 +544,9 @@ export const kageRouter = createTRPCRouter({
       }
       if (secondsFromDate(KAGE_DELAY_SECS, village.leaderUpdatedAt) > new Date()) {
         return errorResponse("Must have been kage for 24 hours");
+      }
+      if (prospect.rank !== "ELDER" && !canBeElder(prospect)) {
+        return errorResponse("Must be in village for 100 days to be elder");
       }
       // Mutate
       const newRank = prospect.rank === "ELDER" ? "JONIN" : "ELDER";

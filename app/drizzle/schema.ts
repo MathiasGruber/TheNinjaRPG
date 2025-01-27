@@ -1320,6 +1320,7 @@ export const userData = mysqlTable(
     isOutlaw: boolean("isOutlaw").default(false).notNull(),
     level: int("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
+    villageJoinedAt: datetime("villageJoinedAt", { mode: "date", fsp: 3 }),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
     status: mysqlEnum("status", consts.UserStatuses).default("AWAKE").notNull(),
     strength: double("strength").default(10).notNull(),
@@ -1908,6 +1909,115 @@ export const villageAllianceRelations = relations(villageAlliance, ({ one }) => 
     fields: [villageAlliance.villageIdB],
     references: [village.id],
     relationName: "villageB",
+  }),
+}));
+
+export const kagePrestige = mysqlTable(
+  "KagePrestige",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    prestige: float("prestige").default(5000).notNull(),
+    lastPrestigeUpdate: datetime("lastPrestigeUpdate", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("KagePrestige_userId_idx").on(table.userId),
+      villageIdIdx: index("KagePrestige_villageId_idx").on(table.villageId),
+    };
+  },
+);
+
+export const kagePrestigeTransfer = mysqlTable(
+  "KagePrestigeTransfer",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    fromUserId: varchar("fromUserId", { length: 191 }).notNull(),
+    toUserId: varchar("toUserId", { length: 191 }).notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    amount: float("amount").notNull(),
+    accepted: boolean("accepted").default(false).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      fromUserIdIdx: index("KagePrestigeTransfer_fromUserId_idx").on(table.fromUserId),
+      toUserIdIdx: index("KagePrestigeTransfer_toUserId_idx").on(table.toUserId),
+      villageIdIdx: index("KagePrestigeTransfer_villageId_idx").on(table.villageId),
+    };
+  },
+);
+
+export const kageChallengeRequest = mysqlTable(
+  "KageChallengeRequest",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    kageId: varchar("kageId", { length: 191 }).notNull(),
+    accepted: boolean("accepted").default(false).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    expiresAt: datetime("expiresAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3) + INTERVAL 30 MINUTE)`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("KageChallengeRequest_userId_idx").on(table.userId),
+      villageIdIdx: index("KageChallengeRequest_villageId_idx").on(table.villageId),
+      kageIdIdx: index("KageChallengeRequest_kageId_idx").on(table.kageId),
+    };
+  },
+);
+
+export const kagePrestigeRelations = relations(kagePrestige, ({ one }) => ({
+  user: one(userData, {
+    fields: [kagePrestige.userId],
+    references: [userData.userId],
+  }),
+  village: one(village, {
+    fields: [kagePrestige.villageId],
+    references: [village.id],
+  }),
+}));
+
+export const kagePrestigeTransferRelations = relations(kagePrestigeTransfer, ({ one }) => ({
+  fromUser: one(userData, {
+    fields: [kagePrestigeTransfer.fromUserId],
+    references: [userData.userId],
+  }),
+  toUser: one(userData, {
+    fields: [kagePrestigeTransfer.toUserId],
+    references: [userData.userId],
+  }),
+  village: one(village, {
+    fields: [kagePrestigeTransfer.villageId],
+    references: [village.id],
+  }),
+}));
+
+export const kageChallengeRequestRelations = relations(kageChallengeRequest, ({ one }) => ({
+  user: one(userData, {
+    fields: [kageChallengeRequest.userId],
+    references: [userData.userId],
+  }),
+  kage: one(userData, {
+    fields: [kageChallengeRequest.kageId],
+    references: [userData.userId],
+  }),
+  village: one(village, {
+    fields: [kageChallengeRequest.villageId],
+    references: [village.id],
   }),
 }));
 
