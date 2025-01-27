@@ -207,9 +207,9 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, kage] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchUser(ctx.drizzle, input.kageId),
+      const [{ user }, { user: kage }] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchUpdatedUser({ client: ctx.drizzle, userId: input.kageId }),
       ]);
 
       // Guards
@@ -239,8 +239,8 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, transfer] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+      const [{ user }, transfer] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
         ctx.drizzle.query.kagePrestigeTransfer.findFirst({
           where: and(
             eq(kagePrestigeTransfer.id, input.transferId),
@@ -355,7 +355,7 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const { user } = await fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId });
       if (!user) return errorResponse("User not found");
       if (!isKage(user)) return errorResponse("Not kage");
 
