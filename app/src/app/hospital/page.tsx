@@ -48,6 +48,9 @@ export default function Hospital() {
     },
   });
 
+  // Ensure villageId is available
+  if (!userData?.villageId) return <Loader explanation="Loading village data" />;
+
   // Heal finish time
   const healFinishAt = userData && calcHealFinish({ user: userData, timeDiff, boost });
   const healCost = userData && calcHealCost(userData);
@@ -100,7 +103,7 @@ export default function Hospital() {
                   id="check"
                   className="w-full"
                   disabled={healFinishAt && healFinishAt > new Date()}
-                  onClick={() => heal({ villageId: userData.villageId })}
+                  onClick={() => userData && heal({ villageId: userData.villageId })}
                 >
                   <Clock className="mr-2 h-6 w-6" />
                   <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
@@ -110,7 +113,7 @@ export default function Hospital() {
                   className="w-full"
                   color={canAfford ? "default" : "red"}
                   disabled={healFinishAt && healFinishAt <= new Date()}
-                  onClick={() => heal({ villageId: userData.villageId })}
+                  onClick={() => userData && heal({ villageId: userData.villageId })}
                 >
                   {canAfford ? (
                     <FastForward className="mr-3 h-6 w-6" />
