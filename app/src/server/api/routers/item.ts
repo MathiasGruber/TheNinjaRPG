@@ -355,6 +355,7 @@ export const itemRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!useritem) return errorResponse("User item not found");
       if (useritem.userId !== user.userId) return errorResponse("Not yours to consume");
+      if (user.status !== "AWAKE") return errorResponse(`Cannot use items while ${user.status.toLowerCase()}`);
       if (!nonCombatConsume(useritem.item, user)) {
         return errorResponse("Not consumable");
       }
