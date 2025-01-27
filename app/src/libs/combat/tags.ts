@@ -1586,6 +1586,7 @@ export const copy = (
       castThisRound: false,
       createdRound: effect.createdRound,
       rounds: targetEffect.rounds, // Maintain the same duration
+      level: effect.level, // Copy the level from the original effect
     };
 
     // Scale the power based on the copy effect's power
