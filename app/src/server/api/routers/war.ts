@@ -1,17 +1,38 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { eq, and, or, sql } from "drizzle-orm";
-import { war, warFaction, warStat, warKill } from "@/drizzle/schema";
+import { eq, and, or } from "drizzle-orm";
+import { war, warFaction, warStat, warKill, village, userData } from "@/drizzle/schema";
 import { nanoid } from "nanoid";
+import type { InferSelectModel } from "drizzle-orm";
+
+type War = InferSelectModel<typeof war>;
+type WarStat = InferSelectModel<typeof warStat>;
+type WarFaction = InferSelectModel<typeof warFaction>;
+type Village = InferSelectModel<typeof village>;
+
+type MutationResponse = {
+  success: boolean;
+  message: string;
+  warId?: string;
+};
 
 export const warRouter = createTRPCRouter({
   // Get active wars for a village
   getActiveWars: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const activeWars = await ctx.db
-        .select()
+      const activeWars = await ctx.drizzle
+        .select({
+          id: war.id,
+          attackerVillageId: war.attackerVillageId,
+          defenderVillageId: war.defenderVillageId,
+          startedAt: war.startedAt,
+          endedAt: war.endedAt,
+          status: war.status,
+          dailyTokenReduction: war.dailyTokenReduction,
+          lastTokenReductionAt: war.lastTokenReductionAt,
+        })
         .from(war)
         .where(
           and(
@@ -29,11 +50,17 @@ export const warRouter = createTRPCRouter({
   // Declare war on another village
   declareWar: protectedProcedure
     .input(z.object({ targetVillageId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }): Promise<MutationResponse> => {
       // Check if user is kage
-      const userVillage = await ctx.db.query.village.findFirst({
-        where: eq(village.kageId, ctx.auth.userId),
-      });
+      const userVillage = await ctx.drizzle
+        .select({
+          id: village.id,
+          tokens: village.tokens,
+          kageId: village.kageId,
+        })
+        .from(village)
+        .where(eq(village.kageId, ctx.userId))
+        .then((rows) => rows[0]);
 
       if (!userVillage) {
         throw new TRPCError({
@@ -51,9 +78,13 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check if target village exists
-      const targetVillage = await ctx.db.query.village.findFirst({
-        where: eq(village.id, input.targetVillageId),
-      });
+      const targetVillage = await ctx.drizzle
+        .select({
+          id: village.id,
+        })
+        .from(village)
+        .where(eq(village.id, input.targetVillageId))
+        .then((rows) => rows[0]);
 
       if (!targetVillage) {
         throw new TRPCError({
@@ -63,17 +94,23 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check if either village is already at war
-      const existingWar = await ctx.db.query.war.findFirst({
-        where: and(
-          or(
-            eq(war.attackerVillageId, userVillage.id),
-            eq(war.defenderVillageId, userVillage.id),
-            eq(war.attackerVillageId, targetVillage.id),
-            eq(war.defenderVillageId, targetVillage.id),
+      const existingWar = await ctx.drizzle
+        .select({
+          id: war.id,
+        })
+        .from(war)
+        .where(
+          and(
+            or(
+              eq(war.attackerVillageId, userVillage.id),
+              eq(war.defenderVillageId, userVillage.id),
+              eq(war.attackerVillageId, targetVillage.id),
+              eq(war.defenderVillageId, targetVillage.id),
+            ),
+            eq(war.status, "ACTIVE"),
           ),
-          eq(war.status, "ACTIVE"),
-        ),
-      });
+        )
+        .then((rows) => rows[0]);
 
       if (existingWar) {
         throw new TRPCError({
@@ -84,7 +121,7 @@ export const warRouter = createTRPCRouter({
 
       // Create war
       const warId = nanoid();
-      await ctx.db.transaction(async (tx) => {
+      await ctx.drizzle.transaction(async (tx) => {
         // Deduct tokens from attacker village
         await tx
           .update(village)
@@ -97,7 +134,7 @@ export const warRouter = createTRPCRouter({
           attackerVillageId: userVillage.id,
           defenderVillageId: targetVillage.id,
           status: "ACTIVE",
-        });
+        } satisfies Omit<War, "startedAt" | "endedAt" | "dailyTokenReduction" | "lastTokenReductionAt">);
 
         // Create war stats for both villages
         await tx.insert(warStat).values([
@@ -106,17 +143,17 @@ export const warRouter = createTRPCRouter({
             warId,
             villageId: userVillage.id,
             townHallHp: 5000,
-          },
+          } satisfies Omit<WarStat, "lastUpdatedAt">,
           {
             id: nanoid(),
             warId,
             villageId: targetVillage.id,
             townHallHp: 5000,
-          },
+          } satisfies Omit<WarStat, "lastUpdatedAt">,
         ]);
       });
 
-      return { warId };
+      return { success: true, message: "War declared successfully", warId };
     }),
 
   // Hire a faction for war
@@ -128,11 +165,17 @@ export const warRouter = createTRPCRouter({
         tokenAmount: z.number().min(1),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }): Promise<MutationResponse> => {
       // Check if user is kage
-      const userVillage = await ctx.db.query.village.findFirst({
-        where: eq(village.kageId, ctx.auth.userId),
-      });
+      const userVillage = await ctx.drizzle
+        .select({
+          id: village.id,
+          tokens: village.tokens,
+          kageId: village.kageId,
+        })
+        .from(village)
+        .where(eq(village.kageId, ctx.userId))
+        .then((rows) => rows[0]);
 
       if (!userVillage) {
         throw new TRPCError({
@@ -142,16 +185,25 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check if war exists and is active
-      const currentWar = await ctx.db.query.war.findFirst({
-        where: and(
-          eq(war.id, input.warId),
-          eq(war.status, "ACTIVE"),
-          or(
-            eq(war.attackerVillageId, userVillage.id),
-            eq(war.defenderVillageId, userVillage.id),
+      const currentWar = await ctx.db
+        .select({
+          id: war.id,
+          attackerVillageId: war.attackerVillageId,
+          defenderVillageId: war.defenderVillageId,
+          status: war.status,
+        })
+        .from(war)
+        .where(
+          and(
+            eq(war.id, input.warId),
+            eq(war.status, "ACTIVE"),
+            or(
+              eq(war.attackerVillageId, userVillage.id),
+              eq(war.defenderVillageId, userVillage.id),
+            ),
           ),
-        ),
-      });
+        )
+        .then((rows) => rows[0] as War | undefined);
 
       if (!currentWar) {
         throw new TRPCError({
@@ -169,9 +221,13 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check if faction exists
-      const faction = await ctx.db.query.village.findFirst({
-        where: eq(village.id, input.villageId),
-      });
+      const faction = await ctx.drizzle
+        .select({
+          id: village.id,
+        })
+        .from(village)
+        .where(eq(village.id, input.villageId))
+        .then((rows) => rows[0]);
 
       if (!faction) {
         throw new TRPCError({
@@ -181,12 +237,18 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check if faction is already hired
-      const existingFaction = await ctx.db.query.warFaction.findFirst({
-        where: and(
-          eq(warFaction.warId, input.warId),
-          eq(warFaction.villageId, input.villageId),
-        ),
-      });
+      const existingFaction = await ctx.drizzle
+        .select({
+          id: warFaction.id,
+        })
+        .from(warFaction)
+        .where(
+          and(
+            eq(warFaction.warId, input.warId),
+            eq(warFaction.villageId, input.villageId),
+          ),
+        )
+        .then((rows) => rows[0]);
 
       if (existingFaction) {
         throw new TRPCError({
@@ -196,7 +258,7 @@ export const warRouter = createTRPCRouter({
       }
 
       // Hire faction
-      await ctx.db.transaction(async (tx) => {
+      await ctx.drizzle.transaction(async (tx) => {
         // Deduct tokens from village
         await tx
           .update(village)
@@ -209,10 +271,10 @@ export const warRouter = createTRPCRouter({
           warId: input.warId,
           villageId: input.villageId,
           tokensPaid: input.tokenAmount,
-        });
+        } satisfies Omit<WarFaction, "createdAt">);
       });
 
-      return { success: true };
+      return { success: true, message: "Faction hired successfully" };
     }),
 
   // Record a kill in war
@@ -223,11 +285,18 @@ export const warRouter = createTRPCRouter({
         victimId: z.string(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }): Promise<MutationResponse> => {
       // Check if war exists and is active
-      const currentWar = await ctx.db.query.war.findFirst({
-        where: and(eq(war.id, input.warId), eq(war.status, "ACTIVE")),
-      });
+      const currentWar = await ctx.drizzle
+        .select({
+          id: war.id,
+          attackerVillageId: war.attackerVillageId,
+          defenderVillageId: war.defenderVillageId,
+          status: war.status,
+        })
+        .from(war)
+        .where(and(eq(war.id, input.warId), eq(war.status, "ACTIVE")))
+        .then((rows) => rows[0]);
 
       if (!currentWar) {
         throw new TRPCError({
@@ -238,12 +307,24 @@ export const warRouter = createTRPCRouter({
 
       // Get killer and victim details
       const [killer, victim] = await Promise.all([
-        ctx.db.query.userData.findFirst({
-          where: eq(userData.userId, ctx.auth.userId),
-        }),
-        ctx.db.query.userData.findFirst({
-          where: eq(userData.userId, input.victimId),
-        }),
+        ctx.drizzle
+          .select({
+            userId: userData.userId,
+            villageId: userData.villageId,
+            anbuId: userData.anbuId,
+            isElder: userData.isElder,
+          })
+          .from(userData)
+          .where(eq(userData.userId, ctx.userId))
+          .then((rows) => rows[0]),
+        ctx.drizzle
+          .select({
+            userId: userData.userId,
+            villageId: userData.villageId,
+          })
+          .from(userData)
+          .where(eq(userData.userId, input.victimId))
+          .then((rows) => rows[0]),
       ]);
 
       if (!killer || !victim) {
@@ -264,17 +345,25 @@ export const warRouter = createTRPCRouter({
         enemyTownHallDamage = 50;
         ownTownHallHeal = 40;
       } else if (killer.villageId === currentWar.attackerVillageId) {
-        const attackerVillage = await ctx.db.query.village.findFirst({
-          where: eq(village.id, currentWar.attackerVillageId),
-        });
+        const attackerVillage = await ctx.drizzle
+          .select({
+            kageId: village.kageId,
+          })
+          .from(village)
+          .where(eq(village.id, currentWar.attackerVillageId))
+          .then((rows) => rows[0]);
         if (attackerVillage?.kageId === killer.userId) {
           enemyTownHallDamage = 80;
           ownTownHallHeal = 70;
         }
       } else if (killer.villageId === currentWar.defenderVillageId) {
-        const defenderVillage = await ctx.db.query.village.findFirst({
-          where: eq(village.id, currentWar.defenderVillageId),
-        });
+        const defenderVillage = await ctx.drizzle
+          .select({
+            kageId: village.kageId,
+          })
+          .from(village)
+          .where(eq(village.id, currentWar.defenderVillageId))
+          .then((rows) => rows[0]);
         if (defenderVillage?.kageId === killer.userId) {
           enemyTownHallDamage = 80;
           ownTownHallHeal = 70;
@@ -282,7 +371,7 @@ export const warRouter = createTRPCRouter({
       }
 
       // Record kill and update town hall HP
-      await ctx.db.transaction(async (tx) => {
+      await ctx.drizzle.transaction(async (tx) => {
         // Record kill
         await tx.insert(warKill).values({
           id: nanoid(),
@@ -296,49 +385,57 @@ export const warRouter = createTRPCRouter({
         // Update town hall HP for both villages
         const [killerVillageStat, victimVillageStat] = await Promise.all([
           tx
-            .select()
+            .select({
+              id: warStat.id,
+              townHallHp: warStat.townHallHp,
+            })
             .from(warStat)
             .where(
               and(
                 eq(warStat.warId, input.warId),
                 eq(warStat.villageId, killer.villageId!),
               ),
-            ),
+            )
+            .then((rows) => rows[0] as WarStat | undefined),
           tx
-            .select()
+            .select({
+              id: warStat.id,
+              townHallHp: warStat.townHallHp,
+            })
             .from(warStat)
             .where(
               and(
                 eq(warStat.warId, input.warId),
                 eq(warStat.villageId, victim.villageId!),
               ),
-            ),
+            )
+            .then((rows) => rows[0] as WarStat | undefined),
         ]);
 
-        if (killerVillageStat[0] && victimVillageStat[0]) {
+        if (killerVillageStat && victimVillageStat) {
           await Promise.all([
             tx
               .update(warStat)
               .set({
                 townHallHp: Math.min(
                   5000,
-                  killerVillageStat[0].townHallHp + ownTownHallHeal,
+                  killerVillageStat.townHallHp + ownTownHallHeal,
                 ),
               })
-              .where(eq(warStat.id, killerVillageStat[0].id)),
+              .where(eq(warStat.id, killerVillageStat.id)),
             tx
               .update(warStat)
               .set({
                 townHallHp: Math.max(
                   0,
-                  victimVillageStat[0].townHallHp - enemyTownHallDamage,
+                  victimVillageStat.townHallHp - enemyTownHallDamage,
                 ),
               })
-              .where(eq(warStat.id, victimVillageStat[0].id)),
+              .where(eq(warStat.id, victimVillageStat.id)),
           ]);
 
           // Check if victim's town hall HP reached 0
-          if (victimVillageStat[0].townHallHp - enemyTownHallDamage <= 0) {
+          if (victimVillageStat.townHallHp - enemyTownHallDamage <= 0) {
             // End war with victory for killer's village
             await tx
               .update(war)
@@ -354,15 +451,19 @@ export const warRouter = createTRPCRouter({
             // Apply victory bonuses to winner and allies
             const winnerVillageId = killer.villageId;
             const winnerVillage = await tx
-              .select()
+              .select({
+                id: village.id,
+                tokens: village.tokens,
+              })
               .from(village)
-              .where(eq(village.id, winnerVillageId!));
+              .where(eq(village.id, winnerVillageId!))
+              .then((rows) => rows[0] as Village | undefined);
 
-            if (winnerVillage[0]) {
+            if (winnerVillage) {
               await tx
                 .update(village)
                 .set({
-                  tokens: winnerVillage[0].tokens + 100000,
+                  tokens: winnerVillage.tokens + 100000,
                 })
                 .where(eq(village.id, winnerVillageId!));
             }
@@ -373,17 +474,22 @@ export const warRouter = createTRPCRouter({
         }
       });
 
-      return { success: true };
+      return { success: true, message: "Kill recorded successfully" };
     }),
 
   // Surrender in war
   surrender: protectedProcedure
     .input(z.object({ warId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }): Promise<MutationResponse> => {
       // Check if user is kage
-      const userVillage = await ctx.db.query.village.findFirst({
-        where: eq(village.kageId, ctx.auth.userId),
-      });
+      const userVillage = await ctx.db
+        .select({
+          id: village.id,
+          kageId: village.kageId,
+        })
+        .from(village)
+        .where(eq(village.kageId, ctx.auth.userId))
+        .then((rows) => rows[0] as Village | undefined);
 
       if (!userVillage) {
         throw new TRPCError({
@@ -393,16 +499,25 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check if war exists and is active
-      const currentWar = await ctx.db.query.war.findFirst({
-        where: and(
-          eq(war.id, input.warId),
-          eq(war.status, "ACTIVE"),
-          or(
-            eq(war.attackerVillageId, userVillage.id),
-            eq(war.defenderVillageId, userVillage.id),
+      const currentWar = await ctx.db
+        .select({
+          id: war.id,
+          attackerVillageId: war.attackerVillageId,
+          defenderVillageId: war.defenderVillageId,
+          status: war.status,
+        })
+        .from(war)
+        .where(
+          and(
+            eq(war.id, input.warId),
+            eq(war.status, "ACTIVE"),
+            or(
+              eq(war.attackerVillageId, userVillage.id),
+              eq(war.defenderVillageId, userVillage.id),
+            ),
           ),
-        ),
-      });
+        )
+        .then((rows) => rows[0] as War | undefined);
 
       if (!currentWar) {
         throw new TRPCError({
@@ -412,7 +527,7 @@ export const warRouter = createTRPCRouter({
       }
 
       // End war with surrender
-      await ctx.db.transaction(async (tx) => {
+      await ctx.drizzle.transaction(async (tx) => {
         await tx
           .update(war)
           .set({
@@ -428,15 +543,19 @@ export const warRouter = createTRPCRouter({
             : currentWar.attackerVillageId;
 
         const winnerVillage = await tx
-          .select()
+          .select({
+            id: village.id,
+            tokens: village.tokens,
+          })
           .from(village)
-          .where(eq(village.id, winnerVillageId));
+          .where(eq(village.id, winnerVillageId))
+          .then((rows) => rows[0] as Village | undefined);
 
-        if (winnerVillage[0]) {
+        if (winnerVillage) {
           await tx
             .update(village)
             .set({
-              tokens: winnerVillage[0].tokens + 100000,
+              tokens: winnerVillage.tokens + 100000,
             })
             .where(eq(village.id, winnerVillageId));
         }
@@ -445,6 +564,6 @@ export const warRouter = createTRPCRouter({
         // TODO: Apply victory bonuses to allies and hired factions
       });
 
-      return { success: true };
+      return { success: true, message: "War surrendered successfully" };
     }),
 });

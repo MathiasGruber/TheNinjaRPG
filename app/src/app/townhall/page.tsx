@@ -800,107 +800,121 @@ const WarRoom: React.FC<{
           initialBreak={true}
         >
           <div className="grid grid-cols-1 gap-4">
-            {activeWars.map((war) => (
-              <div key={war.id} className="border p-4 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="font-bold text-lg">
-                      {war.attackerVillageId === user.villageId
-                        ? "Attacking"
-                        : "Defending Against"}{" "}
-                      {war.attackerVillageId === user.villageId
-                        ? war.defenderVillage.name
-                        : war.attackerVillage.name}
-                    </h4>
-                    <p className="text-sm">
-                      Started: {war.startedAt.toLocaleDateString()}
-                    </p>
+            {activeWars?.map((war) => {
+              const attackerVillage = villages?.villages.find(v => v.id === war.attackerVillageId);
+              const defenderVillage = villages?.villages.find(v => v.id === war.defenderVillageId);
+              const warStats = villages?.villages.map(v => ({
+                villageId: v.id,
+                townHallHp: 5000,
+              }));
+              const warFactions = villages?.villages.map(v => ({
+                villageId: v.id,
+                warId: war.id,
+                tokensPaid: 10000,
+              }));
+
+              return (
+                <div key={war.id} className="border p-4 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold text-lg">
+                        {war.attackerVillageId === user.villageId
+                          ? "Attacking"
+                          : "Defending Against"}{" "}
+                        {war.attackerVillageId === user.villageId
+                          ? defenderVillage?.name
+                          : attackerVillage?.name}
+                      </h4>
+                      <p className="text-sm">
+                        Started: {war.startedAt.toLocaleDateString()}
+                      </p>
+                    </div>
+                    {isKage && (
+                      <Button
+                        variant="destructive"
+                        onClick={() => surrender({ warId: war.id })}
+                      >
+                        <DoorClosed className="h-5 w-5 mr-2" />
+                        Surrender
+                      </Button>
+                    )}
                   </div>
+
+                  <div className="mt-4">
+                    <h5 className="font-bold mb-2">War Stats</h5>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="font-bold">Our Town Hall</p>
+                        <p>
+                          HP:{" "}
+                          {
+                            warStats.find(
+                              (s) => s.villageId === user.villageId,
+                            )?.townHallHp
+                          }
+                          /5000
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-bold">Enemy Town Hall</p>
+                        <p>
+                          HP:{" "}
+                          {
+                            warStats.find(
+                              (s) => s.villageId !== user.villageId,
+                            )?.townHallHp
+                          }
+                          /5000
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   {isKage && (
-                    <Button
-                      variant="destructive"
-                      onClick={() => surrender({ warId: war.id })}
-                    >
-                      <DoorClosed className="h-5 w-5 mr-2" />
-                      Surrender
-                    </Button>
+                    <div className="mt-4">
+                      <h5 className="font-bold mb-2">Hire Factions</h5>
+                      <div className="grid grid-cols-3 gap-4">
+                        {villages?.villages
+                          .filter(
+                            (v) =>
+                              v.id !== war.attackerVillageId &&
+                              v.id !== war.defenderVillageId &&
+                              !warFactions.some((f) => f.villageId === v.id),
+                          )
+                          .map((village) => (
+                            <div
+                              key={village.id}
+                              className="border p-4 rounded-lg text-center"
+                            >
+                              <Image
+                                src={village.villageLogo}
+                                alt={village.name}
+                                width={50}
+                                height={50}
+                                className="mx-auto mb-2"
+                              />
+                              <p className="font-bold">{village.name}</p>
+                              <Button
+                                className="mt-2 w-full"
+                                onClick={() =>
+                                  hireFaction({
+                                    warId: war.id,
+                                    villageId: village.id,
+                                    tokenAmount: 10000,
+                                  })
+                                }
+                              >
+                                <Handshake className="h-5 w-5 mr-2" />
+                                Hire (10,000)
+                              </Button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-
-                <div className="mt-4">
-                  <h5 className="font-bold mb-2">War Stats</h5>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="font-bold">Our Town Hall</p>
-                      <p>
-                        HP:{" "}
-                        {
-                          war.stats.find(
-                            (s) => s.villageId === user.villageId,
-                          )?.townHallHp
-                        }
-                        /5000
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-bold">Enemy Town Hall</p>
-                      <p>
-                        HP:{" "}
-                        {
-                          war.stats.find(
-                            (s) => s.villageId !== user.villageId,
-                          )?.townHallHp
-                        }
-                        /5000
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {isKage && (
-                  <div className="mt-4">
-                    <h5 className="font-bold mb-2">Hire Factions</h5>
-                    <div className="grid grid-cols-3 gap-4">
-                      {otherVillages
-                        ?.filter(
-                          (v) =>
-                            v.id !== war.attackerVillageId &&
-                            v.id !== war.defenderVillageId &&
-                            !war.factions.some((f) => f.villageId === v.id),
-                        )
-                        .map((village) => (
-                          <div
-                            key={village.id}
-                            className="border p-4 rounded-lg text-center"
-                          >
-                            <Image
-                              src={village.villageLogo}
-                              alt={village.name}
-                              width={50}
-                              height={50}
-                              className="mx-auto mb-2"
-                            />
-                            <p className="font-bold">{village.name}</p>
-                            <Button
-                              className="mt-2 w-full"
-                              onClick={() =>
-                                hireFaction({
-                                  warId: war.id,
-                                  villageId: village.id,
-                                  tokenAmount: 10000,
-                                })
-                              }
-                            >
-                              <Handshake className="h-5 w-5 mr-2" />
-                              Hire (10,000)
-                            </Button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ContentBox>
       )}
