@@ -1587,7 +1587,7 @@ export const copy = (
       copiedEffect.powerPerLevel = (copiedEffect.powerPerLevel * power) / 100;
     }
 
-    // Add the copied effect
+    // Add the copied effect to the user's effects
     usersEffects.push(copiedEffect);
   });
 
