@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq, and, ne, sql, gte, isNull, lt } from "drizzle-orm";
-import { userData, village, villageStructure } from "@/drizzle/schema";
+import { userData, village, villageStructure, anbuSquad } from "@/drizzle/schema";
 import { kageDefendedChallenges, kagePrestige, kagePrestigeTransfer, kageChallengeRequest } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -382,7 +382,7 @@ export const kageRouter = createTRPCRouter({
       }
 
       // Update
-      const deleteResult = await ctx.drizzle.delete(anbuSquad).where(eq(anbuSquad.id, squad.id as string));
+      const deleteResult = await ctx.drizzle.delete(anbuSquad).where(eq(anbuSquad.id, squad.id));
       if (deleteResult.rowsAffected === 0) return errorResponse("Failed to delete squad");
 
       const updateResult = await ctx.drizzle
