@@ -271,7 +271,7 @@ export const warRouter = createTRPCRouter({
           warId: input.warId,
           villageId: input.villageId,
           tokensPaid: input.tokenAmount,
-        } satisfies Omit<WarFaction, "createdAt">);
+        } satisfies Omit<WarFaction, "joinedAt">);
       });
 
       return { success: true, message: "Faction hired successfully" };
@@ -312,7 +312,7 @@ export const warRouter = createTRPCRouter({
             userId: userData.userId,
             villageId: userData.villageId,
             anbuId: userData.anbuId,
-            isElder: userData.isElder,
+            rank: userData.rank,
           })
           .from(userData)
           .where(eq(userData.userId, ctx.userId))
@@ -341,7 +341,7 @@ export const warRouter = createTRPCRouter({
       if (killer.anbuId) {
         enemyTownHallDamage = 40;
         ownTownHallHeal = 20;
-      } else if (killer.isElder) {
+      } else if (killer.rank === "ELDER") {
         enemyTownHallDamage = 50;
         ownTownHallHeal = 40;
       } else if (killer.villageId === currentWar.attackerVillageId) {
