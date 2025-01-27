@@ -185,7 +185,7 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check if war exists and is active
-      const currentWar = await ctx.db
+      const currentWar = await ctx.drizzle
         .select({
           id: war.id,
           attackerVillageId: war.attackerVillageId,
@@ -482,13 +482,13 @@ export const warRouter = createTRPCRouter({
     .input(z.object({ warId: z.string() }))
     .mutation(async ({ ctx, input }): Promise<MutationResponse> => {
       // Check if user is kage
-      const userVillage = await ctx.db
+      const userVillage = await ctx.drizzle
         .select({
           id: village.id,
           kageId: village.kageId,
         })
         .from(village)
-        .where(eq(village.kageId, ctx.auth.userId))
+        .where(eq(village.kageId, ctx.userId))
         .then((rows) => rows[0] as Village | undefined);
 
       if (!userVillage) {
@@ -499,7 +499,7 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check if war exists and is active
-      const currentWar = await ctx.db
+      const currentWar = await ctx.drizzle
         .select({
           id: war.id,
           attackerVillageId: war.attackerVillageId,
