@@ -15,11 +15,13 @@ import { calcHealthToChakra } from "@/libs/hospital/hospital";
 import { MEDNIN_MIN_RANK } from "@/drizzle/constants";
 import { MEDNIN_HEAL_TO_EXP } from "@/drizzle/constants";
 import { MEDNIN_HEALABLE_STATES } from "@/drizzle/constants";
+import { medicalNinjaSquadRouter } from "./hospital/medicalNinjaSquad";
 import type { ExecutedQuery } from "@planetscale/database";
 
 const pusher = getServerPusher();
 
 export const hospitalRouter = createTRPCRouter({
+  ...medicalNinjaSquadRouter,
   getHospitalizedUsers: protectedProcedure.query(async ({ ctx }) => {
     // Query
     const [user, alliances] = await Promise.all([
@@ -142,10 +144,15 @@ export const hospitalRouter = createTRPCRouter({
         .where(and(eq(userData.userId, u.userId), gte(userData.curChakra, chakraCost)));
       // If successful deduction
       if (uResult.rowsAffected === 1) {
+        const isLegendary = calcMedninRank(u) === "LEGENDARY";
         const tResult = await ctx.drizzle
           .update(userData)
           .set({
             curHealth: sql`LEAST(${t.curHealth + toHeal}, ${t.maxHealth})`,
+            ...(isLegendary ? {
+              curChakra: sql`LEAST(${t.curChakra + toHeal}, ${t.maxChakra})`,
+              curStamina: sql`LEAST(${t.curStamina + toHeal}, ${t.maxStamina})`,
+            } : {}),
             regenAt: new Date(),
             status: "AWAKE",
           })
@@ -153,7 +160,9 @@ export const hospitalRouter = createTRPCRouter({
         if (tResult.rowsAffected === 1) {
           void pusher.trigger(t.userId, "event", {
             type: "userMessage",
-            message: `You've been healed for ${toHeal}HP by ${u.username}`,
+            message: isLegendary
+              ? `You've been healed for ${toHeal}HP, ${toHeal}CP, and ${toHeal}SP by ${u.username}`
+              : `You've been healed for ${toHeal}HP by ${u.username}`,
             route: "/profile",
             routeText: "To profile",
           });

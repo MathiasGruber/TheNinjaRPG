@@ -15,6 +15,7 @@ import { effectFilters } from "@/libs/train";
 import { structureBoost } from "@/utils/village";
 import { calcItemSellingPrice } from "@/libs/item";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
+import { calcMedninRank } from "@/libs/hospital/hospital";
 import { nonCombatConsume } from "@/libs/item";
 import { getRandomElement } from "@/utils/array";
 import { calcMaxItems, calcMaxEventItems } from "@/libs/item";
@@ -525,7 +526,8 @@ export const itemRouter = createTRPCRouter({
       const userItemsCount = useritems?.length || 0;
       const sDiscount = structureBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
-      const factor = (100 - sDiscount - aDiscount) / 100;
+      const mDiscount = user.occupation === "MEDICAL_NINJA" ? 30 : 0;
+      const factor = (100 - sDiscount - aDiscount - mDiscount) / 100;
       // Guard
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");

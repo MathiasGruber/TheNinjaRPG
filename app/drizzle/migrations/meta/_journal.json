@@ -1317,6 +1317,13 @@
       "when": 1737694057529,
       "tag": "0187_noisy_apocalypse",
       "breakpoints": false
+    },
+    {
+      "idx": 188,
+      "version": "5",
+      "when": 1737994599733,
+      "tag": "0188_slim_nuke",
+      "breakpoints": false
     }
   ]
 }

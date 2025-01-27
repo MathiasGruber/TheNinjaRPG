@@ -130,6 +130,9 @@ export const UserStatuses = [
 ] as const;
 export type UserStatus = (typeof UserStatuses)[number];
 
+export const UserOccupations = ["NONE", "MEDICAL_NINJA"] as const;
+export type UserOccupation = (typeof UserOccupations)[number];
+
 export const FederalStatuses = ["NONE", "NORMAL", "SILVER", "GOLD"] as const;
 export type FederalStatus = (typeof FederalStatuses)[number];
 
@@ -450,7 +453,7 @@ export const SENSEI_STUDENT_RYO_PER_MISSION = 100;
 // Medical Ninja config
 export const MEDNIN_HEALABLE_STATES = ["HOSPITALIZED", "AWAKE"] as const;
 export const MEDNIN_MIN_RANK = "GENIN";
-export const MEDNIN_RANKS = ["NONE", "NOVICE", "APPRENTICE", "MASTER"] as const;
+export const MEDNIN_RANKS = ["NONE", "NOVICE", "APPRENTICE", "MASTER", "LEGENDARY"] as const;
 export const MEDNIN_HEAL_TO_EXP = 0.1;
 export type MEDNIN_RANK = (typeof MEDNIN_RANKS)[number];
 export const MEDNIN_REQUIRED_EXP = {
@@ -458,6 +461,7 @@ export const MEDNIN_REQUIRED_EXP = {
   NOVICE: 0,
   APPRENTICE: 100000,
   MASTER: 400000,
+  LEGENDARY: 700000,
 } as { [key in MEDNIN_RANK]: number };
 
 // Ai profile config

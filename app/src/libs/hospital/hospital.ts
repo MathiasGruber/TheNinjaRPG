@@ -86,6 +86,8 @@ export const calcUserHealFactor = (healer: Healer) => {
       return base - 0.1;
     case "MASTER":
       return base - 0.25;
+    case "LEGENDARY":
+      return base - 0.35;
   }
 };
 
@@ -104,6 +106,8 @@ export const calcCombatHealPercentage = (healer?: Healer) => {
       return 10;
     case "MASTER":
       return 15;
+    case "LEGENDARY":
+      return 20;
   }
 };
 
@@ -118,6 +122,10 @@ export const calcChakraToHealth = (healer?: Healer, chakra?: number) => {
   if (!healer || !chakra) return 0;
   const factor = calcUserHealFactor(healer);
   return chakra / factor;
+};
+
+export const canHealChakraAndStamina = (healer?: Healer) => {
+  return calcMedninRank(healer) === "LEGENDARY";
 };
 
 /**

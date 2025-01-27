@@ -9,6 +9,7 @@ import StatusBar, { calcCurrent } from "@/layout/StatusBar";
 import Image from "next/image";
 import { hasRequiredRank } from "@/libs/train";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { structureBoost } from "@/utils/village";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { useRequireInVillage } from "@/utils/UserContext";
@@ -18,6 +19,7 @@ import { showMutationToast } from "@/libs/toast";
 import { calcHealFinish } from "@/libs/hospital/hospital";
 import { calcHealCost, calcChakraToHealth } from "@/libs/hospital/hospital";
 import { MEDNIN_MIN_RANK, IMG_BUILDING_HOSPITAL } from "@/drizzle/constants";
+import { MedicalNinjaSquadComponent } from "@/components/hospital/MedicalNinjaSquad";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
@@ -82,47 +84,62 @@ export default function Hospital() {
         className="w-full"
         priority={true}
       />
-      {!isPending && isHospitalized && userData && healFinishAt && (
-        <div className="p-3">
-          <p>You are hospitalized, either wait or pay to expedite treatment.</p>
-          <div className="grid grid-cols-2 py-3 gap-2">
-            <Button
-              id="check"
-              className="w-full"
-              disabled={healFinishAt && healFinishAt > new Date()}
-              onClick={() => heal({ villageId: userData.villageId })}
-            >
-              <Clock className="mr-2 h-6 w-6" />
-              <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
-            </Button>
-            <Button
-              id="check"
-              className="w-full"
-              color={canAfford ? "default" : "red"}
-              disabled={healFinishAt && healFinishAt <= new Date()}
-              onClick={() => heal({ villageId: userData.villageId })}
-            >
-              {canAfford ? (
-                <FastForward className="mr-3 h-6 w-6" />
-              ) : (
-                <Hand className="mr-3 h-6 w-6" />
-              )}
-              <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
-            </Button>
-          </div>
-        </div>
-      )}
-      {!isPending && !isHospitalized && userData && !canHealOthers && (
-        <p className="p-3">You are not hospitalized.</p>
-      )}
-      {!isPending && !isHospitalized && canHealOthers && (
-        <HealOthersComponent
-          userData={userData}
-          timeDiff={timeDiff}
-          updateUser={updateUser}
-        />
-      )}
-      {isPending && <Loader explanation="Healing User" />}
+      <Tabs defaultValue="heal" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="heal">Heal</TabsTrigger>
+          {(userData.rank === "ELDER" || userData.occupation === "MEDICAL_NINJA") && (
+            <TabsTrigger value="squad">Medical Ninja Squad</TabsTrigger>
+          )}
+        </TabsList>
+        <TabsContent value="heal">
+          {!isPending && isHospitalized && userData && healFinishAt && (
+            <div className="p-3">
+              <p>You are hospitalized, either wait or pay to expedite treatment.</p>
+              <div className="grid grid-cols-2 py-3 gap-2">
+                <Button
+                  id="check"
+                  className="w-full"
+                  disabled={healFinishAt && healFinishAt > new Date()}
+                  onClick={() => heal({ villageId: userData.villageId })}
+                >
+                  <Clock className="mr-2 h-6 w-6" />
+                  <div>Wait ({<Countdown targetDate={healFinishAt} />})</div>
+                </Button>
+                <Button
+                  id="check"
+                  className="w-full"
+                  color={canAfford ? "default" : "red"}
+                  disabled={healFinishAt && healFinishAt <= new Date()}
+                  onClick={() => heal({ villageId: userData.villageId })}
+                >
+                  {canAfford ? (
+                    <FastForward className="mr-3 h-6 w-6" />
+                  ) : (
+                    <Hand className="mr-3 h-6 w-6" />
+                  )}
+                  <div>Pay {healCost && <span>({healCost} ryo)</span>}</div>
+                </Button>
+              </div>
+            </div>
+          )}
+          {!isPending && !isHospitalized && userData && !canHealOthers && (
+            <p className="p-3">You are not hospitalized.</p>
+          )}
+          {!isPending && !isHospitalized && canHealOthers && (
+            <HealOthersComponent
+              userData={userData}
+              timeDiff={timeDiff}
+              updateUser={updateUser}
+            />
+          )}
+          {isPending && <Loader explanation="Healing User" />}
+        </TabsContent>
+        {(userData.rank === "ELDER" || userData.occupation === "MEDICAL_NINJA") && (
+          <TabsContent value="squad">
+            <MedicalNinjaSquadComponent userData={userData} updateUser={updateUser} />
+          </TabsContent>
+        )}
+      </Tabs>
     </ContentBox>
   );
 }
