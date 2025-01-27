@@ -96,7 +96,8 @@ export const calcItemSellingPrice = (
   const bDiscount = 80;
   const sDiscount = structureBoost("itemDiscountPerLvl", structures);
   const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
-  const discount = Math.min(bDiscount + sDiscount + aDiscount, 95);
+  const mDiscount = user.occupation === "MEDICAL_NINJA" ? 30 : 0;
+  const discount = Math.min(bDiscount + sDiscount + aDiscount + mDiscount, 95);
   const factor = (100 - discount) / 100;
   const isEventItem = useritem.item.isEventItem;
   const cost = isEventItem ? 0 : useritem.item.cost * useritem.quantity * factor;

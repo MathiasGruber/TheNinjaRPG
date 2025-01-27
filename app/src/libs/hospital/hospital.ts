@@ -61,6 +61,9 @@ type Healer = Pick<UserData, "medicalExperience" | "rank">;
 export const calcMedninRank = (healer?: Healer): MEDNIN_RANK => {
   if (!healer) return "NONE";
   if (!hasRequiredRank(healer.rank, MEDNIN_MIN_RANK)) return "NONE";
+  if (healer.medicalExperience >= MEDNIN_REQUIRED_EXP.LEGENDARY) {
+    return "LEGENDARY";
+  }
   if (healer.medicalExperience >= MEDNIN_REQUIRED_EXP.MASTER) {
     return "MASTER";
   }
@@ -88,6 +91,8 @@ export const calcUserHealFactor = (healer: Healer) => {
       return base - 0.25;
     case "LEGENDARY":
       return base - 0.35;
+    default:
+      return 0;
   }
 };
 
@@ -108,6 +113,8 @@ export const calcCombatHealPercentage = (healer?: Healer) => {
       return 15;
     case "LEGENDARY":
       return 20;
+    default:
+      return 5;
   }
 };
 
