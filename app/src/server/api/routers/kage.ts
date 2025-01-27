@@ -156,7 +156,7 @@ export const kageRouter = createTRPCRouter({
           targetIds: [kage.userId],
           client: ctx.drizzle,
           asset: "arena",
-          isAiBattle: true,
+
         },
         "KAGE_CHALLENGE",
       );
