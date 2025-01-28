@@ -1555,7 +1555,7 @@ export const mirror = (
   if (!effect.isNew && !effect.castThisRound) {
     // Find all negative effects on the caster
     const negativeEffects = usersEffects.filter(
-      (e) => e.targetId === effect.userId && isNegativeUserEffect(e),
+      (e) => e.targetId === effect.creatorId && isNegativeUserEffect(e),
     );
 
     // Apply each negative effect to the target
@@ -1566,7 +1566,7 @@ export const mirror = (
         type: negEffect.type,
         id: nanoid(),
         targetId: effect.targetId,
-        userId: effect.userId,
+        creatorId: effect.creatorId,
         isNew: true,
         castThisRound: true,
         createdRound: effect.createdRound,
