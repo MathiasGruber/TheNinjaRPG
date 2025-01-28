@@ -1619,7 +1619,7 @@ export const copy = (
   });
 
   const { power } = getPower(effect);
-  const effectsWithDuration = targetEffects.map(e => `${e.name || 'effect'} (${e.rounds} rounds)`).join(', ');
+  const effectsWithDuration = targetEffects.map(e => `${e.type} (${e.rounds} rounds)`).join(', ');
   return getInfo(
     target,
     effect,
