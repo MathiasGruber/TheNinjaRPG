@@ -1160,9 +1160,10 @@ export const displacement = (
     const dx = [0, 1, 0, -1] as const; // right, down, left, up
     const dy = [1, 0, -1, 0] as const;
     const getDirectionOffset = (dir: number): { x: number; y: number } => {
-      const index = dir % 4;
-      const x = dx[index];
-      const y = dy[index];
+      const index = ((dir % 4) + 4) % 4; // Ensure positive index between 0-3
+      // We know index is between 0-3, so these accesses are safe
+      const x = dx[index] as number;
+      const y = dy[index] as number;
       return { x, y };
     };
     let x = target.longitude;
