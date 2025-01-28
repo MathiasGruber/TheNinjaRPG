@@ -1,6 +1,5 @@
 "use client";
 import { use } from "react";
-import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { aiText } from "@/layout/seoTexts";

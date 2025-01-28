@@ -15,7 +15,7 @@ import { canModerateReports } from "@/utils/permissions";
 import { canSeeReport } from "@/utils/permissions";
 import { canClearReport } from "@/utils/permissions";
 import { canEscalateBan } from "@/utils/permissions";
-import { canChangePublicUser } from "@/utils/permissions";
+import { canClearUserNindo } from "@/utils/permissions";
 import { fetchUser } from "./profile";
 import { fetchImage } from "./conceptart";
 import { canSeeSecretData } from "@/utils/permissions";
@@ -654,7 +654,7 @@ export const reportsRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, input.userId),
       ]);
       // Guard
-      if (!canChangePublicUser(user)) return errorResponse("You cannot clear nindos");
+      if (!canClearUserNindo(user)) return errorResponse("You cannot clear nindos");
       // Mutate
       void requestAvatarForUser(ctx.drizzle, target);
       await Promise.all([
@@ -681,7 +681,7 @@ export const reportsRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, input.userId),
       ]);
       // Guard
-      if (!canChangePublicUser(user)) return errorResponse("You cannot clear nindos");
+      if (!canClearUserNindo(user)) return errorResponse("You cannot clear nindos");
       // Mutate
       await Promise.all([
         ctx.drizzle.insert(reportLog).values({

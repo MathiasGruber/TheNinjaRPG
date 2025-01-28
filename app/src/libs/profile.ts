@@ -4,8 +4,10 @@ import type {
   Village,
   VillageStructure,
   GameSetting,
+  Clan,
 } from "@/drizzle/schema";
 import { USER_CAPS, HP_PER_LVL, SP_PER_LVL, CP_PER_LVL } from "@/drizzle/constants";
+import { CLAN_MAX_REGEN_BOOST } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { structureBoost } from "@/utils/village";
 import { getReducedGainsDays } from "@/libs/train";
@@ -169,6 +171,7 @@ export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
 // Calculate user stats
 export const deduceActiveUserRegen = (
   user: UserData & {
+    clan?: Clan | null;
     bloodline?: Bloodline | null;
     village?: (Village & { structures?: VillageStructure[] }) | null;
   },
@@ -179,6 +182,15 @@ export const deduceActiveUserRegen = (
   // // Bloodline
   if (user.bloodline?.regenIncrease) {
     regeneration = regeneration + user.bloodline.regenIncrease;
+  }
+
+  // Clan boost (in percentage)
+  if (
+    user.clan?.regenBoost &&
+    user.clan?.regenBoost > 0 &&
+    user.clan?.regenBoost <= CLAN_MAX_REGEN_BOOST
+  ) {
+    regeneration *= (100 + user.clan.regenBoost) / 100;
   }
 
   // // Calculate percentage boost

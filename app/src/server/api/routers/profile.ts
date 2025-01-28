@@ -35,6 +35,7 @@ import {
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
 import { canChangeContent, canModerateRoles } from "@/utils/permissions";
+import { canEditPublicUser } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
@@ -436,6 +437,9 @@ export const profileRouter = createTRPCRouter({
       ]);
       // Guards
       const availableRoles = canChangeUserRole(user.role);
+      if (!canEditPublicUser(user)) {
+        return errorResponse("You cannot edit public users");
+      }
       if (!village) return errorResponse("Village not found");
       if (!target) return errorResponse("User not found");
       if (!availableRoles) return errorResponse("Not allowed");
@@ -445,10 +449,10 @@ export const profileRouter = createTRPCRouter({
       if (!availableRoles.includes(input.data.role)) {
         return errorResponse(`Only available roles: ${availableRoles.join(", ")}`);
       }
-      if (village.id !== user.villageId) {
-        if (user.anbuId) return errorResponse("To change village, leave ANBU first");
-        if (user.clanId) return errorResponse("To change village, leave Clan first");
-        if (user.status !== "AWAKE") return errorResponse("Be AWAKE to change village");
+      if (village.id !== target.villageId) {
+        if (target.anbuId) return errorResponse("To change village, leave ANBU first");
+        if (target.clanId) return errorResponse("To change village, leave Clan first");
+        if (target.status !== "AWAKE") return errorResponse("AWAKE to change village");
       }
       // Update jutsus & items
       const { jutsuChanges, itemChanges } = await updateUserContent({
@@ -927,9 +931,11 @@ export const profileRouter = createTRPCRouter({
       if (!isSelf && (!requester || !canSeeSecretData(requester.role))) {
         user.earnedExperience = 8008;
         user.isBanned = false;
+        user.aiProfileId = null;
+      }
+      if (!isSelf && requester?.role === "USER") {
         user.jutsus = [];
         user.items = [];
-        user.aiProfileId = null;
       }
       if (!requester || !canSeeIps(requester.role)) {
         user.lastIp = "hidden";

@@ -14,7 +14,7 @@ import { isAtEdge, maxDistance } from "@/libs/travel/controls";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { secondsFromNow } from "@/utils/time";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
-import { userData, village, actionLog } from "@/drizzle/schema";
+import { userData, clan, village, actionLog } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { initiateBattle } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
@@ -77,6 +77,8 @@ export const travelRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("You are not awake");
       if (user.isBanned) return errorResponse("You are banned");
       if (target.isBanned) return errorResponse("Target is banned");
+      if (user.clanId === target.clanId)
+        return errorResponse("Cannot rob faction members");
       if (target.rank === "STUDENT" || target.rank === "GENIN") {
         return errorResponse("Cannot rob Academy Students or Genins");
       }
@@ -120,13 +122,23 @@ export const travelRouter = createTRPCRouter({
         }
 
         // Update target's money and set immunity
-        const targetUpdate = await ctx.drizzle
-          .update(userData)
-          .set({
-            money: sql`${userData.money} - ${stolenAmount}`,
-            robImmunityUntil: secondsFromNow(ROBBING_IMMUNITY_DURATION),
-          })
-          .where(eq(userData.userId, input.userId));
+        const [targetUpdate] = await Promise.all([
+          ctx.drizzle
+            .update(userData)
+            .set({
+              money: sql`${userData.money} - ${stolenAmount}`,
+              robImmunityUntil: secondsFromNow(ROBBING_IMMUNITY_DURATION),
+            })
+            .where(eq(userData.userId, input.userId)),
+          ...(user.clanId
+            ? [
+                ctx.drizzle
+                  .update(clan)
+                  .set({ points: sql`${clan.points} + 1` })
+                  .where(eq(clan.id, user.clanId)),
+              ]
+            : []),
+        ]);
         if (targetUpdate.rowsAffected === 0) {
           // Rollback robber update if target update fails
           await ctx.drizzle
