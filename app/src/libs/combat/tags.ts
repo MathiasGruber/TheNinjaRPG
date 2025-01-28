@@ -1184,7 +1184,7 @@ export const drain = (
       userId: effect.creatorId,
       targetId: effect.targetId,
       damage: drainDamage,
-      types: ["Drain"]
+      types: ["Chakra", "Stamina"]
     };
 
     // Add drain consequence to the map with a unique ID
