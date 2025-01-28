@@ -117,6 +117,7 @@ export const UserRoles = [
   "JR_MODERATOR",
   "CONTENT",
   "EVENT",
+  "CODER",
 ] as const;
 export type UserRole = (typeof UserRoles)[number];
 
@@ -442,6 +443,7 @@ export const ANBU_LEADER_RANK_REQUIREMENT = "JONIN";
 export const ANBU_MAX_MEMBERS = 20;
 export const ANBU_HOSPITAL_DISCOUNT_PERC = 5;
 export const ANBU_ITEMSHOP_DISCOUNT_PERC = 5;
+export const ANBU_DELAY_SECS = 24 * 3600;
 
 // Sensei config
 export const SENSEI_RANKS = ["JONIN", "COMMANDER", "ELDER"];

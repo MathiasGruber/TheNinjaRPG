@@ -63,7 +63,10 @@ export default function Staff() {
                 game’s core codebase.
               </Information>
             </div>
-            <div className="bg-slate-300 p-1 rounded-lg font-bold">Coders</div>
+            <div className="bg-slate-300 p-1 rounded-lg font-bold">
+              Coders
+              <UserList users={users.filter((user) => user.role === "CODER")} />
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <div className="bg-purple-500 p-1 rounded-lg font-bold relative">

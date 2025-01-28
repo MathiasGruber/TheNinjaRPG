@@ -523,7 +523,8 @@ export const itemRouter = createTRPCRouter({
         fetchStructures(ctx.drizzle, input.villageId),
       ]);
       // Derived
-      const userItemsCount = useritems?.length || 0;
+      const regularItemsCount = useritems?.filter((ui) => !ui.item.isEventItem).length || 0;
+      const eventItemsCount = useritems?.filter((ui) => ui.item.isEventItem).length || 0;
       const sDiscount = structureBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
       const factor = (100 - sDiscount - aDiscount) / 100;
@@ -536,11 +537,11 @@ export const itemRouter = createTRPCRouter({
       if (info.hidden && !canChangeContent(user.role)) {
         return errorResponse("Item is hidden, cannot be bought");
       }
-      if (!info.isEventItem && userItemsCount >= calcMaxItems(user)) {
+      if (!info.isEventItem && regularItemsCount >= calcMaxItems(user)) {
         return errorResponse("Inventory is full");
       }
-      if (info.isEventItem && userItemsCount >= calcMaxEventItems(user)) {
-        return errorResponse("Inventory is full");
+      if (info.isEventItem && eventItemsCount >= calcMaxEventItems(user)) {
+        return errorResponse("Event item inventory is full");
       }
       const ryoCost = Math.ceil(info.cost * input.stack * factor);
       const repsCost = Math.ceil(info.repsCost * input.stack);
