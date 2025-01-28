@@ -1,16 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/prefer-optional-chain */
-
-// TODO: Fix type inference for tRPC mutations and queries
-// Currently, the type inference for tRPC mutations and queries is not working correctly
-// This is a known issue and will be fixed in a future update
-// For now, we need to use type assertions to make TypeScript happy
-// See: https://github.com/trpc/trpc/issues/1343
-
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -18,7 +5,28 @@ import { medicalNinjaSquad, userData } from "@/drizzle/schema";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 
 export const medicalNinjaSquadRouter = createTRPCRouter({
-  getMedicalNinjaSquads: protectedProcedure.query(async ({ ctx }) => {
+  getMedicalNinjaSquads: protectedProcedure
+    .output(z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      image: z.string(),
+      villageId: z.string(),
+      leaderId: z.string().nullable(),
+      coLeaderId: z.string().nullable(),
+      leader: z.object({
+        userId: z.string(),
+        username: z.string(),
+      }).nullable(),
+      coLeader: z.object({
+        userId: z.string(),
+        username: z.string(),
+      }).nullable(),
+      members: z.array(z.object({
+        userId: z.string(),
+        username: z.string(),
+      })),
+    })))
+    .query(async ({ ctx }) => {
     const user = await ctx.db.query.userData.findFirst({
       where: eq(userData.userId, ctx.auth.userId),
       with: {
@@ -47,6 +55,10 @@ export const medicalNinjaSquadRouter = createTRPCRouter({
         image: z.string(),
       }),
     )
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.query.userData.findFirst({
         where: eq(userData.userId, ctx.auth.userId),
@@ -110,6 +122,10 @@ export const medicalNinjaSquadRouter = createTRPCRouter({
         squadId: z.string(),
       }),
     )
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.query.userData.findFirst({
         where: eq(userData.userId, ctx.auth.userId),
@@ -148,6 +164,10 @@ export const medicalNinjaSquadRouter = createTRPCRouter({
         userId: z.string(),
       }),
     )
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.query.userData.findFirst({
         where: eq(userData.userId, ctx.auth.userId),
@@ -197,6 +217,10 @@ export const medicalNinjaSquadRouter = createTRPCRouter({
         userId: z.string(),
       }),
     )
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.query.userData.findFirst({
         where: eq(userData.userId, ctx.auth.userId),
@@ -240,6 +264,10 @@ export const medicalNinjaSquadRouter = createTRPCRouter({
         userId: z.string(),
       }),
     )
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.query.userData.findFirst({
         where: eq(userData.userId, ctx.auth.userId),

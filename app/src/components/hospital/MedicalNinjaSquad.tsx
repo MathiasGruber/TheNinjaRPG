@@ -1,14 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-
-// TODO: Fix type inference for tRPC mutations and queries
-// Currently, the type inference for tRPC mutations and queries is not working correctly
-// This is a known issue and will be fixed in a future update
-// For now, we need to use type assertions to make TypeScript happy
-// See: https://github.com/trpc/trpc/issues/1343
+import type { RouterOutputs } from "@/server/api/root";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +19,7 @@ interface MedicalNinjaSquadComponentProps {
 
 export const MedicalNinjaSquadComponent: React.FC<MedicalNinjaSquadComponentProps> = ({
   userData,
-  _updateUser,
+  updateUser,
 }) => {
   const [squadName, setSquadName] = useState("");
   const [squadImage, setSquadImage] = useState("");
@@ -38,41 +28,68 @@ export const MedicalNinjaSquadComponent: React.FC<MedicalNinjaSquadComponentProp
   const utils = api.useUtils();
 
   // Mutations
-  const { mutate: createSquad, isPending: isCreating } = api.hospital.createMedicalNinjaSquad.useMutation({
-    onSuccess: async (result) => {
+  const createSquadMutation = api.hospital.createMedicalNinjaSquad.useMutation({
+    onSuccess: async (result: { success: boolean; message: string }) => {
       showMutationToast(result);
       await utils.hospital.getMedicalNinjaSquads.invalidate();
     },
   });
+  const { mutate: createSquad, isPending: isCreating } = createSquadMutation;
 
 
 
-  const { mutate: kickMember, isPending: isKicking } = api.hospital.kickMedicalNinjaSquadMember.useMutation({
-    onSuccess: async (result) => {
+  const kickMemberMutation = api.hospital.kickMedicalNinjaSquadMember.useMutation({
+    onSuccess: async (result: { success: boolean; message: string }) => {
       showMutationToast(result);
       await utils.hospital.getMedicalNinjaSquads.invalidate();
     },
   });
+  const { mutate: kickMember, isPending: isKicking } = kickMemberMutation;
 
-  const { mutate: promoteLeader, isPending: isPromoting } = api.hospital.promoteMedicalNinjaSquadLeader.useMutation({
-    onSuccess: async (result) => {
+  const promoteLeaderMutation = api.hospital.promoteMedicalNinjaSquadLeader.useMutation({
+    onSuccess: async (result: { success: boolean; message: string }) => {
       showMutationToast(result);
       await utils.hospital.getMedicalNinjaSquads.invalidate();
     },
   });
+  const { mutate: promoteLeader, isPending: isPromoting } = promoteLeaderMutation;
 
-  const { mutate: promoteCoLeader, isPending: isPromotingCoLeader } = api.hospital.promoteMedicalNinjaSquadCoLeader.useMutation({
-    onSuccess: async (result) => {
+  const promoteCoLeaderMutation = api.hospital.promoteMedicalNinjaSquadCoLeader.useMutation({
+    onSuccess: async (result: { success: boolean; message: string }) => {
       showMutationToast(result);
       await utils.hospital.getMedicalNinjaSquads.invalidate();
     },
   });
+  const { mutate: promoteCoLeader, isPending: isPromotingCoLeader } = promoteCoLeaderMutation;
 
   // Queries
-  const { data: squads } = api.hospital.getMedicalNinjaSquads.useQuery(undefined, {
+  const squadsQuery = api.hospital.getMedicalNinjaSquads.useQuery(undefined, {
     refetchInterval: 5000,
     enabled: !!userData,
   });
+  const { data: squads } = squadsQuery as {
+    data?: Array<{
+      id: string;
+      name: string;
+      image: string;
+      villageId: string;
+      leaderId: string | null;
+      coLeaderId: string | null;
+      leader: {
+        userId: string;
+        username: string;
+      } | null;
+      coLeader: {
+        userId: string;
+        username: string;
+      } | null;
+      members: Array<{
+        userId: string;
+        username: string;
+      }>;
+    }>;
+  };
+
 
   // Table setup
   type SquadMember = {

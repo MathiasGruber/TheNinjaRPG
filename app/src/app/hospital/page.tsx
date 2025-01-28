@@ -1,15 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-
-// TODO: Fix type inference for tRPC mutations and queries
-// Currently, the type inference for tRPC mutations and queries is not working correctly
-// This is a known issue and will be fixed in a future update
-// For now, we need to use type assertions to make TypeScript happy
-// See: https://github.com/trpc/trpc/issues/1343
+import type { RouterOutputs } from "@/server/api/root";
 
 import { useState, useEffect } from "react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
@@ -49,8 +39,8 @@ export default function Hospital() {
   // This is a known issue and will be fixed in a future update
   // For now, we need to use type assertions to make TypeScript happy
   // See: https://github.com/trpc/trpc/issues/1343
-  const { mutate: heal, isPending } = api.hospital.heal.useMutation({
-    onSuccess: async (result) => {
+  const healMutation = api.hospital.heal.useMutation({
+    onSuccess: async (result: { success: boolean; data?: { curHealth: number; money: number; regenAt: Date } }) => {
       showMutationToast(result);
       if (result.success && result.data) {
         await updateNotifications(notifications?.filter((n) => n.href !== "/hospital"));
@@ -62,7 +52,8 @@ export default function Hospital() {
         });
       }
     },
-  } as any);
+  });
+  const { mutate: heal, isPending } = healMutation;
 
   // Ensure villageId is available
   if (!userData?.villageId) return <Loader explanation="Loading village data" />;
@@ -231,8 +222,8 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
   // This is a known issue and will be fixed in a future update
   // For now, we need to use type assertions to make TypeScript happy
   // See: https://github.com/trpc/trpc/issues/1343
-  const { mutate: userHeal, isPending } = api.hospital.userHeal.useMutation({
-    onSuccess: async (data) => {
+  const userHealMutation = api.hospital.userHeal.useMutation({
+    onSuccess: async (data: { success: boolean; chakraCost?: number; expGain?: number }) => {
       showMutationToast(data);
       await utils.hospital.getHospitalizedUsers.invalidate();
       if (data.success && userData) {
@@ -242,17 +233,36 @@ const HealOthersComponent: React.FC<HealOthersComponentProps> = (props) => {
         });
       }
     },
-  } as any);
+  });
+  const { mutate: userHeal, isPending } = userHealMutation;
 
   // TODO: Fix type inference for tRPC queries
   // Currently, the type inference for tRPC queries is not working correctly
   // This is a known issue and will be fixed in a future update
   // For now, we need to use type assertions to make TypeScript happy
   // See: https://github.com/trpc/trpc/issues/1343
-  const { data: hospitalized } = api.hospital.getHospitalizedUsers.useQuery(undefined, {
+  const hospitalizedQuery = api.hospital.getHospitalizedUsers.useQuery(undefined, {
     refetchInterval: 5000,
     enabled: !!userData,
   });
+  const { data: hospitalized } = hospitalizedQuery as {
+    data?: Array<{
+      userId: string;
+      avatar: string;
+      username: string;
+      curHealth: number;
+      maxHealth: number;
+      regeneration: number;
+      regenAt: Date;
+      level: number;
+      status: string;
+      sector: string;
+      longitude: number;
+      latitude: number;
+      rank: string;
+      isOutlaw: boolean;
+    }>;
+  };
 
   // Process hospitalized users
   const allHospitalized = hospitalized?.map((user) => ({

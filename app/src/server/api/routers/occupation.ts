@@ -1,23 +1,18 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-
-// TODO: Fix type inference for tRPC mutations and queries
-// Currently, the type inference for tRPC mutations and queries is not working correctly
-// This is a known issue and will be fixed in a future update
-// For now, we need to use type assertions to make TypeScript happy
-// See: https://github.com/trpc/trpc/issues/1343
-
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse } from "@/server/api/trpc";
 import { eq } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
 import { hasRequiredRank } from "@/libs/train";
 import { MEDNIN_MIN_RANK } from "@/drizzle/constants";
+import { z } from "zod";
 
 export const occupationRouter = createTRPCRouter({
-  signUpMedicalNinja: protectedProcedure.mutation(async ({ ctx }) => {
+  signUpMedicalNinja: protectedProcedure
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }))
+    .mutation(async ({ ctx }) => {
     const user = await ctx.db.query.userData.findFirst({
       where: eq(userData.userId, ctx.auth.userId),
     });
@@ -47,7 +42,12 @@ export const occupationRouter = createTRPCRouter({
     };
   }),
 
-  quitOccupation: protectedProcedure.mutation(async ({ ctx }) => {
+  quitOccupation: protectedProcedure
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }))
+    .mutation(async ({ ctx }) => {
     const user = await ctx.db.query.userData.findFirst({
       where: eq(userData.userId, ctx.auth.userId),
     });

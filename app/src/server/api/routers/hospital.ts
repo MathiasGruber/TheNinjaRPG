@@ -1,13 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-
-// TODO: Fix type inference for tRPC mutations and queries
-// Currently, the type inference for tRPC mutations and queries is not working correctly
-// This is a known issue and will be fixed in a future update
-// For now, we need to use type assertions to make TypeScript happy
-// See: https://github.com/trpc/trpc/issues/1343
-
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { inferRouterOutputs } from "@trpc/server";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { sql, eq, gte, lte, and, or, inArray, isNull } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
@@ -30,7 +23,24 @@ const pusher = getServerPusher();
 
 export const hospitalRouter = createTRPCRouter({
   ...medicalNinjaSquadRouter,
-  getHospitalizedUsers: protectedProcedure.query(async ({ ctx }) => {
+  getHospitalizedUsers: protectedProcedure
+    .output(z.array(z.object({
+      userId: z.string(),
+      avatar: z.string(),
+      username: z.string(),
+      curHealth: z.number(),
+      maxHealth: z.number(),
+      regeneration: z.number(),
+      regenAt: z.date(),
+      level: z.number(),
+      status: z.string(),
+      sector: z.string(),
+      longitude: z.number(),
+      latitude: z.number(),
+      rank: z.string(),
+      isOutlaw: z.boolean(),
+    })))
+    .query(async ({ ctx }) => {
     // Query
     const [user, alliances] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),

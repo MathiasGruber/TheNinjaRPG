@@ -88,3 +88,24 @@ export const appRouter = createTRPCRouter({
 
 // export type definition of API
 export type AppRouter = typeof appRouter;
+
+// export type definition of API outputs
+export type RouterOutputs = {
+  [K in keyof AppRouter]: AppRouter[K] extends {
+    _def: { queries: infer Q; mutations: infer M };
+  }
+    ? {
+        [QK in keyof Q]: Q[QK] extends {
+          _def: { output: infer O };
+        }
+          ? O
+          : never;
+      } & {
+        [MK in keyof M]: M[MK] extends {
+          _def: { output: infer O };
+        }
+          ? O
+          : never;
+      }
+    : never;
+};
