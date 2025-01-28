@@ -1,4 +1,4 @@
-"use client";;
+"use client";
 import { use } from "react";
 
 import Loader from "@/layout/Loader";
@@ -16,7 +16,6 @@ export default function ClanInfo(props: { params: Promise<{ clanid: string }> })
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Clan Hall" />;
-  if (userData.isOutlaw) return <Loader explanation="Unlikely to find outlaw clans" />;
 
   // Render
   return <ClanProfile back_href="/clanhall" clanId={clanId} />;

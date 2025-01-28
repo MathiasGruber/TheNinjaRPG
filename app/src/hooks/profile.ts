@@ -12,11 +12,7 @@ import type { FormEntry } from "@/layout/EditContent";
  * Hook used when creating frontend forms for editing AIs
  * @param data
  */
-export const useUserEditForm = (
-  userId: string,
-  user: UpdateUserSchema,
-  refetch: () => void,
-) => {
+export const useUserEditForm = (userId: string, user: UpdateUserSchema) => {
   // Form handling
   const form = useForm<UpdateUserSchema>({
     mode: "all",
@@ -31,12 +27,25 @@ export const useUserEditForm = (
   const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined);
   const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined);
   const { data: villages, isPending: l5 } = api.village.getAll.useQuery(undefined);
+  const { data: userJutsus, isPending: l6 } = api.jutsu.getPublicUserJutsus.useQuery({
+    userId: userId,
+  });
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Update jutsus with level
+  const jutsusWithNames = jutsus?.map((jutsu) => {
+    const userjutsu = userJutsus?.find((uj) => uj.jutsuId === jutsu.id);
+    return userjutsu ? { ...jutsu, name: `${jutsu.name} (${userjutsu.level})` } : jutsu;
+  });
 
   // Mutation for updating item
   const { mutate: updateUser, isPending: l4 } = api.profile.updateUser.useMutation({
     onSuccess: (data) => {
       showMutationToast(data);
-      refetch();
+      void utils.profile.getPublicUser.invalidate();
+      void utils.jutsu.getPublicUserJutsus.invalidate();
     },
   });
 
@@ -52,7 +61,7 @@ export const useUserEditForm = (
   );
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4 || l5;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6;
 
   // Object for form values
   const formData: FormEntry<keyof UpdateUserSchema>[] = [
@@ -65,7 +74,7 @@ export const useUserEditForm = (
     {
       id: "jutsus",
       type: "db_values",
-      values: jutsus,
+      values: jutsusWithNames,
       multiple: true,
       doubleWidth: true,
     },
@@ -78,5 +87,5 @@ export const useUserEditForm = (
     },
   ];
 
-  return { user, loading, form, formData, handleUserSubmit };
+  return { user, loading, form, formData, userJutsus, handleUserSubmit };
 };

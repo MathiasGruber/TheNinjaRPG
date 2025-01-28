@@ -13,7 +13,6 @@ import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchRequests } from "@/routers/sparring";
 import { insertRequest, updateRequestState } from "@/routers/sparring";
 import { createConvo } from "@/routers/comments";
-import { calcIsInVillage } from "@/libs/travel/controls";
 import { canAccessStructure } from "@/utils/village";
 import { structureBoost } from "@/utils/village";
 import { isKage } from "@/utils/kage";

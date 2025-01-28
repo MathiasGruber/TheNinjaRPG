@@ -468,7 +468,7 @@ export const updateReps = async (input: {
   transactionUpdatedDate: string;
   orderId?: string;
   affectedUserId: string;
-  invoiceId?: string;
+  invoiceId?: string | null;
   value: number;
   currency: string;
   status: string;

@@ -1,0 +1,1 @@
+ALTER TABLE `UserVote` ADD `claimed` boolean DEFAULT false NOT NULL;

@@ -75,7 +75,7 @@ export async function GET() {
           transactionUpdatedDate: transaction.transactionUpdatedDate,
           orderId: nanoid(),
           affectedUserId: transaction.recruiterId,
-          invoiceId: transaction.invoiceId ?? "unknown",
+          invoiceId: transaction.invoiceId,
           value: 0,
           currency: transaction.currency,
           status: "COMPLETED",

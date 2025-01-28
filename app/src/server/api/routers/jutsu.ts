@@ -10,7 +10,7 @@ import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
 import { calcJutsuTrainTime, calcJutsuTrainCost } from "@/libs/train";
 import { calcJutsuEquipLimit } from "@/libs/train";
 import { JutsuValidator } from "@/libs/combat/types";
-import { canChangeContent } from "@/utils/permissions";
+import { canChangeContent, canEditPublicUser } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
@@ -24,6 +24,7 @@ import { QuestTracker } from "@/validators/objectives";
 import type { JutsuFilteringSchema } from "@/validators/jutsu";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
+import { TRPCError } from "@trpc/server";
 
 export const jutsuRouter = createTRPCRouter({
   getAllNames: publicProcedure.query(async ({ ctx }) => {
@@ -286,6 +287,68 @@ export const jutsuRouter = createTRPCRouter({
           user?.bloodlineId === userjutsu.jutsu?.bloodlineId
         );
       });
+    }),
+  // Get jutsus of public user
+  getPublicUserJutsus: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const [user, results] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserJutsus(ctx.drizzle, input.userId),
+      ]);
+      // Guard
+      if (!canEditPublicUser(user)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Not allowed to edit public user",
+        });
+      }
+      // Return
+      return results;
+    }),
+  // Adjust jutsu level of public user
+  adjustJutsuLevel: protectedProcedure
+    .input(z.object({ userId: z.string(), jutsuId: z.string(), level: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, userjutsus] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserJutsus(ctx.drizzle, input.userId),
+      ]);
+      // Guard)
+      if (!canEditPublicUser(user)) {
+        return errorResponse("Not allowed to edit public user");
+      }
+      const userjutsu = userjutsus.find((j) => j.jutsuId === input.jutsuId);
+      if (!userjutsu) {
+        return errorResponse("Jutsu not found for user");
+      }
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ level: input.level })
+          .where(
+            and(
+              eq(userJutsu.userId, input.userId),
+              eq(userJutsu.jutsuId, input.jutsuId),
+            ),
+          ),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: [
+            `Jutsu ${userjutsu.jutsu.name} lvl ${userjutsu.level} -> ${input.level}`,
+          ],
+          relatedId: input.userId,
+          relatedMsg: `Update: ${userjutsu.jutsu.name} level ${userjutsu.level} -> ${input.level}`,
+          relatedImage: userjutsu.jutsu.image,
+        }),
+      ]);
+      return { success: true, message: `Jutsu level adjusted to ${input.level}` };
     }),
   // Start training a given jutsu
   startTraining: protectedProcedure
