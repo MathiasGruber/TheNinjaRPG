@@ -1181,7 +1181,7 @@ export const drain = (
 
     // Create a new consequence for the drain damage
     const drainConsequence: Consequence = {
-      userId: effect.userId,
+      userId: effect.creatorId,
       targetId: effect.targetId,
       damage: drainDamage,
       types: ["Drain"]
