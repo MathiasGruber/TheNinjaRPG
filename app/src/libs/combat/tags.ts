@@ -1546,6 +1546,58 @@ export const summonPrevent = (
 };
 
 /** Prevent target from being stunned */
+/** Mirror negative effects from caster to target */
+export const mirror = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  if (!effect.isNew && !effect.castThisRound) {
+    // Find all negative effects on the caster
+    const negativeEffects = usersEffects.filter(
+      (e) => e.targetId === effect.userId && isNegativeUserEffect(e),
+    );
+
+    // Apply each negative effect to the target
+    negativeEffects.forEach((negEffect) => {
+      // Create a new effect with the same properties but different target
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const mirroredEffect = {
+        type: negEffect.type,
+        id: nanoid(),
+        targetId: effect.targetId,
+        userId: effect.userId,
+        isNew: true,
+        castThisRound: true,
+        createdRound: effect.createdRound,
+        power: negEffect.power ?? 0,
+        powerPerLevel: negEffect.powerPerLevel ?? 0,
+        rounds: negEffect.rounds ?? 0,
+        direction: negEffect.direction ?? "offence",
+        calculation: negEffect.calculation ?? "static",
+        description: negEffect.description ?? "",
+        target: negEffect.target ?? "INHERIT",
+        friendlyFire: negEffect.friendlyFire,
+        staticAssetPath: negEffect.staticAssetPath ?? "",
+        staticAnimation: negEffect.staticAnimation ?? "",
+        appearAnimation: negEffect.appearAnimation ?? "",
+        disappearAnimation: negEffect.disappearAnimation ?? "",
+        timeTracker: negEffect.timeTracker,
+      } as const;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const newEffect = structuredClone(mirroredEffect) as unknown as UserEffect;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      usersEffects.push(newEffect);
+    });
+  }
+
+  return getInfo(
+    target,
+    effect,
+    `all negative effects on ${target.username} are mirrored to their opponent`,
+  );
+};
+
 export const weakness = (effect: UserEffect, target: BattleUserState) => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
