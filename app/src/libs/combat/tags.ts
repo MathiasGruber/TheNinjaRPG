@@ -1619,10 +1619,11 @@ export const copy = (
   });
 
   const { power } = getPower(effect);
+  const effectsWithDuration = targetEffects.map(e => `${e.name || 'effect'} (${e.rounds} rounds)`).join(', ');
   return getInfo(
     target,
     effect,
-    `copied ${targetEffects.length} positive effect(s) from ${target.username} at ${power}% effectiveness`,
+    `copied ${targetEffects.length} positive effect(s) from ${target.username} at ${power}% effectiveness: ${effectsWithDuration}`,
   );
 };
 
