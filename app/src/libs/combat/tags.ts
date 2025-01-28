@@ -1562,9 +1562,26 @@ export const copy = (
   usersEffects: UserEffect[],
   target: BattleUserState,
 ) => {
+  // Check if buffing is prevented
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
+
+  // Validate effect creator
+  if (!effect.creatorId) {
+    return {
+      txt: "Invalid effect: missing creator ID",
+      color: "red",
+    };
+  }
+
   // Only copy positive effects from the target to the caster
   const targetEffects = usersEffects.filter(
-    (e) => e.targetId === target.userId && isPositiveUserEffect(e),
+    (e) =>
+      e.targetId === target.userId &&
+      isPositiveUserEffect(e) &&
+      e.fromType !== "bloodline", // Don't copy bloodline effects
   );
 
   if (targetEffects.length === 0) {
@@ -1580,13 +1597,14 @@ export const copy = (
     const copiedEffect: UserEffect = {
       ...targetEffect,
       id: nanoid(),
-      targetId: effect.creatorId, // Apply to the caster
+      targetId: effect.creatorId,
       creatorId: effect.creatorId,
       isNew: true,
       castThisRound: false,
       createdRound: effect.createdRound,
-      rounds: targetEffect.rounds ?? 1, // Maintain the same duration, default to 1 if undefined
-      level: effect.level, // Copy the level from the original effect
+      rounds: targetEffect.rounds ?? 1,
+      level: effect.level,
+      fromType: targetEffect.fromType, // Maintain the effect type
     };
 
     // Scale the power based on the copy effect's power
