@@ -1136,6 +1136,87 @@ export const lifesteal = (
  * 2. Add user to any new ground effect
  * 3. Move user
  */
+export const displacement = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  usersState: BattleUserState[],
+  groundEffects: GroundEffect[],
+) => {
+  const target = usersState.find((u) => u.userId === effect.targetId);
+  const user = usersState.find((u) => u.userId === effect.creatorId);
+  let info: ActionEffect | undefined = undefined;
+
+  if (target && user) {
+    // Prevent?
+    const { pass } = preventCheck(usersEffects, "moveprevent", target);
+    if (!pass) return preventResponse(effect, target, "resisted being displaced");
+
+    // Find an empty ground position
+    const occupiedPositions = new Set(
+      usersState.map((u) => `${u.latitude},${u.longitude}`)
+    );
+
+    // Try positions in a spiral pattern around the target
+    const dx = [0, 1, 0, -1]; // right, down, left, up
+    const dy = [1, 0, -1, 0];
+    let x = target.longitude;
+    let y = target.latitude;
+    let layer = 1;
+    let found = false;
+
+    while (layer <= 5 && !found) { // Try up to 5 layers out
+      for (let direction = 0; direction < 4; direction++) {
+        for (let step = 0; step < layer; step++) {
+          x += dx[direction];
+          y += dy[direction];
+
+          if (!occupiedPositions.has(`${y},${x}`)) {
+            // Found an empty spot
+            // Update movement information
+            info = {
+              txt: `${user.username} displaces ${target.username} to [${y}, ${x}]`,
+              color: "blue",
+            };
+
+            // Handle ground effects
+            groundEffects.forEach((g) => {
+              if (g.timeTracker && target.userId in g.timeTracker) {
+                delete g.timeTracker[target.userId];
+              }
+            });
+
+            groundEffects.forEach((g) => {
+              if (
+                g.timeTracker &&
+                g.longitude === x &&
+                g.latitude === y
+              ) {
+                g.timeTracker[target.userId] = effect.createdRound;
+              }
+            });
+
+            // Update target location
+            target.longitude = x;
+            target.latitude = y;
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+      layer++;
+    }
+
+    if (!found) {
+      info = {
+        txt: `${user.username} failed to displace ${target.username} - no empty ground found`,
+        color: "red",
+      };
+    }
+  }
+  return info;
+};
+
 export const move = (
   effect: GroundEffect,
   usersEffects: UserEffect[],
