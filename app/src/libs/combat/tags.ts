@@ -1140,18 +1140,42 @@ export const drain = (
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     // Calculate total Chakra and Stamina used by target in this round
-    let totalChakraUsed = 0;
-    let totalStaminaUsed = 0;
+    let totalResourcesUsed = 0;
 
+    // Find all effects cast this round by the target and get their action costs
     usersEffects.forEach((e) => {
-      if (e.targetId === effect.targetId && e.castThisRound) {
-        if (e.chakraCost) totalChakraUsed += e.chakraCost;
-        if (e.staminaCost) totalStaminaUsed += e.staminaCost;
+      if (e.targetId === effect.targetId && e.castThisRound && e.actionId) {
+        // Find the action in target's used actions
+        const action = target.usedActions.find(a => a.id === e.actionId);
+        if (action) {
+          // Find the action details in target's jutsus, items, or basic actions
+          const jutsu = target.jutsus.find(j => j.jutsu.id === action.id);
+          if (jutsu) {
+            totalResourcesUsed += Math.max(
+              jutsu.jutsu.chakraCost - (jutsu.jutsu.chakraCostReducePerLvl || 0) * jutsu.level,
+              0
+            );
+            totalResourcesUsed += Math.max(
+              jutsu.jutsu.staminaCost - (jutsu.jutsu.staminaCostReducePerLvl || 0) * jutsu.level,
+              0
+            );
+          }
+          const item = target.items.find(i => i.item.id === action.id);
+          if (item) {
+            totalResourcesUsed += Math.max(
+              item.item.chakraCost - (item.item.chakraCostReducePerLvl || 0) * target.level,
+              0
+            );
+            totalResourcesUsed += Math.max(
+              item.item.staminaCost - (item.item.staminaCostReducePerLvl || 0) * target.level,
+              0
+            );
+          }
+        }
       }
     });
 
     // Calculate drain damage based on percentage
-    const totalResourcesUsed = totalChakraUsed + totalStaminaUsed;
     if (totalResourcesUsed > 0) {
       const drainDamage = Math.ceil((totalResourcesUsed * power) / 100);
 
