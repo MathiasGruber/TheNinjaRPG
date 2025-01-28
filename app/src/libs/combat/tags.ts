@@ -1157,8 +1157,14 @@ export const displacement = (
     );
 
     // Try positions in a spiral pattern around the target
-    const dx = [0, 1, 0, -1]; // right, down, left, up
-    const dy = [1, 0, -1, 0];
+    const dx = [0, 1, 0, -1] as const; // right, down, left, up
+    const dy = [1, 0, -1, 0] as const;
+    const getDirectionOffset = (dir: number): { x: number; y: number } => {
+      const index = dir % 4;
+      const x = dx[index];
+      const y = dy[index];
+      return { x, y };
+    };
     let x = target.longitude;
     let y = target.latitude;
     let layer = 1;
@@ -1167,8 +1173,9 @@ export const displacement = (
     while (layer <= 5 && !found) { // Try up to 5 layers out
       for (let direction = 0; direction < 4; direction++) {
         for (let step = 0; step < layer; step++) {
-          x += dx[direction];
-          y += dy[direction];
+          const offset = getDirectionOffset(direction as 0 | 1 | 2 | 3);
+          x += offset.x;
+          y += offset.y;
 
           if (!occupiedPositions.has(`${y},${x}`)) {
             // Found an empty spot
