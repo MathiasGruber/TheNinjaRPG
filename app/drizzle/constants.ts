@@ -117,6 +117,7 @@ export const UserRoles = [
   "JR_MODERATOR",
   "CONTENT",
   "EVENT",
+  "CODER",
 ] as const;
 export type UserRole = (typeof UserRoles)[number];
 
