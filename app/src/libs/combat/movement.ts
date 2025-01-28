@@ -36,7 +36,7 @@ export const isValidMove = (info: {
       // Allow self-targeting abilities like basic heal even when stealthed
       if (opponent && opponent?.userId === userId) return true;
     } else if (action.target === "EMPTY_GROUND") {
-      if (!opponent || target !== clicked) return true;
+      if (!opponent || (action.effects?.some(effect => effect.type === "displacement") && target !== clicked)) return true;
     } else if (action.target === "GROUND") {
       return true;
     }

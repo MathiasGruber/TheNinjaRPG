@@ -409,40 +409,121 @@ const Combat: React.FC<CombatProps> = (props) => {
       scene.add(group_users);
       scene.add(group_effects);
 
-      // Capture clicks to update move direction
-      const onClick = (e: MouseEvent) => {
-        setRaycasterFromMouse(raycaster, sceneRef, e, camera);
-        const intersects = raycaster.intersectObjects(scene.children);
-        intersects
-          .filter((i) => i.object.visible)
-          .every((i) => {
-            if (
-              i.object.userData.type === "tile" &&
-              document.body.style.cursor !== "wait"
-            ) {
-              if (
-                i.object.userData.canClick === true &&
-                action.current &&
-                battle.current
-              ) {
-                const target = i.object.userData.tile as TerrainHex;
-                document.body.style.cursor = "wait";
-                if (canPerformAction()) {
-                  performAction({
-                    battleId: battle.current.id,
-                    userId: userId.current,
-                    actionId: action.current.id,
-                    longitude: target.col,
-                    latitude: target.row,
-                    version: battle.current.version,
-                  });
-                }
-                return false;
-              }
-            }
-            return true;
-          });
+      // Track drag state for displacement
+      let isDragging = false;
+      let draggedUser: string | null = null;
+      let dragStartX = 0;
+      let dragStartY = 0;
+
+      // Handle mouse down for drag start
+      const onMouseDown = (e: MouseEvent) => {
+        if (action.current?.effects?.some(effect => effect.type === "displacement")) {
+          setRaycasterFromMouse(raycaster, sceneRef, e, camera);
+          const intersects = raycaster.intersectObjects(scene.children);
+          const userIntersect = intersects.find(i => i.object.userData.type === "user");
+
+          if (userIntersect) {
+            isDragging = true;
+            draggedUser = userIntersect.object.userData.userId;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            document.body.style.cursor = "grabbing";
+          }
+        }
       };
+
+      // Handle mouse move for dragging
+      const onMouseMove = (e: MouseEvent) => {
+        if (isDragging && draggedUser) {
+          setRaycasterFromMouse(raycaster, sceneRef, e, camera);
+          const intersects = raycaster.intersectObjects(scene.children);
+          const tileIntersect = intersects.find(i =>
+            i.object.userData.type === "tile" &&
+            i.object.userData.canClick === true
+          );
+
+          // Update cursor style based on whether we're over a valid tile
+          if (tileIntersect) {
+            document.body.style.cursor = "grabbing";
+          } else {
+            document.body.style.cursor = "not-allowed";
+          }
+        }
+      };
+
+      // Handle mouse up for drag end
+      const onMouseUp = (e: MouseEvent) => {
+        if (isDragging && draggedUser && action.current && battle.current) {
+          setRaycasterFromMouse(raycaster, sceneRef, e, camera);
+          const intersects = raycaster.intersectObjects(scene.children);
+          const tileIntersect = intersects.find(i =>
+            i.object.userData.type === "tile" &&
+            i.object.userData.canClick === true
+          );
+
+          if (tileIntersect) {
+            const target = tileIntersect.object.userData.tile as TerrainHex;
+            document.body.style.cursor = "wait";
+            if (canPerformAction()) {
+              performAction({
+                battleId: battle.current.id,
+                userId: draggedUser,
+                actionId: action.current.id,
+                longitude: target.col,
+                latitude: target.row,
+                version: battle.current.version,
+              });
+            }
+          }
+        }
+
+        // Reset drag state
+        isDragging = false;
+        draggedUser = null;
+        document.body.style.cursor = "default";
+      };
+
+      // Capture clicks for non-displacement actions
+      const onClick = (e: MouseEvent) => {
+        if (!action.current?.effects?.some(effect => effect.type === "displacement")) {
+          setRaycasterFromMouse(raycaster, sceneRef, e, camera);
+          const intersects = raycaster.intersectObjects(scene.children);
+          intersects
+            .filter((i) => i.object.visible)
+            .every((i) => {
+              if (
+                i.object.userData.type === "tile" &&
+                document.body.style.cursor !== "wait"
+              ) {
+                if (
+                  i.object.userData.canClick === true &&
+                  action.current &&
+                  battle.current
+                ) {
+                  const target = i.object.userData.tile as TerrainHex;
+                  document.body.style.cursor = "wait";
+                  if (canPerformAction()) {
+                    performAction({
+                      battleId: battle.current.id,
+                      userId: userId.current,
+                      actionId: action.current.id,
+                      longitude: target.col,
+                      latitude: target.row,
+                      version: battle.current.version,
+                    });
+                  }
+                  return false;
+                }
+              }
+              return true;
+            });
+        }
+      };
+
+      // Add event listeners for drag and drop
+      renderer.domElement.addEventListener("mousedown", onMouseDown, true);
+      renderer.domElement.addEventListener("mousemove", onMouseMove, true);
+      renderer.domElement.addEventListener("mouseup", onMouseUp, true);
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Sprite mixer for sprite animations
@@ -529,12 +610,16 @@ const Combat: React.FC<CombatProps> = (props) => {
       }
       render();
 
-      // Remove the mouseover listener
+      // Remove all event listeners
       return () => {
         void setBattleAtom(undefined);
         window.removeEventListener("resize", handleResize);
         sceneRef.removeEventListener("mousemove", onDocumentMouseMove);
         sceneRef.removeEventListener("mouseleave", onDocumentMouseLeave);
+        renderer.domElement.removeEventListener("mousedown", onMouseDown, true);
+        renderer.domElement.removeEventListener("mousemove", onMouseMove, true);
+        renderer.domElement.removeEventListener("mouseup", onMouseUp, true);
+        renderer.domElement.removeEventListener("click", onClick, true);
         if (sceneRef.contains(renderer.domElement)) {
           sceneRef.removeChild(renderer.domElement);
         }
