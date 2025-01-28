@@ -1321,6 +1321,8 @@ export const userData = mysqlTable(
     level: int("level").default(1).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
+    medicalNinjaSquadId: varchar("medicalNinjaSquadId", { length: 191 }),
+    occupation: mysqlEnum("occupation", consts.UserOccupations).default("NONE").notNull(),
     status: mysqlEnum("status", consts.UserStatuses).default("AWAKE").notNull(),
     strength: double("strength").default(10).notNull(),
     intelligence: double("intelligence").default(10).notNull(),
@@ -1489,10 +1491,56 @@ export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
+export const medicalNinjaSquad = mysqlTable(
+  "MedicalNinjaSquad",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    image: varchar("image", { length: 191 }).notNull(),
+    leaderId: varchar("leaderId", { length: 191 }),
+    coLeaderId: varchar("coLeaderId", { length: 191 }),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("MedicalNinjaSquad_name_key").on(table.name),
+      leaderIdIdx: index("MedicalNinjaSquad_leaderId_idx").on(table.leaderId),
+      villageIdIdx: index("MedicalNinjaSquad_villageId_idx").on(table.villageId),
+    };
+  },
+);
+export type MedicalNinjaSquad = InferSelectModel<typeof medicalNinjaSquad>;
+
+export const medicalNinjaSquadRelations = relations(medicalNinjaSquad, ({ one, many }) => ({
+  leader: one(userData, {
+    fields: [medicalNinjaSquad.leaderId],
+    references: [userData.userId],
+  }),
+  coLeader: one(userData, {
+    fields: [medicalNinjaSquad.coLeaderId],
+    references: [userData.userId],
+  }),
+  members: many(userData),
+  village: one(village, {
+    fields: [medicalNinjaSquad.villageId],
+    references: [village.id],
+  }),
+}));
+
 export const userDataRelations = relations(userData, ({ one, many }) => ({
   bloodline: one(bloodline, {
     fields: [userData.bloodlineId],
     references: [bloodline.id],
+  }),
+  medicalNinjaSquad: one(medicalNinjaSquad, {
+    fields: [userData.medicalNinjaSquadId],
+    references: [medicalNinjaSquad.id],
   }),
   village: one(village, {
     fields: [userData.villageId],

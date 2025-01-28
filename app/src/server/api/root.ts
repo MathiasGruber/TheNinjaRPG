@@ -37,6 +37,7 @@ import { marriageRouter } from "./routers/marriage";
 import { staffRouter } from "./routers/staff";
 import { backgroundSchemaRouter } from "./routers/backgroundSchema";
 import { linkPromotionRouter } from "./routers/linkpromotion";
+import { occupationRouter } from "./routers/occupation";
 
 /**
  * This is the primary router for your server.
@@ -82,7 +83,29 @@ export const appRouter = createTRPCRouter({
   backgroundSchema: backgroundSchemaRouter,
   staff: staffRouter,
   linkPromotion: linkPromotionRouter,
+  occupation: occupationRouter,
 });
 
 // export type definition of API
 export type AppRouter = typeof appRouter;
+
+// export type definition of API outputs
+export type RouterOutputs = {
+  [K in keyof AppRouter]: AppRouter[K] extends {
+    _def: { queries: infer Q; mutations: infer M };
+  }
+    ? {
+        [QK in keyof Q]: Q[QK] extends {
+          _def: { output: infer O };
+        }
+          ? O
+          : never;
+      } & {
+        [MK in keyof M]: M[MK] extends {
+          _def: { output: infer O };
+        }
+          ? O
+          : never;
+      }
+    : never;
+};

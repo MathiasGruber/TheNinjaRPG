@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import Image from "next/image";
 import { Atom, Bug, User, Globe2, BookOpenText, Users } from "lucide-react";
 import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-react";
-import { Inbox, Flag } from "lucide-react";
+import { Inbox, Flag, Briefcase } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/app/_trpc/client";
 import { findVillageUserRelationship } from "@/utils/alliance";
@@ -96,6 +96,11 @@ export const useGameMenu = (userData: UserWithRelations) => {
       href: "/points",
       name: "Points",
       icon: <Receipt key="travel" className="h-6 w-6" />,
+    },
+    {
+      href: "/occupation",
+      name: "Occupation",
+      icon: <Briefcase key="occupation" className="h-6 w-6" />,
     },
   ];
 

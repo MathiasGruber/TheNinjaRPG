@@ -6,14 +6,11 @@ import { TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { toast } from "@/components/ui/use-toast";
 import { useUser } from "@clerk/nextjs";
-import { type AppRouter } from "@/api/root";
+import { type AppRouter } from "@/server/api/root";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 
 /** A set of type-safe react-query hooks for your tRPC API. */
-export const api = createTRPCReact<AppRouter>({
-  // Abort on onmount, see: https://trpc.io/docs/client/react/aborting-procedure-calls
-  abortOnUnmount: false,
-});
+export const api = createTRPCReact<AppRouter>();
 
 /**
  * Inference helper for inputs.

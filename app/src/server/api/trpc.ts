@@ -65,18 +65,20 @@ export const createAppTRPCContext = async (opts: {
  * This is where the tRPC API is initialized, connecting the context and transformer.
  */
 
-const t = initTRPC.context<typeof createAppTRPCContext>().create({
-  transformer: superjson,
-  errorFormatter({ shape, error }) {
-    return {
-      ...shape,
-      data: {
-        ...shape.data,
-        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
-      },
-    };
-  },
-});
+const t = initTRPC
+  .context<typeof createAppTRPCContext>()
+  .create({
+    transformer: superjson,
+    errorFormatter({ shape, error }) {
+      return {
+        ...shape,
+        data: {
+          ...shape.data,
+          zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+        },
+      };
+    },
+  });
 
 /**
  * 3. ROUTER & PROCEDURE (THE IMPORTANT BIT)
