@@ -1612,7 +1612,7 @@ export const copy = (
     copiedEffect.power = (copiedEffect.power * power) / 100;
     if (copiedEffect.powerPerLevel) {
       copiedEffect.powerPerLevel = (copiedEffect.powerPerLevel * power) / 100;
-    }
+    };
 
     // Add the copied effect to the user's effects
     usersEffects.push(copiedEffect);
