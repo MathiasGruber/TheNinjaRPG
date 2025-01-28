@@ -1130,6 +1130,42 @@ export const lifesteal = (
   return getInfo(target, effect, `will steal ${qualifier} damage as health`);
 };
 
+/** Deal damage based on target's Chakra and Stamina usage */
+export const drain = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState,
+) => {
+  const { power, qualifier } = getPower(effect);
+  if (!effect.isNew && !effect.castThisRound) {
+    // Calculate total Chakra and Stamina used by target in this round
+    let totalChakraUsed = 0;
+    let totalStaminaUsed = 0;
+
+    usersEffects.forEach((e) => {
+      if (e.targetId === effect.targetId && e.castThisRound) {
+        if (e.chakraCost) totalChakraUsed += e.chakraCost;
+        if (e.staminaCost) totalStaminaUsed += e.staminaCost;
+      }
+    });
+
+    // Calculate drain damage based on percentage
+    const totalResourcesUsed = totalChakraUsed + totalStaminaUsed;
+    if (totalResourcesUsed > 0) {
+      const drainDamage = Math.ceil((totalResourcesUsed * power) / 100);
+
+      // Add drain damage to consequences
+      consequences.forEach((consequence) => {
+        if (consequence.targetId === effect.targetId) {
+          consequence.damage = (consequence.damage || 0) + drainDamage;
+        }
+      });
+    }
+  }
+  return getInfo(target, effect, `drains ${qualifier} of used Chakra and Stamina as damage`);
+};
+
 /**
  * Move user on the battlefield
  * 1. Remove user from current ground effect

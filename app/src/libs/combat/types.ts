@@ -498,6 +498,17 @@ export const LifeStealTag = z.object({
   description: msg("Heal based on damage given"),
   calculation: z.enum(["percentage"]).default("percentage"),
 });
+
+export const DrainTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("drain").default("drain"),
+  description: msg("Deal damage based on target's Chakra and Stamina usage"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  direction: type("offence"),
+});
+export type DrainTagType = z.infer<typeof DrainTag>;
+
 export const MoveTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -684,6 +695,7 @@ export const AllTags = z.union([
   ClearTag.default({}),
   CloneTag.default({}),
   DamageTag.default({}),
+  DrainTag.default({}),
   DebuffPreventTag.default({}),
   DecreaseDamageGivenTag.default({}),
   DecreaseDamageTakenTag.default({}),

@@ -178,6 +178,7 @@ export const calcApplyRatio = (
     "increasepoolcost",
     "increasestat",
     "lifesteal",
+    "drain",
     "moveprevent",
     "onehitkillprevent",
     "recoil",
@@ -286,6 +287,7 @@ export const sortEffects = (
     "increasedamagegiven",
     "increasedamagetaken",
     "lifesteal",
+    "drain",
     // Piercing damage
     "pierce",
     // Post-modifiers after pierce
