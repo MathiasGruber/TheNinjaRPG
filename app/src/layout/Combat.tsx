@@ -412,21 +412,25 @@ const Combat: React.FC<CombatProps> = (props) => {
       // Track drag state for displacement
       let isDragging = false;
       let draggedUser: string | null = null;
-      let dragStartX = 0;
-      let dragStartY = 0;
 
       // Handle mouse down for drag start
       const onMouseDown = (e: MouseEvent) => {
         if (action.current?.effects?.some(effect => effect.type === "displacement")) {
           setRaycasterFromMouse(raycaster, sceneRef, e, camera);
           const intersects = raycaster.intersectObjects(scene.children);
-          const userIntersect = intersects.find(i => i.object.userData.type === "user");
+          type UserData = {
+            type: "user";
+            userId: string;
+          };
+          const userIntersect = intersects.find(i => {
+            const userData = i.object.userData as UserData;
+            return userData.type === "user" && typeof userData.userId === "string";
+          });
 
           if (userIntersect) {
             isDragging = true;
-            draggedUser = userIntersect.object.userData.userId;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
+            const userData = userIntersect.object.userData as UserData;
+            draggedUser = userData.userId;
             document.body.style.cursor = "grabbing";
           }
         }
