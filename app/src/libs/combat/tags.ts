@@ -1591,6 +1591,9 @@ export const copy = (
     };
   }
 
+  // Get the power for scaling copied effects
+  const { power } = getPower(effect);
+
   // Copy each positive effect
   targetEffects.forEach((targetEffect) => {
     // Create a copy of the effect
@@ -1608,17 +1611,15 @@ export const copy = (
     };
 
     // Scale the power based on the copy effect's power
-    const { power } = getPower(effect);
     copiedEffect.power = (copiedEffect.power * power) / 100;
     if (copiedEffect.powerPerLevel) {
       copiedEffect.powerPerLevel = (copiedEffect.powerPerLevel * power) / 100;
-    };
+    }
 
     // Add the copied effect to the user's effects
     usersEffects.push(copiedEffect);
-  },
+  });
 
-  const { power } = getPower(effect);
   const effectsWithDuration = targetEffects.map(e => `${e.type} (${e.rounds} rounds)`).join(', ');
   return getInfo(
     target,
