@@ -973,7 +973,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
                 selectedId={jutsu?.id}
                 labelSingles={true}
                 emptyText="No jutsus assigned to this user"
-                gridClassNameOverwrite="grid grid-cols-10 md:grid-cols-12"
+                gridClassNameOverwrite="grid grid-cols-5 sm:grid-cols-10 md:grid-cols-12"
                 onClick={(id) => {
                   if (id == jutsu?.id) {
                     setJutsu(undefined);
