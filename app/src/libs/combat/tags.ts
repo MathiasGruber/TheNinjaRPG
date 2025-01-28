@@ -1616,7 +1616,7 @@ export const copy = (
 
     // Add the copied effect to the user's effects
     usersEffects.push(copiedEffect);
-  };
+  },
 
   const { power } = getPower(effect);
   const effectsWithDuration = targetEffects.map(e => `${e.type} (${e.rounds} rounds)`).join(', ');
