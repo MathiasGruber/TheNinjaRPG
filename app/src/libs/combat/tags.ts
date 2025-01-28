@@ -1036,7 +1036,7 @@ export const drain = (effect: UserEffect, target: BattleUserState) => {
   return getInfo(
     target,
     effect,
-    `${effect.casterName} drains ${power}% of Chakra and Stamina each round`,
+    `drains ${power}% of Chakra and Stamina each round`,
   );
 };
 
