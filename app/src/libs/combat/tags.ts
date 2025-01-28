@@ -1138,55 +1138,60 @@ export const drain = (
   target: BattleUserState,
 ) => {
   const { power, qualifier } = getPower(effect);
-  if (!effect.isNew && !effect.castThisRound) {
-    // Calculate total Chakra and Stamina used by target in this round
-    let totalResourcesUsed = 0;
 
-    // Find all effects cast this round by the target and get their action costs
-    usersEffects.forEach((e) => {
-      if (e.targetId === effect.targetId && e.castThisRound && e.actionId) {
-        // Find the action in target's used actions
-        const action = target.usedActions.find(a => a.id === e.actionId);
-        if (action) {
-          // Find the action details in target's jutsus, items, or basic actions
-          const jutsu = target.jutsus.find(j => j.jutsu.id === action.id);
-          if (jutsu) {
-            totalResourcesUsed += Math.max(
-              jutsu.jutsu.chakraCost - (jutsu.jutsu.chakraCostReducePerLvl || 0) * jutsu.level,
-              0
-            );
-            totalResourcesUsed += Math.max(
-              jutsu.jutsu.staminaCost - (jutsu.jutsu.staminaCostReducePerLvl || 0) * jutsu.level,
-              0
-            );
-          }
-          const item = target.items.find(i => i.item.id === action.id);
-          if (item) {
-            totalResourcesUsed += Math.max(
-              item.item.chakraCost - (item.item.chakraCostReducePerLvl || 0) * target.level,
-              0
-            );
-            totalResourcesUsed += Math.max(
-              item.item.staminaCost - (item.item.staminaCostReducePerLvl || 0) * target.level,
-              0
-            );
-          }
+  // Calculate total Chakra and Stamina used by target in this round
+  let totalResourcesUsed = 0;
+
+  // Find all effects cast this round by the target and get their action costs
+  usersEffects.forEach((e) => {
+    if (e.targetId === effect.targetId && e.castThisRound && e.actionId) {
+      // Find the action in target's used actions
+      const action = target.usedActions.find(a => a.id === e.actionId);
+      if (action) {
+        // Find the action details in target's jutsus, items, or basic actions
+        const jutsu = target.jutsus.find(j => j.jutsu.id === action.id);
+        if (jutsu) {
+          totalResourcesUsed += Math.max(
+            jutsu.jutsu.chakraCost - (jutsu.jutsu.chakraCostReducePerLvl || 0) * jutsu.level,
+            0
+          );
+          totalResourcesUsed += Math.max(
+            jutsu.jutsu.staminaCost - (jutsu.jutsu.staminaCostReducePerLvl || 0) * jutsu.level,
+            0
+          );
+        }
+        const item = target.items.find(i => i.item.id === action.id);
+        if (item) {
+          totalResourcesUsed += Math.max(
+            item.item.chakraCost - (item.item.chakraCostReducePerLvl || 0) * target.level,
+            0
+          );
+          totalResourcesUsed += Math.max(
+            item.item.staminaCost - (item.item.staminaCostReducePerLvl || 0) * target.level,
+            0
+          );
         }
       }
-    });
-
-    // Calculate drain damage based on percentage
-    if (totalResourcesUsed > 0) {
-      const drainDamage = Math.ceil((totalResourcesUsed * power) / 100);
-
-      // Add drain damage to consequences
-      consequences.forEach((consequence) => {
-        if (consequence.targetId === effect.targetId) {
-          consequence.damage = (consequence.damage || 0) + drainDamage;
-        }
-      });
     }
+  });
+
+  // Calculate drain damage based on percentage
+  if (totalResourcesUsed > 0) {
+    const drainDamage = Math.ceil((totalResourcesUsed * power) / 100);
+
+    // Create a new consequence for the drain damage
+    const drainConsequence: Consequence = {
+      userId: effect.userId,
+      targetId: effect.targetId,
+      damage: drainDamage,
+      types: ["Drain"]
+    };
+
+    // Add drain consequence to the map with a unique ID
+    const drainId = `${effect.id}_drain_${nanoid()}`;
+    consequences.set(drainId, drainConsequence);
   }
+
   return getInfo(target, effect, `drains ${qualifier} of used Chakra and Stamina as damage`);
 };
 
