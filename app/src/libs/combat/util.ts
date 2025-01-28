@@ -168,7 +168,7 @@ export const calcApplyRatio = (
     "decreasedamagegiven",
     "decreasedamagetaken",
     "decreaseheal",
-    "decreasepoolcost",
+    "drain",
     "decreasestat",
     "fleeprevent",
     "healprevent",
@@ -265,7 +265,7 @@ export const sortEffects = (
     // Pre-modifiers
     "cleanse",
     "clear",
-    "decreasepoolcost",
+    "drain",
     "decreasestat",
     "increasepoolcost",
     "increasestat",
@@ -318,14 +318,14 @@ export const calcPoolCost = (
   usersEffects
     .filter(
       (e) =>
-        ["increasepoolcost", "decreasepoolcost"].includes(e.type) &&
+        ["increasepoolcost", "drain"].includes(e.type) &&
         e.targetId === target.userId,
     )
     .forEach((e) => {
       // Get the power to apply (positive or negative)
       let { power } = getPower(e);
       if (e.type === "increasepoolcost" && power < 0) power *= -1;
-      if (e.type === "decreasepoolcost" && power > 0) power *= -1;
+      if (e.type === "drain" && power > 0) power *= -1;
       // Apply the power to the pools affected
       if ("poolsAffected" in e) {
         e.poolsAffected?.forEach((pool) => {

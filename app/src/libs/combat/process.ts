@@ -11,7 +11,7 @@ import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
 import { increaseHealGiven, decreaseHealGiven } from "./tags";
-import { increasepoolcost, decreasepoolcost } from "./tags";
+import { increasepoolcost, drain } from "./tags";
 import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent, movePrevent } from "./tags";
 import { seal, sealPrevent, sealCheck, rob, robPrevent, stealth } from "./tags";
@@ -312,8 +312,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               info = flee(e, newUsersEffects, newTarget);
             } else if (e.type === "increasepoolcost" && isTargetOrNew) {
               info = increasepoolcost(e, curTarget);
-            } else if (e.type === "decreasepoolcost" && isTargetOrNew) {
-              info = decreasepoolcost(e, curTarget);
+            } else if (e.type === "drain" && isTargetOrNew) {
+              info = drain(e, curTarget);
             } else if (e.type === "clear" && isTargetOrNew) {
               info = clear(e, usersEffects, curTarget);
             } else if (e.type === "cleanse" && isTargetOrNew) {

@@ -340,15 +340,14 @@ export const IncreasePoolCostTag = z.object({
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
-export const DecreasePoolCostTag = z.object({
+export const DrainTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
-  ...PoolAttributes,
-  type: z.literal("decreasepoolcost").default("decreasepoolcost"),
-  description: msg("Decrease cost of taking actions"),
+  type: z.literal("drain").default("drain"),
+  description: msg("Drains Chakra and Stamina from target"),
   rounds: z.coerce.number().int().min(2).max(20).default(2),
   direction: type("defence"),
-  calculation: z.enum(["static", "percentage"]).default("percentage"),
+  calculation: z.enum(["percentage"]).default("percentage"),
 });
 
 export const IncreaseStatTag = z.object({
@@ -688,7 +687,7 @@ export const AllTags = z.union([
   DecreaseDamageGivenTag.default({}),
   DecreaseDamageTakenTag.default({}),
   DecreaseHealGivenTag.default({}),
-  DecreasePoolCostTag.default({}),
+  DrainTag.default({}),
   DecreaseStatTag.default({}),
   FleePreventTag.default({}),
   FleeTag.default({}),
@@ -806,7 +805,7 @@ const BloodlineTags = z.union([
   DecreaseDamageGivenTag.default({}),
   DecreaseDamageTakenTag.default({}),
   DecreaseHealGivenTag.default({}),
-  DecreasePoolCostTag.default({}),
+  DrainTag.default({}),
   DecreaseStatTag.default({}),
   HealTag.default({}),
   IncreaseDamageGivenTag.default({}),
