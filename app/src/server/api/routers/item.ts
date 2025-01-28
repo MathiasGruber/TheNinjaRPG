@@ -15,7 +15,7 @@ import { effectFilters } from "@/libs/train";
 import { structureBoost } from "@/utils/village";
 import { calcItemSellingPrice } from "@/libs/item";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
-import { calcMedninRank } from "@/libs/hospital/hospital";
+
 import { nonCombatConsume } from "@/libs/item";
 import { getRandomElement } from "@/utils/array";
 import { calcMaxItems, calcMaxEventItems } from "@/libs/item";

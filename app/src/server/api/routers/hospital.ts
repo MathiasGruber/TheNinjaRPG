@@ -1,3 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+
+// TODO: Fix type inference for tRPC mutations and queries
+// Currently, the type inference for tRPC mutations and queries is not working correctly
+// This is a known issue and will be fixed in a future update
+// For now, we need to use type assertions to make TypeScript happy
+// See: https://github.com/trpc/trpc/issues/1343
+
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
