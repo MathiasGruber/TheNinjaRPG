@@ -2402,3 +2402,127 @@ export const userVoteRelations = relations(userVote, ({ one }) => ({
     references: [userData.userId],
   }),
 }));
+
+// Auction House Tables
+export const auctionRequest = mysqlTable(
+  "AuctionRequest",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    type: mysqlEnum("type", ["CRAFT", "REPAIR"]).notNull(),
+    details: text("details").notNull(),
+    price: int("price").notNull(),
+    creatorId: varchar("creatorId", { length: 191 }).notNull(),
+    acceptedById: varchar("acceptedById", { length: 191 }),
+    status: mysqlEnum("status", ["PENDING", "ACCEPTED", "COMPLETED"]).default("PENDING").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    itemId: varchar("itemId", { length: 191 }),
+  },
+  (table) => ({
+    creatorIdIdx: index("AuctionRequest_creatorId_idx").on(table.creatorId),
+    acceptedByIdIdx: index("AuctionRequest_acceptedById_idx").on(table.acceptedById),
+    statusIdx: index("AuctionRequest_status_idx").on(table.status),
+  }),
+);
+
+export const auctionRequestRelations = relations(auctionRequest, ({ one }) => ({
+  creator: one(userData, {
+    fields: [auctionRequest.creatorId],
+    references: [userData.userId],
+  }),
+  acceptedBy: one(userData, {
+    fields: [auctionRequest.acceptedById],
+    references: [userData.userId],
+  }),
+  item: one(item, {
+    fields: [auctionRequest.itemId],
+    references: [item.id],
+  }),
+}));
+
+export const playerShop = mysqlTable(
+  "PlayerShop",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: text("description").notNull(),
+    ownerId: varchar("ownerId", { length: 191 }).notNull(),
+    notice: text("notice"),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => ({
+    ownerIdIdx: index("PlayerShop_ownerId_idx").on(table.ownerId),
+    nameKey: uniqueIndex("PlayerShop_name_key").on(table.name),
+  }),
+);
+
+export const playerShopRelations = relations(playerShop, ({ one, many }) => ({
+  owner: one(userData, {
+    fields: [playerShop.ownerId],
+    references: [userData.userId],
+  }),
+  items: many(shopItem),
+}));
+
+export const shopItem = mysqlTable(
+  "ShopItem",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    shopId: varchar("shopId", { length: 191 }).notNull(),
+    itemId: varchar("itemId", { length: 191 }).notNull(),
+    price: int("price").notNull(),
+    quantity: int("quantity").notNull(),
+  },
+  (table) => ({
+    shopIdIdx: index("ShopItem_shopId_idx").on(table.shopId),
+    itemIdIdx: index("ShopItem_itemId_idx").on(table.itemId),
+  }),
+);
+
+export const shopItemRelations = relations(shopItem, ({ one }) => ({
+  shop: one(playerShop, {
+    fields: [shopItem.shopId],
+    references: [playerShop.id],
+  }),
+  item: one(item, {
+    fields: [shopItem.itemId],
+    references: [item.id],
+  }),
+}));
+
+export const bid = mysqlTable(
+  "Bid",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: text("description").notNull(),
+    reward: json("reward").$type<{ type: "ITEM" | "MATERIAL" | "OTHER"; details: string }>().notNull(),
+    startingPrice: int("startingPrice").notNull(),
+    closureDate: datetime("closureDate", { mode: "date", fsp: 3 }).notNull(),
+    creatorId: varchar("creatorId", { length: 191 }).notNull(),
+    acceptedById: varchar("acceptedById", { length: 191 }),
+    status: mysqlEnum("status", ["ACTIVE", "COMPLETED", "CANCELLED"]).default("ACTIVE").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => ({
+    creatorIdIdx: index("Bid_creatorId_idx").on(table.creatorId),
+    acceptedByIdIdx: index("Bid_acceptedById_idx").on(table.acceptedById),
+    statusIdx: index("Bid_status_idx").on(table.status),
+  }),
+);
+
+export const bidRelations = relations(bid, ({ one }) => ({
+  creator: one(userData, {
+    fields: [bid.creatorId],
+    references: [userData.userId],
+  }),
+  acceptedBy: one(userData, {
+    fields: [bid.acceptedById],
+    references: [userData.userId],
+  }),
+}));
