@@ -723,7 +723,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {jt}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("type", jt)}
                   >
@@ -743,7 +743,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {item}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() =>
                       handleRemoveExcludedItem("classification", item)
@@ -765,7 +765,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {item}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("rarity", item)}
                   >
@@ -785,7 +785,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {item}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("rank", item)}
                   >
@@ -805,7 +805,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {item}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("method", item)}
                   >
@@ -825,7 +825,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {item}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("target", item)}
                   >
@@ -845,7 +845,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {anim}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("appear", anim)}
                   >
@@ -865,7 +865,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {anim}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("disappear", anim)}
                   >
@@ -885,7 +885,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {anim}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("static", anim)}
                   >
@@ -905,7 +905,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {ex}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("element", ex)}
                   >
@@ -925,7 +925,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {ef}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("effect", ef)}
                   >
@@ -945,7 +945,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                   {st}
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="xs"
                     className="ml-1 px-1 py-0.5"
                     onClick={() => handleRemoveExcludedItem("stat", st)}
                   >
