@@ -657,6 +657,17 @@ export const WeaknessTag = z.object({
 });
 export type WeaknessTagType = z.infer<typeof WeaknessTag>;
 
+export const PoisonTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("poison").default("poison"),
+  description: msg("Deals percentage damage based on Chakra and Stamina usage"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+  direction: type("offence"),
+});
+export type PoisonTagType = z.infer<typeof PoisonTag>;
+
 export const UnknownTag = z.object({
   ...BaseAttributes,
   type: z.literal("unknown").default("unknown"),
@@ -685,6 +696,7 @@ export const AllTags = z.union([
   CloneTag.default({}),
   DamageTag.default({}),
   DebuffPreventTag.default({}),
+  PoisonTag.default({}),
   DecreaseDamageGivenTag.default({}),
   DecreaseDamageTakenTag.default({}),
   DecreaseHealGivenTag.default({}),
