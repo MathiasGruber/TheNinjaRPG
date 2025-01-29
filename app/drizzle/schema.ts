@@ -1489,10 +1489,50 @@ export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
+export const skillTree = mysqlTable(
+  "SkillTree",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    points: int("points").default(0).notNull(),
+    resetCount: int("resetCount").default(0).notNull(),
+    selectedSkills: json("selectedSkills").$type<{
+      tier: number;
+      cost: number;
+      boost: number;
+      name: string;
+      type: string;
+      isSpecial: boolean;
+    }[]>().default([]).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: uniqueIndex("SkillTree_userId_idx").on(table.userId),
+    };
+  },
+);
+
+export const skillTreeRelations = relations(skillTree, ({ one }) => ({
+  user: one(userData, {
+    fields: [skillTree.userId],
+    references: [userData.userId],
+  }),
+}));
+
 export const userDataRelations = relations(userData, ({ one, many }) => ({
   bloodline: one(bloodline, {
     fields: [userData.bloodlineId],
     references: [bloodline.id],
+  }),
+  skillTree: one(skillTree, {
+    fields: [userData.userId],
+    references: [skillTree.userId],
   }),
   village: one(village, {
     fields: [userData.villageId],

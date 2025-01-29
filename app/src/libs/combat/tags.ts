@@ -10,6 +10,8 @@ import type { WeaknessTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { getSkillTreeModifiers } from "./skillTree";
+import { getHealingModifiers } from "./healing";
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
@@ -787,6 +789,15 @@ export const damageCalc = (
   if ("dmgModifier" in effect) {
     if (effect.dmgModifier) dmg *= effect.dmgModifier;
   }
+
+  // Apply skill tree modifiers
+  const { damageGivenModifier, damageTakenModifier } = getSkillTreeModifiers(
+    effect,
+    origin,
+    target,
+  );
+  dmg *= damageGivenModifier * damageTakenModifier;
+
   return dmg;
 };
 
@@ -955,12 +966,13 @@ export const heal = (
   }
   // Calculate healing
   const { power } = getPower(effect);
+  const healingModifier = getHealingModifiers(effect, target, target);
   const parsedEffect = HealTag.parse(effect);
   const poolsAffects = parsedEffect.poolsAffected || ["Health"];
   const heal_hp = poolsAffects.includes("Health")
     ? effect.calculation === "percentage"
-      ? target.maxHealth * (power / 100) * applyTimes
-      : power * applyTimes
+      ? target.maxHealth * (power / 100) * applyTimes * healingModifier
+      : power * applyTimes * healingModifier
     : 0;
   const heal_sp = poolsAffects.includes("Stamina")
     ? effect.calculation === "percentage"
