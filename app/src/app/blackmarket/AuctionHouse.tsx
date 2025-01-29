@@ -27,13 +27,142 @@ import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { AuctionRequestType } from "@/types/auction";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AuctionHouseProps {
   userData: NonNullable<UserWithRelations>;
 }
 
+const ShopDetails: React.FC<{
+  shopId: string;
+  onBack: () => void;
+}> = ({ shopId, onBack }) => {
+  const { data: shop } = api.auction.getShop.useQuery({ shopId });
+  const { data: items } = api.auction.getShopItems.useQuery({ shopId });
+
+  if (!shop) {
+    return (
+      <div className="flex h-[600px] items-center justify-center">
+        <p className="text-gray-500 dark:text-gray-400">Loading shop...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" size="sm" onClick={onBack}>
+          Back to Shops
+        </Button>
+        <h2 className="text-xl font-bold">{shop.name}</h2>
+      </div>
+      <p className="text-sm text-gray-700 dark:text-gray-300">{shop.description}</p>
+      {shop.notice && (
+        <div className="rounded-md bg-yellow-50 p-4 dark:bg-yellow-900/10">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            {shop.notice}
+          </p>
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {items?.map((item) => (
+          <Card key={item.id}>
+            <CardHeader>
+              <CardTitle>{item.name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Quantity: {item.quantity}
+                </span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {item.price} Ryo
+                </span>
+              </div>
+              <Button className="mt-4 w-full" variant="outline">
+                Purchase
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function AuctionHouse({ userData }: AuctionHouseProps) {
   const [tab, setTab] = useState<"Request" | "Player Shop" | "Bidding Hall">("Request");
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const isCrafterOrHunter = ["CRAFTER", "HUNTER"].includes(userData.role);
+
+  const { data: requestPages } = api.auction.getRequests.useInfiniteQuery(
+    { limit: 10 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
+  );
+
+  const { data: shopPages } = api.auction.getShops.useInfiniteQuery(
+    { limit: 10 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
+  );
+
+  const { data: bidPages } = api.auction.getBids.useInfiniteQuery(
+    { limit: 10 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
+  );
+
+  const { mutate: acceptRequest } = api.auction.acceptRequest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.auction.getRequests.invalidate();
+      }
+    },
+  });
+
+  const { mutate: completeRequest } = api.auction.completeRequest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.auction.getRequests.invalidate();
+      }
+    },
+  });
+
+  const { mutate: acceptBid } = api.auction.acceptBid.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.auction.getBids.invalidate();
+      }
+    },
+  });
+
+  const { mutate: completeBid } = api.auction.completeBid.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.auction.getBids.invalidate();
+      }
+    },
+  });
+
+  const { mutate: cancelBid } = api.auction.cancelBid.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.auction.getBids.invalidate();
+      }
+    },
+  });
 
   return (
     <ContentBox
@@ -49,17 +178,323 @@ export default function AuctionHouse({ userData }: AuctionHouseProps) {
         />
       }
     >
-      {tab === "Request" && <RequestTab userData={userData} />}
-      {tab === "Player Shop" && <PlayerShopTab userData={userData} />}
-      {tab === "Bidding Hall" && <BiddingHallTab userData={userData} />}
+      <div className="p-4">
+        {tab === "Request" && (
+          <Tabs defaultValue="list" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="list">Browse Requests</TabsTrigger>
+              <TabsTrigger value="create">Create Request</TabsTrigger>
+            </TabsList>
+            <TabsContent value="list">
+              <ScrollArea className="h-[600px]">
+                <RequestList
+                  requests={requestPages?.pages.flatMap((page) => page.data) ?? []}
+                  onAccept={(id) => acceptRequest({ requestId: id })}
+                  onComplete={(id) => completeRequest({ requestId: id })}
+                  isCrafterOrHunter={isCrafterOrHunter}
+                />
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="create">
+              <RequestTab userData={userData} />
+            </TabsContent>
+          </Tabs>
+        )}
+        {tab === "Player Shop" && (
+          <>
+            {selectedShopId ? (
+              <ShopDetails
+                shopId={selectedShopId}
+                onBack={() => setSelectedShopId(null)}
+              />
+            ) : (
+              <Tabs defaultValue="list" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="list">Browse Shops</TabsTrigger>
+                  <TabsTrigger value="manage">Manage Shop</TabsTrigger>
+                </TabsList>
+                <TabsContent value="list">
+                  <ScrollArea className="h-[600px]">
+                    <ShopList
+                      shops={shopPages?.pages.flatMap((page) => page.data) ?? []}
+                      onVisit={(id) => setSelectedShopId(id)}
+                    />
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="manage">
+                  <PlayerShopTab userData={userData} />
+                </TabsContent>
+              </Tabs>
+            )}
+          </>
+        )}
+        {tab === "Bidding Hall" && (
+          <Tabs defaultValue="list" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="list">Browse Bids</TabsTrigger>
+              <TabsTrigger value="create">Create Bid</TabsTrigger>
+            </TabsList>
+            <TabsContent value="list">
+              <ScrollArea className="h-[600px]">
+                <BidList
+                  bids={bidPages?.pages.flatMap((page) => page.data) ?? []}
+                  onAccept={(id) => acceptBid({ bidId: id })}
+                  onComplete={(id) => completeBid({ bidId: id })}
+                  onCancel={(id) => cancelBid({ bidId: id })}
+                  isModerator={["MODERATOR", "ADMIN"].includes(userData.role)}
+                />
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="create">
+              <BiddingHallTab userData={userData} />
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
     </ContentBox>
   );
 }
+
+const RequestList: React.FC<{
+  requests: {
+    id: string;
+    type: AuctionRequestType;
+    details: string;
+    price: number;
+    creatorId: string;
+    status: "PENDING" | "ACCEPTED" | "COMPLETED";
+    acceptedById?: string;
+    createdAt: Date;
+  }[];
+  onAccept: (requestId: string) => void;
+  onComplete: (requestId: string) => void;
+  isCrafterOrHunter: boolean;
+}> = ({ requests, onAccept, onComplete, isCrafterOrHunter }) => {
+  return (
+    <div className="space-y-4">
+      {requests.map((request) => (
+        <div
+          key={request.id}
+          className="rounded-lg border p-4 shadow-sm dark:border-gray-800"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-400/10 dark:text-blue-400 dark:ring-blue-400/30">
+                {request.type}
+              </span>
+              <span className="ml-2 inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/30">
+                {request.status}
+              </span>
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {new Date(request.createdAt).toLocaleDateString()}
+            </div>
+          </div>
+          <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+            {request.details}
+          </p>
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {request.price} Ryo
+            </div>
+            <div className="space-x-2">
+              {isCrafterOrHunter && request.status === "PENDING" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onAccept(request.id)}
+                >
+                  Accept
+                </Button>
+              )}
+              {request.status === "ACCEPTED" &&
+                request.acceptedById === request.creatorId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onComplete(request.id)}
+                  >
+                    Complete
+                  </Button>
+                )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ShopList: React.FC<{
+  shops: {
+    id: string;
+    name: string;
+    description: string;
+    ownerId: string;
+    notice?: string;
+    createdAt: Date;
+  }[];
+  onVisit: (shopId: string) => void;
+}> = ({ shops, onVisit }) => {
+  return (
+    <div className="space-y-4">
+      {shops.map((shop) => (
+        <Card key={shop.id}>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>{shop.name}</span>
+              <Button variant="outline" size="sm" onClick={() => onVisit(shop.id)}>
+                Visit Shop
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              {shop.description}
+            </p>
+            {shop.notice && (
+              <div className="mt-4 rounded-md bg-yellow-50 p-4 dark:bg-yellow-900/10">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  {shop.notice}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
+const BidList: React.FC<{
+  bids: {
+    id: string;
+    name: string;
+    description: string;
+    reward: {
+      type: "ITEM" | "MATERIAL" | "OTHER";
+      details: string;
+    };
+    startingPrice: number;
+    closureDate: Date;
+    creatorId: string;
+    status: "ACTIVE" | "COMPLETED" | "CANCELLED";
+    acceptedById?: string;
+    createdAt: Date;
+  }[];
+  onAccept: (bidId: string) => void;
+  onComplete: (bidId: string) => void;
+  onCancel: (bidId: string) => void;
+  isModerator: boolean;
+}> = ({ bids, onAccept, onComplete, onCancel, isModerator }) => {
+  return (
+    <div className="space-y-4">
+      {bids.map((bid) => (
+        <Card key={bid.id}>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span>{bid.name}</span>
+                <Badge
+                  variant={
+                    bid.status === "ACTIVE"
+                      ? "default"
+                      : bid.status === "COMPLETED"
+                      ? "success"
+                      : "destructive"
+                  }
+                >
+                  {bid.status}
+                </Badge>
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Closes {new Date(bid.closureDate).toLocaleDateString()}
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              {bid.description}
+            </p>
+            <div className="mt-4 flex items-center justify-between">
+              <div>
+                <Badge variant="outline" className="mr-2">
+                  {bid.reward.type}
+                </Badge>
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {bid.reward.details}
+                </span>
+              </div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {bid.startingPrice} Ryo
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end space-x-2">
+              {bid.status === "ACTIVE" && !bid.acceptedById && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onAccept(bid.id)}
+                >
+                  Accept
+                </Button>
+              )}
+              {bid.status === "ACTIVE" && bid.acceptedById && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onComplete(bid.id)}
+                >
+                  Complete
+                </Button>
+              )}
+              {isModerator && bid.status === "ACTIVE" && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => onCancel(bid.id)}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+};
 
 const RequestTab: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
   userData,
 }) => {
   const utils = api.useUtils();
+  const isCrafterOrHunter = ["CRAFTER", "HUNTER"].includes(userData.role);
+
+  const { data: requestPages, fetchNextPage, hasNextPage } = api.auction.getRequests.useInfiniteQuery(
+    { limit: 10 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
+  );
+
+  const { mutate: acceptRequest } = api.auction.acceptRequest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.auction.getRequests.invalidate();
+      }
+    },
+  });
+
+  const { mutate: completeRequest } = api.auction.completeRequest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.auction.getRequests.invalidate();
+      }
+    },
+  });
 
   const RequestFormSchema = z.object({
     type: z.enum(["CRAFT", "REPAIR"] as const),

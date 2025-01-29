@@ -5,6 +5,9 @@ import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { auctionRequests, playerShops, shopItems, bids } from "@/drizzle/schema";
 
+import { and, isNull } from "drizzle-orm";
+import { users } from "@/drizzle/schema";
+
 export const auctionRouter = createTRPCRouter({
   createRequest: protectedProcedure
     .input(
@@ -197,6 +200,47 @@ export const auctionRouter = createTRPCRouter({
       };
     }),
 
+  getShop: protectedProcedure
+    .input(
+      z.object({
+        shopId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { shopId } = input;
+
+      const shop = await ctx.db.query.playerShops.findFirst({
+        where: eq(playerShops.id, shopId),
+      });
+
+      if (!shop) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Shop not found",
+        });
+      }
+
+      return shop;
+    }),
+
+  getShopItems: protectedProcedure
+    .input(
+      z.object({
+        shopId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { shopId } = input;
+
+      const items = await ctx.db.query.shopItems.findMany({
+        where: eq(shopItems.shopId, shopId),
+      });
+
+      // TODO: Load item details from the items table
+
+      return items;
+    }),
+
   getBids: protectedProcedure
     .input(
       z.object({
@@ -224,6 +268,323 @@ export const auctionRouter = createTRPCRouter({
       return {
         data: bids,
         nextCursor,
+      };
+    }),
+
+  updateShopNotice: protectedProcedure
+    .input(
+      z.object({
+        notice: z.string().max(500),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { notice } = input;
+      const userId = ctx.auth.userId;
+
+      const shop = await ctx.db.query.playerShops.findFirst({
+        where: eq(playerShops.ownerId, userId),
+      });
+
+      if (!shop) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "You don't have a shop",
+        });
+      }
+
+      await ctx.db
+        .update(playerShops)
+        .set({ notice })
+        .where(eq(playerShops.id, shop.id));
+
+      return {
+        success: true,
+        message: "Shop notice updated successfully",
+      };
+    }),
+
+  listItem: protectedProcedure
+    .input(
+      z.object({
+        itemId: z.string(),
+        price: z.number().int().min(1),
+        quantity: z.number().int().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { itemId, price, quantity } = input;
+      const userId = ctx.auth.userId;
+
+      const shop = await ctx.db.query.playerShops.findFirst({
+        where: eq(playerShops.ownerId, userId),
+      });
+
+      if (!shop) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "You don't have a shop",
+        });
+      }
+
+      // TODO: Validate if user owns the item and it's tradable
+
+      await ctx.db.insert(shopItems).values({
+        id: nanoid(),
+        shopId: shop.id,
+        itemId,
+        price,
+        quantity,
+      });
+
+      return {
+        success: true,
+        message: "Item listed successfully",
+      };
+    }),
+
+  removeItem: protectedProcedure
+    .input(
+      z.object({
+        itemId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { itemId } = input;
+      const userId = ctx.auth.userId;
+
+      const shop = await ctx.db.query.playerShops.findFirst({
+        where: eq(playerShops.ownerId, userId),
+      });
+
+      if (!shop) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "You don't have a shop",
+        });
+      }
+
+      await ctx.db
+        .delete(shopItems)
+        .where(
+          and(eq(shopItems.shopId, shop.id), eq(shopItems.itemId, itemId))
+        );
+
+      return {
+        success: true,
+        message: "Item removed successfully",
+      };
+    }),
+
+  acceptRequest: protectedProcedure
+    .input(
+      z.object({
+        requestId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { requestId } = input;
+      const userId = ctx.auth.userId;
+
+      // Check if user is a crafter or hunter
+      const user = await ctx.db.query.users.findFirst({
+        where: eq(users.userId, userId),
+      });
+
+      if (!user || !["CRAFTER", "HUNTER"].includes(user.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only crafters and hunters can accept requests",
+        });
+      }
+
+      const request = await ctx.db.query.auctionRequests.findFirst({
+        where: and(
+          eq(auctionRequests.id, requestId),
+          eq(auctionRequests.status, "PENDING")
+        ),
+      });
+
+      if (!request) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Request not found or already accepted",
+        });
+      }
+
+      await ctx.db
+        .update(auctionRequests)
+        .set({
+          status: "ACCEPTED",
+          acceptedById: userId,
+        })
+        .where(eq(auctionRequests.id, requestId));
+
+      return {
+        success: true,
+        message: "Request accepted successfully",
+      };
+    }),
+
+  completeRequest: protectedProcedure
+    .input(
+      z.object({
+        requestId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { requestId } = input;
+      const userId = ctx.auth.userId;
+
+      const request = await ctx.db.query.auctionRequests.findFirst({
+        where: and(
+          eq(auctionRequests.id, requestId),
+          eq(auctionRequests.status, "ACCEPTED"),
+          eq(auctionRequests.acceptedById, userId)
+        ),
+      });
+
+      if (!request) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Request not found or not accepted by you",
+        });
+      }
+
+      await ctx.db
+        .update(auctionRequests)
+        .set({ status: "COMPLETED" })
+        .where(eq(auctionRequests.id, requestId));
+
+      // TODO: Handle payment transfer
+
+      return {
+        success: true,
+        message: "Request completed successfully",
+      };
+    }),
+
+  acceptBid: protectedProcedure
+    .input(
+      z.object({
+        bidId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { bidId } = input;
+      const userId = ctx.auth.userId;
+
+      const bid = await ctx.db.query.bids.findFirst({
+        where: and(
+          eq(bids.id, bidId),
+          eq(bids.status, "ACTIVE"),
+          isNull(bids.acceptedById)
+        ),
+      });
+
+      if (!bid) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Bid not found or already accepted",
+        });
+      }
+
+      await ctx.db
+        .update(bids)
+        .set({ acceptedById: userId })
+        .where(eq(bids.id, bidId));
+
+      return {
+        success: true,
+        message: "Bid accepted successfully",
+      };
+    }),
+
+  completeBid: protectedProcedure
+    .input(
+      z.object({
+        bidId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { bidId } = input;
+      const userId = ctx.auth.userId;
+
+      const bid = await ctx.db.query.bids.findFirst({
+        where: and(
+          eq(bids.id, bidId),
+          eq(bids.status, "ACTIVE"),
+          eq(bids.creatorId, userId)
+        ),
+      });
+
+      if (!bid) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Bid not found or not created by you",
+        });
+      }
+
+      if (!bid.acceptedById) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bid has not been accepted yet",
+        });
+      }
+
+      await ctx.db
+        .update(bids)
+        .set({ status: "COMPLETED" })
+        .where(eq(bids.id, bidId));
+
+      // TODO: Handle payment transfer
+
+      return {
+        success: true,
+        message: "Bid completed successfully",
+      };
+    }),
+
+  cancelBid: protectedProcedure
+    .input(
+      z.object({
+        bidId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { bidId } = input;
+      const userId = ctx.auth.userId;
+
+      // Check if user is a moderator
+      const user = await ctx.db.query.users.findFirst({
+        where: eq(users.userId, userId),
+      });
+
+      if (!user || !["MODERATOR", "ADMIN"].includes(user.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only moderators can cancel bids",
+        });
+      }
+
+      const bid = await ctx.db.query.bids.findFirst({
+        where: eq(bids.id, bidId),
+      });
+
+      if (!bid) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Bid not found",
+        });
+      }
+
+      await ctx.db
+        .update(bids)
+        .set({ status: "CANCELLED" })
+        .where(eq(bids.id, bidId));
+
+      return {
+        success: true,
+        message: "Bid cancelled successfully",
       };
     }),
 });
