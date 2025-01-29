@@ -22,17 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { api } from "@/app/_trpc/client";
 import { useUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
 import { searchJutsuSchema } from "@/validators/jutsu";
-
+import { X } from "lucide-react";
 import {
   ElementNames,
   UserRanks,
@@ -53,8 +49,155 @@ import type {
 } from "@/drizzle/constants";
 import type { StatGenType, EffectType, RarityType } from "@/libs/train";
 
-/** 
- * STATE HOOK 
+// New type definitions
+type ExclusionCategory =
+  | "type"
+  | "appear"
+  | "classification"
+  | "disappear"
+  | "effect"
+  | "element"
+  | "method"
+  | "rarity"
+  | "rank"
+  | "stat"
+  | "static"
+  | "target";
+
+// Reusable FilterSelect component
+interface FilterSelectProps {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: string[];
+  includeNone?: boolean;
+}
+
+const FilterSelect: React.FC<FilterSelectProps> = ({
+  label,
+  value,
+  onValueChange,
+  options,
+  includeNone = true,
+}) => (
+  <div>
+    <Label>{label}</Label>
+    <Select onValueChange={onValueChange}>
+      <SelectTrigger>
+        <SelectValue placeholder={value} />
+      </SelectTrigger>
+      <SelectContent>
+        {includeNone && (
+          <SelectItem key="None" value="None">
+            None
+          </SelectItem>
+        )}
+        {options.map((opt) => (
+          <SelectItem key={opt} value={opt}>
+            {opt}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+);
+
+// Reusable ExcludedItemsList component
+interface ExcludedItemsListProps {
+  title: string;
+  items: string[];
+  category: ExclusionCategory;
+  onRemove: (category: ExclusionCategory, item: string) => void;
+}
+
+const ExcludedItemsList: React.FC<ExcludedItemsListProps> = ({
+  title,
+  items,
+  category,
+  onRemove,
+}) => {
+  if (items.length === 0) return null;
+
+  return (
+    <p className="text-sm mt-2">
+      <strong>{title}:</strong>{" "}
+      {items.map((item) => (
+        <span key={item} className="inline-flex items-center mr-2">
+          {item}
+          <Button
+            variant="destructive"
+            size="sm"
+            className="ml-1 px-2"
+            onClick={() => onRemove(category, item)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </span>
+      ))}
+    </p>
+  );
+};
+
+// Exclusion categories configuration
+const EXCLUSION_CATEGORIES: Record<
+  ExclusionCategory,
+  {
+    label: string;
+    options: string[];
+  }
+> = {
+  type: {
+    label: "Jutsu Types",
+    options: [...JutsuTypes],
+  },
+  appear: {
+    label: "Appear Animations",
+    options: [...StatTypes],
+  },
+  classification: {
+    label: "Classifications",
+    options: [...StatTypes],
+  },
+  disappear: {
+    label: "Disappear Animations",
+    options: [...effectFilters],
+  },
+  effect: {
+    label: "Effects",
+    options: [...effectFilters],
+  },
+  element: {
+    label: "Elements",
+    options: [...ElementNames],
+  },
+  method: {
+    label: "Methods",
+    options: [...AttackMethods],
+  },
+  rank: {
+    label: "Ranks",
+    options: [...UserRanks],
+  },
+  rarity: {
+    label: "Rarities",
+    options: [...rarities],
+  },
+  stat: {
+    label: "Stats",
+    options: [...statFilters],
+  },
+  static: {
+    label: "Static Animations",
+    options: [], // This will be populated from assetData
+  },
+  target: {
+    label: "Targets",
+    options: [...AttackTargets],
+  },
+};
+
+/**
+ * STATE HOOK
  */
 export const useFiltering = () => {
   type None = "None";
@@ -83,17 +226,19 @@ export const useFiltering = () => {
   // -------------------------
   // The DB column is "type", but we'll store excluded items in excludedJutsuTypes.
   const [excludedJutsuTypes, setExcludedJutsuTypes] = useState<string[]>([]);
-  const [excludedClassifications, setExcludedClassifications] = useState<string[]>([]);
-  const [excludedRarities, setExcludedRarities] = useState<string[]>([]);
-  const [excludedRanks, setExcludedRanks] = useState<string[]>([]);
-  const [excludedMethods, setExcludedMethods] = useState<string[]>([]);
-  const [excludedTargets, setExcludedTargets] = useState<string[]>([]);
+  const [excludedClassifications, setExcludedClassifications] = useState<StatType[]>(
+    [],
+  );
+  const [excludedRarities, setExcludedRarities] = useState<RarityType[]>([]);
+  const [excludedRanks, setExcludedRanks] = useState<UserRank[]>([]);
+  const [excludedMethods, setExcludedMethods] = useState<AttackMethod[]>([]);
+  const [excludedTargets, setExcludedTargets] = useState<AttackTarget[]>([]);
   const [excludedAppear, setExcludedAppear] = useState<string[]>([]);
   const [excludedDisappear, setExcludedDisappear] = useState<string[]>([]);
   const [excludedStatic, setExcludedStatic] = useState<string[]>([]);
-  const [excludedElements, setExcludedElements] = useState<string[]>([]);
-  const [excludedEffects, setExcludedEffects] = useState<string[]>([]);
-  const [excludedStats, setExcludedStats] = useState<string[]>([]);
+  const [excludedElements, setExcludedElements] = useState<ElementName[]>([]);
+  const [excludedEffects, setExcludedEffects] = useState<EffectType[]>([]);
+  const [excludedStats, setExcludedStats] = useState<StatGenType[]>([]);
 
   return {
     // includes
@@ -276,7 +421,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
 
   // Exclusion popover
   const [showExclusionPopover, setShowExclusionPopover] = useState(false);
-  const [exclusionCategory, setExclusionCategory] = useState<string>("element");
+  const [exclusionCategory, setExclusionCategory] =
+    useState<ExclusionCategory>("element");
   const [tempExclusions, setTempExclusions] = useState<string[]>([]);
 
   // Decide which options to show in the MultiSelect
@@ -315,50 +461,49 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
 
   // Confirm new exclusions
   const handleAddExclusions = () => {
+    const newExclusions = [...new Set(tempExclusions)];
+
     switch (exclusionCategory) {
-      // "type" => add to excludedJutsuTypes
       case "type":
-        setExcludedJutsuTypes((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedJutsuTypes(newExclusions);
         break;
 
       case "classification":
-        setExcludedClassifications((prev) =>
-          Array.from(new Set([...prev, ...tempExclusions]))
-        );
+        setExcludedClassifications(newExclusions as StatType[]);
         break;
       case "rarity":
-        setExcludedRarities((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedRarities(newExclusions as RarityType[]);
         break;
       case "rank":
-        setExcludedRanks((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedRanks(newExclusions as UserRank[]);
         break;
       case "method":
-        setExcludedMethods((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedMethods(newExclusions as AttackMethod[]);
         break;
       case "target":
-        setExcludedTargets((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedTargets(newExclusions as AttackTarget[]);
         break;
 
       // Animations
       case "appear":
-        setExcludedAppear((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedAppear(newExclusions);
         break;
       case "disappear":
-        setExcludedDisappear((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedDisappear(newExclusions);
         break;
       case "static":
-        setExcludedStatic((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedStatic(newExclusions);
         break;
 
       // Multi-value JSON
       case "element":
-        setExcludedElements((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedElements(newExclusions as ElementName[]);
         break;
       case "effect":
-        setExcludedEffects((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedEffects(newExclusions as EffectType[]);
         break;
       case "stat":
-        setExcludedStats((prev) => Array.from(new Set([...prev, ...tempExclusions])));
+        setExcludedStats(newExclusions as StatGenType[]);
         break;
       default:
         break;
@@ -383,7 +528,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
       | "stat"
       | "static"
       | "target",
-    item: string
+    item: string,
   ) => {
     switch (category) {
       case "type":
@@ -463,126 +608,66 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
           </div>
 
           {/* Classification */}
-          <div>
-            <Label>Classification</Label>
-            <Select onValueChange={(e) => setClassification(e as StatType)}>
-              <SelectTrigger>
-                <SelectValue placeholder={classification} />
-              </SelectTrigger>
-              <SelectContent>
-                {StatTypes.map((st) => (
-                  <SelectItem key={st} value={st}>
-                    {st}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Classification"
+            value={classification}
+            onValueChange={(e) => setClassification(e as StatType)}
+            options={[...StatTypes]}
+          />
 
           {/* Rarity */}
-          <div>
-            <Label>Rarity</Label>
-            <Select onValueChange={(e) => setRarity(e as RarityType)}>
-              <SelectTrigger>
-                <SelectValue placeholder={rarity} />
-              </SelectTrigger>
-              <SelectContent>
-                {rarities.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Rarity"
+            value={rarity}
+            onValueChange={(e) => setRarity(e as RarityType)}
+            options={[...rarities]}
+          />
 
-          {/* Bloodline (INCLUDE) */}
-          <div>
-            <Label>Bloodline</Label>
-            <Select onValueChange={(val) => setBloodline(val)}>
-              <SelectTrigger>
-                <SelectValue placeholder={selectedBloodline?.name || "None"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="None">None</SelectItem>
-                {bloodlines
-                  ?.sort((a, b) => (a.name < b.name ? -1 : 1))
-                  .map((bl) => (
-                    <SelectItem key={bl.id} value={bl.id}>
-                      {bl.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Bloodline */}
+          <FilterSelect
+            label="Bloodline"
+            value={bloodline}
+            onValueChange={setBloodline}
+            options={
+              bloodlines
+                ?.sort((a, b) => (a.name < b.name ? -1 : 1))
+                .map((bl) => bl.id) || []
+            }
+          />
 
           {/* Animations */}
-          <div>
-            <Label>
-              Appear
-              <br />
-              Animation
-            </Label>
-            <Select onValueChange={(e) => setAppearAnim(e)}>
-              <SelectTrigger>
-                <SelectValue placeholder={appearAnim || "None"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key="None" value="None">
-                  None
-                </SelectItem>
-                {assetData
-                  ?.sort((a, b) => (a.name < b.name ? -1 : 1))
-                  .map((asset) => (
-                    <SelectItem key={asset.id} value={asset.id}>
-                      {asset.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Appear Animation"
+            value={appearAnim}
+            onValueChange={setAppearAnim}
+            options={
+              assetData
+                ?.sort((a, b) => (a.name < b.name ? -1 : 1))
+                .map((asset) => asset.id) || []
+            }
+          />
 
-          <div>
-            <Label>Disappear Animation</Label>
-            <Select onValueChange={(e) => setRemoveAnim(e)}>
-              <SelectTrigger>
-                <SelectValue placeholder={removeAnim || "None"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key="None" value="None">
-                  None
-                </SelectItem>
-                {assetData
-                  ?.sort((a, b) => (a.name < b.name ? -1 : 1))
-                  .map((asset) => (
-                    <SelectItem key={asset.id} value={asset.id}>
-                      {asset.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Disappear Animation"
+            value={removeAnim}
+            onValueChange={setRemoveAnim}
+            options={
+              assetData
+                ?.sort((a, b) => (a.name < b.name ? -1 : 1))
+                .map((asset) => asset.id) || []
+            }
+          />
 
-          <div>
-            <Label>Static Animation</Label>
-            <Select onValueChange={(e) => setStaticAnim(e)}>
-              <SelectTrigger>
-                <SelectValue placeholder={staticAnim || "None"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key="None" value="None">
-                  None
-                </SelectItem>
-                {assetData
-                  ?.sort((a, b) => (a.name < b.name ? -1 : 1))
-                  .map((asset) => (
-                    <SelectItem key={asset.id} value={asset.id}>
-                      {asset.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Static Animation"
+            value={staticAnim}
+            onValueChange={setStaticAnim}
+            options={
+              assetData
+                ?.sort((a, b) => (a.name < b.name ? -1 : 1))
+                .map((asset) => asset.id) || []
+            }
+          />
 
           {/* Elements */}
           <div>
@@ -615,61 +700,29 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
           </div>
 
           {/* Method */}
-          <div>
-            <Label>Method</Label>
-            <Select onValueChange={(m) => setMethod(m as AttackMethod)}>
-              <SelectTrigger>
-                <SelectValue placeholder={method || "None"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key="None" value="None">
-                  None
-                </SelectItem>
-                {AttackMethods.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Method"
+            value={method}
+            onValueChange={(m) => setMethod(m as AttackMethod)}
+            options={[...AttackMethods]}
+          />
 
           {/* Target */}
-          <div>
-            <Label>Target</Label>
-            <Select onValueChange={(m) => setTarget(m as AttackTarget)}>
-              <SelectTrigger>
-                <SelectValue placeholder={target || "None"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key="None" value="None">
-                  None
-                </SelectItem>
-                {AttackTargets.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Target"
+            value={target}
+            onValueChange={(m) => setTarget(m as AttackTarget)}
+            options={[...AttackTargets]}
+          />
 
           {/* Required Rank */}
-          <div>
-            <Label>Required Rank</Label>
-            <Select onValueChange={(e) => setRank(e as UserRank)}>
-              <SelectTrigger>
-                <SelectValue placeholder={rank} />
-              </SelectTrigger>
-              <SelectContent>
-                {UserRanks.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Required Rank"
+            value={rank}
+            onValueChange={(e) => setRank(e as UserRank)}
+            options={[...UserRanks]}
+            includeNone={false}
+          />
 
           {/* Required Level */}
           <div>
@@ -709,252 +762,88 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         <div className="mt-3 p-2 border-t border-gray-300">
           <div className="flex justify-between items-center">
             <Label>Exclusions</Label>
-            <Button variant="outline" size="sm" onClick={() => setShowExclusionPopover(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowExclusionPopover(true)}
+            >
               + Add Exclusion
             </Button>
           </div>
 
-          {/* EXCLUDED JUTSU TYPES */}
-          {excludedJutsuTypes.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Jutsu Types:</strong>{" "}
-              {excludedJutsuTypes.map((jt) => (
-                <span key={jt} className="inline-flex items-center mr-2">
-                  {jt}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("type", jt)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED CLASSIFICATIONS */}
-          {excludedClassifications.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Classifications:</strong>{" "}
-              {excludedClassifications.map((item) => (
-                <span key={item} className="inline-flex items-center mr-2">
-                  {item}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() =>
-                      handleRemoveExcludedItem("classification", item)
-                    }
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED RARITIES */}
-          {excludedRarities.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Rarities:</strong>{" "}
-              {excludedRarities.map((item) => (
-                <span key={item} className="inline-flex items-center mr-2">
-                  {item}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("rarity", item)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED RANKS */}
-          {excludedRanks.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Ranks:</strong>{" "}
-              {excludedRanks.map((item) => (
-                <span key={item} className="inline-flex items-center mr-2">
-                  {item}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("rank", item)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED METHODS */}
-          {excludedMethods.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Methods:</strong>{" "}
-              {excludedMethods.map((item) => (
-                <span key={item} className="inline-flex items-center mr-2">
-                  {item}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("method", item)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED TARGETS */}
-          {excludedTargets.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Targets:</strong>{" "}
-              {excludedTargets.map((item) => (
-                <span key={item} className="inline-flex items-center mr-2">
-                  {item}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("target", item)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED APPEAR ANIMATIONS */}
-          {excludedAppear.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Appear Animations:</strong>{" "}
-              {excludedAppear.map((anim) => (
-                <span key={anim} className="inline-flex items-center mr-2">
-                  {anim}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("appear", anim)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED DISAPPEAR ANIMATIONS */}
-          {excludedDisappear.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Disappear Animations:</strong>{" "}
-              {excludedDisappear.map((anim) => (
-                <span key={anim} className="inline-flex items-center mr-2">
-                  {anim}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("disappear", anim)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED STATIC ANIMATIONS */}
-          {excludedStatic.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Static Animations:</strong>{" "}
-              {excludedStatic.map((anim) => (
-                <span key={anim} className="inline-flex items-center mr-2">
-                  {anim}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("static", anim)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED ELEMENTS */}
-          {excludedElements.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Elements:</strong>{" "}
-              {excludedElements.map((ex) => (
-                <span key={ex} className="inline-flex items-center mr-2">
-                  {ex}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("element", ex)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED EFFECTS */}
-          {excludedEffects.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Effects:</strong>{" "}
-              {excludedEffects.map((ef) => (
-                <span key={ef} className="inline-flex items-center mr-2">
-                  {ef}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("effect", ef)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {/* EXCLUDED STATS */}
-          {excludedStats.length > 0 && (
-            <p className="text-sm mt-2">
-              <strong>Excluded Stats:</strong>{" "}
-              {excludedStats.map((st) => (
-                <span key={st} className="inline-flex items-center mr-2">
-                  {st}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-1 px-1 py-0.5"
-                    onClick={() => handleRemoveExcludedItem("stat", st)}
-                  >
-                    X
-                  </Button>
-                </span>
-              ))}
-            </p>
-          )}
+          {/* Render all exclusion lists */}
+          <ExcludedItemsList
+            title="Excluded Jutsu Types"
+            items={excludedJutsuTypes}
+            category="type"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Classifications"
+            items={excludedClassifications}
+            category="classification"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Rarities"
+            items={excludedRarities}
+            category="rarity"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Ranks"
+            items={excludedRanks}
+            category="rank"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Methods"
+            items={excludedMethods}
+            category="method"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Targets"
+            items={excludedTargets}
+            category="target"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Appear Animations"
+            items={excludedAppear}
+            category="appear"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Disappear Animations"
+            items={excludedDisappear}
+            category="disappear"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Static Animations"
+            items={excludedStatic}
+            category="static"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Elements"
+            items={excludedElements}
+            category="element"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Effects"
+            items={excludedEffects}
+            category="effect"
+            onRemove={handleRemoveExcludedItem}
+          />
+          <ExcludedItemsList
+            title="Excluded Stats"
+            items={excludedStats}
+            category="stat"
+            onRemove={handleRemoveExcludedItem}
+          />
         </div>
 
         {/* EXCLUSION POPOVER FOR ADDING NEW */}
@@ -963,7 +852,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             <Label>Pick Category</Label>
             <Select
               onValueChange={(val) => {
-                setExclusionCategory(val);
+                setExclusionCategory(val as ExclusionCategory);
                 setTempExclusions([]);
               }}
               defaultValue={exclusionCategory}
@@ -972,25 +861,25 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="appear">Appear Animation</SelectItem>
-                <SelectItem value="classification">Classification</SelectItem>
-                <SelectItem value="disappear">Disappear Animation</SelectItem>
-                <SelectItem value="effect">Effects</SelectItem>
-                <SelectItem value="element">Elements</SelectItem>
-                <SelectItem value="method">Method</SelectItem>
-                <SelectItem value="rank">Rank</SelectItem>
-                <SelectItem value="rarity">Rarity</SelectItem>
-                <SelectItem value="stat">Stats</SelectItem>
-                <SelectItem value="static">Static Animation</SelectItem>
-                <SelectItem value="target">Target</SelectItem>
-                <SelectItem value="type">Type</SelectItem>
+                {Object.entries(EXCLUSION_CATEGORIES).map(([key, { label }]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
             <Label className="mt-2">Exclude Items</Label>
             <MultiSelect
               selected={tempExclusions}
-              options={exclusionOptions.map((val) => ({ value: val, label: val }))}
+              options={
+                exclusionCategory === "static" && assetData
+                  ? assetData.map((a) => ({ value: a.name, label: a.name }))
+                  : EXCLUSION_CATEGORIES[exclusionCategory].options.map((val) => ({
+                      value: val,
+                      label: val,
+                    }))
+              }
               onChange={setTempExclusions}
             />
 
@@ -1013,54 +902,45 @@ export default JutsuFiltering;
  * Combine includes + excludes into final object
  */
 export const getFilter = (state: JutsuFilteringState) => {
+  const processValue = <T,>(value: T, defaultValue: T) =>
+    value !== defaultValue ? value : undefined;
+
+  const processArray = <T,>(arr: T[]) => (arr.length > 0 ? arr : undefined);
+
   return {
-    // ------------------------
     // Includes
-    // ------------------------
-    appear: state.appearAnim !== "None" ? state.appearAnim : undefined,
-    bloodline: state.bloodline !== "None" ? state.bloodline : undefined,
-    classification: state.classification !== "None" ? state.classification : undefined,
-    disappear: state.removeAnim !== "None" ? state.removeAnim : undefined,
-    effect: state.effect.length ? (state.effect as EffectType[]) : undefined,
-    element: state.element.length ? (state.element as ElementName[]) : undefined,
-    method: state.method !== "None" ? state.method : undefined,
+    appear: processValue(state.appearAnim, "None"),
+    bloodline: processValue(state.bloodline, "None"),
+    classification: processValue(state.classification, "None"),
+    disappear: processValue(state.removeAnim, "None"),
+    effect: processArray(state.effect as EffectType[]),
+    element: processArray(state.element as ElementName[]),
+    method: processValue(state.method, "None"),
     name: state.name || undefined,
-    rank: state.rank !== "NONE" ? state.rank : undefined,
-    rarity: state.rarity !== "ALL" ? state.rarity : undefined,
+    rank: processValue(state.rank, "NONE"),
+    rarity: processValue(state.rarity, "ALL"),
     requiredLevel: state.requiredLevel ?? undefined,
-    stat: state.stat.length ? (state.stat as StatGenType[]) : undefined,
-    static: state.staticAnim !== "None" ? state.staticAnim : undefined,
-    target: state.target !== "None" ? state.target : undefined,
+    stat: processArray(state.stat as StatGenType[]),
+    static: processValue(state.staticAnim, "None"),
+    target: processValue(state.target, "None"),
     hidden: state.hidden ?? undefined,
 
-    // ------------------------
     // Exclusions
-    // ------------------------
-    excludedJutsuTypes: state.excludedJutsuTypes.length
-      ? state.excludedJutsuTypes
-      : undefined,
-    excludedClassifications:
-      state.excludedClassifications.length > 0 ? state.excludedClassifications : undefined,
-    excludedRarities:
-      state.excludedRarities.length > 0 ? state.excludedRarities : undefined,
-    excludedRanks: state.excludedRanks.length > 0 ? state.excludedRanks : undefined,
-    excludedMethods:
-      state.excludedMethods.length > 0 ? state.excludedMethods : undefined,
-    excludedTargets:
-      state.excludedTargets.length > 0 ? state.excludedTargets : undefined,
-
-    excludedAppear:
-      state.excludedAppear.length > 0 ? state.excludedAppear : undefined,
-    excludedDisappear:
-      state.excludedDisappear.length > 0 ? state.excludedDisappear : undefined,
-    excludedStatic:
-      state.excludedStatic.length > 0 ? state.excludedStatic : undefined,
-
-    excludedElements:
-      state.excludedElements.length > 0 ? state.excludedElements : undefined,
-    excludedEffects:
-      state.excludedEffects.length > 0 ? state.excludedEffects : undefined,
-    excludedStats:
-      state.excludedStats.length > 0 ? state.excludedStats : undefined,
+    ...Object.fromEntries(
+      Object.entries({
+        excludedJutsuTypes: state.excludedJutsuTypes,
+        excludedClassifications: state.excludedClassifications,
+        excludedRarities: state.excludedRarities,
+        excludedRanks: state.excludedRanks,
+        excludedMethods: state.excludedMethods,
+        excludedTargets: state.excludedTargets,
+        excludedAppear: state.excludedAppear,
+        excludedDisappear: state.excludedDisappear,
+        excludedStatic: state.excludedStatic,
+        excludedElements: state.excludedElements,
+        excludedEffects: state.excludedEffects,
+        excludedStats: state.excludedStats,
+      }).map(([key, value]) => [key, processArray(value)]),
+    ),
   };
 };
