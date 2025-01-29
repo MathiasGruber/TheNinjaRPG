@@ -2,6 +2,9 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { skillTreeSchema, skillTreeTierSchema } from "~/validators/skillTree";
 import { TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
+import { skillTree, userData } from "~/server/db/schema";
+import { randomUUID } from "crypto";
 
 const TIER_COSTS = {
   1: 1,
@@ -26,11 +29,11 @@ const SPECIAL_BOOSTS = {
 
 export const skillTreeRouter = createTRPCRouter({
   get: protectedProcedure.query(async ({ ctx }) => {
-    const skillTree = await ctx.db.query.skillTree.findFirst({
-      where: (skillTree, { eq }) => eq(skillTree.userId, ctx.auth.userId),
+    const skillTreeData = await ctx.db.query.skillTree.findFirst({
+      where: (st) => eq(st.userId, ctx.auth.userId),
     });
 
-    return skillTree;
+    return skillTreeData;
   }),
 
   update: protectedProcedure
@@ -40,8 +43,8 @@ export const skillTreeRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const user = await ctx.db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.id, ctx.auth.userId),
+      const user = await ctx.db.query.userData.findFirst({
+        where: (u) => eq(u.userId, ctx.auth.userId),
       });
 
       if (!user) {
@@ -52,15 +55,15 @@ export const skillTreeRouter = createTRPCRouter({
       }
 
       // Check if user is Chuunin or higher
-      if (user.rank < 2) {
+      if (user.rank < 2 && user.prestige === 0) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Must be Chuunin or higher to use skill tree",
         });
       }
 
-      const skillTree = await ctx.db.query.skillTree.findFirst({
-        where: (skillTree, { eq }) => eq(skillTree.userId, ctx.auth.userId),
+      const skillTreeData = await ctx.db.query.skillTree.findFirst({
+        where: (st) => eq(st.userId, ctx.auth.userId),
       });
 
       // Calculate available points based on level
@@ -109,13 +112,14 @@ export const skillTreeRouter = createTRPCRouter({
       const updatedSkillTree = await ctx.db
         .insert(skillTree)
         .values({
+          id: skillTreeData?.id ?? randomUUID(),
           userId: ctx.auth.userId,
           points: availablePoints - usedPoints,
-          resetCount: skillTree?.resetCount ?? 0,
+          resetCount: skillTreeData?.resetCount ?? 0,
           selectedSkills: input.selectedSkills,
         })
         .onConflictDoUpdate({
-          target: skillTree.userId,
+          target: [skillTree.userId],
           set: {
             points: availablePoints - usedPoints,
             selectedSkills: input.selectedSkills,
@@ -126,21 +130,21 @@ export const skillTreeRouter = createTRPCRouter({
     }),
 
   reset: protectedProcedure.mutation(async ({ ctx }) => {
-    const skillTree = await ctx.db.query.skillTree.findFirst({
-      where: (skillTree, { eq }) => eq(skillTree.userId, ctx.auth.userId),
+    const skillTreeData = await ctx.db.query.skillTree.findFirst({
+      where: (st) => eq(st.userId, ctx.auth.userId),
     });
 
-    if (!skillTree) {
+    if (!skillTreeData) {
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Skill tree not found",
       });
     }
 
-    if (skillTree.resetCount > 0) {
+    if (skillTreeData.resetCount > 0) {
       // Check if user has enough reputation
-      const user = await ctx.db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.id, ctx.auth.userId),
+      const user = await ctx.db.query.userData.findFirst({
+        where: (u) => eq(u.userId, ctx.auth.userId),
       });
 
       if (!user || user.reputation < 30) {
@@ -152,9 +156,9 @@ export const skillTreeRouter = createTRPCRouter({
 
       // Deduct reputation
       await ctx.db
-        .update(users)
+        .update(userData)
         .set({ reputation: user.reputation - 30 })
-        .where(eq(users.id, ctx.auth.userId));
+        .where(eq(userData.userId, ctx.auth.userId));
     }
 
     // Reset skill tree
@@ -163,7 +167,7 @@ export const skillTreeRouter = createTRPCRouter({
       .set({
         points: 0,
         selectedSkills: [],
-        resetCount: skillTree.resetCount + 1,
+        resetCount: skillTreeData.resetCount + 1,
       })
       .where(eq(skillTree.userId, ctx.auth.userId));
 
