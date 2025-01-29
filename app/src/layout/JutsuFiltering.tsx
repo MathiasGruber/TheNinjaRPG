@@ -709,7 +709,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         <div className="mt-3 p-2 border-t border-gray-300">
           <div className="flex justify-between items-center">
             <Label>Exclusions</Label>
-            <Button variant="outline" size="sm" onClick={() => setShowExclusionPopover(true)}>
+            <Button variant="outline" size="xs" onClick={() => setShowExclusionPopover(true)}>
               + Add Exclusion
             </Button>
           </div>
