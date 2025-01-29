@@ -1144,10 +1144,12 @@ export const poison = (
     consequences.forEach((consequence, effectId) => {
       if (consequence.targetId === effect.targetId) {
         const actionEffect = usersEffects.find((e) => e.id === effectId);
-        if (actionEffect) {
+        if (actionEffect && "data" in actionEffect && actionEffect.data && "chakraCost" in actionEffect.data) {
+          // Get the action data which contains the cost information
+          const actionData = actionEffect.data as { chakraCost: number; staminaCost: number };
           // Calculate poison damage based on chakra and stamina costs
-          const chakraCost = actionEffect.chakraCost || 0;
-          const staminaCost = actionEffect.staminaCost || 0;
+          const chakraCost = actionData.chakraCost;
+          const staminaCost = actionData.staminaCost;
           const totalCost = chakraCost + staminaCost;
 
           if (totalCost > 0) {
