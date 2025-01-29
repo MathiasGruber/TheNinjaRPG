@@ -77,6 +77,7 @@ export const travelRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("You are not awake");
       if (user.isBanned) return errorResponse("You are banned");
       if (target.isBanned) return errorResponse("Target is banned");
+      if (target.status !== "AWAKE") return errorResponse("Target cannot currently be robbed");
       if (user.clanId === target.clanId)
         return errorResponse("Cannot rob faction members");
       if (target.rank === "STUDENT" || target.rank === "GENIN") {
@@ -86,6 +87,9 @@ export const travelRouter = createTRPCRouter({
         return errorResponse("Cannot rob players in this zone");
       }
       if (target.robImmunityUntil && target.robImmunityUntil > new Date()) {
+        return errorResponse("Target is immune from being robbed");
+      }
+      if (target.immunityUntil && target.immunityUntil > new Date()) {
         return errorResponse("Target is immune from being robbed");
       }
       if (
