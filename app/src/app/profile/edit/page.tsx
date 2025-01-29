@@ -36,6 +36,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { SkillTree } from "@/components/ui/skill-tree";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { ActionSelector } from "@/layout/CombatActions";
 import {
@@ -277,6 +278,15 @@ export default function EditProfile() {
           onClick={setActiveElement}
         >
           <BattleSettingsEdit userId={userData.userId} />
+        </Accordion>
+        <Accordion
+          title="Skill Tree"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Customize your character's skills and abilities"
+          selectedSubtitle={`Unlock and customize your character's skills and abilities. Available after reaching Chuunin rank.`}
+          onClick={setActiveElement}
+        >
+          <SkillTree />
         </Accordion>
         {canSwapBloodline(userData.role) && (
           <Accordion
