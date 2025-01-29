@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 import { toast } from "./use-toast";
-import { api } from "./app/_trpc/client";
+import { api } from "../app/_trpc/client";
 import type { SkillTreeTier } from "@/validators/skillTree";
 
 const TIER_NAMES = {
