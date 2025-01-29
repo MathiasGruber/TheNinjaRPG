@@ -47,10 +47,11 @@ import {
 import { PITY_BLOODLINE_ROLLS, PITY_SYSTEM_ENABLED } from "@/drizzle/constants";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { UserWithRelations } from "@/server/api/routers/profile";
+import AuctionHouse from "./AuctionHouse";
 
 export default function BlackMarket() {
   // Tab selection
-  const [tab, setTab] = useState<"Bloodline" | "Item" | "Ryo" | null>(null);
+  const [tab, setTab] = useState<"Bloodline" | "Item" | "Ryo" | "Auction House" | null>(null);
 
   // Settings
   const { data: userData } = useRequiredUserData();
@@ -69,7 +70,7 @@ export default function BlackMarket() {
           <NavTabs
             id="blackmarket-page"
             current={tab}
-            options={["Bloodline", "Item", "Ryo"]}
+            options={["Bloodline", "Item", "Ryo", "Auction House"]}
             setValue={setTab}
           />
         }
@@ -104,6 +105,7 @@ export default function BlackMarket() {
           {PITY_SYSTEM_ENABLED && <PityBloodlineRoll userData={userData} />}
         </>
       )}
+      {tab === "Auction House" && <AuctionHouse userData={userData} />}
     </>
   );
 }
