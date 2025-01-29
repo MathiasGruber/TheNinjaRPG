@@ -5,8 +5,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 import { toast } from "./use-toast";
-import { api } from "../app/_trpc/client";
+import { api } from "@/trpc/client";
 import type { SkillTreeTier } from "@/validators/skillTree";
+import type { RouterOutputs } from "@/trpc/shared";
+
+type SkillTree = RouterOutputs["skillTree"]["get"];
 
 const TIER_NAMES = {
   "1": "Tier 1 (5% Boost)",
@@ -62,7 +65,7 @@ export function SkillTree() {
       });
       setIsLoading(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -80,7 +83,7 @@ export function SkillTree() {
       });
       setIsLoading(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -95,13 +98,13 @@ export function SkillTree() {
     setIsLoading(true);
     const selectedSkills = skillTree?.selectedSkills ?? [];
     const isSelected = selectedSkills.some(
-      (s) => s.type === skill.type && s.tier === skill.tier
+      (s: SkillTreeTier) => s.type === skill.type && s.tier === skill.tier
     );
 
     if (isSelected) {
       // Check if removing this skill would break tier requirements
       const wouldBreakTier = selectedSkills.some(
-        (s) => s.tier > skill.tier && s.type === skill.type && !s.isSpecial
+        (s: SkillTreeTier) => s.tier > skill.tier && s.type === skill.type && !s.isSpecial
       );
       if (wouldBreakTier) {
         toast({
@@ -114,7 +117,7 @@ export function SkillTree() {
       }
 
       // Check if removing this skill would break special skill requirements
-      const hasSpecialSkills = selectedSkills.some((s) => s.isSpecial);
+      const hasSpecialSkills = selectedSkills.some((s: SkillTreeTier) => s.isSpecial);
       if (hasSpecialSkills && selectedSkills.length - 1 < 6) {
         toast({
           title: "Error",
@@ -128,7 +131,7 @@ export function SkillTree() {
       // Remove skill
       updateSkillTree({
         selectedSkills: selectedSkills.filter(
-          (s) => s.type !== skill.type || s.tier !== skill.tier
+          (s: SkillTreeTier) => s.type !== skill.type || s.tier !== skill.tier
         ),
       });
     } else {
@@ -158,17 +161,16 @@ export function SkillTree() {
   const renderSkillButton = (type: keyof typeof SKILL_TYPES, tier: number) => {
     const selectedSkills = skillTree?.selectedSkills ?? [];
     const isSelected = selectedSkills.some(
-      (s) => s.type === type && s.tier === tier
+      (s: SkillTreeTier) => s.type === type && s.tier === tier
     );
     const boost = tier === 1 ? 5 : tier === 2 ? 10 : 15;
 
     // Check if this tier is available (has lower tier skill)
     const hasLowerTier = tier === 1 || selectedSkills.some(
-      (s) => s.type === type && s.tier === tier - 1
+      (s: SkillTreeTier) => s.type === type && s.tier === tier - 1
     );
 
     // Calculate remaining points
-    const usedPoints = selectedSkills.reduce((acc, skill) => acc + skill.cost, 0);
     const availablePoints = skillTree?.points ?? 0;
     const canAfford = availablePoints >= tier;
 
@@ -205,11 +207,10 @@ export function SkillTree() {
 
   const renderSpecialSkillButton = (type: keyof typeof SPECIAL_SKILLS) => {
     const selectedSkills = skillTree?.selectedSkills ?? [];
-    const isSelected = selectedSkills.some((s) => s.type === type);
+    const isSelected = selectedSkills.some((s: SkillTreeTier) => s.type === type);
     const { boost, cost } = SPECIAL_SKILLS[type];
 
     // Calculate remaining points
-    const usedPoints = selectedSkills.reduce((acc, skill) => acc + skill.cost, 0);
     const availablePoints = skillTree?.points ?? 0;
     const canAfford = availablePoints >= cost;
 

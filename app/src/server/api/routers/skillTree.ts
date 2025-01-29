@@ -1,10 +1,19 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { skillTreeSchema, skillTreeTierSchema } from "./validators/skillTree";
+import { skillTreeTierSchema } from "@/validators/skillTree";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { skillTree, userData } from "./server/db/schema";
+import { skillTree, userData } from "@/server/db/schema";
 import { randomUUID } from "crypto";
+import type { InferSelectModel } from "drizzle-orm";
+import type { PgTableWithColumns } from "drizzle-orm/pg-core";
+
+type UserData = InferSelectModel<typeof userData>;
+type SkillTree = InferSelectModel<typeof skillTree>;
+type UserDataTable = PgTableWithColumns<typeof userData>;
+type SkillTreeTable = PgTableWithColumns<typeof skillTree>;
+
+
 
 const TIER_COSTS = {
   1: 1,
@@ -13,24 +22,12 @@ const TIER_COSTS = {
   SPECIAL: 5,
 };
 
-const TIER_BOOSTS = {
-  1: 5,
-  2: 10,
-  3: 15,
-};
 
-const SPECIAL_BOOSTS = {
-  STUN_RESISTANCE: 30,
-  ABSORB: 10,
-  REFLECT: 10,
-  LIFE_STEAL: 10,
-  SEAL_PREVENT: 15,
-};
 
 export const skillTreeRouter = createTRPCRouter({
-  get: protectedProcedure.query(async ({ ctx }) => {
+  get: protectedProcedure.query(async ({ ctx }): Promise<SkillTree | undefined> => {
     const skillTreeData = await ctx.db.query.skillTree.findFirst({
-      where: (st) => eq(st.userId, ctx.auth.userId),
+      where: (st: SkillTreeTable) => eq(st.userId, ctx.auth.userId),
     });
 
     return skillTreeData;
@@ -42,9 +39,9 @@ export const skillTreeRouter = createTRPCRouter({
         selectedSkills: z.array(skillTreeTierSchema),
       })
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }): Promise<SkillTree> => {
       const user = await ctx.db.query.userData.findFirst({
-        where: (u) => eq(u.userId, ctx.auth.userId),
+        where: (u: UserDataTable) => eq(u.userId, ctx.auth.userId),
       });
 
       if (!user) {
@@ -63,7 +60,7 @@ export const skillTreeRouter = createTRPCRouter({
       }
 
       const skillTreeData = await ctx.db.query.skillTree.findFirst({
-        where: (st) => eq(st.userId, ctx.auth.userId),
+        where: (st: SkillTreeTable) => eq(st.userId, ctx.auth.userId),
       });
 
       // Calculate available points based on level
@@ -72,7 +69,7 @@ export const skillTreeRouter = createTRPCRouter({
 
       // Validate points usage
       let usedPoints = 0;
-      const tier1Skills = new Set();
+      const tier1Skills = new Set<string>();
 
       for (const skill of input.selectedSkills) {
         if (skill.isSpecial) {
@@ -129,9 +126,9 @@ export const skillTreeRouter = createTRPCRouter({
       return updatedSkillTree;
     }),
 
-  reset: protectedProcedure.mutation(async ({ ctx }) => {
+  reset: protectedProcedure.mutation(async ({ ctx }): Promise<{ success: boolean }> => {
     const skillTreeData = await ctx.db.query.skillTree.findFirst({
-      where: (st) => eq(st.userId, ctx.auth.userId),
+      where: (st: SkillTreeTable) => eq(st.userId, ctx.auth.userId),
     });
 
     if (!skillTreeData) {
@@ -144,7 +141,7 @@ export const skillTreeRouter = createTRPCRouter({
     if (skillTreeData.resetCount > 0) {
       // Check if user has enough reputation
       const user = await ctx.db.query.userData.findFirst({
-        where: (u) => eq(u.userId, ctx.auth.userId),
+        where: (u: UserDataTable) => eq(u.userId, ctx.auth.userId),
       });
 
       if (!user || user.reputation < 30) {
