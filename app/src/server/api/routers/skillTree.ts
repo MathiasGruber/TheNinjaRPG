@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { skillTreeSchema, skillTreeTierSchema } from "~/validators/skillTree";
+import { skillTreeSchema, skillTreeTierSchema } from "@/validators/skillTree";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { skillTree, userData } from "~/server/db/schema";
+import { skillTree, userData } from "@/server/db/schema";
 import { randomUUID } from "crypto";
 
 const TIER_COSTS = {
