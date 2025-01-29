@@ -1030,13 +1030,15 @@ export const drain = (effect: UserEffect, target: BattleUserState) => {
   const { power } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     // Reduce Chakra and Stamina by the percentage
-    target.curChakra = Math.max(0, target.curChakra - (target.maxChakra * power / 100));
-    target.curStamina = Math.max(0, target.curStamina - (target.maxStamina * power / 100));
+    const chakraDrain = Math.floor(target.curChakra * (power / 100));
+    const staminaDrain = Math.floor(target.curStamina * (power / 100));
+    target.curChakra = Math.max(0, target.curChakra - chakraDrain);
+    target.curStamina = Math.max(0, target.curStamina - staminaDrain);
   }
   return getInfo(
     target,
     effect,
-    `drains ${power}% of Chakra and Stamina each round`,
+    `drains ${power}% of current Chakra and Stamina each round`,
   );
 };
 
