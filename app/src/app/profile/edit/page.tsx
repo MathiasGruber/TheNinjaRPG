@@ -61,6 +61,7 @@ import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
 import { COST_CHANGE_GENDER } from "@/drizzle/constants";
 import { round } from "@/utils/math";
 import { genders } from "@/validators/register";
+import { updateUserPreferencesSchema } from "@/validators/user";
 import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
@@ -73,49 +74,6 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Bloodline, Village } from "@/drizzle/schema";
-
-/**
- * Battle Settings Edit
- */
-const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
-  // Queries & mutations
-  const { data: profile, isPending: isPendingProfile } =
-    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
-  const { data: userData } = useRequiredUserData();
-  const utils = api.useUtils();
-
-  // Update battle description setting
-  const { mutate: updateBattleDescription } =
-    api.profile.updateBattleDescription.useMutation({
-      onSuccess: async () => {
-        await utils.profile.getUser.invalidate();
-      },
-    });
-
-  // Loaders
-  if (!profile || isPendingProfile) return <Loader explanation="Loading profile" />;
-
-  // Render
-  return (
-    <div className="pb-3">
-      <div className="flex items-center space-x-2 m-2 mb-4 ">
-        <Switch
-          id="battle-description"
-          checked={userData?.showBattleDescription}
-          onCheckedChange={(checked) =>
-            updateBattleDescription({ showBattleDescription: checked })
-          }
-        />
-        <Label htmlFor="battle-description">Show battle descriptions</Label>
-      </div>
-      <AiProfileEdit userData={profile} hideTitle />
-      <p className="italic">
-        This allows you to change how your character behaves in the game in e.g. kage
-        battles.
-      </p>
-    </div>
-  );
-};
 
 export default function EditProfile() {
   // State
@@ -270,7 +228,16 @@ export default function EditProfile() {
           <RerollElement />
         </Accordion>
         <Accordion
-          title="Battle Settings"
+          title="Combat Preferences"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Set your preferred combat stats"
+          selectedSubtitle="Choose your preferred offense type and generals"
+          onClick={setActiveElement}
+        >
+          <CombatPreferences />
+        </Accordion>
+        <Accordion
+          title="AI Profile"
           selectedTitle={activeElement}
           unselectedSubtitle="Customize battle preferences and AI behavior"
           selectedSubtitle=""
@@ -304,6 +271,193 @@ export default function EditProfile() {
     </ContentBox>
   );
 }
+
+/**
+ * Battle Settings Edit
+ */
+const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
+  // Queries & mutations
+  const { data: profile, isPending: isPendingProfile } =
+    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
+  const { data: userData } = useRequiredUserData();
+  const utils = api.useUtils();
+
+  // Update battle description setting
+  const { mutate: updateBattleDescription } =
+    api.profile.updateBattleDescription.useMutation({
+      onSuccess: async () => {
+        await utils.profile.getUser.invalidate();
+      },
+    });
+
+  // Loaders
+  if (!profile || isPendingProfile) return <Loader explanation="Loading profile" />;
+
+  // Render
+  return (
+    <div className="pb-3">
+      <div className="flex items-center space-x-2 m-2 mb-4 ">
+        <Switch
+          id="battle-description"
+          checked={userData?.showBattleDescription}
+          onCheckedChange={(checked) =>
+            updateBattleDescription({ showBattleDescription: checked })
+          }
+        />
+        <Label htmlFor="battle-description">Show battle descriptions</Label>
+      </div>
+      <AiProfileEdit userData={profile} hideTitle />
+      <p className="italic">
+        This allows you to change how your character behaves in the game in e.g. kage
+        battles.
+      </p>
+    </div>
+  );
+};
+
+/**
+ * Combat Preferences
+ */
+const CombatPreferences: React.FC = () => {
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // User state
+  const { data: userData, updateUser } = useRequiredUserData();
+
+  // Form setup
+  const form = useForm<z.infer<typeof updateUserPreferencesSchema>>({
+    resolver: zodResolver(updateUserPreferencesSchema),
+    defaultValues: {
+      highestOffense: null,
+      highestGeneral1: null,
+      highestGeneral2: null,
+    },
+  });
+
+  // Mutations
+  const { mutate: updatePreferences } = api.profile.updatePreferences.useMutation({
+    onSuccess: async (data) => {
+      const values = form.getValues();
+      showMutationToast(data);
+      await updateUser({
+        highestOffense: values.highestOffense,
+        highestGeneral1: values.highestGeneral1,
+        highestGeneral2: values.highestGeneral2,
+      });
+    },
+  });
+
+  // Update form when preferences are loaded
+  useEffect(() => {
+    if (userData) {
+      form.reset({
+        highestOffense: userData.highestOffense,
+        highestGeneral1: userData.highestGeneral1,
+        highestGeneral2: userData.highestGeneral2,
+      });
+    }
+  }, [userData, form]);
+
+  // Form submission
+  const onSubmit = (values: z.infer<typeof updateUserPreferencesSchema>) => {
+    updatePreferences(values);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4">
+        <FormField
+          control={form.control}
+          name="highestOffense"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Preferred Offense Type</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select preferred offense type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="ninjutsu">Ninjutsu</SelectItem>
+                  <SelectItem value="genjutsu">Genjutsu</SelectItem>
+                  <SelectItem value="taijutsu">Taijutsu</SelectItem>
+                  <SelectItem value="bukijutsu">Bukijutsu</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                This will be used as your highest offense type in combat instead of
+                automatically choosing the highest stat.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="highestGeneral1"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>First Preferred General</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select first preferred general" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="strength">Strength</SelectItem>
+                  <SelectItem value="intelligence">Intelligence</SelectItem>
+                  <SelectItem value="willpower">Willpower</SelectItem>
+                  <SelectItem value="speed">Speed</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                This will be used as your first highest general in combat instead of
+                automatically choosing the highest stat.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="highestGeneral2"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Second Preferred General</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select second preferred general" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="strength">Strength</SelectItem>
+                  <SelectItem value="intelligence">Intelligence</SelectItem>
+                  <SelectItem value="willpower">Willpower</SelectItem>
+                  <SelectItem value="speed">Speed</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                This will be used as your second highest general in combat instead of
+                automatically choosing the highest stat.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit" className="w-full">
+          Save Preferences
+        </Button>
+      </form>
+    </Form>
+  );
+};
 
 /**
  * Marriage

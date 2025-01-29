@@ -902,27 +902,24 @@ export default JutsuFiltering;
  * Combine includes + excludes into final object
  */
 export const getFilter = (state: JutsuFilteringState) => {
-  const processValue = <T,>(value: T, defaultValue: T) =>
-    value !== defaultValue ? value : undefined;
-
   const processArray = <T,>(arr: T[]) => (arr.length > 0 ? arr : undefined);
 
   return {
     // Includes
-    appear: processValue(state.appearAnim, "None"),
-    bloodline: processValue(state.bloodline, "None"),
-    classification: processValue(state.classification, "None"),
-    disappear: processValue(state.removeAnim, "None"),
+    appear: state.appearAnim === "None" ? undefined : state.appearAnim,
+    bloodline: state.bloodline === "None" ? undefined : state.bloodline,
+    classification: state.classification === "None" ? undefined : state.classification,
+    disappear: state.removeAnim === "None" ? undefined : state.removeAnim,
     effect: processArray(state.effect as EffectType[]),
     element: processArray(state.element as ElementName[]),
-    method: processValue(state.method, "None"),
+    method: state.method === "None" ? undefined : state.method,
     name: state.name || undefined,
-    rank: processValue(state.rank, "NONE"),
-    rarity: processValue(state.rarity, "ALL"),
+    rank: state.rank === "NONE" ? undefined : state.rank,
+    rarity: state.rarity === "ALL" ? undefined : state.rarity,
     requiredLevel: state.requiredLevel ?? undefined,
     stat: processArray(state.stat as StatGenType[]),
-    static: processValue(state.staticAnim, "None"),
-    target: processValue(state.target, "None"),
+    static: state.staticAnim === "None" ? undefined : state.staticAnim,
+    target: state.target === "None" ? undefined : state.target,
     hidden: state.hidden ?? undefined,
 
     // Exclusions

@@ -60,6 +60,7 @@ import {
   updateGameSetting,
 } from "@/libs/gamesettings";
 import { updateUserSchema } from "@/validators/user";
+import { updateUserPreferencesSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
 import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
@@ -109,6 +110,24 @@ export const profileRouter = createTRPCRouter({
         success: true,
         message: `Battle descriptions ${input.showBattleDescription ? "enabled" : "disabled"}`,
       };
+    }),
+  // Update user preferences
+  updatePreferences: protectedProcedure
+    .input(updateUserPreferencesSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Mutate
+      const result = await ctx.drizzle
+        .update(userData)
+        .set(input)
+        .where(eq(userData.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return errorResponse("Failed to update preferences");
+      }
+      // Return response
+      return { success: true, message: "Preferences updated successfully" };
     }),
   // Get user blacklist
   getBlacklist: protectedProcedure.query(async ({ ctx }) => {
