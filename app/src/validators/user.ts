@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { UserRoles, UserRanks } from "@/drizzle/constants";
+import { GeneralTypes, StatTypes } from "@/drizzle/constants";
 import { usernameSchema } from "@/validators/register";
 import type { LetterRank, QuestType } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -97,3 +98,12 @@ export const getPublicUsersSchema = z.object({
   isSummon: z.boolean().optional(),
 });
 export type GetPublicUsersSchema = z.infer<typeof getPublicUsersSchema>;
+
+// For updating highest preferences
+export const updateUserPreferencesSchema = z.object({
+  highestOffense: z.enum(StatTypes).nullable(),
+  highestGeneral1: z.enum(GeneralTypes).nullable(),
+  highestGeneral2: z.enum(GeneralTypes).nullable(),
+});
+
+export type UpdateUserPreferencesSchema = z.infer<typeof updateUserPreferencesSchema>;

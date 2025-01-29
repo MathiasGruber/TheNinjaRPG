@@ -1394,6 +1394,11 @@ export const userData = mysqlTable(
     questData: json("questData").$type<QuestTrackerType[]>(),
     senseiId: varchar("senseiId", { length: 191 }),
     medicalExperience: int("medicalExperience").default(0).notNull(),
+    // Settings
+    highestOffense: mysqlEnum("highestOffense", consts.StatTypes),
+    highestGeneral1: mysqlEnum("highestGeneral1", consts.GeneralTypes),
+    highestGeneral2: mysqlEnum("highestGeneral2", consts.GeneralTypes),
+    showBattleDescription: boolean("showBattleDescription").default(true).notNull(),
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),
@@ -1425,7 +1430,6 @@ export const userData = mysqlTable(
     marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
     aiProfileId: varchar("aiProfileId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
-    showBattleDescription: boolean("showBattleDescription").default(true).notNull(),
   },
   (table) => {
     return {
