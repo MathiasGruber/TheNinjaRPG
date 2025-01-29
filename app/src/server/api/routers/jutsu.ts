@@ -777,77 +777,24 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
     // ---------------------------
     ...(input?.excludedJutsuTypes?.length
       ? input.excludedJutsuTypes.map((excludedType) =>
-          ne(
-            jutsu.jutsuType,
-            excludedType as
-              | "NORMAL"
-              | "EVENT"
-              | "CLAN"
-              | "SPECIAL"
-              | "BLOODLINE"
-              | "FORBIDDEN"
-              | "LOYALTY"
-              | "AI",
-          ),
+          ne(jutsu.jutsuType, excludedType as any),
         )
       : []),
+
     ...(input?.excludedClassifications?.length
-      ? input.excludedClassifications.map((c) =>
-          ne(
-            jutsu.statClassification,
-            c as "Highest" | "Ninjutsu" | "Genjutsu" | "Taijutsu" | "Bukijutsu",
-          ),
-        )
+      ? input.excludedClassifications.map((c) => ne(jutsu.statClassification, c as any))
       : []),
     ...(input?.excludedRarities?.length
-      ? input.excludedRarities.map((r) =>
-          ne(jutsu.jutsuRank, r as "D" | "C" | "B" | "A" | "S" | "H"),
-        )
+      ? input.excludedRarities.map((r) => ne(jutsu.jutsuRank, r as any))
       : []),
     ...(input?.excludedRanks?.length
-      ? input.excludedRanks.map((r) =>
-          ne(
-            jutsu.requiredRank,
-            r as
-              | "STUDENT"
-              | "GENIN"
-              | "CHUNIN"
-              | "JONIN"
-              | "COMMANDER"
-              | "ELDER"
-              | "NONE",
-          ),
-        )
+      ? input.excludedRanks.map((r) => ne(jutsu.requiredRank, r as any))
       : []),
     ...(input?.excludedMethods?.length
-      ? input.excludedMethods.map((m) =>
-          ne(
-            jutsu.method,
-            m as
-              | "ALL"
-              | "SINGLE"
-              | "AOE_CIRCLE_SPAWN"
-              | "AOE_LINE_SHOOT"
-              | "AOE_WALL_SHOOT"
-              | "AOE_CIRCLE_SHOOT"
-              | "AOE_SPIRAL_SHOOT",
-          ),
-        )
+      ? input.excludedMethods.map((m) => ne(jutsu.method, m as any))
       : []),
     ...(input?.excludedTargets?.length
-      ? input.excludedTargets.map((t) =>
-          ne(
-            jutsu.target,
-            t as
-              | "SELF"
-              | "OTHER_USER"
-              | "OPPONENT"
-              | "ALLY"
-              | "CHARACTER"
-              | "GROUND"
-              | "EMPTY_GROUND",
-          ),
-        )
+      ? input.excludedTargets.map((t) => ne(jutsu.target, t as any))
       : []),
 
     // ---------------------------
