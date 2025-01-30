@@ -343,10 +343,10 @@ export const adjustDamageGiven = (
               : power;
           if (effect.fromType === "bloodline") {
             if (
-              !("allowBloodlineDamageIncrease" in damageEffect) ||
-              !("allowBloodlineDamageDecrease" in damageEffect) ||
-              (change > 0 && !damageEffect.allowBloodlineDamageIncrease) ||
-              (change < 0 && !damageEffect.allowBloodlineDamageDecrease)
+              "allowBloodlineDamageIncrease" in damageEffect &&
+              "allowBloodlineDamageDecrease" in damageEffect &&
+              ((change > 0 && !damageEffect.allowBloodlineDamageIncrease) ||
+                (change < 0 && !damageEffect.allowBloodlineDamageDecrease))
             ) {
               return;
             }
