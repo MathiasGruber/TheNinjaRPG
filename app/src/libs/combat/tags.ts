@@ -341,6 +341,16 @@ export const adjustDamageGiven = (
             effect.calculation === "percentage"
               ? (power / 100) * consequence.damage
               : power;
+          if (effect.fromType === "bloodline") {
+            if (
+              !("allowBloodlineDamageIncrease" in damageEffect) ||
+              !("allowBloodlineDamageDecrease" in damageEffect) ||
+              (change > 0 && !damageEffect.allowBloodlineDamageIncrease) ||
+              (change < 0 && !damageEffect.allowBloodlineDamageDecrease)
+            ) {
+              return;
+            }
+          }
           consequence.damage = consequence.damage + change * ratio;
         }
       }

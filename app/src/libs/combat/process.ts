@@ -14,7 +14,15 @@ import { increaseHealGiven, decreaseHealGiven } from "./tags";
 import { increasepoolcost, decreasepoolcost } from "./tags";
 import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent, movePrevent } from "./tags";
-import { seal, sealPrevent, sealCheck, rob, robPrevent, stealth, elementalseal } from "./tags";
+import {
+  seal,
+  sealPrevent,
+  sealCheck,
+  rob,
+  robPrevent,
+  stealth,
+  elementalseal,
+} from "./tags";
 import { clear, cleanse, summon, summonPrevent, buffPrevent, weakness } from "./tags";
 import { cleansePrevent, clearPrevent, healPrevent, debuffPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
