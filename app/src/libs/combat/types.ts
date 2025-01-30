@@ -437,6 +437,8 @@ export const DamageTag = z.object({
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   residualModifier: z.coerce.number().min(0).max(2).default(1).optional(),
   dmgModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  allowBloodlineDamageIncrease: z.coerce.boolean().default(true),
+  allowBloodlineDamageDecrease: z.coerce.boolean().default(true),
 });
 export type DamageTagType = z.infer<typeof DamageTag>;
 
@@ -449,6 +451,8 @@ export const PierceTag = z.object({
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   residualModifier: z.coerce.number().min(0).max(2).default(1).optional(),
   dmgModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  allowBloodlineDamageIncrease: z.coerce.boolean().default(true),
+  allowBloodlineDamageDecrease: z.coerce.boolean().default(true),
 });
 export type PierceTagType = z.infer<typeof PierceTag>;
 

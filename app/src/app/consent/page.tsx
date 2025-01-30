@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import ContentBox from "@/layout/ContentBox";
 
-export default function CookieConscent() {
+export default function CookieConsent() {
   useEffect(() => {
     const cookieBotWrapper = document.getElementById("CookiebotDeclaration");
     if (cookieBotWrapper) {
@@ -18,7 +18,7 @@ export default function CookieConscent() {
   }, []);
 
   return (
-    <ContentBox title="Cookie Conscent" subtitle="View, edit, or withdraw conscent!">
+    <ContentBox title="Cookie Consent" subtitle="View, edit, or withdraw consent!">
       <div id="CookiebotDeclaration" />
     </ContentBox>
   );

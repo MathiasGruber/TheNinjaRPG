@@ -552,7 +552,7 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
           insert(image, "text-red-500", `↓ Taking Dmg`, true, e);
           break;
         case "pierce":
-          insert(image, "text-red-500", `↓ PiercingTaking Dmg`, true, e);
+          insert(image, "text-red-500", `↓ Piercing Dmg`, true, e);
           break;
         case "absorb":
           insert(image, "text-green-500", `↑ Absorb`, true, e);
