@@ -1395,9 +1395,9 @@ export const userData = mysqlTable(
     senseiId: varchar("senseiId", { length: 191 }),
     medicalExperience: int("medicalExperience").default(0).notNull(),
     // Settings
-    highestOffense: mysqlEnum("highestOffense", consts.StatTypes),
-    highestGeneral1: mysqlEnum("highestGeneral1", consts.GeneralTypes),
-    highestGeneral2: mysqlEnum("highestGeneral2", consts.GeneralTypes),
+    preferredStat: mysqlEnum("preferredStat", consts.StatTypes),
+    preferredGeneral1: mysqlEnum("preferredGeneral1", consts.GeneralTypes),
+    preferredGeneral2: mysqlEnum("preferredGeneral2", consts.GeneralTypes),
     showBattleDescription: boolean("showBattleDescription").default(true).notNull(),
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),

@@ -116,18 +116,17 @@ export const profileRouter = createTRPCRouter({
     .input(updateUserPreferencesSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      // Query
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      // Mutate
       const result = await ctx.drizzle
         .update(userData)
         .set(input)
         .where(eq(userData.userId, ctx.userId));
-      if (result.rowsAffected === 0) {
-        return errorResponse("Failed to update preferences");
-      }
-      // Return response
-      return { success: true, message: "Preferences updated successfully" };
+      return {
+        success: result.rowsAffected > 0,
+        message:
+          result.rowsAffected > 0
+            ? "Updated preferences"
+            : "Failed to update preferences",
+      };
     }),
   // Get user blacklist
   getBlacklist: protectedProcedure.query(async ({ ctx }) => {
@@ -561,14 +560,13 @@ export const profileRouter = createTRPCRouter({
       scaleUserStats(newAi);
 
       // Calculate diff
-      const diff = calculateContentDiff(
-        Object.fromEntries(
-          Object.entries(ai).filter(([k]) => Object.keys(input.data).includes(k)),
-        ),
-        Object.fromEntries(
-          Object.entries(newAi).filter(([k]) => Object.keys(input.data).includes(k)),
-        ),
-      )
+      const oldContent = Object.fromEntries(
+        Object.entries(ai).filter(([k]) => Object.keys(input.data).includes(k)),
+      );
+      const newContent = Object.fromEntries(
+        Object.entries(newAi).filter(([k]) => Object.keys(input.data).includes(k)),
+      );
+      const diff = calculateContentDiff(oldContent, newContent)
         .concat(jutsuChanges)
         .concat(itemChanges);
 

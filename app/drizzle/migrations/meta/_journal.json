@@ -1331,6 +1331,13 @@
       "when": 1738169555295,
       "tag": "0189_broken_major_mapleleaf",
       "breakpoints": false
+    },
+    {
+      "idx": 190,
+      "version": "5",
+      "when": 1738216046525,
+      "tag": "0190_jittery_dagger",
+      "breakpoints": false
     }
   ]
 }
