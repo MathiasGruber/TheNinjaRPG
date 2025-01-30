@@ -10,6 +10,7 @@ import { hasNoAvailableActions } from "@/libs/combat/util";
 import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
 import { isUserStealthed, isUserImmobilized } from "@/libs/combat/util";
+import { getUserElementalSeal } from "@/libs/combat/util";
 import { updateStatUsage } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
 import { PathCalculator } from "@/libs/hexgrid";
@@ -47,9 +48,7 @@ export const availableUserActions = (
   const { availableActionPoints } = actionPointsAfterAction(user, battle);
   const isStealth = isUserStealthed(userId, battle?.usersEffects);
   const isImmobilized = isUserImmobilized(userId, battle?.usersEffects);
-  const elementalSeal = battle?.usersEffects?.find(
-    (e) => e.type === "elementalseal" && e.targetId === userId && !e.castThisRound,
-  );
+  const elementalSeal = getUserElementalSeal(userId, battle?.usersEffects);
   // Basic attack & heal
   const basicActions = getBasicActions(user);
   // Concatenate all actions

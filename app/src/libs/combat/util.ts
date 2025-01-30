@@ -106,6 +106,20 @@ export const isUserStealthed = (
   );
 };
 
+export const getUserElementalSeal = (
+  userId: string | undefined,
+  userEffects: UserEffect[] | undefined,
+) => {
+  return userEffects?.find(
+    (e) =>
+      e.type === "elementalseal" &&
+      e.targetId === userId &&
+      !e.castThisRound &&
+      e.rounds &&
+      e.rounds > 0,
+  );
+};
+
 /**
  * Checks if a user is immobilized based on their effects.
  *
