@@ -1130,6 +1130,47 @@ export const lifesteal = (
   return getInfo(target, effect, `will steal ${qualifier} damage as health`);
 };
 
+/** Apply poison damage based on Chakra and Stamina usage */
+export const poison = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState,
+) => {
+  const { power, qualifier } = getPower(effect);
+
+  if (!effect.isNew && !effect.castThisRound) {
+    // Get all consequences for the target
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.targetId === effect.targetId) {
+        const actionEffect = usersEffects.find((e) => e.id === effectId);
+        if (actionEffect && "data" in actionEffect && actionEffect.data && typeof actionEffect.data === "object" && actionEffect.data !== null && "chakraCost" in actionEffect.data) {
+          // Get the action data which contains the cost information
+          const actionData = actionEffect.data as { chakraCost: number; staminaCost: number };
+          // Calculate poison damage based on chakra and stamina costs
+          const chakraCost = actionData.chakraCost;
+          const staminaCost = actionData.staminaCost;
+          const totalCost = chakraCost + staminaCost;
+
+          if (totalCost > 0) {
+            // Calculate poison damage as a percentage of the total cost
+            const poisonDamage = Math.ceil(totalCost * (power / 100));
+
+            // Add poison damage to existing damage
+            consequence.damage = (consequence.damage || 0) + poisonDamage;
+          }
+        }
+      }
+    });
+  }
+
+  return getInfo(
+    target,
+    effect,
+    `will take ${qualifier}% damage based on Chakra and Stamina usage`,
+  );
+};
+
 /**
  * Move user on the battlefield
  * 1. Remove user from current ground effect
