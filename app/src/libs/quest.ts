@@ -434,8 +434,8 @@ export const isAvailableUserQuests = (
     (quest.previousAttempts <= 1 && quest.completed === 0);
   const villageCheck =
     !quest.requiredVillage || quest.requiredVillage === user.villageId;
-  const prerequisiteCheck = !quest.prerequisiteQuestId || (user.userQuests as { questId: string; completed: number }[] | undefined)?.some(
-    (uq) => uq.questId === quest.prerequisiteQuestId && uq.completed === 1
+  const prerequisiteCheck = !quest.prerequisiteQuestId || (user as any).userQuests?.some(
+    (uq: { questId: string; completed: number }) => uq.questId === quest.prerequisiteQuestId && uq.completed === 1
   );
   return hideCheck && expiresCheck && prevCheck && villageCheck && prerequisiteCheck;
 };

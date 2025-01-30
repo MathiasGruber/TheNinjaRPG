@@ -911,18 +911,18 @@ export const getFilter = (state: JutsuFilteringState) => {
     // Includes
     appear: processValue(state.appearAnim, "None"),
     bloodline: processValue(state.bloodline, "None"),
-    classification: processValue(state.classification, "None"),
+    classification: state.classification === "None" ? undefined : state.classification,
     disappear: processValue(state.removeAnim, "None"),
     effect: processArray(state.effect as EffectType[]),
     element: processArray(state.element as ElementName[]),
-    method: processValue(state.method, "None"),
+    method: state.method === "None" ? undefined : state.method,
     name: state.name || undefined,
     rank: processValue(state.rank, "NONE"),
-    rarity: processValue(state.rarity, "ALL"),
+    rarity: state.rarity === "ALL" ? undefined : state.rarity,
     requiredLevel: state.requiredLevel ?? undefined,
     stat: processArray(state.stat as StatGenType[]),
     static: processValue(state.staticAnim, "None"),
-    target: processValue(state.target, "None"),
+    target: state.target === "None" ? undefined : state.target,
     hidden: state.hidden ?? undefined,
 
     // Exclusions
