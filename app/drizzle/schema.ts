@@ -2507,6 +2507,108 @@ export const warStatRelations = relations(warStat, ({ one }) => ({
   }),
 }));
 
+export const villageDefense = mysqlTable(
+  "VillageDefense",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    type: mysqlEnum("type", [
+      "TRAINING_GROUND",
+      "RAMEN_SHOP",
+      "MISSION_HALL",
+      "ITEM_SHOP",
+      "HOSPITAL",
+      "BATTLE_ARENA",
+      "BANK",
+    ]).notNull(),
+    defenseLevel: tinyint("defenseLevel").default(1).notNull(),
+    hp: int("hp").default(1000).notNull(),
+    lastUpdatedAt: datetime("lastUpdatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      villageIdTypeKey: uniqueIndex("VillageDefense_villageId_type_key").on(
+        table.villageId,
+        table.type,
+      ),
+    };
+  },
+);
+
+export const villageDefenseRelations = relations(villageDefense, ({ one }) => ({
+  village: one(village, {
+    fields: [villageDefense.villageId],
+    references: [village.id],
+  }),
+}));
+
+export const villageDefenseWall = mysqlTable(
+  "VillageDefenseWall",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    level: tinyint("level").default(1).notNull(),
+    lastUpdatedAt: datetime("lastUpdatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      villageIdKey: uniqueIndex("VillageDefenseWall_villageId_key").on(table.villageId),
+    };
+  },
+);
+
+export const villageDefenseWallRelations = relations(villageDefenseWall, ({ one }) => ({
+  village: one(village, {
+    fields: [villageDefenseWall.villageId],
+    references: [village.id],
+  }),
+}));
+
+export const warDefenseTarget = mysqlTable(
+  "WarDefenseTarget",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    warId: varchar("warId", { length: 191 }).notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    structureType: mysqlEnum("structureType", [
+      "TRAINING_GROUND",
+      "RAMEN_SHOP",
+      "MISSION_HALL",
+      "ITEM_SHOP",
+      "HOSPITAL",
+      "BATTLE_ARENA",
+      "BANK",
+    ]).notNull(),
+    lastUpdatedAt: datetime("lastUpdatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      warIdVillageIdTypeKey: uniqueIndex("WarDefenseTarget_warId_villageId_type_key").on(
+        table.warId,
+        table.villageId,
+        table.structureType,
+      ),
+    };
+  },
+);
+
+export const warDefenseTargetRelations = relations(warDefenseTarget, ({ one }) => ({
+  war: one(war, {
+    fields: [warDefenseTarget.warId],
+    references: [war.id],
+  }),
+  village: one(village, {
+    fields: [warDefenseTarget.villageId],
+    references: [village.id],
+  }),
+}));
+
 export const warKill = mysqlTable(
   "WarKill",
   {
