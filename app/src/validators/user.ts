@@ -100,10 +100,22 @@ export const getPublicUsersSchema = z.object({
 export type GetPublicUsersSchema = z.infer<typeof getPublicUsersSchema>;
 
 // For updating highest preferences
-export const updateUserPreferencesSchema = z.object({
-  preferredStat: z.enum(StatTypes).nullable(),
-  preferredGeneral1: z.enum(GeneralTypes).nullable(),
-  preferredGeneral2: z.enum(GeneralTypes).nullable(),
-});
+export const updateUserPreferencesSchema = z
+  .object({
+    preferredStat: z.enum(StatTypes).nullable(),
+    preferredGeneral1: z.enum(GeneralTypes).nullable(),
+    preferredGeneral2: z.enum(GeneralTypes).nullable(),
+  })
+  .refine(
+    (data) => {
+      if (data.preferredGeneral1 && data.preferredGeneral2) {
+        return data.preferredGeneral1 !== data.preferredGeneral2;
+      }
+      return true;
+    },
+    {
+      message: "General preferences must be different",
+    },
+  );
 
 export type UpdateUserPreferencesSchema = z.infer<typeof updateUserPreferencesSchema>;
