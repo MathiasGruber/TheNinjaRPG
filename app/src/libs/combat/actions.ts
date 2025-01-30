@@ -25,7 +25,7 @@ import {
   ID_ANIMATION_HEAL,
   ID_ANIMATION_HIT,
 } from "@/drizzle/constants";
-import type { AttackTargets } from "@/drizzle/constants";
+import type { AttackTargets, ElementName } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "@/libs/combat/types";
 import type { CompleteBattle, ReturnedBattle } from "@/libs/combat/types";
 import type { Grid } from "honeycomb-grid";
@@ -47,6 +47,9 @@ export const availableUserActions = (
   const { availableActionPoints } = actionPointsAfterAction(user, battle);
   const isStealth = isUserStealthed(userId, battle?.usersEffects);
   const isImmobilized = isUserImmobilized(userId, battle?.usersEffects);
+  const elementalSeal = battle?.usersEffects?.find(
+    (e) => e.type === "elementalseal" && e.targetId === userId && !e.castThisRound,
+  );
   // Basic attack & heal
   const basicActions = getBasicActions(user);
   // Concatenate all actions
@@ -79,40 +82,53 @@ export const availableUserActions = (
         ]
       : []),
     ...(user?.jutsus && !isStealth
-      ? user.jutsus.map((userjutsu) => {
-          return {
-            id: userjutsu.jutsu.id,
-            name: userjutsu.jutsu.name,
-            image: userjutsu.jutsu.image,
-            battleDescription: userjutsu.jutsu.battleDescription,
-            type: "jutsu" as const,
-            target: userjutsu.jutsu.target,
-            method: userjutsu.jutsu.method,
-            range: userjutsu.jutsu.range,
-            updatedAt: new Date(userjutsu.updatedAt).getTime(),
-            cooldown: userjutsu.jutsu.cooldown,
-            lastUsedRound: userjutsu.lastUsedRound,
-            healthCost: Math.max(
-              0,
-              userjutsu.jutsu.healthCost -
-                userjutsu.jutsu.healthCostReducePerLvl * userjutsu.level,
-            ),
-            chakraCost: Math.max(
-              0,
-              userjutsu.jutsu.chakraCost -
-                userjutsu.jutsu.chakraCostReducePerLvl * userjutsu.level,
-            ),
-            staminaCost: Math.max(
-              0,
-              userjutsu.jutsu.staminaCost -
-                userjutsu.jutsu.staminaCostReducePerLvl * userjutsu.level,
-            ),
-            actionCostPerc: userjutsu.jutsu.actionCostPerc,
-            effects: userjutsu.jutsu.effects,
-            level: userjutsu.level,
-            data: userjutsu.jutsu,
-          };
-        })
+      ? user.jutsus
+          .filter((userjutsu) => {
+            if (!elementalSeal?.elements?.length) return true;
+            const jutsuElements = new Set(
+              userjutsu.jutsu.effects.flatMap((effect) =>
+                "elements" in effect ? effect.elements : [],
+              ),
+            );
+            return (
+              jutsuElements.size === 0 ||
+              !elementalSeal.elements.some((e: ElementName) => jutsuElements.has(e))
+            );
+          })
+          .map((userjutsu) => {
+            return {
+              id: userjutsu.jutsu.id,
+              name: userjutsu.jutsu.name,
+              image: userjutsu.jutsu.image,
+              battleDescription: userjutsu.jutsu.battleDescription,
+              type: "jutsu" as const,
+              target: userjutsu.jutsu.target,
+              method: userjutsu.jutsu.method,
+              range: userjutsu.jutsu.range,
+              updatedAt: new Date(userjutsu.updatedAt).getTime(),
+              cooldown: userjutsu.jutsu.cooldown,
+              lastUsedRound: userjutsu.lastUsedRound,
+              healthCost: Math.max(
+                0,
+                userjutsu.jutsu.healthCost -
+                  userjutsu.jutsu.healthCostReducePerLvl * userjutsu.level,
+              ),
+              chakraCost: Math.max(
+                0,
+                userjutsu.jutsu.chakraCost -
+                  userjutsu.jutsu.chakraCostReducePerLvl * userjutsu.level,
+              ),
+              staminaCost: Math.max(
+                0,
+                userjutsu.jutsu.staminaCost -
+                  userjutsu.jutsu.staminaCostReducePerLvl * userjutsu.level,
+              ),
+              actionCostPerc: userjutsu.jutsu.actionCostPerc,
+              effects: userjutsu.jutsu.effects,
+              level: userjutsu.level,
+              data: userjutsu.jutsu,
+            };
+          })
       : []),
     ...(user?.items && !isStealth
       ? user.items

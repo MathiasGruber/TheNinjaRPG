@@ -14,7 +14,7 @@ import { increaseHealGiven, decreaseHealGiven } from "./tags";
 import { increasepoolcost, decreasepoolcost } from "./tags";
 import { flee, fleePrevent } from "./tags";
 import { stun, stunPrevent, onehitkill, onehitkillPrevent, movePrevent } from "./tags";
-import { seal, sealPrevent, sealCheck, rob, robPrevent, stealth } from "./tags";
+import { seal, sealPrevent, sealCheck, rob, robPrevent, stealth, elementalseal } from "./tags";
 import { clear, cleanse, summon, summonPrevent, buffPrevent, weakness } from "./tags";
 import { cleansePrevent, clearPrevent, healPrevent, debuffPrevent } from "./tags";
 import { updateStatUsage } from "./tags";
@@ -360,6 +360,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = healPrevent(e, curTarget);
           } else if (e.type === "stealth") {
             info = stealth(e, curTarget);
+          } else if (e.type === "elementalseal") {
+            info = elementalseal(e, curTarget);
           } else if (e.type === "buffprevent") {
             info = buffPrevent(e, curTarget);
           } else if (e.type === "debuffprevent") {
