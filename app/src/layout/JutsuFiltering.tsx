@@ -417,47 +417,12 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const bloodlines = fixedBloodline
     ? bloodlineData?.filter((b) => b.id === fixedBloodline)
     : bloodlineData;
-  const selectedBloodline = bloodlines?.find((b) => b.id === bloodline);
 
   // Exclusion popover
   const [showExclusionPopover, setShowExclusionPopover] = useState(false);
   const [exclusionCategory, setExclusionCategory] =
     useState<ExclusionCategory>("element");
   const [tempExclusions, setTempExclusions] = useState<string[]>([]);
-
-  // Decide which options to show in the MultiSelect
-  const exclusionOptions = (() => {
-    switch (exclusionCategory) {
-      case "appear":
-        return StatTypes; // Example or your logic?
-      case "classification":
-        return StatTypes;
-      case "disappear":
-        return effectFilters;
-      case "effect":
-        return effectFilters;
-      case "element":
-        return ElementNames;
-      case "method":
-        return AttackMethods;
-      case "rank":
-        return UserRanks;
-      case "rarity":
-        return rarities;
-      case "stat":
-        return statFilters;
-      case "static":
-        return assetData ? assetData.map((a) => a.name) : [];
-      case "target":
-        return AttackTargets;
-      // This is critical:
-      case "type":
-        return JutsuTypes;
-
-      default:
-        return [];
-    }
-  })();
 
   // Confirm new exclusions
   const handleAddExclusions = () => {

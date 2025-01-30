@@ -101,9 +101,9 @@ export type GetPublicUsersSchema = z.infer<typeof getPublicUsersSchema>;
 
 // For updating highest preferences
 export const updateUserPreferencesSchema = z.object({
-  highestOffense: z.enum(StatTypes).nullable(),
-  highestGeneral1: z.enum(GeneralTypes).nullable(),
-  highestGeneral2: z.enum(GeneralTypes).nullable(),
+  preferredStat: z.enum(StatTypes).nullable(),
+  preferredGeneral1: z.enum(GeneralTypes).nullable(),
+  preferredGeneral2: z.enum(GeneralTypes).nullable(),
 });
 
 export type UpdateUserPreferencesSchema = z.infer<typeof updateUserPreferencesSchema>;

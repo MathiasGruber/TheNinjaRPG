@@ -8,10 +8,11 @@ import { secondsPassed } from "@/utils/time";
 import { realizeTag, checkFriendlyFire } from "./process";
 import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/drizzle/constants";
 import { calcIsInVillage } from "@/libs/travel/controls";
+import { toOffenceStat, toDefenceStat } from "@/libs/stats";
 import { structureBoost } from "@/utils/village";
 import { deduceActiveUserRegen } from "@/libs/profile";
 import { DecreaseDamageTakenTag } from "@/libs/combat/types";
-import { StatTypes, GeneralTypes, type GeneralType } from "@/drizzle/constants";
+import { StatTypes, GeneralTypes } from "@/drizzle/constants";
 import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
 import { canTrainJutsu, checkJutsuItems } from "@/libs/train";
@@ -891,36 +892,38 @@ export const processUsersForBattle = (info: {
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);
 
     // Add highest offence name to user
-    if (!user.highestOffence) {
-      const offences = {
-        ninjutsuOffence: user.ninjutsuOffence,
-        genjutsuOffence: user.genjutsuOffence,
-        taijutsuOffence: user.taijutsuOffence,
-        bukijutsuOffence: user.bukijutsuOffence,
-      };
-      type offenceKey = keyof typeof offences;
+    const offences = {
+      ninjutsuOffence: user.ninjutsuOffence,
+      genjutsuOffence: user.genjutsuOffence,
+      taijutsuOffence: user.taijutsuOffence,
+      bukijutsuOffence: user.bukijutsuOffence,
+    };
+    type offenceKey = keyof typeof offences;
+    if (!user.preferredStat) {
       user.highestOffence = Object.keys(offences).reduce((prev, cur) =>
         offences[prev as offenceKey] > offences[cur as offenceKey] ? prev : cur,
       ) as offenceKey;
+    } else {
+      user.highestOffence = toOffenceStat(user.preferredStat);
     }
 
     // Starting round
     user.round = 0;
 
     // Add highest defence name to user
-    if (!user.highestOffence) {
-      const defences = {
-        ninjutsuDefence: user.ninjutsuDefence,
-        genjutsuDefence: user.genjutsuDefence,
-        taijutsuDefence: user.taijutsuDefence,
-        bukijutsuDefence: user.bukijutsuDefence,
-      };
-      type defenceKey = keyof typeof defences;
+    const defences = {
+      ninjutsuDefence: user.ninjutsuDefence,
+      genjutsuDefence: user.genjutsuDefence,
+      taijutsuDefence: user.taijutsuDefence,
+      bukijutsuDefence: user.bukijutsuDefence,
+    };
+    type defenceKey = keyof typeof defences;
+    if (!user.preferredStat) {
       user.highestDefence = Object.keys(defences).reduce((prev, cur) =>
         defences[prev as defenceKey] > defences[cur as defenceKey] ? prev : cur,
       ) as defenceKey;
     } else {
-      user.highestDefence = user.highestOffence;
+      user.highestDefence = toDefenceStat(user.preferredStat);
     }
 
     // Add highest generals to user
@@ -933,11 +936,11 @@ export const processUsersForBattle = (info: {
 
     type generalKey = keyof typeof generals;
 
-    if (user.highestGeneral1 && user.highestGeneral2) {
+    if (user.preferredGeneral1 && user.preferredGeneral2) {
       // If both generals are already set, just use them
       user.highestGenerals = [
-        user.highestGeneral1.toLowerCase(),
-        user.highestGeneral2.toLowerCase(),
+        user.preferredGeneral1.toLowerCase(),
+        user.preferredGeneral2.toLowerCase(),
       ] as generalKey[];
     } else {
       // Sort generals by value
@@ -945,14 +948,14 @@ export const processUsersForBattle = (info: {
         .sort(([, a], [, b]) => b - a)
         .map(([stat]) => stat) as generalKey[];
 
-      if (user.highestGeneral1) {
+      if (user.preferredGeneral1) {
         // If first general is set, find the highest from remaining
-        const firstGenLower = user.highestGeneral1.toLowerCase() as generalKey;
+        const firstGenLower = user.preferredGeneral1.toLowerCase() as generalKey;
         const secondGeneral = sortedStats.find((stat) => stat !== firstGenLower);
         user.highestGenerals = [firstGenLower, secondGeneral!];
-      } else if (user.highestGeneral2) {
+      } else if (user.preferredGeneral2) {
         // If second general is set, find the highest from remaining
-        const secondGenLower = user.highestGeneral2.toLowerCase() as generalKey;
+        const secondGenLower = user.preferredGeneral2.toLowerCase() as generalKey;
         const firstGeneral = sortedStats.find((stat) => stat !== secondGenLower);
         user.highestGenerals = [firstGeneral!, secondGenLower];
       } else {

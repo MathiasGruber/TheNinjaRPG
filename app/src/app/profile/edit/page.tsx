@@ -16,6 +16,7 @@ import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import NindoChange from "@/layout/NindoChange";
 import AiProfileEdit from "@/layout/AiProfileEdit";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Form,
   FormControl,
@@ -268,6 +269,7 @@ export default function EditProfile() {
  */
 const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
   // Queries & mutations
+  const [showActive, setShowActive] = useState<string>("preferred");
   const { data: profile, isPending: isPendingProfile } =
     api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
   const { data: userData, updateUser } = useRequiredUserData();
@@ -277,9 +279,9 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
   const form = useForm<z.infer<typeof updateUserPreferencesSchema>>({
     resolver: zodResolver(updateUserPreferencesSchema),
     defaultValues: {
-      highestOffense: null,
-      highestGeneral1: null,
-      highestGeneral2: null,
+      preferredStat: null,
+      preferredGeneral1: null,
+      preferredGeneral2: null,
     },
   });
 
@@ -297,9 +299,9 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
       const values = form.getValues();
       showMutationToast(data);
       await updateUser({
-        highestOffense: values.highestOffense,
-        highestGeneral1: values.highestGeneral1,
-        highestGeneral2: values.highestGeneral2,
+        preferredStat: values.preferredStat,
+        preferredGeneral1: values.preferredGeneral1,
+        preferredGeneral2: values.preferredGeneral2,
       });
     },
   });
@@ -308,9 +310,9 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
   useEffect(() => {
     if (userData) {
       form.reset({
-        highestOffense: userData.highestOffense,
-        highestGeneral1: userData.highestGeneral1,
-        highestGeneral2: userData.highestGeneral2,
+        preferredStat: userData.preferredStat,
+        preferredGeneral1: userData.preferredGeneral1,
+        preferredGeneral2: userData.preferredGeneral2,
       });
     }
   }, [userData, form]);
@@ -326,100 +328,130 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
   // Render
   return (
     <div className="pb-3">
-      <div className="flex items-center space-x-2 m-2 mb-4 ">
-        <Switch
-          id="battle-description"
-          checked={userData?.showBattleDescription}
-          onCheckedChange={(checked) =>
-            updateBattleDescription({ showBattleDescription: checked })
-          }
-        />
-        <Label htmlFor="battle-description">Show battle descriptions</Label>
-      </div>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="p-4 grid grid-cols-4 gap-3 w-full items-end"
+      <div className="flex items-center space-x-2 m-2 mb-4">
+        <Tabs
+          defaultValue={showActive}
+          className="flex flex-col items-center justify-center w-full"
+          onValueChange={(value) => setShowActive(value)}
         >
-          <FormField
-            control={form.control}
-            name="highestOffense"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Offense</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || undefined}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Ninjutsu">Ninjutsu</SelectItem>
-                    <SelectItem value="Genjutsu">Genjutsu</SelectItem>
-                    <SelectItem value="Taijutsu">Taijutsu</SelectItem>
-                    <SelectItem value="Bukijutsu">Bukijutsu</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <TabsList className="text-center">
+            <TabsTrigger value="preferred">Preferences</TabsTrigger>
+            <TabsTrigger value="combat">Settings</TabsTrigger>
+            <TabsTrigger value="aiprofile">AI Profile</TabsTrigger>
+          </TabsList>
+          <TabsContent value="preferred">
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="p-4 grid grid-cols-4 gap-3 w-full items-end"
+              >
+                <FormField
+                  control={form.control}
+                  name="preferredStat"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Offense</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? value : null)}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Highest" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={null!}>Highest</SelectItem>
+                          <SelectItem value="Ninjutsu">Ninjutsu</SelectItem>
+                          <SelectItem value="Genjutsu">Genjutsu</SelectItem>
+                          <SelectItem value="Taijutsu">Taijutsu</SelectItem>
+                          <SelectItem value="Bukijutsu">Bukijutsu</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          <FormField
-            control={form.control}
-            name="highestGeneral1"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>General 1</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || undefined}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Strength">Strength</SelectItem>
-                    <SelectItem value="Intelligence">Intelligence</SelectItem>
-                    <SelectItem value="Willpower">Willpower</SelectItem>
-                    <SelectItem value="Speed">Speed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <FormField
+                  control={form.control}
+                  name="preferredGeneral1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>General 1</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? value : null)}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Highest" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={null!}>Highest</SelectItem>
+                          <SelectItem value="Strength">Strength</SelectItem>
+                          <SelectItem value="Intelligence">Intelligence</SelectItem>
+                          <SelectItem value="Willpower">Willpower</SelectItem>
+                          <SelectItem value="Speed">Speed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          <FormField
-            control={form.control}
-            name="highestGeneral2"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>General 2</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || undefined}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Strength">Strength</SelectItem>
-                    <SelectItem value="Intelligence">Intelligence</SelectItem>
-                    <SelectItem value="Willpower">Willpower</SelectItem>
-                    <SelectItem value="Speed">Speed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button type="submit">Save</Button>
-        </form>
-        <FormDescription>
-          This will be used as your highest offense type in combat instead of
-          automatically choosing the highest stat.
-        </FormDescription>
-      </Form>
-      <AiProfileEdit userData={profile} hideTitle />
+                <FormField
+                  control={form.control}
+                  name="preferredGeneral2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>General 2</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? value : null)}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Highest" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={null!}>Highest</SelectItem>
+                          <SelectItem value="Strength">Strength</SelectItem>
+                          <SelectItem value="Intelligence">Intelligence</SelectItem>
+                          <SelectItem value="Willpower">Willpower</SelectItem>
+                          <SelectItem value="Speed">Speed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit">Save</Button>
+              </form>
+              <FormDescription>
+                This will be used as your highest offense type in combat instead of
+                automatically choosing the highest stat.
+              </FormDescription>
+            </Form>
+          </TabsContent>
+          <TabsContent value="combat">
+            <Switch
+              id="battle-description"
+              checked={userData?.showBattleDescription}
+              onCheckedChange={(checked) =>
+                updateBattleDescription({ showBattleDescription: checked })
+              }
+            />
+            <Label htmlFor="battle-description">Show battle descriptions</Label>
+          </TabsContent>
+          <TabsContent value="aiprofile">
+            <AiProfileEdit userData={profile} hideTitle />
+          </TabsContent>
+        </Tabs>
+      </div>
+
       <p className="italic">
         This allows you to change how your character behaves in the game in e.g. kage
         battles.
