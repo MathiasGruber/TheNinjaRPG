@@ -1136,6 +1136,72 @@ export const lifesteal = (
  * 2. Add user to any new ground effect
  * 3. Move user
  */
+export const displacement = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  usersState: BattleUserState[],
+  groundEffects: GroundEffect[],
+) => {
+  const target = usersState.find((u) => u.userId === effect.targetId);
+  const user = usersState.find((u) => u.userId === effect.creatorId);
+  let info: ActionEffect | undefined = undefined;
+
+  if (target && user) {
+    // Prevent?
+    const { pass } = preventCheck(usersEffects, "moveprevent", target);
+    if (!pass) return preventResponse(effect, target, "resisted being displaced");
+
+    // The effect needs to be updated with target location in a second step
+    // This first step just marks that the target can be displaced
+    if (!effect.latitude || !effect.longitude) {
+      return {
+        txt: `${target.username} is ready to be displaced`,
+        color: "blue",
+      };
+    }
+
+    // Check if the target location is occupied
+    const occupiedPositions = new Set(
+      usersState.map((u) => `${u.latitude},${u.longitude}`)
+    );
+    if (occupiedPositions.has(`${effect.latitude},${effect.longitude}`)) {
+      return {
+        txt: `${user.username} failed to displace ${target.username} - ground is occupied`,
+        color: "red",
+      };
+    }
+
+    // Update movement information
+    info = {
+      txt: `${user.username} displaces ${target.username} to [${effect.latitude}, ${effect.longitude}]`,
+      color: "blue",
+    };
+
+    // Handle ground effects
+    groundEffects.forEach((g) => {
+      if (g.timeTracker && target.userId in g.timeTracker) {
+        delete g.timeTracker[target.userId];
+      }
+    });
+
+    groundEffects.forEach((g) => {
+      if (
+        g.timeTracker &&
+        g.longitude === effect.longitude &&
+        g.latitude === effect.latitude
+      ) {
+        g.timeTracker[target.userId] = effect.createdRound;
+      }
+    });
+
+    // Update target location
+    target.longitude = effect.longitude;
+    target.latitude = effect.latitude;
+  }
+  return info;
+};
+
+
 export const move = (
   effect: GroundEffect,
   usersEffects: UserEffect[],

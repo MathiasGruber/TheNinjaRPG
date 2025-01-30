@@ -109,7 +109,8 @@ export const getPossibleActionTiles = (
       action.method === "AOE_WALL_SHOOT" ||
       action.method === "AOE_CIRCLE_SHOOT" ||
       action.method === "AOE_SPIRAL_SHOOT" ||
-      action.method === "AOE_CIRCLE_SPAWN"
+      action.method === "AOE_CIRCLE_SPAWN" ||
+      action.effects?.some(effect => effect.type === "displacement")
     ) {
       const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius });
       highlights = grid.traverse(f);
