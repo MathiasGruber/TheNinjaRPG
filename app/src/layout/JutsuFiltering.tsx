@@ -417,16 +417,14 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const bloodlines = fixedBloodline
     ? bloodlineData?.filter((b) => b.id === fixedBloodline)
     : bloodlineData;
-  const selectedBloodline = bloodlines?.find((b) => b.id === bloodline);
-
   // Exclusion popover
   const [showExclusionPopover, setShowExclusionPopover] = useState(false);
   const [exclusionCategory, setExclusionCategory] =
     useState<ExclusionCategory>("element");
   const [tempExclusions, setTempExclusions] = useState<string[]>([]);
 
-  // Decide which options to show in the MultiSelect
-  const exclusionOptions = (() => {
+  // Get options for current exclusion category
+  const currentExclusionOptions = (() => {
     switch (exclusionCategory) {
       case "appear":
         return StatTypes; // Example or your logic?
@@ -463,47 +461,50 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const handleAddExclusions = () => {
     const newExclusions = [...new Set(tempExclusions)];
 
+    // Validate exclusions against current options
+    const validExclusions = newExclusions.filter(exc => currentExclusionOptions.includes(exc));
+
     switch (exclusionCategory) {
       case "type":
-        setExcludedJutsuTypes(newExclusions);
+        setExcludedJutsuTypes(validExclusions);
         break;
 
       case "classification":
-        setExcludedClassifications(newExclusions as StatType[]);
+        setExcludedClassifications(validExclusions as StatType[]);
         break;
       case "rarity":
-        setExcludedRarities(newExclusions as RarityType[]);
+        setExcludedRarities(validExclusions as RarityType[]);
         break;
       case "rank":
-        setExcludedRanks(newExclusions as UserRank[]);
+        setExcludedRanks(validExclusions as UserRank[]);
         break;
       case "method":
-        setExcludedMethods(newExclusions as AttackMethod[]);
+        setExcludedMethods(validExclusions as AttackMethod[]);
         break;
       case "target":
-        setExcludedTargets(newExclusions as AttackTarget[]);
+        setExcludedTargets(validExclusions as AttackTarget[]);
         break;
 
       // Animations
       case "appear":
-        setExcludedAppear(newExclusions);
+        setExcludedAppear(validExclusions);
         break;
       case "disappear":
-        setExcludedDisappear(newExclusions);
+        setExcludedDisappear(validExclusions);
         break;
       case "static":
-        setExcludedStatic(newExclusions);
+        setExcludedStatic(validExclusions);
         break;
 
       // Multi-value JSON
       case "element":
-        setExcludedElements(newExclusions as ElementName[]);
+        setExcludedElements(validExclusions as ElementName[]);
         break;
       case "effect":
-        setExcludedEffects(newExclusions as EffectType[]);
+        setExcludedEffects(validExclusions as EffectType[]);
         break;
       case "stat":
-        setExcludedStats(newExclusions as StatGenType[]);
+        setExcludedStats(validExclusions as StatGenType[]);
         break;
       default:
         break;

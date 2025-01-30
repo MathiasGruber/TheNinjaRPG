@@ -23,10 +23,10 @@ import type { QuestTrackerType } from "@/validators/objectives";
  * Get currently active quests for a user
  */
 export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
-  return (
-    user?.userQuests.filter((uq) => !!uq.quest).map((uq) => ({ ...uq, ...uq.quest })) ??
-    []
-  );
+  if (!user.userQuests) return [];
+  return user.userQuests
+    .filter((uq) => !!uq.quest)
+    .map((uq) => ({ ...uq, ...uq.quest }));
 };
 
 /**
@@ -364,8 +364,11 @@ export const mockAchievementHistoryEntries = (
   quests: Quest[],
   user: NonNullable<UserWithRelations>,
 ) => {
-  return quests
-    .filter((q) => q !== null)
+  if (!quests || !user) return [];
+
+  const validQuests = quests.filter((q): q is NonNullable<Quest> => q !== null);
+
+  return validQuests
     .filter((q) => !q.hidden || canChangeContent(user.role))
     .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))
     .map((a) => ({
@@ -424,18 +427,23 @@ export const isAvailableUserQuests = (
     completed?: number | null;
     prerequisiteQuestId?: string | null;
   },
-  user: UserData,
+  user: UserData & {
+    userQuests?: Array<{
+      questId: string;
+      completed: number;
+    }>;
+  },
 ) => {
   const hideCheck = !quest.hidden || canPlayHiddenQuests(user.role);
-  const expiresCheck = !quest.expiresAt || new Date(quest.expiresAt) > new Date();
+  const expiresCheck = !quest.expiresAt || (quest.expiresAt && new Date(quest.expiresAt).getTime() > new Date().getTime());
   const prevCheck =
     quest.questType !== "event" ||
     !quest.previousAttempts ||
     (quest.previousAttempts <= 1 && quest.completed === 0);
   const villageCheck =
     !quest.requiredVillage || quest.requiredVillage === user.villageId;
-  const prerequisiteCheck = !quest.prerequisiteQuestId || (user as any).userQuests?.some(
-    (uq: { questId: string; completed: number }) => uq.questId === quest.prerequisiteQuestId && uq.completed === 1
-  );
+  const prerequisiteCheck = !quest.prerequisiteQuestId || user.userQuests?.some(
+    (uq) => uq.questId === quest.prerequisiteQuestId && uq.completed === 1
+  ) ?? false;
   return hideCheck && expiresCheck && prevCheck && villageCheck && prerequisiteCheck;
 };
