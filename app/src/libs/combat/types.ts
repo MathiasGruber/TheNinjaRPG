@@ -602,6 +602,16 @@ export const StealthTag = z.object({
 
 export type StealthTagType = z.infer<typeof StealthTag>;
 
+export const ElementalSealTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("elementalseal").default("elementalseal"),
+  description: msg("Seals the target's ability to use jutsu of specified elements"),
+  elements: z.array(z.enum(ElementNames)).min(1).default(["Fire"]),
+});
+
+export type ElementalSealTagType = z.infer<typeof ElementalSealTag>;
+
 export const StunPreventTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -714,6 +724,7 @@ export const AllTags = z.union([
   SealPreventTag.default({}),
   SealTag.default({}),
   StealthTag.default({}),
+  ElementalSealTag.default({}),
   StunPreventTag.default({}),
   StunTag.default({}),
   SummonPreventTag.default({}),
@@ -868,6 +879,7 @@ export type UserEffect = BattleEffect & {
   targetId: string;
   fromGround?: boolean;
   fromType?: "jutsu" | "armor" | "item" | "basic" | "bloodline";
+  elements?: ElementName[];
 };
 
 export type ActionEffect = {
