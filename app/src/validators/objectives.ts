@@ -26,13 +26,44 @@ export const SimpleTasks = [
   "jutsus_mastered",
   "user_level",
   "reputation_points",
+  "dialog_scene",
   //"students_trained",
 ] as const;
+
+export const DialogActionTypes = [
+  "quest_fail",
+  "collect_item",
+  "collect_jutsu",
+  "collect_bloodline",
+  "complete_objective",
+  "complete_quest",
+  "start_battle",
+  "abandon_quest",
+  "next_scene",
+  "unlock_feature",
+  "lock_feature",
+] as const;
+export type DialogActionType = (typeof DialogActionTypes)[number];
+
+export const DialogAction = z.object({
+  type: z.enum(DialogActionTypes),
+  value: z.string().optional(),
+});
+export type DialogActionType = z.infer<typeof DialogAction>;
+
+export const DialogResponse = z.object({
+  text: z.string(),
+  actions: z.array(DialogAction),
+});
+export type DialogResponseType = z.infer<typeof DialogResponse>;
 
 export const LocationTasks = [
   "move_to_location",
   "collect_item",
+  "collect_puzzle_piece",
   "defeat_opponents",
+  "defeat_random_ai",
+  "deliver_item",
 ] as const;
 export type LocationTasksType = (typeof LocationTasks)[number];
 
@@ -132,11 +163,67 @@ export const DefeatOpponents = z.object({
   ...complexObjectiveFields,
 });
 
+export const DialogObjective = z.object({
+  ...baseObjectiveFields,
+  task: z.literal("dialog_scene").default("dialog_scene"),
+  dialogFolderId: z.string().min(1),
+  sceneIds: z.array(z.string().min(1)),
+  sector: z.coerce.number().min(0).default(0),
+  longitude: z.coerce.number().min(0).default(0),
+  latitude: z.coerce.number().min(0).default(0),
+  hideLocation: z.coerce.boolean().default(false),
+  completed: z.coerce.number().min(0).max(1).default(0),
+  ...rewardFields,
+  ...attackerFields,
+});
+
+export const PuzzlePiece = z.object({
+  ...baseObjectiveFields,
+  task: z.literal("collect_puzzle_piece").default("collect_puzzle_piece"),
+  piece_name: z.string().min(3).default("Puzzle piece"),
+  piece_id: z.string().min(1),
+  complete_item_id: z.string().min(1),
+  required_pieces: z.number().min(1).default(1),
+  delete_on_complete: z.coerce.boolean().default(true),
+  ...complexObjectiveFields,
+});
+
+export const DeliverItem = z.object({
+  ...baseObjectiveFields,
+  task: z.literal("deliver_item").default("deliver_item"),
+  item_name: z.string().min(3).default("Item to deliver"),
+  item_id: z.string().min(1),
+  target_name: z.string().min(3).default("Target NPC"),
+  target_ai: z.string().min(10),
+  reward_item_id: z.string().optional(),
+  delete_on_complete: z.coerce.boolean().default(true),
+  ...complexObjectiveFields,
+});
+
+export const DefeatRandomAI = z.object({
+  ...baseObjectiveFields,
+  task: z.literal("defeat_random_ai").default("defeat_random_ai"),
+  opponent_name: z.string().min(3).default("Random opponent"),
+  opponent_ai_pool: z.array(z.string().min(10)),
+  required_defeats: z.number().min(1).default(1),
+  opponent_scaled_to_user: z.coerce.boolean().default(false),
+  completionOutcome: z.enum(["Win", "Lose", "Flee", "Draw", "Any"]).default("Win"),
+  failDescription: z.string().default("You failed to defeat the opponent"),
+  fleeDescription: z.string().default("You fled from the opponent"),
+  drawDescription: z.string().default("The battle ended in a draw"),
+  scaleGains: z.coerce.number().min(0).max(1).default(1),
+  ...complexObjectiveFields,
+});
+
 export const AllObjectives = z.union([
   SimpleObjective,
   MoveToObjective,
   CollectItem,
   DefeatOpponents,
+  DialogObjective,
+  PuzzlePiece,
+  DeliverItem,
+  DefeatRandomAI,
 ]);
 export type AllObjectivesType = z.infer<typeof AllObjectives>;
 
@@ -181,6 +268,13 @@ export const QuestValidator = z
       .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")
       .optional()
       .nullish(),
+    // New fields for quest redesign
+    prerequisiteQuestId: z.string().min(1).max(191).optional().nullish(),
+    maxRetries: z.coerce.number().min(0).optional(),
+    repeatInterval: z.coerce.number().min(0).optional(), // In minutes
+    maxRepeats: z.coerce.number().min(0).optional(),
+    releaseAt: z.string().datetime().optional().nullish(),
+    expirationAt: z.string().datetime().optional().nullish(),
   })
   .superRefine((val, ctx) => {
     if (["daily", "tier"].includes(val.questType)) {

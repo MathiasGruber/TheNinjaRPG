@@ -308,9 +308,40 @@ export const questsRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
+
+      // Check quest availability including new conditions
       if (!isAvailableUserQuests({ ...questData, ...prevAttempt }, user)) {
         return errorResponse("Quest is not available for you");
       }
+
+      // Check prerequisite quest
+      if (questData.prerequisiteQuestId) {
+        const prerequisiteCompleted = user.userQuests?.some(
+          uq => uq.questId === questData.prerequisiteQuestId && uq.completed === 1
+        );
+        if (!prerequisiteCompleted) {
+          return errorResponse("You must complete the prerequisite quest first");
+        }
+      }
+
+      // Check retry/repeat limits
+      if (questData.maxRetries && prevAttempt?.previousAttempts >= questData.maxRetries) {
+        return errorResponse(`You have reached the maximum number of retries (${questData.maxRetries})`);
+      }
+      if (questData.maxRepeats && prevAttempt?.completed >= questData.maxRepeats) {
+        return errorResponse(`You have reached the maximum number of completions (${questData.maxRepeats})`);
+      }
+
+      // Check release and expiration dates
+      const now = new Date();
+      if (questData.releaseAt && new Date(questData.releaseAt) > now) {
+        return errorResponse("This quest is not yet available");
+      }
+      if (questData.expirationAt && new Date(questData.expirationAt) <= now) {
+        return errorResponse("This quest has expired");
+      }
+
+      // Original checks
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.questRank)) {
         return errorResponse(`Rank ${user.rank} not allowed`);
@@ -359,6 +390,80 @@ export const questsRouter = createTRPCRouter({
       ]);
       return { success: true, message: `Quest started: ${questData.name}` };
     }),
+  complete: protectedProcedure
+    .input(z.object({ questId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [updatedUser, questData] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchQuest(ctx.drizzle, input.questId),
+      ]);
+      // Guards
+      const { user } = updatedUser;
+      if (!user) return errorResponse("User does not exist");
+      if (!questData) return errorResponse("Quest does not exist");
+      // Get rewards
+      const { rewards, trackers, userQuest, resolved, successDescriptions, canRepeat } = getReward(
+        user,
+        input.questId,
+      );
+      if (!userQuest) return errorResponse("Quest not found");
+      if (!resolved) return errorResponse("Quest not completed");
+
+      // Calculate next available time for repeatable quests
+      let nextAvailableAt = null;
+      if (canRepeat && questData.repeatInterval) {
+        nextAvailableAt = new Date();
+        nextAvailableAt.setMinutes(nextAvailableAt.getMinutes() + questData.repeatInterval);
+      }
+
+      // Update quest history
+      await Promise.all([
+        ctx.drizzle
+          .update(questHistory)
+          .set({
+            completed: 1,
+            endAt: new Date(),
+            previousCompletes: sql`${questHistory.previousCompletes} + 1`,
+            // If quest is repeatable and not at max repeats, set up for next attempt
+            ...(nextAvailableAt ? {
+              completed: 0,
+              endAt: null,
+              startedAt: nextAvailableAt,
+            } : {}),
+          })
+          .where(
+            and(
+              eq(questHistory.questId, input.questId),
+              eq(questHistory.userId, ctx.userId),
+            ),
+          ),
+        ctx.drizzle
+          .update(userData)
+          .set({
+            questData: trackers,
+            questFinishAt: new Date(),
+          })
+          .where(eq(userData.userId, ctx.userId)),
+      ]);
+
+      // Return
+      let message = `Quest completed: ${questData.name}`;
+      if (nextAvailableAt) {
+        message += ` (Available again at ${nextAvailableAt.toLocaleString()})`;
+      }
+      return {
+        success: true,
+        message,
+        rewards,
+        successDescriptions,
+      };
+    }),
+
   abandon: protectedProcedure
     .input(z.object({ id: z.string() }))
     .output(baseServerResponse)

@@ -69,6 +69,59 @@ export const isLocationObjective = (
   return false;
 };
 
+export const handleDialogActions = async (
+  client: DrizzleClient,
+  user: NonNullable<UserWithRelations>,
+  actions: { type: string; value?: string }[],
+) => {
+  const consequences: {
+    type: "item" | "combat" | "jutsu" | "bloodline" | "feature";
+    id: string;
+    scaleStats?: boolean;
+    scaleGains?: number;
+  }[] = [];
+
+  for (const action of actions) {
+    switch (action.type) {
+      case "quest_fail":
+        // Quest failure is handled by the quest router
+        break;
+      case "collect_item":
+        if (action.value) {
+          consequences.push({ type: "item", id: action.value });
+        }
+        break;
+      case "collect_jutsu":
+        if (action.value) {
+          consequences.push({ type: "jutsu", id: action.value });
+        }
+        break;
+      case "collect_bloodline":
+        if (action.value) {
+          consequences.push({ type: "bloodline", id: action.value });
+        }
+        break;
+      case "start_battle":
+        if (action.value) {
+          consequences.push({ type: "combat", id: action.value });
+        }
+        break;
+      case "unlock_feature":
+      case "lock_feature":
+        if (action.value) {
+          consequences.push({
+            type: "feature",
+            id: action.value,
+            scaleStats: action.type === "unlock_feature"
+          });
+        }
+        break;
+    }
+  }
+
+  return consequences;
+};
+
 /**
  * Go through current user quests, and return updated list of questData &
  * list of rewards to award the user
@@ -80,14 +133,26 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
   const successDescriptions: string[] = [];
   let resolved = false;
+  let canRepeat = false;
+
   // Start mutating
   if (userQuest && !userQuest.completed) {
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
     const goals = tracker?.goals ?? [];
     resolved = (goals.every((g) => g.done) || goals.length === 0) ?? false;
+
     if (resolved) {
       rewards = ObjectiveReward.parse(userQuest.quest.content.reward);
+
+      // Check if quest can be repeated
+      if (userQuest.quest.repeatInterval && userQuest.quest.maxRepeats) {
+        const completedCount = userQuest.completed || 0;
+        if (completedCount < userQuest.quest.maxRepeats) {
+          canRepeat = true;
+        }
+      }
     }
+
     userQuest.quest.content.objectives.forEach((objective) => {
       const status = goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
@@ -125,7 +190,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
       }
     });
   }
-  return { rewards, trackers, userQuest, resolved, successDescriptions };
+  return { rewards, trackers, userQuest, resolved, successDescriptions, canRepeat };
 };
 
 /**
@@ -148,6 +213,10 @@ export const getNewTrackers = (
     value?: number;
     text?: string;
     contentId?: string;
+    dialogActions?: {
+      type: string;
+      value?: string;
+    }[];
   }[],
 ) => {
   const questData = user.questData ?? [];
@@ -199,6 +268,96 @@ export const getNewTrackers = (
               secondsPassed(new Date(questTracker.startAt)) / 60,
             );
             status.value = minutes;
+          } else if (task === "dialog_scene" && "dialogFolderId" in objective) {
+            // Handle dialog scene objective
+            if (isLocationObjective(user, objective)) {
+              const taskUpdate = tasks.find(t => t.task === task && t.dialogActions);
+              if (taskUpdate?.dialogActions) {
+                const consequences = await handleDialogActions(client, user, taskUpdate.dialogActions);
+                if (consequences.length > 0) {
+                  consequences.forEach(c => {
+                    if (c.type === "combat") {
+                      notifications.push(`Starting battle...`);
+                    } else if (c.type === "item") {
+                      notifications.push(`Received item`);
+                    } else if (c.type === "jutsu") {
+                      notifications.push(`Learned jutsu`);
+                    } else if (c.type === "bloodline") {
+                      notifications.push(`Acquired bloodline`);
+                    } else if (c.type === "feature") {
+                      notifications.push(`${c.scaleStats ? "Unlocked" : "Locked"} feature: ${c.id}`);
+                    }
+                  });
+                  status.done = true;
+                }
+              }
+            }
+          } else if (task === "collect_puzzle_piece" && "piece_id" in objective) {
+            // Handle puzzle piece collection
+            if (isLocationObjective(user, objective)) {
+              const taskUpdate = tasks.find(t => t.task === task && t.contentId === objective.piece_id);
+              if (taskUpdate) {
+                const collectedPieces = user.userQuests
+                  ?.filter(q => q.questId === quest.id)
+                  ?.reduce((acc, q) => acc + (q.completed ? 1 : 0), 0) ?? 0;
+                if (collectedPieces >= objective.required_pieces) {
+                  consequences.push({ type: "item", id: objective.complete_item_id });
+                  notifications.push(`Completed puzzle: ${objective.piece_name}`);
+                  status.done = true;
+                } else {
+                  notifications.push(`Collected puzzle piece (${collectedPieces + 1}/${objective.required_pieces})`);
+                  consequences.push({ type: "item", id: objective.piece_id });
+                  status.done = true;
+                }
+              }
+            }
+          } else if (task === "deliver_item" && "item_id" in objective) {
+            // Handle item delivery
+            if (isLocationObjective(user, objective)) {
+              const taskUpdate = tasks.find(t => t.task === task && t.contentId === objective.target_ai);
+              if (taskUpdate) {
+                const hasItem = user.userItems?.some(i => i.itemId === objective.item_id);
+                if (hasItem) {
+                  if (objective.reward_item_id) {
+                    consequences.push({ type: "item", id: objective.reward_item_id });
+                    notifications.push(`Received ${objective.reward_item_id} from ${objective.target_name}`);
+                  }
+                  status.done = true;
+                } else {
+                  notifications.push(`You don't have the required item to deliver`);
+                }
+              }
+            }
+          } else if (task === "defeat_random_ai" && "opponent_ai_pool" in objective) {
+            // Handle random AI defeats
+            const taskUpdate = tasks.find(t => t.task === task && t.contentId);
+            if (taskUpdate?.text) {
+              const completionOutcome = objective.completionOutcome || "Win";
+              const isSuccess = (
+                completionOutcome === "Any" ||
+                (taskUpdate.text === "Won" && completionOutcome === "Win") ||
+                (taskUpdate.text === "Lost" && completionOutcome === "Lose") ||
+                (taskUpdate.text === "Draw" && completionOutcome === "Draw") ||
+                (taskUpdate.text === "Fled" && completionOutcome === "Flee")
+              );
+              if (isSuccess) {
+                status.value += 1;
+                if (status.value >= objective.required_defeats) {
+                  status.done = true;
+                } else {
+                  // Queue next random opponent
+                  const nextOpponent = getRandomElement(objective.opponent_ai_pool);
+                  if (nextOpponent) {
+                    consequences.push({
+                      type: "combat",
+                      id: nextOpponent,
+                      scaleStats: objective.opponent_scaled_to_user,
+                      scaleGains: objective.scaleGains,
+                    });
+                  }
+                }
+              }
+            }
           } else if (task.includes("missions_total") || task.includes("crimes_total")) {
             const type = task.includes("missions") ? "mission" : "crime";
             const rank = task.split("_")[0]?.toUpperCase() as LetterRank;
@@ -422,16 +581,39 @@ export const isAvailableUserQuests = (
     requiredVillage: string | null;
     previousAttempts?: number | null;
     completed?: number | null;
+    // New fields
+    prerequisiteQuestId?: string | null;
+    maxRetries?: number | null;
+    maxRepeats?: number | null;
+    releaseAt?: string | null;
+    expirationAt?: string | null;
   },
   user: UserData,
 ) => {
+  const now = new Date();
   const hideCheck = !quest.hidden || canPlayHiddenQuests(user.role);
-  const expiresCheck = !quest.expiresAt || new Date(quest.expiresAt) > new Date();
+  const expiresCheck = !quest.expiresAt || new Date(quest.expiresAt) > now;
+  const releaseCheck = !quest.releaseAt || new Date(quest.releaseAt) <= now;
+  const expirationCheck = !quest.expirationAt || new Date(quest.expirationAt) > now;
+
+  // Check if prerequisite quest is completed
+  const prerequisiteCheck = !quest.prerequisiteQuestId || user.userQuests?.some(
+    uq => uq.questId === quest.prerequisiteQuestId && uq.completed === 1
+  );
+
+  // Check retry/repeat limits
+  const retryCheck = !quest.maxRetries || !quest.previousAttempts || quest.previousAttempts < quest.maxRetries;
+  const repeatCheck = !quest.maxRepeats || !quest.completed || quest.completed < quest.maxRepeats;
+
+  // Original checks
   const prevCheck =
     quest.questType !== "event" ||
     !quest.previousAttempts ||
     (quest.previousAttempts <= 1 && quest.completed === 0);
   const villageCheck =
     !quest.requiredVillage || quest.requiredVillage === user.villageId;
-  return hideCheck && expiresCheck && prevCheck && villageCheck;
+
+  return hideCheck && expiresCheck && prevCheck && villageCheck &&
+         releaseCheck && expirationCheck && prerequisiteCheck &&
+         retryCheck && repeatCheck;
 };

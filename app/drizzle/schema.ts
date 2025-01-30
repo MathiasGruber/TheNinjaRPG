@@ -1970,6 +1970,80 @@ export const dataBattleAction = mysqlTable(
   },
 );
 
+export const dialogFolder = mysqlTable(
+  "DialogFolder",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: text("description"),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("DialogFolder_name_key").on(table.name),
+    };
+  },
+);
+
+export const dialogScene = mysqlTable(
+  "DialogScene",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    folderId: varchar("folderId", { length: 191 }).notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: text("description"),
+    backgroundImage: varchar("backgroundImage", { length: 191 }).notNull(),
+    character1Image: varchar("character1Image", { length: 191 }),
+    character2Image: varchar("character2Image", { length: 191 }),
+    character3Image: varchar("character3Image", { length: 191 }),
+    character1Position: mysqlEnum("character1Position", ["left", "center", "right"]),
+    character2Position: mysqlEnum("character2Position", ["left", "center", "right"]),
+    character3Position: mysqlEnum("character3Position", ["left", "center", "right"]),
+    music: varchar("music", { length: 191 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      folderIdIdx: index("DialogScene_folderId_idx").on(table.folderId),
+      nameKey: uniqueIndex("DialogScene_name_key").on(table.name),
+    };
+  },
+);
+
+export const dialogConversation = mysqlTable(
+  "DialogConversation",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    sceneId: varchar("sceneId", { length: 191 }).notNull(),
+    speakerName: varchar("speakerName", { length: 191 }).notNull(),
+    text: text("text").notNull(),
+    order: int("order").notNull(),
+    responses: json("responses").$type<DialogResponseType[]>().notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      sceneIdIdx: index("DialogConversation_sceneId_idx").on(table.sceneId),
+      orderKey: uniqueIndex("DialogConversation_order_key").on(table.sceneId, table.order),
+    };
+  },
+);
+
 export const quest = mysqlTable(
   "Quest",
   {
@@ -1995,6 +2069,13 @@ export const quest = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     expiresAt: date("expiresAt", { mode: "string" }),
+    // New fields for quest redesign
+    prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),
+    maxRetries: int("maxRetries").default(0), // 0 means unlimited retries
+    repeatInterval: int("repeatInterval").default(0), // In minutes, 0 means no repeat
+    maxRepeats: int("maxRepeats").default(0), // 0 means unlimited repeats
+    releaseAt: datetime("releaseAt", { mode: "date", fsp: 3 }),
+    expirationAt: datetime("expirationAt", { mode: "date", fsp: 3 }),
   },
   (table) => {
     return {
