@@ -1418,14 +1418,15 @@ export const elementalseal = (effect: UserEffect, target: BattleUserState) => {
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     // Check if effect has elements property
-    if ('elements' in effect && Array.isArray(effect.elements)) {
+    if ("elements" in effect && effect.elements) {
       const elements = effect.elements.length > 0 ? effect.elements.join(", ") : "no";
-      const info = getInfo(target, effect, `will be sealed from using ${elements} jutsu`);
+      const info = getInfo(
+        target,
+        effect,
+        `will be sealed from using ${elements} jutsu`,
+      );
       return info;
     }
-    // If no elements specified, seal all elements
-    const info = getInfo(target, effect, `will be sealed from using all jutsu`);
-    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
   }
