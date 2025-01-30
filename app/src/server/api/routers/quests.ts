@@ -53,7 +53,7 @@ export const questsRouter = createTRPCRouter({
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const results = await ctx.drizzle.query.quest.findMany({
-        with: { village: true },
+        with: { village: true, prerequisiteQuest: true },
         where: and(
           ...(input?.name ? [like(quest.name, `%${input.name}%`)] : []),
           ...(input?.objectives && input.objectives.length > 0
@@ -309,6 +309,14 @@ export const questsRouter = createTRPCRouter({
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
       if (!isAvailableUserQuests({ ...questData, ...prevAttempt }, user)) {
+        if (questData.prerequisiteQuestId) {
+          const prerequisiteCompleted = user.userQuests?.some(
+            (uq) => uq.questId === questData.prerequisiteQuestId && uq.completed === 1
+          );
+          if (!prerequisiteCompleted) {
+            return errorResponse("You must complete the prerequisite quest first");
+          }
+        }
         return errorResponse("Quest is not available for you");
       }
       if (user.isBanned) return errorResponse("You are banned");

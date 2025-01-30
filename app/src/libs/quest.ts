@@ -422,6 +422,7 @@ export const isAvailableUserQuests = (
     requiredVillage: string | null;
     previousAttempts?: number | null;
     completed?: number | null;
+    prerequisiteQuestId?: string | null;
   },
   user: UserData,
 ) => {
@@ -433,5 +434,8 @@ export const isAvailableUserQuests = (
     (quest.previousAttempts <= 1 && quest.completed === 0);
   const villageCheck =
     !quest.requiredVillage || quest.requiredVillage === user.villageId;
-  return hideCheck && expiresCheck && prevCheck && villageCheck;
+  const prerequisiteCheck = !quest.prerequisiteQuestId || (user.userQuests as { questId: string; completed: number }[] | undefined)?.some(
+    (uq) => uq.questId === quest.prerequisiteQuestId && uq.completed === 1
+  );
+  return hideCheck && expiresCheck && prevCheck && villageCheck && prerequisiteCheck;
 };

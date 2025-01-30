@@ -407,6 +407,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Reward:</b> {rewards.join(", ")}
               </div>
             )}
+            {"prerequisiteQuestId" in item && item.prerequisiteQuestId && (
+              <div className="col-span-2">
+                <b>Prerequisite Quest:</b> {(item as Quest).prerequisiteQuest?.name ?? item.prerequisiteQuestId}
+              </div>
+            )}
             {"cost" in item && item.cost > 0 && (
               <div className="col-span-2">
                 <b>Shop Price:</b> {item.cost} ryo

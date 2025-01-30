@@ -1982,6 +1982,7 @@ export const quest = mysqlTable(
     requiredLevel: int("requiredLevel").default(1).notNull(),
     maxLevel: int("maxLevel").default(100).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
+    prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),
     tierLevel: int("tierLevel"),
     timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
     questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
@@ -2013,6 +2014,10 @@ export const questRelations = relations(quest, ({ one }) => ({
   village: one(village, {
     fields: [quest.requiredVillage],
     references: [village.id],
+  }),
+  prerequisiteQuest: one(quest, {
+    fields: [quest.prerequisiteQuestId],
+    references: [quest.id],
   }),
 }));
 
