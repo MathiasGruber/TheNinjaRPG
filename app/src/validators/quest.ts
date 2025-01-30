@@ -18,6 +18,7 @@ export const questFilteringSchema = z.object({
   userLevel: z.coerce.number().min(0).max(150).optional(),
   village: z.string().optional(),
   hidden: z.boolean().optional(),
+  prerequisiteQuestId: z.string().optional(),
 });
 
 export type QuestFilteringSchema = z.infer<typeof questFilteringSchema>;
