@@ -76,7 +76,9 @@ const Welcome: React.FC = () => {
   return (
     <>
       <div className="flex flex-col items-center">
-        <h1 className="text-center text-4xl font-bold">Welcome to The Ninja RPG</h1>
+        <h1 className="text-center text-4xl font-bold">
+          The Ninja RPG - A Free Online Browser Game
+        </h1>
         <div className="pt-2 w-full px-3">
           <hr className="h-px border-primary border-2" />
         </div>

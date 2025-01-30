@@ -48,10 +48,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   );
 }
 
+// Reused variables
+const title = "TheNinja-RPG - Online RPG - Free Online Game for Ninjas";
+const description =
+  "A free browser game with ninja set in the world of Seichi. A free online game";
+
+// Metadata
 export const metadata: Metadata = {
-  title: "TheNinja-RPG - Online RPG game - Free Browser Game with Ninjas",
-  description:
-    "A free browser game with ninja set in the world of Seichi. A multiplayer RPG game with 2D travel and combat system. Works on Desktop, Phone or Tablet devices.",
+  title: title,
+  description: description,
   keywords: [
     "anime",
     "community",
@@ -75,9 +80,8 @@ export const metadata: Metadata = {
   creator: "Mathias F. Gruber",
   publisher: "Studie-Tech ApS",
   openGraph: {
-    title: "TheNinja-RPG",
-    description:
-      "A free browser game with ninja set in the world of Seichi. A multiplayer RPG game with 2D travel and combat system. Works on Desktop, Phone or Tablet devices.",
+    title: title,
+    description: description,
     url: "https://www.theninja-rpg.com",
     siteName: "TheNinja-RPG",
     images: [
@@ -93,9 +97,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Ninja-RPG.com - a free browser based mmorpg",
-    description:
-      "A free browser game with ninja set in the world of Seichi. A multiplayer RPG game with 2D travel and combat system. Works on Desktop, Phone or Tablet devices.",
+    title: title,
+    description: description,
     siteId: "137431404",
     creator: "@nextjs",
     creatorId: "137431404",
