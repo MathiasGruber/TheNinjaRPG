@@ -316,7 +316,8 @@ export const getNewTrackers = async (
             if (isLocationObjective(user, objective)) {
               const taskUpdate = tasks.find(t => t.task === task && t.contentId === objective.target_ai);
               if (taskUpdate) {
-                const hasItem = user.userItems?.some(i => i.itemId === objective.item_id);
+                const userItems = user.userItems as { itemId: string }[] | undefined;
+                const hasItem = userItems?.some(i => i.itemId === objective.item_id) ?? false;
                 if (hasItem) {
                   if (objective.reward_item_id) {
                     consequences.push({ type: "item", id: objective.reward_item_id });
@@ -346,7 +347,8 @@ export const getNewTrackers = async (
                   status.done = true;
                 } else {
                   // Queue next random opponent
-                  const nextOpponent = getRandomElement(objective.opponent_ai_pool);
+                  const aiPool = objective.opponent_ai_pool as string[] | undefined;
+                  const nextOpponent = aiPool ? (aiPool[Math.floor(Math.random() * aiPool.length)] as string | undefined) : undefined;
                   if (nextOpponent) {
                     consequences.push({
                       type: "combat",
@@ -597,9 +599,10 @@ export const isAvailableUserQuests = (
   const expirationCheck = !quest.expirationAt || new Date(quest.expirationAt) > now;
 
   // Check if prerequisite quest is completed
-  const prerequisiteCheck = !quest.prerequisiteQuestId || user.userQuests?.some(
+  const userQuests = user.userQuests as { questId: string; completed: number }[] | undefined;
+  const prerequisiteCheck = !quest.prerequisiteQuestId || userQuests?.some(
     uq => uq.questId === quest.prerequisiteQuestId && uq.completed === 1
-  );
+  ) ?? false;
 
   // Check retry/repeat limits
   const retryCheck = !quest.maxRetries || !quest.previousAttempts || quest.previousAttempts < quest.maxRetries;
@@ -613,7 +616,8 @@ export const isAvailableUserQuests = (
   const villageCheck =
     !quest.requiredVillage || quest.requiredVillage === user.villageId;
 
-  return hideCheck && expiresCheck && prevCheck && villageCheck &&
+  const result = Boolean(hideCheck && expiresCheck && prevCheck && villageCheck &&
          releaseCheck && expirationCheck && prerequisiteCheck &&
-         retryCheck && repeatCheck;
+         retryCheck && repeatCheck);
+  return result;
 };
