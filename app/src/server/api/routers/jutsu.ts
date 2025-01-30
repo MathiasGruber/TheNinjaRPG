@@ -426,7 +426,7 @@ export const jutsuRouter = createTRPCRouter({
       // Quests
       let questData = user.questData;
       if (!userjutsuObj) {
-        const { trackers } = getNewTrackers(user, [
+        const { trackers } = await getNewTrackers(user, [
           { task: "jutsus_mastered", increment: 1 },
         ]);
         questData = trackers;

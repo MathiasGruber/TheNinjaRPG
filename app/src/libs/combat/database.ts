@@ -325,20 +325,20 @@ export const updateUser = async (
     // Update quest tracker with battle result
     if (result.didWin > 0) {
       if (curBattle.battleType === "COMBAT") {
-        const { trackers } = getNewTrackers(user, [
+        const { trackers } = await getNewTrackers(user, [
           { task: "pvp_kills", increment: 1 },
         ]);
         user.questData = trackers;
       }
       if (curBattle.battleType === "ARENA") {
-        const { trackers } = getNewTrackers(user, [
+        const { trackers } = await getNewTrackers(user, [
           { task: "arena_kills", increment: 1 },
         ]);
         user.questData = trackers;
       }
     }
     // Update trackers
-    const { trackers, notifications } = getNewTrackers(
+    const { trackers, notifications } = await getNewTrackers(
       user,
       curBattle.usersState
         .filter((u) => u.userId !== userId)

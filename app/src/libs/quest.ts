@@ -126,10 +126,10 @@ export const handleDialogActions = async (
  * Go through current user quests, and return updated list of questData &
  * list of rewards to award the user
  */
-export const getReward = (user: NonNullable<UserWithRelations>, questId: string) => {
+export const getReward = async (user: NonNullable<UserWithRelations>, questId: string) => {
   // Derived
   let rewards = ObjectiveReward.parse({});
-  const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+  const { trackers } = await getNewTrackers(user, [{ task: "any" }]);
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
   const successDescriptions: string[] = [];
   let resolved = false;
@@ -205,7 +205,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
  * @param contentId - If provided, refers to ID of content, e.g. opponentID defeated
  * @param notifications - If provided, is used to set notifications
  */
-export const getNewTrackers = (
+export const getNewTrackers = async (
   user: NonNullable<UserWithRelations>,
   tasks: {
     task: AllObjectiveTask | "any";

@@ -123,7 +123,7 @@ export const trainRouter = createTRPCRouter({
       const trainingAmount =
         factor * energySpent * trainEfficiency(user) * trainingMultiplier(user);
       // Mutate
-      const { trackers } = getNewTrackers(user, [
+      const { trackers } = await getNewTrackers(user, [
         { task: "stats_trained", increment: trainingAmount },
         { task: "minutes_training", increment: minutes },
       ]);

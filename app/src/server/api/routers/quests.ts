@@ -664,7 +664,7 @@ export const questsRouter = createTRPCRouter({
           }
         } else {
           user.userQuests = user.userQuests.filter((q) => q.questId !== input.questId);
-          const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+          const { trackers } = await getNewTrackers(user, [{ task: "any" }]);
           user.questData = trackers;
         }
       }
@@ -770,7 +770,7 @@ export const questsRouter = createTRPCRouter({
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
       // Get updated quest information
-      const { trackers, notifications, consequences } = getNewTrackers(user, [
+      const { trackers, notifications, consequences } = await getNewTrackers(user, [
         { task: "move_to_location" },
         { task: "collect_item" },
         { task: "defeat_opponents" },

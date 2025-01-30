@@ -186,7 +186,7 @@ export const profileRouter = createTRPCRouter({
     if (expRequired > 0) return errorResponse("No enough experience for level");
     // Mutate
     const newLevel = user.level + 1;
-    const { trackers } = getNewTrackers(user, [
+    const { trackers } = await getNewTrackers(user, [
       { task: "user_level", value: newLevel },
     ]);
     const result = await ctx.drizzle
@@ -1382,7 +1382,7 @@ export const fetchUpdatedUser = async (props: {
     }
   }
   if (user) {
-    const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+    const { trackers } = await getNewTrackers(user, [{ task: "any" }]);
     user.questData = trackers;
   }
   return { user, settings, rewards };
