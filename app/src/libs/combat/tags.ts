@@ -1032,6 +1032,33 @@ export const decreasepoolcost = (effect: UserEffect, target: BattleUserState) =>
   return pooladjust(effect, target);
 };
 
+/** Drain target's Chakra and Stamina over time */
+export const drain = (effect: UserEffect, target: BattleUserState) => {
+  const { power, qualifier } = getPower(effect);
+  const poolsAffects = "poolsAffected" in effect && effect.poolsAffected
+    ? effect.poolsAffected
+    : ["Chakra", "Stamina"];
+
+  if (!effect.isNew && !effect.castThisRound) {
+    poolsAffects.forEach(pool => {
+      switch (pool) {
+        case "Chakra":
+          target.curChakra = Math.max(0, target.curChakra * (1 - power / 100));
+          break;
+        case "Stamina":
+          target.curStamina = Math.max(0, target.curStamina * (1 - power / 100));
+          break;
+      }
+    });
+  }
+
+  return getInfo(
+    target,
+    effect,
+    `will drain ${qualifier}% of ${poolsAffects.join(" and ")} for ${effect.rounds} rounds`,
+  );
+};
+
 /** Reflect damage back to the opponent */
 export const reflect = (
   effect: UserEffect,
@@ -1128,6 +1155,49 @@ export const lifesteal = (
     });
   }
   return getInfo(target, effect, `will steal ${qualifier} damage as health`);
+};
+
+/** Drain target's Chakra and Stamina over time */
+export const drainOld = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState,
+) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+  }
+
+  // Calculate drain amount
+  const { power, qualifier } = getPower(effect);
+  const poolsAffects = "poolsAffected" in effect && effect.poolsAffected
+    ? effect.poolsAffected
+    : ["Chakra", "Stamina"];
+
+  // Apply drain effect each round
+  if (!effect.isNew && !effect.castThisRound) {
+    const drainAmount = effect.calculation === "percentage"
+      ? power / 100
+      : power;
+
+    poolsAffects.forEach(pool => {
+      switch (pool) {
+        case "Chakra":
+          target.curChakra = Math.max(0, target.curChakra * (1 - drainAmount));
+          break;
+        case "Stamina":
+          target.curStamina = Math.max(0, target.curStamina * (1 - drainAmount));
+          break;
+      }
+    });
+  }
+
+  return getInfo(
+    target,
+    effect,
+    `will drain ${qualifier}% of ${poolsAffects.join(" and ")} for ${effect.rounds} rounds`,
+  );
 };
 
 /**
