@@ -4,7 +4,7 @@ SHELL := bash
 .DEFAULT_GOAL = help
 
 # Extract arguments for relevant targets.
-ARGS_TARGETS=makemigrations,bun
+ARGS_TARGETS=makemigrations,bun,uncommit
 ifneq ($(findstring $(firstword $(MAKECMDGOALS)),$(ARGS_TARGETS)),)
   ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
   $(eval $(ARGS):;@:)
@@ -135,4 +135,10 @@ lint: # Push schema to db without creating migrations
 deps-upgrade: # Upgrade all dependencies to their latest version
 	@echo "${YELLOW}Upgrading all dependencies ${RESET}"
 	cd app && npx npm-check-updates -u
+
+---------------Git--------------------: # -------------------------------------------------------
+.PHONY: uncommit
+uncommit: # Undo the last N commits (keeping changes staged), usage: make uncommit N
+	@echo "${YELLOW}Uncommitting last $(ARGS) commits${RESET}"
+	git reset --soft HEAD~$(ARGS)
 	
