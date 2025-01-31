@@ -6,7 +6,7 @@ import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
-import { absorb, reflect, recoil, lifesteal } from "./tags";
+import { absorb, reflect, recoil, lifesteal, shield } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -30,7 +30,7 @@ import { BATTLE_TAG_STACKING, ID_ANIMATION_SMOKE } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
 import type { CompleteBattle, Consequence } from "./types";
-
+import type { ShieldTagType } from "./types";
 /**
  * Check whether to apply given effect to a user, based on friendly fire settings
  */
@@ -392,6 +392,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = summonPrevent(e, curTarget);
           } else if (e.type === "weakness") {
             info = weakness(e, curTarget);
+          } else if (e.type === "shield") {
+            info = shield(e, curTarget);
           }
           updateStatUsage(newTarget, e, true);
         }
@@ -425,26 +427,61 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
   Array.from(consequences.values())
     .reduce(collapseConsequences, [] as Consequence[])
     .forEach((c) => {
+      // Convenience variables & methods
       const user = newUsersState.find((u) => u.userId === c.userId);
       const target = newUsersState.find((u) => u.userId === c.targetId);
+      const targetShields = newUsersEffects.filter(
+        (e) => e.type === "shield" && e.targetId === c.targetId && e.power > 0,
+      ) as ShieldTagType[];
+      const calcAdjustedDamage = (target: BattleUserState, originalDamage: number) => {
+        // For negative changes, first reduce shields
+        let remainingDamage = Math.abs(originalDamage);
+        targetShields.forEach((shield) => {
+          if (remainingDamage > 0 && shield.power && shield.power > 0) {
+            console.log("shield", remainingDamage, shield.power);
+            const absorbed = Math.min(remainingDamage, shield.power);
+            shield.power -= absorbed;
+            remainingDamage -= absorbed;
+            if (shield.power > 0) {
+              actionEffects.push({
+                txt: `${target.username}'s shield absorbs ${absorbed.toFixed(2)} damage`,
+                color: "red",
+              });
+            } else {
+              actionEffects.push({
+                txt: `${target.username}'s shield absorbs ${absorbed.toFixed(2)} damage and is destroyed`,
+                color: "red",
+              });
+            }
+          }
+        });
+        return remainingDamage;
+      };
+      // Apply all the consequences
       if (target && user) {
         if (c.damage && c.damage > 0) {
-          target.curHealth -= c.damage;
-          target.curHealth = Math.max(0, target.curHealth);
-          actionEffects.push({
-            txt: `${target.username} takes ${c.damage.toFixed(2)} damage`,
-            color: "red",
-            types: c.types,
-          });
+          const damage = calcAdjustedDamage(target, c.damage);
+          if (damage > 0) {
+            target.curHealth -= damage;
+            target.curHealth = Math.max(0, target.curHealth);
+            actionEffects.push({
+              txt: `${target.username} takes ${damage.toFixed(2)} damage`,
+              color: "red",
+              types: c.types,
+            });
+          }
         }
         if (c.residual && c.residual > 0) {
-          target.curHealth -= c.residual;
-          target.curHealth = Math.max(0, target.curHealth);
-          actionEffects.push({
-            txt: `${target.username} takes ${c.residual.toFixed(2)} residual damage`,
-            color: "red",
-            types: c.types,
-          });
+          const damage = calcAdjustedDamage(target, c.residual);
+          if (damage > 0) {
+            target.curHealth -= damage;
+            target.curHealth = Math.max(0, target.curHealth);
+            actionEffects.push({
+              txt: `${target.username} takes ${damage.toFixed(2)} residual damage`,
+              color: "red",
+              types: c.types,
+            });
+          }
         }
         if (c.heal_hp && c.heal_hp > 0 && target.curHealth > 0) {
           target.curHealth += c.heal_hp;
@@ -471,20 +508,26 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           });
         }
         if (c.reflect && c.reflect > 0) {
-          user.curHealth -= c.reflect;
-          user.curHealth = Math.max(0, user.curHealth);
-          actionEffects.push({
-            txt: `${user.username} takes ${c.reflect.toFixed(2)} reflect damage`,
-            color: "red",
-          });
+          const damage = calcAdjustedDamage(user, c.reflect);
+          if (damage > 0) {
+            user.curHealth -= damage;
+            user.curHealth = Math.max(0, user.curHealth);
+            actionEffects.push({
+              txt: `${user.username} takes ${damage.toFixed(2)} reflect damage`,
+              color: "red",
+            });
+          }
         }
         if (c.recoil && c.recoil > 0) {
-          user.curHealth -= c.recoil;
-          user.curHealth = Math.max(0, user.curHealth);
-          actionEffects.push({
-            txt: `${user.username} takes ${c.recoil.toFixed(2)} recoil damage`,
-            color: "red",
-          });
+          const damage = calcAdjustedDamage(user, c.recoil);
+          if (damage > 0) {
+            user.curHealth -= damage;
+            user.curHealth = Math.max(0, user.curHealth);
+            actionEffects.push({
+              txt: `${user.username} takes ${damage.toFixed(2)} recoil damage`,
+              color: "red",
+            });
+          }
         }
         if (c.lifesteal_hp && c.lifesteal_hp > 0 && target.curHealth > 0) {
           user.curHealth += c.lifesteal_hp;
