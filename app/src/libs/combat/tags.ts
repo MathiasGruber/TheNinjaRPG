@@ -7,6 +7,7 @@ import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
 import type { DamageTagType, PierceTagType } from "@/libs/combat/types";
 import type { WeaknessTagType } from "@/libs/combat/types";
+import type { ShieldTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -1138,6 +1139,29 @@ export const lifesteal = (
     });
   }
   return getInfo(target, effect, `will steal ${qualifier} damage as health`);
+};
+
+/** Create a temporary HP shield that absorbs damage */
+export const shield = (effect: UserEffect, target: BattleUserState) => {
+  // Apply
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+  const shieldEffect = effect as ShieldTagType;
+  let info: ActionEffect | undefined = undefined;
+  if (effect.isNew && effect.rounds) {
+    if (primaryCheck) {
+      effect.power = shieldEffect.health;
+      info = getInfo(target, effect, `shield with ${effect.power.toFixed(2)} HP`);
+    } else {
+      effect.rounds = 0;
+      info = { txt: `${target.username}'s shield was not created`, color: "blue" };
+    }
+  }
+  if (effect.power <= 0) {
+    info = { txt: `${target.username}'s shield was destroyed`, color: "red" };
+    effect.rounds = 0;
+  }
+  return info;
 };
 
 /**
