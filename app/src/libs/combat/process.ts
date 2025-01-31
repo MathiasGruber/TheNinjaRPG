@@ -444,7 +444,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             remainingDamage -= absorbed;
             if (shield.power > 0) {
               actionEffects.push({
-                txt: `${target.username}'s shield absorbs ${absorbed.toFixed(2)} damage`,
+                txt: `${target.username}'s shield absorbs ${absorbed.toFixed(2)} damage. ${shield.power.toFixed(2)} remaining.`,
                 color: "red",
               });
             } else {
