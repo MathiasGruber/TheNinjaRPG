@@ -1,14 +1,13 @@
 import { z } from "zod";
 import { eq, and, ne, sql, gte, isNull, lt } from "drizzle-orm";
-import { userData, village, villageStructure, anbuSquad } from "@/drizzle/schema";
-import { kageDefendedChallenges, kagePrestige, kagePrestigeTransfer, kageChallengeRequest } from "@/drizzle/schema";
+import { userData, village, villageStructure, anbuSquad, kageDefendedChallenges, kagePrestige, kagePrestigeTransfer, kageChallengeRequest } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { initiateBattle } from "@/routers/combat";
 import { fetchVillage } from "@/routers/village";
 import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
-import { canChallengeKage, canBeElder, isKage } from "@/utils/kage";
+import { canChallengeKage, canBeElder, isKage, updateKagePrestige, convertToKagePrestige } from "@/utils/kage";
 import { calcStructureUpgrade } from "@/utils/village";
 import {
   KAGE_MAX_DAILIES,
@@ -372,12 +371,25 @@ export const kageRouter = createTRPCRouter({
 
       const kagePrestigeRecord = await ctx.drizzle.query.kagePrestige.findFirst({
         where: eq(kagePrestige.userId, ctx.userId),
-        columns: {
-          prestige: true,
-        },
       });
       if (!kagePrestigeRecord) return errorResponse("No kage prestige found");
-      if (kagePrestigeRecord.prestige < KAGE_ANBU_DELETE_COST) {
+
+      // Update prestige based on time elapsed
+      const { prestige, shouldRemove } = await updateKagePrestige(ctx.drizzle, kagePrestigeRecord);
+      if (shouldRemove) {
+        await Promise.all([
+          ctx.drizzle
+            .update(village)
+            .set({ kageId: null, leaderUpdatedAt: new Date() })
+            .where(eq(village.id, user.villageId!)),
+          ctx.drizzle
+            .delete(kagePrestige)
+            .where(eq(kagePrestige.userId, ctx.userId)),
+        ]);
+        return errorResponse("Kage prestige too low, you have been removed from office");
+      }
+
+      if (prestige < KAGE_ANBU_DELETE_COST) {
         return errorResponse("Not enough kage prestige");
       }
 
@@ -417,7 +429,23 @@ export const kageRouter = createTRPCRouter({
       if (user.villageId === input.targetVillageId) {
         return errorResponse("Cannot declare war on your own village");
       }
-      if (kagePrestigeRecord.prestige < KAGE_WAR_DECLARE_COST) {
+
+      // Update prestige based on time elapsed
+      const { prestige, shouldRemove } = await updateKagePrestige(ctx.drizzle, kagePrestigeRecord);
+      if (shouldRemove) {
+        await Promise.all([
+          ctx.drizzle
+            .update(village)
+            .set({ kageId: null, leaderUpdatedAt: new Date() })
+            .where(eq(village.id, user.villageId!)),
+          ctx.drizzle
+            .delete(kagePrestige)
+            .where(eq(kagePrestige.userId, ctx.userId)),
+        ]);
+        return errorResponse("Kage prestige too low, you have been removed from office");
+      }
+
+      if (prestige < KAGE_WAR_DECLARE_COST) {
         return errorResponse("Not enough kage prestige");
       }
 
@@ -432,6 +460,38 @@ export const kageRouter = createTRPCRouter({
       // TODO: Implement war declaration logic
 
       return { success: true, message: "War declared" };
+    }),
+
+  convertVillagePrestige: protectedProcedure
+    .input(z.object({ amount: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const { user } = await fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId });
+
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!isKage(user)) return errorResponse("Not kage");
+      if (input.amount <= 0) return errorResponse("Invalid amount");
+      if (user.villagePrestige < input.amount) return errorResponse("Not enough village prestige");
+
+      // Convert prestige
+      const newPrestige = await convertToKagePrestige(
+        ctx.drizzle,
+        ctx.userId,
+        user.villageId!,
+        input.amount,
+      );
+
+      // Update user's village prestige
+      await ctx.drizzle
+        .update(userData)
+        .set({
+          villagePrestige: sql`${userData.villagePrestige} - ${input.amount}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+
+      return { success: true, message: `Converted ${input.amount} village prestige to Kage prestige` };
     }),
 
   getKagePrestige: protectedProcedure

@@ -1324,6 +1324,13 @@
       "when": 1737987919710,
       "tag": "0188_glorious_mercury",
       "breakpoints": false
+    },
+    {
+      "idx": 189,
+      "version": "5",
+      "when": 1738327626705,
+      "tag": "0189_young_shinobi_shaw",
+      "breakpoints": false
     }
   ]
 }
