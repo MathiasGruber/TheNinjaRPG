@@ -1,6 +1,7 @@
 "use client";
 
 import ReactDOM from "react-dom";
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -511,30 +512,32 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               <SheetTitle>
                 <SideBannerTitle>Main Menu</SideBannerTitle>
               </SheetTitle>
-              <div className="mt-1 grid gap-3 grid-cols-2">
-                {navbarMenuItems.map((system, i) => {
-                  return (
-                    <Link
-                      key={i}
-                      href={system.href}
-                      onClick={() => setLeftSideBarOpen(false)}
-                      className={system.className ? system.className : ""}
-                    >
-                      <Button
-                        decoration="gold"
-                        className={`w-full hover:bg-orange-200`}
+              <Suspense fallback={<Loader explanation="Loading..." />}>
+                <div className="mt-1 grid gap-3 grid-cols-2">
+                  {navbarMenuItems.map((system, i) => {
+                    return (
+                      <Link
+                        key={i}
+                        href={system.href}
+                        onClick={() => setLeftSideBarOpen(false)}
+                        className={system.className ? system.className : ""}
                       >
-                        <div className="grow">{system.name}</div>
-                        <div>{system.icon && system.icon}</div>
-                      </Button>
-                    </Link>
-                  );
-                })}
-                <div className="flex flex-row items-center justify-center">
-                  {signedInIcons}
+                        <Button
+                          decoration="gold"
+                          className={`w-full hover:bg-orange-200`}
+                        >
+                          <div className="grow">{system.name}</div>
+                          <div>{system.icon && system.icon}</div>
+                        </Button>
+                      </Link>
+                    );
+                  })}
+                  <div className="flex flex-row items-center justify-center">
+                    {signedInIcons}
+                  </div>
                 </div>
-              </div>
-              <div className="relative pt-4">{leftSideBar}</div>
+                <div className="relative pt-4">{leftSideBar}</div>
+              </Suspense>
             </SheetHeader>
           </SheetContent>
         </Sheet>
@@ -548,7 +551,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <VisuallyHidden.Root>
               <SheetTitle>Test</SheetTitle>
             </VisuallyHidden.Root>
-            <SheetHeader>{rightSideBar}</SheetHeader>
+            <Suspense fallback={<Loader explanation="Loading..." />}>
+              <SheetHeader>{rightSideBar}</SheetHeader>
+            </Suspense>
           </SheetContent>
         </Sheet>
 
