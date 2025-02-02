@@ -24,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <ClerkProvider
           telemetry={false}
+          publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
           appearance={{
             variables: {
               colorPrimary: "#ce7e00",
