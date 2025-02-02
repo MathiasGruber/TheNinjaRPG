@@ -58,6 +58,7 @@
     "@upstash/ratelimit": "^2.0.5",
     "@upstash/redis": "^1.34.3",
     "@vercel/og": "^0.6.4",
+    "@vercel/speed-insights": "^1.1.0",
     "abstract-astar": "0.2.0",
     "ai": "^4.0.23",
     "alea": "1.0.1",
