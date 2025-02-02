@@ -47,6 +47,9 @@ export const clientSchema = z.object({
   NEXT_PUBLIC_BASE_URL: z.string().url(),
   NEXT_PUBLIC_MEASUREMENT_ID: z.string().optional(),
   NEXT_PUBLIC_NODE_ENV: z.enum(["development", "test", "production"]),
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z
+    .string()
+    .default("pk_test_dGFsZW50ZWQta2l0LTY2LmNsZXJrLmFjY291bnRzLmRldiQ"),
 });
 
 /**
@@ -61,4 +64,5 @@ export const clientEnv = {
   NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
   NEXT_PUBLIC_MEASUREMENT_ID: process.env.NEXT_PUBLIC_MEASUREMENT_ID,
   NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV,
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
 };
