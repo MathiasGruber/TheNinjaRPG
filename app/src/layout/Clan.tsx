@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { z } from "zod";
 import Link from "next/link";
 import { parseHtml } from "@/utils/parse";
@@ -18,6 +19,11 @@ import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
 import { FilePenLine, List, CirclePlay, ScanEye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Medal, HeartCrack } from "lucide-react";
+import ActionLogs from "@/layout/ActionLog";
+import ActionLogFiltering, {
+  useFiltering,
+  getFilter,
+} from "@/layout/ActionLogFiltering";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadButton } from "@/utils/uploadthing";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -44,6 +50,11 @@ import { CLAN_MAX_TRAINING_BOOST, CLAN_TRAINING_BOOST_COST } from "@/drizzle/con
 import { CLAN_MAX_RYO_BOOST, CLAN_RYO_BOOST_COST } from "@/drizzle/constants";
 import { CLAN_MAX_REGEN_BOOST, CLAN_REGEN_BOOST_COST } from "@/drizzle/constants";
 import { CLAN_MPVP_MAX_USERS_PER_SIDE } from "@/drizzle/constants";
+import { HIDEOUT_COST, FACTION_MIN_POINTS_FOR_TOWN } from "@/drizzle/constants";
+import {
+  FACTION_MIN_MEMBERS_FOR_TOWN,
+  HIDEOUT_TOWN_UPGRADE,
+} from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
 import { clanRenameSchema } from "@/validators/clan";
 import { useRequireInVillage } from "@/utils/UserContext";
@@ -645,10 +656,14 @@ interface ClanInfoProps {
 
 export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   // Destructure
-  const { userData } = useRequireInVillage("/clanhall");
+  const { userData, updateUser } = useRequireInVillage("/clanhall");
   const { clanData, back_href } = props;
   const clanId = clanData.id;
   const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
+
+  // Local state
+  const [donateRyo, setDonateRyo] = useState(0);
+  const [donateReps, setDonateReps] = useState(0);
 
   // Get router
   const router = useRouter();
@@ -736,6 +751,30 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     },
   });
 
+  const { mutate: clanDonate } = api.clan.clanDonate.useMutation({
+    onSuccess: async (data, variables) => {
+      showMutationToast(data);
+      if (data.success && userData) {
+        await Promise.all([
+          utils.clan.get.invalidate(),
+          updateUser({
+            money: userData.money - variables.ryo,
+            reputationPoints: userData.reputationPoints - variables.reputationPoints,
+          }),
+        ]);
+      }
+    },
+  });
+
+  const { mutate: upgradeHideoutToTown } = api.clan.upgradeHideoutToTown.useMutation({
+    onSuccess: async (data, variables) => {
+      showMutationToast(data);
+      if (data.success && userData) {
+        await utils.clan.get.invalidate();
+      }
+    },
+  });
+
   const { mutate: toBank, isPending: isDepositing } = api.clan.toBank.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -762,10 +801,18 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   if (isDepositing) return <Loader explanation="Depositing money" />;
 
   // Derived
+  const village = clanData?.village;
   const inClan = userData.clanId === clanData.id;
   const isLeader = userData.userId === clanData.leaderId;
   const isCoLeader = checkCoLeader(userData.userId, clanData);
   const leaderLike = isLeader || isCoLeader;
+  const hadHideout = village?.type !== "OUTLAW" && userData.isOutlaw;
+  const hadTown = village?.type === "TOWN" || village.wasDowngraded;
+  // Can we upgrade from hideout to town?
+  const hasReps = clanData.repTreasury >= HIDEOUT_TOWN_UPGRADE;
+  const hasMembers = clanData.members.length >= FACTION_MIN_MEMBERS_FOR_TOWN;
+  const hasPoints = clanData.points >= FACTION_MIN_POINTS_FOR_TOWN;
+  const canCreateTown = !hadTown && hadHideout && hasReps && hasMembers && hasPoints;
 
   // Render
   return (
@@ -949,6 +996,47 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   </Confirm>
                 </div>
               )}
+              {!hadHideout && userData?.isOutlaw && (
+                <div className="flex flex-row items-center">
+                  <p>Ryo treasury: {clanData.ryoTreasury} ryo</p>
+                  <Confirm
+                    title="Donate ryo"
+                    proceed_label="Donate"
+                    button={
+                      <ArrowBigUpDash className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
+                    }
+                    onAccept={() =>
+                      clanDonate({
+                        clanId: clanData.id,
+                        ryo: donateRyo,
+                        reputationPoints: 0,
+                      })
+                    }
+                  >
+                    {clanData.ryoTreasury > HIDEOUT_COST ? (
+                      <p>
+                        You have enough money to found a hideout for your faction. Move
+                        to an empty sector of your choice, and from there you will be
+                        able to put down the foundation of your new hideout.
+                      </p>
+                    ) : (
+                      <p>
+                        Donate money to your faction. Once the treasury reaches{" "}
+                        {HIDEOUT_COST} ryo, it becomes possible for the faction to
+                        purchase its own hideout on the global map. At this point the
+                        faction detaches from the Syndicate, and effectively establishes
+                        their own base of operation.
+                      </p>
+                    )}
+                    <Input
+                      id="ryo"
+                      type="number"
+                      placeholder="Money to donate"
+                      onChange={(e) => setDonateRyo(Number(e.target.value))}
+                    />
+                  </Confirm>
+                </div>
+              )}
             </div>
             <div>
               <p>PvP Activity: {clanData.pvpActivity}</p>
@@ -1016,6 +1104,41 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   </Confirm>
                 )}
               </div>
+              {!hadTown && userData?.isOutlaw && (
+                <div className="flex flex-row items-center">
+                  <p>Reps treasury: {clanData.repTreasury} reps</p>
+                  <Confirm
+                    title="Donate reputation points"
+                    proceed_label="Donate"
+                    button={
+                      <ArrowBigUpDash className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
+                    }
+                    onAccept={() =>
+                      clanDonate({
+                        clanId: clanData.id,
+                        ryo: 0,
+                        reputationPoints: donateReps,
+                      })
+                    }
+                  >
+                    <p>
+                      The hideout can be upgraded to a town, enabling the faction to
+                      operate in a manner much similar to one of the great ninja
+                      villages, with the exception of the establishments of new clans
+                      and ANBU. This requires a total of {HIDEOUT_TOWN_UPGRADE}{" "}
+                      reputation points, that the faction has{" "}
+                      {FACTION_MIN_MEMBERS_FOR_TOWN}, and a total of{" "}
+                      {FACTION_MIN_POINTS_FOR_TOWN} faction points.
+                    </p>
+                    <Input
+                      id="reps"
+                      type="number"
+                      placeholder="Reputation points to donate"
+                      onChange={(e) => setDonateRyo(Number(e.target.value))}
+                    />
+                  </Confirm>
+                </div>
+              )}
             </div>
           </div>
           {(isLeader || isCoLeader) && (
@@ -1208,6 +1331,9 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
   // Queries
   const { data: clanData } = api.clan.get.useQuery({ clanId: clanId });
 
+  // Two-level filtering
+  const state = useFiltering("clan");
+
   // Loaders
   if (!clanId) return <Loader explanation="Which clan?" />;
   if (!clanData) return <Loader explanation="Loading clan data" />;
@@ -1234,6 +1360,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
             <TabsTrigger value="requests">Requests</TabsTrigger>
             <TabsTrigger value="tournaments">{groupLabel} Tournaments</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
+            {userData.isOutlaw && <TabsTrigger value="logs">Logs</TabsTrigger>}
           </TabsList>
           <TabsContent value="orders">
             <ClanOrders
@@ -1263,6 +1390,15 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
           <TabsContent value="members">
             <ClanMembers userId={userData.userId} clanId={clanData.id} />
           </TabsContent>
+          {userData.isOutlaw && (
+            <TabsContent value="logs">
+              <ActionLogs
+                state={getFilter(state)}
+                relatedId={clanData.id}
+                initialBreak={true}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </>
