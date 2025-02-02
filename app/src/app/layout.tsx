@@ -10,6 +10,7 @@ import { ourFileRouter } from "@/app/api/uploadthing/core";
 import TrpcClientProvider from "@/app/_trpc/Provider";
 import LayoutCore4 from "@/components/layout/core4_default";
 import { IMG_LOGO_FULL } from "@/drizzle/constants";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Viewport, Metadata } from "next";
 
 import "../styles/globals.css";
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 )}
                 <Toaster />
                 <LayoutCore4>{children}</LayoutCore4>
+                <SpeedInsights sampleRate={0.01} />
               </UserContextProvider>
             </TrpcClientProvider>
           </MultisessionAppSupport>
