@@ -22,6 +22,7 @@ permissions:
 
 jobs:
   analyze:
+    if: github.repository_owner == 'MathiasGruber'
     runs-on: ubuntu-latest
     env:
       HAS_CLERK_KEY: ${{ secrets.CLERK_SECRET_KEY != '' }}
