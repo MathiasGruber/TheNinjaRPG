@@ -22,6 +22,7 @@ permissions:
 
 jobs:
   analyze:
+    if: github.repository_owner == 'MathiasGruber'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
