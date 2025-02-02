@@ -527,6 +527,14 @@ export const CLAN_TRAINING_BOOST_COST = 300;
 export const CLAN_RYO_BOOST_COST = 100;
 export const CLAN_REGEN_BOOST_COST = 300;
 
+// Hideout and town costs
+export const HIDEOUT_COST = 50_000_000; // Ryo
+export const HIDEOUT_TOWN_UPGRADE = 2_000; // Reps
+export const TOWN_REESTABLISH_COST = 30_000_000; // Ryo
+export const TOWN_MONTHLY_MAINTENANCE = 30_000; // Faction points
+export const FACTION_MIN_POINTS_FOR_TOWN = 1_000_000;
+export const FACTION_MIN_MEMBERS_FOR_TOWN = 50;
+
 // Tournament Config
 export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
 
@@ -534,7 +542,13 @@ export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
 export const GAME_SETTING_GAINS_MULTIPLIER = ["0", "2", "4", "8"] as const;
 
 // Map settings
-export const SECTOR_TYPES = ["VILLAGE", "OUTLAW", "SAFEZONE"] as const;
+export const SECTOR_TYPES = [
+  "VILLAGE",
+  "OUTLAW",
+  "SAFEZONE",
+  "HIDEOUT",
+  "TOWN",
+] as const;
 
 // Conversation config
 export const CONVERSATION_QUIET_MINS = 5;

@@ -153,6 +153,19 @@ export default function Travel() {
       },
     });
 
+  const { mutate: purchaseHideout, isPending: isCreatingHideout } =
+    api.clan.purchaseHideout.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.village.getAll.invalidate(),
+            utils.profile.getUser.invalidate(),
+          ]);
+        }
+      },
+    });
+
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);
   const isGlobal = activeTab === globalLink;
@@ -203,10 +216,15 @@ export default function Travel() {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (isJoining) return <Loader explanation="Joining village" />;
+  if (isCreatingHideout) return <Loader explanation="Purchasing hideout" />;
 
   // Derived
+  const isOutlaw = userData.isOutlaw;
   const canJoin = hasRequiredRank(userData.rank, VILLAGE_LEAVE_REQUIRED_RANK);
   const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
+  const clanLeader = userData.clan?.leaderId === userData.userId;
+  const hadHideout = userData?.village?.type !== "OUTLAW" && userData.isOutlaw;
+  const canCreateHideout = isOutlaw && !sectorVillage && clanLeader && !hadHideout;
 
   return (
     <>
@@ -283,6 +301,24 @@ export default function Travel() {
                 Do you confirm that you wish to join this village? Please be aware that
                 if you join this village your training benefits & regen will be reduced
                 for {VILLAGE_REDUCED_GAINS_DAYS} days.
+              </Confirm>
+            )}
+            {canCreateHideout && (
+              <Confirm
+                title="Purchase Hideout"
+                proceed_label="Submit"
+                button={<GitMerge className={`h-7 w-7 mx-1 hover:text-orange-500`} />}
+                onAccept={() =>
+                  purchaseHideout({
+                    clanId: userData.clanId || "",
+                    sector: currentSector || 0,
+                  })
+                }
+              >
+                As a leader of a faction, you have the option of founding a hideout for
+                your faction, thereby effectively de-coupling yourself from the common
+                syndicate of outlaws. Do you want to create your faction hideout in this
+                sector?
               </Confirm>
             )}
 
