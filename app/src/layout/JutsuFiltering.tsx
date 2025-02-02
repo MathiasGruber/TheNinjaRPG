@@ -52,16 +52,13 @@ import type { StatGenType, EffectType, RarityType } from "@/libs/train";
 // New type definitions
 type ExclusionCategory =
   | "type"
-  | "appear"
   | "classification"
-  | "disappear"
   | "effect"
   | "element"
   | "method"
   | "rarity"
   | "rank"
   | "stat"
-  | "static"
   | "target";
 
 // Reusable FilterSelect component
@@ -69,7 +66,7 @@ interface FilterSelectProps {
   label: string;
   value: string;
   onValueChange: (value: string) => void;
-  options: string[];
+  options: { value: string; label: string }[];  // ✅ Now supports objects
   includeNone?: boolean;
 }
 
@@ -82,9 +79,11 @@ const FilterSelect: React.FC<FilterSelectProps> = ({
 }) => (
   <div>
     <Label>{label}</Label>
-    <Select onValueChange={onValueChange}>
+    <Select onValueChange={onValueChange} value={value}>
       <SelectTrigger>
-        <SelectValue placeholder={value} />
+        <SelectValue>
+          {options.find((opt) => opt.value === value)?.label || "None"}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {includeNone && (
@@ -93,14 +92,15 @@ const FilterSelect: React.FC<FilterSelectProps> = ({
           </SelectItem>
         )}
         {options.map((opt) => (
-          <SelectItem key={opt} value={opt}>
-            {opt}
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
           </SelectItem>
         ))}
       </SelectContent>
     </Select>
   </div>
 );
+
 
 // Reusable ExcludedItemsList component
 interface ExcludedItemsListProps {
@@ -146,53 +146,41 @@ const EXCLUSION_CATEGORIES: Record<
     options: string[];
   }
 > = {
-  type: {
-    label: "Jutsu Types",
-    options: [...JutsuTypes],
+  classification: { 
+    label: "Classifications", 
+    options: [...StatTypes] 
   },
-  appear: {
-    label: "Appear Animations",
-    options: [...StatTypes],
+  effect: { 
+    label: "Effects", 
+    options: [...effectFilters] 
   },
-  classification: {
-    label: "Classifications",
-    options: [...StatTypes],
+  element: { 
+    label: "Elements", 
+    options: [...ElementNames] 
   },
-  disappear: {
-    label: "Disappear Animations",
-    options: [...effectFilters],
+  type: { 
+    label: "Jutsu Types", 
+    options: [...JutsuTypes] 
   },
-  effect: {
-    label: "Effects",
-    options: [...effectFilters],
+  method: { 
+    label: "Methods", 
+    options: [...AttackMethods] 
   },
-  element: {
-    label: "Elements",
-    options: [...ElementNames],
+  rank: { 
+    label: "Ranks", 
+    options: [...UserRanks] 
   },
-  method: {
-    label: "Methods",
-    options: [...AttackMethods],
+  rarity: { 
+    label: "Rarities", 
+    options: [...rarities] 
   },
-  rank: {
-    label: "Ranks",
-    options: [...UserRanks],
+  stat: { 
+    label: "Stats", 
+    options: [...statFilters] 
   },
-  rarity: {
-    label: "Rarities",
-    options: [...rarities],
-  },
-  stat: {
-    label: "Stats",
-    options: [...statFilters],
-  },
-  static: {
-    label: "Static Animations",
-    options: [], // This will be populated from assetData
-  },
-  target: {
-    label: "Targets",
-    options: [...AttackTargets],
+  target: { 
+    label: "Targets", 
+    options: [...AttackTargets] 
   },
 };
 
@@ -233,9 +221,6 @@ export const useFiltering = () => {
   const [excludedRanks, setExcludedRanks] = useState<UserRank[]>([]);
   const [excludedMethods, setExcludedMethods] = useState<AttackMethod[]>([]);
   const [excludedTargets, setExcludedTargets] = useState<AttackTarget[]>([]);
-  const [excludedAppear, setExcludedAppear] = useState<string[]>([]);
-  const [excludedDisappear, setExcludedDisappear] = useState<string[]>([]);
-  const [excludedStatic, setExcludedStatic] = useState<string[]>([]);
   const [excludedElements, setExcludedElements] = useState<ElementName[]>([]);
   const [excludedEffects, setExcludedEffects] = useState<EffectType[]>([]);
   const [excludedStats, setExcludedStats] = useState<StatGenType[]>([]);
@@ -265,9 +250,6 @@ export const useFiltering = () => {
     excludedRanks,
     excludedMethods,
     excludedTargets,
-    excludedAppear,
-    excludedDisappear,
-    excludedStatic,
     excludedElements,
     excludedEffects,
     excludedStats,
@@ -296,9 +278,6 @@ export const useFiltering = () => {
     setExcludedRanks,
     setExcludedMethods,
     setExcludedTargets,
-    setExcludedAppear,
-    setExcludedDisappear,
-    setExcludedStatic,
     setExcludedElements,
     setExcludedEffects,
     setExcludedStats,
@@ -341,9 +320,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     excludedRanks,
     excludedMethods,
     excludedTargets,
-    excludedAppear,
-    excludedDisappear,
-    excludedStatic,
     excludedElements,
     excludedEffects,
     excludedStats,
@@ -372,9 +348,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     setExcludedRanks,
     setExcludedMethods,
     setExcludedTargets,
-    setExcludedAppear,
-    setExcludedDisappear,
-    setExcludedStatic,
     setExcludedElements,
     setExcludedEffects,
     setExcludedStats,
@@ -412,7 +385,9 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   // Data queries
   const { data: bloodlineData } = api.bloodline.getAllNames.useQuery(undefined);
   const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined);
-
+  const AppearAnimations = assetData
+  ? assetData.map((asset) => asset.name).sort((a, b) => a.localeCompare(b))
+  : [];
   // Filter bloodlines if user has a fixedBloodline
   const bloodlines = fixedBloodline
     ? bloodlineData?.filter((b) => b.id === fixedBloodline)
@@ -449,17 +424,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         setExcludedTargets(newExclusions as AttackTarget[]);
         break;
 
-      // Animations
-      case "appear":
-        setExcludedAppear(newExclusions);
-        break;
-      case "disappear":
-        setExcludedDisappear(newExclusions);
-        break;
-      case "static":
-        setExcludedStatic(newExclusions);
-        break;
-
       // Multi-value JSON
       case "element":
         setExcludedElements(newExclusions as ElementName[]);
@@ -482,16 +446,13 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   const handleRemoveExcludedItem = (
     category:
       | "type"
-      | "appear"
       | "classification"
-      | "disappear"
       | "effect"
       | "element"
       | "method"
       | "rarity"
       | "rank"
       | "stat"
-      | "static"
       | "target",
     item: string,
   ) => {
@@ -513,17 +474,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         break;
       case "target":
         setExcludedTargets((prev) => prev.filter((t) => t !== item));
-        break;
-
-      // Animations
-      case "appear":
-        setExcludedAppear((prev) => prev.filter((anim) => anim !== item));
-        break;
-      case "disappear":
-        setExcludedDisappear((prev) => prev.filter((anim) => anim !== item));
-        break;
-      case "static":
-        setExcludedStatic((prev) => prev.filter((anim) => anim !== item));
         break;
 
       // Multi-value JSON
@@ -577,7 +527,10 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             label="Classification"
             value={classification}
             onValueChange={(e) => setClassification(e as StatType)}
-            options={[...StatTypes]}
+            options={StatTypes.map((type) => ({
+              value: type,  // ✅ Keeps filtering logic the same
+              label: type,  // ✅ Displays readable name
+            }))}
           />
 
           {/* Rarity */}
@@ -585,8 +538,12 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             label="Rarity"
             value={rarity}
             onValueChange={(e) => setRarity(e as RarityType)}
-            options={[...rarities]}
+            options={rarities.map((rarity) => ({
+              value: rarity,  // ✅ Filtering still works by rarity value
+              label: rarity,  // ✅ Displays rarity name properly
+            }))}
           />
+
 
           {/* Bloodline */}
           <FilterSelect
@@ -595,20 +552,27 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             onValueChange={setBloodline}
             options={
               bloodlines
-                ?.sort((a, b) => (a.name < b.name ? -1 : 1))
-                .map((bl) => bl.id) || []
+                ?.sort((a, b) => a.name.localeCompare(b.name)) // ✅ Sort by name
+                .map((bl) => ({
+                  value: bl.id,   // Keep filtering by ID
+                  label: bl.name, // Show the bloodline name
+                })) || []
             }
           />
 
+
           {/* Animations */}
           <FilterSelect
-            label="Appear Animation"
+            label="Appear‎ ‎ ‎ ‎Animation"
             value={appearAnim}
             onValueChange={setAppearAnim}
             options={
               assetData
                 ?.sort((a, b) => (a.name < b.name ? -1 : 1))
-                .map((asset) => asset.id) || []
+                .map((asset) => ({
+                  value: asset.id,  // Keep the ID for filtering
+                  label: asset.name, // Show the name in dropdown
+                })) || []
             }
           />
 
@@ -619,7 +583,10 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             options={
               assetData
                 ?.sort((a, b) => (a.name < b.name ? -1 : 1))
-                .map((asset) => asset.id) || []
+                .map((asset) => ({
+                  value: asset.id,  // ✅ Filtering by ID
+                  label: asset.name, // ✅ Displaying the name
+                })) || []
             }
           />
 
@@ -630,9 +597,13 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             options={
               assetData
                 ?.sort((a, b) => (a.name < b.name ? -1 : 1))
-                .map((asset) => asset.id) || []
+                .map((asset) => ({
+                  value: asset.id,  // ✅ Keeps filtering by ID
+                  label: asset.name, // ✅ Shows name in dropdown
+                })) || []
             }
           />
+
 
           {/* Elements */}
           <div>
@@ -669,7 +640,10 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             label="Method"
             value={method}
             onValueChange={(m) => setMethod(m as AttackMethod)}
-            options={[...AttackMethods]}
+            options={AttackMethods.map((method) => ({
+              value: method,  // ✅ Keeps filtering by method value
+              label: method,  // ✅ Displays method as readable text
+            }))}
           />
 
           {/* Target */}
@@ -677,7 +651,10 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             label="Target"
             value={target}
             onValueChange={(m) => setTarget(m as AttackTarget)}
-            options={[...AttackTargets]}
+            options={AttackTargets.map((target) => ({
+              value: target,  // ✅ Keeps filtering by target value
+              label: target,  // ✅ Displays target as readable text
+            }))}
           />
 
           {/* Required Rank */}
@@ -685,9 +662,13 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             label="Required Rank"
             value={rank}
             onValueChange={(e) => setRank(e as UserRank)}
-            options={[...UserRanks]}
+            options={UserRanks.map((rank) => ({
+              value: rank,  // ✅ Keeps filtering by rank value
+              label: rank,  // ✅ Displays rank as readable text
+            }))} 
             includeNone={false}
           />
+
 
           {/* Required Level */}
           <div>
@@ -774,24 +755,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             onRemove={handleRemoveExcludedItem}
           />
           <ExcludedItemsList
-            title="Excluded Appear Animations"
-            items={excludedAppear}
-            category="appear"
-            onRemove={handleRemoveExcludedItem}
-          />
-          <ExcludedItemsList
-            title="Excluded Disappear Animations"
-            items={excludedDisappear}
-            category="disappear"
-            onRemove={handleRemoveExcludedItem}
-          />
-          <ExcludedItemsList
-            title="Excluded Static Animations"
-            items={excludedStatic}
-            category="static"
-            onRemove={handleRemoveExcludedItem}
-          />
-          <ExcludedItemsList
             title="Excluded Elements"
             items={excludedElements}
             category="element"
@@ -838,15 +801,16 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             <MultiSelect
               selected={tempExclusions}
               options={
-                exclusionCategory === "static" && assetData
-                  ? assetData.map((a) => ({ value: a.name, label: a.name }))
-                  : EXCLUSION_CATEGORIES[exclusionCategory].options.map((val) => ({
+                exclusionCategory in EXCLUSION_CATEGORIES
+                  ? EXCLUSION_CATEGORIES[exclusionCategory].options.map((val) => ({
                       value: val,
                       label: val,
                     }))
+                  : []
               }
               onChange={setTempExclusions}
             />
+
 
             <div className="mt-3 flex gap-2">
               <Button onClick={handleAddExclusions}>Confirm</Button>
@@ -896,9 +860,6 @@ export const getFilter = (state: JutsuFilteringState) => {
         excludedRanks: state.excludedRanks,
         excludedMethods: state.excludedMethods,
         excludedTargets: state.excludedTargets,
-        excludedAppear: state.excludedAppear,
-        excludedDisappear: state.excludedDisappear,
-        excludedStatic: state.excludedStatic,
         excludedElements: state.excludedElements,
         excludedEffects: state.excludedEffects,
         excludedStats: state.excludedStats,
