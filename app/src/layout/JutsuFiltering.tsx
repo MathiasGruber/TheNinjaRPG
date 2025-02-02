@@ -385,9 +385,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   // Data queries
   const { data: bloodlineData } = api.bloodline.getAllNames.useQuery(undefined);
   const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined);
-  const AppearAnimations = assetData
-  ? assetData.map((asset) => asset.name).sort((a, b) => a.localeCompare(b))
-  : [];
+  
   // Filter bloodlines if user has a fixedBloodline
   const bloodlines = fixedBloodline
     ? bloodlineData?.filter((b) => b.id === fixedBloodline)
@@ -528,8 +526,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             value={classification}
             onValueChange={(e) => setClassification(e as StatType)}
             options={StatTypes.map((type) => ({
-              value: type,  // ✅ Keeps filtering logic the same
-              label: type,  // ✅ Displays readable name
+              value: type,
+              label: type,
             }))}
           />
 
@@ -539,8 +537,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             value={rarity}
             onValueChange={(e) => setRarity(e as RarityType)}
             options={rarities.map((rarity) => ({
-              value: rarity,  // ✅ Filtering still works by rarity value
-              label: rarity,  // ✅ Displays rarity name properly
+              value: rarity,
+              label: rarity,
             }))}
           />
 
@@ -552,7 +550,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             onValueChange={setBloodline}
             options={
               bloodlines
-                ?.sort((a, b) => a.name.localeCompare(b.name)) // ✅ Sort by name
+                ?.sort((a, b) => a.name.localeCompare(b.name))
                 .map((bl) => ({
                   value: bl.id,   // Keep filtering by ID
                   label: bl.name, // Show the bloodline name
@@ -584,8 +582,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               assetData
                 ?.sort((a, b) => (a.name < b.name ? -1 : 1))
                 .map((asset) => ({
-                  value: asset.id,  // ✅ Filtering by ID
-                  label: asset.name, // ✅ Displaying the name
+                  value: asset.id,
+                  label: asset.name,
                 })) || []
             }
           />
@@ -598,8 +596,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               assetData
                 ?.sort((a, b) => (a.name < b.name ? -1 : 1))
                 .map((asset) => ({
-                  value: asset.id,  // ✅ Keeps filtering by ID
-                  label: asset.name, // ✅ Shows name in dropdown
+                  value: asset.id,
+                  label: asset.name,
                 })) || []
             }
           />
@@ -641,8 +639,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             value={method}
             onValueChange={(m) => setMethod(m as AttackMethod)}
             options={AttackMethods.map((method) => ({
-              value: method,  // ✅ Keeps filtering by method value
-              label: method,  // ✅ Displays method as readable text
+              value: method,
+              label: method,
             }))}
           />
 
@@ -652,8 +650,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             value={target}
             onValueChange={(m) => setTarget(m as AttackTarget)}
             options={AttackTargets.map((target) => ({
-              value: target,  // ✅ Keeps filtering by target value
-              label: target,  // ✅ Displays target as readable text
+              value: target,
+              label: target,
             }))}
           />
 
@@ -663,8 +661,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             value={rank}
             onValueChange={(e) => setRank(e as UserRank)}
             options={UserRanks.map((rank) => ({
-              value: rank,  // ✅ Keeps filtering by rank value
-              label: rank,  // ✅ Displays rank as readable text
+              value: rank,
+              label: rank,
             }))} 
             includeNone={false}
           />
