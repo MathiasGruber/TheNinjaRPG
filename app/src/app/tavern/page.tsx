@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useLocalStorage } from "@/hooks/localstorage";
 import NavTabs from "@/layout/NavTabs";
-import Loader from "@/layout/Loader";
 import Conversation, { ConversationSkeleton } from "@/layout/Conversation";
 import BanInfo from "@/layout/BanInfo";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
