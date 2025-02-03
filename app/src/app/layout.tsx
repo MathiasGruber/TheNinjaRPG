@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 )}
                 <LayoutCore4>{children}</LayoutCore4>
                 <Toaster />
-                <SpeedInsights sampleRate={0.01} />
+                <SpeedInsights sampleRate={0.03} />
               </UserContextProvider>
             </TrpcClientProvider>
           </MultisessionAppSupport>
