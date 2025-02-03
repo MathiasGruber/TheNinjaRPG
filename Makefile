@@ -37,6 +37,11 @@ cloc: # Count lines of code
 	@echo "${YELLOW}Count lines of code${RESET}"
 	cloc --exclude-dir=node_modules --exclude-ext=csv  --exclude-ext=json  --exclude-ext=svg .
 
+.PHONY: loadEnv
+loadEnv: # Load environment variables
+	@echo "${YELLOW}Loading environment variables${RESET}"
+	source ./app/.env
+
 -------------DockerSetup---------------: # -------------------------------------------------------
 .PHONY: docker-build
 docker-build: # Build/Rebuild the application.
@@ -68,7 +73,7 @@ bun: install ## Execute bun command in local development.
 	cd app && bun $(ARGS)
 
 .PHONY: start
-start: # Run Next.js server, access at http://127.0.0.1:3000
+start: loadEnv # Run Next.js server, access at http://127.0.0.1:3000
 	@echo "${GREEN}start${RESET}"
 	rm -rf app/.next
 	@make bun -- dev
