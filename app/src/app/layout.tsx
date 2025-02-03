@@ -18,7 +18,7 @@ import "../styles/globals.css";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="h-full">
         <NextSSRPlugin
           /** https://docs.uploadthing.com/getting-started/appdir */
           routerConfig={extractRouterConfig(ourFileRouter)}
@@ -38,9 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {env.NEXT_PUBLIC_MEASUREMENT_ID && (
                   <GoogleTagManager gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
                 )}
-                <Toaster />
                 <LayoutCore4>{children}</LayoutCore4>
-                <SpeedInsights sampleRate={0.01} />
+                <Toaster />
+                <SpeedInsights sampleRate={0.03} />
               </UserContextProvider>
             </TrpcClientProvider>
           </MultisessionAppSupport>
