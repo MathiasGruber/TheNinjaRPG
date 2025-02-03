@@ -17,6 +17,7 @@ import { Check } from "lucide-react";
 import { mutateCommentSchema } from "@/validators/comments";
 import { useInfinitePagination } from "@/libs/pagination";
 import { CONVERSATION_QUIET_MINS } from "@/drizzle/constants";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { MutateCommentSchema } from "@/validators/comments";
 import type { ArrayElement } from "@/utils/typeutils";
 
@@ -31,6 +32,31 @@ interface ConversationProps {
   topRightContent?: React.ReactNode;
   onBack?: () => void;
 }
+
+export const ConversationSkeleton: React.FC<ConversationProps> = (props) => {
+  return (
+    <ContentBox
+      title={props.title}
+      subtitle={props.subtitle}
+      back_href={props.back_href}
+      initialBreak={props.initialBreak}
+      topRightContent={props.topRightContent}
+      onBack={props.onBack}
+    >
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-[100px] w-full items-center justify-center flex">
+          <Loader explanation="Loading conversation" />
+        </Skeleton>
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div className="flex flex-row gap-2" key={i}>
+            <Skeleton className="h-[130px] w-1/4" />
+            <Skeleton className="h-[130px] w-3/4" />
+          </div>
+        ))}
+      </div>
+    </ContentBox>
+  );
+};
 
 const Conversation: React.FC<ConversationProps> = (props) => {
   const onMutateCheck = useGlobalOnMutateProtect();
@@ -206,7 +232,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
 
   return (
     <div key={props.refreshKey}>
-      {isPending && <Loader explanation="Loading data" />}
+      {isPending && <ConversationSkeleton {...props} />}
       {!isPending && (
         <ContentBox
           title={props.title}
