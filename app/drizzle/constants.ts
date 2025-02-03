@@ -527,6 +527,14 @@ export const CLAN_TRAINING_BOOST_COST = 300;
 export const CLAN_RYO_BOOST_COST = 100;
 export const CLAN_REGEN_BOOST_COST = 300;
 
+// Hideout and town costs
+export const HIDEOUT_COST = 1; //50_000_000; // Ryo
+export const HIDEOUT_TOWN_UPGRADE = 1; // 2_000; // Reps
+export const TOWN_REESTABLISH_COST = 1; // 30_000_000; // Ryo
+export const TOWN_MONTHLY_MAINTENANCE = 1; // 30_000; // Faction points
+export const FACTION_MIN_POINTS_FOR_TOWN = 1; // 1_000_000;
+export const FACTION_MIN_MEMBERS_FOR_TOWN = 1; // 50;
+
 // Tournament Config
 export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
 
@@ -534,7 +542,13 @@ export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
 export const GAME_SETTING_GAINS_MULTIPLIER = ["0", "2", "4", "8"] as const;
 
 // Map settings
-export const SECTOR_TYPES = ["VILLAGE", "OUTLAW", "SAFEZONE"] as const;
+export const SECTOR_TYPES = [
+  "VILLAGE",
+  "OUTLAW",
+  "SAFEZONE",
+  "HIDEOUT",
+  "TOWN",
+] as const;
 
 // Conversation config
 export const CONVERSATION_QUIET_MINS = 5;
@@ -656,6 +670,9 @@ export const IMG_BG_DESSERT =
   "https://utfs.io/f/Hzww9EQvYURJnAdfRSmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
 export const IMG_BG_ICE =
   "https://utfs.io/f/Hzww9EQvYURJGVWObnRfoVrha0LP4mAS5KM7wtiZbUNXJxdC";
+
+export const IMG_VILLAGE_FACTION =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJyODt1NukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
 
 export const IMG_RARITY_RARE =
   "https://utfs.io/f/Hzww9EQvYURJvSyOMsEmSnXwslYEpV1yOeNL8gMtqhjPdf36";

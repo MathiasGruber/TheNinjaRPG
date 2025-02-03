@@ -77,7 +77,8 @@ export const travelRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("You are not awake");
       if (user.isBanned) return errorResponse("You are banned");
       if (target.isBanned) return errorResponse("Target is banned");
-      if (target.status !== "AWAKE") return errorResponse("Target cannot currently be robbed");
+      if (target.status !== "AWAKE")
+        return errorResponse("Target cannot currently be robbed");
       if (user.clanId === target.clanId)
         return errorResponse("Cannot rob faction members");
       if (target.rank === "STUDENT" || target.rank === "GENIN") {
@@ -249,7 +250,7 @@ export const travelRouter = createTRPCRouter({
         ctx.drizzle.query.village.findFirst({
           where: and(
             eq(village.sector, user.sector),
-            inArray(village.type, ["VILLAGE", "SAFEZONE"]),
+            inArray(village.type, ["VILLAGE", "TOWN", "HIDEOUT", "SAFEZONE"]),
           ),
           with: { structures: true },
         }),

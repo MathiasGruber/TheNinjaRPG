@@ -427,6 +427,7 @@ export const clan = mysqlTable(
     points: int("points").default(0).notNull(),
     bank: bigint("bank", { mode: "number" }).default(0).notNull(),
     pvpActivity: int("pvpActivity").default(0).notNull(),
+    repTreasury: int("repTreasury").default(0).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -1804,6 +1805,10 @@ export const village = mysqlTable(
     pvpDisabled: boolean("pvpDisabled").default(false).notNull(),
     villageLogo: varchar("villageLogo", { length: 191 }).default("").notNull(),
     villageGraphic: varchar("villageGraphic", { length: 191 }).default("").notNull(),
+    lastMaintenancePaidAt: datetime("lastMaintenancePaidAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    wasDowngraded: boolean("wasDowngraded").default(false).notNull(),
   },
   (table) => {
     return {

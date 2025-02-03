@@ -14,6 +14,7 @@ import Confirm from "@/layout/Confirm";
 import LoadoutSelector from "@/layout/LoadoutSelector";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UserRoundSearch, Globe2, Eye, EyeOff, GitMerge } from "lucide-react";
+import { HousePlus } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/app/_trpc/client";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
@@ -32,6 +33,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { HIDEOUT_COST } from "@/drizzle/constants";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import type { GlobalTile, SectorPoint, GlobalMapData } from "@/libs/travel/types";
@@ -61,10 +63,10 @@ export default function Travel() {
 
   // Data from database
   const { data: userData, timeDiff, updateUser } = useRequiredUserData();
-  const { data } = api.village.getAll.useQuery(undefined, {
+  const { data: villageData } = api.village.getAll.useQuery(undefined, {
     enabled: !!userData,
   });
-  const villages = data?.filter((v) => {
+  const villages = villageData?.filter((v) => {
     if (userData?.isOutlaw) {
       return true;
     } else {
@@ -153,6 +155,20 @@ export default function Travel() {
       },
     });
 
+  const { mutate: purchaseHideout, isPending: isCreatingHideout } =
+    api.clan.purchaseHideout.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.village.getAll.invalidate(),
+            utils.profile.getUser.invalidate(),
+            utils.travel.getSectorData.invalidate(),
+          ]);
+        }
+      },
+    });
+
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);
   const isGlobal = activeTab === globalLink;
@@ -203,10 +219,18 @@ export default function Travel() {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (isJoining) return <Loader explanation="Joining village" />;
+  if (isCreatingHideout) return <Loader explanation="Purchasing hideout" />;
 
   // Derived
+  const loadedVillages = villages && villages.length > 0;
+  const isOutlaw = userData.isOutlaw;
   const canJoin = hasRequiredRank(userData.rank, VILLAGE_LEAVE_REQUIRED_RANK);
   const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
+  const clanLeader = userData.clan?.leaderId === userData.userId;
+  const hadHideout = userData?.village?.type !== "OUTLAW" && userData.isOutlaw;
+  const canAffordHideout = (userData?.clan?.bank || 0) >= HIDEOUT_COST;
+  const canCreateHideout =
+    isOutlaw && !sectorVillage && clanLeader && !hadHideout && loadedVillages;
 
   return (
     <>
@@ -283,6 +307,27 @@ export default function Travel() {
                 Do you confirm that you wish to join this village? Please be aware that
                 if you join this village your training benefits & regen will be reduced
                 for {VILLAGE_REDUCED_GAINS_DAYS} days.
+              </Confirm>
+            )}
+            {canCreateHideout && (
+              <Confirm
+                title="Purchase Hideout"
+                proceed_label={canAffordHideout ? "Submit" : "Not enough ryo"}
+                button={<HousePlus className={`h-7 w-7 mx-1 hover:text-orange-500`} />}
+                onAccept={() => {
+                  if (canAffordHideout) {
+                    purchaseHideout({
+                      clanId: userData.clanId || "",
+                      sector: currentSector || 0,
+                    });
+                  }
+                }}
+              >
+                As a leader of a faction, you have the option of founding a hideout for
+                your faction, thereby effectively de-coupling yourself from the common
+                syndicate of outlaws. The purchase costs {HIDEOUT_COST} ryo, and the
+                faction currently has only {userData?.clan?.bank} ryo. Do you want to
+                create your faction hideout in this sector?
               </Confirm>
             )}
 

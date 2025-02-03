@@ -641,6 +641,8 @@ export const fetchSectorVillage = async (
       ? eq(village.sector, sector)
       : or(
           and(eq(village.type, "SAFEZONE"), eq(village.sector, sector)),
+          and(eq(village.type, "HIDEOUT"), eq(village.sector, sector)),
+          and(eq(village.type, "TOWN"), eq(village.sector, sector)),
           eq(village.type, "OUTLAW"),
         ),
     with: {
@@ -684,7 +686,7 @@ export const fetchStructures = async (
   villageId?: string | null,
 ) => {
   return await client.query.villageStructure.findMany({
-    where: eq(villageStructure.villageId, villageId ?? "syndicate"),
+    where: eq(villageStructure.villageId, villageId ?? VILLAGE_SYNDICATE_ID),
   });
 };
 
