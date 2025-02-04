@@ -428,6 +428,7 @@ export const clan = mysqlTable(
     bank: bigint("bank", { mode: "number" }).default(0).notNull(),
     pvpActivity: int("pvpActivity").default(0).notNull(),
     repTreasury: int("repTreasury").default(0).notNull(),
+    hasHideout: boolean("hasHideout").default(false).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

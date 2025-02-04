@@ -194,14 +194,16 @@ export const villageRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       if (!village) return errorResponse("Village does not exist");
       if (!user.isOutlaw) return errorResponse("You are not an outlaw");
-      if (!village.joinable) return errorResponse("Village is not joinable");
-      if (user.villageId === village.id) return errorResponse("Already in village");
+      if (!village.joinable) return errorResponse("Not joinable");
+      if (user.villageId === village.id) return errorResponse("Already joined");
       if (user.clanId) return errorResponse("Leave faction first");
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.isBanned) return errorResponse("Cannot leave while banned");
       if (village.type !== "VILLAGE") return errorResponse("Can only join villages");
       if (!hasRequiredRank(user.rank, VILLAGE_LEAVE_REQUIRED_RANK)) {
-        return errorResponse("Must be at least chunin to join village");
+        return errorResponse(
+          `Must be at least ${VILLAGE_LEAVE_REQUIRED_RANK.toLowerCase()} to join village`,
+        );
       }
 
       // Update

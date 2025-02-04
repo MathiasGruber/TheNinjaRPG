@@ -24,7 +24,6 @@ import { showMutationToast } from "@/libs/toast";
 import { hasRequiredRank } from "@/libs/train";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { calcIsInVillage } from "@/libs/travel/controls";
 import {
   Form,
   FormControl,
@@ -225,12 +224,12 @@ export default function Travel() {
   const loadedVillages = villages && villages.length > 0;
   const isOutlaw = userData.isOutlaw;
   const canJoin = hasRequiredRank(userData.rank, VILLAGE_LEAVE_REQUIRED_RANK);
-  const inVillage = calcIsInVillage({ x: userData.longitude, y: userData.latitude });
   const clanLeader = userData.clan?.leaderId === userData.userId;
   const hadHideout = userData?.village?.type !== "OUTLAW" && userData.isOutlaw;
   const canAffordHideout = (userData?.clan?.bank || 0) >= HIDEOUT_COST;
   const canCreateHideout =
     isOutlaw && !sectorVillage && clanLeader && !hadHideout && loadedVillages;
+  const showJoinBtn = userData.isOutlaw && canJoin && sectorVillage?.joinable;
 
   return (
     <>
@@ -297,7 +296,7 @@ export default function Travel() {
                 </PopoverContent>
               </Popover>
             )}
-            {userData.isOutlaw && canJoin && inVillage && sectorVillage && (
+            {showJoinBtn && (
               <Confirm
                 title="Join Village"
                 proceed_label="Submit"
