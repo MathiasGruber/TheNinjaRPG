@@ -277,22 +277,23 @@ export const clanRouter = createTRPCRouter({
       // Guard
       if (
         user.villageId === fetchedClan?.villageId ||
-        fetchedClan?.id === user.clanId
+        fetchedClan?.id === user.clanId ||
+        (fetchedClan?.hasHideout && user.isOutlaw)
       ) {
         return fetchedClan;
       }
       return null;
     }),
   getAll: protectedProcedure
-    .input(z.object({ villageId: z.string() }))
+    .input(z.object({ villageId: z.string(), isOutlaw: z.boolean() }))
     .query(async ({ ctx, input }) => {
       // Fetch
       const [user, fetchedClans] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchClans(ctx.drizzle, input.villageId),
+        fetchClans(ctx.drizzle, input.villageId, input.isOutlaw),
       ]);
       // Guard
-      if (user && user.villageId === input.villageId) return fetchedClans;
+      if (user.villageId === input.villageId) return fetchedClans;
       return null;
     }),
   getAllNames: protectedProcedure.query(async ({ ctx }) => {
@@ -332,9 +333,15 @@ export const clanRouter = createTRPCRouter({
       if (!fetchedClan) return errorResponse(`${groupLabel} not found`);
       if (!user) return errorResponse("User not found");
       if (!fetchedClan.leaderId) return errorResponse("No leader currently");
-      if (user.villageId !== fetchedClan.villageId)
-        return errorResponse(`Wrong ${locationLabel}`);
       if (user.clanId) return errorResponse(`Already in a ${groupLabel}`);
+      if (
+        !(
+          user.villageId === fetchedClan.villageId ||
+          (user.isOutlaw && fetchedClan.hasHideout)
+        )
+      ) {
+        return errorResponse(`Wrong ${locationLabel}`);
+      }
       if (!hasRequiredRank(user.rank, CLAN_RANK_REQUIREMENT)) {
         return errorResponse(`Rank must be at least ${CLAN_RANK_REQUIREMENT}`);
       }
@@ -397,12 +404,20 @@ export const clanRouter = createTRPCRouter({
       if (!leader) return errorResponse("Leader not found");
       if (nMembers >= CLAN_MAX_MEMBERS) return errorResponse(`${groupLabel} is full`);
       if (ctx.userId !== request.receiverId) return errorResponse("Not your request");
-      if (ctx.userId !== fetchedClan.leaderId)
+      if (ctx.userId !== fetchedClan.leaderId) {
         return errorResponse(`Not ${groupLabel} leader`);
-      if (requester.clanId)
+      }
+      if (requester.clanId) {
         return errorResponse(`Requester already in a ${groupLabel}`);
-      if (requester.villageId !== leader.villageId)
+      }
+      if (
+        !(
+          requester.villageId === leader.villageId ||
+          (fetchedClan.hasHideout && requester.isOutlaw)
+        )
+      ) {
         return errorResponse(`!= ${locationLabel}`);
+      }
       if (!hasRequiredRank(leader.rank, CLAN_RANK_REQUIREMENT)) {
         return errorResponse(`Rank must be at least ${CLAN_RANK_REQUIREMENT}`);
       }
@@ -1347,7 +1362,11 @@ export const fetchActiveUserClanBattles = async (
  * @param villageId - The ID of the village to fetch clans for.
  * @returns A promise that resolves to an array of clans.
  */
-export const fetchClans = async (client: DrizzleClient, villageId: string) => {
+export const fetchClans = async (
+  client: DrizzleClient,
+  villageId: string,
+  isOutlaw?: boolean,
+) => {
   return await client.query.clan.findMany({
     with: {
       leader: {
@@ -1378,7 +1397,9 @@ export const fetchClans = async (client: DrizzleClient, villageId: string) => {
         },
       },
     },
-    where: eq(clan.villageId, villageId),
+    where: isOutlaw
+      ? or(eq(clan.villageId, villageId), eq(clan.hasHideout, true))
+      : eq(clan.villageId, villageId),
   });
 };
 
