@@ -78,7 +78,7 @@ export const ClansOverview: React.FC = () => {
 
   // Queries
   const { data } = api.clan.getAll.useQuery(
-    { villageId: userData?.villageId ?? "" },
+    { villageId: userData?.villageId ?? "", isOutlaw: userData?.isOutlaw ?? false },
     { enabled: !!userData?.villageId },
   );
   const allClans = data?.map((clan) => ({
