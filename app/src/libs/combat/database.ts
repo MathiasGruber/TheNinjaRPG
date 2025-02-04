@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, and, sql, lt, gte, inArray } from "drizzle-orm";
+import { eq, and, or, sql, lt, gte, inArray } from "drizzle-orm";
 import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs/travel/constants";
 import {
   battle,
@@ -17,6 +17,7 @@ import { battleJutsuExp } from "@/libs/train";
 import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -235,16 +236,27 @@ export const updateClanLeaders = async (
   if (!user.isAggressor) return;
   if (!result.didWin) return;
   // Apply
-  await client
-    .update(clan)
-    .set({
-      leaderId: user.userId,
-      coLeader1: sql`CASE WHEN ${clan.coLeader1} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
-      coLeader2: sql`CASE WHEN ${clan.coLeader2} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
-      coLeader3: sql`CASE WHEN ${clan.coLeader3} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
-      coLeader4: sql`CASE WHEN ${clan.coLeader4} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
-    })
-    .where(eq(clan.id, user.clanId));
+  await Promise.all([
+    client
+      .update(clan)
+      .set({
+        leaderId: user.userId,
+        coLeader1: sql`CASE WHEN ${clan.coLeader1} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+        coLeader2: sql`CASE WHEN ${clan.coLeader2} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+        coLeader3: sql`CASE WHEN ${clan.coLeader3} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+        coLeader4: sql`CASE WHEN ${clan.coLeader4} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+      })
+      .where(eq(clan.id, user.clanId)),
+    client
+      .update(village)
+      .set({ kageId: user.userId })
+      .where(
+        and(
+          eq(village.id, user.villageId ?? VILLAGE_SYNDICATE_ID),
+          or(eq(village.type, "HIDEOUT"), eq(village.type, "TOWN")),
+        ),
+      ),
+  ]);
 };
 
 export const updateTournament = async (
