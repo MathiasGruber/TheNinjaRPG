@@ -52,7 +52,7 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
   const { rank, classification, hidden } = props.state;
 
   // Get all villages
-  const { data: villages } = api.village.getAll.useQuery(undefined);
+  const { data: villages } = api.village.getAllNames.useQuery(undefined);
 
   // Filter shown bloodlines
   const villageData = villages?.find((b) => b.id === village);

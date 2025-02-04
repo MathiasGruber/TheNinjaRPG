@@ -38,7 +38,11 @@ export default function Tavern() {
   );
 
   // Tavern name based on user village
-  let localTavern = userData?.village ? userData?.village?.name : "Syndicate";
+  let localTavern =
+    ["OUTLAW", "TOWN", "VILLAGE"].includes(userData?.village?.type ?? "") &&
+    userData?.village?.name
+      ? userData?.village?.name
+      : "Syndicate";
 
   // Change to ally tavern if relevant
   if (sectorVillage && userData) {

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, or, gte, like, isNull, inArray } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm";
-import { villageStructure } from "@/drizzle/schema";
+import { villageStructure, conversation } from "@/drizzle/schema";
 import { clan, mpvpBattleQueue, mpvpBattleUser, actionLog } from "@/drizzle/schema";
 import { userData, userRequest, historicalAvatar, village } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -102,6 +102,13 @@ export const clanRouter = createTRPCRouter({
           .update(userData)
           .set({ villageId: hideoutId })
           .where(eq(userData.clanId, input.clanId)),
+        ctx.drizzle
+          .insert(conversation)
+          .values({
+            id: nanoid(),
+            title: fetchedClan.name,
+            createdById: fetchedClan.leaderId,
+          }),
         ctx.drizzle.insert(village).values({
           id: hideoutId,
           name: `${fetchedClan.name}`,
