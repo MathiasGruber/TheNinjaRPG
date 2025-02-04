@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and, ne, sql, gte, isNull } from "drizzle-orm";
 import { userData, village, villageStructure } from "@/drizzle/schema";
-import { kageDefendedChallenges } from "@/drizzle/schema";
+import { kageDefendedChallenges, clan } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
@@ -14,7 +14,7 @@ import { KAGE_MAX_DAILIES, KAGE_MAX_ELDERS } from "@/drizzle/constants";
 import { KAGE_DELAY_SECS } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import { secondsFromDate } from "@/utils/time";
-
+import { fetchClan } from "@/routers/clan";
 export const kageRouter = createTRPCRouter({
   fightKage: protectedProcedure
     .input(z.object({ kageId: z.string(), villageId: z.string() }))
@@ -184,38 +184,60 @@ export const kageRouter = createTRPCRouter({
       };
     }),
   upgradeStructure: protectedProcedure
-    .input(z.object({ structureId: z.string(), villageId: z.string() }))
+    .input(
+      z.object({
+        structureId: z.string(),
+        villageId: z.string(),
+        clanId: z.string().nullish(),
+      }),
+    )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, userVillage] = await Promise.all([
+      const [user, userVillage, clanData] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchVillage(ctx.drizzle, input.villageId),
+        input.clanId ? fetchClan(ctx.drizzle, input.clanId) : null,
       ]);
 
       // Derived
       const structure = userVillage?.structures.find((s) => s.id === input.structureId);
+      const isHideoutOrTown = ["HIDEOUT", "TOWN"].includes(userVillage?.type ?? "");
 
       // Guards
       if (!user) return errorResponse("User not found");
       if (!userVillage) return errorResponse("Village not found");
       if (!structure) return errorResponse("Structure not found");
-      if (userVillage.kageId !== user.userId) return errorResponse("Not the kage");
+      if (isHideoutOrTown && !clanData) return errorResponse("Faction not found");
+      if (userVillage.kageId !== user.userId) return errorResponse("Not the leader");
       if (structure.level === 0) return errorResponse("Can't upgrade from lvl 0 yet");
       if (user.villageId !== structure.villageId) return errorResponse("Wrong village");
-      if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
-      const { total } = calcStructureUpgrade(structure, userVillage);
-      if (userVillage.tokens < total) return errorResponse("Not enough tokens");
-      if (secondsFromDate(KAGE_DELAY_SECS, userVillage.leaderUpdatedAt) > new Date()) {
-        return errorResponse("Must have been kage for 24 hours");
+      if (!["VILLAGE", "TOWN"].includes(userVillage.type)) {
+        return errorResponse("Only for villages");
       }
-      // Mutate cost
-      const villageUpdate = await ctx.drizzle
-        .update(village)
-        .set({ tokens: sql`${village.tokens} - ${total}` })
-        .where(and(eq(village.id, input.villageId), gte(village.tokens, total)));
-      if (villageUpdate.rowsAffected === 0) return errorResponse("1st update failed");
-
+      if (clanData && clanData.id !== user.clanId) {
+        return errorResponse("Not in faction");
+      }
+      if (secondsFromDate(KAGE_DELAY_SECS, userVillage.leaderUpdatedAt) > new Date()) {
+        return errorResponse("Must have been in charge for 24 hours");
+      }
+      // Guard on cost & mutate
+      const { total } = calcStructureUpgrade(structure, userVillage);
+      if (isHideoutOrTown && clanData) {
+        if (clanData.points < total) return errorResponse("Not enough clan points");
+        const update = await ctx.drizzle
+          .update(clan)
+          .set({ points: sql`${clan.points} - ${total}` })
+          .where(and(eq(clan.id, clanData.id), gte(clan.points, total)));
+        if (update.rowsAffected === 0) return errorResponse("Point update failed");
+      } else {
+        if (userVillage.tokens < total) return errorResponse("Not enough tokens");
+        const update = await ctx.drizzle
+          .update(village)
+          .set({ tokens: sql`${village.tokens} - ${total}` })
+          .where(and(eq(village.id, input.villageId), gte(village.tokens, total)));
+        if (update.rowsAffected === 0) return errorResponse("Token update failed");
+      }
       // If success, upgrade structure
       const result = await ctx.drizzle
         .update(villageStructure)
