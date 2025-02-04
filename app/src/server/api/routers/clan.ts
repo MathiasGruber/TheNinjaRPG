@@ -83,6 +83,7 @@ export const clanRouter = createTRPCRouter({
         .set({
           villageId: hideoutId,
           bank: sql`${clan.bank} - ${HIDEOUT_COST}`,
+          hasHideout: true,
         })
         .where(and(eq(clan.id, input.clanId), gte(clan.bank, HIDEOUT_COST)));
       if (result.rowsAffected === 0) return errorResponse("Failed to purchase hideout");
@@ -94,6 +95,7 @@ export const clanRouter = createTRPCRouter({
             id: nanoid(),
             level: 1,
             villageId: hideoutId,
+            allyAccess: 1,
           })),
         ),
         ctx.drizzle
@@ -409,7 +411,10 @@ export const clanRouter = createTRPCRouter({
         updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "CLAN"),
         ctx.drizzle
           .update(userData)
-          .set({ clanId: fetchedClan.id })
+          .set({
+            clanId: fetchedClan.id,
+            ...(fetchedClan.hasHideout ? { villageId: fetchedClan.villageId } : {}),
+          })
           .where(eq(userData.userId, requester.userId)),
       ]);
       void pusher.trigger(request.senderId, "event", { type: "clan" });
