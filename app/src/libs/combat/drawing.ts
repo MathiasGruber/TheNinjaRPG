@@ -682,8 +682,8 @@ export const highlightTiles = (info: {
     !action?.lastUsedRound ||
     battle.round - action.lastUsedRound >= action.cooldown;
 
-  // Is this a move action (if so, we color the selected green tile blue instead)
-  const hasMove = action?.effects?.find((e) => e.type === "move");
+  // Is this a move or displacement action (if so, we color the selected green tile blue instead)
+  const hasMove = action?.effects?.find((e) => e.type === "move" || e.type === "displacement");
 
   // Highlight intersected tile
   /* ************************** */
