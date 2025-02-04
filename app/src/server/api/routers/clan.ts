@@ -32,6 +32,7 @@ import { TOWN_REESTABLISH_COST } from "@/drizzle/constants";
 import { FACTION_MIN_POINTS_FOR_TOWN } from "@/drizzle/constants";
 import { FACTION_MIN_MEMBERS_FOR_TOWN } from "@/drizzle/constants";
 import { IMG_VILLAGE_FACTION } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData } from "@/drizzle/schema";
@@ -101,7 +102,7 @@ export const clanRouter = createTRPCRouter({
           .where(eq(userData.clanId, input.clanId)),
         ctx.drizzle.insert(village).values({
           id: hideoutId,
-          name: `${fetchedClan.name} Hideout`,
+          name: `${fetchedClan.name}`,
           mapName: `${fetchedClan.name}`,
           sector: input.sector,
           description: `${fetchedClan.name} Hideout`,
@@ -1155,6 +1156,7 @@ export const removeFromClan = async (
       .set({
         clanId: null,
         status: sql`CASE WHEN status = "QUEUED" THEN "AWAKE" ELSE status END`,
+        villageId: sql`CASE WHEN isOutlaw = 1 THEN ${VILLAGE_SYNDICATE_ID} ELSE villageId END`,
       })
       .where(eq(userData.userId, userId)),
     client
@@ -1175,6 +1177,12 @@ export const removeFromClan = async (
       relatedMsg: `${user.username} removed from ${user.isOutlaw ? "faction" : "clan"}: ${clanData.name}`,
       relatedImage: clanData.image,
     }),
+    ...(!otherUser && ["HIDEOUT", "TOWN"].includes(clanData.village?.type)
+      ? [
+          client.delete(village).where(eq(village.id, clanData.villageId)),
+          client.delete(villageStructure).where(eq(village.id, clanData.villageId)),
+        ]
+      : []),
     ...(!otherUser
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),
@@ -1184,6 +1192,7 @@ export const removeFromClan = async (
             .set({
               clanId: null,
               status: sql`CASE WHEN status = "QUEUED" THEN "AWAKE" ELSE status END`,
+              villageId: sql`CASE WHEN isOutlaw = 1 THEN ${VILLAGE_SYNDICATE_ID} ELSE villageId END`,
             })
             .where(eq(userData.clanId, clanData.id)),
         ]
@@ -1206,6 +1215,17 @@ export const removeFromClan = async (
                 : clanData.coLeader4,
             })
             .where(eq(clan.id, clanData.id)),
+          client
+            .update(village)
+            .set({
+              kageId: isLeader && otherUser ? otherUser.userId : clanData.leaderId,
+            })
+            .where(
+              and(
+                eq(village.id, user.villageId ?? VILLAGE_SYNDICATE_ID),
+                or(eq(village.type, "HIDEOUT"), eq(village.type, "TOWN")),
+              ),
+            ),
         ]),
   ]);
 };
