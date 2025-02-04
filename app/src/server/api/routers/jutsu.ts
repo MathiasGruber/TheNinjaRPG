@@ -56,7 +56,7 @@ export const jutsuRouter = createTRPCRouter({
     .input(
       jutsuFilteringSchema.extend({
         cursor: z.number().nullish(),
-        limit: z.number().min(1).max(500),
+        limit: z.number().min(1).max(1000),
         hideAi: z.boolean().optional(),
       }),
     )
