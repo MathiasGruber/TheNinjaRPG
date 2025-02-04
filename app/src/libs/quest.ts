@@ -11,6 +11,7 @@ import {
   IMG_MISSION_C,
   IMG_MISSION_D,
   IMG_MISSION_E,
+  VILLAGE_SYNDICATE_ID,
   type LetterRank,
   type QuestType,
 } from "@/drizzle/constants";
@@ -432,6 +433,8 @@ export const isAvailableUserQuests = (
     !quest.previousAttempts ||
     (quest.previousAttempts <= 1 && quest.completed === 0);
   const villageCheck =
-    !quest.requiredVillage || quest.requiredVillage === user.villageId;
+    !quest.requiredVillage ||
+    quest.requiredVillage === user.villageId ||
+    (quest.requiredVillage === VILLAGE_SYNDICATE_ID && user.isOutlaw);
   return hideCheck && expiresCheck && prevCheck && villageCheck;
 };
