@@ -31,6 +31,7 @@ import { fetchUserItems } from "@/routers/item";
 import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { questFilteringSchema } from "@/validators/quest";
 import { hideQuestInformation, isAvailableUserQuests } from "@/libs/quest";
 import { QuestTracker } from "@/validators/objectives";
@@ -133,7 +134,10 @@ export const questsRouter = createTRPCRouter({
                 ? [
                     or(
                       isNull(quest.requiredVillage),
-                      eq(quest.requiredVillage, input.villageId ?? ""),
+                      eq(
+                        quest.requiredVillage,
+                        input.villageId ?? VILLAGE_SYNDICATE_ID,
+                      ),
                     ),
                   ]
                 : []),
@@ -170,7 +174,10 @@ export const questsRouter = createTRPCRouter({
                 ? [
                     or(
                       isNull(quest.requiredVillage),
-                      eq(quest.requiredVillage, input.villageId ?? ""),
+                      eq(
+                        quest.requiredVillage,
+                        input.villageId ?? VILLAGE_SYNDICATE_ID,
+                      ),
                     ),
                   ]
                 : []),
@@ -225,7 +232,7 @@ export const questsRouter = createTRPCRouter({
               gte(quest.maxLevel, input.userLevel),
               or(
                 isNull(quest.requiredVillage),
-                eq(quest.requiredVillage, input.userVillageId ?? ""),
+                eq(quest.requiredVillage, input.userVillageId ?? VILLAGE_SYNDICATE_ID),
               ),
             ),
           ),
@@ -237,7 +244,10 @@ export const questsRouter = createTRPCRouter({
       if (user.level !== input.userLevel) {
         return errorResponse("User level does not match");
       }
-      if (user.villageId !== input.userVillageId) {
+      if (
+        user.villageId !== input.userVillageId &&
+        input.userVillageId !== VILLAGE_SYNDICATE_ID
+      ) {
         return errorResponse("Village mismatch");
       }
       if (!(user.isOutlaw || canAccessStructure(user, "/missionhall", sectorVillage))) {
