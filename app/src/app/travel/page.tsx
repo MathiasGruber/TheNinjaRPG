@@ -229,7 +229,7 @@ export default function Travel() {
   const canAffordHideout = (userData?.clan?.bank || 0) >= HIDEOUT_COST;
   const canCreateHideout =
     isOutlaw && !sectorVillage && clanLeader && !hadHideout && loadedVillages;
-  const showJoinBtn = userData.isOutlaw && canJoin && sectorVillage?.joinable;
+  const joinVillageBtn = userData.isOutlaw && canJoin && sectorVillage?.joinable;
 
   return (
     <>
@@ -296,7 +296,7 @@ export default function Travel() {
                 </PopoverContent>
               </Popover>
             )}
-            {showJoinBtn && (
+            {joinVillageBtn && (
               <Confirm
                 title="Join Village"
                 proceed_label="Submit"
