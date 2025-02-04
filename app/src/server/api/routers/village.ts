@@ -6,7 +6,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trp
 import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
 import { village, villageStructure, userData, notification } from "@/drizzle/schema";
 import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
-import { eq, sql, gte, and, or } from "drizzle-orm";
+import { eq, sql, gte, and, or, inArray } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { fetchUpdatedUser } from "@/routers/profile";
@@ -34,6 +34,13 @@ import type { VillageAlliance } from "@/drizzle/schema";
 const availRequests = ["SURRENDER", "ALLIANCE"];
 
 export const villageRouter = createTRPCRouter({
+  // Get all village names
+  getAllNames: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.village.findMany({
+      columns: { id: true, name: true },
+      where: inArray(village.type, ["VILLAGE", "OUTLAW", "SAFEZONE"]),
+    });
+  }),
   // Get all villages
   getAll: publicProcedure.query(async ({ ctx }) => {
     return await fetchVillages(ctx.drizzle);

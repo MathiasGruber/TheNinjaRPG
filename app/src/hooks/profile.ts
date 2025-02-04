@@ -26,7 +26,7 @@ export const useUserEditForm = (userId: string, user: UpdateUserSchema) => {
   const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined);
   const { data: items, isPending: l2 } = api.item.getAllNames.useQuery(undefined);
   const { data: lines, isPending: l3 } = api.bloodline.getAllNames.useQuery(undefined);
-  const { data: villages, isPending: l5 } = api.village.getAll.useQuery(undefined);
+  const { data: villages, isPending: l5 } = api.village.getAllNames.useQuery(undefined);
   const { data: userJutsus, isPending: l6 } = api.jutsu.getPublicUserJutsus.useQuery({
     userId: userId,
   });

@@ -29,7 +29,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   });
 
   // Query for bloodlines and villages
-  const { data: villages, isPending: l1 } = api.village.getAll.useQuery(undefined);
+  const { data: villages, isPending: l1 } = api.village.getAllNames.useQuery(undefined);
 
   // Mutation for updating bloodline
   const { mutate: updateBloodline, isPending: l2 } = api.bloodline.update.useMutation({
