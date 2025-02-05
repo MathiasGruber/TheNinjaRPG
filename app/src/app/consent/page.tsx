@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
