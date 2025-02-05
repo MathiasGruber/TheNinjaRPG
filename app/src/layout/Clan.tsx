@@ -20,10 +20,8 @@ import { FilePenLine, List, CirclePlay, ScanEye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Medal, HeartCrack, Star } from "lucide-react";
 import ActionLogs from "@/layout/ActionLog";
-import ActionLogFiltering, {
-  useFiltering,
-  getFilter,
-} from "@/layout/ActionLogFiltering";
+import { useFiltering, getFilter } from "@/layout/ActionLogFiltering";
+import { showUserRank } from "@/libs/profile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadButton } from "@/utils/uploadthing";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -62,6 +60,7 @@ import { secondsFromDate } from "@/utils/time";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { cn } from "src/libs/shadui";
+import type { UserRank } from "@/drizzle/schema";
 import type { ClanRenameSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -317,7 +316,8 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
         avatar: string | null;
         clanId: string | null;
         level: number;
-        rank: string;
+        rank: UserRank;
+        isOutlaw: boolean;
       };
     }[],
   ) => {
@@ -358,7 +358,8 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                     <div>
                       <p className="font-bold">{q.user.username}</p>
                       <p>
-                        Lvl. {q.user.level} {capitalizeFirstLetter(q.user.rank)}
+                        Lvl. {q.user.level}{" "}
+                        {capitalizeFirstLetter(showUserRank(q.user))}
                       </p>
                     </div>
                     {userData &&
@@ -1209,7 +1210,11 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
       const memberLeaderLike = memberIsLeader || memberIsColeader;
       return {
         ...member,
-        rank: memberIsLeader ? "Leader" : memberIsColeader ? "Coleader" : member.rank,
+        rank: memberIsLeader
+          ? "Leader"
+          : memberIsColeader
+            ? "Coleader"
+            : showUserRank(member),
         actions: (
           <div className="flex flex-row gap-1">
             {member.userId !== userId && (
