@@ -18,6 +18,7 @@ export const canPlayHiddenQuests = (role: UserRole) => {
 
 export const canSubmitNotification = (role: UserRole) => {
   return [
+    "CODER",
     "CONTENT",
     "EVENT",
     "HEAD_MODERATOR",
@@ -210,4 +211,8 @@ export const canChangeCombatBgScheme = (role: UserRole) => {
 
 export const canReviewLinkPromotions = (role: UserRole) => {
   return ["CODING-ADMIN"].includes(role);
+};
+
+export const canEditClans = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
 };
