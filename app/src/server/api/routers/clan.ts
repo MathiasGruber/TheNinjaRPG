@@ -12,6 +12,7 @@ import { fetchUser, updateNindo } from "@/routers/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { clanCreateSchema, checkCoLeader } from "@/validators/clan";
 import { hasRequiredRank } from "@/libs/train";
+import { checkIfSectorIsAvailable } from "@/libs/clan";
 import {
   fetchRequest,
   fetchRequests,
@@ -46,11 +47,12 @@ export const clanRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, fetchedClan, villages, structures] = await Promise.all([
+      const [user, fetchedClan, villages, structures, available] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchClan(ctx.drizzle, input.clanId),
         fetchVillages(ctx.drizzle),
         fetchStructures(ctx.drizzle),
+        checkIfSectorIsAvailable(input.sector),
       ]);
       const clanVillage = fetchedClan?.village;
       // Guards
@@ -72,6 +74,9 @@ export const clanRouter = createTRPCRouter({
       }
       if (clanVillage?.kageId === user.userId) {
         return errorResponse("Cannot create hideout as the leader of the outlaws");
+      }
+      if (!available) {
+        return errorResponse("This location is reserved or not possible to build on.");
       }
       // New structures (same as syndicate, except without ANBU & Clan)
       const newStructures = structures.filter((s) => s.route !== "/anbu");
@@ -102,13 +107,11 @@ export const clanRouter = createTRPCRouter({
           .update(userData)
           .set({ villageId: hideoutId })
           .where(eq(userData.clanId, input.clanId)),
-        ctx.drizzle
-          .insert(conversation)
-          .values({
-            id: nanoid(),
-            title: fetchedClan.name,
-            createdById: fetchedClan.leaderId,
-          }),
+        ctx.drizzle.insert(conversation).values({
+          id: nanoid(),
+          title: fetchedClan.name,
+          createdById: fetchedClan.leaderId,
+        }),
         ctx.drizzle.insert(village).values({
           id: hideoutId,
           name: `${fetchedClan.name}`,
@@ -1326,6 +1329,7 @@ export const fetchClanBattles = async (client: DrizzleClient, clanId: string) =>
               username: true,
               level: true,
               rank: true,
+              isOutlaw: true,
             },
           },
         },
@@ -1457,6 +1461,7 @@ export const fetchClan = async (client: DrizzleClient, clanId: string) => {
           rank: true,
           avatar: true,
           pvpActivity: true,
+          isOutlaw: true,
         },
       },
       leaderOrder: true,

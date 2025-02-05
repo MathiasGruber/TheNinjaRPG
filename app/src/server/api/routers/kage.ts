@@ -127,13 +127,15 @@ export const kageRouter = createTRPCRouter({
         userId: ctx.userId,
       });
       const village = user?.village;
+      const isHideoutOrTown = ["HIDEOUT", "TOWN"].includes(village?.type ?? "");
+      const lockout = isHideoutOrTown ? KAGE_DELAY_SECS : 0;
       // Guards
       if (!user) return errorResponse("User not found");
       if (!village) return errorResponse("Village not found");
       if (user.isBanned) return errorResponse("User is banned");
       if (user.isSilenced) return errorResponse("User is silenced");
       if (village.kageId !== ctx.userId) return errorResponse("Not kage");
-      if (secondsFromDate(KAGE_DELAY_SECS, village.leaderUpdatedAt) > new Date()) {
+      if (secondsFromDate(lockout, village.leaderUpdatedAt) > new Date()) {
         return errorResponse("Must have been kage for 24 hours");
       }
       // Update
@@ -156,6 +158,9 @@ export const kageRouter = createTRPCRouter({
         fetchVillage(ctx.drizzle, villageId),
         fetchElders(ctx.drizzle, villageId),
       ]);
+      // Derived
+      const isHideoutOrTown = ["HIDEOUT", "TOWN"].includes(village?.type ?? "");
+      const lockout = isHideoutOrTown ? KAGE_DELAY_SECS : 0;
       // Guards
       if (!kage) return errorResponse("User not found");
       if (!prospect) return errorResponse("Target not found");
@@ -169,7 +174,7 @@ export const kageRouter = createTRPCRouter({
       if (elders.length > KAGE_MAX_ELDERS) {
         return errorResponse(`Already have ${KAGE_MAX_ELDERS} elders`);
       }
-      if (secondsFromDate(KAGE_DELAY_SECS, village.leaderUpdatedAt) > new Date()) {
+      if (secondsFromDate(lockout, village.leaderUpdatedAt) > new Date()) {
         return errorResponse("Must have been kage for 24 hours");
       }
       // Mutate
@@ -203,6 +208,7 @@ export const kageRouter = createTRPCRouter({
       // Derived
       const structure = userVillage?.structures.find((s) => s.id === input.structureId);
       const isHideoutOrTown = ["HIDEOUT", "TOWN"].includes(userVillage?.type ?? "");
+      const lockout = isHideoutOrTown ? KAGE_DELAY_SECS : 0;
 
       // Guards
       if (!user) return errorResponse("User not found");
@@ -218,7 +224,7 @@ export const kageRouter = createTRPCRouter({
       if (clanData && clanData.id !== user.clanId) {
         return errorResponse("Not in faction");
       }
-      if (secondsFromDate(KAGE_DELAY_SECS, userVillage.leaderUpdatedAt) > new Date()) {
+      if (secondsFromDate(lockout, userVillage.leaderUpdatedAt) > new Date()) {
         return errorResponse("Must have been in charge for 24 hours");
       }
       // Guard on cost & mutate
