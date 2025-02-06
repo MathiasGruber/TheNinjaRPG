@@ -10,8 +10,13 @@ export async function POST(request: Request) {
   // https://topwebgames.com/game/theninja-rpg-core4/vote?incentive=testSecret-topwebgames&test=true&alwaysReward=true
 
   try {
+    const { searchParams } = new URL(request.url);
     const data = await request.formData();
-    const incentive = data.get("incentive") as string;
+    const incentive =
+      (data.get("incentive") as string) ||
+      searchParams.get("incentive") ||
+      searchParams.get("param") ||
+      searchParams.get("userid");
     const [secret, siteId] = incentive?.split("-") ?? [];
 
     if (!secret || !siteId) {
