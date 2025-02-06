@@ -8,6 +8,7 @@ import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
   actionLog,
   bankTransfers,
+  battleHistory,
   bloodlineRolls,
   conversationComment,
   forumPost,
@@ -20,18 +21,18 @@ import {
   quest,
   questHistory,
   reportLog,
-  userBlackList,
   user2conversation,
   userAttribute,
+  userBlackList,
   userData,
   userItem,
   userJutsu,
   userNindo,
-  userRequest,
   userReport,
   userReportComment,
+  userRequest,
+  userVote,
   village,
-  battleHistory,
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
 import { canChangeContent, canModerateRoles } from "@/utils/permissions";
@@ -1272,9 +1273,20 @@ export const fetchUpdatedUser = async (props: {
           },
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
+        votes: true,
       },
     }),
   ]);
+
+  // Add votes entry if it doesn't exist
+  if (user && !user.votes) {
+    await client.insert(userVote).values({
+      id: nanoid(),
+      userId: user.userId,
+      lastVoteAt: new Date(),
+      secret: nanoid(),
+    });
+  }
 
   // Add in achievements
   if (user) {

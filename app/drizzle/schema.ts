@@ -1545,6 +1545,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     references: [aiProfile.id],
   }),
   promotions: many(linkPromotion, { relationName: "userPromotions" }),
+  votes: one(userVote, {
+    fields: [userData.userId],
+    references: [userVote.userId],
+  }),
 }));
 
 export const userReview = mysqlTable(
