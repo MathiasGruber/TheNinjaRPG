@@ -15,7 +15,7 @@
     "preview": "next build && next start",
     "start": "next start",
     "test": "vitest",
-    "seed": "bun tsx drizzle/seed.ts",
+    "seed": "bun run drizzle/seed.ts",
     "dbpush": "drizzle-kit push",
     "makemigrations": "drizzle-kit generate",
     "emptymigration": "drizzle-kit generate --custom",
