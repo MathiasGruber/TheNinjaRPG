@@ -1077,19 +1077,20 @@ export const profileRouter = createTRPCRouter({
         return errorResponse("Votes already claimed");
       }
       // Update user's reputation points and mark votes as claimed
-      await Promise.all([
-        ctx.drizzle
-          .update(userData)
-          .set({
-            reputationPoints: sql`${userData.reputationPoints} + 1`,
-            reputationPointsTotal: sql`${userData.reputationPointsTotal} + 1`,
-          })
-          .where(eq(userData.userId, ctx.userId)),
-        ctx.drizzle
-          .update(userVote)
-          .set({ claimed: true })
-          .where(eq(userVote.userId, ctx.userId)),
-      ]);
+      const result = await ctx.drizzle
+        .update(userVote)
+        .set({ claimed: true, totalClaims: sql`${userVote.totalClaims} + 1` })
+        .where(eq(userVote.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return errorResponse("Failed to update user vote record");
+      }
+      await ctx.drizzle
+        .update(userData)
+        .set({
+          reputationPoints: sql`${userData.reputationPoints} + 1`,
+          reputationPointsTotal: sql`${userData.reputationPointsTotal} + 1`,
+        })
+        .where(eq(userData.userId, ctx.userId));
 
       return {
         success: true,

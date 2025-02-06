@@ -1345,6 +1345,13 @@
       "when": 1738813887273,
       "tag": "0191_nosy_silver_surfer",
       "breakpoints": false
+    },
+    {
+      "idx": 192,
+      "version": "5",
+      "when": 1738861580080,
+      "tag": "0192_whole_namor",
+      "breakpoints": false
     }
   ]
 }
