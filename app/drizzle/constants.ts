@@ -1,3 +1,5 @@
+export const ACTIVE_VOTING_SITES = ["top100Arena", "mmoHub", "arenaTop100"] as const;
+
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
 

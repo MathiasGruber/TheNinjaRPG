@@ -766,7 +766,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   });
 
   const { mutate: upgradeHideoutToTown } = api.clan.upgradeHideoutToTown.useMutation({
-    onSuccess: async (data, variables) => {
+    onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success && userData) {
         await utils.clan.get.invalidate();

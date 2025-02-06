@@ -2409,6 +2409,7 @@ export const userVote = mysqlTable(
     };
   },
 );
+export type UserVote = InferSelectModel<typeof userVote>;
 
 export const userVoteRelations = relations(userVote, ({ one }) => ({
   user: one(userData, {

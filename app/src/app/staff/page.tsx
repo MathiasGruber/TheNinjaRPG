@@ -11,7 +11,7 @@ import { cn } from "src/libs/shadui";
 
 export default function Staff() {
   // Users Query
-  const { data, isPending: isLoadingUsers } = api.profile.getPublicUsers.useQuery(
+  const { data } = api.profile.getPublicUsers.useQuery(
     { orderBy: "Staff", isAi: false, limit: 50 },
     {},
   );

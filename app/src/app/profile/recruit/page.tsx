@@ -27,13 +27,17 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { Progress } from "@/components/ui/progress";
+import { ACTIVE_VOTING_SITES } from "@/drizzle/constants";
+import { getVotingLink } from "@/libs/voting";
+import { CheckCircle2, ExternalLink, Loader2, Trophy } from "lucide-react";
 import Confirm from "@/layout/Confirm";
 import { canReviewLinkPromotions } from "@/utils/permissions";
 import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Recruit() {
   // State
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, updateUser } = useRequiredUserData();
   const [copied, setCopied] = useState<boolean>(false);
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
@@ -51,6 +55,20 @@ export default function Recruit() {
 
   // tRPC utility
   const utils = api.useUtils();
+
+  // mutations
+  const { mutate: claimVotes, isPending } = api.profile.claimVotes.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success && userData && userData?.votes) {
+        await updateUser({
+          reputationPoints: userData.reputationPoints + 1,
+          reputationPointsTotal: userData.reputationPointsTotal + 1,
+          votes: { ...userData.votes, userId: userData.userId, claimed: true },
+        });
+      }
+    },
+  });
 
   // Queries
   const {
@@ -109,6 +127,14 @@ export default function Recruit() {
 
   // Loader
   if (!userData) return <Loader explanation="Loading profile page..." />;
+
+  // Voting progress
+  const totalVotes = ACTIVE_VOTING_SITES.length;
+  const completedVotes = ACTIVE_VOTING_SITES.filter(
+    (site) => userData?.votes?.[site],
+  ).length;
+  const progress = (completedVotes / totalVotes) * 100;
+  const allVotesCompleted = completedVotes === totalVotes;
 
   // Process data
   const allUsers = users?.pages.map((page) => page.data).flat() ?? [];
@@ -197,9 +223,81 @@ export default function Recruit() {
   return (
     <>
       <ContentBox
+        title="TNR Promotion"
+        subtitle="Earn by helping us grow"
+        back_href="/profile"
+      >
+        <p className="mb-4 italic">
+          Vote on the following sites to earn reputation points. Once you have voted on
+          all voting sites, and the votes have succesfully registered, you can claim 1
+          reputation point per day. Note that sites may be added/removed from this list
+          regularly.
+        </p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {ACTIVE_VOTING_SITES.map((site) => {
+              const hasVoted = userData?.votes?.[site];
+              return (
+                <Button
+                  key={site}
+                  variant={hasVoted ? "default" : "outline"}
+                  className="h-12 flex items-center justify-between gap-2"
+                  onClick={() => {
+                    if (userData?.votes) {
+                      window.open(getVotingLink(site, userData.votes), "_blank");
+                    }
+                  }}
+                >
+                  <span>Vote on {site}</span>
+                  {hasVoted ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <ExternalLink className="h-5 w-5" />
+                  )}
+                </Button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Progress</span>
+              <span>
+                {completedVotes} / {totalVotes} votes
+              </span>
+            </div>
+            <Progress value={progress} />
+          </div>
+
+          <Button
+            className="w-full h-12 flex items-center justify-center gap-2"
+            disabled={!allVotesCompleted || isPending || userData?.votes?.claimed}
+            onClick={() => claimVotes()}
+            decoration="gold"
+            animation="pulse"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Claiming...</span>
+              </>
+            ) : (
+              <>
+                {userData?.votes?.claimed ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                ) : (
+                  <Trophy className="h-5 w-5" />
+                )}
+                <span>Claim Reputation Point</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </ContentBox>
+      <ContentBox
         title="Recruitment"
         subtitle="Recruit new members to your village"
-        back_href="/profile"
+        initialBreak
       >
         <p className="italic">
           Every new member you recruit for your village will potentially earn you
@@ -253,7 +351,7 @@ export default function Recruit() {
       <ContentBox
         title="Link Promotion Guide"
         subtitle="Maximize your rewards by promoting effectively"
-        initialBreak={true}
+        initialBreak
       >
         <div>
           Share your recruitment link on other websites and social media to earn

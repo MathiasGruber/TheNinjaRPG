@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq, and, lt, sql, inArray } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { village, clan, userData } from "@/drizzle/schema";
+import { village, clan } from "@/drizzle/schema";
 import { updateGameSetting } from "@/libs/gamesettings";
 import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
 import { TOWN_MONTHLY_MAINTENANCE } from "@/drizzle/constants";

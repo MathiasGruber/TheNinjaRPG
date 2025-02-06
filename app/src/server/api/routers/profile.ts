@@ -74,6 +74,7 @@ import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { ACTIVE_VOTING_SITES } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { hideQuestInformation } from "@/libs/quest";
@@ -81,6 +82,7 @@ import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
 import { moderateContent } from "@/libs/moderator";
+import type { UserVote } from "@/drizzle/schema";
 import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
@@ -264,6 +266,20 @@ export const profileRouter = createTRPCRouter({
         });
       }
     }
+    // Add a voting link
+    let hasVoted = true;
+    ACTIVE_VOTING_SITES.forEach((site) => {
+      if (!user?.votes[site]) {
+        hasVoted = false;
+      }
+    });
+    if (!hasVoted) {
+      notifications.push({
+        href: "/profile/recruit",
+        name: `Vote for Us`,
+        color: "green",
+      });
+    }
     // Settings
     const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
     if (trainingBoost) {
@@ -283,14 +299,6 @@ export const profileRouter = createTRPCRouter({
     }
     // User specific
     if (user) {
-      // Link promotion
-      if (user.promotions.length === 0) {
-        notifications.push({
-          href: "/profile/recruit",
-          name: `Win a S-rank`,
-          color: "blue",
-        });
-      }
       // Get number of un-resolved user reports
       if (canModerateRoles.includes(user.role)) {
         const reportCounts = await ctx.drizzle
@@ -1050,6 +1058,44 @@ export const profileRouter = createTRPCRouter({
       await deleteUser(ctx.drizzle, input.userId);
       return { success: true, message: "User deleted" };
     }),
+  claimVotes: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Get user's vote record
+      const userVoteRecord = await ctx.drizzle.query.userVote.findFirst({
+        where: eq(userVote.userId, ctx.userId),
+      });
+      // Guard
+      if (!userVoteRecord) {
+        return errorResponse("No vote record found");
+      }
+      const completedVotes = ACTIVE_VOTING_SITES.every((site) => userVoteRecord[site]);
+      if (!completedVotes) {
+        return errorResponse("Not all votes are completed");
+      }
+      if (userVoteRecord.claimed) {
+        return errorResponse("Votes already claimed");
+      }
+      // Update user's reputation points and mark votes as claimed
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({
+            reputationPoints: sql`${userData.reputationPoints} + 1`,
+            reputationPointsTotal: sql`${userData.reputationPointsTotal} + 1`,
+          })
+          .where(eq(userData.userId, ctx.userId)),
+        ctx.drizzle
+          .update(userVote)
+          .set({ claimed: true })
+          .where(eq(userVote.userId, ctx.userId)),
+      ]);
+
+      return {
+        success: true,
+        message: "Successfully claimed reputation points for voting",
+      };
+    }),
 });
 
 export const updateNindo = async (
@@ -1556,6 +1602,7 @@ export type UserWithRelations =
         | null;
       loadout?: { jutsuIds: string[] } | null;
       userQuests: UserQuest[];
+      votes?: UserVote | null;
     })
   | undefined;
 

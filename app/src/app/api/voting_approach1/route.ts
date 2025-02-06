@@ -37,8 +37,8 @@ export async function GET(request: Request) {
   // https://www.top100arena.com/listing/101116/vote?incentive=testSecret-top100arena
   // https://mmohub.com/site/1054/vote/testSecret-mmohub
   // https://www.arena-top100.com/index.php?a=in&u=Terriator&incentive=testSecret-arenaTop100
-  // https://browsermmorpg.com/vote.php?id=925&incentive=testSecret-browserMmorpg
   // https://www.xtremetop100.com/in.php?site=1132291230&secret=testSecret&siteid=xtremeTop100
+  // https://browsermmorpg.com/vote.php?id=925&incentive=testSecret-browserMmorpg
 
   try {
     // For getting search params
@@ -82,7 +82,7 @@ async function handleVote(secret: string, siteId: string) {
         ...(siteId === "top100arena" ? { top100Arena: true } : {}),
         ...(siteId === "mmohub" ? { mmoHub: true } : {}),
         ...(siteId === "arenaTop100" ? { arenaTop100: true } : {}),
-        ...(siteId === "xtremeTop100" ? { xtremeTop100: true } : {}), // Need to pay for gold
+        ...(siteId === "xtremeTop100" ? { xtremeTop100: true } : {}), // No postbacks received
         ...(siteId === "topOnlineMmorpg" ? { topOnlineMmorpg: true } : {}), // Cannot register
         ...(siteId === "gamesTop200" ? { gamesTop200: true } : {}), // Based on IP, unusable
         ...(siteId === "browserMmorpg" ? { browserMmorpg: true } : {}), // Pending approval?
