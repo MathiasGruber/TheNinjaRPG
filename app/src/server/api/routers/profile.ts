@@ -1284,7 +1284,7 @@ export const fetchUpdatedUser = async (props: {
       id: nanoid(),
       userId: user.userId,
       lastVoteAt: new Date(),
-      secret: nanoid(),
+      secret: nanoid(8),
     });
   }
 
