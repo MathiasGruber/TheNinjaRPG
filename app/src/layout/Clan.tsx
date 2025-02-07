@@ -1096,9 +1096,12 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
 
   // Adjust members for table
   const members = clanData.members.map((member) => {
-    const memberIsLeader = member.userId === clanData.leaderId;
-    const memberIsColeader = checkCoLeader(member.userId, clanData);
-  
+  const memberIsLeader = member.userId === clanData.leaderId;
+  const memberIsColeader = checkCoLeader(member.userId, clanData);
+  const canKick =
+    canEdit || // canEdit role can kick anyone
+    (isLeader && !memberIsLeader) || // Leader can kick anyone except other leaders
+    (isColeader && !memberIsLeader && !memberIsColeader); // Co-leaders can kick normal members only
     return {
       ...member,
       rank: memberIsLeader ? "Leader" : memberIsColeader ? "Coleader" : member.rank,
@@ -1107,7 +1110,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
           {member.userId !== userId && (
             <>
               {/* KICK BUTTON (Now allows kicking leaders if canEdit is true) */}
-              {(isLeader || isColeader || canEdit) && (
+              {canKick && (
                 <Confirm
                   title="Kick Member"
                   proceed_label="Submit"
@@ -1119,7 +1122,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
                   }
                   onAccept={() => kick({ clanId, memberId: member.userId })}
                 >
-                  {memberIsLeader && canEdit
+                  {memberIsLeader
                     ? "You are about to kick the leader. Ensure leadership transition is planned."
                     : "Confirm that you want to kick this member from the clan."}
                 </Confirm>
@@ -1142,7 +1145,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
               )}
   
               {/* PROMOTE BUTTON */}
-              {(isLeader || (isColeader && !memberIsLeader) || canEdit) && (
+              {(isLeader || (isColeader && !memberIsLeader && !memberIsColeader) || canEdit) && (
                 <Confirm
                   title="Promote Member"
                   button={
@@ -1153,7 +1156,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
                   }
                   onAccept={() => promote({ clanId, memberId: member.userId })}
                 >
-                  Confirm that you want to promote this member to leader of the clan.
+                  Confirm that you want to promote this member.
                 </Confirm>
               )}
             </>
