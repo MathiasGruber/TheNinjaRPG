@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun dbpush && next build",
+    "build": "next build",
     "check": "next lint && tsc --noEmit",
     "build-stats": "ANALYZE=true next build",
     "dev": "next dev",
