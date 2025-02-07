@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "next build",
+    "build": "bun dbpush && next build",
     "check": "next lint && tsc --noEmit",
     "build-stats": "ANALYZE=true next build",
     "dev": "next dev",
@@ -19,6 +19,7 @@
     "dbpush": "drizzle-kit push",
     "makemigrations": "drizzle-kit generate",
     "emptymigration": "drizzle-kit generate --custom",
+    "migrate": "drizzle-kit migrate",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
