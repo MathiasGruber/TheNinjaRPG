@@ -64,6 +64,7 @@
     "abstract-astar": "0.2.0",
     "ai": "^4.0.23",
     "alea": "1.0.1",
+    "babel-plugin-react-compiler": "^19.0.0-beta-714736e-20250131",
     "chart.js": "^4.4.7",
     "chartjs-chart-graph": "^4.3.4",
     "chartjs-plugin-dragdata": "^2.3.1",

@@ -45,6 +45,7 @@
         "abstract-astar": "0.2.0",
         "ai": "^4.0.23",
         "alea": "1.0.1",
+        "babel-plugin-react-compiler": "^19.0.0-beta-714736e-20250131",
         "chart.js": "^4.4.7",
         "chartjs-chart-graph": "^4.3.4",
         "chartjs-plugin-dragdata": "^2.3.1",
@@ -916,6 +917,8 @@
     "axe-core": ["axe-core@4.10.2", "", {}, "sha512-RE3mdQ7P3FRSe7eqCWoeQ/Z9QXrtniSjp1wUjt5nRC3WIpz5rSCve6o3fsZ2aCpJtrZjSZgjwXAoTO5k4tEI0w=="],
 
     "axobject-query": ["axobject-query@4.1.0", "", {}, "sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ=="],
+
+    "babel-plugin-react-compiler": ["babel-plugin-react-compiler@19.0.0-beta-714736e-20250131", "", { "dependencies": { "@babel/types": "^7.19.0" } }, "sha512-frj2l6fRWVi26iw9WthFKyFyE4u5ZSHH3KdKiscOOwpz210seTtwnp0QbJmi8Zoa5HK7Fk2fH40JffN2y8GvLg=="],
 
     "balanced-match": ["balanced-match@1.0.2", "", {}, "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="],
 
