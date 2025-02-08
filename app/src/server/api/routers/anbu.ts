@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { anbuSquad, userData, historicalAvatar } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
@@ -18,7 +18,12 @@ import {
 } from "@/routers/sparring";
 import { ANBU_MEMBER_RANK_REQUIREMENT } from "@/drizzle/constants";
 import { ANBU_LEADER_RANK_REQUIREMENT } from "@/drizzle/constants";
-import { ANBU_MAX_MEMBERS, IMG_AVATAR_DEFAULT, ANBU_DELAY_SECS } from "@/drizzle/constants";
+import {
+  ANBU_MAX_MEMBERS,
+  IMG_AVATAR_DEFAULT,
+  ANBU_DELAY_SECS,
+  KAGE_ANBU_DELETE_COST,
+} from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AnbuSquad } from "@/drizzle/schema";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -247,7 +252,10 @@ export const anbuRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (user.villageId !== squad.villageId) return errorResponse("Wrong village");
       if (!isKage && !isElder) return errorResponse("Must be kage or elder");
-      if (user.village && secondsFromDate(ANBU_DELAY_SECS, user.village.leaderUpdatedAt) > new Date()) {
+      if (
+        user.village &&
+        secondsFromDate(ANBU_DELAY_SECS, user.village.leaderUpdatedAt) > new Date()
+      ) {
         return errorResponse("Must have been kage for 24 hours");
       }
       // Mutate
@@ -257,6 +265,16 @@ export const anbuRouter = createTRPCRouter({
           .update(userData)
           .set({ anbuId: null })
           .where(eq(userData.anbuId, squad.id)),
+        ...(isKage && user.village
+          ? [
+              ctx.drizzle
+                .update(userData)
+                .set({
+                  villagePrestige: sql`${userData.villagePrestige} - ${KAGE_ANBU_DELETE_COST}`,
+                })
+                .where(eq(userData.userId, user.userId)),
+            ]
+          : []),
       ]);
       // Create
       return { success: true, message: "Squad disbanded" };

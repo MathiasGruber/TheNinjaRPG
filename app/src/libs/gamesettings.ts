@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { secondsPassed, addDays } from "@/utils/time";
 import { round } from "@/utils/math";
+import { getWeekNumber } from "@/utils/time";
 import type { DrizzleClient } from "@/server/db";
 import type { GameSetting } from "@/drizzle/schema";
 
@@ -21,7 +22,7 @@ export const getGameSetting = async (client: DrizzleClient, name: string) => {
     where: eq(gameSetting.name, name),
   });
   if (!setting) {
-    setting = { id: nanoid(), name: name, time: addDays(new Date(), -2), value: 0 };
+    setting = { id: nanoid(), name: name, time: addDays(new Date(), -30), value: 0 };
     await client.insert(gameSetting).values(setting);
   }
   return setting;
@@ -89,6 +90,30 @@ export const lockWithDailyTimer = async (client: DrizzleClient, name: string) =>
     await updateGameSetting(client, name, 0, new Date());
   }
   return { isNewDay, prevTime, response: Response.json(response, { status: 200 }) };
+};
+
+/**
+ * Locks the game with a daily timer.
+ *
+ * @param client
+ * @param name
+ * @returns
+ */
+export const lockWithWeeklyTimer = async (client: DrizzleClient, name: string) => {
+  const timer = await getGameSetting(client, name);
+  const prevTime = timer.time;
+  const isNewWeek = getWeekNumber(new Date()) !== getWeekNumber(prevTime);
+  let response: string | null = null;
+  if (!isNewWeek) {
+    response = "Wait until the next week to run this again";
+  } else {
+    await updateGameSetting(client, name, 0, new Date());
+  }
+  return {
+    isNewWeek,
+    prevTime,
+    response: Response.json(response, { status: 200 }),
+  };
 };
 
 /**

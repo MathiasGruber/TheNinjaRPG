@@ -76,12 +76,14 @@ import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { ACTIVE_VOTING_SITES } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { KAGE_MIN_PRESTIGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
 import { moderateContent } from "@/libs/moderator";
+import { fetchKageReplacement } from "@/routers/kage";
 import type { UserVote } from "@/drizzle/schema";
 import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
@@ -477,8 +479,9 @@ export const profileRouter = createTRPCRouter({
         return errorResponse(`Only available roles: ${availableRoles.join(", ")}`);
       }
       if (village.id !== target.villageId) {
-        if (target.anbuId) return errorResponse("To change village, leave ANBU first");
-        if (target.clanId) return errorResponse("To change village, leave Clan first");
+        const clanName = target.isOutlaw ? "Faction" : "Clan";
+        if (target.anbuId) return errorResponse("Leave ANBU first");
+        if (target.clanId) return errorResponse(`Leave ${clanName} first`);
         if (target.status !== "AWAKE") return errorResponse("AWAKE to change village");
       }
       // Update jutsus & items
@@ -1353,6 +1356,47 @@ export const fetchUpdatedUser = async (props: {
     user.regeneration = deduceActiveUserRegen(user, settings);
   }
 
+  // Handle village prestige situations
+  if (user) {
+    // If prestige below 0, reset to 0 and move to outlaw faction
+    if (user.villagePrestige < 0 && user.village?.type === "VILLAGE") {
+      const syndicate = await client.query.village.findFirst({
+        where: eq(village.type, "OUTLAW"),
+      });
+      if (syndicate) {
+        user.villagePrestige = -user.villagePrestige;
+        user.villageId = syndicate.id;
+        user.isOutlaw = true;
+        if (user.clanId) {
+          const clanData = await fetchClan(client, user.clanId);
+          if (clanData) {
+            await removeFromClan(client, clanData, user, ["Turned outlaw"]);
+          }
+        }
+        void pusher.trigger(user.userId, "event", {
+          type: "userMessage",
+          message: "You have been kicked out of your village due to negative presige",
+          route: "/profile",
+          routeText: "To Profile",
+        });
+      }
+    }
+    // If user is kage & village prestige less than threshold, remove from kage
+    if (
+      user.villageId &&
+      user.village?.kageId === user.userId &&
+      user.villagePrestige < KAGE_MIN_PRESTIGE
+    ) {
+      const elder = await fetchKageReplacement(client, user.villageId, user.userId);
+      if (elder) {
+        await client
+          .update(village)
+          .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
+          .where(eq(village.id, user.villageId));
+      }
+    }
+  }
+
   // Rewards, e.g. for activity streak
   let rewards: ReturnType<typeof activityStreakRewards> | undefined;
 
@@ -1384,29 +1428,7 @@ export const fetchUpdatedUser = async (props: {
       }
       user.updatedAt = now;
       user.regenAt = now;
-      // If prestige below 0, reset to 0 and move to outlaw faction
-      if (user.villagePrestige < 0 && user.village?.type === "VILLAGE") {
-        const faction = await client.query.village.findFirst({
-          where: eq(village.type, "OUTLAW"),
-        });
-        if (faction) {
-          user.villagePrestige = -user.villagePrestige;
-          user.villageId = faction.id;
-          user.isOutlaw = true;
-          if (user.clanId) {
-            const clanData = await fetchClan(client, user.clanId);
-            if (clanData) {
-              await removeFromClan(client, clanData, user, ["Turned outlaw"]);
-            }
-          }
-          void pusher.trigger(user.userId, "event", {
-            type: "userMessage",
-            message: "You have been kicked out of your village due to negative presige",
-            route: "/profile",
-            routeText: "To Profile",
-          });
-        }
-      }
+
       // Ensure that we have a tier quest
       let questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
       if (!questTier) {
