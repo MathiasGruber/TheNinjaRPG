@@ -269,7 +269,7 @@ export const profileRouter = createTRPCRouter({
     // Add a voting link
     let hasVoted = true;
     ACTIVE_VOTING_SITES.forEach((site) => {
-      if (!user?.votes[site]) {
+      if (!user?.votes || user.votes[site] !== true) {
         hasVoted = false;
       }
     });
