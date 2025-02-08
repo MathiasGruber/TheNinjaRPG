@@ -20,6 +20,7 @@ import { findRelationship } from "@/utils/alliance";
 import { canAlly, canWar, canSurrender } from "@/utils/alliance";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
+import { KAGE_WAR_DECLARE_COST } from "@/drizzle/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/drizzle/constants";
 import { deleteSenseiRequests } from "@/routers/sensei";
@@ -514,6 +515,12 @@ export const villageRouter = createTRPCRouter({
           .update(village)
           .set({ tokens: sql`${village.tokens} - ${WAR_FUNDS_COST}` })
           .where(eq(village.id, villageId)),
+        ctx.drizzle
+          .update(userData)
+          .set({
+            villagePrestige: sql`${userData.villagePrestige} - ${KAGE_WAR_DECLARE_COST}`,
+          })
+          .where(eq(userData.userId, user.userId)),
       ]);
       // Return
       return { success: true, message: "You have declared war" };
