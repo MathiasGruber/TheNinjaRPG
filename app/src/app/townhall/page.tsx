@@ -28,13 +28,22 @@ import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { canAlly, canWar } from "@/utils/alliance";
 import { KAGE_RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_COST } from "@/drizzle/constants";
+import { KAGE_MIN_DAYS_IN_VILLAGE } from "@/drizzle/constants";
 import { getSearchValidator } from "@/validators/register";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { z } from "zod";
+import { z } from "zod";
 import type { Village, VillageAlliance } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { AllianceState } from "@/drizzle/constants";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 
 export default function TownHall() {
   const { data: userData } = useRequiredUserData();
@@ -220,6 +229,9 @@ const KageHall: React.FC<{
   user: NonNullable<UserWithRelations>;
   navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
+  // Ability to update user
+  const { updateUser } = useRequiredUserData();
+
   // tRPC utility
   const utils = api.useUtils();
 
@@ -261,14 +273,51 @@ const KageHall: React.FC<{
     },
   });
 
+  const { mutate: sendKagePrestige, isPending: isSendingPrestige } =
+    api.kage.sendKagePrestige.useMutation({
+      onSuccess: async (data, variables) => {
+        showMutationToast(data);
+        if (data.success) {
+          updateUser({
+            villagePrestige: user.villagePrestige - variables.amount,
+          });
+        }
+      },
+    });
+
   // Derived
   const isKage = user.userId === village?.villageData.kageId;
+  const isElder = user.rank === "ELDER";
+
+  // Schema for prestige sending
+  const prestigeSchema = z.object({
+    amount: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(user.villagePrestige ?? 0)
+      .optional(),
+  });
+
+  // Form for prestige sending
+  const prestigeForm = useForm<z.infer<typeof prestigeSchema>>({
+    resolver: zodResolver(prestigeSchema),
+  });
+
+  // Submit handler for prestige
+  const onSendPrestige = prestigeForm.handleSubmit((data) =>
+    sendKagePrestige({
+      kageId: village?.villageData.kageId ?? "",
+      amount: data.amount ?? 0,
+    }),
+  );
 
   // Checks
   if (!user.villageId) return <Loader explanation="Join a village first" />;
   if (isPending || !village) return <Loader explanation="Loading village" />;
   if (isAttacking) return <Loader explanation="Attacking Kage" />;
   if (isResigning) return <Loader explanation="Resigning as Kage" />;
+  if (isSendingPrestige) return <Loader explanation="Sending prestige" />;
   if (isTaking) return <Loader explanation="Taking Kage" />;
 
   // Render
@@ -333,12 +382,13 @@ const KageHall: React.FC<{
             )}
           </>
         )}
-        {!canChallengeKage(user) && (
+        {!canChallengeKage(user) && !isKage && (
           <p className="pt-3">
-            <span className="font-bold">Requirements: </span>
+            <span className="font-bold">Challenge Requirements: </span>
             <span>
               {KAGE_PRESTIGE_REQUIREMENT} village prestige,{" "}
-              {capitalizeFirstLetter(KAGE_RANK_REQUIREMENT)} rank
+              {capitalizeFirstLetter(KAGE_RANK_REQUIREMENT)} rank and{" "}
+              {KAGE_MIN_DAYS_IN_VILLAGE} days in village.
             </span>
           </p>
         )}
@@ -352,6 +402,31 @@ const KageHall: React.FC<{
             <ShieldPlus className="h-6 w-6 mr-2" />
             Take kage as Staff
           </Button>
+        )}
+        {isElder && (
+          <Form {...prestigeForm}>
+            <form onSubmit={onSendPrestige} className="relative my-2">
+              <FormField
+                control={prestigeForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem className="w-full flex flex-col">
+                    <FormControl>
+                      <Input
+                        id="amount"
+                        placeholder={`Send prestige (max ${user.villagePrestige})`}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button className="absolute top-0 right-0" type="submit">
+                <CircleArrowUp className="h-5 w-5" />
+              </Button>
+            </form>
+          </Form>
         )}
       </ContentBox>
       <PublicUserComponent

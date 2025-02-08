@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
+import { sql, eq, inArray } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
-import { userData } from "@/drizzle/schema";
+import { userData, village } from "@/drizzle/schema";
 import { updateGameSetting } from "@/libs/gamesettings";
+import { KAGE_DAILY_PRESTIGE_LOSS } from "@/drizzle/constants";
 import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
 import { cookies } from "next/headers";
 
@@ -16,6 +17,13 @@ export async function GET() {
   if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
 
   try {
+    // Get all kages
+    const kages = await drizzleDB.query.village.findMany({
+      where: eq(village.type, "VILLAGE"),
+    });
+    const kageIds = kages?.map((kage) => kage.kageId);
+
+    // For all users, increment villagePrestige by 1
     await drizzleDB.update(userData).set({
       villagePrestige: sql`${userData.villagePrestige} + 1`,
       dailyArenaFights: 0,
@@ -23,6 +31,17 @@ export async function GET() {
       dailyErrands: 0,
       dailyTrainings: 0,
     });
+
+    // For kages, reduce village Prestige by KAGE_DAILY_PRESTIGE_LOSS & the 1 just added
+    if (kageIds.length > 0) {
+      await drizzleDB
+        .update(userData)
+        .set({
+          villagePrestige: sql`${userData.villagePrestige} - ${KAGE_DAILY_PRESTIGE_LOSS + 1}`,
+        })
+        .where(inArray(userData.userId, kageIds));
+    }
+
     return Response.json(`OK`);
   } catch (cause) {
     // Rollback
