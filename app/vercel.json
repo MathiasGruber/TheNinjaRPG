@@ -13,7 +13,7 @@
       "schedule": "*/10 * * * *"
     },
     {
-      "path": "/api/votes",
+      "path": "/api/daily-votes",
       "schedule": "*/10 * * * *"
     },
     {
