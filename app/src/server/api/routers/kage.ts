@@ -1,20 +1,31 @@
 import { z } from "zod";
-import { eq, and, ne, sql, gte, isNull } from "drizzle-orm";
-import { userData, village, villageStructure } from "@/drizzle/schema";
-import { kageDefendedChallenges, clan } from "@/drizzle/schema";
+import { eq, or, and, ne, sql, gte, isNull } from "drizzle-orm";
+import {
+  clan,
+  userData,
+  village,
+  villageStructure,
+  kageDefendedChallenges,
+} from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { initiateBattle } from "@/routers/combat";
 import { fetchVillage } from "@/routers/village";
 import { fetchUser, fetchUpdatedUser, updateNindo } from "@/routers/profile";
-import { canChallengeKage } from "@/utils/kage";
+import { canChallengeKage, canBeElder } from "@/utils/kage";
 import { calcStructureUpgrade } from "@/utils/village";
-import { KAGE_MAX_DAILIES, KAGE_MAX_ELDERS } from "@/drizzle/constants";
-import { KAGE_DELAY_SECS } from "@/drizzle/constants";
+import {
+  KAGE_MAX_DAILIES,
+  KAGE_MAX_ELDERS,
+  KAGE_DELAY_SECS,
+  KAGE_PRESTIGE_REQUIREMENT,
+  KAGE_DEFAULT_PRESTIGE,
+} from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import { secondsFromDate } from "@/utils/time";
 import { fetchClan } from "@/routers/clan";
+
 export const kageRouter = createTRPCRouter({
   fightKage: protectedProcedure
     .input(z.object({ kageId: z.string(), villageId: z.string() }))
@@ -62,20 +73,11 @@ export const kageRouter = createTRPCRouter({
       // Destructure
       const villageId = input.villageId;
       // Fetch
-      const [user, uVillage, elders] = await Promise.all([
+      const [user, uVillage, elder] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchVillage(ctx.drizzle, input.villageId),
-        ctx.drizzle.query.userData.findMany({
-          where: and(
-            eq(userData.villageId, villageId),
-            eq(userData.rank, "ELDER"),
-            ne(userData.userId, ctx.userId),
-            isNull(userData.anbuId),
-          ),
-        }),
+        fetchKageReplacement(ctx.drizzle, input.villageId, ctx.userId),
       ]);
-      // Derived
-      const elder = elders[Math.floor(Math.random() * elders.length)];
       // Guards
       if (!elder) return errorResponse("No elder found");
       if (!user) return errorResponse("User not found");
@@ -89,6 +91,39 @@ export const kageRouter = createTRPCRouter({
         .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
         .where(eq(village.id, user.villageId));
       return { success: true, message: "You have resigned as kage" };
+    }),
+
+  sendKagePrestige: protectedProcedure
+    .input(z.object({ kageId: z.string(), amount: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, kage] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.kageId),
+      ]);
+      // Guards
+      if (user.rank !== "ELDER") return errorResponse("Must be an elder");
+      if (user.villageId !== kage.villageId) return errorResponse("Wrong village");
+      if (input.amount <= 0) return errorResponse("Invalid amount");
+      if (user.villagePrestige < input.amount) {
+        return errorResponse("Not enough prestige");
+      }
+      // Create transfer request
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ villagePrestige: sql`${userData.villagePrestige} - ${input.amount}` })
+          .where(eq(userData.userId, ctx.userId)),
+        ctx.drizzle
+          .update(userData)
+          .set({ villagePrestige: sql`${userData.villagePrestige} + ${input.amount}` })
+          .where(eq(userData.userId, input.kageId)),
+      ]);
+      return {
+        success: true,
+        message: `Sent ${input.amount} prestige to ${kage.username}`,
+      };
     }),
   takeKage: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     // Fetch
@@ -111,6 +146,10 @@ export const kageRouter = createTRPCRouter({
         .update(userData)
         .set({
           rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
+          villagePrestige:
+            user.villagePrestige > KAGE_DEFAULT_PRESTIGE
+              ? user.villagePrestige
+              : KAGE_DEFAULT_PRESTIGE,
         })
         .where(eq(userData.userId, user.userId)),
     ]);
@@ -176,6 +215,9 @@ export const kageRouter = createTRPCRouter({
       }
       if (secondsFromDate(lockout, village.leaderUpdatedAt) > new Date()) {
         return errorResponse("Must have been kage for 24 hours");
+      }
+      if (prospect.rank !== "ELDER" && !canBeElder(prospect)) {
+        return errorResponse("Must be in village for 100 days to be elder");
       }
       // Mutate
       const newRank = prospect.rank === "ELDER" ? "JONIN" : "ELDER";
@@ -283,4 +325,35 @@ export const fetchElders = async (client: DrizzleClient, villageId: string) => {
       eq(userData.isAi, false),
     ),
   });
+};
+
+/**
+ * Fetches a kage replacement from the user data table based on the provided village ID and current kage ID.
+ * @param client - The DrizzleClient instance used for querying the database.
+ * @param villageId - The ID of the village to fetch a replacement from.
+ * @param currentKageId - The ID of the current kage.
+ * @returns A Promise that resolves to a user data object representing the replacement kage.
+ */
+export const fetchKageReplacement = async (
+  client: DrizzleClient,
+  villageId: string,
+  currentKageId: string,
+) => {
+  const elders = await client.query.userData.findMany({
+    where: and(
+      eq(userData.villageId, villageId),
+      eq(userData.rank, "ELDER"),
+      ne(userData.userId, currentKageId),
+      isNull(userData.anbuId),
+      or(
+        gte(userData.villagePrestige, KAGE_PRESTIGE_REQUIREMENT),
+        eq(userData.isAi, true),
+      ),
+    ),
+  });
+  const userElders = elders.filter((e) => !e.isAi);
+  if (userElders.length > 0) {
+    return userElders[Math.floor(Math.random() * userElders.length)];
+  }
+  return elders[Math.floor(Math.random() * elders.length)];
 };
