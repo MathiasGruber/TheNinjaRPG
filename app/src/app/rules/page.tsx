@@ -16,10 +16,10 @@ export default function GameRules() {
           1. Code of Conduct
         </h2>
         <h3>
-          &nbsp&nbsp1.1 Respect and Decorum
+          &nbsp;&nbsp;1.1 Respect and Decorum
         </h3>
         <p className="my-2">
-          &nbsp&nbspTo maintain a welcoming environment, all users are required to treat others with respect and dignity. When encountering negative behavior users are strongly encouraged to use the blacklist feature in addition to reporting an offense. The following behaviors are strictly prohibited:
+          &nbsp;&nbsp;To maintain a welcoming environment, all users are required to treat others with respect and dignity. When encountering negative behavior users are strongly encouraged to use the blacklist feature in addition to reporting an offense. The following behaviors are strictly prohibited:
         </p>
         <ul className="pl-5 list-disc">
           <li><b>Harassment:</b> Targeted insults, threats, or abuse directed at another player or staff member.</li>
@@ -54,14 +54,14 @@ export default function GameRules() {
           4. Punishment System
         </h2>
         <h3>
-          &nbsp&nbsp4.1 Overview
+          &nbsp;&nbsp;4.1 Overview
         </h3>
         <p className="my-2">
-          &nbsp&nbspStrikes do not reset and remain permanently attached to a user’s record. Moderators typically issue one official warning before applying a strike, unless the violation is severe. A moderator may issue an unofficial warning or rule reminder before issuing a strike or official warning. However, it is considered a courtesy and is not required before official action is taken.
+          &nbsp;&nbsp;Strikes do not reset and remain permanently attached to a user’s record. Moderators typically issue one official warning before applying a strike, unless the violation is severe. A moderator may issue an unofficial warning or rule reminder before issuing a strike or official warning. However, it is considered a courtesy and is not required before official action is taken.
         </p>
         
         <h3>
-          &nbsp&nbsp4.2 Strike Levels
+          &nbsp;&nbsp;4.2 Strike Levels
         </h3>
         <ul className="pl-5 list-disc">
           <li><b>Strike 1:</b> 24-hour Silence.</li>
@@ -72,7 +72,7 @@ export default function GameRules() {
         </ul>
         
         <h3>
-          &nbsp&nbsp4.3 Special Punishment Rules
+          &nbsp;&nbsp;4.3 Special Punishment Rules
         </h3>
         <ul className="pl-5 list-disc">
           <li><b>Minimum Duration:</b> Silences under 24 hours are not considered strikes.</li>
@@ -87,7 +87,7 @@ export default function GameRules() {
           5. Reporting and Appeals
         </h2>
         <h3>
-          &nbsp&nbsp5.1 Reporting Violations
+          &nbsp;&nbsp;5.1 Reporting Violations
         </h3>
         <ul className="pl-5 list-disc">
           <li>Users should report rule violations via the in-game reporting system.</li>
@@ -96,7 +96,7 @@ export default function GameRules() {
         </ul>
 
         <h3>
-          &nbsp&nbsp5.2 Appeals Process
+          &nbsp;&nbsp;5.2 Appeals Process
         </h3>
         <ul className="pl-5 list-disc">
           <li>Users may appeal disciplinary actions by contacting the issuing Moderator or Head Moderator.</li>
@@ -108,7 +108,7 @@ export default function GameRules() {
           6. Staff Roles and Responsibilities
         </h2>
         <h3>
-          &nbsp&nbsp6.1 Roles
+          &nbsp;&nbsp;6.1 Roles
         </h3>
         <ul className="pl-5 list-disc">
           <li><b>Jr. Moderators:</b> Moderators in training. May issue warnings and silences.</li>
@@ -123,7 +123,7 @@ export default function GameRules() {
         </ul>
 
         <h3>
-          &nbsp&nbsp6.2 Responsibilities
+          &nbsp;&nbsp;6.2 Responsibilities
         </h3>
         <ul className="pl-5 list-disc">
           <li><b>Transparency:</b> All disciplinary actions must be logged and justified.</li>
@@ -134,7 +134,7 @@ export default function GameRules() {
           7. Fair Play Guidelines
         </h2>
         <h3>
-          &nbsp&nbsp7.1 Cheating and Exploits
+          &nbsp;&nbsp;7.1 Cheating and Exploits
         </h3>
         <ul className="pl-5 list-disc">
           <li>Exploiting mechanics or using unauthorized third-party tools is prohibited.</li>
@@ -142,7 +142,7 @@ export default function GameRules() {
         </ul>
 
         <h3>
-          &nbsp&nbsp7.2 Account Sharing and Multiple Accounts
+          &nbsp;&nbsp;7.2 Account Sharing and Multiple Accounts
         </h3>
         <ul className="pl-5 list-disc">
           <li>Accounts must be used by a single individual. Shared or multiple accounts on the same IP must be reported to moderators to avoid penalties.</li>
@@ -150,7 +150,7 @@ export default function GameRules() {
         </ul>
 
         <h3>
-          &nbsp&nbsp7.3 Selling or Transferring Accounts
+          &nbsp;&nbsp;7.3 Selling or Transferring Accounts
         </h3>
         <ul className="pl-5 list-disc">
           <li>Strictly prohibited and may result in permanent bans.</li>
@@ -179,21 +179,21 @@ export default function GameRules() {
           10. Additional Guidelines
         <h2>
         <h3>
-          &nbsp&nbsp10.1 Impersonation
+          &nbsp;&nbsp;10.1 Impersonation
         </h3>
         <ul className="pl-5 list-disc">
           <li>Impersonating accounts, staff, or players (including past users) is prohibited and may result in permanent bans.</li>
         </ul>
 
         <h3>
-          &nbsp&nbsp10.2 Language Policy
+          &nbsp;&nbsp;10.2 Language Policy
         </h3>
         <ul className="pl-5 list-disc">
           <li>TNR is an English-only game. Short phrases in other languages are allowed, but persistent use is not permitted to ensure moderation efficiency.</li>
         </ul>
 
         <h3>
-          &nbsp&nbsp10.3 Criticism of Moderator Decisions
+          &nbsp;&nbsp;10.3 Criticism of Moderator Decisions
         </h3>
         <ul className="pl-5 list-disc">
           <li>Publicly criticizing moderation decisions or making unfounded assumptions about punishments is prohibited. Moderators often have access to additional context not 	  available to players.</li>
@@ -224,23 +224,23 @@ export default function GameRules() {
         </p>
         
         <h3>
-          &nbsp&nbsp13.1 Rules
+          &nbsp;&nbsp;13.1 Rules
         </h3>
         <p className="my-2">
-          &nbsp&nbspThe TNR discord generally follows rules and TNR of the website, but may have additional rules in place in a separate rule channel. It also 	follows the official Discord ToS. It is important to familiarize yourself with both sets of the rules. Strikes on discord are considered separate from strikes in-game, except for rare or extreme circumstances. Therefore a person may be banned or removed from the discord but be allowed to remain in-game. Individuals considered exceptionally disruptive to the TNR discord community may be removed, as discord is considered non essential for gameplay.
+          &nbsp;&nbsp;The TNR discord generally follows rules and TNR of the website, but may have additional rules in place in a separate rule channel. It also 	follows the official Discord ToS. It is important to familiarize yourself with both sets of the rules. Strikes on discord are considered separate from strikes in-game, except for rare or extreme circumstances. Therefore a person may be banned or removed from the discord but be allowed to remain in-game. Individuals considered exceptionally disruptive to the TNR discord community may be removed, as discord is considered non essential for gameplay.
         </p>
 
         <h3>
-          &nbsp&nbsp13.2 External Discords
+          &nbsp;&nbsp;13.2 External Discords
         </h3>
         <p className="my-2">
-          &nbsp&nbspAny discord besides the main TNR server is considered unofficial, regardless of whether it is run by a staff member or player, and is not required to follow the official TNR rules. These servers are joined at the risk of the player and are not the responsibility of TNR. Except when evidence of in-game 	infractions (such as botting, account sharing, exploitation etc.) or extreme circumstances (stalking, doxxing etc.) official action will not be taken against a player for behaviour within those servers. If users are experiencing negativity or disruptions within these servers, they are encouraged to leave them.
+          &nbsp;&nbsp;Any discord besides the main TNR server is considered unofficial, regardless of whether it is run by a staff member or player, and is not required to follow the official TNR rules. These servers are joined at the risk of the player and are not the responsibility of TNR. Except when evidence of in-game 	infractions (such as botting, account sharing, exploitation etc.) or extreme circumstances (stalking, doxxing etc.) official action will not be taken against a player for behaviour within those servers. If users are experiencing negativity or disruptions within these servers, they are encouraged to leave them.
         </p>
 
         <h3>
-          &nbsp&nbsp13.2.1 Staff
+          &nbsp;&nbsp;13.2.1 Staff
         </h3>
-        <p className="my-2">&nbsp&nbspStaff may create, moderate, or participate in external discords. While action in these discords are not considered official staff actions, 	staff are still expected to remain reasonably professional as a reflection of the community they work for.</p>
+        <p className="my-2">&nbsp;&nbsp;Staff may create, moderate, or participate in external discords. While action in these discords are not considered official staff actions, 	staff are still expected to remain reasonably professional as a reflection of the community they work for.</p>
         <hr />
       </div>
     </ContentBox>
