@@ -177,7 +177,7 @@ export default function GameRules() {
 
         <h2>
           10. Additional Guidelines
-        <h2>
+        </h2>
         <h3>
           &nbsp;&nbsp;10.1 Impersonation
         </h3>
