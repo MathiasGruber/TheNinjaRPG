@@ -8,9 +8,9 @@ export default function GameRules() {
           TheNinja-RPG Rules
         </h1>
         <p className="my-2">
-          Welcome to <b>TheNinja-RPG</b> (also referred to as "TNR" or "the game"). By participating in TNR, you agree to comply with the rules and terms outlined below. These rules are designed to ensure a fair, respectful, and enjoyable environment for all players. Violations of these terms may result in immediate action by the moderation 	team, up to and including permanent account bans. Users are considered solely responsible for the actions and content of their account. Any action attributed to someone 	else accessing their account is the responsibility of the account owner. TNR generally follows PEGI-12 guidelines for game content, however user content is unrated.
+          Welcome to <b>TheNinja-RPG</b> (also referred to as "TNR" or "the game"). By participating in TNR, you agree to comply with the rules and terms outlined below. These rules are designed to ensure a fair, respectful, and enjoyable environment for all players. Violations of these terms may result in immediate action by the moderation team, up to and including permanent account bans. Users are considered solely responsible for the actions and content of their account. Any action attributed to someone else accessing their account is the responsibility of the account owner. TNR generally follows PEGI-12 guidelines for game content, however user content is unrated.
         </p>
-        <hr>
+        <hr />
               
         <h2>
           1. Code of Conduct
@@ -28,7 +28,7 @@ export default function GameRules() {
           <li><b>Prohibited Topics:</b> Discussions involving sexual content, political issues, drugs, religion, sensitive issues (e.g., suicide), or ongoing court cases in public forums or the Tavern.</li>
           <li><b>External Harassment:</b> Personal harassment of TNR community members outside the game, if reported and verified, will be addressed within the rules if deemed exceptional or extreme. (e.g stalking, unwanted sexual advances, blackmail)</li>
         </ul>
-        <hr>
+        <hr />
               
         <h2>
           2. Avatar, Account Name, and Title Guidelines
@@ -39,7 +39,7 @@ export default function GameRules() {
           <li><b>Staff Requests:</b> Moderators may request avatar changes to maintain community standards. Requests must be respected.</li>
           <li><b>Forced Changes:</b> Names, avatars, or titles deemed inappropriate may be changed without prior notification. Reputation points lost due to these changes will not be refunded unless the action is deemed to be in error by a moderator.</li>
         </ul>
-        <hr>
+        <hr />
               
         <h2>
           3. External Links
@@ -48,7 +48,7 @@ export default function GameRules() {
           <li><b>Prohibited Platforms:</b> Links to sites associated with drugs, pornography, hate speech, or harmful content are forbidden.</li>
           <li><b>Appropriate Content:</b> Shared links must align with TNR’s community standards. Misuse will result in disciplinary action.</li>
         </ul>
-        <hr>
+        <hr />
               
         <h2>
           4. Punishment System
@@ -81,7 +81,7 @@ export default function GameRules() {
           <li>Abuse of bugs and game play mechanics will result in a ban instead of a silence. Game abuse will not be tolerated. Users may not be given a warning if the abuse is believed to be intentional.</li>
           <li>Strikes for punishments that have been completed may be removed, under review, after a year of good behaviour. However removal is not guaranteed.</li>
         </ul>
-        <hr>
+        <hr />
               
         <h2>
           5. Reporting and Appeals
@@ -102,7 +102,7 @@ export default function GameRules() {
           <li>Users may appeal disciplinary actions by contacting the issuing Moderator or Head Moderator.</li>
           <li>Appeals require substantial evidence and are rarely granted for permanent bans.</li>
         </ul>
-        <hr>
+        <hr />
               
         <h2>
           6. Staff Roles and Responsibilities
@@ -128,7 +128,7 @@ export default function GameRules() {
         <ul className="pl-5 list-disc">
           <li><b>Transparency:</b> All disciplinary actions must be logged and justified.</li>
         </ul>
-        <hr>
+        <hr />
 
         <h2>
           7. Fair Play Guidelines
@@ -155,7 +155,7 @@ export default function GameRules() {
         <ul className="pl-5 list-disc">
           <li>Strictly prohibited and may result in permanent bans.</li>
         </ul>
-        <hr>
+        <hr />
 
         <h2>
           8. General Community Standards
@@ -164,7 +164,7 @@ export default function GameRules() {
           <li><b>Respect for Staff:</b> Harassment of staff is treated the same as harassment of players.</li>
           <li><b>Constructive Feedback:</b> Must be respectful and submitted in official feedback channels. If unsure what channels are acceptable, reach out to a moderation staff member.</li>
         </ul>
-        <hr>
+        <hr />
 
         <h2>
           9. Official Events
@@ -173,7 +173,7 @@ export default function GameRules() {
           <li>Official events and media are announced in-game and on official channels. Unofficial events are not TNR’s responsibility.</li>
           <li>Staff participation in unofficial events is at their discretion and does not grant official status.</li>
         </ul>
-        <hr>
+        <hr />
 
         <h2>
           10. Additional Guidelines
@@ -198,7 +198,7 @@ export default function GameRules() {
         <ul className="pl-5 list-disc">
           <li>Publicly criticizing moderation decisions or making unfounded assumptions about punishments is prohibited. Moderators often have access to additional context not 	  available to players.</li>
         </ul>
-        <hr>
+        <hr />
         
         <h2>
           11. Disclaimer of Warranties
@@ -206,7 +206,7 @@ export default function GameRules() {
         <p className="my-2">
           TNR is provided on an "as-is" basis. Players use the platform at their own risk
         </p>
-        <hr>
+        <hr />
 
         <h2>
           12. Modification of Terms
@@ -214,7 +214,7 @@ export default function GameRules() {
         <p className="my-2">
           TNR reserves the right to modify these rules at any time. Announcements will be made in-game and on official platforms.
         </p>
-        <hr>
+        <hr />
 
         <h2>
           13. Discord
@@ -241,7 +241,7 @@ export default function GameRules() {
           &nbsp&nbsp13.2.1 Staff
         </h3>
         <p className="my-2">&nbsp&nbspStaff may create, moderate, or participate in external discords. While action in these discords are not considered official staff actions, 	staff are still expected to remain reasonably professional as a reflection of the community they work for.</p>
-        <hr>
+        <hr />
       </div>
     </ContentBox>
   );
