@@ -1283,7 +1283,8 @@ export const fetchUpdatedUser = async (props: {
   forceRegen?: boolean;
 }) => {
   // Destructure
-  const { client, userId, userIp, forceRegen } = props;
+  const { client, userId, userIp } = props;
+  let { forceRegen } = props;
 
   // Ensure we can fetch the user
   const [achievements, settings, user] = await Promise.all([
@@ -1375,10 +1376,11 @@ export const fetchUpdatedUser = async (props: {
         }
         void pusher.trigger(user.userId, "event", {
           type: "userMessage",
-          message: "You have been kicked out of your village due to negative presige",
+          message: "You have been kicked out of your village due to negative prestige",
           route: "/profile",
           routeText: "To Profile",
         });
+        forceRegen = true;
       }
     }
     // If user is kage & village prestige less than threshold, remove from kage

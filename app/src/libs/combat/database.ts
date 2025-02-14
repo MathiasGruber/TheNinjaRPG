@@ -174,7 +174,7 @@ export const updateKage = async (
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const kage = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
   // Guards
-  if (curBattle.battleType !== "KAGE_CHALLENGE") return;
+  if (!["KAGE_AI", "KAGE_PVP"].includes(curBattle.battleType)) return;
   if (!user || !user.villageId || !kage || !kage.villageId) return;
   if (user.villageId !== kage.villageId) return;
   // Lost items for the kage
@@ -369,7 +369,7 @@ export const updateUser = async (
     // Add notifications to combatResult
     result.notifications.push(...notifications);
     // Is it a kage challenge
-    const isKageChallenge = curBattle.battleType === "KAGE_CHALLENGE";
+    const isKageChallenge = ["KAGE_AI", "KAGE_PVP"].includes(curBattle.battleType);
     // Any items to be deleted?
     const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
     const updateItems = user.items.filter((ui) => ui.quantity > 0);
@@ -377,6 +377,10 @@ export const updateUser = async (
     const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
     const jUnique = [...new Set(jUsage)];
     const jExp = battleJutsuExp(curBattle.battleType, result.eloDiff);
+    // If new prestige goes below 0, set allyVillage to false
+    if (user.villagePrestige + result.villagePrestige < 0) {
+      user.allyVillage = false;
+    }
     // Update user & user items
     await Promise.all([
       // Delete items

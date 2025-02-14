@@ -1814,6 +1814,13 @@ export const village = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     wasDowngraded: boolean("wasDowngraded").default(false).notNull(),
+    openForChallenges: boolean("openForChallenges").default(true).notNull(),
+    openForChallengesAt: datetime("openForChallengesAt", {
+      mode: "date",
+      fsp: 3,
+    })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
   },
   (table) => {
     return {

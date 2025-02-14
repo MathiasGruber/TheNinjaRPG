@@ -496,10 +496,14 @@ const Marriage: React.FC = () => {
 
   // Queries & mutations
   const { data: userData } = useRequiredUserData();
-  const { mutate: create } = api.marriage.createRequest.useMutation({ onSuccess });
-  const { mutate: accept } = api.marriage.acceptRequest.useMutation({ onSuccess });
-  const { mutate: reject } = api.marriage.rejectRequest.useMutation({ onSuccess });
-  const { mutate: cancel } = api.marriage.cancelRequest.useMutation({ onSuccess });
+  const { mutate: create, isPending: isCreating } =
+    api.marriage.createRequest.useMutation({ onSuccess });
+  const { mutate: accept, isPending: isAccepting } =
+    api.marriage.acceptRequest.useMutation({ onSuccess });
+  const { mutate: reject, isPending: isRejecting } =
+    api.marriage.rejectRequest.useMutation({ onSuccess });
+  const { mutate: cancel, isPending: isCancelling } =
+    api.marriage.cancelRequest.useMutation({ onSuccess });
   const { mutate: divorce } = api.marriage.divorce.useMutation({ onSuccess });
 
   if (!requests) return <Loader explanation="Loading requests" />;
@@ -566,6 +570,7 @@ const Marriage: React.FC = () => {
         )}
         {shownRequests.length > 0 && (
           <UserRequestSystem
+            isLoading={isCreating || isAccepting || isRejecting || isCancelling}
             requests={shownRequests}
             userId={userData!.userId}
             onAccept={accept}

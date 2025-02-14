@@ -21,20 +21,40 @@ import {
   KAGE_DELAY_SECS,
   KAGE_PRESTIGE_REQUIREMENT,
   KAGE_DEFAULT_PRESTIGE,
+  KAGE_CHALLENGE_SECS,
+  KAGE_REQUESTS_SHOW_SECONDS,
+  KAGE_CHALLENGE_ACCEPT_PRESTIGE,
+  KAGE_CHALLENGE_OPEN_FOR_SECONDS,
 } from "@/drizzle/constants";
+import {
+  fetchRequests,
+  fetchRequest,
+  updateRequestState,
+  insertRequest,
+} from "@/routers/sparring";
+import { getServerPusher } from "@/libs/pusher";
 import type { DrizzleClient } from "@/server/db";
-import { secondsFromDate } from "@/utils/time";
+import { secondsFromDate, secondsPassed } from "@/utils/time";
 import { fetchClan } from "@/routers/clan";
 
+const pusher = getServerPusher();
+
 export const kageRouter = createTRPCRouter({
-  fightKage: protectedProcedure
+  /**
+   * Kage challenge & request challenge system
+   */
+  getUserChallenges: protectedProcedure.query(async ({ ctx }) => {
+    return fetchRequests(ctx.drizzle, ["KAGE"], KAGE_REQUESTS_SHOW_SECONDS, ctx.userId);
+  }),
+  createChallenge: protectedProcedure
     .input(z.object({ kageId: z.string(), villageId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, kage, village, previous] = await Promise.all([
+      const [user, kage, recent, village, previous] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.kageId),
+        fetchRequests(ctx.drizzle, ["KAGE"], KAGE_CHALLENGE_SECS, ctx.userId),
         fetchVillage(ctx.drizzle, input.villageId),
         ctx.drizzle
           .select({ count: sql<number>`count(*)`.mapWith(Number) })
@@ -48,24 +68,161 @@ export const kageRouter = createTRPCRouter({
           ),
       ]);
       const previousCount = previous?.[0]?.count ?? 0;
-      // Guards
+      // Guard
       if (!village) return errorResponse("Village not found");
-      if (kage.villageId !== village.id) return errorResponse("No longer kage");
-      if (kage.villageId !== user.villageId) return errorResponse("Wrong village");
-      if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
       if (!canChallengeKage(user)) return errorResponse("Not eligible to challenge");
       if (previousCount >= KAGE_MAX_DAILIES) return errorResponse("Max for today");
-      // Start the battle
-      return await initiateBattle(
+      if (kage.villageId !== village.id) return errorResponse("No longer kage");
+      if (kage.villageId !== user.villageId) return errorResponse("Wrong village");
+      if (!village.openForChallenges) return errorResponse("Challenges are closed!");
+      if (user.anbuId) return errorResponse("Cannot be kage while in ANBU");
+      if (user.status !== "AWAKE") return errorResponse("User is not awake");
+      if (recent.length > 0) {
+        return errorResponse(`Max 1 challenge per ${KAGE_CHALLENGE_SECS} seconds`);
+      }
+      // Mutate
+      await insertRequest(ctx.drizzle, user.userId, kage.userId, "KAGE");
+      void pusher.trigger(input.kageId, "event", {
+        type: "userMessage",
+        message: "Your position as kage is being challenged",
+        route: "/townhall",
+        routeText: "To Town Hall",
+      });
+      return { success: true, message: "Challenge created" };
+    }),
+  acceptChallenge: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [challenge, user] = await Promise.all([
+        fetchRequest(ctx.drizzle, input.id, "KAGE"),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      const village = await fetchVillage(ctx.drizzle, user.villageId || "");
+      // Guards
+      if (!village) return errorResponse("Village not found");
+      if (village.kageId !== user.userId) return errorResponse("Not kage");
+      if (challenge.receiverId !== ctx.userId) {
+        return errorResponse("Not your challenge to accept");
+      }
+      if (challenge.status !== "PENDING") {
+        return errorResponse("Challenge not pending");
+      }
+      // Mutate
+      const result = await initiateBattle(
         {
-          userIds: [ctx.userId],
-          targetIds: [kage.userId],
+          sector: user.sector,
+          userIds: [challenge.senderId],
+          targetIds: [challenge.receiverId],
           client: ctx.drizzle,
           asset: "arena",
         },
-        "KAGE_CHALLENGE",
+        "KAGE_PVP",
       );
+      if (result.success) {
+        await Promise.all([
+          updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "KAGE"),
+          ctx.drizzle
+            .update(userData)
+            .set({
+              villagePrestige: sql`${userData.villagePrestige} + ${KAGE_CHALLENGE_ACCEPT_PRESTIGE}`,
+            })
+            .where(eq(userData.userId, ctx.userId)),
+          pusher.trigger(challenge.senderId, "event", {
+            type: "userMessage",
+            message: "Your kage challenge has been accepted",
+            route: "/combat",
+            routeText: "To Combat",
+          }),
+        ]);
+      }
+      return result;
     }),
+  rejectChallenge: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const challenge = await fetchRequest(ctx.drizzle, input.id, "KAGE");
+      // Guard
+      if (challenge.receiverId !== ctx.userId) {
+        return errorResponse("You can only reject challenge for yourself");
+      }
+      if (challenge.status !== "PENDING") {
+        return errorResponse("Can only reject pending challenges");
+      }
+      // Mutate
+      void pusher.trigger(challenge.senderId, "event", {
+        type: "userMessage",
+        message:
+          "Your kage challenge has been rejected, it will be executed as AI vs AI",
+      });
+      const [result] = await Promise.all([
+        initiateBattle(
+          {
+            userIds: [challenge.senderId],
+            targetIds: [challenge.receiverId],
+            client: ctx.drizzle,
+            asset: "arena",
+          },
+          "KAGE_AI",
+        ),
+        pusher.trigger(challenge.senderId, "event", {
+          type: "userMessage",
+          message: "Your kage challenge has was rejected",
+          route: "/combat",
+          routeText: "To Combat",
+        }),
+        updateRequestState(ctx.drizzle, input.id, "REJECTED", "KAGE"),
+      ]);
+      result.message = "Allow user to do AI vs AI battle";
+      return result;
+    }),
+  cancelChallenge: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const challenge = await fetchRequest(ctx.drizzle, input.id, "KAGE");
+      // Derived
+      const secondsSinceChallenge = secondsPassed(challenge.createdAt);
+      // Guard
+      if (challenge.senderId !== ctx.userId) {
+        return errorResponse("You can only cancel challenges created by you");
+      }
+      if (challenge.status !== "PENDING") {
+        return errorResponse("Can only cancel pending challenges");
+      }
+      if (secondsSinceChallenge > KAGE_CHALLENGE_SECS) {
+        const [result] = await Promise.all([
+          initiateBattle(
+            {
+              userIds: [challenge.senderId],
+              targetIds: [challenge.receiverId],
+              client: ctx.drizzle,
+              asset: "arena",
+            },
+            "KAGE_AI",
+          ),
+          pusher.trigger(challenge.senderId, "event", {
+            type: "userMessage",
+            message:
+              "Kage did not accept the challenge, it will be executed as AI vs AI",
+            route: "/combat",
+            routeText: "To Combat",
+          }),
+          updateRequestState(ctx.drizzle, input.id, "EXPIRED", "KAGE"),
+        ]);
+        result.message = "Allow user to do AI vs AI battle";
+        return result;
+      } else {
+        return await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "KAGE");
+      }
+    }),
+  /**
+   * Misc other kage features
+   */
   resignKage: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .output(baseServerResponse)
@@ -299,6 +456,48 @@ export const kageRouter = createTRPCRouter({
       if (result.rowsAffected === 0) return errorResponse("Upgrade failed");
 
       return { success: true, message: "Structure upgraded" };
+    }),
+  toggleOpenForChallenges: protectedProcedure
+    .input(z.object({ villageId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, requests, userVillage] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchRequests(ctx.drizzle, ["KAGE"], KAGE_REQUESTS_SHOW_SECONDS, ctx.userId),
+        fetchVillage(ctx.drizzle, input.villageId),
+      ]);
+
+      // Derived
+      const pendingRequests = requests?.filter((r) => r.status === "PENDING");
+      const nPendingRequests = pendingRequests?.length ?? 0;
+
+      // Guards
+      if (!user) return errorResponse("User not found");
+      if (!userVillage) return errorResponse("Village not found");
+      if (userVillage.kageId !== user.userId) return errorResponse("Not kage");
+      if (userVillage.type !== "VILLAGE") return errorResponse("Only for villages");
+      if (nPendingRequests > 0) {
+        return errorResponse("Cannot toggle while there are pending challenges");
+      }
+      const secondsSinceOpen = secondsPassed(userVillage.openForChallengesAt);
+      if (secondsSinceOpen < KAGE_CHALLENGE_OPEN_FOR_SECONDS) {
+        return errorResponse("Cannot toggle while there are pending challenges");
+      }
+
+      // Update
+      await ctx.drizzle
+        .update(village)
+        .set({
+          openForChallenges: !userVillage.openForChallenges,
+          openForChallengesAt: new Date(),
+        })
+        .where(eq(village.id, input.villageId));
+
+      return {
+        success: true,
+        message: `Village is now ${!userVillage.openForChallenges ? "open" : "closed"} for challenges`,
+      };
     }),
 });
 

@@ -596,10 +596,17 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
   };
 
   // Mutation
-  const { mutate: create } = api.clan.createRequest.useMutation({ onSuccess });
-  const { mutate: accept } = api.clan.acceptRequest.useMutation({ onSuccess });
-  const { mutate: reject } = api.clan.rejectRequest.useMutation({ onSuccess });
-  const { mutate: cancel } = api.clan.cancelRequest.useMutation({ onSuccess });
+  const { mutate: create, isPending: isCreating } = api.clan.createRequest.useMutation({
+    onSuccess,
+  });
+  const { mutate: accept, isPending: isAccepting } = api.clan.acceptRequest.useMutation(
+    { onSuccess },
+  );
+  const { mutate: reject, isPending: isRejecting } = api.clan.rejectRequest.useMutation(
+    { onSuccess },
+  );
+  const { mutate: cancel, isPending: isCancelling } =
+    api.clan.cancelRequest.useMutation({ onSuccess });
 
   // Loaders
   if (!requests) return <Loader explanation="Loading requests" />;
@@ -638,6 +645,7 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
         <UserRequestSystem
           requests={shownRequests}
           userId={userData.userId}
+          isLoading={isCreating || isAccepting || isRejecting || isCancelling}
           onAccept={accept}
           onReject={reject}
           onCancel={cancel}
