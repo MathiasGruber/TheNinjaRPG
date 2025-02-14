@@ -403,11 +403,7 @@ const ActiveChallenges: React.FC = () => {
       },
     });
 
-  // Derived features
-  const isPending = isAccepting || isRejecting || isCancelling;
-
   // If loading
-  if (isPending) return <Loader explanation="Loading" />;
   if (!userData) return null;
 
   // Render
@@ -421,6 +417,7 @@ const ActiveChallenges: React.FC = () => {
         padding={false}
       >
         <UserRequestSystem
+          isLoading={isAccepting || isRejecting || isCancelling}
           requests={challenges}
           userId={userData.userId}
           onAccept={accept}

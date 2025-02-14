@@ -243,7 +243,8 @@ export const BattleTypes = [
   "ARENA",
   "COMBAT",
   "SPARRING",
-  "KAGE_CHALLENGE",
+  "KAGE_AI",
+  "KAGE_PVP",
   "CLAN_CHALLENGE",
   "CLAN_BATTLE",
   "TOURNAMENT",
@@ -269,7 +270,7 @@ export type TournamentState = (typeof TournamentStates)[number];
 export const TournamentMatchStates = ["WAITING", "PLAYED", "NO_SHOW"] as const;
 export type TournamentMatchState = (typeof TournamentMatchStates)[number];
 
-export const AutoBattleTypes = ["KAGE_CHALLENGE", "CLAN_CHALLENGE"];
+export const AutoBattleTypes = ["KAGE_AI", "CLAN_CHALLENGE"];
 
 export const BattleDataEntryType = [
   "jutsu",
@@ -559,22 +560,28 @@ export const CONVERSATION_QUIET_MINS = 5;
 export const REPORT_CONTEXT_WINDOW = 10;
 
 // Kage config
-export const KAGE_PRESTIGE_REQUIREMENT = 30000; // To challeng kage
-export const KAGE_RANK_REQUIREMENT = "JONIN";
-export const KAGE_PRESTIGE_COST = 10000; // Cost of failed challenge
-export const KAGE_MIN_PRESTIGE = 4000; // Remove kage if below
-export const KAGE_DAILY_PRESTIGE_LOSS = 500; // Kage prestige loss
-export const KAGE_MIN_DAYS_IN_VILLAGE = 40; // minimum days in village to become kage
-export const KAGE_ELDER_MIN_DAYS = 100; // minimum days in village to be elder
+export const FRIENDLY_PRESTIGE_COST = 10000; // Prestige cost of killing friendly
 export const KAGE_ANBU_DELETE_COST = 3000; // Anbu delete cost
-export const KAGE_WAR_DECLARE_COST = 10000; // Declare war cost
+export const KAGE_CHALLENGE_SECS = 30 * 60; // 30 minutes for accepting challenges
+export const KAGE_CHALLENGE_TIMEOUT_MINS = 30; // Timeout for PvP kage battle
+export const KAGE_DAILY_PRESTIGE_LOSS = 500; // Kage prestige loss
+export const KAGE_DEFAULT_PRESTIGE = 5000; // Starting prestige of kage
+export const KAGE_DELAY_SECS = 24 * 3600; // Delay before kage can perform actions
+export const KAGE_ELDER_MIN_DAYS = 100; // minimum days in village to be elder
+export const KAGE_REQUESTS_SHOW_SECONDS = 24 * 60 * 60; // Show requests for 24 hours
 export const KAGE_MAX_DAILIES = 3;
 export const KAGE_MAX_ELDERS = 5;
-export const KAGE_DELAY_SECS = 24 * 3600; // Delay before kage can perform actions
-export const KAGE_CHALLENGE_TIMEOUT_MINS = 30; // Timeout for PvP kage battle
-export const KAGE_DEFAULT_PRESTIGE = 5000; // Starting prestige of kage
+export const KAGE_MIN_DAYS_IN_VILLAGE = 40; // minimum days in village to become kage
+export const KAGE_MIN_PRESTIGE = 4000; // Remove kage if below
+export const KAGE_PRESTIGE_COST = 10000; // Cost of failed challenge
+export const KAGE_PRESTIGE_REQUIREMENT = 30000; // To challeng kage
+export const KAGE_RANK_REQUIREMENT = "JONIN";
+export const KAGE_WAR_DECLARE_COST = 10000; // Declare war cost
+export const KAGE_CHALLENGE_ACCEPT_PRESTIGE = 200; // Kage prestige gain of accepting challenge
+export const KAGE_CHALLENGE_WIN_PRESTIGE = 500; // Kage prestige gain of winning challenge
+export const KAGE_CHALLENGE_LOSE_PRESTIGE_PER_HOUR = 100; // Kage prestige loss of not accepting challenges
+export const KAGE_CHALLENGE_OPEN_FOR_SECONDS = 60 * 60; // Time in between being able to toggle challenges
 export const WAR_FUNDS_COST = 100; // Prestige cost of declaring war
-export const FRIENDLY_PRESTIGE_COST = 10000; // Prestige cost of killing friendly
 
 // Game assets
 export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";

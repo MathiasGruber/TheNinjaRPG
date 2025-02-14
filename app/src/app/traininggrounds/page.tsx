@@ -311,6 +311,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
           </div>
           {requests && requests.length > 0 && (
             <UserRequestSystem
+              isLoading={isAccepting || isRejecting || isCancelling}
               requests={requests}
               userId={userData.userId}
               onAccept={accept}
