@@ -24,3 +24,4 @@ jobs:
       PUSHER_APP_SECRET: ${{ secrets.PUSHER_APP_SECRET }}
       DATABASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL }}
       CAPTCHA_SALT: ${{ secrets.CAPTCHA_SALT }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
