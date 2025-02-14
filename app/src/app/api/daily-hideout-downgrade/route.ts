@@ -15,7 +15,7 @@ export async function GET() {
 
   // Check timer
   const timerCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME);
-  // if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
+  if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
 
   try {
     // Get all active bans and silences that have expired
