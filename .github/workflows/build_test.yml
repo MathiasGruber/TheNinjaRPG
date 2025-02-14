@@ -16,3 +16,7 @@ jobs:
       - name: run build
         run: bun run build
         working-directory: ./app
+    env:
+      NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}
+      NEXT_PUBLIC_PUSHER_APP_CLUSTER: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_CLUSTER }}
+      NEXT_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL }}
