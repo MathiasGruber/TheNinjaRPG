@@ -18,6 +18,7 @@ import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { KAGE_DEFAULT_PRESTIGE } from "@/drizzle/constants";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -173,7 +174,7 @@ export const updateKage = async (
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const kage = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
   // Guards
-  if (curBattle.battleType !== "KAGE_CHALLENGE") return;
+  if (!["KAGE_AI", "KAGE_PVP"].includes(curBattle.battleType)) return;
   if (!user || !user.villageId || !kage || !kage.villageId) return;
   if (user.villageId !== kage.villageId) return;
   // Lost items for the kage
@@ -194,6 +195,10 @@ export const updateKage = async (
               .update(village)
               .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
+            client
+              .update(userData)
+              .set({ villagePrestige: KAGE_DEFAULT_PRESTIGE })
+              .where(eq(userData.userId, user.userId)),
           ]
         : []),
       ...(deleteItems.length > 0
@@ -364,7 +369,7 @@ export const updateUser = async (
     // Add notifications to combatResult
     result.notifications.push(...notifications);
     // Is it a kage challenge
-    const isKageChallenge = curBattle.battleType === "KAGE_CHALLENGE";
+    const isKageChallenge = ["KAGE_AI", "KAGE_PVP"].includes(curBattle.battleType);
     // Any items to be deleted?
     const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
     const updateItems = user.items.filter((ui) => ui.quantity > 0);
@@ -372,6 +377,10 @@ export const updateUser = async (
     const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
     const jUnique = [...new Set(jUsage)];
     const jExp = battleJutsuExp(curBattle.battleType, result.eloDiff);
+    // If new prestige goes below 0, set allyVillage to false
+    if (user.villagePrestige + result.villagePrestige < 0) {
+      user.allyVillage = false;
+    }
     // Update user & user items
     await Promise.all([
       // Delete items

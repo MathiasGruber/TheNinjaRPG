@@ -1064,7 +1064,7 @@ export const initiateBattle = async (
   const pusher = getServerPusher();
 
   // Hide users on map when in combat
-  if (!["KAGE_CHALLENGE", "CLAN_CHALLENGE"].includes(battleType)) {
+  if (!["KAGE_AI", "CLAN_CHALLENGE"].includes(battleType)) {
     users.forEach((user) => {
       void pusher.trigger(user.userId, "event", { type: "battle", battleId });
       void updateUserOnMap(pusher, user.sector, { ...user, sector: -1 });
