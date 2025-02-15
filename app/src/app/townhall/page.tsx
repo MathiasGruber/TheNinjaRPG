@@ -524,7 +524,13 @@ const KageChallenge: React.FC<{
       </p>
       {requests && requests.length > 0 && openForChallenges && (
         <UserRequestSystem
-          isLoading={isAccepting || isRejecting || isCancelling}
+          isLoading={
+            isAccepting ||
+            isRejecting ||
+            isCancelling ||
+            isSendingChallenge ||
+            isPendingRequests
+          }
           requests={requests}
           userId={user.userId}
           onAccept={accept}
