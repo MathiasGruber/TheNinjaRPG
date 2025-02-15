@@ -482,7 +482,9 @@ export const kageRouter = createTRPCRouter({
       }
       const secondsSinceOpen = secondsPassed(userVillage.openForChallengesAt);
       if (secondsSinceOpen < KAGE_CHALLENGE_OPEN_FOR_SECONDS) {
-        return errorResponse("Cannot toggle while there are pending challenges");
+        return errorResponse(
+          `Please wait ${Math.floor(KAGE_CHALLENGE_OPEN_FOR_SECONDS - secondsSinceOpen)} seconds before toggling`,
+        );
       }
 
       // Update
