@@ -584,19 +584,19 @@ const KageChallenge: React.FC<{
               {KAGE_MIN_DAYS_IN_VILLAGE} days in village.
             </span>
           </p>
-          {canChangeContent(user.role) && (
-            <Button
-              id="challenge"
-              variant="destructive"
-              className="my-2 w-full"
-              onClick={() => take()}
-              loading={isTaking}
-            >
-              <ShieldPlus className="h-6 w-6 mr-2" />
-              Take kage as Staff
-            </Button>
-          )}
         </div>
+      )}
+      {!isKage && canChangeContent(user.role) && (
+        <Button
+          id="challenge"
+          variant="destructive"
+          className="my-2 w-full"
+          onClick={() => take()}
+          loading={isTaking}
+        >
+          <ShieldPlus className="h-6 w-6 mr-2" />
+          Take kage as Staff
+        </Button>
       )}
     </ContentBox>
   );
