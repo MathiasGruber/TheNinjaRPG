@@ -23,7 +23,7 @@ import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { KAGE_WAR_DECLARE_COST } from "@/drizzle/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/drizzle/constants";
-import { deleteSenseiRequests } from "@/routers/sensei";
+import { deleteRequests } from "@/routers/sensei";
 import { hasRequiredRank } from "@/libs/train";
 import { canSwapVillage } from "@/utils/permissions";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
@@ -228,7 +228,7 @@ export const villageRouter = createTRPCRouter({
           })
           .where(and(eq(userData.userId, ctx.userId), eq(userData.status, "AWAKE"))),
         // Clear current sensei requests for this user
-        deleteSenseiRequests(ctx.drizzle, ctx.userId),
+        deleteRequests(ctx.drizzle, ctx.userId),
         // Remove the user as sensei for any active students
         ctx.drizzle
           .update(userData)
@@ -291,7 +291,7 @@ export const villageRouter = createTRPCRouter({
             ),
           ),
         // Clear current sensei requests for this user
-        deleteSenseiRequests(ctx.drizzle, ctx.userId),
+        deleteRequests(ctx.drizzle, ctx.userId),
         // Remove the user as sensei for any active students
         ctx.drizzle
           .update(userData)

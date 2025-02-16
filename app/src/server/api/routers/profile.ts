@@ -77,6 +77,7 @@ import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { ACTIVE_VOTING_SITES } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { KAGE_MIN_PRESTIGE } from "@/drizzle/constants";
+import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
@@ -1391,10 +1392,16 @@ export const fetchUpdatedUser = async (props: {
     ) {
       const elder = await fetchKageReplacement(client, user.villageId, user.userId);
       if (elder) {
-        await client
-          .update(village)
-          .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
-          .where(eq(village.id, user.villageId));
+        await Promise.all([
+          client
+            .update(village)
+            .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
+            .where(eq(village.id, user.villageId)),
+          client
+            .update(userData)
+            .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
+            .where(eq(userData.userId, user.userId)),
+        ]);
       }
     }
   }
