@@ -5,7 +5,7 @@ export const checkIfSectorIsAvailable = async (sector: number) => {
   const map = await fetchMap();
   const tile = map.tiles[sector];
   if (!tile) return false;
-  if (tile.t === 0) return false;
+  // if (tile.t === 0) return false; // Prevent purchasing hideout on ocean
   // Check that it's not reserved
   const reservedSectors = [
     332, 336, 341, 335, 340, 334, 330, 331, 332, 337, 342, 12, 18, 109, 113, 308, 305,
