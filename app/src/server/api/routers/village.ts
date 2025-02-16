@@ -321,6 +321,7 @@ export const villageRouter = createTRPCRouter({
 
       // General guards
       if (!target) return errorResponse("Target village not found");
+      if (!target.kageId) return errorResponse("Target village does not have kage");
       if (!user || !villageId) return errorResponse("Not in this village");
       if (!isKage(user)) return errorResponse("You are not kage");
       if (target.type !== "VILLAGE") return errorResponse("Only for villages");
