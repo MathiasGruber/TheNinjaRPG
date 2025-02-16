@@ -54,9 +54,10 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, kage, recent, village, previous] = await Promise.all([
+      const [user, kage, elders, recent, village, previous] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.kageId),
+        fetchElders(ctx.drizzle, input.villageId),
         fetchRequests(ctx.drizzle, ["KAGE"], KAGE_CHALLENGE_SECS, ctx.userId),
         fetchVillage(ctx.drizzle, input.villageId),
         ctx.drizzle
@@ -84,13 +85,26 @@ export const kageRouter = createTRPCRouter({
         return errorResponse(`Max 1 challenge per ${KAGE_CHALLENGE_SECS} seconds`);
       }
       // Mutate
-      await insertRequest(ctx.drizzle, user.userId, kage.userId, "KAGE");
-      void pusher.trigger(input.kageId, "event", {
-        type: "userMessage",
-        message: "Your position as kage is being challenged",
-        route: "/townhall",
-        routeText: "To Town Hall",
-      });
+      await Promise.all([
+        insertRequest(ctx.drizzle, user.userId, kage.userId, "KAGE"),
+        pusher.trigger(input.kageId, "event", {
+          type: "userMessage",
+          message: "Your position as kage is being challenged",
+          route: "/townhall",
+          routeText: "To Town Hall",
+        }),
+        ...(elders.length > 0
+          ? elders.map((e) => {
+              return pusher.trigger(e.userId, "event", {
+                type: "userMessage",
+                message: "The kage is being challenged",
+                route: "/townhall",
+                routeText: "To Town Hall",
+              });
+            })
+          : []),
+      ]);
+
       return { success: true, message: "Challenge created" };
     }),
   acceptChallenge: protectedProcedure
