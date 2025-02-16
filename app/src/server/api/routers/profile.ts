@@ -1401,6 +1401,12 @@ export const fetchUpdatedUser = async (props: {
             .update(userData)
             .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
             .where(eq(userData.userId, user.userId)),
+          pusher.trigger(user.userId, "event", {
+            type: "userMessage",
+            message: `Your prestige dropped below ${KAGE_MIN_PRESTIGE} and you are no longer kage`,
+            route: "/profile",
+            routeText: "To Profile",
+          }),
         ]);
       }
     }
