@@ -24,7 +24,7 @@ import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { getMissionHallSettings } from "@/libs/quest";
 import { canAccessStructure } from "@/utils/village";
 import { fetchSectorVillage } from "@/routers/village";
-import { deleteSenseiRequests } from "@/routers/sensei";
+import { deleteRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
 import { fetchUserItems } from "@/routers/item";
@@ -838,7 +838,7 @@ export const updateRewards = async (
       .set(updatedUserData)
       .where(eq(userData.userId, user.userId)),
     // If new rank, then delete sensei requests
-    getNewRank ? deleteSenseiRequests(client, user.userId) : undefined,
+    getNewRank ? deleteRequests(client, user.userId) : undefined,
     // Update village tokens
     rewards.reward_tokens > 0 && user.villageId
       ? client

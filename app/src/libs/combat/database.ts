@@ -19,6 +19,7 @@ import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { KAGE_DEFAULT_PRESTIGE } from "@/drizzle/constants";
+import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -199,6 +200,10 @@ export const updateKage = async (
               .update(userData)
               .set({ villagePrestige: KAGE_DEFAULT_PRESTIGE })
               .where(eq(userData.userId, user.userId)),
+            client
+              .update(userData)
+              .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
+              .where(eq(userData.userId, user?.village?.kageId ?? "")),
           ]
         : []),
       ...(deleteItems.length > 0

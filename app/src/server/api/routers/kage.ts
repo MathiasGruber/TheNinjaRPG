@@ -342,6 +342,10 @@ export const kageRouter = createTRPCRouter({
         .where(eq(village.id, user.villageId ?? "")),
       ctx.drizzle
         .update(userData)
+        .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
+        .where(eq(userData.userId, user?.village?.kageId ?? "")),
+      ctx.drizzle
+        .update(userData)
         .set({
           rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
           villagePrestige:

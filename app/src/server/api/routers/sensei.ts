@@ -12,6 +12,7 @@ import {
   updateRequestState,
 } from "@/routers/sparring";
 import { SENSEI_RANKS } from "@/drizzle/constants";
+import type { UserRequestType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 const pusher = getServerPusher();
@@ -190,19 +191,14 @@ export const fetchStudents = async (client: DrizzleClient, userId: string) => {
 };
 
 /**
- * Deletes user requests of type "SENSEI" where the senderId or receiverId matches the given userId.
+ * Deletes all user requests where the senderId matches the given userId.
  *
  * @param client - The DrizzleClient instance used to perform the delete operation.
  * @param userId - The ID of the user whose requests should be deleted.
  * @returns A Promise that resolves to the result of the delete operation.
  */
-export const deleteSenseiRequests = async (client: DrizzleClient, userId: string) => {
+export const deleteRequests = async (client: DrizzleClient, userId: string) => {
   return await client
     .delete(userRequest)
-    .where(
-      and(
-        eq(userRequest.type, "SENSEI"),
-        or(eq(userRequest.senderId, userId), eq(userRequest.receiverId, userId)),
-      ),
-    );
+    .where(or(eq(userRequest.senderId, userId), eq(userRequest.receiverId, userId)));
 };
