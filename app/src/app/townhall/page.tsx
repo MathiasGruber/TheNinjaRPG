@@ -594,16 +594,18 @@ const KageChallenge: React.FC<{
         </div>
       )}
       {!isKage && canChangeContent(user.role) && (
-        <Button
-          id="challenge"
-          variant="destructive"
-          className="my-2 w-full"
-          onClick={() => take()}
-          loading={isTaking}
-        >
-          <ShieldPlus className="h-6 w-6 mr-2" />
-          Take kage as Staff
-        </Button>
+        <div className="p-3">
+          <Button
+            id="challenge"
+            variant="destructive"
+            className="my-2 w-full"
+            onClick={() => take()}
+            loading={isTaking}
+          >
+            <ShieldPlus className="h-6 w-6 mr-2" />
+            Take kage as Staff
+          </Button>
+        </div>
       )}
     </ContentBox>
   );
