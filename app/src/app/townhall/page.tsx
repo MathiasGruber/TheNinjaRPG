@@ -152,7 +152,7 @@ const ElderHall: React.FC<{
                       Lvl. {elder.level} {capitalizeFirstLetter(elder.rank)}
                     </div>
                   </div>
-                  {isKage && (
+                  {/* {isKage && (
                     <Confirm
                       title="Confirm Demotion"
                       button={
@@ -169,7 +169,7 @@ const ElderHall: React.FC<{
                       You are about to remove this user as a village elder. Are you
                       sure?
                     </Confirm>
-                  )}
+                  )} */}
                 </Link>
               </div>
             ))}
@@ -283,12 +283,13 @@ const KageHall: React.FC<{
   });
 
   // Submit handler for prestige
-  const onSendPrestige = prestigeForm.handleSubmit((data) =>
+  const onSendPrestige = prestigeForm.handleSubmit((data) => {
     sendKagePrestige({
       kageId: village?.villageData.kageId ?? "",
       amount: data.amount ?? 0,
-    }),
-  );
+    });
+    prestigeForm.reset();
+  });
 
   // Checks
   if (!user.villageId) return <Loader explanation="Join a village first" />;
