@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { nanoid } from "nanoid";
 import { eq, or, and, ne, sql, gte, isNull } from "drizzle-orm";
 import {
   clan,
@@ -6,6 +7,7 @@ import {
   village,
   villageStructure,
   kageDefendedChallenges,
+  actionLog,
 } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -25,6 +27,7 @@ import {
   KAGE_REQUESTS_SHOW_SECONDS,
   KAGE_CHALLENGE_ACCEPT_PRESTIGE,
   KAGE_CHALLENGE_OPEN_FOR_SECONDS,
+  KAGE_MAX_WEEKLY_PRESTIGE_SEND,
 } from "@/drizzle/constants";
 import {
   fetchRequests,
@@ -255,14 +258,28 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, kage] = await Promise.all([
+      const [user, kage, records] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.kageId),
+        ctx.drizzle.query.actionLog.findMany({
+          columns: { relatedValue: true },
+          where: and(
+            eq(actionLog.userId, ctx.userId),
+            eq(actionLog.relatedId, input.kageId),
+          ),
+        }),
       ]);
+      // Derived
+      const previousSent = records?.reduce((acc, curr) => acc + curr.relatedValue, 0);
       // Guards
       if (user.rank !== "ELDER") return errorResponse("Must be an elder");
       if (user.villageId !== kage.villageId) return errorResponse("Wrong village");
       if (input.amount <= 0) return errorResponse("Invalid amount");
+      if (previousSent + input.amount > KAGE_MAX_WEEKLY_PRESTIGE_SEND) {
+        return errorResponse(
+          `You have already sent ${previousSent} prestige this week. You can only send ${KAGE_MAX_WEEKLY_PRESTIGE_SEND - previousSent} more.`,
+        );
+      }
       if (user.villagePrestige < input.amount) {
         return errorResponse("Not enough prestige");
       }
@@ -276,6 +293,16 @@ export const kageRouter = createTRPCRouter({
           .update(userData)
           .set({ villagePrestige: sql`${userData.villagePrestige} + ${input.amount}` })
           .where(eq(userData.userId, input.kageId)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: [`${input.amount} prestige sent to ${kage.username}`],
+          relatedId: input.kageId,
+          relatedMsg: `Sent ${input.amount} prestige to ${kage.username}`,
+          relatedImage: user.avatarLight,
+          relatedValue: input.amount,
+        }),
       ]);
       return {
         success: true,
@@ -357,10 +384,12 @@ export const kageRouter = createTRPCRouter({
       // Derived
       const isHideoutOrTown = ["HIDEOUT", "TOWN"].includes(village?.type ?? "");
       const lockout = isHideoutOrTown ? KAGE_DELAY_SECS : 0;
+      const newRank = prospect.rank === "ELDER" ? "JONIN" : "ELDER";
       // Guards
       if (!kage) return errorResponse("User not found");
       if (!prospect) return errorResponse("Target not found");
       if (!village) return errorResponse("Village not found");
+      if (newRank !== "ELDER") return errorResponse("Demotion of elder is disabled");
       if (prospect.anbuId) return errorResponse("Cannot promote ANBU to elder");
       if (prospect.isAi) return errorResponse("Do not touch the AI");
       if (kage.villageId !== village.id) return errorResponse("Wrong village");
@@ -377,7 +406,6 @@ export const kageRouter = createTRPCRouter({
         return errorResponse("Must be in village for 100 days to be elder");
       }
       // Mutate
-      const newRank = prospect.rank === "ELDER" ? "JONIN" : "ELDER";
       await ctx.drizzle
         .update(userData)
         .set({ rank: newRank })

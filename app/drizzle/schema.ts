@@ -1201,9 +1201,14 @@ export const actionLog = mysqlTable(
     relatedId: varchar("relatedId", { length: 191 }),
     relatedMsg: varchar("relatedText", { length: 191 }),
     relatedImage: varchar("relatedImage", { length: 191 }),
+    relatedValue: double("relatedValue").default(0).notNull(),
   },
   (table) => {
-    return { userId: index("ActionLog_userId_idx").on(table.userId) };
+    return {
+      userId: index("ActionLog_userId_idx").on(table.userId),
+      relatedIdIdx: index("ActionLog_relatedId_idx").on(table.relatedId),
+      tableNameIdx: index("ActionLog_tableName_idx").on(table.tableName),
+    };
   },
 );
 
