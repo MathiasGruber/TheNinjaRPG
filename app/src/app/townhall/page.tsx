@@ -7,16 +7,17 @@ import ContentBox from "@/layout/ContentBox";
 import BanInfo from "@/layout/BanInfo";
 import Confirm from "@/layout/Confirm";
 import Loader from "@/layout/Loader";
+import Countdown from "@/layout/Countdown";
 import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { Handshake, LandPlot, DoorOpen } from "lucide-react";
-import { CircleArrowUp, Ban, Lock, LockOpen } from "lucide-react";
+import { CircleArrowUp, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
-import { secondsPassed } from "@/utils/time";
+import { secondsPassed, secondsFromDate } from "@/utils/time";
 import { DoorClosed, ShieldPlus, Swords } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -420,6 +421,10 @@ const KageChallenge: React.FC<{
   const openForChallenges = user.village?.openForChallenges;
   const pendingRequests = requests?.filter((r) => r.status === "PENDING");
   const nPendingRequests = pendingRequests?.length ?? 0;
+  const activeRequest = pendingRequests?.[0];
+  const expiredRequest = pendingRequests?.find(
+    (r) => secondsPassed(r.createdAt) > KAGE_CHALLENGE_SECS,
+  );
 
   // Mutations
   const { mutate: create, isPending: isSendingChallenge } =
@@ -457,7 +462,10 @@ const KageChallenge: React.FC<{
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.kage.getUserChallenges.invalidate();
+          await Promise.all([
+            utils.kage.getUserChallenges.invalidate(),
+            utils.profile.getUser.invalidate(),
+          ]);
         }
       },
     });
@@ -486,19 +494,10 @@ const KageChallenge: React.FC<{
 
   // If challenge if over the limit, execute the AI vs AI battle
   useEffect(() => {
-    if (requests && !isKage) {
-      const pending = requests.find((r) => {
-        const timePassed = secondsPassed(r.createdAt) > KAGE_CHALLENGE_SECS;
-        console.log(timePassed, secondsPassed(r.createdAt), KAGE_CHALLENGE_SECS);
-        if (r.status === "PENDING" && timePassed) {
-          return true;
-        }
-      });
-      if (pending) {
-        cancel({ id: pending.id });
-      }
+    if (expiredRequest && !isKage) {
+      cancel({ id: expiredRequest.id });
     }
-  }, [cancel, requests, isKage]);
+  }, [cancel, expiredRequest, isKage]);
 
   // Render
   return (
@@ -542,7 +541,15 @@ const KageChallenge: React.FC<{
       {requests && requests.length === 0 && isKage && openForChallenges && (
         <p className="p-3">No current challenge requests</p>
       )}
-      {!isKage && openForChallenges && (
+      {activeRequest && (
+        <div className="p-3 flex flex-col items-center">
+          <p>If not accepted by kage, challenge will execute as Ai vs AI in:</p>
+          <Countdown
+            targetDate={secondsFromDate(KAGE_CHALLENGE_SECS, activeRequest.createdAt)}
+          />
+        </div>
+      )}
+      {!isKage && openForChallenges && !activeRequest && (
         <div className="p-3">
           {canChallengeKage(user) && !nPendingRequests && (
             <>
