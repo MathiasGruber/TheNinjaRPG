@@ -538,7 +538,7 @@ export const HIDEOUT_TOWN_UPGRADE = 2_000; // Reps
 export const TOWN_REESTABLISH_COST = 30_000_000; // Ryo
 export const TOWN_MONTHLY_MAINTENANCE = 30_000; // Faction points
 export const FACTION_MIN_POINTS_FOR_TOWN = 1_000_000;
-export const FACTION_MIN_MEMBERS_FOR_TOWN = 50;
+export const FACTION_MIN_MEMBERS_FOR_TOWN = 30;
 
 // Tournament Config
 export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
