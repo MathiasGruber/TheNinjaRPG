@@ -28,6 +28,7 @@ import {
   KAGE_CHALLENGE_ACCEPT_PRESTIGE,
   KAGE_CHALLENGE_OPEN_FOR_SECONDS,
   KAGE_MAX_WEEKLY_PRESTIGE_SEND,
+  KAGE_UNACCEPTED_CHALLENGE_COST,
 } from "@/drizzle/constants";
 import {
   fetchRequests,
@@ -222,6 +223,12 @@ export const kageRouter = createTRPCRouter({
             },
             "KAGE_AI",
           ),
+          ctx.drizzle
+            .update(userData)
+            .set({
+              villagePrestige: sql`${userData.villagePrestige} - ${KAGE_UNACCEPTED_CHALLENGE_COST}`,
+            })
+            .where(eq(userData.userId, challenge.receiverId)),
           pusher.trigger(challenge.senderId, "event", {
             type: "userMessage",
             message:
@@ -231,7 +238,6 @@ export const kageRouter = createTRPCRouter({
           }),
           updateRequestState(ctx.drizzle, input.id, "EXPIRED", "KAGE"),
         ]);
-        result.message = "Allow user to do AI vs AI battle";
         return result;
       } else {
         return await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "KAGE");

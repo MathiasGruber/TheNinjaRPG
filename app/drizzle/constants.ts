@@ -562,7 +562,7 @@ export const REPORT_CONTEXT_WINDOW = 10;
 // Kage config
 export const FRIENDLY_PRESTIGE_COST = 10000; // Prestige cost of killing friendly
 export const KAGE_ANBU_DELETE_COST = 3000; // Anbu delete cost
-export const KAGE_CHALLENGE_SECS = 30 * 60; // 30 minutes for accepting challenges
+export const KAGE_CHALLENGE_SECS = 10 * 60; // 10 minutes for accepting challenges
 export const KAGE_CHALLENGE_TIMEOUT_MINS = 30; // Timeout for PvP kage battle
 export const KAGE_DAILY_PRESTIGE_LOSS = 500; // Kage prestige loss
 export const KAGE_DEFAULT_PRESTIGE = 5000; // Starting prestige of kage
@@ -582,6 +582,7 @@ export const KAGE_CHALLENGE_ACCEPT_PRESTIGE = 200; // Kage prestige gain of acce
 export const KAGE_CHALLENGE_WIN_PRESTIGE = 500; // Kage prestige gain of winning challenge
 export const KAGE_CHALLENGE_LOSE_PRESTIGE_PER_HOUR = 100; // Kage prestige loss of not accepting challenges
 export const KAGE_CHALLENGE_OPEN_FOR_SECONDS = 60 * 60; // Time in between being able to toggle challenges
+export const KAGE_UNACCEPTED_CHALLENGE_COST = 1000; // Cost of unaccepted challenge, i.e. going to Ai vs Ai
 export const WAR_FUNDS_COST = 100; // Prestige cost of declaring war
 
 // Game assets
