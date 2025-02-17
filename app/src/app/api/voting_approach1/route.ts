@@ -39,6 +39,7 @@ export async function GET(request: Request) {
   // https://www.arena-top100.com/index.php?a=in&u=Terriator&incentive=testSecret-arenaTop100
   // https://www.xtremetop100.com/in.php?site=1132291230&secret=testSecret&siteid=xtremeTop100
   // https://browsermmorpg.com/vote.php?id=925&incentive=testSecret-browserMmorpg
+  // https://bbogd.com/vote/the-ninja-rpg/testSecret-bbogd
 
   try {
     // For getting search params
@@ -82,12 +83,11 @@ async function handleVote(secret: string, siteId: string) {
         ...(siteId === "top100arena" ? { top100Arena: true } : {}),
         ...(siteId === "mmohub" ? { mmoHub: true } : {}),
         ...(siteId === "arenaTop100" ? { arenaTop100: true } : {}),
+        ...(siteId === "bbogd" ? { bbogd: true } : {}),
         ...(siteId === "xtremeTop100" ? { xtremeTop100: true } : {}), // No postbacks received
         ...(siteId === "topOnlineMmorpg" ? { topOnlineMmorpg: true } : {}), // Cannot register
-        ...(siteId === "gamesTop200" ? { gamesTop200: true } : {}), // Based on IP, unusable
         ...(siteId === "browserMmorpg" ? { browserMmorpg: true } : {}), // Pending approval?
         ...(siteId === "apexWebGaming" ? { apexWebGaming: true } : {}), // in review
-        ...(siteId === "mmorpg100" ? { mmorpg100: true } : {}), // No incentive
         lastVoteAt: now,
       })
       .where(eq(userVote.secret, secret));

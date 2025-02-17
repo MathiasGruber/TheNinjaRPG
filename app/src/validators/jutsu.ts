@@ -36,6 +36,7 @@ export const jutsuFilteringSchema = z.object({
   static: z.string().optional(),
   target: z.enum(AttackTargets).optional(),
   hidden: z.boolean().optional(),
+  villageId: z.string().nullable().optional(),
 
   // ------------------------------
   // "Exclusion" fields

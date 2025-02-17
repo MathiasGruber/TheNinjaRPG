@@ -12,7 +12,6 @@ import {
   updateRequestState,
 } from "@/routers/sparring";
 import { SENSEI_RANKS } from "@/drizzle/constants";
-import type { UserRequestType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 const pusher = getServerPusher();

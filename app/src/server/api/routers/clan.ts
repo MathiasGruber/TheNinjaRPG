@@ -58,7 +58,7 @@ export const clanRouter = createTRPCRouter({
       // Guards
       if (!fetchedClan) return errorResponse("Faction not found");
       if (!user) return errorResponse("User not found");
-      if (user.money < HIDEOUT_COST) return errorResponse("Not enough ryo");
+      if (fetchedClan.bank < HIDEOUT_COST) return errorResponse("Not enough ryo");
       if (user.clanId !== input.clanId) return errorResponse("User not in clan");
       if (villages.find((v) => v.sector === input.sector)) {
         return errorResponse("This location is already occupied.");
@@ -1210,13 +1210,14 @@ export const removeFromClan = async (
     ...(!otherUser && ["HIDEOUT", "TOWN"].includes(clanData.village?.type)
       ? [
           client.delete(village).where(eq(village.id, clanData.villageId)),
-          client.delete(villageStructure).where(eq(village.id, clanData.villageId)),
+          client
+            .delete(villageStructure)
+            .where(eq(villageStructure.villageId, clanData.villageId)),
         ]
       : []),
     ...(!otherUser
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),
-          client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanData.id)),
           client
             .update(userData)
             .set({
@@ -1225,6 +1226,7 @@ export const removeFromClan = async (
               villageId: sql`CASE WHEN isOutlaw = 1 THEN ${VILLAGE_SYNDICATE_ID} ELSE villageId END`,
             })
             .where(eq(userData.clanId, clanData.id)),
+          client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanData.id)),
         ]
       : [
           client

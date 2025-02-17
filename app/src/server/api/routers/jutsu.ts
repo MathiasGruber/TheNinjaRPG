@@ -712,6 +712,7 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
     ...(input?.requiredLevel ? [gte(jutsu.requiredLevel, input.requiredLevel)] : []),
     ...(input?.rank ? [eq(jutsu.requiredRank, input.rank)] : []),
     ...(input?.rarity ? [eq(jutsu.jutsuRank, input.rarity)] : []),
+    ...(input?.villageId ? [eq(jutsu.villageId, input.villageId)] : []),
 
     ...(input?.appear
       ? [

@@ -29,6 +29,7 @@ import {
   KAGE_CHALLENGE_OPEN_FOR_SECONDS,
   KAGE_MAX_WEEKLY_PRESTIGE_SEND,
   KAGE_UNACCEPTED_CHALLENGE_COST,
+  KAGE_CHALLENGE_REJECT_COST,
 } from "@/drizzle/constants";
 import {
   fetchRequests,
@@ -171,31 +172,20 @@ export const kageRouter = createTRPCRouter({
         return errorResponse("Can only reject pending challenges");
       }
       // Mutate
-      void pusher.trigger(challenge.senderId, "event", {
-        type: "userMessage",
-        message:
-          "Your kage challenge has been rejected, it will be executed as AI vs AI",
-      });
-      const [result] = await Promise.all([
-        initiateBattle(
-          {
-            userIds: [challenge.senderId],
-            targetIds: [challenge.receiverId],
-            client: ctx.drizzle,
-            asset: "arena",
-          },
-          "KAGE_AI",
-        ),
+      await Promise.all([
         pusher.trigger(challenge.senderId, "event", {
           type: "userMessage",
           message: "Your kage challenge has was rejected",
-          route: "/combat",
-          routeText: "To Combat",
         }),
+        ctx.drizzle
+          .update(userData)
+          .set({
+            villagePrestige: sql`${userData.villagePrestige} - ${KAGE_CHALLENGE_REJECT_COST}`,
+          })
+          .where(eq(userData.userId, ctx.userId)),
         updateRequestState(ctx.drizzle, input.id, "REJECTED", "KAGE"),
       ]);
-      result.message = "Allow user to do AI vs AI battle";
-      return result;
+      return { success: true, message: "Challenge rejected" };
     }),
   cancelChallenge: protectedProcedure
     .input(z.object({ id: z.string() }))

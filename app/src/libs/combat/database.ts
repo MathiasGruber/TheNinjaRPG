@@ -190,7 +190,7 @@ export const updateKage = async (
   // Apply
   if (result) {
     await Promise.all([
-      ...(result.didWin > 0
+      ...(result.didWin > 0 && user.isAggressor
         ? [
             client
               .update(village)
@@ -467,7 +467,6 @@ export const updateUser = async (
                 status: "HOSPITALIZED",
                 longitude: HOSPITAL_LONG,
                 latitude: HOSPITAL_LAT,
-                villageId: user.villageId,
                 sector: user.allyVillage ? user.sector : user.village?.sector,
                 immunityUntil:
                   curBattle.battleType === "COMBAT"
