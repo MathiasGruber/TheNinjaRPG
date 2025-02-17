@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { z } from "zod";
 import Link from "next/link";
 import { parseHtml } from "@/utils/parse";
@@ -17,7 +18,10 @@ import { DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
 import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
 import { FilePenLine, List, CirclePlay, ScanEye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Medal, HeartCrack } from "lucide-react";
+import { Medal, HeartCrack, Star } from "lucide-react";
+import ActionLogs from "@/layout/ActionLog";
+import { useFiltering, getFilter } from "@/layout/ActionLogFiltering";
+import { showUserRank } from "@/libs/profile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadButton } from "@/utils/uploadthing";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -44,6 +48,11 @@ import { CLAN_MAX_TRAINING_BOOST, CLAN_TRAINING_BOOST_COST } from "@/drizzle/con
 import { CLAN_MAX_RYO_BOOST, CLAN_RYO_BOOST_COST } from "@/drizzle/constants";
 import { CLAN_MAX_REGEN_BOOST, CLAN_REGEN_BOOST_COST } from "@/drizzle/constants";
 import { CLAN_MPVP_MAX_USERS_PER_SIDE } from "@/drizzle/constants";
+import { HIDEOUT_COST, FACTION_MIN_POINTS_FOR_TOWN } from "@/drizzle/constants";
+import {
+  FACTION_MIN_MEMBERS_FOR_TOWN,
+  HIDEOUT_TOWN_UPGRADE,
+} from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
 import { clanRenameSchema } from "@/validators/clan";
 import { useRequireInVillage } from "@/utils/UserContext";
@@ -51,6 +60,7 @@ import { secondsFromDate } from "@/utils/time";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { cn } from "src/libs/shadui";
+import type { UserRank } from "@/drizzle/schema";
 import type { ClanRenameSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -58,6 +68,7 @@ import type { UserNindo } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
 import type { ClanRouter } from "@/routers/clan";
 import { canEditClans } from "@/utils/permissions";
+
 export const ClansOverview: React.FC = () => {
   // Must be in allied village
   const { userData } = useRequireInVillage("/clanhall");
@@ -67,7 +78,7 @@ export const ClansOverview: React.FC = () => {
 
   // Queries
   const { data } = api.clan.getAll.useQuery(
-    { villageId: userData?.villageId ?? "" },
+    { villageId: userData?.villageId ?? "", isOutlaw: userData?.isOutlaw ?? false },
     { enabled: !!userData?.villageId },
   );
   const allClans = data?.map((clan) => ({
@@ -306,7 +317,8 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
         avatar: string | null;
         clanId: string | null;
         level: number;
-        rank: string;
+        rank: UserRank;
+        isOutlaw: boolean;
       };
     }[],
   ) => {
@@ -347,7 +359,8 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                     <div>
                       <p className="font-bold">{q.user.username}</p>
                       <p>
-                        Lvl. {q.user.level} {capitalizeFirstLetter(q.user.rank)}
+                        Lvl. {q.user.level}{" "}
+                        {capitalizeFirstLetter(showUserRank(q.user))}
                       </p>
                     </div>
                     {userData &&
@@ -584,10 +597,17 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
   };
 
   // Mutation
-  const { mutate: create } = api.clan.createRequest.useMutation({ onSuccess });
-  const { mutate: accept } = api.clan.acceptRequest.useMutation({ onSuccess });
-  const { mutate: reject } = api.clan.rejectRequest.useMutation({ onSuccess });
-  const { mutate: cancel } = api.clan.cancelRequest.useMutation({ onSuccess });
+  const { mutate: create, isPending: isCreating } = api.clan.createRequest.useMutation({
+    onSuccess,
+  });
+  const { mutate: accept, isPending: isAccepting } = api.clan.acceptRequest.useMutation(
+    { onSuccess },
+  );
+  const { mutate: reject, isPending: isRejecting } = api.clan.rejectRequest.useMutation(
+    { onSuccess },
+  );
+  const { mutate: cancel, isPending: isCancelling } =
+    api.clan.cancelRequest.useMutation({ onSuccess });
 
   // Loaders
   if (!requests) return <Loader explanation="Loading requests" />;
@@ -626,6 +646,7 @@ export const ClanRequests: React.FC<ClanRequestsProps> = (props) => {
         <UserRequestSystem
           requests={shownRequests}
           userId={userData.userId}
+          isLoading={isCreating || isAccepting || isRejecting || isCancelling}
           onAccept={accept}
           onReject={reject}
           onCancel={cancel}
@@ -645,10 +666,13 @@ interface ClanInfoProps {
 
 export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   // Destructure
-  const { userData } = useRequireInVillage("/clanhall");
+  const { userData, updateUser } = useRequireInVillage("/clanhall");
   const { clanData, back_href } = props;
   const clanId = clanData.id;
   const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
+
+  // Local state
+  const [donateReps, setDonateReps] = useState(0);
 
   // Get router
   const router = useRouter();
@@ -736,6 +760,29 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     },
   });
 
+  const { mutate: clanDonate } = api.clan.clanDonate.useMutation({
+    onSuccess: async (data, variables) => {
+      showMutationToast(data);
+      if (data.success && userData) {
+        await Promise.all([
+          utils.clan.get.invalidate(),
+          updateUser({
+            reputationPoints: userData.reputationPoints - variables.reputationPoints,
+          }),
+        ]);
+      }
+    },
+  });
+
+  const { mutate: upgradeHideoutToTown } = api.clan.upgradeHideoutToTown.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success && userData) {
+        await utils.clan.get.invalidate();
+      }
+    },
+  });
+
   const { mutate: toBank, isPending: isDepositing } = api.clan.toBank.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -762,10 +809,18 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   if (isDepositing) return <Loader explanation="Depositing money" />;
 
   // Derived
+  const village = clanData?.village;
   const inClan = userData.clanId === clanData.id;
   const isLeader = userData.userId === clanData.leaderId;
   const isCoLeader = checkCoLeader(userData.userId, clanData);
   const leaderLike = isLeader || isCoLeader;
+  const hadHideout = village?.type !== "OUTLAW" && userData.isOutlaw;
+  const hadTown = village?.type === "TOWN" || village.wasDowngraded;
+  // Can we upgrade from hideout to town?
+  const hasReps = clanData.repTreasury >= HIDEOUT_TOWN_UPGRADE;
+  const hasMembers = clanData.members.length >= FACTION_MIN_MEMBERS_FOR_TOWN;
+  const hasPoints = clanData.points >= FACTION_MIN_POINTS_FOR_TOWN;
+  const canCreateTown = !hadTown && hadHideout && hasReps && hasMembers && hasPoints;
 
   // Render
   return (
@@ -896,7 +951,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               </p>
               <div className="flex flex-row items-center">
                 <p>Training boost: {clanData.trainingBoost}%</p>
-                {(isLeader || isCoLeader) && (
+                {leaderLike && (
                   <Confirm
                     title="Boost training gain for members"
                     proceed_label={
@@ -922,31 +977,38 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   </Confirm>
                 )}
               </div>
-              {leaderLike && userData?.isOutlaw && (
+              {userData?.isOutlaw && (
                 <div className="flex flex-row items-center">
                   <p>Regen boost: {clanData.regenBoost}%</p>
-                  <Confirm
-                    title="Boost regen for members"
-                    proceed_label={
-                      clanData.points >= CLAN_REGEN_BOOST_COST
-                        ? "Submit"
-                        : "Cannot afford"
-                    }
-                    button={
-                      <ArrowBigUpDash className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
-                    }
-                    onAccept={() => purchaseRegenBoost({ clanId: clanData.id })}
-                  >
-                    {clanData.regenBoost < CLAN_MAX_REGEN_BOOST ? (
-                      <p>
-                        Boost the regen for members for {CLAN_REGEN_BOOST_COST} clan
-                        points. Note that this boost is gradually reduced once per day.
-                        You currently have {clanData.points} points.
-                      </p>
-                    ) : (
-                      <p>Already maxed out the possible boost</p>
-                    )}
-                  </Confirm>
+                  {leaderLike && (
+                    <Confirm
+                      title="Boost regen for members"
+                      proceed_label={
+                        clanData.points >= CLAN_REGEN_BOOST_COST
+                          ? "Submit"
+                          : "Cannot afford"
+                      }
+                      button={
+                        <ArrowBigUpDash className="ml-2 h-6 w-6 hover:text-orange-500 hover:cursor-pointer" />
+                      }
+                      onAccept={() => purchaseRegenBoost({ clanId: clanData.id })}
+                    >
+                      {clanData.regenBoost < CLAN_MAX_REGEN_BOOST ? (
+                        <p>
+                          Boost the regen for members for {CLAN_REGEN_BOOST_COST} clan
+                          points. Note that this boost is gradually reduced once per
+                          day. You currently have {clanData.points} points.
+                        </p>
+                      ) : (
+                        <p>Already maxed out the possible boost</p>
+                      )}
+                    </Confirm>
+                  )}
+                </div>
+              )}
+              {userData?.isOutlaw && hadHideout && (
+                <div className="flex flex-row items-center">
+                  <p>Hideout sector: {clanData?.village?.sector}</p>
                 </div>
               )}
             </div>
@@ -967,6 +1029,14 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                     Confirm donating money from pocket to clan bank. You currently have{" "}
                     {userData.money} ryo in your pocket.
                   </p>
+                  {userData.isOutlaw && (
+                    <p>
+                      Once the faction has {HIDEOUT_COST} ryo, it becomes possible for
+                      the leader to purchase its a hideout on the global map. At this
+                      point the faction detaches from the Syndicate, and effectively
+                      establishes their own base of operation.
+                    </p>
+                  )}
                   <Form {...toBankForm}>
                     <form onSubmit={onDeposit} className="relative">
                       <FormField
@@ -977,6 +1047,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                             <FormControl>
                               <Input
                                 id="amount"
+                                className="mt-2"
                                 placeholder="Transfer to bank"
                                 {...field}
                               />
@@ -1016,8 +1087,55 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   </Confirm>
                 )}
               </div>
+              {!hadTown && hadHideout && userData?.isOutlaw && (
+                <div className="flex flex-row items-center">
+                  <p>Town Upgrade: {clanData.repTreasury} reps</p>
+                  {leaderLike && (
+                    <Confirm
+                      title="Donate reputation points"
+                      proceed_label="Donate"
+                      button={
+                        <Star className="ml-2 h-5 w-5 hover:text-orange-500 hover:cursor-pointer" />
+                      }
+                      onAccept={() =>
+                        clanDonate({
+                          clanId: clanData.id,
+                          reputationPoints: donateReps,
+                        })
+                      }
+                    >
+                      <p>
+                        The hideout can be upgraded to a town, enabling the faction to
+                        operate in a manner much similar to one of the great ninja
+                        villages, with the exception of the establishments of new clans
+                        and ANBU. This requires a total of {HIDEOUT_TOWN_UPGRADE}{" "}
+                        reputation points, that the faction has{" "}
+                        {FACTION_MIN_MEMBERS_FOR_TOWN}, and a total of{" "}
+                        {FACTION_MIN_POINTS_FOR_TOWN} faction points.
+                      </p>
+                      <Input
+                        id="reps"
+                        type="number"
+                        className="mt-2"
+                        placeholder="Reputation points to donate"
+                        onChange={(e) => setDonateReps(Number(e.target.value))}
+                      />
+                    </Confirm>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+          {leaderLike && canCreateTown && (
+            <Button
+              id="upgradeHideout"
+              className="my-2 w-full"
+              onClick={() => upgradeHideoutToTown({ clanId })}
+            >
+              <Star className="h-6 w-6 mr-2" />
+              Upgrade to Town
+            </Button>
+          )}
           {(isLeader || isCoLeader) && (
             <Button
               id="challenge"
@@ -1104,7 +1222,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
     (isColeader && !memberIsLeader && !memberIsColeader); // Co-leaders can kick normal members only
     return {
       ...member,
-      rank: memberIsLeader ? "Leader" : memberIsColeader ? "Coleader" : member.rank,
+      rank: memberIsLeader ? "Leader" : memberIsColeader ? "Coleader" : showUserRank(member),
       actions: (
         <div className="flex flex-row gap-1">
           {member.userId !== userId && (
@@ -1127,7 +1245,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
                     : "Confirm that you want to kick this member from the clan."}
                 </Confirm>
               )}
-  
+
               {/* DEMOTE BUTTON */}
               {(isLeader || canEdit) && (
                 <Confirm
@@ -1143,7 +1261,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
                   Confirm that you want to demote this member.
                 </Confirm>
               )}
-  
+
               {/* PROMOTE BUTTON */}
               {(isLeader || (isColeader && !memberIsLeader && !memberIsColeader) || canEdit) && (
                 <Confirm
@@ -1164,7 +1282,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
         </div>
       ),
     };
-  })  
+  })
     .sort((a, b) => {
       if (a.rank === "Leader") return -1;
       if (b.rank === "Leader") return 1;
@@ -1218,6 +1336,9 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
   // Queries
   const { data: clanData } = api.clan.get.useQuery({ clanId: clanId });
 
+  // Two-level filtering
+  const state = useFiltering("clan");
+
   // Loaders
   if (!clanId) return <Loader explanation="Which clan?" />;
   if (!clanData) return <Loader explanation="Loading clan data" />;
@@ -1244,6 +1365,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
             <TabsTrigger value="requests">Requests</TabsTrigger>
             <TabsTrigger value="tournaments">{groupLabel} Tournaments</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
+            {userData.isOutlaw && <TabsTrigger value="logs">Logs</TabsTrigger>}
           </TabsList>
           <TabsContent value="orders">
             <ClanOrders
@@ -1273,6 +1395,15 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
           <TabsContent value="members">
             <ClanMembers userId={userData.userId} clanId={clanData.id} />
           </TabsContent>
+          {userData.isOutlaw && (
+            <TabsContent value="logs">
+              <ActionLogs
+                state={getFilter(state)}
+                relatedId={clanData.id}
+                initialBreak={true}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </>
