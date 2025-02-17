@@ -519,7 +519,7 @@ const KageChallenge: React.FC<{
           ) : (
             <Lock className="h-6 w-6 mr-2" />
           )}
-          {openForChallenges ? "Open for Challenges" : "Closed for Challenges"}
+          {openForChallenges ? "Accepting Challenges" : "Not Accepting Challenges"}
         </Button>
       </p>
       {requests && requests.length > 0 && openForChallenges && (
