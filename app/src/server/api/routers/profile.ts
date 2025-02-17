@@ -8,6 +8,7 @@ import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
   actionLog,
   bankTransfers,
+  battleHistory,
   bloodlineRolls,
   conversationComment,
   forumPost,
@@ -20,18 +21,18 @@ import {
   quest,
   questHistory,
   reportLog,
-  userBlackList,
   user2conversation,
   userAttribute,
+  userBlackList,
   userData,
   userItem,
   userJutsu,
   userNindo,
-  userRequest,
   userReport,
   userReportComment,
+  userRequest,
+  userVote,
   village,
-  battleHistory,
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
 import { canChangeContent, canModerateRoles } from "@/utils/permissions";
@@ -73,13 +74,18 @@ import { USER_CAPS } from "@/drizzle/constants";
 import { getReducedGainsDays } from "@/libs/train";
 import { calculateContentDiff } from "@/utils/diff";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { ACTIVE_VOTING_SITES } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { KAGE_MIN_PRESTIGE } from "@/drizzle/constants";
+import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
 import { moderateContent } from "@/libs/moderator";
+import { fetchKageReplacement } from "@/routers/kage";
+import type { UserVote } from "@/drizzle/schema";
 import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
@@ -263,6 +269,20 @@ export const profileRouter = createTRPCRouter({
         });
       }
     }
+    // Add a voting link
+    let hasVoted = true;
+    ACTIVE_VOTING_SITES.forEach((site) => {
+      if (!user?.votes || user.votes[site] !== true) {
+        hasVoted = false;
+      }
+    });
+    if (!hasVoted) {
+      notifications.push({
+        href: "/profile/recruit",
+        name: `Vote for Us`,
+        color: "green",
+      });
+    }
     // Settings
     const trainingBoost = getGameSettingBoost("trainingGainMultiplier", settings);
     if (trainingBoost) {
@@ -282,14 +302,6 @@ export const profileRouter = createTRPCRouter({
     }
     // User specific
     if (user) {
-      // Link promotion
-      if (user.promotions.length === 0) {
-        notifications.push({
-          href: "/profile/recruit",
-          name: `Win a S-rank`,
-          color: "blue",
-        });
-      }
       // Get number of un-resolved user reports
       if (canModerateRoles.includes(user.role)) {
         const reportCounts = await ctx.drizzle
@@ -468,8 +480,9 @@ export const profileRouter = createTRPCRouter({
         return errorResponse(`Only available roles: ${availableRoles.join(", ")}`);
       }
       if (village.id !== target.villageId) {
-        if (target.anbuId) return errorResponse("To change village, leave ANBU first");
-        if (target.clanId) return errorResponse("To change village, leave Clan first");
+        const clanName = target.isOutlaw ? "Faction" : "Clan";
+        if (target.anbuId) return errorResponse("Leave ANBU first");
+        if (target.clanId) return errorResponse(`Leave ${clanName} first`);
         if (target.status !== "AWAKE") return errorResponse("AWAKE to change village");
       }
       // Update jutsus & items
@@ -1049,6 +1062,45 @@ export const profileRouter = createTRPCRouter({
       await deleteUser(ctx.drizzle, input.userId);
       return { success: true, message: "User deleted" };
     }),
+  claimVotes: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Get user's vote record
+      const userVoteRecord = await ctx.drizzle.query.userVote.findFirst({
+        where: eq(userVote.userId, ctx.userId),
+      });
+      // Guard
+      if (!userVoteRecord) {
+        return errorResponse("No vote record found");
+      }
+      const completedVotes = ACTIVE_VOTING_SITES.every((site) => userVoteRecord[site]);
+      if (!completedVotes) {
+        return errorResponse("Not all votes are completed");
+      }
+      if (userVoteRecord.claimed) {
+        return errorResponse("Votes already claimed");
+      }
+      // Update user's reputation points and mark votes as claimed
+      const result = await ctx.drizzle
+        .update(userVote)
+        .set({ claimed: true, totalClaims: sql`${userVote.totalClaims} + 1` })
+        .where(eq(userVote.userId, ctx.userId));
+      if (result.rowsAffected === 0) {
+        return errorResponse("Failed to update user vote record");
+      }
+      await ctx.drizzle
+        .update(userData)
+        .set({
+          reputationPoints: sql`${userData.reputationPoints} + 1`,
+          reputationPointsTotal: sql`${userData.reputationPointsTotal} + 1`,
+        })
+        .where(eq(userData.userId, ctx.userId));
+
+      return {
+        success: true,
+        message: "Successfully claimed reputation points for voting",
+      };
+    }),
 });
 
 export const updateNindo = async (
@@ -1232,7 +1284,8 @@ export const fetchUpdatedUser = async (props: {
   forceRegen?: boolean;
 }) => {
   // Destructure
-  const { client, userId, userIp, forceRegen } = props;
+  const { client, userId, userIp } = props;
+  let { forceRegen } = props;
 
   // Ensure we can fetch the user
   const [achievements, settings, user] = await Promise.all([
@@ -1272,9 +1325,20 @@ export const fetchUpdatedUser = async (props: {
           },
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
+        votes: true,
       },
     }),
   ]);
+
+  // Add votes entry if it doesn't exist
+  if (user && !user.votes) {
+    await client.insert(userVote).values({
+      id: nanoid(),
+      userId: user.userId,
+      lastVoteAt: new Date(),
+      secret: nanoid(8),
+    });
+  }
 
   // Add in achievements
   if (user) {
@@ -1292,6 +1356,60 @@ export const fetchUpdatedUser = async (props: {
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
     user.regeneration = deduceActiveUserRegen(user, settings);
+  }
+
+  // Handle village prestige situations
+  if (user) {
+    // If prestige below 0, reset to 0 and move to outlaw faction
+    if (user.villagePrestige < 0 && user.village?.type === "VILLAGE") {
+      const syndicate = await client.query.village.findFirst({
+        where: eq(village.type, "OUTLAW"),
+      });
+      if (syndicate) {
+        user.villagePrestige = -user.villagePrestige;
+        user.villageId = syndicate.id;
+        user.isOutlaw = true;
+        if (user.clanId) {
+          const clanData = await fetchClan(client, user.clanId);
+          if (clanData) {
+            await removeFromClan(client, clanData, user, ["Turned outlaw"]);
+          }
+        }
+        void pusher.trigger(user.userId, "event", {
+          type: "userMessage",
+          message: "You have been kicked out of your village due to negative prestige",
+          route: "/profile",
+          routeText: "To Profile",
+        });
+        forceRegen = true;
+      }
+    }
+    // If user is kage & village prestige less than threshold, remove from kage
+    if (
+      user.villageId &&
+      user.village?.kageId === user.userId &&
+      user.villagePrestige < KAGE_MIN_PRESTIGE
+    ) {
+      const elder = await fetchKageReplacement(client, user.villageId, user.userId);
+      if (elder) {
+        await Promise.all([
+          client
+            .update(village)
+            .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
+            .where(eq(village.id, user.villageId)),
+          client
+            .update(userData)
+            .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
+            .where(eq(userData.userId, user.userId)),
+          pusher.trigger(user.userId, "event", {
+            type: "userMessage",
+            message: `Your prestige dropped below ${KAGE_MIN_PRESTIGE} and you are no longer kage`,
+            route: "/profile",
+            routeText: "To Profile",
+          }),
+        ]);
+      }
+    }
   }
 
   // Rewards, e.g. for activity streak
@@ -1325,29 +1443,7 @@ export const fetchUpdatedUser = async (props: {
       }
       user.updatedAt = now;
       user.regenAt = now;
-      // If prestige below 0, reset to 0 and move to outlaw faction
-      if (user.villagePrestige < 0 && user.village?.type === "VILLAGE") {
-        const faction = await client.query.village.findFirst({
-          where: eq(village.type, "OUTLAW"),
-        });
-        if (faction) {
-          user.villagePrestige = -user.villagePrestige;
-          user.villageId = faction.id;
-          user.isOutlaw = true;
-          if (user.clanId) {
-            const clanData = await fetchClan(client, user.clanId);
-            if (clanData) {
-              await removeFromClan(client, clanData, user, ["Turned outlaw"]);
-            }
-          }
-          void pusher.trigger(user.userId, "event", {
-            type: "userMessage",
-            message: "You have been kicked out of your village due to negative presige",
-            route: "/profile",
-            routeText: "To Profile",
-          });
-        }
-      }
+
       // Ensure that we have a tier quest
       let questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
       if (!questTier) {
@@ -1544,6 +1640,7 @@ export type UserWithRelations =
         | null;
       loadout?: { jutsuIds: string[] } | null;
       userQuests: UserQuest[];
+      votes?: UserVote | null;
     })
   | undefined;
 

@@ -1283,6 +1283,71 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
       ),
     };
   })
+  const members = clanData.members
+    .map((member) => {
+      const memberIsLeader = member.userId === clanData.leaderId;
+      const memberIsColeader = checkCoLeader(member.userId, clanData);
+      const memberLeaderLike = memberIsLeader || memberIsColeader;
+      return {
+        ...member,
+        rank: memberIsLeader
+          ? "Leader"
+          : memberIsColeader
+            ? "Coleader"
+            : showUserRank(member),
+        actions: (
+          <div className="flex flex-row gap-1">
+            {member.userId !== userId && (
+              <>
+                {(isLeader || isColeader) && !memberLeaderLike && (
+                  <Confirm
+                    title="Kick Member"
+                    proceed_label="Submit"
+                    button={
+                      <Button id={`kick-${member.userId}`}>
+                        <DoorOpen className="mr-2 h-5 w-5" />
+                        Kick
+                      </Button>
+                    }
+                    onAccept={() => kick({ clanId, memberId: member.userId })}
+                  >
+                    Confirm that you want to kick this member from the clan.
+                  </Confirm>
+                )}
+                {isLeader && memberLeaderLike && (
+                  <Confirm
+                    title="Demote Member"
+                    button={
+                      <Button id={`demote-${member.userId}`}>
+                        <ArrowBigDownDash className="mr-2 h-5 w-5" />
+                        Demote
+                      </Button>
+                    }
+                    onAccept={() => demote({ clanId, memberId: member.userId })}
+                  >
+                    Confirm that you want to demote this member.
+                  </Confirm>
+                )}
+                {(isLeader || (isColeader && !memberLeaderLike)) && (
+                  <Confirm
+                    title="Promote Member"
+                    button={
+                      <Button id={`promote-${member.userId}`}>
+                        <ArrowBigUpDash className="mr-2 h-5 w-5" />
+                        Promote
+                      </Button>
+                    }
+                    onAccept={() => promote({ clanId, memberId: member.userId })}
+                  >
+                    Confirm that you want to promote this member to leader of the clan.
+                  </Confirm>
+                )}
+              </>
+            )}
+          </div>
+        ),
+      };
+    })
     .sort((a, b) => {
       if (a.rank === "Leader") return -1;
       if (b.rank === "Leader") return 1;

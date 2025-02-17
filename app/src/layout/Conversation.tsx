@@ -44,13 +44,13 @@ export const ConversationSkeleton: React.FC<ConversationProps> = (props) => {
       onBack={props.onBack}
     >
       <div className="flex flex-col gap-2">
-        <Skeleton className="h-[100px] w-full items-center justify-center flex">
+        <Skeleton className="h-[100px] w-full items-center justify-center flex bg-popover">
           <Loader explanation="Loading conversation" />
         </Skeleton>
-        {Array.from({ length: 7 }).map((_, i) => (
+        {Array.from({ length: 10 }).map((_, i) => (
           <div className="flex flex-row gap-2" key={i}>
-            <Skeleton className="h-[130px] w-1/4" />
-            <Skeleton className="h-[130px] w-3/4" />
+            <Skeleton className="h-[110px] lg:h-[150px] w-1/4 bg-popover" />
+            <Skeleton className="h-[110px] lg:h-[150px] w-3/4 bg-popover" />
           </div>
         ))}
       </div>

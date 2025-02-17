@@ -427,6 +427,8 @@ export const clan = mysqlTable(
     points: int("points").default(0).notNull(),
     bank: bigint("bank", { mode: "number" }).default(0).notNull(),
     pvpActivity: int("pvpActivity").default(0).notNull(),
+    repTreasury: int("repTreasury").default(0).notNull(),
+    hasHideout: boolean("hasHideout").default(false).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -1199,9 +1201,14 @@ export const actionLog = mysqlTable(
     relatedId: varchar("relatedId", { length: 191 }),
     relatedMsg: varchar("relatedText", { length: 191 }),
     relatedImage: varchar("relatedImage", { length: 191 }),
+    relatedValue: double("relatedValue").default(0).notNull(),
   },
   (table) => {
-    return { userId: index("ActionLog_userId_idx").on(table.userId) };
+    return {
+      userId: index("ActionLog_userId_idx").on(table.userId),
+      relatedIdIdx: index("ActionLog_relatedId_idx").on(table.relatedId),
+      tableNameIdx: index("ActionLog_tableName_idx").on(table.tableName),
+    };
   },
 );
 
@@ -1543,6 +1550,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     references: [aiProfile.id],
   }),
   promotions: many(linkPromotion, { relationName: "userPromotions" }),
+  votes: one(userVote, {
+    fields: [userData.userId],
+    references: [userVote.userId],
+  }),
 }));
 
 export const userReview = mysqlTable(
@@ -1804,6 +1815,17 @@ export const village = mysqlTable(
     pvpDisabled: boolean("pvpDisabled").default(false).notNull(),
     villageLogo: varchar("villageLogo", { length: 191 }).default("").notNull(),
     villageGraphic: varchar("villageGraphic", { length: 191 }).default("").notNull(),
+    lastMaintenancePaidAt: datetime("lastMaintenancePaidAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    wasDowngraded: boolean("wasDowngraded").default(false).notNull(),
+    openForChallenges: boolean("openForChallenges").default(true).notNull(),
+    openForChallengesAt: datetime("openForChallengesAt", {
+      mode: "date",
+      fsp: 3,
+    })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
   },
   (table) => {
     return {
@@ -2388,6 +2410,7 @@ export const userVote = mysqlTable(
     apexWebGaming: boolean("apexWebGaming").default(false).notNull(),
     mmorpg100: boolean("mmorpg100").default(false).notNull(),
     claimed: boolean("claimed").default(false).notNull(),
+    totalClaims: int("totalClaims").default(0).notNull(),
     secret: varchar("secret", { length: 191 }).notNull(),
     lastVoteAt: datetime("lastVoteAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
@@ -2399,6 +2422,7 @@ export const userVote = mysqlTable(
     };
   },
 );
+export type UserVote = InferSelectModel<typeof userVote>;
 
 export const userVoteRelations = relations(userVote, ({ one }) => ({
   user: one(userData, {

@@ -63,7 +63,7 @@ setup: # Start required services and install bun locally
 .PHONY: install
 install: # Install application dependencies with bun locally
 	@echo "${GREEN}install${RESET}"
-	bun install --cwd ./app
+	bun install --cwd ./app --save-text-lockfile
 
 .PHONY: bun
 bun: install ## Execute bun command in local development.

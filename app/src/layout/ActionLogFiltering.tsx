@@ -114,10 +114,10 @@ export const getFilter = (state: ActionLogFilteringState) => {
 };
 
 /** State for the Jutsu Filtering component */
-export const useFiltering = () => {
+export const useFiltering = (logType: LogType = "user") => {
   // State variables
   const [search, setSearch] = useState<string>("");
-  const [logtype, setLogType] = useState<LogType>("user");
+  const [logtype, setLogType] = useState<LogType>(logType);
 
   // Return all
   return {

@@ -15,10 +15,11 @@
     "preview": "next build && next start",
     "start": "next start",
     "test": "vitest",
-    "seed": "bun tsx drizzle/seed.ts",
+    "seed": "bun run drizzle/seed.ts",
     "dbpush": "drizzle-kit push",
     "makemigrations": "drizzle-kit generate",
     "emptymigration": "drizzle-kit generate --custom",
+    "migrate": "drizzle-kit migrate",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -38,6 +39,7 @@
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-popover": "^1.1.4",
+    "@radix-ui/react-progress": "^1.1.2",
     "@radix-ui/react-radio-group": "^1.2.2",
     "@radix-ui/react-select": "^2.1.4",
     "@radix-ui/react-slot": "^1.1.1",
@@ -62,6 +64,7 @@
     "abstract-astar": "0.2.0",
     "ai": "^4.0.23",
     "alea": "1.0.1",
+    "babel-plugin-react-compiler": "^19.0.0-beta-714736e-20250131",
     "chart.js": "^4.4.7",
     "chartjs-chart-graph": "^4.3.4",
     "chartjs-plugin-dragdata": "^2.3.1",

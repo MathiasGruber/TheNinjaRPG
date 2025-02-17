@@ -438,10 +438,17 @@ const AnbuRequests: React.FC<AnbuRequestsProps> = (props) => {
   };
 
   // Mutation
-  const { mutate: create } = api.anbu.createRequest.useMutation({ onSuccess });
-  const { mutate: accept } = api.anbu.acceptRequest.useMutation({ onSuccess });
-  const { mutate: reject } = api.anbu.rejectRequest.useMutation({ onSuccess });
-  const { mutate: cancel } = api.anbu.cancelRequest.useMutation({ onSuccess });
+  const { mutate: create, isPending: isCreating } = api.anbu.createRequest.useMutation({
+    onSuccess,
+  });
+  const { mutate: accept, isPending: isAccepting } = api.anbu.acceptRequest.useMutation(
+    { onSuccess },
+  );
+  const { mutate: reject, isPending: isRejecting } = api.anbu.rejectRequest.useMutation(
+    { onSuccess },
+  );
+  const { mutate: cancel, isPending: isCancelling } =
+    api.anbu.cancelRequest.useMutation({ onSuccess });
 
   // Loaders
   if (!requests) return <Loader explanation="Loading requests" />;
@@ -482,6 +489,7 @@ const AnbuRequests: React.FC<AnbuRequestsProps> = (props) => {
           onAccept={accept}
           onReject={reject}
           onCancel={cancel}
+          isLoading={isCreating || isAccepting || isRejecting || isCancelling}
         />
       )}
     </ContentBox>

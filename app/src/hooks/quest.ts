@@ -39,7 +39,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: items, isPending: l1 } = api.item.getAllNames.useQuery(undefined);
   const { data: jutsus, isPending: l2 } = api.jutsu.getAllNames.useQuery(undefined);
   const { data: ais, isPending: l3 } = api.profile.getAllAiNames.useQuery(undefined);
-  const { data: villages, isPending: l4 } = api.village.getAll.useQuery(undefined);
+  const { data: villages, isPending: l4 } = api.village.getAllNames.useQuery(undefined);
   const { data: badges, isPending: l5 } = api.badge.getAll.useQuery(undefined);
 
   // Mutation for updating item

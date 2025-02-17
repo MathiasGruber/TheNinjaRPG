@@ -7,6 +7,7 @@ import { stillInBattle } from "./actions";
 import { secondsPassed } from "@/utils/time";
 import { realizeTag, checkFriendlyFire } from "./process";
 import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/drizzle/constants";
+import { KAGE_CHALLENGE_WIN_PRESTIGE } from "@/drizzle/constants";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { toOffenceStat, toDefenceStat } from "@/libs/stats";
 import { structureBoost } from "@/utils/village";
@@ -516,7 +517,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       } else if (battleType === "VILLAGE_PROTECTOR") {
         experience = 0;
       } else if (
-        ["CLAN_CHALLENGE", "KAGE_CHALLENGE", "TRAINING"].includes(battleType)
+        ["CLAN_CHALLENGE", "KAGE_AI", "KAGE_PVP", "TRAINING"].includes(battleType)
       ) {
         experience = 0;
       }
@@ -560,8 +561,13 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       }
 
       // Prestige calculation
-      if (battleType === "KAGE_CHALLENGE" && !didWin && user.isAggressor) {
-        deltaPrestige = -KAGE_PRESTIGE_COST;
+      if (["KAGE_AI", "KAGE_PVP"].includes(battleType)) {
+        if (!didWin && user.isAggressor) {
+          deltaPrestige = -KAGE_PRESTIGE_COST;
+        }
+        if (didWin && !user.isAggressor) {
+          deltaPrestige = KAGE_CHALLENGE_WIN_PRESTIGE;
+        }
       }
 
       // Check for clan points
@@ -906,6 +912,13 @@ export const processUsersForBattle = (info: {
     user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);
+
+    // For kage challenges, set health/chakra/stamina to full
+    if (["KAGE_AI", "KAGE_PVP"].includes(battleType)) {
+      user.curHealth = user.maxHealth;
+      user.curChakra = user.maxChakra;
+      user.curStamina = user.maxStamina;
+    }
 
     // Add highest offence name to user
     const offences = {
