@@ -58,7 +58,7 @@ export const clanRouter = createTRPCRouter({
       // Guards
       if (!fetchedClan) return errorResponse("Faction not found");
       if (!user) return errorResponse("User not found");
-      if (user.money < HIDEOUT_COST) return errorResponse("Not enough ryo");
+      if (fetchedClan.bank < HIDEOUT_COST) return errorResponse("Not enough ryo");
       if (user.clanId !== input.clanId) return errorResponse("User not in clan");
       if (villages.find((v) => v.sector === input.sector)) {
         return errorResponse("This location is already occupied.");
