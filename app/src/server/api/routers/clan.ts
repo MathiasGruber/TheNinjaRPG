@@ -1219,7 +1219,6 @@ export const removeFromClan = async (
     ...(!otherUser
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),
-          client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanData.id)),
           client
             .update(userData)
             .set({

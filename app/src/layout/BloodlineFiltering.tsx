@@ -103,7 +103,7 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
           {/* Stat Classification */}
           <div>
             <Select onValueChange={(e) => setClassification(e as StatType)}>
-              <Label htmlFor="rank">Stat Classification</Label>
+              <Label htmlFor="rank">Classification</Label>
               <SelectTrigger>
                 <SelectValue placeholder={classification} />
               </SelectTrigger>

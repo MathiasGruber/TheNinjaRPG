@@ -26,7 +26,7 @@ import { canChangeContent } from "@/utils/permissions";
 import { canChallengeKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
-import { KAGE_CHALLENGE_SECS } from "@/drizzle/constants";
+import { KAGE_CHALLENGE_SECS, KAGE_CHALLENGE_MINS } from "@/drizzle/constants";
 import { canAlly, canWar } from "@/utils/alliance";
 import { KAGE_RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_COST } from "@/drizzle/constants";
@@ -570,7 +570,7 @@ const KageChallenge: React.FC<{
               </Button>
               <p>
                 <span className="font-bold">Note 1: </span>
-                <span>Kage has 30min to accept the challenge</span>
+                <span>Kage has {KAGE_CHALLENGE_MINS}mins to accept the challenge</span>
               </p>
               <p>
                 <span className="font-bold">Note 2: </span>

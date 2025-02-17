@@ -66,7 +66,7 @@ interface FilterSelectProps {
   label: string;
   value: string;
   onValueChange: (value: string) => void;
-  options: { value: string; label: string }[];  // ✅ Now supports objects
+  options: { value: string; label: string }[]; // ✅ Now supports objects
   includeNone?: boolean;
 }
 
@@ -100,7 +100,6 @@ const FilterSelect: React.FC<FilterSelectProps> = ({
     </Select>
   </div>
 );
-
 
 // Reusable ExcludedItemsList component
 interface ExcludedItemsListProps {
@@ -146,41 +145,41 @@ const EXCLUSION_CATEGORIES: Record<
     options: string[];
   }
 > = {
-  classification: { 
-    label: "Classifications", 
-    options: [...StatTypes] 
+  classification: {
+    label: "Classifications",
+    options: [...StatTypes],
   },
-  effect: { 
-    label: "Effects", 
-    options: [...effectFilters] 
+  effect: {
+    label: "Effects",
+    options: [...effectFilters],
   },
-  element: { 
-    label: "Elements", 
-    options: [...ElementNames] 
+  element: {
+    label: "Elements",
+    options: [...ElementNames],
   },
-  type: { 
-    label: "Jutsu Types", 
-    options: [...JutsuTypes] 
+  type: {
+    label: "Jutsu Types",
+    options: [...JutsuTypes],
   },
-  method: { 
-    label: "Methods", 
-    options: [...AttackMethods] 
+  method: {
+    label: "Methods",
+    options: [...AttackMethods],
   },
-  rank: { 
-    label: "Ranks", 
-    options: [...UserRanks] 
+  rank: {
+    label: "Ranks",
+    options: [...UserRanks],
   },
-  rarity: { 
-    label: "Rarities", 
-    options: [...rarities] 
+  rarity: {
+    label: "Rarities",
+    options: [...rarities],
   },
-  stat: { 
-    label: "Stats", 
-    options: [...statFilters] 
+  stat: {
+    label: "Stats",
+    options: [...statFilters],
   },
-  target: { 
-    label: "Targets", 
-    options: [...AttackTargets] 
+  target: {
+    label: "Targets",
+    options: [...AttackTargets],
   },
 };
 
@@ -208,6 +207,7 @@ export const useFiltering = () => {
   const [staticAnim, setStaticAnim] = useState<string>("None");
   const [target, setTarget] = useState<AttackTarget | None>("None");
   const [hidden, setHidden] = useState<boolean | undefined>(false);
+  const [villageId, setVillageId] = useState<string | null>("None");
 
   // -------------------------
   // "Exclude" states
@@ -242,6 +242,7 @@ export const useFiltering = () => {
     stat,
     staticAnim,
     target,
+    villageId,
 
     // excludes
     excludedJutsuTypes,
@@ -270,6 +271,7 @@ export const useFiltering = () => {
     setStat,
     setStaticAnim,
     setTarget,
+    setVillageId,
 
     // exclude setters
     setExcludedJutsuTypes,
@@ -312,6 +314,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     stat,
     staticAnim,
     target,
+    villageId,
 
     // excludes
     excludedJutsuTypes,
@@ -340,6 +343,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     setStat,
     setStaticAnim,
     setTarget,
+    setVillageId,
 
     // exclude setters
     setExcludedJutsuTypes,
@@ -385,7 +389,8 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
   // Data queries
   const { data: bloodlineData } = api.bloodline.getAllNames.useQuery(undefined);
   const { data: assetData } = api.misc.getAllGameAssetNames.useQuery(undefined);
-  
+  const { data: villageData } = api.village.getAllNames.useQuery(undefined);
+
   // Filter bloodlines if user has a fixedBloodline
   const bloodlines = fixedBloodline
     ? bloodlineData?.filter((b) => b.id === fixedBloodline)
@@ -542,7 +547,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             }))}
           />
 
-
           {/* Bloodline */}
           <FilterSelect
             label="Bloodline"
@@ -552,12 +556,11 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               bloodlines
                 ?.sort((a, b) => a.name.localeCompare(b.name))
                 .map((bl) => ({
-                  value: bl.id,   // Keep filtering by ID
+                  value: bl.id, // Keep filtering by ID
                   label: bl.name, // Show the bloodline name
                 })) || []
             }
           />
-
 
           {/* Animations */}
           <FilterSelect
@@ -568,7 +571,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               assetData
                 ?.sort((a, b) => (a.name < b.name ? -1 : 1))
                 .map((asset) => ({
-                  value: asset.id,  // Keep the ID for filtering
+                  value: asset.id, // Keep the ID for filtering
                   label: asset.name, // Show the name in dropdown
                 })) || []
             }
@@ -601,7 +604,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
                 })) || []
             }
           />
-
 
           {/* Elements */}
           <div>
@@ -663,10 +665,9 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             options={UserRanks.map((rank) => ({
               value: rank,
               label: rank,
-            }))} 
+            }))}
             includeNone={false}
           />
-
 
           {/* Required Level */}
           <div>
@@ -700,6 +701,21 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               />
             </div>
           )}
+
+          {/* Village */}
+          <FilterSelect
+            label="Village"
+            value={villageId || "None"}
+            onValueChange={setVillageId}
+            options={
+              villageData
+                ?.sort((a, b) => a.name.localeCompare(b.name))
+                .map((village) => ({
+                  value: village.id,
+                  label: village.name,
+                })) || []
+            }
+          />
         </div>
 
         {/* EXCLUSION AREA */}
@@ -809,7 +825,6 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
               onChange={setTempExclusions}
             />
 
-
             <div className="mt-3 flex gap-2">
               <Button onClick={handleAddExclusions}>Confirm</Button>
               <Button variant="ghost" onClick={() => setShowExclusionPopover(false)}>
@@ -848,6 +863,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     static: state.staticAnim === "None" ? undefined : state.staticAnim,
     target: state.target === "None" ? undefined : state.target,
     hidden: state.hidden ?? undefined,
+    villageId: state.villageId === "None" ? undefined : state.villageId,
 
     // Exclusions
     ...Object.fromEntries(

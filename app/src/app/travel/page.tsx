@@ -298,14 +298,14 @@ export default function Travel() {
             )}
             {joinVillageBtn && (
               <Confirm
-                title="Join Village"
+                title={`Join Village [${sectorVillage.name}]`}
                 proceed_label="Submit"
                 button={<GitMerge className={`h-7 w-7 mx-1 hover:text-orange-500`} />}
                 onAccept={() => joinVillage({ villageId: sectorVillage.id })}
               >
-                Do you confirm that you wish to join this village? Please be aware that
-                if you join this village your training benefits & regen will be reduced
-                for {VILLAGE_REDUCED_GAINS_DAYS} days.
+                Do you confirm that you wish to join {sectorVillage.name}? Please be
+                aware that if you join this village your training benefits & regen will
+                be reduced for {VILLAGE_REDUCED_GAINS_DAYS} days.
               </Confirm>
             )}
             {canCreateHideout && (
@@ -324,9 +324,9 @@ export default function Travel() {
               >
                 As a leader of a faction, you have the option of founding a hideout for
                 your faction, thereby effectively de-coupling yourself from the common
-                syndicate of outlaws. The purchase costs {HIDEOUT_COST} ryo, and the
-                faction currently has only {userData?.clan?.bank} ryo. Do you want to
-                create your faction hideout in this sector?
+                syndicate of outlaws. The purchase costs <b>{HIDEOUT_COST} ryo</b>, and
+                the faction currently has <b>{userData?.clan?.bank} ryo</b>. Do you want
+                to create your faction hideout in this sector?
               </Confirm>
             )}
 
