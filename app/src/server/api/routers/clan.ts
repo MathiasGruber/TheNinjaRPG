@@ -1210,13 +1210,14 @@ export const removeFromClan = async (
     ...(!otherUser && ["HIDEOUT", "TOWN"].includes(clanData.village?.type)
       ? [
           client.delete(village).where(eq(village.id, clanData.villageId)),
-          client.delete(villageStructure).where(eq(village.id, clanData.villageId)),
+          client
+            .delete(villageStructure)
+            .where(eq(villageStructure.villageId, clanData.villageId)),
         ]
       : []),
     ...(!otherUser
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),
-          client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanData.id)),
           client
             .update(userData)
             .set({
@@ -1225,6 +1226,7 @@ export const removeFromClan = async (
               villageId: sql`CASE WHEN isOutlaw = 1 THEN ${VILLAGE_SYNDICATE_ID} ELSE villageId END`,
             })
             .where(eq(userData.clanId, clanData.id)),
+          client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanData.id)),
         ]
       : [
           client
