@@ -190,7 +190,7 @@ export const updateKage = async (
   // Apply
   if (result) {
     await Promise.all([
-      ...(result.didWin > 0
+      ...(result.didWin > 0 && user.isAggressor
         ? [
             client
               .update(village)
