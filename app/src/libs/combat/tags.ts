@@ -1169,7 +1169,7 @@ export const lifesteal = (
 };
 
 /** Drain target's Chakra and Stamina over time */
-export const drainOld = (
+export const drain = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
