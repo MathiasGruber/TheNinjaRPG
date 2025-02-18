@@ -1042,12 +1042,6 @@ export const decreasepoolcost = (effect: UserEffect, target: BattleUserState) =>
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return pooladjust(effect, target);
 };
-  return getInfo(
-    target,
-    effect,
-    `will drain ${qualifier}% of ${poolsAffects.join(" and ")} for ${effect.rounds} rounds`,
-  );
-};
 
 /** Reflect damage back to the opponent */
 export const reflect = (
