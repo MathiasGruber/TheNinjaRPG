@@ -29,8 +29,8 @@ const Footer: React.FC = () => {
           Policy
         </Link>
         {" / "}
-        <Link href="/conscent" className="hover:text-gray-500">
-          Conscent
+        <Link href="/consent" className="hover:text-gray-500">
+          Consent
         </Link>{" "}
         -{" "}
         <Link href="/rules" className="hover:text-gray-500">

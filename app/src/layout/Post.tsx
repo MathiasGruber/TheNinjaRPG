@@ -73,6 +73,7 @@ const Post: React.FC<PostProps> = (props) => {
 
   switch (props.user?.role) {
     case "MODERATOR":
+    case "JR_MODERATOR":
       userColor =
         "bg-gradient-to-r from-green-800 via-green-500 to-green-800 bg-clip-text text-transparent";
       userRole = "bg-green-500";

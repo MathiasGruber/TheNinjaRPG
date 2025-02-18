@@ -12,6 +12,7 @@ import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MISSIONS_PER_DAY, IMG_BUILDING_MISSIONHALL } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 export default function MissionHall() {
@@ -26,7 +27,12 @@ export default function MissionHall() {
   );
 
   const { data: hallData } = api.quests.missionHall.useQuery(
-    { villageId: userData?.villageId ?? "", level: userData?.level ?? 0 },
+    {
+      villageId: userData?.isOutlaw
+        ? VILLAGE_SYNDICATE_ID
+        : (userData?.villageId ?? VILLAGE_SYNDICATE_ID),
+      level: userData?.level ?? 0,
+    },
     { enabled: !!userData },
   );
 
@@ -161,7 +167,9 @@ export default function MissionHall() {
                       rank: setting.rank,
                       userLevel: userData.level,
                       userSector: userData.sector,
-                      userVillageId: userData.villageId,
+                      userVillageId: userData.isOutlaw
+                        ? VILLAGE_SYNDICATE_ID
+                        : userData.villageId,
                     });
                   }}
                 >

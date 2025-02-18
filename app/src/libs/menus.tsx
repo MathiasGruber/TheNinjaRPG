@@ -148,7 +148,8 @@ export const useGameMenu = (userData: UserWithRelations) => {
               priority={true}
             />
             <span className="font-bold">
-              {sector.name} {sector.type === "VILLAGE" ? "Village" : ""}
+              {sector.mapName || sector.name}{" "}
+              {sector.type === "VILLAGE" ? "Village" : ""}
             </span>
           </div>
         ),

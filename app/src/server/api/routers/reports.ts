@@ -12,6 +12,9 @@ import { userReportSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
 import { requestAvatarForUser } from "@/libs/replicate";
 import { canModerateReports } from "@/utils/permissions";
+import { canBanUsers } from "@/utils/permissions";
+import { canSilenceUsers } from "@/utils/permissions";
+import { canWarnUsers } from "@/utils/permissions";
 import { canSeeReport } from "@/utils/permissions";
 import { canClearReport } from "@/utils/permissions";
 import { canEscalateBan } from "@/utils/permissions";
@@ -433,6 +436,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("You cannot resolve this report");
+      if (!canBanUsers(user)) return errorResponse("You cannot ban users");
       if (!input.banTime || input.banTime <= 0) {
         return errorResponse("Ban time must be specified.");
       }
@@ -478,6 +482,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("You cannot resolve this report");
+      if (!canSilenceUsers(user)) return errorResponse("You cannot silence users");
       if (!input.banTime || input.banTime <= 0) {
         return errorResponse("Ban time must be specified.");
       }
@@ -523,6 +528,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("No permission to warn");
+      if (!canWarnUsers(user)) return errorResponse("You cannot warn users");
       // Update
       await Promise.all([
         ctx.drizzle

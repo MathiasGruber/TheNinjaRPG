@@ -689,6 +689,8 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
       ) {
         const values = innerType._def.type._def.values as string[];
         return { id: value, type: "str_array", values: values, multiple: true };
+      } else if (innerType instanceof z.ZodBoolean) {
+        return { id: value, label: value, type: "boolean" };
       } else {
         return { id: value, label: value, type: "text" };
       }

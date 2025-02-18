@@ -7,15 +7,46 @@ import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Post from "@/layout/Post";
 import Loader from "@/layout/Loader";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { api } from "@/app/_trpc/client";
 import { secondsPassed } from "@/utils/time";
 import { groupBy } from "@/utils/grouping";
 import { IMG_ICON_FORUM } from "@/drizzle/constants";
 
+export const ForumSkeleton = () => {
+  return (
+    <div>
+      <ContentBox title="Main Broadcast" subtitle="General boards for TNR">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-[100px] w-full bg-popover flex items-center justify-center">
+            <Loader explanation="Loading..."></Loader>
+          </Skeleton>
+          <Skeleton className="h-[100px] w-full bg-popover"></Skeleton>
+        </div>
+      </ContentBox>
+      <ContentBox title="Text-Based RPG" subtitle="Village Boards" initialBreak>
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-[150px] w-full bg-popover"></Skeleton>
+          <Skeleton className="h-[150px] w-full bg-popover"></Skeleton>
+          <Skeleton className="h-[150px] w-full bg-popover"></Skeleton>
+          <Skeleton className="h-[150px] w-full bg-popover"></Skeleton>
+          <Skeleton className="h-[150px] w-full bg-popover"></Skeleton>
+          <Skeleton className="h-[150px] w-full bg-popover"></Skeleton>
+        </div>
+      </ContentBox>
+      <ContentBox title="The Chat Lounge" subtitle="Fun boards for TNR">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-[130px] w-full bg-popover"></Skeleton>
+        </div>
+      </ContentBox>
+    </div>
+  );
+};
+
 export default function Forum() {
   const { data: boards } = api.forum.getAll.useQuery();
-  if (!boards) return <Loader explanation="Loading..."></Loader>;
+  if (!boards) return <ForumSkeleton />;
 
   const forum: React.ReactNode[] = [];
   const groups = groupBy(boards, "group");

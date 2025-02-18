@@ -1,6 +1,7 @@
 import { tagTypes } from "./combat/types";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { LetterRanks } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { FED_NORMAL_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_SILVER_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
@@ -113,7 +114,11 @@ export const checkJutsuRank = (rank: JutsuRank | undefined, userrank: UserRank) 
 
 export const checkJutsuVillage = (jutsu: Jutsu | undefined, userdata: UserData) => {
   if (!jutsu) return false;
-  return !jutsu.villageId || jutsu.villageId === userdata.villageId;
+  return (
+    !jutsu.villageId ||
+    jutsu.villageId === userdata.villageId ||
+    (jutsu.villageId === VILLAGE_SYNDICATE_ID && userdata.isOutlaw)
+  );
 };
 
 export const checkJutsuBloodline = (jutsu: Jutsu | undefined, userdata: UserData) => {

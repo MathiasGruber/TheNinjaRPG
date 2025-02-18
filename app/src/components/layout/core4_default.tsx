@@ -1,6 +1,7 @@
 "use client";
 
 import ReactDOM from "react-dom";
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -17,6 +18,7 @@ import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react
 import { Earth, House, MessageCircleWarning, Receipt } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -72,7 +74,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   ReactDOM.prefetchDNS("https://api.github.com");
 
   // Get data
-  const { data: userData, timeDiff, notifications } = useUserData();
+  const { data: userData, timeDiff, notifications, isClerkLoaded } = useUserData();
   const { systems, location } = useGameMenu(userData);
   const [leftSideBarOpen, setLeftSideBarOpen] = useState(false);
   const [rightSideBarOpen, setRightSideBarOpen] = useState(false);
@@ -117,23 +119,36 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       </SignedIn>
       <SignedOut>
         <SideBannerTitle>Participate</SideBannerTitle>
-        <div className="grid grid-cols-2 md:grid-cols-1 lg:grid-cols-2 pt-4 gap-4">
+        <div className="flex flex-row gap-4 pt-3">
           <Link
             href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
-            <SiGithub size={60} className="dark:text-white text-black w-1/2" />
-            <p>Contribute</p>
+            <SiGithub
+              size={60}
+              className="dark:text-white text-black md:text-white p-2"
+            />
           </Link>
           <Link
             href="https://discord.gg/grPmTr4z9C"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
-            <SiDiscord size={60} className="dark:text-white text-black w-1/2" />
-            <p>Community</p>
+            <SiDiscord
+              size={60}
+              className="dark:text-white text-black md:text-white p-2"
+            />
           </Link>
         </div>
       </SignedOut>
+      {!isClerkLoaded && (
+        <div>
+          <Skeleton className="h-6 w-full bg-muted/70 mt-6" />
+          <div className="flex flex-row gap-4 pt-4">
+            <Skeleton className="h-16 w-full bg-muted/70" />
+            <Skeleton className="h-16 w-full bg-muted/70" />
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -191,6 +206,22 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           </Button>
         </Link>
       </SignedOut>
+      {!isClerkLoaded && (
+        <div>
+          <div className="flex flex-col gap-2 pt-5">
+            <Skeleton className="h-6 w-3/4 bg-muted/70" />
+            <Skeleton className="h-6 w-4/5 bg-muted/70" />
+          </div>
+          <div className="flex flex-row gap-2 pt-2">
+            <Skeleton className="aspect-square w-full bg-muted/70" />
+            <Skeleton className="aspect-square w-full bg-muted/70" />
+            <Skeleton className="aspect-square w-full bg-muted/70" />
+            <Skeleton className="aspect-square w-full bg-muted/70" />
+          </div>
+          <Skeleton className="h-8 w-full bg-muted/70 mt-3" />
+        </div>
+      )}
+
       <div className="pl-2 pt-6 flex align-center justify-center">
         <iframe
           src="https://ghbtns.com/github-btn.html?user=MathiasGruber&repo=TheNinjaRPG&type=star&count=true"
@@ -511,30 +542,32 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               <SheetTitle>
                 <SideBannerTitle>Main Menu</SideBannerTitle>
               </SheetTitle>
-              <div className="mt-1 grid gap-3 grid-cols-2">
-                {navbarMenuItems.map((system, i) => {
-                  return (
-                    <Link
-                      key={i}
-                      href={system.href}
-                      onClick={() => setLeftSideBarOpen(false)}
-                      className={system.className ? system.className : ""}
-                    >
-                      <Button
-                        decoration="gold"
-                        className={`w-full hover:bg-orange-200`}
+              <Suspense fallback={<Loader explanation="Loading..." />}>
+                <div className="mt-1 grid gap-3 grid-cols-2">
+                  {navbarMenuItems.map((system, i) => {
+                    return (
+                      <Link
+                        key={i}
+                        href={system.href}
+                        onClick={() => setLeftSideBarOpen(false)}
+                        className={system.className ? system.className : ""}
                       >
-                        <div className="grow">{system.name}</div>
-                        <div>{system.icon && system.icon}</div>
-                      </Button>
-                    </Link>
-                  );
-                })}
-                <div className="flex flex-row items-center justify-center">
-                  {signedInIcons}
+                        <Button
+                          decoration="gold"
+                          className={`w-full hover:bg-orange-200`}
+                        >
+                          <div className="grow">{system.name}</div>
+                          <div>{system.icon && system.icon}</div>
+                        </Button>
+                      </Link>
+                    );
+                  })}
+                  <div className="flex flex-row items-center justify-center">
+                    {signedInIcons}
+                  </div>
                 </div>
-              </div>
-              <div className="relative pt-4">{leftSideBar}</div>
+                <div className="relative pt-4">{leftSideBar}</div>
+              </Suspense>
             </SheetHeader>
           </SheetContent>
         </Sheet>
@@ -548,7 +581,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <VisuallyHidden.Root>
               <SheetTitle>Test</SheetTitle>
             </VisuallyHidden.Root>
-            <SheetHeader>{rightSideBar}</SheetHeader>
+            <Suspense fallback={<Loader explanation="Loading..." />}>
+              <SheetHeader>{rightSideBar}</SheetHeader>
+            </Suspense>
           </SheetContent>
         </Sheet>
 
@@ -651,7 +686,16 @@ const StrongestUsersBanner: React.FC = () => {
                 </div>
               </Link>
             ))}
-            {isPending && <Loader explanation="Loading top players" />}
+            {isPending && (
+              <div className="flex flex-col gap-1 items-center pb-4">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <Skeleton
+                    className="h-9 lg:h-10 w-full w-[154px] max-w-[154px] lg:w-[200px] lg:max-w-[200px] bg-muted/70"
+                    key={i}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <Image

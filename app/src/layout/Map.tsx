@@ -164,54 +164,56 @@ const Map: React.FC<MapProps> = (props) => {
       const lineWidth = 1;
       if (props.highlights) {
         // Loop through the highlights
-        props.highlights.forEach((highlight) => {
-          const sector = hexasphere?.tiles[highlight.sector]?.c;
-          if (sector) {
-            // Create the line
-            const points = [];
-            points.push(new Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
-            points.push(new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5));
-            const lineMaterial = new LineBasicMaterial({
-              color: lineColor,
-              linewidth: lineWidth,
-            });
-            const geometry = new BufferGeometry().setFromPoints(points);
-            const line = new LineSegments(geometry, lineMaterial);
-            group_highlights.add(line);
-            // Label
-            const canvas = document.createElement("canvas");
-            const [w, h, r, f] = [100, 40, 4, 42 - highlight.name.length * 2];
-            canvas.width = w;
-            canvas.height = h;
-            const context = canvas.getContext("2d");
-            if (context) {
-              context.globalAlpha = 0.9;
-              context.fillStyle = highlight.hexColor;
-              context.lineWidth = 4;
-              context.strokeStyle = "black";
-              context.roundRect(r / 2, r / 2, w - r, h - r, r);
-              context.stroke();
-              context.fill();
-              context.globalAlpha = 1.0;
-              context.textAlign = "center";
-              context.textBaseline = "middle";
-              context.fillStyle = "black";
-              context.strokeStyle = "#F0F0F0";
-              context.font = `${f}px arial narrow`;
-              context.strokeText(highlight.mapName || highlight.name, w / 2, h / 2);
-              context.fillText(highlight.mapName || highlight.name, w / 2, h / 2);
+        props.highlights
+          .filter((h) => h.type !== "HIDEOUT" || userData?.clan?.villageId === h.id)
+          .forEach((highlight) => {
+            const sector = hexasphere?.tiles[highlight.sector]?.c;
+            if (sector) {
+              // Create the line
+              const points = [];
+              points.push(new Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
+              points.push(new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5));
+              const lineMaterial = new LineBasicMaterial({
+                color: lineColor,
+                linewidth: lineWidth,
+              });
+              const geometry = new BufferGeometry().setFromPoints(points);
+              const line = new LineSegments(geometry, lineMaterial);
+              group_highlights.add(line);
+              // Label
+              const canvas = document.createElement("canvas");
+              const [w, h, r, f] = [100, 40, 4, 42 - highlight.name.length * 2];
+              canvas.width = w;
+              canvas.height = h;
+              const context = canvas.getContext("2d");
+              if (context) {
+                context.globalAlpha = 0.9;
+                context.fillStyle = highlight.hexColor;
+                context.lineWidth = 4;
+                context.strokeStyle = "black";
+                context.roundRect(r / 2, r / 2, w - r, h - r, r);
+                context.stroke();
+                context.fill();
+                context.globalAlpha = 1.0;
+                context.textAlign = "center";
+                context.textBaseline = "middle";
+                context.fillStyle = "black";
+                context.strokeStyle = "#F0F0F0";
+                context.font = `${f}px arial narrow`;
+                context.strokeText(highlight.mapName || highlight.name, w / 2, h / 2);
+                context.fillText(highlight.mapName || highlight.name, w / 2, h / 2);
+              }
+              const texture = createTexture(canvas);
+              texture.generateMipmaps = false;
+              texture.minFilter = LinearFilter;
+              texture.needsUpdate = true;
+              const bar_material = new SpriteMaterial({ map: texture });
+              const labelSprite = new Sprite(bar_material);
+              labelSprite.scale.set(canvas.width / 40, canvas.height / 40, 1);
+              labelSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
+              group_highlights.add(labelSprite);
             }
-            const texture = createTexture(canvas);
-            texture.generateMipmaps = false;
-            texture.minFilter = LinearFilter;
-            texture.needsUpdate = true;
-            const bar_material = new SpriteMaterial({ map: texture });
-            const labelSprite = new Sprite(bar_material);
-            labelSprite.scale.set(canvas.width / 40, canvas.height / 40, 1);
-            labelSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
-            group_highlights.add(labelSprite);
-          }
-        });
+          });
       }
 
       scene.add(group_highlights);

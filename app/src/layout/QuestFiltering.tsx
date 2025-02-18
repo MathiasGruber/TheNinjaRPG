@@ -51,7 +51,7 @@ const QuestFiltering: React.FC<QuestFilteringProps> = (props) => {
   const { setRank, setTimeframe, setUserLevel, setVillage } = props.state;
 
   // Get all villages
-  const { data: villages } = api.village.getAll.useQuery(undefined);
+  const { data: villages } = api.village.getAllNames.useQuery(undefined);
 
   // Filter shown bloodlines
   const villageData = villages?.find((b) => b.id === village);

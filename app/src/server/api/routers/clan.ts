@@ -2,15 +2,17 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, or, gte, like, isNull, inArray } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm";
+import { villageStructure, conversation } from "@/drizzle/schema";
 import { clan, mpvpBattleQueue, mpvpBattleUser, actionLog } from "@/drizzle/schema";
-import { userData, userRequest, historicalAvatar } from "@/drizzle/schema";
+import { userData, userRequest, historicalAvatar, village } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
-import { fetchVillage } from "@/routers/village";
+import { fetchVillage, fetchVillages, fetchStructures } from "@/routers/village";
 import { fetchUser, updateNindo } from "@/routers/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { clanCreateSchema, checkCoLeader } from "@/validators/clan";
 import { hasRequiredRank } from "@/libs/train";
+import { checkIfSectorIsAvailable } from "@/libs/clan";
 import {
   fetchRequest,
   fetchRequests,
@@ -26,6 +28,12 @@ import { CLAN_MAX_MEMBERS } from "@/drizzle/constants";
 import { CLAN_MAX_TRAINING_BOOST, CLAN_TRAINING_BOOST_COST } from "@/drizzle/constants";
 import { CLAN_MAX_RYO_BOOST, CLAN_RYO_BOOST_COST } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { HIDEOUT_COST, HIDEOUT_TOWN_UPGRADE } from "@/drizzle/constants";
+import { TOWN_REESTABLISH_COST } from "@/drizzle/constants";
+import { FACTION_MIN_POINTS_FOR_TOWN } from "@/drizzle/constants";
+import { FACTION_MIN_MEMBERS_FOR_TOWN } from "@/drizzle/constants";
+import { IMG_VILLAGE_FACTION } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData } from "@/drizzle/schema";
@@ -34,6 +42,240 @@ import { secondsFromDate } from "@/utils/time";
 const pusher = getServerPusher();
 
 export const clanRouter = createTRPCRouter({
+  purchaseHideout: protectedProcedure
+    .input(z.object({ clanId: z.string(), sector: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan, villages, structures, available] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+        fetchVillages(ctx.drizzle),
+        fetchStructures(ctx.drizzle),
+        checkIfSectorIsAvailable(input.sector),
+      ]);
+      const clanVillage = fetchedClan?.village;
+      // Guards
+      if (!fetchedClan) return errorResponse("Faction not found");
+      if (!user) return errorResponse("User not found");
+      if (fetchedClan.bank < HIDEOUT_COST) return errorResponse("Not enough ryo");
+      if (user.clanId !== input.clanId) return errorResponse("User not in clan");
+      if (villages.find((v) => v.sector === input.sector)) {
+        return errorResponse("This location is already occupied.");
+      }
+      if (!user.isOutlaw) {
+        return errorResponse("Only outlaw factions can have hideouts");
+      }
+      if (fetchedClan.leaderId !== user.userId) {
+        return errorResponse("Not faction leader");
+      }
+      if (clanVillage?.type !== "OUTLAW") {
+        return errorResponse("Only outlaw factions can have hideouts");
+      }
+      if (clanVillage?.kageId === user.userId) {
+        return errorResponse("Cannot create hideout as the leader of the outlaws");
+      }
+      if (!available) {
+        return errorResponse("This location is reserved or not possible to build on.");
+      }
+      // New structures (same as syndicate, except without ANBU & Clan)
+      const newStructures = structures.filter((s) => s.route !== "/anbu");
+
+      // Mutate step 1 - pay up
+      const hideoutId = nanoid();
+      const result = await ctx.drizzle
+        .update(clan)
+        .set({
+          villageId: hideoutId,
+          bank: sql`${clan.bank} - ${HIDEOUT_COST}`,
+          hasHideout: true,
+        })
+        .where(and(eq(clan.id, input.clanId), gte(clan.bank, HIDEOUT_COST)));
+      if (result.rowsAffected === 0) return errorResponse("Failed to purchase hideout");
+      // Mutate step 2 - set hideout
+      await Promise.all([
+        ctx.drizzle.insert(villageStructure).values(
+          newStructures.map((s) => ({
+            ...s,
+            id: nanoid(),
+            level: 1,
+            villageId: hideoutId,
+            allyAccess: 1,
+          })),
+        ),
+        ctx.drizzle
+          .update(userData)
+          .set({ villageId: hideoutId })
+          .where(eq(userData.clanId, input.clanId)),
+        ctx.drizzle.insert(conversation).values({
+          id: nanoid(),
+          title: fetchedClan.name,
+          createdById: fetchedClan.leaderId,
+        }),
+        ctx.drizzle.insert(village).values({
+          id: hideoutId,
+          name: `${fetchedClan.name}`,
+          mapName: `${fetchedClan.name}`,
+          sector: input.sector,
+          description: `${fetchedClan.name} Hideout`,
+          kageId: fetchedClan.leaderId,
+          type: "HIDEOUT",
+          joinable: false,
+          allianceSystem: false,
+          villageGraphic: IMG_VILLAGE_FACTION,
+        }),
+      ]);
+      return { success: true, message: "Hideout purchased successfully" };
+    }),
+  upgradeHideoutToTown: protectedProcedure
+    .input(z.object({ clanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      const clanHideout = fetchedClan?.village;
+      // Guards
+      if (!fetchedClan) return errorResponse("Faction not found");
+      if (!user) return errorResponse("User not found");
+      if (!clanHideout) return errorResponse("Clan village not found");
+      if (!user.isOutlaw) return errorResponse("Only outlaw factions can have towns");
+      if (user.clanId !== input.clanId) return errorResponse("User not in clan");
+      if (fetchedClan.leaderId !== user.userId) {
+        return errorResponse("Not faction leader");
+      }
+      if (fetchedClan.village?.type !== "HIDEOUT") {
+        return errorResponse("Must have a hideout first");
+      }
+      if (fetchedClan.points < FACTION_MIN_POINTS_FOR_TOWN) {
+        return errorResponse("Need more faction points");
+      }
+      if (fetchedClan.members.length < FACTION_MIN_MEMBERS_FOR_TOWN) {
+        return errorResponse("Need more faction members");
+      }
+      if (clanHideout.wasDowngraded) {
+        const missing = TOWN_REESTABLISH_COST - fetchedClan.bank;
+        if (missing > 0) {
+          return errorResponse(`Missing ${missing} ryo for re-establishing town.`);
+        }
+      } else {
+        const missing = HIDEOUT_TOWN_UPGRADE - fetchedClan.repTreasury;
+        if (missing > 0) {
+          return errorResponse(`Missing ${missing} reps for upgrading to town.`);
+        }
+      }
+      // Mutate - first pay up
+      const result = await ctx.drizzle
+        .update(clan)
+        .set({
+          ...(clanHideout.wasDowngraded
+            ? { bank: sql`${clan.bank} - ${TOWN_REESTABLISH_COST}` }
+            : {
+                repTreasury: sql`${clan.repTreasury} - ${HIDEOUT_TOWN_UPGRADE}`,
+                points: sql`${clan.points} - ${FACTION_MIN_POINTS_FOR_TOWN}`,
+              }),
+        })
+        .where(
+          and(
+            eq(clan.id, input.clanId),
+            ...(clanHideout.wasDowngraded
+              ? [gte(clan.bank, TOWN_REESTABLISH_COST)]
+              : [gte(clan.repTreasury, HIDEOUT_TOWN_UPGRADE)]),
+          ),
+        );
+      if (result.rowsAffected === 0) {
+        const action = clanHideout.wasDowngraded ? "re-establish" : "upgrade";
+        return errorResponse(`Failed to ${action} hideout as town`);
+      }
+      // Mutate 2 - second update the actual status
+      await ctx.drizzle
+        .update(village)
+        .set({
+          type: "TOWN",
+          lastMaintenancePaidAt: new Date(),
+        })
+        .where(eq(village.id, clanHideout.id));
+
+      return { success: true, message: "Hideout upgraded to town successfully" };
+    }),
+  clanDonate: protectedProcedure
+    .input(
+      z.object({
+        reputationPoints: z.number().min(0),
+        clanId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      // Guards
+      if (!fetchedClan) return errorResponse("Faction not found");
+      if (!user) return errorResponse("User not found");
+      if (!user.isOutlaw) return errorResponse("Only outlaws can donate to faction");
+      if (user.clanId !== input.clanId) return errorResponse("User not in faction");
+      if (user.reputationPoints < input.reputationPoints) {
+        return errorResponse("You do not have enough reputation points");
+      }
+      // Derived - prevent people over-donating reputation points
+      // TODO: Remove if these gain a permanent value for clans -
+      // right now its only purpose is hideouts. We should implement
+      // it so that users can do aesthetics for their hideouts/towns,
+      // e.g. move around building, change skins, etc.
+      const repsCost = Math.min(
+        input.reputationPoints,
+        HIDEOUT_TOWN_UPGRADE - fetchedClan.repTreasury,
+      );
+      // Mutate step 1 - update user
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          reputationPoints: sql`${userData.reputationPoints} - ${repsCost}`,
+        })
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            gte(userData.reputationPoints, repsCost),
+          ),
+        );
+      if (result.rowsAffected === 0) {
+        return errorResponse("Failed to deduct points from user");
+      }
+      // Mutate step 2 - update the clan
+      const result2 = await ctx.drizzle
+        .update(clan)
+        .set({
+          repTreasury: sql`${clan.repTreasury} + ${repsCost}`,
+        })
+        .where(eq(clan.id, fetchedClan.id));
+      if (result2.rowsAffected === 0) {
+        await ctx.drizzle
+          .update(userData)
+          .set({
+            reputationPoints: sql`${userData.reputationPoints} + ${repsCost}`,
+          })
+          .where(eq(userData.userId, ctx.userId));
+        return errorResponse("Failed to update the treasury");
+      } else {
+        // Create donation message
+        const message = `${user.username} donated ${repsCost} reputation points to faction`;
+        // Log action into database
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "clan",
+          changes: [message],
+          relatedId: fetchedClan.id,
+          relatedMsg: message,
+          relatedImage: fetchedClan.image,
+        });
+        return { success: true, message };
+      }
+    }),
   get: protectedProcedure
     .input(z.object({ clanId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -43,19 +285,25 @@ export const clanRouter = createTRPCRouter({
         fetchClan(ctx.drizzle, input.clanId),
       ]);
       // Guard
-      if (user.villageId === fetchedClan?.villageId) return fetchedClan;
+      if (
+        user.villageId === fetchedClan?.villageId ||
+        fetchedClan?.id === user.clanId ||
+        (fetchedClan?.hasHideout && user.isOutlaw)
+      ) {
+        return fetchedClan;
+      }
       return null;
     }),
   getAll: protectedProcedure
-    .input(z.object({ villageId: z.string() }))
+    .input(z.object({ villageId: z.string(), isOutlaw: z.boolean() }))
     .query(async ({ ctx, input }) => {
       // Fetch
       const [user, fetchedClans] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
-        fetchClans(ctx.drizzle, input.villageId),
+        fetchClans(ctx.drizzle, input.villageId, input.isOutlaw),
       ]);
       // Guard
-      if (user && user.villageId === input.villageId) return fetchedClans;
+      if (user.villageId === input.villageId) return fetchedClans;
       return null;
     }),
   getAllNames: protectedProcedure.query(async ({ ctx }) => {
@@ -95,9 +343,15 @@ export const clanRouter = createTRPCRouter({
       if (!fetchedClan) return errorResponse(`${groupLabel} not found`);
       if (!user) return errorResponse("User not found");
       if (!fetchedClan.leaderId) return errorResponse("No leader currently");
-      if (user.villageId !== fetchedClan.villageId)
-        return errorResponse(`Wrong ${locationLabel}`);
       if (user.clanId) return errorResponse(`Already in a ${groupLabel}`);
+      if (
+        !(
+          user.villageId === fetchedClan.villageId ||
+          (user.isOutlaw && fetchedClan.hasHideout)
+        )
+      ) {
+        return errorResponse(`Wrong ${locationLabel}`);
+      }
       if (!hasRequiredRank(user.rank, CLAN_RANK_REQUIREMENT)) {
         return errorResponse(`Rank must be at least ${CLAN_RANK_REQUIREMENT}`);
       }
@@ -160,12 +414,20 @@ export const clanRouter = createTRPCRouter({
       if (!leader) return errorResponse("Leader not found");
       if (nMembers >= CLAN_MAX_MEMBERS) return errorResponse(`${groupLabel} is full`);
       if (ctx.userId !== request.receiverId) return errorResponse("Not your request");
-      if (ctx.userId !== fetchedClan.leaderId)
+      if (ctx.userId !== fetchedClan.leaderId) {
         return errorResponse(`Not ${groupLabel} leader`);
-      if (requester.clanId)
+      }
+      if (requester.clanId) {
         return errorResponse(`Requester already in a ${groupLabel}`);
-      if (requester.villageId !== leader.villageId)
+      }
+      if (
+        !(
+          requester.villageId === leader.villageId ||
+          (fetchedClan.hasHideout && requester.isOutlaw)
+        )
+      ) {
         return errorResponse(`!= ${locationLabel}`);
+      }
       if (!hasRequiredRank(leader.rank, CLAN_RANK_REQUIREMENT)) {
         return errorResponse(`Rank must be at least ${CLAN_RANK_REQUIREMENT}`);
       }
@@ -174,7 +436,10 @@ export const clanRouter = createTRPCRouter({
         updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "CLAN"),
         ctx.drizzle
           .update(userData)
-          .set({ clanId: fetchedClan.id })
+          .set({
+            clanId: fetchedClan.id,
+            ...(fetchedClan.hasHideout ? { villageId: fetchedClan.villageId } : {}),
+          })
           .where(eq(userData.userId, requester.userId)),
       ]);
       void pusher.trigger(request.senderId, "event", { type: "clan" });
@@ -921,6 +1186,7 @@ export const removeFromClan = async (
       .set({
         clanId: null,
         status: sql`CASE WHEN status = "QUEUED" THEN "AWAKE" ELSE status END`,
+        villageId: sql`CASE WHEN isOutlaw = 1 THEN ${VILLAGE_SYNDICATE_ID} ELSE villageId END`,
       })
       .where(eq(userData.userId, userId)),
     client
@@ -941,17 +1207,26 @@ export const removeFromClan = async (
       relatedMsg: `${user.username} removed from ${user.isOutlaw ? "faction" : "clan"}: ${clanData.name}`,
       relatedImage: clanData.image,
     }),
+    ...(!otherUser && ["HIDEOUT", "TOWN"].includes(clanData.village?.type)
+      ? [
+          client.delete(village).where(eq(village.id, clanData.villageId)),
+          client
+            .delete(villageStructure)
+            .where(eq(villageStructure.villageId, clanData.villageId)),
+        ]
+      : []),
     ...(!otherUser
       ? [
           client.delete(clan).where(eq(clan.id, clanData.id)),
-          client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanData.id)),
           client
             .update(userData)
             .set({
               clanId: null,
               status: sql`CASE WHEN status = "QUEUED" THEN "AWAKE" ELSE status END`,
+              villageId: sql`CASE WHEN isOutlaw = 1 THEN ${VILLAGE_SYNDICATE_ID} ELSE villageId END`,
             })
             .where(eq(userData.clanId, clanData.id)),
+          client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanData.id)),
         ]
       : [
           client
@@ -972,6 +1247,17 @@ export const removeFromClan = async (
                 : clanData.coLeader4,
             })
             .where(eq(clan.id, clanData.id)),
+          client
+            .update(village)
+            .set({
+              kageId: isLeader && otherUser ? otherUser.userId : clanData.leaderId,
+            })
+            .where(
+              and(
+                eq(village.id, user.villageId ?? VILLAGE_SYNDICATE_ID),
+                or(eq(village.type, "HIDEOUT"), eq(village.type, "TOWN")),
+              ),
+            ),
         ]),
   ]);
 };
@@ -1045,6 +1331,7 @@ export const fetchClanBattles = async (client: DrizzleClient, clanId: string) =>
               username: true,
               level: true,
               rank: true,
+              isOutlaw: true,
             },
           },
         },
@@ -1088,7 +1375,11 @@ export const fetchActiveUserClanBattles = async (
  * @param villageId - The ID of the village to fetch clans for.
  * @returns A promise that resolves to an array of clans.
  */
-export const fetchClans = async (client: DrizzleClient, villageId: string) => {
+export const fetchClans = async (
+  client: DrizzleClient,
+  villageId: string,
+  isOutlaw?: boolean,
+) => {
   return await client.query.clan.findMany({
     with: {
       leader: {
@@ -1119,7 +1410,9 @@ export const fetchClans = async (client: DrizzleClient, villageId: string) => {
         },
       },
     },
-    where: eq(clan.villageId, villageId),
+    where: isOutlaw
+      ? or(eq(clan.villageId, villageId), eq(clan.hasHideout, true))
+      : eq(clan.villageId, villageId),
   });
 };
 
@@ -1153,7 +1446,13 @@ export const fetchClan = async (client: DrizzleClient, clanId: string) => {
       },
       village: {
         columns: {
+          id: true,
           name: true,
+          wasDowngraded: true,
+          lastMaintenancePaidAt: true,
+          type: true,
+          sector: true,
+          kageId: true,
         },
       },
       members: {
@@ -1164,6 +1463,7 @@ export const fetchClan = async (client: DrizzleClient, clanId: string) => {
           rank: true,
           avatar: true,
           pvpActivity: true,
+          isOutlaw: true,
         },
       },
       leaderOrder: true,

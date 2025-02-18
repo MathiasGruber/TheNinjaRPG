@@ -130,10 +130,34 @@ export const canModerateReports = (user: UserData, report: UserReport) => {
       (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
       (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ESCALATED") ||
       (user.role === "MODERATOR" && report.status === "OFFICIAL_WARNING") ||
-      (user.role === "MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
-      (user.role === "JR_MODERATOR" && report.status === "OFFICIAL_WARNING") ||
-      (user.role === "JR_MODERATOR" && report.status === "SILENCE_ACTIVATED"))
+      (user.role === "MODERATOR" && report.status === "SILENCE_ACTIVATED"))
   );
+};
+
+export const canBanUsers = (user: UserData) => {
+  return ["MODERATOR-ADMIN", "HEAD_MODERATOR", "MODERATOR", "CODING-ADMIN"].includes(
+    user.role,
+  );
+};
+
+export const canSilenceUsers = (user: UserData) => {
+  return [
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+    "JR_MODERATOR",
+    "CODING-ADMIN",
+  ].includes(user.role);
+};
+
+export const canWarnUsers = (user: UserData) => {
+  return [
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+    "JR_MODERATOR",
+    "CODING-ADMIN",
+  ].includes(user.role);
 };
 
 export const canDeleteComment = (user: UserData, commentAuthorId: string) => {

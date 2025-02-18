@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, and, sql, lt, gte, inArray } from "drizzle-orm";
+import { eq, and, or, sql, lt, gte, inArray } from "drizzle-orm";
 import { HOSPITAL_LONG, HOSPITAL_LAT } from "@/libs/travel/constants";
 import {
   battle,
@@ -17,6 +17,9 @@ import { battleJutsuExp } from "@/libs/train";
 import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { KAGE_DEFAULT_PRESTIGE } from "@/drizzle/constants";
+import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -172,7 +175,7 @@ export const updateKage = async (
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const kage = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
   // Guards
-  if (curBattle.battleType !== "KAGE_CHALLENGE") return;
+  if (!["KAGE_AI", "KAGE_PVP"].includes(curBattle.battleType)) return;
   if (!user || !user.villageId || !kage || !kage.villageId) return;
   if (user.villageId !== kage.villageId) return;
   // Lost items for the kage
@@ -187,12 +190,20 @@ export const updateKage = async (
   // Apply
   if (result) {
     await Promise.all([
-      ...(result.didWin > 0
+      ...(result.didWin > 0 && user.isAggressor
         ? [
             client
               .update(village)
               .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
+            client
+              .update(userData)
+              .set({ villagePrestige: KAGE_DEFAULT_PRESTIGE })
+              .where(eq(userData.userId, user.userId)),
+            client
+              .update(userData)
+              .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
+              .where(eq(userData.userId, user?.village?.kageId ?? "")),
           ]
         : []),
       ...(deleteItems.length > 0
@@ -235,16 +246,27 @@ export const updateClanLeaders = async (
   if (!user.isAggressor) return;
   if (!result.didWin) return;
   // Apply
-  await client
-    .update(clan)
-    .set({
-      leaderId: user.userId,
-      coLeader1: sql`CASE WHEN ${clan.coLeader1} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
-      coLeader2: sql`CASE WHEN ${clan.coLeader2} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
-      coLeader3: sql`CASE WHEN ${clan.coLeader3} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
-      coLeader4: sql`CASE WHEN ${clan.coLeader4} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
-    })
-    .where(eq(clan.id, user.clanId));
+  await Promise.all([
+    client
+      .update(clan)
+      .set({
+        leaderId: user.userId,
+        coLeader1: sql`CASE WHEN ${clan.coLeader1} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
+        coLeader2: sql`CASE WHEN ${clan.coLeader2} = ${user.userId} THEN NULL ELSE ${clan.coLeader2} END`,
+        coLeader3: sql`CASE WHEN ${clan.coLeader3} = ${user.userId} THEN NULL ELSE ${clan.coLeader3} END`,
+        coLeader4: sql`CASE WHEN ${clan.coLeader4} = ${user.userId} THEN NULL ELSE ${clan.coLeader4} END`,
+      })
+      .where(eq(clan.id, user.clanId)),
+    client
+      .update(village)
+      .set({ kageId: user.userId })
+      .where(
+        and(
+          eq(village.id, user.villageId ?? VILLAGE_SYNDICATE_ID),
+          or(eq(village.type, "HIDEOUT"), eq(village.type, "TOWN")),
+        ),
+      ),
+  ]);
 };
 
 export const updateTournament = async (
@@ -352,7 +374,7 @@ export const updateUser = async (
     // Add notifications to combatResult
     result.notifications.push(...notifications);
     // Is it a kage challenge
-    const isKageChallenge = curBattle.battleType === "KAGE_CHALLENGE";
+    const isKageChallenge = ["KAGE_AI", "KAGE_PVP"].includes(curBattle.battleType);
     // Any items to be deleted?
     const deleteItems = user.items.filter((ui) => ui.quantity <= 0).map((i) => i.id);
     const updateItems = user.items.filter((ui) => ui.quantity > 0);
@@ -360,6 +382,10 @@ export const updateUser = async (
     const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
     const jUnique = [...new Set(jUsage)];
     const jExp = battleJutsuExp(curBattle.battleType, result.eloDiff);
+    // If new prestige goes below 0, set allyVillage to false
+    if (user.villagePrestige + result.villagePrestige < 0) {
+      user.allyVillage = false;
+    }
     // Update user & user items
     await Promise.all([
       // Delete items
@@ -441,7 +467,6 @@ export const updateUser = async (
                 status: "HOSPITALIZED",
                 longitude: HOSPITAL_LONG,
                 latitude: HOSPITAL_LAT,
-                villageId: user.villageId,
                 sector: user.allyVillage ? user.sector : user.village?.sector,
                 immunityUntil:
                   curBattle.battleType === "COMBAT"

@@ -433,7 +433,7 @@ export const drawVillage = (
 ) => {
   const group = new Group();
   // Village wall
-  if (village.type === "VILLAGE") {
+  if (village.type === "VILLAGE" || village.type === "TOWN") {
     const wall_tower_texture = loadTexture(IMG_SECTOR_WALL_STONE_TOWER);
     const wall_tower_material = new SpriteMaterial({ map: wall_tower_texture });
     let prevPos: TerrainHex | null = null;

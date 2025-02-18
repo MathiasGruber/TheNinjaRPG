@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { IMG_LAYOUT_WELCOME_IMG } from "@/drizzle/constants";
 import { IMG_FRONTPAGE_SCREENSHOT_COMBAT } from "@/drizzle/constants";
 import { IMG_FRONTPAGE_SCREENSHOT_JUTSUS } from "@/drizzle/constants";
@@ -76,7 +77,9 @@ const Welcome: React.FC = () => {
   return (
     <>
       <div className="flex flex-col items-center">
-        <h1 className="text-center text-4xl font-bold">Welcome to The Ninja RPG</h1>
+        <h1 className="text-center text-4xl font-bold">
+          The Ninja RPG - A Free Online Browser Game
+        </h1>
         <div className="pt-2 w-full px-3">
           <hr className="h-px border-primary border-2" />
         </div>
@@ -177,13 +180,17 @@ const Welcome: React.FC = () => {
                   <div className="p-1">
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
-                        <Image
-                          src={IMG_FRONTPAGE_SCREENSHOT_JUTSUS}
-                          width={1024}
-                          height={716}
-                          className="w-full"
-                          alt="Screenshot from Jutsus"
-                        />
+                        <Suspense
+                          fallback={<Skeleton className="w-full aspect-[1024/716]" />}
+                        >
+                          <Image
+                            src={IMG_FRONTPAGE_SCREENSHOT_JUTSUS}
+                            width={1024}
+                            height={716}
+                            className="w-full"
+                            alt="Screenshot from Jutsus"
+                          />
+                        </Suspense>
                       </CardContent>
                     </Card>
                   </div>
@@ -192,13 +199,17 @@ const Welcome: React.FC = () => {
                   <div className="p-1">
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
-                        <Image
-                          src={IMG_FRONTPAGE_SCREENSHOT_COMBAT}
-                          width={1024}
-                          height={702}
-                          className="w-full"
-                          alt="Screenshot from Combat"
-                        />
+                        <Suspense
+                          fallback={<Skeleton className="w-full aspect-[1024/702]" />}
+                        >
+                          <Image
+                            src={IMG_FRONTPAGE_SCREENSHOT_COMBAT}
+                            width={1024}
+                            height={702}
+                            className="w-full"
+                            alt="Screenshot from Combat"
+                          />
+                        </Suspense>
                       </CardContent>
                     </Card>
                   </div>
@@ -208,13 +219,17 @@ const Welcome: React.FC = () => {
                   <div className="p-1">
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
-                        <Image
-                          src={IMG_FRONTPAGE_SCREENSHOT_VILLAGE}
-                          width={1024}
-                          height={679}
-                          className="w-full"
-                          alt="Screenshot from Village"
-                        />
+                        <Suspense
+                          fallback={<Skeleton className="w-full aspect-[1024/679]" />}
+                        >
+                          <Image
+                            src={IMG_FRONTPAGE_SCREENSHOT_VILLAGE}
+                            width={1024}
+                            height={679}
+                            className="w-full"
+                            alt="Screenshot from Village"
+                          />
+                        </Suspense>
                       </CardContent>
                     </Card>
                   </div>
@@ -223,7 +238,9 @@ const Welcome: React.FC = () => {
                   <div className="p-1">
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6 w-full">
-                        <div>
+                        <Suspense
+                          fallback={<Skeleton className="w-full aspect-[1024/732]" />}
+                        >
                           <Image
                             src={IMG_FRONTPAGE_SCREENSHOT_SECTOR}
                             width={1024}
@@ -231,7 +248,7 @@ const Welcome: React.FC = () => {
                             className="w-full"
                             alt="Screenshot from Sector"
                           />
-                        </div>
+                        </Suspense>
                       </CardContent>
                     </Card>
                   </div>
@@ -240,13 +257,17 @@ const Welcome: React.FC = () => {
                   <div className="p-1">
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
-                        <Image
-                          src={IMG_FRONTPAGE_SCREENSHOT_GLOBAL}
-                          width={1024}
-                          height={743}
-                          className="w-full"
-                          alt="Screenshot from Jutsus"
-                        />
+                        <Suspense
+                          fallback={<Skeleton className="w-full aspect-[1024/743]" />}
+                        >
+                          <Image
+                            src={IMG_FRONTPAGE_SCREENSHOT_GLOBAL}
+                            width={1024}
+                            height={743}
+                            className="w-full"
+                            alt="Screenshot from Jutsus"
+                          />
+                        </Suspense>
                       </CardContent>
                     </Card>
                   </div>

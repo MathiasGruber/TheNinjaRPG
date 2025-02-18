@@ -176,7 +176,9 @@ const StrengthWeaknesses: React.FC = () => {
                   <li>
                     <b>Intelligence:</b> mental strength
                   </li>
-                  <li>movement speed</li>
+                  <li>
+                    <b>Speed:</b> movement speed
+                  </li>
                   <li>
                     <b>Willpower:</b> mental resistance
                   </li>

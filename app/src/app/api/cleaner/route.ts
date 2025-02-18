@@ -214,6 +214,11 @@ export async function GET() {
       .delete(userRequest)
       .where(lt(userRequest.createdAt, secondsFromNow(-3600 * 24)));
 
+    // Step 29: Wrong village wrt. clan
+    await drizzleDB.execute(
+      sql`UPDATE ${userData} u INNER JOIN ${clan} c ON u.clanId = c.id SET u.villageId = c.villageId WHERE c.hasHideout = true AND u.villageId != c.villageId`,
+    );
+
     return Response.json(`OK`);
   } catch (cause) {
     console.error(cause);

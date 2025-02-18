@@ -1,3 +1,10 @@
+export const ACTIVE_VOTING_SITES = [
+  "top100Arena",
+  "mmoHub",
+  "arenaTop100",
+  "bbogd",
+] as const;
+
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
 
@@ -241,7 +248,8 @@ export const BattleTypes = [
   "ARENA",
   "COMBAT",
   "SPARRING",
-  "KAGE_CHALLENGE",
+  "KAGE_AI",
+  "KAGE_PVP",
   "CLAN_CHALLENGE",
   "CLAN_BATTLE",
   "TOURNAMENT",
@@ -267,7 +275,7 @@ export type TournamentState = (typeof TournamentStates)[number];
 export const TournamentMatchStates = ["WAITING", "PLAYED", "NO_SHOW"] as const;
 export type TournamentMatchState = (typeof TournamentMatchStates)[number];
 
-export const AutoBattleTypes = ["KAGE_CHALLENGE", "CLAN_CHALLENGE"];
+export const AutoBattleTypes = ["KAGE_AI", "CLAN_CHALLENGE"];
 
 export const BattleDataEntryType = [
   "jutsu",
@@ -320,6 +328,7 @@ export const UserRequestTypes = [
   "ANBU",
   "CLAN",
   "MARRIAGE",
+  "KAGE",
 ] as const;
 export type UserRequestType = (typeof UserRequestTypes)[number];
 
@@ -395,9 +404,10 @@ export const REMOVAL_COST = 5;
 export const BankTransferTypes = ["bank", "sensei", "recruiter"] as const;
 
 // Caps lookup table
-export const USER_CAPS: {
-  [key in UserRank]: { GENS_CAP: number; STATS_CAP: number; LVL_CAP: number };
-} = {
+export const USER_CAPS: Record<
+  UserRank,
+  { GENS_CAP: number; STATS_CAP: number; LVL_CAP: number }
+> = {
   STUDENT: { GENS_CAP: 20000, STATS_CAP: 20000, LVL_CAP: 10 },
   GENIN: { GENS_CAP: 40000, STATS_CAP: 40000, LVL_CAP: 20 },
   CHUNIN: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
@@ -455,12 +465,12 @@ export const MEDNIN_MIN_RANK = "GENIN";
 export const MEDNIN_RANKS = ["NONE", "NOVICE", "APPRENTICE", "MASTER"] as const;
 export const MEDNIN_HEAL_TO_EXP = 0.1;
 export type MEDNIN_RANK = (typeof MEDNIN_RANKS)[number];
-export const MEDNIN_REQUIRED_EXP = {
+export const MEDNIN_REQUIRED_EXP: Record<MEDNIN_RANK, number> = {
   NONE: 0,
   NOVICE: 0,
   APPRENTICE: 100000,
   MASTER: 400000,
-} as { [key in MEDNIN_RANK]: number };
+};
 
 // Ai profile config
 export const AI_PROFILE_MAX_RULES = 20;
@@ -527,6 +537,14 @@ export const CLAN_TRAINING_BOOST_COST = 300;
 export const CLAN_RYO_BOOST_COST = 100;
 export const CLAN_REGEN_BOOST_COST = 300;
 
+// Hideout and town costs
+export const HIDEOUT_COST = 50_000_000; // Ryo
+export const HIDEOUT_TOWN_UPGRADE = 2_000; // Reps
+export const TOWN_REESTABLISH_COST = 30_000_000; // Ryo
+export const TOWN_MONTHLY_MAINTENANCE = 30_000; // Faction points
+export const FACTION_MIN_POINTS_FOR_TOWN = 1_000_000;
+export const FACTION_MIN_MEMBERS_FOR_TOWN = 30;
+
 // Tournament Config
 export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
 
@@ -534,21 +552,45 @@ export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
 export const GAME_SETTING_GAINS_MULTIPLIER = ["0", "2", "4", "8"] as const;
 
 // Map settings
-export const SECTOR_TYPES = ["VILLAGE", "OUTLAW", "SAFEZONE"] as const;
+export const SECTOR_TYPES = [
+  "VILLAGE",
+  "OUTLAW",
+  "SAFEZONE",
+  "HIDEOUT",
+  "TOWN",
+] as const;
 
 // Conversation config
 export const CONVERSATION_QUIET_MINS = 5;
 export const REPORT_CONTEXT_WINDOW = 10;
 
 // Kage config
-export const KAGE_PRESTIGE_REQUIREMENT = 4000;
-export const KAGE_RANK_REQUIREMENT = "JONIN";
-export const KAGE_PRESTIGE_COST = 1000;
-export const FRIENDLY_PRESTIGE_COST = 10000;
-export const WAR_FUNDS_COST = 100;
+export const FRIENDLY_PRESTIGE_COST = 10000; // Prestige cost of killing friendly
+export const KAGE_ANBU_DELETE_COST = 3000; // Anbu delete cost
+export const KAGE_CHALLENGE_MINS = 10; // 10 minutes for accepting challenges
+export const KAGE_CHALLENGE_SECS = KAGE_CHALLENGE_MINS * 60; // 10 minutes for accepting challenges
+export const KAGE_CHALLENGE_TIMEOUT_MINS = 30; // Timeout for PvP kage battle
+export const KAGE_DAILY_PRESTIGE_LOSS = 500; // Kage prestige loss
+export const KAGE_DEFAULT_PRESTIGE = 5000; // Starting prestige of kage
+export const KAGE_DELAY_SECS = 24 * 3600; // Delay before kage can perform actions
+export const KAGE_ELDER_MIN_DAYS = 100; // minimum days in village to be elder
+export const KAGE_REQUESTS_SHOW_SECONDS = 24 * 60 * 60; // Show requests for 24 hours
 export const KAGE_MAX_DAILIES = 3;
-export const KAGE_MAX_ELDERS = 5;
-export const KAGE_DELAY_SECS = 24 * 3600;
+export const KAGE_MAX_ELDERS = 3;
+export const KAGE_MAX_WEEKLY_PRESTIGE_SEND = 6000; // Maximum weekly prestige send from elders
+export const KAGE_MIN_DAYS_IN_VILLAGE = 40; // minimum days in village to become kage
+export const KAGE_MIN_PRESTIGE = 4000; // Remove kage if below
+export const KAGE_PRESTIGE_COST = 10000; // Cost of failed challenge
+export const KAGE_PRESTIGE_REQUIREMENT = 30000; // To challeng kage
+export const KAGE_RANK_REQUIREMENT = "JONIN";
+export const KAGE_WAR_DECLARE_COST = 10000; // Declare war cost
+export const KAGE_CHALLENGE_REJECT_COST = 500; // Cost of rejecting a challenge
+export const KAGE_CHALLENGE_ACCEPT_PRESTIGE = 200; // Kage prestige gain of accepting challenge
+export const KAGE_CHALLENGE_WIN_PRESTIGE = 500; // Kage prestige gain of winning challenge
+export const KAGE_CHALLENGE_LOSE_PRESTIGE_PER_HOUR = 100; // Kage prestige loss of not accepting challenges
+export const KAGE_CHALLENGE_OPEN_FOR_SECONDS = 60 * 60; // Time in between being able to toggle challenges
+export const KAGE_UNACCEPTED_CHALLENGE_COST = 1000; // Cost of unaccepted challenge, i.e. going to Ai vs Ai
+export const WAR_FUNDS_COST = 100; // Prestige cost of declaring war
 
 // Game assets
 export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";
@@ -656,6 +698,9 @@ export const IMG_BG_DESSERT =
   "https://utfs.io/f/Hzww9EQvYURJnAdfRSmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
 export const IMG_BG_ICE =
   "https://utfs.io/f/Hzww9EQvYURJGVWObnRfoVrha0LP4mAS5KM7wtiZbUNXJxdC";
+
+export const IMG_VILLAGE_FACTION =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJyODt1NukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
 
 export const IMG_RARITY_RARE =
   "https://utfs.io/f/Hzww9EQvYURJvSyOMsEmSnXwslYEpV1yOeNL8gMtqhjPdf36";

@@ -87,7 +87,9 @@ export default function Profile() {
             <p>Village: {userData.village?.name}</p>
             <p>Bloodline: {userData.bloodline?.name || "None"}</p>
             <p>ANBU: {userData.anbuSquad?.name || "None"}</p>
-            <p>Clan: {userData.clan?.name || "None"}</p>
+            <p>
+              {userData.isOutlaw ? "Faction" : "Clan"}: {userData.clan?.name || "None"}
+            </p>
             <p>Medical: {capitalizeFirstLetter(calcMedninRank(userData))}</p>
             <p>
               Married:{" "}

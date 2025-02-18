@@ -27,12 +27,13 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
       className="ml-1 flex flex-row items-center hover:text-orange-700"
       onClick={() => props.onBack && props.onBack()}
       href={props.back_href}
+      suppressHydrationWarning
     >
       <ChevronsLeft className="h-6 w-6" />
       {props.title}
     </Link>
   ) : (
-    <div>{props.title}</div>
+    <div suppressHydrationWarning>{props.title}</div>
   );
   // Show the content box
   return (
@@ -53,10 +54,14 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
               <h1 className="text-2xl font-bold text-background-foreground">{title}</h1>
             )}
             {props.subtitle && !props.initialBreak && !props.alreadyHasH1 && (
-              <h2 className=" text-background-foreground">{props.subtitle}</h2>
+              <h2 className=" text-background-foreground" suppressHydrationWarning>
+                {props.subtitle}
+              </h2>
             )}
             {props.subtitle && (props.initialBreak || props.alreadyHasH1) && (
-              <h3 className=" text-background-foreground">{props.subtitle}</h3>
+              <h3 className=" text-background-foreground" suppressHydrationWarning>
+                {props.subtitle}
+              </h3>
             )}
           </div>
           <div className="flex flex-row grow">

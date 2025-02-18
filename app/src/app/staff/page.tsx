@@ -2,7 +2,7 @@
 
 import ContentBox from "@/layout/ContentBox";
 import AvatarImage from "@/layout/Avatar";
-import Loader from "@/layout/Loader";
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Info } from "lucide-react";
@@ -11,14 +11,11 @@ import { cn } from "src/libs/shadui";
 
 export default function Staff() {
   // Users Query
-  const { data, isPending: isLoadingUsers } = api.profile.getPublicUsers.useQuery(
+  const { data } = api.profile.getPublicUsers.useQuery(
     { orderBy: "Staff", isAi: false, limit: 50 },
     {},
   );
   const users = data?.data || [];
-
-  // Show loader
-  if (isLoadingUsers) return <Loader explanation="Loading Staff" />;
 
   // Render results
   return (
@@ -30,6 +27,7 @@ export default function Staff() {
               Moderator Admin
               <UserList
                 users={users.filter((user) => user.role === "MODERATOR-ADMIN")}
+                expectedLength={1}
               />
               <Information hoverEffect="hover:fill-red-800">
                 Main responsibility is to supervise and support our moderation team,
@@ -45,17 +43,24 @@ export default function Staff() {
               Head Moderator
               <UserList
                 users={users.filter((user) => user.role === "HEAD_MODERATOR")}
+                expectedLength={1}
               />
             </div>
             <div className="bg-green-800 p-1 rounded-lg font-bold text-white">
               Moderators
-              <UserList users={users.filter((user) => user.role === "MODERATOR")} />
+              <UserList
+                users={users.filter((user) => user.role === "MODERATOR")}
+                expectedLength={4}
+              />
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <div className="bg-slate-300 p-1 rounded-lg font-bold relative">
               Code Admin & Owner
-              <UserList users={users.filter((user) => user.role === "CODING-ADMIN")} />
+              <UserList
+                users={users.filter((user) => user.role === "CODING-ADMIN")}
+                expectedLength={1}
+              />
               <Information hoverEffect="hover:fill-slate-500">
                 Main responsibility is to set the strategic direction and long-term
                 goals, guiding all teams to ensure the game’s success and growth.
@@ -65,13 +70,19 @@ export default function Staff() {
             </div>
             <div className="bg-slate-300 p-1 rounded-lg font-bold">
               Coders
-              <UserList users={users.filter((user) => user.role === "CODER")} />
+              <UserList
+                users={users.filter((user) => user.role === "CODER")}
+                expectedLength={2}
+              />
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <div className="bg-purple-500 p-1 rounded-lg font-bold relative">
               Content Admin
-              <UserList users={users.filter((user) => user.role === "CONTENT-ADMIN")} />
+              <UserList
+                users={users.filter((user) => user.role === "CONTENT-ADMIN")}
+                expectedLength={1}
+              />
               <Information hoverEffect="hover:fill-purple-700">
                 Main responsibility is to oversee and manage all in-game content to
                 enhance player engagement and ensure a high-quality experience. Working
@@ -86,6 +97,7 @@ export default function Staff() {
                 <UserList
                   singleColumn
                   users={users.filter((user) => user.role === "EVENT")}
+                  expectedLength={5}
                 />
               </div>
               <div className="bg-purple-400 p-1 rounded-lg font-bold">
@@ -93,6 +105,7 @@ export default function Staff() {
                 <UserList
                   singleColumn
                   users={users.filter((user) => user.role === "CONTENT")}
+                  expectedLength={6}
                 />
               </div>
             </div>
@@ -136,12 +149,32 @@ interface UserListProps {
     level: number;
     role: string;
   }[];
+  expectedLength?: number;
   singleColumn?: boolean;
 }
 
 const UserList: React.FC<UserListProps> = (props) => {
   // Destructure information
-  const { users, singleColumn } = props;
+  const { users, singleColumn, expectedLength } = props;
+
+  // Show skeleton if expectedLength is set & there are no users
+  if (expectedLength && users.length === 0) {
+    return (
+      <div
+        className={cn(
+          expectedLength > 1
+            ? `grid grid-cols-1 ${!singleColumn ? "sm:grid-cols-2" : ""}`
+            : "flex flex-row justify-center",
+        )}
+      >
+        {Array.from({ length: expectedLength }).map((_, i) => (
+          <Skeleton key={i} className="m-2 aspect-square rounded-xl basis-1/2" />
+        ))}
+      </div>
+    );
+  }
+
+  // Show users
   return (
     <div
       className={cn(

@@ -44,7 +44,7 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
 
   // Query
   const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined);
-  const { data: villages } = api.village.getAll.useQuery(undefined);
+  const { data: villages } = api.village.getAllNames.useQuery(undefined);
 
   // Name search schema
   const form = useForm<GetPublicUsersSchema>({

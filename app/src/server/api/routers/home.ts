@@ -28,7 +28,10 @@ export const homeRouter = createTRPCRouter({
       const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
       if (user.isOutlaw && inVillage) {
         const sectorVillage = await fetchSectorVillage(ctx.drizzle, user?.sector ?? -1);
-        if (sectorVillage && sectorVillage.type !== "OUTLAW") {
+        if (
+          sectorVillage &&
+          !["OUTLAW", "HIDEOUT", "TOWN"].includes(sectorVillage.type)
+        ) {
           return errorResponse("You can't sleep in a village as an outlaw");
         }
       } else if (!user.isOutlaw && !inVillage) {

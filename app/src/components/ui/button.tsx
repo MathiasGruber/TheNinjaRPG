@@ -1,5 +1,6 @@
 import * as React from "react";
 import Image from "next/image";
+import Loader from "@/layout/Loader";
 import {
   Tooltip,
   TooltipContent,
@@ -21,7 +22,7 @@ const buttonVariants = cva(
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         info: "bg-blue-600 text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:
-          "border border-input bg-white shadow-sm hover:bg-slate-100 hover:text-accent-foreground",
+          "border border-input bg-white shadow-sm hover:bg-slate-100 hover:text-accent-foreground text-black",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
@@ -49,6 +50,7 @@ export interface ButtonProps
   hoverText?: string;
   decoration?: "gold" | "none";
   animation?: "pulse";
+  loading?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -58,8 +60,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant,
       size,
       hoverText,
+      children,
       asChild = false,
       decoration = "none",
+      loading = false,
       ...props
     },
     ref,
@@ -72,7 +76,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(buttonVariants({ variant, size, className }), animation)}
         ref={ref}
         {...props}
-      />
+      >
+        {children}
+        {loading && <Loader size={20} />}
+      </Comp>
     );
     if (hoverText) {
       element = (

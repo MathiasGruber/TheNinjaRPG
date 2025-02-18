@@ -34,6 +34,9 @@ import { reportCommentExplain } from "@/utils/reports";
 import { showMutationToast } from "@/libs/toast";
 import { canPostReportComment } from "@/utils/permissions";
 import { canModerateReports } from "@/utils/permissions";
+import { canBanUsers } from "@/utils/permissions";
+import { canSilenceUsers } from "@/utils/permissions";
+import { canWarnUsers } from "@/utils/permissions";
 import { canEscalateBan } from "@/utils/permissions";
 import { canClearReport } from "@/utils/permissions";
 import { TimeUnits } from "@/drizzle/constants";
@@ -174,8 +177,11 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
   const canComment = canPostReportComment(report);
   const canEscalate = canEscalateBan(userData, report);
   const canClear = canClearReport(userData, report);
-  const canBan = canModerateReports(userData, report);
-  const canWrite = canComment || canEscalate || canClear || canBan;
+  const canModerate = canModerateReports(userData, report);
+  const canBan = canBanUsers(userData);
+  const canSilence = canSilenceUsers(userData);
+  const canWarn = canWarnUsers(userData);
+  const canWrite = canComment || canEscalate || canClear || canModerate;
 
   return (
     <>
@@ -210,7 +216,7 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
       <ContentBox title="Further Input / Chat" initialBreak={true}>
         <form>
           <div className="mb-3">
-            {canBan && (
+            {canModerate && (
               <div className="flex flex-row items-end">
                 <div className="grow">
                   <SliderField
@@ -293,7 +299,7 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
                     this comment can not be edited or deleted afterwards
                   </Confirm>
                 )}
-                {!canBan && canEscalate && (
+                {!canModerate && canEscalate && (
                   <Confirm
                     title="Confirm Escalating Report"
                     button={
@@ -311,7 +317,7 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
                     extension of the ban.
                   </Confirm>
                 )}
-                {canBan && (
+                {canModerate && canSilence && (
                   <Confirm
                     title="Confirm Silencing User"
                     button={
@@ -329,7 +335,7 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
                     by posting another comment and &rdquo;Clear&rdquo; the report.
                   </Confirm>
                 )}
-                {canBan && (
+                {canModerate && canBan && (
                   <Confirm
                     title="Confirm Banning User"
                     button={
@@ -347,7 +353,7 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
                     posting another comment and &rdquo;Clear&rdquo; the report.
                   </Confirm>
                 )}
-                {canBan && (
+                {canModerate && canWarn && (
                   <Confirm
                     title="Confirm Warning"
                     button={
@@ -364,7 +370,7 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
                     decision can not be edited or deleted.
                   </Confirm>
                 )}
-                {canClear && (
+                {canModerate && canClear && (
                   <Confirm
                     title="Confirm Clearing Report"
                     button={

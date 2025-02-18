@@ -11,6 +11,7 @@ export const SimpleTasks = [
   // "village_funds_earned",
   // "any_missions_completed",
   // "any_crimes_completed",
+  "days_as_kage",
   "errands_total",
   "a_missions_total",
   "b_missions_total",

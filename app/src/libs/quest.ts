@@ -11,6 +11,7 @@ import {
   IMG_MISSION_C,
   IMG_MISSION_D,
   IMG_MISSION_E,
+  VILLAGE_SYNDICATE_ID,
   type LetterRank,
   type QuestType,
 } from "@/drizzle/constants";
@@ -23,10 +24,12 @@ import type { QuestTrackerType } from "@/validators/objectives";
  * Get currently active quests for a user
  */
 export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
-  return (
-    user?.userQuests.filter((uq) => !!uq.quest).map((uq) => ({ ...uq, ...uq.quest })) ??
-    []
-  );
+  const userQuests =
+    user?.userQuests
+      .filter((uq) => !!uq.quest)
+      .filter((uq) => isAvailableUserQuests({ ...uq.quest, ...uq }, user))
+      .map((uq) => ({ ...uq, ...uq.quest })) ?? [];
+  return userQuests;
 };
 
 /**
@@ -183,14 +186,20 @@ export const getNewTrackers = (
             return status;
           }
 
-          // Get the task update for this objective
+          //Convenience
           const task = objective.task;
+          const isKage = user.village?.kageId === user.userId;
 
           // General updates we want to apply every time
+          console.log(task);
           if (task === "user_level") {
             status.value = user.level;
           } else if (task === "days_in_village") {
             const days = Math.floor(secondsPassed(user.joinedVillageAt) / 60 / 60 / 24);
+            status.value = days;
+          } else if (task === "days_as_kage" && isKage && user.village) {
+            const seconds = secondsPassed(user.village.leaderUpdatedAt);
+            const days = Math.floor(seconds / 60 / 60 / 24);
             status.value = days;
           } else if (task === "reputation_points") {
             status.value = user.reputationPointsTotal;
@@ -410,12 +419,12 @@ export const hideQuestInformation = (quest?: Quest, user?: UserData) => {
 /**
  * Filters out hidden and expired quests based on the user's role.
  *
- * @param quest - The quest object to be checked.
+ * @param questAndUserQuestInfo - The quest object to be checked.
  * @param role - The role of the user.
  * @returns A boolean indicating whether the quest is either hidden and the user can play hidden quests, or the quest is not expired.
  */
 export const isAvailableUserQuests = (
-  quest: {
+  questAndUserQuestInfo: {
     hidden: boolean;
     questType: QuestType;
     expiresAt?: string | null;
@@ -425,13 +434,18 @@ export const isAvailableUserQuests = (
   },
   user: UserData,
 ) => {
-  const hideCheck = !quest.hidden || canPlayHiddenQuests(user.role);
-  const expiresCheck = !quest.expiresAt || new Date(quest.expiresAt) > new Date();
+  const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
+  const expiresCheck =
+    !questAndUserQuestInfo.expiresAt ||
+    new Date(questAndUserQuestInfo.expiresAt) > new Date();
   const prevCheck =
-    quest.questType !== "event" ||
-    !quest.previousAttempts ||
-    (quest.previousAttempts <= 1 && quest.completed === 0);
+    questAndUserQuestInfo.questType !== "event" ||
+    !questAndUserQuestInfo.previousAttempts ||
+    (questAndUserQuestInfo.previousAttempts <= 1 &&
+      questAndUserQuestInfo.completed === 0);
   const villageCheck =
-    !quest.requiredVillage || quest.requiredVillage === user.villageId;
+    !questAndUserQuestInfo.requiredVillage ||
+    questAndUserQuestInfo.requiredVillage === user.villageId ||
+    (questAndUserQuestInfo.requiredVillage === VILLAGE_SYNDICATE_ID && user.isOutlaw);
   return hideCheck && expiresCheck && prevCheck && villageCheck;
 };
