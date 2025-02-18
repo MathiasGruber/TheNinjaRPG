@@ -1148,39 +1148,71 @@ export const drain = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
+  console.log("[DRAIN] Effect triggered:", effect);
+
+  // Check if the effect is prevented
   const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
   if (preventTag && preventTag.createdRound < effect.createdRound) {
+    console.log(`[DRAIN] Drain prevented by ${preventTag.type}`);
     if (!pass) return preventResponse(effect, target, "cannot be debuffed");
   }
 
   // Calculate drain amount
   const { power, qualifier } = getPower(effect);
+  const drainAmount = effect.calculation === "percentage" ? power / 100 : power;
+  console.log(`[DRAIN] Power: ${power}, Drain Amount: ${drainAmount}`);
+
+  // Determine affected pools
   const poolsAffects = "poolsAffected" in effect && effect.poolsAffected
     ? effect.poolsAffected
     : ["Chakra", "Stamina"];
+  console.log(`[DRAIN] Affects pools: ${poolsAffects.join(", ")}`);
 
   // Apply drain effect each round
   if (!effect.isNew && !effect.castThisRound) {
-    const drainAmount = effect.calculation === "percentage"
-      ? power / 100
-      : power;
+    console.log(
+      `[DRAIN] Applying drain... Target before drain: ${target.username} - Chakra: ${target.curChakra}, Stamina: ${target.curStamina}`
+    );
 
-    poolsAffects.forEach(pool => {
+    poolsAffects.forEach((pool) => {
       switch (pool) {
         case "Chakra":
-          target.curChakra = Math.max(0, target.curChakra - drainAmount);
+          const drainedChakra = Math.max(0, target.curChakra - drainAmount);
+          console.log(
+            `[DRAIN] Draining ${drainAmount} from Chakra. Before: ${target.curChakra}, After: ${drainedChakra}`
+          );
+          target.curChakra = drainedChakra;
           break;
         case "Stamina":
-          target.curStamina = Math.max(0, target.curStamina - drainAmount);
+          const drainedStamina = Math.max(0, target.curStamina - drainAmount);
+          console.log(
+            `[DRAIN] Draining ${drainAmount} from Stamina. Before: ${target.curStamina}, After: ${drainedStamina}`
+          );
+          target.curStamina = drainedStamina;
           break;
       }
     });
+
+    console.log(
+      `[DRAIN] Target after drain: ${target.username} - Chakra: ${target.curChakra}, Stamina: ${target.curStamina}`
+    );
+  } else {
+    console.log(`[DRAIN] Drain not applied because effect is new or just cast`);
+  }
+
+  // Debug: Check if drain was applied
+  if (drainAmount > 0) {
+    console.log(
+      `[DRAIN] ${target.username} successfully drained ${drainAmount} from ${poolsAffects.join(" and ")}`
+    );
+  } else {
+    console.log(`[DRAIN] No drain applied. Drain amount: ${drainAmount}`);
   }
 
   return getInfo(
     target,
     effect,
-    `will drain ${qualifier}% of ${poolsAffects.join(" and ")} for ${effect.rounds} rounds`,
+    `will drain ${qualifier}% of ${poolsAffects.join(" and ")} for ${effect.rounds} rounds`
   );
 };
 /** Create a temporary HP shield that absorbs damage */
