@@ -183,12 +183,12 @@ export const QuestValidator = z
       .optional()
       .nullish(),
   })
-  .superRefine((val, ctx) => {
+ .superRefine((val, ctx) => {
     if (["daily", "tier"].includes(val.questType)) {
-      if (val.content.objectives.length !== 3) {
+      if (val.content.objectives.length < 3 || val.content.objectives.length > 7) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Daily & Tier quests must have 3 objectives",
+          message: "Daily & Tier quests must have between 3 and 7 objectives",
         });
       }
     }
