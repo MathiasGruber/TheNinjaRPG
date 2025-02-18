@@ -461,6 +461,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
               }
             />
             <Label htmlFor="battle-description">Show battle descriptions</Label>
+            < br/>
             <Button
               onClick={async () => {
                 if (!profile?.aiProfileId) return;
