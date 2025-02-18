@@ -298,7 +298,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
       },
     });
 
-  const { mutate: updateAiProfile, isPending: isSaving } =
+  const { mutate: updateAiProfile } =
     api.ai.updateAiProfile.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -477,9 +477,9 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                 };
             
                 try {
-                  await updateAiProfile(defaultAiProfilePayload);
+                  updateAiProfile(defaultAiProfilePayload);
                   showMutationToast({ success: true, message: "AI profile reset successfully" });
-                } catch (error) {
+                } catch {
                   showMutationToast({ success: false, message: "AI profile failed to reset" });
                 }
               }}
