@@ -445,6 +445,35 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
               }
             />
             <Label htmlFor="battle-description">Show battle descriptions</Label>
+            <Button
+              onClick={() => {
+                if (!profile?.aiProfileId) return;
+
+                const defaultAiProfilePayload = {
+                  id: profile.aiProfileId, // Correct AI profile ID from the user
+                  rules: [
+                    {
+                      action: {
+                        type: "move_towards_opponent",
+                        target: "CLOSEST_OPPONENT",
+                        description: "Move towards opponent",
+                      },
+                      conditions: [
+                        {
+                          type: "distance_higher_than",
+                          value: 2,
+                          target: "RANDOM_OPPONENT",
+                          description: "Distance higher than or equal given value",
+                        },
+                      ],
+                    },
+                  ],
+                  includeDefaultRules: true,
+                };
+              }}
+              className="w-full"
+            >
+            </Button>
           </TabsContent>
           <TabsContent value="aiprofile">
             <AiProfileEdit userData={profile} hideTitle />
