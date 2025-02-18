@@ -6,7 +6,7 @@ import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
-import { absorb, reflect, recoil, lifesteal, shield } from "./tags";
+import { absorb, reflect, recoil, lifesteal, drain, shield } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -362,6 +362,10 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = recoil(e, usersEffects, consequences, curTarget);
           } else if (e.type === "lifesteal") {
             info = lifesteal(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "absorb") {
+            info = absorb(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "drain") {
+            info = drain(e, usersEffects, consequences, curTarget);
           } else if (e.type === "fleeprevent") {
             info = fleePrevent(e, curTarget);
           } else if (e.type === "healprevent") {
@@ -565,6 +569,14 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               2,
             )} damage and converts it to chakra`,
             color: "green",
+          });
+        }
+        if (c.drain && c.drain > 0) {
+          target.curChakra = Math.max(0, target.curChakra - c.drain);
+          target.curStamina = Math.max(0, target.curStamina - c.drain);
+          actionEffects.push({
+              txt: `${user.username} drains ${c.drain.toFixed(2)} chakra and stamina from ${target.username}`,
+              color: "blue",
           });
         }
         // Process disappear animation of characters
