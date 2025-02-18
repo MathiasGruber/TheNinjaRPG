@@ -75,6 +75,11 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Bloodline, Village } from "@/drizzle/schema";
+import {
+  AiRule,
+  ConditionDistanceHigherThan,
+  ActionMoveTowardsOpponent,
+} from "@/validators/ai";
 
 export default function EditProfile() {
   // State
@@ -459,33 +464,24 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             <Button
               onClick={async () => {
                 if (!profile?.aiProfileId) return;
+            
                 const defaultAiProfilePayload = {
-                  id: profile.aiProfileId, // Correct AI profile ID from the user
+                  id: profile.aiProfileId,
                   rules: [
-                    {
-                      action: {
-                        type: "move_towards_opponent",
-                        target: "CLOSEST_OPPONENT",
-                        description: "Move towards opponent",
-                      },
-                      conditions: [
-                        {
-                          type: "distance_higher_than",
-                          value: 2,
-                          target: "RANDOM_OPPONENT",
-                          description: "Distance higher than or equal given value",
-                        },
-                      ],
-                    },
+                    AiRule.parse({
+                      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+                      action: ActionMoveTowardsOpponent.parse({}),
+                    }),
                   ],
                   includeDefaultRules: true,
                 };
-                  try {
-                   await updateAiProfile(defaultAiProfilePayload);
-                   showMutationToast({ success: true, message: "AI profile reset successfully" });
-                 } catch (error) {
-                   showMutationToast({ success: false, message: error.message });
-                 } 
+            
+                try {
+                  await updateAiProfile(defaultAiProfilePayload);
+                  showMutationToast({ success: true, message: "AI profile reset successfully" });
+                } catch (error) {
+                  showMutationToast({ success: false, message: error.message });
+                }
               }}
               className="px-3 py-1 text-sm"
             >
