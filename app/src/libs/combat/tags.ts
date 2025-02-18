@@ -1168,10 +1168,10 @@ export const drain = (
     poolsAffects.forEach(pool => {
       switch (pool) {
         case "Chakra":
-          target.curChakra = Math.max(0, target.curChakra * (1 - drainAmount));
+          target.curChakra = Math.max(0, target.curChakra - drainAmount);
           break;
         case "Stamina":
-          target.curStamina = Math.max(0, target.curStamina * (1 - drainAmount));
+          target.curStamina = Math.max(0, target.curStamina - drainAmount);
           break;
       }
     });
