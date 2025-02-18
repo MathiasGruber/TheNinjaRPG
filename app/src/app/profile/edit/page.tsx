@@ -448,7 +448,6 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             <Button
               onClick={async () => {
                 if (!profile?.aiProfileId) return;
-                setIsLoading(true);
                 const defaultAiProfilePayload = {
                   id: profile.aiProfileId, // Correct AI profile ID from the user
                   rules: [
@@ -475,14 +474,11 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                    showMutationToast({ success: true, message: "AI profile reset successfully" });
                  } catch (error) {
                    showMutationToast({ success: false, message: error.message });
-                 } finally {
-                   setIsLoading(false);
-                 }
+                 } 
               }}
-              className="w-full"
-              disabled={isLoading || !profile?.aiProfileId}
+              className="px-3 py-1 text-sm"
             >
-              {isLoading ? <Loader size="sm" /> : "Reset AI Profile"}
+              Reset AI Profile
             </Button>
           </TabsContent>
           <TabsContent value="aiprofile">
