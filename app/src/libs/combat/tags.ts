@@ -1148,47 +1148,52 @@ export const drain = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  console.log("[DRAIN] Effect triggered:", effect);
+  console.log("[DRAIN] Function entered. Effect:", effect);
 
   // Check if the effect is prevented
   const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
   if (preventTag && preventTag.createdRound < effect.createdRound) {
     console.log(`[DRAIN] Drain prevented by ${preventTag.type}`);
-    if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+    if (!pass) {
+      console.log("[DRAIN] Returning early because drain is prevented.");
+      return preventResponse(effect, target, "cannot be debuffed");
+    }
   }
+
+  console.log("[DRAIN] Passed prevent check.");
 
   // Calculate drain amount
   const { power, qualifier } = getPower(effect);
-  const drainAmount = effect.calculation === "percentage" ? power / 100 : power;
-  console.log(`[DRAIN] Power: ${power}, Drain Amount: ${drainAmount}`);
+  const poolsAffects =
+    "poolsAffected" in effect && effect.poolsAffected
+      ? effect.poolsAffected
+      : ["Chakra", "Stamina"];
 
-  // Determine affected pools
-  const poolsAffects = "poolsAffected" in effect && effect.poolsAffected
-    ? effect.poolsAffected
-    : ["Chakra", "Stamina"];
-  console.log(`[DRAIN] Affects pools: ${poolsAffects.join(", ")}`);
+  console.log(`[DRAIN] Power: ${power}, Affects pools: ${poolsAffects.join(", ")}`);
 
   // Apply drain effect each round
   if (!effect.isNew && !effect.castThisRound) {
+    console.log("[DRAIN] Effect is not new and wasn't cast this round. Applying drain.");
+
+    const drainAmount =
+      effect.calculation === "percentage" ? power / 100 : power;
+
     console.log(
       `[DRAIN] Applying drain... Target before drain: ${target.username} - Chakra: ${target.curChakra}, Stamina: ${target.curStamina}`
     );
+    console.log(`[DRAIN] Drain amount to apply: ${drainAmount}`);
 
     poolsAffects.forEach((pool) => {
       switch (pool) {
         case "Chakra":
-          const drainedChakra = Math.max(0, target.curChakra - drainAmount);
-          console.log(
-            `[DRAIN] Draining ${drainAmount} from Chakra. Before: ${target.curChakra}, After: ${drainedChakra}`
-          );
-          target.curChakra = drainedChakra;
+          console.log(`[DRAIN] Draining from Chakra. Before: ${target.curChakra}`);
+          target.curChakra = Math.max(0, target.curChakra - drainAmount);
+          console.log(`[DRAIN] After: ${target.curChakra}`);
           break;
         case "Stamina":
-          const drainedStamina = Math.max(0, target.curStamina - drainAmount);
-          console.log(
-            `[DRAIN] Draining ${drainAmount} from Stamina. Before: ${target.curStamina}, After: ${drainedStamina}`
-          );
-          target.curStamina = drainedStamina;
+          console.log(`[DRAIN] Draining from Stamina. Before: ${target.curStamina}`);
+          target.curStamina = Math.max(0, target.curStamina - drainAmount);
+          console.log(`[DRAIN] After: ${target.curStamina}`);
           break;
       }
     });
@@ -1197,17 +1202,10 @@ export const drain = (
       `[DRAIN] Target after drain: ${target.username} - Chakra: ${target.curChakra}, Stamina: ${target.curStamina}`
     );
   } else {
-    console.log(`[DRAIN] Drain not applied because effect is new or just cast`);
+    console.log(`[DRAIN] Drain not applied because effect is new or just cast. isNew: ${effect.isNew}, castThisRound: ${effect.castThisRound}`);
   }
 
-  // Debug: Check if drain was applied
-  if (drainAmount > 0) {
-    console.log(
-      `[DRAIN] ${target.username} successfully drained ${drainAmount} from ${poolsAffects.join(" and ")}`
-    );
-  } else {
-    console.log(`[DRAIN] No drain applied. Drain amount: ${drainAmount}`);
-  }
+  console.log("[DRAIN] Returning drain info message.");
 
   return getInfo(
     target,
@@ -1215,6 +1213,7 @@ export const drain = (
     `will drain ${qualifier}% of ${poolsAffects.join(" and ")} for ${effect.rounds} rounds`
   );
 };
+
 /** Create a temporary HP shield that absorbs damage */
 export const shield = (effect: UserEffect, target: BattleUserState) => {
   // Apply
