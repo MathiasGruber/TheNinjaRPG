@@ -1042,27 +1042,6 @@ export const decreasepoolcost = (effect: UserEffect, target: BattleUserState) =>
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return pooladjust(effect, target);
 };
-
-/** Drain target's Chakra and Stamina over time */
-export const drain = (effect: UserEffect, target: BattleUserState) => {
-  const { power, qualifier } = getPower(effect);
-  const poolsAffects = "poolsAffected" in effect && effect.poolsAffected
-    ? effect.poolsAffected
-    : ["Chakra", "Stamina"];
-
-  if (!effect.isNew && !effect.castThisRound) {
-    poolsAffects.forEach(pool => {
-      switch (pool) {
-        case "Chakra":
-          target.curChakra = Math.max(0, target.curChakra * (1 - power / 100));
-          break;
-        case "Stamina":
-          target.curStamina = Math.max(0, target.curStamina * (1 - power / 100));
-          break;
-      }
-    });
-  }
-
   return getInfo(
     target,
     effect,
