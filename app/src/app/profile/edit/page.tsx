@@ -293,6 +293,17 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
       },
     });
 
+  const { mutate: updateAiProfile, isPending: isSaving } =
+    api.ai.updateAiProfile.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getAi.invalidate();
+          await utils.profile.getPublicUser.invalidate();
+        }
+      },
+    });
+
   // Update highest preferences
   const { mutate: updatePreferences } = api.profile.updatePreferences.useMutation({
     onSuccess: async (data) => {
