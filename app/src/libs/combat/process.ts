@@ -362,8 +362,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = recoil(e, usersEffects, consequences, curTarget);
           } else if (e.type === "lifesteal") {
             info = lifesteal(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "absorb") {
-            info = absorb(e, usersEffects, consequences, curTarget);
           } else if (e.type === "drain") {
             info = drain(e, usersEffects, consequences, curTarget);
           } else if (e.type === "fleeprevent") {
