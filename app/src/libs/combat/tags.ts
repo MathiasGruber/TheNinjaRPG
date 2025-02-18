@@ -1182,7 +1182,7 @@ export const drain = (
     effect,
     `will drain ${qualifier}% of ${poolsAffects.join(" and ")} for ${effect.rounds} rounds`,
   );
-  
+};
 /** Create a temporary HP shield that absorbs damage */
 export const shield = (effect: UserEffect, target: BattleUserState) => {
   // Apply
