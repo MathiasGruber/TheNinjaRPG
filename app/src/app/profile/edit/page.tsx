@@ -480,7 +480,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                   await updateAiProfile(defaultAiProfilePayload);
                   showMutationToast({ success: true, message: "AI profile reset successfully" });
                 } catch (error) {
-                  showMutationToast({ success: false, message: error.message });
+                  showMutationToast({ success: false, message: "AI profile failed to reset" });
                 }
               }}
               className="px-3 py-1 text-sm"
