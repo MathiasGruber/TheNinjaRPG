@@ -181,6 +181,7 @@ export type Consequence = {
   absorb_hp?: number;
   absorb_sp?: number;
   absorb_cp?: number;
+  drain?: number;
   types?: (GeneralType | StatType | ElementName | PoolType)[];
 };
 
