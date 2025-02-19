@@ -575,7 +575,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           target.curStamina -= c.drain;
           target.curStamina = Math.min(target.maxStamina, target.curStamina);
           actionEffects.push({
-              txt: `${user.username} drains ${c.drain.toFixed(2)} chakra and stamina from ${target.username}`,
+              txt: `${user.username} is drained of ${c.drain.toFixed(2)} chakra and stamina`,
               color: "blue",
           });
         }
