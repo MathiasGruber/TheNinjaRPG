@@ -363,7 +363,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           } else if (e.type === "lifesteal") {
             info = lifesteal(e, usersEffects, consequences, curTarget);
           } else if (e.type === "drain") {
-            info = drain(e, usersEffects, consequences, curTarget, battle);
+            info = drain(e, usersEffects, consequences, curTarget);
           } else if (e.type === "fleeprevent") {
             info = fleePrevent(e, curTarget);
           } else if (e.type === "healprevent") {
