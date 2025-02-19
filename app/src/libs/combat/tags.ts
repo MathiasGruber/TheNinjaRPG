@@ -1147,10 +1147,17 @@ export const drain = (
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
   target: BattleUserState,
+  battle: ReturnedBattle, // Add battle parameter to check the round
 ) => {
   // Check if the effect is prevented
   const { pass } = preventCheck(usersEffects, "debuffprevent", target);
   if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+
+  // Ensure drain only applies once per turn
+  if (target.lastDrainTurn === battle.round) {
+    return;
+  }
+  target.lastDrainTurn = battle.round; // Update the turn
 
   // Calculate drain amount
   const { power, qualifier } = getPower(effect);
