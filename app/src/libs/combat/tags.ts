@@ -1148,69 +1148,35 @@ export const drain = (
   consequences: Map<string, Consequence>,
   target: BattleUserState,
 ) => {
-  console.log("[DRAIN] Function entered. Effect:", effect);
-
   // Check if the effect is prevented
-  const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
-  if (preventTag && preventTag.createdRound < effect.createdRound) {
-    console.log(`[DRAIN] Drain prevented by ${preventTag.type}`);
-    if (!pass) {
-      console.log("[DRAIN] Returning early because drain is prevented.");
-      return preventResponse(effect, target, "cannot be debuffed");
-    }
-  }
-
-  console.log("[DRAIN] Passed prevent check.");
+  const { pass } = preventCheck(usersEffects, "debuffprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot be debuffed");
 
   // Calculate drain amount
   const { power, qualifier } = getPower(effect);
-  const poolsAffects =
-    "poolsAffected" in effect && effect.poolsAffected
-      ? effect.poolsAffected
-      : ["Chakra", "Stamina"];
-
-  console.log(`[DRAIN] Power: ${power}, Affects pools: ${poolsAffects.join(", ")}`);
 
   // Apply drain effect each round
   if (!effect.isNew && !effect.castThisRound) {
-    console.log("[DRAIN] Effect is not new and wasn't cast this round. Applying drain.");
+    consequences.forEach((consequence, effectId) => {
+      if (consequence.userId === effect.targetId && consequence.damage) {
+        const damageEffect = usersEffects.find((e) => e.id === effectId);
+        if (damageEffect) {
+          const ratio = getEfficiencyRatio(damageEffect, effect);
+          const convert = Math.floor(consequence.damage * (power / 100)) * ratio;
 
-    const drainAmount =
-      effect.calculation === "percentage" ? power / 100 : power;
-
-    console.log(
-      `[DRAIN] Applying drain... Target before drain: ${target.username} - Chakra: ${target.curChakra}, Stamina: ${target.curStamina}`
-    );
-    console.log(`[DRAIN] Drain amount to apply: ${drainAmount}`);
-
-    poolsAffects.forEach((pool) => {
-      switch (pool) {
-        case "Chakra":
-          console.log(`[DRAIN] Draining from Chakra. Before: ${target.curChakra}`);
-          target.curChakra = Math.max(0, target.curChakra - drainAmount);
-          console.log(`[DRAIN] After: ${target.curChakra}`);
-          break;
-        case "Stamina":
-          console.log(`[DRAIN] Draining from Stamina. Before: ${target.curStamina}`);
-          target.curStamina = Math.max(0, target.curStamina - drainAmount);
-          console.log(`[DRAIN] After: ${target.curStamina}`);
-          break;
+          // Reduce target's Chakra and Stamina
+          consequence.drain = consequence.drain
+            ? consequence.drain + convert
+            : convert;
+        }
       }
     });
-
-    console.log(
-      `[DRAIN] Target after drain: ${target.username} - Chakra: ${target.curChakra}, Stamina: ${target.curStamina}`
-    );
-  } else {
-    console.log(`[DRAIN] Drain not applied because effect is new or just cast. isNew: ${effect.isNew}, castThisRound: ${effect.castThisRound}`);
   }
-
-  console.log("[DRAIN] Returning drain info message.");
 
   return getInfo(
     target,
     effect,
-    `will drain ${qualifier}% of ${poolsAffects.join(" and ")} for ${effect.rounds} rounds`
+    `will drain ${qualifier}% of Chakra and Stamina for ${effect.rounds} rounds`
   );
 };
 
