@@ -1177,7 +1177,7 @@ export const drain = (
   return getInfo(
     target,
     effect,
-    `will drain ${qualifier}% of Chakra and Stamina for ${effect.rounds} rounds`
+    `will be drained ${qualifier} of Chakra and Stamina for ${effect.rounds} rounds`
   );
 };
 
