@@ -194,7 +194,6 @@ export const calcApplyRatio = (
     "increasepoolcost",
     "increasestat",
     "lifesteal",
-    "drain",
     "moveprevent",
     "onehitkillprevent",
     "recoil",
