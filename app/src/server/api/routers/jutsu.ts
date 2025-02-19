@@ -584,8 +584,8 @@ export const jutsuRouter = createTRPCRouter({
       if (!isEquipped && curEquip >= maxEquip) {
         return errorResponse("You cannot equip more jutsu");
       }
-      if (!isEquipped && curJutsuIsPierce && pierceEquipped >= 1) {
-        return errorResponse("You cannot equip more than 1 piercing jutsu");
+      if (!isEquipped && curJutsuIsPierce && pierceEquipped >= 2) {
+        return errorResponse("You cannot equip more than 2 piercing jutsu");
       }
 
       // Calculate loadout
@@ -814,7 +814,7 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
               | "GENIN"
               | "CHUNIN"
               | "JONIN"
-              | "COMMANDER"
+              | "ELITE JONIN"
               | "ELDER"
               | "NONE",
           ),
