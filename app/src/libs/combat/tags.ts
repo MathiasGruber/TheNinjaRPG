@@ -1157,20 +1157,21 @@ export const drain = (
 
   // Apply drain effect each round
   if (!effect.isNew && !effect.castThisRound) {
-    consequences.forEach((consequence, effectId) => {
-      if (consequence.userId === effect.targetId && consequence.damage) {
-        const damageEffect = usersEffects.find((e) => e.id === effectId);
-        if (damageEffect) {
-          const ratio = getEfficiencyRatio(damageEffect, effect);
-          const convert = Math.floor(consequence.damage * (power / 100)) * ratio;
+    const drainAmount = effect.calculation === "percentage"
+      ? Math.floor((power / 100) * Math.max(target.curChakra, target.curStamina))
+      : power;
 
-          // Reduce target's Chakra and Stamina
-          consequence.drain = consequence.drain
-            ? consequence.drain + convert
-            : convert;
-        }
-      }
-    });
+    // Reduce target's Chakra and Stamina directly
+    const consequence = consequences.get(effect.targetId) || {
+      userId: effect.targetId,
+      targetId: effect.targetId,
+    };
+
+    consequence.drain = consequence.drain
+      ? consequence.drain + drainAmount
+      : drainAmount;
+
+    consequences.set(effect.targetId, consequence);
   }
 
   return getInfo(
