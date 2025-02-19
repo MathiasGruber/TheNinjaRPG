@@ -338,7 +338,9 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               info = seal(e, newUsersEffects, curTarget);
             } else if (e.type === "stun") {
               info = stun(e, newUsersEffects, curTarget);
-            }
+            } else if (e.type === "drain") {
+            info = drain(e, usersEffects, consequences, curTarget);
+            } 
           }
 
           // Always apply
@@ -362,8 +364,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = recoil(e, usersEffects, consequences, curTarget);
           } else if (e.type === "lifesteal") {
             info = lifesteal(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "drain") {
-            info = drain(e, usersEffects, consequences, curTarget);
           } else if (e.type === "fleeprevent") {
             info = fleePrevent(e, curTarget);
           } else if (e.type === "healprevent") {
