@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
-import { eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
+import { or, eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
@@ -272,7 +272,10 @@ export const reportsRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       ctx.drizzle.query.userReport.findFirst({
         where: and(
-          eq(userReport.status, "BAN_ACTIVATED"),
+          or(
+            eq(userReport.status, "BAN_ACTIVATED"),
+            eq(userReport.status, "SILENCE_ACTIVATED"),
+          ),
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
