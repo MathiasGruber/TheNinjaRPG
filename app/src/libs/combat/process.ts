@@ -569,7 +569,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             color: "green",
           });
         }
-        if (c.drain && c.drain > 0 && target.curStamina > 0 && curChakra > 0) {
+        if (c.drain && c.drain > 0 && target.curStamina > 0 && target.curChakra > 0) {
           target.curChakra -= c.drain;
           target.curChakra = Math.min(target.maxChakra, target.curChakra);
           target.curStamina -= c.drain;
