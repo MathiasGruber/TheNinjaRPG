@@ -146,7 +146,7 @@ export const UserRanks = [
   "GENIN",
   "CHUNIN",
   "JONIN",
-  "COMMANDER",
+  "ELITE JONIN",
   "ELDER",
   "NONE",
 ] as const;
@@ -305,7 +305,7 @@ export const SmileyEmotions = ["like", "love", "laugh"] as const;
 export const TrainingSpeeds = ["15min", "1hr", "4hrs", "8hrs"] as const;
 export type TrainingSpeed = (typeof TrainingSpeeds)[number];
 
-export const JUTSU_MAX_RESIDUAL_EQUIPPED = 3;
+export const JUTSU_MAX_RESIDUAL_EQUIPPED = 4;
 
 export const UserAssociations = ["MARRIAGE", "DIVORCED"] as const;
 
@@ -412,7 +412,7 @@ export const USER_CAPS: Record<
   GENIN: { GENS_CAP: 40000, STATS_CAP: 40000, LVL_CAP: 20 },
   CHUNIN: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
   JONIN: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
-  COMMANDER: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
+  "ELITE JONIN": { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
   ELDER: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
   NONE: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
 } as const;
@@ -456,7 +456,7 @@ export const ANBU_ITEMSHOP_DISCOUNT_PERC = 5;
 export const ANBU_DELAY_SECS = 24 * 3600;
 
 // Sensei config
-export const SENSEI_RANKS = ["JONIN", "COMMANDER", "ELDER"];
+export const SENSEI_RANKS = ["JONIN", "ELITE JONIN", "ELDER"];
 export const SENSEI_STUDENT_RYO_PER_MISSION = 100;
 
 // Medical Ninja config
@@ -587,10 +587,10 @@ export const KAGE_WAR_DECLARE_COST = 10000; // Declare war cost
 export const KAGE_CHALLENGE_REJECT_COST = 500; // Cost of rejecting a challenge
 export const KAGE_CHALLENGE_ACCEPT_PRESTIGE = 200; // Kage prestige gain of accepting challenge
 export const KAGE_CHALLENGE_WIN_PRESTIGE = 500; // Kage prestige gain of winning challenge
-export const KAGE_CHALLENGE_LOSE_PRESTIGE_PER_HOUR = 100; // Kage prestige loss of not accepting challenges
+export const KAGE_CHALLENGE_LOSE_PRESTIGE_PER_HOUR = 300; // Kage prestige loss of not accepting challenges
 export const KAGE_CHALLENGE_OPEN_FOR_SECONDS = 60 * 60; // Time in between being able to toggle challenges
 export const KAGE_UNACCEPTED_CHALLENGE_COST = 1000; // Cost of unaccepted challenge, i.e. going to Ai vs Ai
-export const WAR_FUNDS_COST = 100; // Prestige cost of declaring war
+export const WAR_FUNDS_COST = 10000; // Prestige cost of declaring war
 
 // Game assets
 export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";
