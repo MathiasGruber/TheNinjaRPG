@@ -313,6 +313,7 @@ export const reportsRouter = createTRPCRouter({
     ]);
     // Unsilence user if ban no longer active
     if (!silenceReport && user.isSilenced) {
+      console.log("Unsilencing user 1");
       await ctx.drizzle
         .update(userData)
         .set({ isSilenced: false })
@@ -624,6 +625,7 @@ export const reportsRouter = createTRPCRouter({
           ),
         });
         if (silences.length === 0) {
+          console.log("Unsilencing user 2");
           await ctx.drizzle
             .update(userData)
             .set({ isSilenced: false })
