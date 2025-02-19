@@ -362,7 +362,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = recoil(e, usersEffects, consequences, curTarget);
           } else if (e.type === "lifesteal") {
             info = lifesteal(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "drain") {
+          } else if (e.type === "") {
             info = drain(e, usersEffects, consequences, curTarget);
           } else if (e.type === "fleeprevent") {
             info = fleePrevent(e, curTarget);
@@ -569,7 +569,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             color: "green",
           });
         }
-        if (c.drain && c.drain > 0) {
+        if (c.drain && c.drain > 0 && target.curStamina > 0 && curChakra > 0) {
           target.curChakra -= c.drain;
           target.curChakra = Math.min(target.maxChakra, target.curChakra);
           target.curStamina -= c.drain;
