@@ -442,6 +442,15 @@ export const COST_REROLL_ELEMENT = 20;
 export const MAX_EXTRA_JUTSU_SLOTS = 2;
 export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM"] as const;
 
+// Jutsu level transfer config
+export const JUTSU_TRANSFER_DAYS = 20;
+export const JUTSU_TRANSFER_COST = 20;
+export const JUTSU_TRANSFER_MAX_LEVEL = 20;
+export const JUTSU_TRANSFER_FREE_AMOUNT = 2;
+export const JUTSU_TRANSFER_FREE_NORMAL = 3;
+export const JUTSU_TRANSFER_FREE_SILVER = 4;
+export const JUTSU_TRANSFER_FREE_GOLD = 5;
+
 // Village config
 export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";
 export const VILLAGE_REDUCED_GAINS_DAYS = 7;

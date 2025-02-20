@@ -197,6 +197,7 @@ export const useFiltering = () => {
   const [classification, setClassification] = useState<StatType | None>("None");
   const [effect, setEffect] = useState<string[]>([]);
   const [element, setElement] = useState<string[]>([]);
+  const [jutsuType, setJutsuType] = useState<string>("None");
   const [method, setMethod] = useState<AttackMethod | None>("None");
   const [name, setName] = useState<string>("");
   const [rank, setRank] = useState<UserRank>("NONE");
@@ -233,6 +234,7 @@ export const useFiltering = () => {
     effect,
     element,
     hidden,
+    jutsuType,
     method,
     name,
     rank,
@@ -262,6 +264,7 @@ export const useFiltering = () => {
     setEffect,
     setElement,
     setHidden,
+    setJutsuType,
     setMethod,
     setName,
     setRank,
@@ -305,6 +308,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     effect,
     element,
     hidden,
+    jutsuType,
     method,
     name,
     rank,
@@ -334,6 +338,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     setEffect,
     setElement,
     setHidden,
+    setJutsuType,
     setMethod,
     setName,
     setRank,
@@ -646,6 +651,17 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             }))}
           />
 
+          {/* Jutsu Type */}
+          <FilterSelect
+            label="Jutsu Type"
+            value={jutsuType}
+            onValueChange={setJutsuType}
+            options={JutsuTypes.map((type) => ({
+              value: type,
+              label: type,
+            }))}
+          />
+
           {/* Target */}
           <FilterSelect
             label="Target"
@@ -854,6 +870,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     disappear: state.removeAnim === "None" ? undefined : state.removeAnim,
     effect: processArray(state.effect as EffectType[]),
     element: processArray(state.element as ElementName[]),
+    jutsuType: state.jutsuType === "None" ? undefined : state.jutsuType,
     method: state.method === "None" ? undefined : state.method,
     name: state.name || undefined,
     rank: state.rank === "NONE" ? undefined : state.rank,

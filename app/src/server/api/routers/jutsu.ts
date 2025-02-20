@@ -12,12 +12,19 @@ import {
 import { fetchUser, fetchUpdatedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
 import { getNewTrackers } from "@/libs/quest";
-import { JUTSU_LEVEL_CAP } from "@/drizzle/constants";
+import {
+  JUTSU_LEVEL_CAP,
+  JUTSU_TRANSFER_COST,
+  JUTSU_TRANSFER_DAYS,
+  JUTSU_TRANSFER_MAX_LEVEL,
+} from "@/drizzle/constants";
 import {
   calcJutsuTrainTime,
   calcJutsuTrainCost,
   calcJutsuEquipLimit,
 } from "@/libs/train";
+import { DAY_S, secondsFromDate } from "@/utils/time";
+import { getFreeTransfers } from "@/libs/jutsu";
 import { JutsuValidator } from "@/libs/combat/types";
 import { canChangeContent, canEditPublicUser } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
@@ -36,6 +43,116 @@ import type { DrizzleClient } from "@/server/db";
 import { TRPCError } from "@trpc/server";
 
 export const jutsuRouter = createTRPCRouter({
+  getRecentTransfers: protectedProcedure
+    .input(z.object({ cutoffDate: z.date() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.drizzle.query.actionLog.findMany({
+        where: and(
+          eq(actionLog.userId, ctx.userId),
+          eq(actionLog.relatedMsg, "JutsuLevelTransfer"),
+          gte(actionLog.createdAt, input.cutoffDate),
+        ),
+      });
+    }),
+  transferLevel: protectedProcedure
+    .input(
+      z.object({
+        fromJutsuId: z.string(),
+        toJutsuId: z.string(),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, userJutsus, recentTransfers] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserJutsus(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.actionLog.findMany({
+          where: and(
+            eq(actionLog.userId, ctx.userId),
+            eq(actionLog.relatedMsg, "JutsuLevelTransfer"),
+            gte(
+              actionLog.createdAt,
+              secondsFromDate(-JUTSU_TRANSFER_DAYS * DAY_S, new Date()),
+            ),
+          ),
+        }),
+      ]);
+      const fromUserJutsu = userJutsus.find((j) => j.jutsuId === input.fromJutsuId);
+      const fromJutsu = fromUserJutsu?.jutsu;
+      const toUserJutsu = userJutsus.find((j) => j.jutsuId === input.toJutsuId);
+      const toJutsu = toUserJutsu?.jutsu;
+      // Guard
+      if (!fromJutsu) return errorResponse("Source jutsu not found");
+      if (!toJutsu) return errorResponse("Target jutsu not found");
+      if (fromJutsu.jutsuType !== toJutsu.jutsuType) {
+        return errorResponse("Jutsus must be of the same type");
+      }
+      if (fromJutsu.jutsuRank !== toJutsu.jutsuRank) {
+        return errorResponse("Jutsus must be of the same rank");
+      }
+      if (fromUserJutsu.level > JUTSU_TRANSFER_MAX_LEVEL) {
+        return errorResponse(
+          `Cannot transfer levels above ${JUTSU_TRANSFER_MAX_LEVEL}`,
+        );
+      }
+      // Check if user has free transfers
+      const freeTransfers = getFreeTransfers(user.federalStatus);
+      const usedTransfers = recentTransfers.length;
+      const needsReputation = usedTransfers >= freeTransfers;
+
+      // If needs reputation, check and deduct
+      if (needsReputation) {
+        if (user.reputationPoints < JUTSU_TRANSFER_COST) {
+          return errorResponse("Not enough reputation points");
+        }
+        const reputationUpdate = await ctx.drizzle
+          .update(userData)
+          .set({
+            reputationPoints: sql`${userData.reputationPoints} - ${JUTSU_TRANSFER_COST}`,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              gte(userData.reputationPoints, JUTSU_TRANSFER_COST),
+            ),
+          );
+        if (reputationUpdate.rowsAffected !== 1) {
+          return errorResponse("Not enough reputation points");
+        }
+      }
+
+      // Perform the transfer
+      await Promise.all([
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ level: fromUserJutsu.level })
+          .where(eq(userJutsu.id, toUserJutsu.id)),
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ level: toUserJutsu.level })
+          .where(eq(userJutsu.id, fromUserJutsu.id)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "userjutsu",
+          changes: [
+            `Transfered jutsu level ${fromUserJutsu.level} from ${fromJutsu.name} to ${toJutsu.name}`,
+          ],
+          relatedId: ctx.userId,
+          relatedMsg: "JutsuLevelTransfer",
+          relatedImage: user.avatarLight,
+        }),
+      ]);
+
+      return {
+        success: true,
+        message: needsReputation
+          ? `Level transferred for ${JUTSU_TRANSFER_COST} reputation points`
+          : "Level transferred for free",
+      };
+    }),
+
   getAllNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.jutsu.findMany({
       columns: { id: true, name: true, image: true },
@@ -709,6 +826,7 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
     // -----------------------------
     ...(input?.name ? [like(jutsu.name, `%${input.name}%`)] : []),
     ...(input?.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+    ...(input?.jutsuType ? [eq(jutsu.jutsuType, input.jutsuType)] : []),
     ...(input?.requiredLevel ? [gte(jutsu.requiredLevel, input.requiredLevel)] : []),
     ...(input?.rank ? [eq(jutsu.requiredRank, input.rank)] : []),
     ...(input?.rarity ? [eq(jutsu.jutsuRank, input.rarity)] : []),
