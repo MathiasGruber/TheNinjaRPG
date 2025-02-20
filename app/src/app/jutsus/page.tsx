@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, CircleFadingArrowUp } from "lucide-react";
+import { Trash2, CircleFadingArrowUp, ArrowRightLeft } from "lucide-react";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
@@ -29,8 +29,19 @@ import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
 import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
+import { JUTSU_TRANSFER_COST } from "@/drizzle/constants";
+import { JUTSU_TRANSFER_MAX_LEVEL } from "@/drizzle/constants";
+import { JUTSU_TRANSFER_DAYS } from "@/drizzle/constants";
+import {
+  JUTSU_TRANSFER_FREE_GOLD,
+  JUTSU_TRANSFER_FREE_SILVER,
+  JUTSU_TRANSFER_FREE_NORMAL,
+  JUTSU_TRANSFER_FREE_AMOUNT,
+} from "@/drizzle/constants";
+import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
+import type { RouterOutputs } from "@/app/_trpc/client";
 
 export default function MyJutsu() {
   // tRPC utility
@@ -44,6 +55,9 @@ export default function MyJutsu() {
   const { data: userData, updateUser } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
+    undefined,
+  );
+  const [transferTarget, setTransferTarget] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
 
@@ -71,6 +85,7 @@ export default function MyJutsu() {
     document.body.style.cursor = "default";
     setIsOpen(false);
     setUserJutsu(undefined);
+    setTransferTarget(undefined);
   };
 
   // Mutations
@@ -133,7 +148,19 @@ export default function MyJutsu() {
       },
     });
 
-  const isPending = isToggling || isForgetting || isUpgrading || isUnequipping;
+  const { mutate: transferLevel, isPending: isTransferring } =
+    api.jutsu.transferLevel.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.jutsu.getUserJutsus.invalidate();
+        }
+      },
+      onSettled,
+    });
+
+  const isPending =
+    isToggling || isForgetting || isUpgrading || isUnequipping || isTransferring;
   const isFetching = l1 || l2;
 
   // Collapse UserItem and Item
@@ -194,6 +221,15 @@ export default function MyJutsu() {
 
   // Ryo from forgetting
   const forgetRyo = 0;
+
+  // Transfer costs
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - JUTSU_TRANSFER_DAYS);
+  const { data: recentTransfers } = api.jutsu.getRecentTransfers.useQuery<
+    RouterOutputs["jutsu"]["getRecentTransfers"]
+  >({ cutoffDate }, { enabled: !!userData });
+  const freeTransfers = getFreeTransfers(userData?.federalStatus || "NONE");
+  const usedTransfers = recentTransfers?.length || 0;
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -325,6 +361,70 @@ export default function MyJutsu() {
                 )}
 
                 <div className="grow"></div>
+                {userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
+                  <Confirm
+                    title="Transfer Level"
+                    button={
+                      <Button id="transfer" variant="secondary">
+                        <ArrowRightLeft className="h-6 w-6 mr-2" />
+                        Transfer Level
+                      </Button>
+                    }
+                    proceed_label={
+                      transferTarget ? "Confirm Transfer" : "Select Target"
+                    }
+                    onAccept={(e) => {
+                      e.preventDefault();
+                      if (transferTarget) {
+                        transferLevel({
+                          fromJutsuId: userjutsu.jutsuId,
+                          toJutsuId: transferTarget.jutsuId,
+                        });
+                      } else {
+                        setIsOpen(false);
+                        const filteredJutsus = allJutsu?.filter(
+                          (j) =>
+                            j.jutsuId !== userjutsu.jutsuId &&
+                            j.jutsuType === userjutsu.jutsuType &&
+                            j.jutsuRank === userjutsu.jutsuRank,
+                        );
+                        if (filteredJutsus?.length) {
+                          setTransferTarget(undefined);
+                          setUserJutsu(userjutsu);
+                          const targetJutsu = filteredJutsus[0];
+                          setTransferTarget(targetJutsu);
+                          setIsOpen(true);
+                        } else {
+                          showMutationToast({
+                            success: false,
+                            message: "No compatible jutsu found for transfer",
+                          });
+                        }
+                      }
+                    }}
+                  >
+                    {transferTarget ? (
+                      <>
+                        <p>
+                          Transfer level {userjutsu.level} from {userjutsu.name} to{" "}
+                          {transferTarget.name}?
+                        </p>
+                        <p>
+                          This will reset {userjutsu.name} to level 1 and set{" "}
+                          {transferTarget.name} to level {userjutsu.level}.
+                        </p>
+                        <p>
+                          Cost:{" "}
+                          {usedTransfers >= freeTransfers
+                            ? `${JUTSU_TRANSFER_COST} reputation points`
+                            : "Free"}
+                        </p>
+                      </>
+                    ) : (
+                      <p>Select a jutsu to transfer the level to.</p>
+                    )}
+                  </Confirm>
+                )}
                 <Confirm
                   title="Forget Jutsu"
                   button={
