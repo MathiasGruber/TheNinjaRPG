@@ -30,7 +30,7 @@ export default function Home() {
         showMutationToast(data);
         if (data.success) {
           await refetch();
-          await updateUser();
+          await updateUser({ home: data.home });
         }
       },
     });
