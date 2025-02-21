@@ -43,17 +43,18 @@ import type { DrizzleClient } from "@/server/db";
 import { TRPCError } from "@trpc/server";
 
 export const jutsuRouter = createTRPCRouter({
-  getRecentTransfers: protectedProcedure
-    .input(z.object({ cutoffDate: z.date() }))
-    .query(async ({ ctx, input }) => {
-      return await ctx.drizzle.query.actionLog.findMany({
-        where: and(
-          eq(actionLog.userId, ctx.userId),
-          eq(actionLog.relatedMsg, "JutsuLevelTransfer"),
-          gte(actionLog.createdAt, input.cutoffDate),
+  getRecentTransfers: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.actionLog.findMany({
+      where: and(
+        eq(actionLog.userId, ctx.userId),
+        eq(actionLog.relatedMsg, "JutsuLevelTransfer"),
+        gte(
+          actionLog.createdAt,
+          secondsFromDate(-JUTSU_TRANSFER_DAYS * DAY_S, new Date()),
         ),
-      });
-    }),
+      ),
+    });
+  }),
   transferLevel: protectedProcedure
     .input(
       z.object({
