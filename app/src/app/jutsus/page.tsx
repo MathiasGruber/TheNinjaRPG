@@ -64,6 +64,9 @@ export default function MyJutsu() {
     undefined,
     { enabled: !!userData },
   );
+  const { data: recentTransfers } = api.jutsu.getRecentTransfers.useQuery(undefined, {
+    enabled: !!userData,
+  });
 
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
     return {
@@ -74,6 +77,10 @@ export default function MyJutsu() {
           : userJutsu.level,
     };
   });
+
+  // Transfer costs
+  const freeTransfers = getFreeTransfers(userData?.federalStatus || "NONE");
+  const usedTransfers = recentTransfers?.length || 0;
 
   const onSettled = () => {
     document.body.style.cursor = "default";
@@ -146,8 +153,13 @@ export default function MyJutsu() {
     api.jutsu.transferLevel.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        if (data.success) {
+        if (data.success && userData) {
           await utils.jutsu.getUserJutsus.invalidate();
+          if (usedTransfers >= freeTransfers) {
+            await updateUser({
+              reputationPoints: userData.reputationPoints - JUTSU_TRANSFER_COST,
+            });
+          }
         }
       },
       onSettled,
@@ -215,15 +227,6 @@ export default function MyJutsu() {
 
   // Ryo from forgetting
   const forgetRyo = 0;
-
-  // Transfer costs
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - JUTSU_TRANSFER_DAYS);
-  const { data: recentTransfers } = api.jutsu.getRecentTransfers.useQuery<
-    RouterOutputs["jutsu"]["getRecentTransfers"]
-  >({ cutoffDate }, { enabled: !!userData });
-  const freeTransfers = getFreeTransfers(userData?.federalStatus || "NONE");
-  const usedTransfers = recentTransfers?.length || 0;
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
