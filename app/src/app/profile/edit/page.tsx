@@ -462,32 +462,44 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             />
             <Label htmlFor="battle-description">Show battle descriptions</Label>
             < br/>
-            <Button
-              onClick={async () => {
-                if (!profile?.aiProfileId) return;            
-                const defaultAiProfilePayload = {
-                  id: profile.aiProfileId,
-                  rules: [
-                    AiRule.parse({
-                      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
-                      action: ActionMoveTowardsOpponent.parse({}),
-                    }),
-                  ],
-                  includeDefaultRules: true,
-                };
-                updateAiProfile(defaultAiProfilePayload, {
-                  onSuccess: () => {
-                    showMutationToast({ success: true, message: "AI profile reset successfully" });
-                  },
-                  onError: () => {
-                    showMutationToast({ success: false, message: "AI profile failed to reset" });
-                  },
-                });
+            <confirm
+              title="Reset AI Profile"
+              button={
+                <Button
+                  onClick={async () => {
+                    if (!profile?.aiProfileId) return;            
+                    const defaultAiProfilePayload = {
+                      id: profile.aiProfileId,
+                      rules: [
+                        AiRule.parse({
+                          conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+                          action: ActionMoveTowardsOpponent.parse({}),
+                        }),
+                      ],
+                      includeDefaultRules: true,
+                    };
+                    updateAiProfile(defaultAiProfilePayload, {
+                      onSuccess: () => {
+                        showMutationToast({ success: true, message: "AI profile reset successfully" });
+                      },
+                      onError: () => {
+                        showMutationToast({ success: false, message: "AI profile failed to reset" });
+                      },
+                    });
+                  }}
+                  className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={!profile?.aiProfileId || isLoading}
+                >
+                  {isLoading ? <Loader size="sm" /> : "Reset AI Profile"}
+                </Button>
+              }
+              onAccept={(e) => {
+                e.preventDefault();
+                // Button's onClick handler code here
               }}
-              className="px-3 py-1 text-sm"
             >
-              Reset AI Profile
-            </Button>
+              This will reset your AI profile to default settings. This action cannot be undone. Are you sure you want to continue?
+            </Confirm>
           </TabsContent>
           <TabsContent value="aiprofile">
             <AiProfileEdit userData={profile} hideTitle />
