@@ -438,7 +438,6 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         let remainingDamage = Math.abs(originalDamage);
         targetShields.forEach((shield) => {
           if (remainingDamage > 0 && shield.power && shield.power > 0) {
-            console.log("shield", remainingDamage, shield.power);
             const absorbed = Math.min(remainingDamage, shield.power);
             shield.power -= absorbed;
             remainingDamage -= absorbed;

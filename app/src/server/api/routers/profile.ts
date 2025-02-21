@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { nanoid } from "nanoid";
+import { nanoid, customAlphabet } from "nanoid";
 import { count, eq, ne, sql, gte, and, or, like, asc, desc, isNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
 import { secondsPassed, secondsFromNow, getTimeOfLastReset } from "@/utils/time";
@@ -413,6 +413,12 @@ export const profileRouter = createTRPCRouter({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, true)),
         with: { jutsus: { with: { jutsu: true } }, items: { with: { item: true } } },
       });
+      // Filter off entries that do not exist
+      if (user) {
+        user.jutsus = user.jutsus.filter((j) => j.jutsu);
+        user.items = user.items.filter((i) => i.item);
+      }
+      // Return user
       return user ?? null;
     }),
   // Create new AI
@@ -970,6 +976,9 @@ export const profileRouter = createTRPCRouter({
       if (!requester || !canSeeIps(requester.role)) {
         user.lastIp = "hidden";
       }
+      // Filter off entries that do not exist
+      user.jutsus = user.jutsus.filter((j) => j.jutsu);
+      user.items = user.items.filter((i) => i.item);
       // If no avatarLight version, create one
       if (!user.avatarLight && user.avatar) {
         const thumbnail = await createThumbnail(user.avatar);
@@ -1081,9 +1090,17 @@ export const profileRouter = createTRPCRouter({
         return errorResponse("Votes already claimed");
       }
       // Update user's reputation points and mark votes as claimed
+      const smallNanoid = customAlphabet(
+        "1234567890abcdefghijklmnopqrstuvwxyzABCDEF",
+        8,
+      );
       const result = await ctx.drizzle
         .update(userVote)
-        .set({ claimed: true, totalClaims: sql`${userVote.totalClaims} + 1` })
+        .set({
+          claimed: true,
+          totalClaims: sql`${userVote.totalClaims} + 1`,
+          secret: smallNanoid(),
+        })
         .where(eq(userVote.userId, ctx.userId));
       if (result.rowsAffected === 0) {
         return errorResponse("Failed to update user vote record");
@@ -1332,11 +1349,12 @@ export const fetchUpdatedUser = async (props: {
 
   // Add votes entry if it doesn't exist
   if (user && !user.votes) {
+    const smallNanoid = customAlphabet("1234567890abcdefghijklmnopqrstuvwxyzABCDEF", 8);
     await client.insert(userVote).values({
       id: nanoid(),
       userId: user.userId,
       lastVoteAt: new Date(),
-      secret: nanoid(8),
+      secret: smallNanoid(),
     });
   }
 

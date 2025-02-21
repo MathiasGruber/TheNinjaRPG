@@ -76,7 +76,7 @@ bun: install ## Execute bun command in local development.
 start: loadEnv # Run Next.js server, access at http://127.0.0.1:3000
 	@echo "${GREEN}start${RESET}"
 	rm -rf app/.next
-	@make bun -- dev
+	@make bun -- OPENAI_API_KEY=$(OPENAI_API_KEY) dev
 
 .PHONY: build
 build: # Build Next.js app

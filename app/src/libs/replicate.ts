@@ -57,7 +57,7 @@ export const getPrompt = async (client: DrizzleClient, user: UserData) => {
           default:
             return "person";
         }
-      case "COMMANDER":
+      case "ELITE JONIN":
         switch (gender) {
           case "Male":
             return "old man";
