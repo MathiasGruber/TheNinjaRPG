@@ -12,6 +12,7 @@ import { fetchUser, updateNindo } from "@/routers/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { clanCreateSchema, checkCoLeader } from "@/validators/clan";
 import { hasRequiredRank } from "@/libs/train";
+import { canEditClans } from "@/utils/permissions";
 import { checkIfSectorIsAvailable } from "@/libs/clan";
 import {
   fetchRequest,
@@ -553,39 +554,58 @@ export const clanRouter = createTRPCRouter({
       const isLeader = user.userId === fetchedClan?.leaderId;
       const isColeader = checkCoLeader(user.userId, fetchedClan);
       const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
-      const updateData = (() => {
-        if (isMemberColeader && isLeader)
-          return {
-            leaderId: input.memberId,
-            coLeader1:
-              fetchedClan.coLeader1 === input.memberId ? null : fetchedClan.coLeader1,
-            coLeader2:
-              fetchedClan.coLeader2 === input.memberId ? null : fetchedClan.coLeader2,
-            coLeader3:
-              fetchedClan.coLeader3 === input.memberId ? null : fetchedClan.coLeader3,
-            coLeader4:
-              fetchedClan.coLeader4 === input.memberId ? null : fetchedClan.coLeader4,
-          };
-        if (!fetchedClan?.coLeader1) return { coLeader1: input.memberId };
-        if (!fetchedClan?.coLeader2) return { coLeader2: input.memberId };
-        if (!fetchedClan?.coLeader3) return { coLeader3: input.memberId };
-        if (!fetchedClan?.coLeader4) return { coLeader4: input.memberId };
-        return null;
-      })();
+      const canEdit = canEditClans(user.role);
+      const isMemberLeader = input.memberId === fetchedClan?.leaderId;
       // Guards
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
-      if (!isLeader && !isColeader)
-        return errorResponse(`Only ${groupLabel} leaders can promote`);
-      if (isMemberColeader && !isLeader)
-        return errorResponse(`Only for ${groupLabel} leader`);
       if (member.userId === user.userId) return errorResponse("Not yourself");
+      if (isMemberLeader)
+        return errorResponse(`${groupLabel} leader cannot be promoted`);
+      if (!isLeader && !isColeader && !canEdit)
+        return errorResponse(`Only ${groupLabel} leaders can promote`);
+      if (isMemberColeader && !isLeader && !canEdit)
+        return errorResponse(`Only for ${groupLabel} leader`);
       if (member.clanId !== fetchedClan.id)
         return errorResponse(`Not in ${groupLabel}`);
-      if (!updateData)
-        return errorResponse(`No more co-leaders can be added to ${groupLabel}`);
-      if (!hasRequiredRank(member.rank, CLAN_RANK_REQUIREMENT)) {
+      if (!hasRequiredRank(member.rank, CLAN_RANK_REQUIREMENT))
         return errorResponse("Leader rank too low");
+      let updateData = null;
+      // If member is a co-leader and the user is either a leader or has canEdit, promote them to leader
+      if (isMemberColeader && (isLeader || canEdit)) {
+        updateData = {
+          leaderId: input.memberId, // Promote co-leader to leader
+          coLeader1:
+            fetchedClan.coLeader1 === input.memberId
+              ? fetchedClan.leaderId
+              : fetchedClan.coLeader1, // Demote leader to first available co-leader slot
+          coLeader2:
+            fetchedClan.coLeader2 === input.memberId
+              ? fetchedClan.coLeader1
+              : fetchedClan.coLeader2,
+          coLeader3:
+            fetchedClan.coLeader3 === input.memberId
+              ? fetchedClan.coLeader2
+              : fetchedClan.coLeader3,
+          coLeader4:
+            fetchedClan.coLeader4 === input.memberId
+              ? fetchedClan.coLeader3
+              : fetchedClan.coLeader4,
+        };
+      }
+      // If member is NOT a co-leader, allow promotion to co-leader instead
+      else if (!isMemberColeader) {
+        if (!fetchedClan.coLeader1) updateData = { coLeader1: input.memberId };
+        else if (!fetchedClan.coLeader2) updateData = { coLeader2: input.memberId };
+        else if (!fetchedClan.coLeader3) updateData = { coLeader3: input.memberId };
+        else if (!fetchedClan.coLeader4) updateData = { coLeader4: input.memberId };
+        else return errorResponse(`No more co-leader slots available in ${groupLabel}`);
+      }
+      // If the member is already a co-leader but the user isn't a leader or can't edit, deny the promotion attempt
+      else {
+        return errorResponse(
+          `Only ${groupLabel} leader or canEdit users can promote to leader`,
+        );
       }
       // Mutate
       await ctx.drizzle.update(clan).set(updateData).where(eq(clan.id, fetchedClan.id));
@@ -607,22 +627,19 @@ export const clanRouter = createTRPCRouter({
       const isColeader = checkCoLeader(user.userId, clanData);
       const isMemberLeader = input.memberId === clanData?.leaderId;
       const isMemberColeader = checkCoLeader(input.memberId, clanData);
+      const canEdit = canEditClans(user.role);
       const isYourself = ctx.userId === input.memberId;
       const groupLabel = user?.isOutlaw ? "faction" : "clan";
       // Guards
       if (!clanData) return errorResponse(`${groupLabel} not found`);
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
-      if (!isLeader && !isColeader)
-        return errorResponse(`Only ${groupLabel} leaders can demote`);
+      if (!isLeader && !isColeader && !canEdit) return errorResponse(`Not allowed`);
       if (isMemberLeader)
         return errorResponse(`New ${groupLabel} leader must be promoted first`);
       if (member.clanId !== clanData.id) return errorResponse(`Not in ${groupLabel}`);
-      if (!hasRequiredRank(member.rank, CLAN_RANK_REQUIREMENT)) {
-        return errorResponse("Leader rank too low");
-      }
-      if (isMemberColeader && !isLeader && !isYourself) {
-        return errorResponse(`Only for ${groupLabel} leader`);
+      if (isMemberColeader && !isLeader && !canEdit && !isYourself) {
+        return errorResponse(`Only ${groupLabel} leader can demote`);
       }
       // Mutate
       await ctx.drizzle
@@ -652,17 +669,28 @@ export const clanRouter = createTRPCRouter({
       const isColeader = checkCoLeader(user.userId, fetchedClan);
       const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
       const isMemberLeader = input.memberId === fetchedClan?.leaderId;
+      const canEdit = canEditClans(user.role);
       const groupLabel = user?.isOutlaw ? "faction" : "clan";
       // Guards
       if (!fetchedClan) return errorResponse(`${groupLabel} not found`);
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
-      if (isMemberLeader) return errorResponse(`Cannot kick ${groupLabel} leader`);
+      if (isMemberLeader && !canEdit)
+        return errorResponse(`Cannot kick ${groupLabel} leader`);
       if (fetchedClan.villageId !== user.villageId)
         return errorResponse(user.isOutlaw ? "!= syndicate" : "!= village");
-      if (!isLeader && !isColeader) return errorResponse("Not allowed");
-      if (!isLeader && isMemberColeader)
+      if (!isLeader && !isColeader && !canEdit) return errorResponse("Not allowed");
+      if (!isLeader && isMemberColeader && !canEdit)
         return errorResponse(`Only ${groupLabel} leader can kick`);
+      // If the leader is being kicked, promote the kicker to leader
+      if (isMemberLeader && canEdit) {
+        await ctx.drizzle
+          .update(clan)
+          .set({
+            leaderId: user.userId, // Promote the kicker to leader
+          })
+          .where(eq(clan.id, fetchedClan.id));
+      }
       // Mutate
       await removeFromClan(ctx.drizzle, fetchedClan, member, [
         `Kicked by ${user.username}`,
