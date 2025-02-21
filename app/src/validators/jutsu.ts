@@ -28,7 +28,7 @@ export const jutsuFilteringSchema = z.object({
   disappear: z.string().optional(),
   effect: z.array(z.string()).optional(),
   element: z.array(z.string()).optional(),
-  jutsuType: z.enum(JutsuTypes).optional(),
+  jutsuType: z.array(z.enum(JutsuTypes)).optional(),
   method: z.enum(AttackMethods).optional(),
   name: z.string().min(0).max(256).optional(),
   rank: z.enum(UserRanks).optional(),

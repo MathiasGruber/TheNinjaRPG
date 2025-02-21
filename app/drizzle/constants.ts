@@ -227,6 +227,7 @@ export const JutsuTypes = [
   "EVENT",
   "AI",
 ] as const;
+export type JutsuType = (typeof JutsuTypes)[number];
 
 export const UserStatNames = [
   "ninjutsuOffence",

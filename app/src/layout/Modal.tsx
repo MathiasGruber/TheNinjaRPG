@@ -15,6 +15,7 @@ interface ModalProps {
       | React.MouseEvent<HTMLButtonElement, MouseEvent>
       | React.KeyboardEvent<KeyboardEvent>,
   ) => void;
+  onClose?: () => void;
 }
 
 const Modal: React.FC<ModalProps> = (props) => {
@@ -62,6 +63,7 @@ const Modal: React.FC<ModalProps> = (props) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (props.onClose) props.onClose();
               props.setIsOpen(false);
             }}
           >
@@ -92,6 +94,7 @@ const Modal: React.FC<ModalProps> = (props) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (props.onClose) props.onClose();
               props.setIsOpen(false);
             }}
             className="z-30 rounded-lg border border-gray-500 bg-gray-700 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white"

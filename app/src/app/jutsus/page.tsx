@@ -32,12 +32,6 @@ import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
 import { JUTSU_TRANSFER_COST } from "@/drizzle/constants";
 import { JUTSU_TRANSFER_MAX_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRANSFER_DAYS } from "@/drizzle/constants";
-import {
-  JUTSU_TRANSFER_FREE_GOLD,
-  JUTSU_TRANSFER_FREE_SILVER,
-  JUTSU_TRANSFER_FREE_NORMAL,
-  JUTSU_TRANSFER_FREE_AMOUNT,
-} from "@/drizzle/constants";
 import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
@@ -373,6 +367,9 @@ export default function MyJutsu() {
                     proceed_label={
                       transferTarget ? "Confirm Transfer" : "Select Target"
                     }
+                    onClose={() => {
+                      setTransferTarget(undefined);
+                    }}
                     onAccept={(e) => {
                       e.preventDefault();
                       if (transferTarget) {
@@ -380,26 +377,6 @@ export default function MyJutsu() {
                           fromJutsuId: userjutsu.jutsuId,
                           toJutsuId: transferTarget.jutsuId,
                         });
-                      } else {
-                        setIsOpen(false);
-                        const filteredJutsus = allJutsu?.filter(
-                          (j) =>
-                            j.jutsuId !== userjutsu.jutsuId &&
-                            j.jutsuType === userjutsu.jutsuType &&
-                            j.jutsuRank === userjutsu.jutsuRank,
-                        );
-                        if (filteredJutsus?.length) {
-                          setTransferTarget(undefined);
-                          setUserJutsu(userjutsu);
-                          const targetJutsu = filteredJutsus[0];
-                          setTransferTarget(targetJutsu);
-                          setIsOpen(true);
-                        } else {
-                          showMutationToast({
-                            success: false,
-                            message: "No compatible jutsu found for transfer",
-                          });
-                        }
                       }
                     }}
                   >
@@ -421,7 +398,26 @@ export default function MyJutsu() {
                         </p>
                       </>
                     ) : (
-                      <p>Select a jutsu to transfer the level to.</p>
+                      <div className="flex flex-col gap-2">
+                        <p>Select a jutsu to transfer the level to.</p>
+                        <ActionSelector
+                          items={allJutsu?.filter(
+                            (jutsu) =>
+                              jutsu.jutsuType === userjutsu.jutsuType &&
+                              jutsu.jutsuRank === userjutsu.jutsuRank &&
+                              jutsu.id !== userjutsu.id,
+                          )}
+                          counts={userJutsuCounts}
+                          labelSingles={true}
+                          showBgColor={false}
+                          showLabels={true}
+                          onClick={(id) => {
+                            setTransferTarget(
+                              allJutsu?.find((jutsu) => jutsu.id === id),
+                            );
+                          }}
+                        />
+                      </div>
                     )}
                   </Confirm>
                 )}
