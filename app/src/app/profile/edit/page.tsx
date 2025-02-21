@@ -462,7 +462,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             />
             <Label htmlFor="battle-description">Show battle descriptions</Label>
             < br/>
-            <confirm
+            <Confirm
               title="Reset AI Profile"
               button={
                 <Button
