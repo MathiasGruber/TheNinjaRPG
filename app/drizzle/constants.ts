@@ -792,6 +792,8 @@ export const IMG_WALLPAPER_FALL =
   "https://utfs.io/f/Hzww9EQvYURJ8B1Blddkkp45TvAnoIBa0rtCf1lbyXYjVKQ2";
 export const IMG_WALLPAPER_HALLOWEEN =
   "https://utfs.io/f/Hzww9EQvYURJACVJVzoZUC4muiGcQNzjfEndY5y1w20B8hTW";
+export const IMG_WALLPAPER_BRIGHT_VILLAGE =
+  "https://i.imgur.com/t1kligo.jpeg";
 export const IMG_LAYOUT_BUTTONDECOR =
   "https://utfs.io/f/Hzww9EQvYURJYectQDOMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
 export const IMG_LAYOUT_NAVBAR =
