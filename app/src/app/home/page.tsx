@@ -20,6 +20,41 @@ export default function Home() {
   const { userData, sectorVillage, access, ownVillage, updateUser } =
     useRequireInVillage("/home");
 
+  const { data, refetch } = api.home.getHome.useQuery(undefined, {
+    enabled: !!access && !!ownVillage,
+  });
+
+  const { mutate: upgradeHome, isPending: isUpgrading } =
+    api.home.upgradeHome.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await refetch();
+          await updateUser();
+        }
+      },
+    });
+
+  const { mutate: storeItem, isPending: isStoringItem } =
+    api.home.storeItem.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await refetch();
+        }
+      },
+    });
+
+  const { mutate: removeItem, isPending: isRemovingItem } =
+    api.home.removeItem.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await refetch();
+        }
+      },
+    });
+
   const { mutate: toggleSleep, isPending: isTogglingSleep } =
     api.home.toggleSleep.useMutation({
       onSuccess: async (data) => {
@@ -98,13 +133,88 @@ export default function Home() {
         <>
           <ContentBox
             title="Overview"
-            subtitle="Decorate, upgrade, host parties"
+            subtitle="Upgrade your home for better regeneration and storage"
             initialBreak={true}
           >
-            WIP
+            <div className="space-y-4">
+              {data?.home ? (
+                <div className="text-center">
+                  <h3 className="text-lg font-bold">{data.home.name}</h3>
+                  <p>Regeneration Bonus: +{data.home.regenBonus}</p>
+                  <p>Storage Slots: {data.home.storageSlots}</p>
+                </div>
+              ) : (
+                <p className="text-center italic">You don't own a home yet</p>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data?.availableHomes.map((home) => (
+                  <div
+                    key={home.id}
+                    className={`p-4 border rounded-lg ${
+                      data.home?.id === home.id
+                        ? "border-green-500"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    <h4 className="font-bold">{home.name}</h4>
+                    <p>Regeneration: +{home.regenBonus}</p>
+                    <p>Storage: {home.storageSlots} slots</p>
+                    <p>Cost: {home.cost.toLocaleString()} Ryo</p>
+                    {data.home?.id !== home.id && (
+                      <button
+                        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onClick={() => upgradeHome({ homeTypeId: home.id })}
+                        disabled={isUpgrading}
+                      >
+                        {isUpgrading ? "Upgrading..." : "Upgrade"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </ContentBox>
-          <ContentBox title="Item Storage" subtitle="Store items" initialBreak={true}>
-            WIP
+          <ContentBox
+            title="Item Storage"
+            subtitle={`${data?.storage?.length ?? 0}/${
+              data?.home?.storageSlots ?? 0
+            } slots used`}
+            initialBreak={true}
+          >
+            {data?.home ? (
+              <div className="grid grid-cols-5 gap-4">
+                {Array.from({ length: data.home.storageSlots }).map((_, i) => {
+                  const storedItem = data.storage?.find((s) => s.slot === i);
+                  return (
+                    <div
+                      key={i}
+                      className="aspect-square border border-gray-300 rounded-lg p-2 flex items-center justify-center"
+                    >
+                      {storedItem ? (
+                        <button
+                          className="text-red-500 hover:text-red-600"
+                          onClick={() => removeItem({ slot: i })}
+                          disabled={isRemovingItem}
+                        >
+                          Remove Item
+                        </button>
+                      ) : (
+                        <button
+                          className="text-blue-500 hover:text-blue-600"
+                          onClick={() => storeItem({ itemId: "some-item", slot: i })}
+                          disabled={isStoringItem}
+                        >
+                          Store Item
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center italic">Purchase a home to store items</p>
+            )}
           </ContentBox>
         </>
       )}

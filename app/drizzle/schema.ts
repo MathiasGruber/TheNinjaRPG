@@ -387,6 +387,94 @@ export const bloodlineRollsRelations = relations(bloodlineRolls, ({ one }) => ({
   }),
 }));
 
+export const homeType = mysqlTable(
+  "HomeType",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    regenBonus: int("regenBonus").notNull(),
+    storageSlots: int("storageSlots").notNull(),
+    cost: bigint("cost", { mode: "number" }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      nameKey: uniqueIndex("HomeType_name_key").on(table.name),
+    };
+  },
+);
+
+export const userHome = mysqlTable(
+  "UserHome",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    homeTypeId: varchar("homeTypeId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdKey: uniqueIndex("UserHome_userId_key").on(table.userId),
+    };
+  },
+);
+
+export const userHomeStorage = mysqlTable(
+  "UserHomeStorage",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userHomeId: varchar("userHomeId", { length: 191 }).notNull(),
+    itemId: varchar("itemId", { length: 191 }).notNull(),
+    slot: int("slot").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      storageKey: uniqueIndex("UserHomeStorage_storage_key").on(
+        table.userHomeId,
+        table.slot
+      ),
+    };
+  },
+);
+
+export const userHomeRelations = relations(userHome, ({ one }) => ({
+  user: one(userData, {
+    fields: [userHome.userId],
+    references: [userData.userId],
+  }),
+  homeType: one(homeType, {
+    fields: [userHome.homeTypeId],
+    references: [homeType.id],
+  }),
+}));
+
+export const userHomeStorageRelations = relations(userHomeStorage, ({ one }) => ({
+  userHome: one(userHome, {
+    fields: [userHomeStorage.userHomeId],
+    references: [userHome.id],
+  }),
+  item: one(item, {
+    fields: [userHomeStorage.itemId],
+    references: [item.id],
+  }),
+}));
+
 export const captcha = mysqlTable(
   "Captcha",
   {

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
-import { eq, gte, and } from "drizzle-orm";
-import { userData } from "@/drizzle/schema";
+import { eq, gte, and, sql } from "drizzle-orm";
+import { userData, userHome, homeType, userHomeStorage } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
@@ -10,6 +10,184 @@ import { fetchSectorVillage } from "@/routers/village";
 import type { UserStatus } from "@/drizzle/constants";
 
 export const homeRouter = createTRPCRouter({
+  getHome: protectedProcedure
+    .output(
+      baseServerResponse.extend({
+        home: z.object({
+          id: z.string(),
+          name: z.string(),
+          regenBonus: z.number(),
+          storageSlots: z.number(),
+          cost: z.number(),
+        }).optional(),
+        availableHomes: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          regenBonus: z.number(),
+          storageSlots: z.number(),
+          cost: z.number(),
+        })),
+        storage: z.array(z.object({
+          id: z.string(),
+          slot: z.number(),
+          itemId: z.string(),
+        })).optional(),
+      }),
+    )
+    .query(async ({ ctx }) => {
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      if (!user) return errorResponse("User not found");
+
+      const userHomeData = await ctx.drizzle.query.userHome.findFirst({
+        where: eq(userHome.userId, ctx.userId),
+        with: {
+          homeType: true,
+        },
+      });
+
+      const availableHomes = await ctx.drizzle.query.homeType.findMany();
+
+      const storage = userHomeData ? await ctx.drizzle.query.userHomeStorage.findMany({
+        where: eq(userHomeStorage.userHomeId, userHomeData.id),
+      }) : undefined;
+
+      return {
+        success: true,
+        message: "Home data retrieved",
+        home: userHomeData?.homeType,
+        availableHomes,
+        storage,
+      };
+    }),
+
+  upgradeHome: protectedProcedure
+    .input(z.object({
+      homeTypeId: z.string(),
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      if (!user) return errorResponse("User not found");
+
+      const selectedHome = await ctx.drizzle.query.homeType.findFirst({
+        where: eq(homeType.id, input.homeTypeId),
+      });
+      if (!selectedHome) return errorResponse("Invalid home type");
+
+      if (user.ryo < selectedHome.cost) {
+        return errorResponse("Not enough ryo");
+      }
+
+      const currentHome = await ctx.drizzle.query.userHome.findFirst({
+        where: eq(userHome.userId, ctx.userId),
+        with: {
+          homeType: true,
+        },
+      });
+
+      if (currentHome) {
+        if (currentHome.homeType.cost >= selectedHome.cost) {
+          return errorResponse("You already have a better or equal home");
+        }
+      }
+
+      await ctx.drizzle.transaction(async (tx) => {
+        await tx.update(userData)
+          .set({ ryo: user.ryo - selectedHome.cost })
+          .where(eq(userData.userId, ctx.userId));
+
+        if (currentHome) {
+          await tx.update(userHome)
+            .set({ homeTypeId: selectedHome.id })
+            .where(eq(userHome.id, currentHome.id));
+        } else {
+          await tx.insert(userHome).values({
+            id: crypto.randomUUID(),
+            userId: ctx.userId,
+            homeTypeId: selectedHome.id,
+          });
+        }
+      });
+
+      return {
+        success: true,
+        message: `Successfully upgraded to ${selectedHome.name}`,
+      };
+    }),
+
+  storeItem: protectedProcedure
+    .input(z.object({
+      itemId: z.string(),
+      slot: z.number(),
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const userHomeData = await ctx.drizzle.query.userHome.findFirst({
+        where: eq(userHome.userId, ctx.userId),
+        with: {
+          homeType: true,
+        },
+      });
+      if (!userHomeData) return errorResponse("You don't own a home");
+
+      if (input.slot >= userHomeData.homeType.storageSlots) {
+        return errorResponse("Invalid storage slot");
+      }
+
+      const existingItem = await ctx.drizzle.query.userHomeStorage.findFirst({
+        where: and(
+          eq(userHomeStorage.userHomeId, userHomeData.id),
+          eq(userHomeStorage.slot, input.slot),
+        ),
+      });
+      if (existingItem) return errorResponse("Slot already occupied");
+
+      await ctx.drizzle.insert(userHomeStorage).values({
+        id: crypto.randomUUID(),
+        userHomeId: userHomeData.id,
+        itemId: input.itemId,
+        slot: input.slot,
+      });
+
+      return {
+        success: true,
+        message: "Item stored successfully",
+      };
+    }),
+
+  removeItem: protectedProcedure
+    .input(z.object({
+      slot: z.number(),
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const userHomeData = await ctx.drizzle.query.userHome.findFirst({
+        where: eq(userHome.userId, ctx.userId),
+      });
+      if (!userHomeData) return errorResponse("You don't own a home");
+
+      const result = await ctx.drizzle.delete(userHomeStorage)
+        .where(and(
+          eq(userHomeStorage.userHomeId, userHomeData.id),
+          eq(userHomeStorage.slot, input.slot),
+        ));
+
+      if (result.rowsAffected === 0) {
+        return errorResponse("No item found in that slot");
+      }
+
+      return {
+        success: true,
+        message: "Item removed successfully",
+      };
+    }),
+
   toggleSleep: protectedProcedure
     .output(
       baseServerResponse.extend({
