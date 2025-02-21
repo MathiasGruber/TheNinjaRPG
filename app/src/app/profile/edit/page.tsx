@@ -490,7 +490,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                   className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   disabled={!profile?.aiProfileId || isPending}
                 >
-                  {isPending ? <Loader size="sm" /> : "Reset AI Profile"}
+                  {isPending ? <Loader size={16} /> : "Reset AI Profile"}
                 </Button>
               }
               onAccept={(e) => {
