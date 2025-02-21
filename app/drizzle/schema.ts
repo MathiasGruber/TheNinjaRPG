@@ -1601,6 +1601,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.userId],
     references: [userNindo.userId],
   }),
+  home: one(userHome, {
+    fields: [userData.userId],
+    references: [userHome.userId],
+  }),
   userQuests: many(questHistory),
   conversations: many(user2conversation),
   items: many(userItem),

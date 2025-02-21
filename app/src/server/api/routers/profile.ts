@@ -1314,6 +1314,11 @@ export const fetchUpdatedUser = async (props: {
             relationshipB: true,
           },
         },
+        home: {
+          with: {
+            homeType: true,
+          },
+        },
         anbuSquad: {
           columns: { name: true },
         },
@@ -1650,6 +1655,13 @@ export type UserWithRelations =
       loadout?: { jutsuIds: string[] } | null;
       userQuests: UserQuest[];
       votes?: UserVote | null;
+      home?: {
+        id: string;
+        name: string;
+        regenBonus: number;
+        storageSlots: number;
+        cost: number;
+      } | null;
     })
   | undefined;
 

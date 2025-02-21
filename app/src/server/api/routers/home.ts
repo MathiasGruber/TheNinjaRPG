@@ -67,7 +67,15 @@ export const homeRouter = createTRPCRouter({
     .input(z.object({
       homeTypeId: z.string(),
     }))
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({
+      home: z.object({
+        id: z.string(),
+        name: z.string(),
+        regenBonus: z.number(),
+        storageSlots: z.number(),
+        cost: z.number(),
+      }).optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
@@ -118,6 +126,7 @@ export const homeRouter = createTRPCRouter({
       return {
         success: true,
         message: `Successfully upgraded to ${selectedHome.name}`,
+        home: selectedHome,
       };
     }),
 
