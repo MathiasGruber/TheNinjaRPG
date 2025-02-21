@@ -298,7 +298,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
       },
     });
 
-  const { mutate: updateAiProfile } =
+  const { mutate: updateAiProfile, isPending } =
     api.ai.updateAiProfile.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
