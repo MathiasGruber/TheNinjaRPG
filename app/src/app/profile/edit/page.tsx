@@ -464,8 +464,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             < br/>
             <Button
               onClick={async () => {
-                if (!profile?.aiProfileId) return;
-            
+                if (!profile?.aiProfileId) return;            
                 const defaultAiProfilePayload = {
                   id: profile.aiProfileId,
                   rules: [
@@ -476,13 +475,14 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                   ],
                   includeDefaultRules: true,
                 };
-            
-                try {
-                  updateAiProfile(defaultAiProfilePayload);
-                  showMutationToast({ success: true, message: "AI profile reset successfully" });
-                } catch {
-                  showMutationToast({ success: false, message: "AI profile failed to reset" });
-                }
+                updateAiProfile(defaultAiProfilePayload, {
+                  onSuccess: () => {
+                    showMutationToast({ success: true, message: "AI profile reset successfully" });
+                  },
+                  onError: () => {
+                    showMutationToast({ success: false, message: "AI profile failed to reset" });
+                  },
+                });
               }}
               className="px-3 py-1 text-sm"
             >
