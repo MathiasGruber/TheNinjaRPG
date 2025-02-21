@@ -234,26 +234,31 @@ export const getRelatedReports = async (
   client: DrizzleClient,
   aiInterpretation: string,
 ) => {
-  const results = await client.execute(sql`
-    SELECT 
-      UserReport.createdAt,
-      UserReport.id,
-      UserReport.aiInterpretation, 
-      UserReport.reason,
-      UserReport.infraction, 
-      UserReport.status,
-      UserReportComment.content as comment,
-      MATCH(UserReport.aiInterpretation) AGAINST(${aiInterpretation}) as score
-    FROM UserReport
-    INNER JOIN UserReportComment ON UserReport.id = UserReportComment.reportId
-    WHERE 
-      MATCH(UserReport.aiInterpretation) AGAINST(${aiInterpretation}) AND
-      UserReport.aiInterpretation != "" AND
-      UserReport.system != "user_profile" AND
-      UserReport.status != 'UNVIEWED'
-    ORDER BY score DESC
-    LIMIT 5`);
-  return results.rows as PreviousReport[];
+  try {
+    const results = await client.execute(sql`
+      SELECT 
+        UserReport.createdAt,
+        UserReport.id,
+        UserReport.aiInterpretation, 
+        UserReport.reason,
+        UserReport.infraction, 
+        UserReport.status,
+        UserReportComment.content as comment,
+        MATCH(UserReport.aiInterpretation) AGAINST(${aiInterpretation}) as score
+      FROM UserReport
+      INNER JOIN UserReportComment ON UserReport.id = UserReportComment.reportId
+      WHERE 
+        MATCH(UserReport.aiInterpretation) AGAINST(${aiInterpretation}) AND
+        UserReport.aiInterpretation != "" AND
+        UserReport.system != "user_profile" AND
+        UserReport.status != 'UNVIEWED'
+      ORDER BY score DESC
+      LIMIT 5`);
+    return results.rows as PreviousReport[];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 };
 
 export const generateModerationDecision = async (
