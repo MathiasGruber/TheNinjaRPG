@@ -1314,11 +1314,15 @@ export const fetchUpdatedUser = async (props: {
             relationshipB: true,
           },
         },
-        home: {
-          with: {
-            homeType: true,
-          },
-        },
+        home: user.home
+          ? {
+              id: user.home.id,
+              name: user.home.homeType?.name ?? "Unknown",
+              regenBonus: user.home.homeType?.regenBonus ?? 0,
+              storageSlots: user.home.homeType?.storageSlots ?? 0,
+              cost: user.home.homeType?.cost ?? 0,
+            }
+          : null,
         anbuSquad: {
           columns: { name: true },
         },
