@@ -44,6 +44,7 @@ import type {
   ElementName,
   UserRank,
   StatType,
+  JutsuType,
   AttackMethod,
   AttackTarget,
 } from "@/drizzle/constants";
@@ -197,7 +198,7 @@ export const useFiltering = () => {
   const [classification, setClassification] = useState<StatType | None>("None");
   const [effect, setEffect] = useState<string[]>([]);
   const [element, setElement] = useState<string[]>([]);
-  const [jutsuType, setJutsuType] = useState<string>("None");
+  const [jutsuType, setJutsuType] = useState<JutsuType[]>([]);
   const [method, setMethod] = useState<AttackMethod | None>("None");
   const [name, setName] = useState<string>("");
   const [rank, setRank] = useState<UserRank>("NONE");
@@ -652,15 +653,14 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
           />
 
           {/* Jutsu Type */}
-          <FilterSelect
-            label="Jutsu Type"
-            value={jutsuType}
-            onValueChange={setJutsuType}
-            options={JutsuTypes.map((type) => ({
-              value: type,
-              label: type,
-            }))}
-          />
+          <div>
+            <Label>Jutsu Type</Label>
+            <MultiSelect
+              selected={jutsuType}
+              options={JutsuTypes.map((type) => ({ value: type, label: type }))}
+              onChange={(e) => setJutsuType(e as JutsuType[])}
+            />
+          </div>
 
           {/* Target */}
           <FilterSelect
@@ -870,7 +870,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     disappear: state.removeAnim === "None" ? undefined : state.removeAnim,
     effect: processArray(state.effect as EffectType[]),
     element: processArray(state.element as ElementName[]),
-    jutsuType: state.jutsuType === "None" ? undefined : state.jutsuType,
+    jutsuType: processArray(state.jutsuType),
     method: state.method === "None" ? undefined : state.method,
     name: state.name || undefined,
     rank: state.rank === "NONE" ? undefined : state.rank,

@@ -130,7 +130,7 @@ export const jutsuRouter = createTRPCRouter({
           .where(eq(userJutsu.id, toUserJutsu.id)),
         ctx.drizzle
           .update(userJutsu)
-          .set({ level: toUserJutsu.level })
+          .set({ level: 1 })
           .where(eq(userJutsu.id, fromUserJutsu.id)),
         ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
@@ -826,7 +826,7 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
     // -----------------------------
     ...(input?.name ? [like(jutsu.name, `%${input.name}%`)] : []),
     ...(input?.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
-    ...(input?.jutsuType ? [eq(jutsu.jutsuType, input.jutsuType)] : []),
+    ...(input?.jutsuType ? [inArray(jutsu.jutsuType, input.jutsuType)] : []),
     ...(input?.requiredLevel ? [gte(jutsu.requiredLevel, input.requiredLevel)] : []),
     ...(input?.rank ? [eq(jutsu.requiredRank, input.rank)] : []),
     ...(input?.rarity ? [eq(jutsu.jutsuRank, input.rarity)] : []),
