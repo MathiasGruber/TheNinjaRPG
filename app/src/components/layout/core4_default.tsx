@@ -39,6 +39,8 @@ import {
   IMG_WALLPAPER_SUMMER,
   IMG_WALLPAPER_FALL,
   IMG_WALLPAPER_HALLOWEEN,
+  IMG_WALLPAPER_BRIGHT_VILLAGE,
+  IMG_WALLPAPER_SHINE_TEST,
   IMG_LOGO_FULL,
   IMG_LOGO_SHORT,
   IMG_ICON_DISCORD,
@@ -277,10 +279,8 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       </div>
       {/* WALLPAPER BACKGROUND */}
       <Image
-        className="absolute left-[50%] translate-x-[-50%] select-none"
+        className="fixed top-0 left-0 w-full h-full object-cover z-[-1] select-none"
         src={imageset.wallpaper}
-        width={1600}
-        height={800}
         alt="wallpaper"
         loading="eager"
         priority
@@ -833,26 +833,26 @@ const getImageSet = () => {
   const base = {
     navbar: IMG_LAYOUT_NAVBAR,
     handsign: IMG_LAYOUT_HANDSIGN,
-    wallpaper: IMG_WALLPAPER_SUMMER,
+    wallpaper: IMG_WALLPAPER_SHINE_TEST,
   };
-  switch (getCurrentSeason()) {
-    case "winter":
-      base.wallpaper = IMG_WALLPAPER_WINTER;
-      break;
-    case "spring":
-      base.wallpaper = IMG_WALLPAPER_SPRING;
-      break;
-    case "summer":
-      base.wallpaper = IMG_WALLPAPER_SUMMER;
-      break;
-    case "fall":
-      base.wallpaper = IMG_WALLPAPER_FALL;
-      break;
-    case "halloween":
-      base.wallpaper = IMG_WALLPAPER_HALLOWEEN;
-      base.navbar = IMG_LAYOUT_NAVBAR_HALLOWEEN;
-      base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
-      break;
-  }
+  // switch (getCurrentSeason()) {
+  //   case "winter":
+  //     base.wallpaper = IMG_WALLPAPER_WINTER;
+  //     break;
+  //   case "spring":
+  //     base.wallpaper = IMG_WALLPAPER_SPRING;
+  //     break;
+  //   case "summer":
+  //     base.wallpaper = IMG_WALLPAPER_SUMMER;
+  //     break;
+  //   case "fall":
+  //     base.wallpaper = IMG_WALLPAPER_FALL;
+  //     break;
+  //   case "halloween":
+  //     base.wallpaper = IMG_WALLPAPER_HALLOWEEN;
+  //     base.navbar = IMG_LAYOUT_NAVBAR_HALLOWEEN;
+  //     base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
+  //     break;
+  // }
   return base;
 };
