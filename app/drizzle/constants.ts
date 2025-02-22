@@ -795,7 +795,7 @@ export const IMG_WALLPAPER_HALLOWEEN =
 export const IMG_WALLPAPER_BRIGHT_VILLAGE =
   "https://i.imgur.com/t1kligo.jpeg";
 export const IMG_WALLPAPER_SHINE_TEST =
-  "https://i.imgur.com/9qlpR52.jpeg";
+  "https://i.imgur.com/EpbdLY8.jpeg";
 export const IMG_LAYOUT_BUTTONDECOR =
   "https://utfs.io/f/Hzww9EQvYURJYectQDOMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
 export const IMG_LAYOUT_NAVBAR =
