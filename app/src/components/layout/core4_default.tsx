@@ -40,6 +40,7 @@ import {
   IMG_WALLPAPER_FALL,
   IMG_WALLPAPER_HALLOWEEN,
   IMG_WALLPAPER_BRIGHT_VILLAGE,
+  IMG_WALLPAPER_SHINE_TEST,
   IMG_LOGO_FULL,
   IMG_LOGO_SHORT,
   IMG_ICON_DISCORD,
@@ -832,7 +833,7 @@ const getImageSet = () => {
   const base = {
     navbar: IMG_LAYOUT_NAVBAR,
     handsign: IMG_LAYOUT_HANDSIGN,
-    wallpaper: IMG_WALLPAPER_BRIGHT_VILLAGE,
+    wallpaper: IMG_WALLPAPER_SHINE_TEST,
   };
   // switch (getCurrentSeason()) {
   //   case "winter":
