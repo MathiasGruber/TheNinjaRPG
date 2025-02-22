@@ -855,5 +855,5 @@ const getImageSet = () => {
   //     base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
   //     break;
   // }
-  // return base;
+  return base;
 };
