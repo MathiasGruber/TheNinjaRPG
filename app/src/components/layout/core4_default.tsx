@@ -278,9 +278,8 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       </div>
       {/* WALLPAPER BACKGROUND */}
       <Image
-        className="absolute top-0 left-0 w-full h-full object-cover fixed z-[-1] select-none"
+        className="fixed top-0 left-0 w-full h-full object-cover z-[-1] select-none"
         src={imageset.wallpaper}
-        layout="fill" // This makes the image take up the full viewport
         alt="wallpaper"
         loading="eager"
         priority
