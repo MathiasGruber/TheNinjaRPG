@@ -191,7 +191,6 @@ export const getNewTrackers = (
           const isKage = user.village?.kageId === user.userId;
 
           // General updates we want to apply every time
-          console.log(task);
           if (task === "user_level") {
             status.value = user.level;
           } else if (task === "days_in_village") {

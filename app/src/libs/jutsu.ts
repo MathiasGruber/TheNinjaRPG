@@ -11,6 +11,11 @@ import { JutsuTypes } from "@/drizzle/constants";
 import { UserRanks } from "@/drizzle/constants";
 import { StatTypes } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
+import { JUTSU_TRANSFER_FREE_AMOUNT } from "@/drizzle/constants";
+import { JUTSU_TRANSFER_FREE_NORMAL } from "@/drizzle/constants";
+import { JUTSU_TRANSFER_FREE_SILVER } from "@/drizzle/constants";
+import { JUTSU_TRANSFER_FREE_GOLD } from "@/drizzle/constants";
+import type { FederalStatus } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";
 import type { FormEntry } from "@/layout/EditContent";
@@ -102,4 +107,22 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   ];
 
   return { jutsu, effects, form, formData, loading, setEffects, handleJutsuSubmit };
+};
+
+/**
+ * Get the number of free jutsu level transfers based on the federal status
+ * @param federalStatus
+ * @returns
+ */
+export const getFreeTransfers = (federalStatus: FederalStatus) => {
+  switch (federalStatus) {
+    case "GOLD":
+      return JUTSU_TRANSFER_FREE_GOLD;
+    case "SILVER":
+      return JUTSU_TRANSFER_FREE_SILVER;
+    case "NORMAL":
+      return JUTSU_TRANSFER_FREE_NORMAL;
+    default:
+      return JUTSU_TRANSFER_FREE_AMOUNT;
+  }
 };

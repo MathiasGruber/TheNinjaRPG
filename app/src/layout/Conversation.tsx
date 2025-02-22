@@ -242,27 +242,31 @@ const Conversation: React.FC<ConversationProps> = (props) => {
           topRightContent={props.topRightContent}
           onBack={props.onBack}
         >
-          {conversation && !conversation.isLocked && userData && !userData.isBanned && (
-            <div className="relative mb-2">
-              <RichInput
-                id="comment"
-                refreshKey={editorKey}
-                height="120"
-                disabled={isCommenting}
-                placeholder="Write comment..."
-                control={control}
-                error={errors.comment?.message}
-                onSubmit={handleSubmitComment}
-              />
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
-                {isCommenting && <Loader />}
+          {conversation &&
+            !conversation.isLocked &&
+            userData &&
+            !userData.isBanned &&
+            !userData.isSilenced && (
+              <div className="relative mb-2">
+                <RichInput
+                  id="comment"
+                  refreshKey={editorKey}
+                  height="120"
+                  disabled={isCommenting}
+                  placeholder="Write comment..."
+                  control={control}
+                  error={errors.comment?.message}
+                  onSubmit={handleSubmitComment}
+                />
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
+                  {isCommenting && <Loader />}
+                </div>
+                <RefreshCw
+                  className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-20 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
+                  onClick={invalidateComments}
+                />
               </div>
-              <RefreshCw
-                className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-20 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
-                onClick={invalidateComments}
-              />
-            </div>
-          )}
+            )}
           {allComments
             ?.filter((c) => c.conversationId === conversation?.id)
             .filter((c) => {

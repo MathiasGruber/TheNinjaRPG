@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
-import { eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
+import { or, eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
@@ -272,7 +272,10 @@ export const reportsRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       ctx.drizzle.query.userReport.findFirst({
         where: and(
-          eq(userReport.status, "BAN_ACTIVATED"),
+          or(
+            eq(userReport.status, "BAN_ACTIVATED"),
+            eq(userReport.status, "SILENCE_ACTIVATED"),
+          ),
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
@@ -313,6 +316,7 @@ export const reportsRouter = createTRPCRouter({
     ]);
     // Unsilence user if ban no longer active
     if (!silenceReport && user.isSilenced) {
+      console.log("Unsilencing user 1");
       await ctx.drizzle
         .update(userData)
         .set({ isSilenced: false })
@@ -624,6 +628,7 @@ export const reportsRouter = createTRPCRouter({
           ),
         });
         if (silences.length === 0) {
+          console.log("Unsilencing user 2");
           await ctx.drizzle
             .update(userData)
             .set({ isSilenced: false })

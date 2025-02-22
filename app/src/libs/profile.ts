@@ -159,8 +159,8 @@ export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
         return "Lower Outlaw";
       case "JONIN":
         return "Higher Outlaw";
-      case "COMMANDER":
-        return "Special Outlaw";
+      case "ELITE JONIN":
+        return "Elite Outlaw";
       case "ELDER":
         return "Outlaw Council";
     }

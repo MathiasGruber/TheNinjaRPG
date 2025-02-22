@@ -44,6 +44,7 @@ import type {
   ElementName,
   UserRank,
   StatType,
+  JutsuType,
   AttackMethod,
   AttackTarget,
 } from "@/drizzle/constants";
@@ -197,6 +198,7 @@ export const useFiltering = () => {
   const [classification, setClassification] = useState<StatType | None>("None");
   const [effect, setEffect] = useState<string[]>([]);
   const [element, setElement] = useState<string[]>([]);
+  const [jutsuType, setJutsuType] = useState<JutsuType[]>([]);
   const [method, setMethod] = useState<AttackMethod | None>("None");
   const [name, setName] = useState<string>("");
   const [rank, setRank] = useState<UserRank>("NONE");
@@ -233,6 +235,7 @@ export const useFiltering = () => {
     effect,
     element,
     hidden,
+    jutsuType,
     method,
     name,
     rank,
@@ -262,6 +265,7 @@ export const useFiltering = () => {
     setEffect,
     setElement,
     setHidden,
+    setJutsuType,
     setMethod,
     setName,
     setRank,
@@ -305,6 +309,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     effect,
     element,
     hidden,
+    jutsuType,
     method,
     name,
     rank,
@@ -334,6 +339,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     setEffect,
     setElement,
     setHidden,
+    setJutsuType,
     setMethod,
     setName,
     setRank,
@@ -646,6 +652,16 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
             }))}
           />
 
+          {/* Jutsu Type */}
+          <div>
+            <Label>Jutsu Type</Label>
+            <MultiSelect
+              selected={jutsuType}
+              options={JutsuTypes.map((type) => ({ value: type, label: type }))}
+              onChange={(e) => setJutsuType(e as JutsuType[])}
+            />
+          </div>
+
           {/* Target */}
           <FilterSelect
             label="Target"
@@ -854,6 +870,7 @@ export const getFilter = (state: JutsuFilteringState) => {
     disappear: state.removeAnim === "None" ? undefined : state.removeAnim,
     effect: processArray(state.effect as EffectType[]),
     element: processArray(state.element as ElementName[]),
+    jutsuType: processArray(state.jutsuType),
     method: state.method === "None" ? undefined : state.method,
     name: state.name || undefined,
     rank: state.rank === "NONE" ? undefined : state.rank,

@@ -15,6 +15,7 @@ interface ConfirmProps {
       | React.MouseEvent<HTMLButtonElement, MouseEvent>
       | React.KeyboardEvent<KeyboardEvent>,
   ) => void;
+  onClose?: () => void;
 }
 
 const Confirm: React.FC<ConfirmProps> = (props) => {
@@ -29,6 +30,7 @@ const Confirm: React.FC<ConfirmProps> = (props) => {
         onAccept={props.onAccept}
         className={props.className}
         isValid={props.isValid}
+        onClose={props.onClose}
       >
         {props.children}
       </Modal>
