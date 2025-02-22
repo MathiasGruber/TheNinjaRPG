@@ -39,6 +39,7 @@ import {
   IMG_WALLPAPER_SUMMER,
   IMG_WALLPAPER_FALL,
   IMG_WALLPAPER_HALLOWEEN,
+  IMG_WALLPAPER_BRIGHT_VILLAGE,
   IMG_LOGO_FULL,
   IMG_LOGO_SHORT,
   IMG_ICON_DISCORD,
@@ -833,26 +834,26 @@ const getImageSet = () => {
   const base = {
     navbar: IMG_LAYOUT_NAVBAR,
     handsign: IMG_LAYOUT_HANDSIGN,
-    wallpaper: IMG_WALLPAPER_SUMMER,
+    wallpaper: IMG_WALLPAPER_BRIGHT_VILLAGE,
   };
-  switch (getCurrentSeason()) {
-    case "winter":
-      base.wallpaper = IMG_WALLPAPER_WINTER;
-      break;
-    case "spring":
-      base.wallpaper = IMG_WALLPAPER_SPRING;
-      break;
-    case "summer":
-      base.wallpaper = IMG_WALLPAPER_SUMMER;
-      break;
-    case "fall":
-      base.wallpaper = IMG_WALLPAPER_FALL;
-      break;
-    case "halloween":
-      base.wallpaper = IMG_WALLPAPER_HALLOWEEN;
-      base.navbar = IMG_LAYOUT_NAVBAR_HALLOWEEN;
-      base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
-      break;
-  }
-  return base;
+  // switch (getCurrentSeason()) {
+  //   case "winter":
+  //     base.wallpaper = IMG_WALLPAPER_WINTER;
+  //     break;
+  //   case "spring":
+  //     base.wallpaper = IMG_WALLPAPER_SPRING;
+  //     break;
+  //   case "summer":
+  //     base.wallpaper = IMG_WALLPAPER_SUMMER;
+  //     break;
+  //   case "fall":
+  //     base.wallpaper = IMG_WALLPAPER_FALL;
+  //     break;
+  //   case "halloween":
+  //     base.wallpaper = IMG_WALLPAPER_HALLOWEEN;
+  //     base.navbar = IMG_LAYOUT_NAVBAR_HALLOWEEN;
+  //     base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
+  //     break;
+  // }
+  // return base;
 };
