@@ -181,6 +181,7 @@ export type Consequence = {
   absorb_hp?: number;
   absorb_sp?: number;
   absorb_cp?: number;
+  drain?: number;
   types?: (GeneralType | StatType | ElementName | PoolType)[];
 };
 
@@ -503,6 +504,18 @@ export const LifeStealTag = z.object({
   calculation: z.enum(["percentage"]).default("percentage"),
 });
 
+export const DrainTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  ...PoolAttributes,
+  type: z.literal("drain").default("drain"),
+  description: msg("Drain target's Chakra and Stamina over time"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+  poolsAffected: z.array(z.enum(PoolTypes)).default(["Chakra", "Stamina"]),
+});
+export type DrainTagType = z.infer<typeof DrainTag>;
+
 export const ShieldTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -725,6 +738,7 @@ export const AllTags = z.union([
   IncreasePoolCostTag.default({}),
   IncreaseStatTag.default({}),
   LifeStealTag.default({}),
+  DrainTag.default({}),
   MoveTag.default({}),
   MovePreventTag.default({}),
   OneHitKillPreventTag.default({}),
@@ -802,6 +816,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       // "cleanseprevent",
       // "buffprevent",
       "decreasedamagegiven",
+      "drain",
       "increasedamagetaken",
       "decreaseheal",
       "increasepoolcost",
