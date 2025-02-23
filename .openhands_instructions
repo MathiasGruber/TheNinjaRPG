@@ -1,21 +1,30 @@
-Please ensure that the project lints successfully and that all tests pass. Before linting or testing the project, be sure to set things up to use bun & use the correct environment variables as follows:
+---
+name: TheNinja-RPG
+type: repo
+agent: CodeActAgent
+---
 
-```bash
-yes | sudo npm install -g bun
-cp app/.env.example app/.env
-cd app && bun install
-```
+Repository: TheNinja-RPG
+Description: A next.js web application for an online ninja game
 
-ONLY create tests to verify your implementation if your changes involve critical or complicated business logic; for simple and small changes, you can skip writing tests. Tests can be executed with the following statement:
+Directory Structure:
 
-```bash
- CI=true bun test
-```
+- app/src/: Main application code
+- app/src/app/: Next.js app router
+- app/src/app/api/: REST API endpoints
+- app/src/server/: tRPC endpoints
+- app/drizzle/: Database schemas
+- app/tests/: Test files
 
-Linting can be executed with the following statement:
+Setup:
 
-```bash
-bun lint
-```
+- Run `yes | sudo npm install -g bun && cp app/.env.example app/.env &&cd app && bun install` to install dependencies
+- Run `CI=true bun test` for testing
+- Run `bun lint` for linting
 
-Before you consider your solution final, please ensure that you also look at other possibly similar things in the codebase, so as to ensure a consistent approach to solving problems across the codebase; i.e. similar ways of structuring tRPC endpoints, similar way of using UI components, etc.
+Guidelines:
+
+- ONLY create tests to verify your implementation if your changes involve critical or complicated business logic; for simple and small changes, you can skip writing tests
+- When listing a directory, do not need to search all directories, use `find [PATH] -type f -not -path "*/\(node_modules\|.next\|.git\|assets\|scripts\)/*" -exec grep -l "[SEARCH_STRING]" {} \;`
+- Always make sure to test that the project lints successfully and that all tests pass before committing your changes.
+- Before you consider your solution final, please ensure that you also look at other possibly similar things in the codebase, so as to ensure a consistent approach to solving problems across the codebase; i.e. similar ways of structuring tRPC endpoints, similar way of using UI components, etc.

@@ -16,6 +16,7 @@ import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import NindoChange from "@/layout/NindoChange";
 import AiProfileEdit from "@/layout/AiProfileEdit";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Form,
   FormControl,
@@ -61,6 +62,7 @@ import { COST_REROLL_ELEMENT } from "@/drizzle/constants";
 import { COST_CHANGE_GENDER } from "@/drizzle/constants";
 import { round } from "@/utils/math";
 import { genders } from "@/validators/register";
+import { updateUserPreferencesSchema } from "@/validators/user";
 import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
@@ -73,49 +75,11 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Bloodline, Village } from "@/drizzle/schema";
-
-/**
- * Battle Settings Edit
- */
-const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
-  // Queries & mutations
-  const { data: profile, isPending: isPendingProfile } =
-    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
-  const { data: userData } = useRequiredUserData();
-  const utils = api.useUtils();
-
-  // Update battle description setting
-  const { mutate: updateBattleDescription } =
-    api.profile.updateBattleDescription.useMutation({
-      onSuccess: async () => {
-        await utils.profile.getUser.invalidate();
-      },
-    });
-
-  // Loaders
-  if (!profile || isPendingProfile) return <Loader explanation="Loading profile" />;
-
-  // Render
-  return (
-    <div className="pb-3">
-      <div className="flex items-center space-x-2 m-2 mb-4 ">
-        <Switch
-          id="battle-description"
-          checked={userData?.showBattleDescription}
-          onCheckedChange={(checked) =>
-            updateBattleDescription({ showBattleDescription: checked })
-          }
-        />
-        <Label htmlFor="battle-description">Show battle descriptions</Label>
-      </div>
-      <AiProfileEdit userData={profile} hideTitle />
-      <p className="italic">
-        This allows you to change how your character behaves in the game in e.g. kage
-        battles.
-      </p>
-    </div>
-  );
-};
+import {
+  AiRule,
+  ConditionDistanceHigherThan,
+  ActionMoveTowardsOpponent,
+} from "@/validators/ai";
 
 export default function EditProfile() {
   // State
@@ -270,7 +234,7 @@ export default function EditProfile() {
           <RerollElement />
         </Accordion>
         <Accordion
-          title="Battle Settings"
+          title="Combat Preferences"
           selectedTitle={activeElement}
           unselectedSubtitle="Customize battle preferences and AI behavior"
           selectedSubtitle=""
@@ -304,6 +268,244 @@ export default function EditProfile() {
     </ContentBox>
   );
 }
+
+/**
+ * Battle Settings Edit
+ */
+const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
+  // Queries & mutations
+  const [showActive, setShowActive] = useState<string>("preferred");
+  const { data: profile, isPending: isPendingProfile } =
+    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
+  const { data: userData, updateUser } = useRequiredUserData();
+  const utils = api.useUtils();
+
+  // Form setup
+  const form = useForm<z.infer<typeof updateUserPreferencesSchema>>({
+    resolver: zodResolver(updateUserPreferencesSchema),
+    defaultValues: {
+      preferredStat: null,
+      preferredGeneral1: null,
+      preferredGeneral2: null,
+    },
+  });
+
+  // Update battle description setting
+  const { mutate: updateBattleDescription } =
+    api.profile.updateBattleDescription.useMutation({
+      onSuccess: async () => {
+        await utils.profile.getUser.invalidate();
+      },
+    });
+
+  const { mutate: updateAiProfile, isPending } =
+    api.ai.updateAiProfile.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getAi.invalidate();
+          await utils.profile.getPublicUser.invalidate();
+        }
+      },
+    });
+
+  // Update highest preferences
+  const { mutate: updatePreferences } = api.profile.updatePreferences.useMutation({
+    onSuccess: async (data) => {
+      const values = form.getValues();
+      showMutationToast(data);
+      await updateUser({
+        preferredStat: values.preferredStat,
+        preferredGeneral1: values.preferredGeneral1,
+        preferredGeneral2: values.preferredGeneral2,
+      });
+    },
+  });
+
+  // Update form when preferences are loaded
+  useEffect(() => {
+    if (userData) {
+      form.reset({
+        preferredStat: userData.preferredStat,
+        preferredGeneral1: userData.preferredGeneral1,
+        preferredGeneral2: userData.preferredGeneral2,
+      });
+    }
+  }, [userData, form]);
+
+  // Form submission
+  const onSubmit = (values: z.infer<typeof updateUserPreferencesSchema>) => {
+    updatePreferences(values);
+  };
+
+  // Loaders
+  if (!profile || isPendingProfile) return <Loader explanation="Loading profile" />;
+
+  // Render
+  return (
+    <div className="pb-3">
+      <div className="flex items-center space-x-2 m-2 mb-4">
+        <Tabs
+          defaultValue={showActive}
+          className="flex flex-col items-center justify-center w-full"
+          onValueChange={(value) => setShowActive(value)}
+        >
+          <TabsList className="text-center">
+            <TabsTrigger value="preferred">Preferences</TabsTrigger>
+            <TabsTrigger value="combat">Settings</TabsTrigger>
+            <TabsTrigger value="aiprofile">AI Profile</TabsTrigger>
+          </TabsList>
+          <TabsContent value="preferred">
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="p-4 grid grid-cols-4 gap-3 w-full items-end"
+              >
+                <FormField
+                  control={form.control}
+                  name="preferredStat"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Offense</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? value : null)}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Highest" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={null!}>Highest</SelectItem>
+                          <SelectItem value="Ninjutsu">Ninjutsu</SelectItem>
+                          <SelectItem value="Genjutsu">Genjutsu</SelectItem>
+                          <SelectItem value="Taijutsu">Taijutsu</SelectItem>
+                          <SelectItem value="Bukijutsu">Bukijutsu</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="preferredGeneral1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>General 1</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? value : null)}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Highest" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={null!}>Highest</SelectItem>
+                          <SelectItem value="Strength">Strength</SelectItem>
+                          <SelectItem value="Intelligence">Intelligence</SelectItem>
+                          <SelectItem value="Willpower">Willpower</SelectItem>
+                          <SelectItem value="Speed">Speed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="preferredGeneral2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>General 2</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? value : null)}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Highest" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={null!}>Highest</SelectItem>
+                          <SelectItem value="Strength">Strength</SelectItem>
+                          <SelectItem value="Intelligence">Intelligence</SelectItem>
+                          <SelectItem value="Willpower">Willpower</SelectItem>
+                          <SelectItem value="Speed">Speed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit">Save</Button>
+              </form>
+              <FormDescription>
+                This will be used as your highest offense type in combat instead of
+                automatically choosing the highest stat.
+              </FormDescription>
+            </Form>
+          </TabsContent>
+          <TabsContent value="combat">
+            <Switch
+              id="battle-description"
+              checked={userData?.showBattleDescription}
+              onCheckedChange={(checked) =>
+                updateBattleDescription({ showBattleDescription: checked })
+              }
+            />
+            <Label htmlFor="battle-description">Show battle descriptions</Label>
+            < br/>
+            < br/>
+            <Confirm
+              title="Reset AI Profile"
+              button={
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={!profile?.aiProfileId || isPending}
+                >
+                  {isPending ? <Loader size={5} /> : "Reset AI Profile"}
+                </Button>
+              }
+              onAccept={() => {
+                if (!profile?.aiProfileId) return;
+                const defaultAiProfilePayload = {
+                  id: profile.aiProfileId,
+                  rules: [
+                    AiRule.parse({
+                      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+                      action: ActionMoveTowardsOpponent.parse({}),
+                    }),
+                  ],
+                  includeDefaultRules: true,
+                };
+                updateAiProfile(defaultAiProfilePayload);
+              }}
+            >
+              This will reset your AI profile to default settings. This action cannot be undone. Are you sure you want to continue?
+            </Confirm>
+
+          </TabsContent>
+          <TabsContent value="aiprofile">
+            <AiProfileEdit userData={profile} hideTitle />
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <p className="italic">
+        This allows you to change how your character behaves in the game in e.g. kage
+        battles.
+      </p>
+    </div>
+  );
+};
 
 /**
  * Marriage
@@ -341,10 +543,14 @@ const Marriage: React.FC = () => {
 
   // Queries & mutations
   const { data: userData } = useRequiredUserData();
-  const { mutate: create } = api.marriage.createRequest.useMutation({ onSuccess });
-  const { mutate: accept } = api.marriage.acceptRequest.useMutation({ onSuccess });
-  const { mutate: reject } = api.marriage.rejectRequest.useMutation({ onSuccess });
-  const { mutate: cancel } = api.marriage.cancelRequest.useMutation({ onSuccess });
+  const { mutate: create, isPending: isCreating } =
+    api.marriage.createRequest.useMutation({ onSuccess });
+  const { mutate: accept, isPending: isAccepting } =
+    api.marriage.acceptRequest.useMutation({ onSuccess });
+  const { mutate: reject, isPending: isRejecting } =
+    api.marriage.rejectRequest.useMutation({ onSuccess });
+  const { mutate: cancel, isPending: isCancelling } =
+    api.marriage.cancelRequest.useMutation({ onSuccess });
   const { mutate: divorce } = api.marriage.divorce.useMutation({ onSuccess });
 
   if (!requests) return <Loader explanation="Loading requests" />;
@@ -411,6 +617,7 @@ const Marriage: React.FC = () => {
         )}
         {shownRequests.length > 0 && (
           <UserRequestSystem
+            isLoading={isCreating || isAccepting || isRejecting || isCancelling}
             requests={shownRequests}
             userId={userData!.userId}
             onAccept={accept}

@@ -4,398 +4,373 @@ export default function GameRules() {
   return (
     <ContentBox title="Game Rules">
       <div>
-        <p className="my-2 text-2xl">
-          <b>LANGUAGE & CONTENT</b>
-        </p>{" "}
+        <h1>TheNinja-RPG Rules</h1>
         <p className="my-2">
-          In publicly accessible locations, significant use of any foreign language
-          (i.e., not English) is prohibited.{" "}
+          Welcome to <b>TheNinja-RPG</b> (also referred to as &quot;TNR&quot; or
+          &quot;the game&quot;). By participating in TNR, you agree to comply with the
+          rules and terms outlined below. These rules are designed to ensure a fair,
+          respectful, and enjoyable environment for all players. Violations of these
+          terms may result in immediate action by the moderation team, up to and
+          including permanent account bans. Users are considered solely responsible for
+          the actions and content of their account. Any action attributed to someone
+          else accessing their account is the responsibility of the account owner. TNR
+          generally follows PEGI-12 guidelines for game content, however user content is
+          unrated.
         </p>
+        <hr />
+
+        <h2>1. Code of Conduct</h2>
+        <h3>&nbsp;&nbsp;1.1 Respect and Decorum</h3>
         <p className="my-2">
-          TheNinja-RPG generally adheres to PEGI 12+ guidelines when it comes to in-game
-          content (please note that no official age classification has been given).
-          <b>
-            Online interactions are not rated, but are instead subject to our rules.
-          </b>
+          &nbsp;&nbsp;To maintain a welcoming environment, all users are required to
+          treat others with respect and dignity. When encountering negative behavior
+          users are strongly encouraged to use the blacklist feature in addition to
+          reporting an offense. The following behaviors are strictly prohibited:
         </p>
-        <p>
-          A detailed guide to PEGI ratings can be found{" "}
-          <a href="https://pegi.info/what-do-the-labels-mean">here</a> ; this guide may
-          be helpful in understanding, but is not dispositive of, site policies on
-          language and content. Language and content permitted under PEGI 12+ guidelines
-          are subject to all applicable restrictions set forth by TheNinja-RPG&rsquo;s
-          Rules and Terms of Service.
-        </p>{" "}
+        <ul className="pl-5 list-disc">
+          <li>
+            <b>Harassment:</b> Targeted insults, threats, or abuse directed at another
+            player or staff member.
+          </li>
+          <li>
+            <b>Offensive Language:</b> Use of racist, sexist, discriminatory, obscene,
+            or otherwise offensive language. Moderate use of profanity is allowed;
+            however, excessive or aggressive use directed at others is not. These rules
+            apply equally to all players.
+          </li>
+          <li>
+            <b>Trolling:</b> Intentional incitement of negative responses or disruption
+            of community spaces.
+          </li>
+          <li>
+            <b>Prohibited Topics:</b> Discussions involving sexual content, political
+            issues, drugs, religion, sensitive issues (e.g., suicide), or ongoing court
+            cases in public forums or the Tavern.
+          </li>
+          <li>
+            <b>External Harassment:</b> Personal harassment of TNR community members
+            outside the game, if reported and verified, will be addressed within the
+            rules if deemed exceptional or extreme. (e.g stalking, unwanted sexual
+            advances, blackmail)
+          </li>
+        </ul>
+        <hr />
+
+        <h2>2. Avatar, Account Name, and Title Guidelines</h2>
+        <ul className="pl-5 list-disc">
+          <li>
+            <b>Prohibited Content:</b> Avatars, account names, and titles depicting
+            political, religiously demeaning, and sexually explicit content, and
+            references to widely illegal drugs, or guns are prohibited. Mildly
+            provocative avatars are allowed.
+          </li>
+          <li>
+            <b>Disruptive Designs, Names, and Titles:</b> Avatars designed to annoy,
+            offend, or disrupt the community are prohibited.
+          </li>
+          <li>
+            <b>Staff Requests:</b> Moderators may request avatar changes to maintain
+            community standards. Requests must be respected.
+          </li>
+          <li>
+            <b>Forced Changes:</b> Names, avatars, or titles deemed inappropriate may be
+            changed without prior notification. Reputation points lost due to these
+            changes will not be refunded unless the action is deemed to be in error by a
+            moderator.
+          </li>
+        </ul>
+        <hr />
+
+        <h2>3. External Links</h2>
+        <ul className="pl-5 list-disc">
+          <li>
+            <b>Prohibited Platforms:</b> Links to sites associated with drugs,
+            pornography, hate speech, or harmful content are forbidden.
+          </li>
+          <li>
+            <b>Appropriate Content:</b> Shared links must align with TNR’s community
+            standards. Misuse will result in disciplinary action.
+          </li>
+        </ul>
+        <hr />
+
+        <h2>4. Punishment System</h2>
+        <h3>&nbsp;&nbsp;4.1 Overview</h3>
         <p className="my-2">
-          <b>Prohibited language and content include, but are not limited to:</b> strong
-          language, sexual references or content, inappropriate drug use references, and
-          spamming.{" "}
+          &nbsp;&nbsp;Strikes do not reset and remain permanently attached to a user’s
+          record. Moderators typically issue one official warning before applying a
+          strike, unless the violation is severe. A moderator may issue an unofficial
+          warning or rule reminder before issuing a strike or official warning. However,
+          it is considered a courtesy and is not required before official action is
+          taken.
         </p>
+
+        <h3>&nbsp;&nbsp;4.2 Strike Levels</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            <b>Strike 1:</b> 24-hour Silence.
+          </li>
+          <li>
+            <b>Strike 2:</b> 72-hour Silence.
+          </li>
+          <li>
+            <b>Strike 3:</b> 1-week Silence
+          </li>
+          <li>
+            <b>Strike 4:</b> 1-month Silence. Appeals are allowed but rarely granted
+            without substantial proof of error.
+          </li>
+          <li>
+            <b>Escalation:</b> Violations beyond 4 strikes may lead to a permanent
+            Silence or Ban.
+          </li>
+        </ul>
+
+        <h3>&nbsp;&nbsp;4.3 Special Punishment Rules</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            <b>Minimum Duration:</b> Silences under 24 hours are not considered strikes.
+          </li>
+          <li>
+            <b>Bans:</b> Bans count as 2 strikes. A 3rd ban could lead to a permanent
+            ban.
+          </li>
+          <li>
+            <b>Immediate Action:</b> Severe violations (e.g., hate speech, threats,
+            doxxing, sexual harassment) may result in immediate silences or bans,
+            possibly permanent.
+          </li>
+          <li>
+            Abuse of bugs and game play mechanics will result in a ban instead of a
+            silence. Game abuse will not be tolerated. Users may not be given a warning
+            if the abuse is believed to be intentional.
+          </li>
+          <li>
+            Strikes for punishments that have been completed may be removed, under
+            review, after a year of good behaviour. However removal is not guaranteed.
+          </li>
+        </ul>
+        <hr />
+
+        <h2>5. Reporting and Appeals</h2>
+        <h3>&nbsp;&nbsp;5.1 Reporting Violations</h3>
+        <ul className="pl-5 list-disc">
+          <li>Users should report rule violations via the in-game reporting system.</li>
+          <li>
+            Reports must include relevant evidence. Abuse of the system may result in
+            penalties for the reporting user.
+          </li>
+          <li>
+            Screenshots and grabs may be submitted as evidence however the use of them
+            is at the discretion of the moderation staff and may be dismissed due to the
+            ability to alter images. Users are encouraged to use the official reporting
+            feature as it is the most reliable evidence.
+          </li>
+        </ul>
+
+        <h3>&nbsp;&nbsp;5.2 Appeals Process</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            Users may appeal disciplinary actions by contacting the issuing Moderator or
+            Head Moderator.
+          </li>
+          <li>
+            Appeals require substantial evidence and are rarely granted for permanent
+            bans.
+          </li>
+        </ul>
+        <hr />
+
+        <h2>6. Staff Roles and Responsibilities</h2>
+        <h3>&nbsp;&nbsp;6.1 Roles</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            <b>Jr. Moderators:</b> Moderators in training. May issue warnings and
+            silences.
+          </li>
+          <li>
+            <b>Moderators:</b> Address immediate issues and primarily enforce silences.
+            May issue bans.
+          </li>
+          <li>
+            <b>Head Moderator:</b> Oversees escalations, appeals, and issues bans and
+            silences.
+          </li>
+          <li>
+            <b>Moderator Admin:</b> Manages the moderation team and resolves internal
+            complaints regarding moderation staff.
+          </li>
+          <li>
+            <b>Content Staff:</b> Ensures in-game balance and addresses bugs.
+          </li>
+          <li>
+            <b>Event Staff:</b> Creates lore, event imagery, and manages events.
+          </li>
+          <li>
+            <b>Content Admin:</b> Directs content and event staff to help ensure
+            cohesive gameplay and balancing. Resolves internal complaints regarding
+            content and event staff.
+          </li>
+          <li>
+            <b>Coder:</b> Responsible for fixing bugs and creating game features.
+          </li>
+          <li>
+            <b>Site Owner:</b> Terriator is owner of TNR and the final appeal of all
+            complaints and paypal issues.
+          </li>
+        </ul>
+
+        <h3>&nbsp;&nbsp;6.2 Responsibilities</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            <b>Transparency:</b> All disciplinary actions must be logged and justified.
+          </li>
+        </ul>
+        <hr />
+
+        <h2>7. Fair Play Guidelines</h2>
+        <h3>&nbsp;&nbsp;7.1 Cheating and Exploits</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            Exploiting mechanics or using unauthorized third-party tools is prohibited.
+          </li>
+          <li>
+            Punishment escalates from temporary bans to permanent bans for repeated
+            offenses.
+          </li>
+        </ul>
+
+        <h3>&nbsp;&nbsp;7.2 Account Sharing and Multiple Accounts</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            Accounts must be used by a single individual. Shared or multiple accounts on
+            the same IP must be reported to moderators to avoid penalties.
+          </li>
+          <li>
+            If multiple accounts on a single IP are discovered the account owner will be
+            asked to mark the additional accounts for deletion. Failure to do so may
+            result in bans on all accounts. Users will be given a 24hr window to reply
+            to the request before action will be taken.
+          </li>
+        </ul>
+
+        <h3>&nbsp;&nbsp;7.3 Selling or Transferring Accounts</h3>
+        <ul className="pl-5 list-disc">
+          <li>Strictly prohibited and may result in permanent bans.</li>
+        </ul>
+        <hr />
+
+        <h2>8. General Community Standards</h2>
+        <ul className="pl-5 list-disc">
+          <li>
+            <b>Respect for Staff:</b> Harassment of staff is treated the same as
+            harassment of players.
+          </li>
+          <li>
+            <b>Constructive Feedback:</b> Must be respectful and submitted in official
+            feedback channels. If unsure what channels are acceptable, reach out to a
+            moderation staff member.
+          </li>
+        </ul>
+        <hr />
+
+        <h2>9. Official Events</h2>
+        <ul className="pl-5 list-disc">
+          <li>
+            Official events and media are announced in-game and on official channels.
+            Unofficial events are not TNR’s responsibility.
+          </li>
+          <li>
+            Staff participation in unofficial events is at their discretion and does not
+            grant official status.
+          </li>
+        </ul>
+        <hr />
+
+        <h2>10. Additional Guidelines</h2>
+        <h3>&nbsp;&nbsp;10.1 Impersonation</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            Impersonating accounts, staff, or players (including past users) is
+            prohibited and may result in permanent bans.
+          </li>
+        </ul>
+
+        <h3>&nbsp;&nbsp;10.2 Language Policy</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            TNR is an English-only game. Short phrases in other languages are allowed,
+            but persistent use is not permitted to ensure moderation efficiency.
+          </li>
+        </ul>
+
+        <h3>&nbsp;&nbsp;10.3 Criticism of Moderator Decisions</h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            Publicly criticizing moderation decisions or making unfounded assumptions
+            about punishments is prohibited. Moderators often have access to additional
+            context not available to players.
+          </li>
+        </ul>
+        <hr />
+
+        <h2>11. Disclaimer of Warranties</h2>
         <p className="my-2">
-          These Rules apply to the anywhere on the site where the user can submit free
-          text, e.g. taverns, news comments, private messages, private chats, forum,
-          Clan and ANBU names, avatars, nindos, and usernames.
-        </p>{" "}
-        <p className="my-2">
-          <b>Profanity: </b>Strong language prohibited on the site includes, but is not
-          limited to: sexual expletives, unnecessary and excessive profanity, and
-          offensive language. Censorship (e.g., replacing vowels with symbols) does not
-          make prohibited language permissible. If you are not sure if specific words
-          are appropriate to use, ask a moderator.{" "}
-        </p>{" "}
-        <p className="my-2">
-          <b>Offensiveness: </b>Offensive language prohibited on the site includes, but
-          is not limited to: racial slurs, discriminatory or hateful content, and
-          malicious or intentionally harmful insults towards other users. Moderators may
-          determine, on a case-by-case basis, whether a specific interaction between
-          users was both intended and perceived to be offensive.
-        </p>{" "}
-        <p className="my-2">
-          <b>Spamming: </b>Spam may include, but is not limited to: excessive use of
-          capital letters; excessive use of BBCode (e.g., bold, italic, or underlined
-          text, quoted text, or hyperlinks); excessive use of punctuation or symbols;
-          persistently making blank, annoying or nonsensical posts; and “stretching” or
-          “breaking” the tavern. As a matter of courtesy, we expect users to refrain
-          from posting or messaging purely for advertising purposes. Doing so may
-          constitute spamming.
+          TNR is provided on an &quot;as-is&quot; basis. Players use the platform at
+          their own risk
         </p>
+        <hr />
+
+        <h2>12. Modification of Terms</h2>
         <p className="my-2">
-          <b>Appropriateness: </b>Inappropriate content includes, but is not limited to:
-          explicit sexual content, graphic or gratuitous sexual conduct, sexual nudity,
-          inappropriate references to substance abuse, inappropriate references to
-          illegal drug use, gang signs or symbols, hate symbols, extremist imagery,
-          glorification of violence, graphic depictions of gore or mutilation, self-harm
-          content, animal cruelty, non-consensual intimate imagery, and deliberately
-          shocking or disturbing content. Moderators may determine, on a case-by-case
-          basis, whether specific behavior or content was both intended and perceived to
-          be inappropriate.
-        </p>{" "}
-        <p className="my-2 text-2xl">
-          <b>CONDUCT</b>
-        </p>{" "}
-        <p className="my-2">
-          Users are expected to treat others with basic courtesy and respect. Harassing,
-          trolling, or otherwise pestering another user will not be tolerated. This
-          includes using creative or unconventional methods – including, but not limited
-          to, abusing normal game features – to harass or troll others.
-        </p>{" "}
-        <p className="my-2">
-          <b>
-            <u>Harassment:</u>
-          </b>{" "}
-          Harassment may include, but is not limited to: serious or persistent attempts
-          to torment others; incessantly insulting, hurtful or aggravating conduct;
-          targeting others through repeated annoyances, threats, or personal criticisms;
-          and unwelcome sexual advances or interactions.{" "}
-        </p>{" "}
-        <p className="my-2 italic text-xs">
-          <b>Examples of harassment include, but are not limited to:</b>
-          <ul className="pl-5 list-disc">
-            <li>
-              Discrimination based on race/religion/gender orientation/sexual identity.
-            </li>
-            <li>Discrimination based on state/nationality/occupations.</li>
-            <li>Obscenity and indecency.</li>
-            <li>Using historical expressions that cause distress.</li>
-            <li>
-              Stalking or revealing personal information such as name, address or social
-              media without permission of the user.
-            </li>
-            <li>
-              Any action with the intention of inflicting emotional distress on another
-              player.
-            </li>
-          </ul>
+          TNR reserves the right to modify these rules at any time. Announcements will
+          be made in-game and on official platforms.
         </p>
+        <hr />
+
+        <h2>13. Discord</h2>
         <p className="my-2">
-          <b>
-            <u>Nuisance behaviour: </u>
-          </b>
-          Nuisance behaviour is behaviour that impacts or instructs other player&apos;s
-          game play but might not be considered harassment. If multiple people are
-          observed engaging in the behaviour, multiple punishments may be handed out.
+          Discord is used as an official means of communication for TNR and the TNR
+          community. Bug and moderation tickets can be submitted there as an official
+          channel. However for moderation issues the in-game report feature is
+          encouraged to create reliable in-game evidence in addition to a moderation
+          ticket if one is submitted. Updates and game changes may be posted in Discord
+          in addition to in-game.
         </p>
-        <p className="my-2 italic text-xs">
-          <b>Examples of nuisance behaviour includes:</b>
-          <ul className="pl-5 list-disc">
-            <li>
-              Using expressions to reject a person&apos;s opinions in an attempt to
-              belittle or disrespect them.
-            </li>
-            <li>Using expressions to disrupt the order in a public space.</li>
-            <li>
-              Using or creating avatars with the intent to disrupt, offend, or annoy
-              other players or staff members.
-            </li>
-            <li>Expressions that are purposely offensive towards another player.</li>
-            <li>
-              Purposely disrupting another player&apos;s gameplay or excluding them
-              beyond regular gameplay features (Ie. Not everyone must be accepted into a
-              clan or ANBU).
-            </li>
-            <li>Spoiling events for other players.</li>
-            <li>
-              Repeating behaviour that is considered annoying towards another player.
-            </li>
-            <li>
-              Ignoring a moderator&apos;s instructions in reference to the rules or ToS
-              behaviour.
-            </li>
-          </ul>
+
+        <h3>&nbsp;&nbsp;13.1 Rules</h3>
+        <p className="my-2">
+          &nbsp;&nbsp;The TNR discord generally follows rules and TNR of the website,
+          but may have additional rules in place in a separate rule channel. It also
+          follows the official Discord ToS. It is important to familiarize yourself with
+          both sets of the rules. Strikes on discord are considered separate from
+          strikes in-game, except for rare or extreme circumstances. Therefore a person
+          may be banned or removed from the discord but be allowed to remain in-game.
+          Individuals considered exceptionally disruptive to the TNR discord community
+          may be removed, as discord is considered non essential for gameplay.
         </p>
+
+        <h3>&nbsp;&nbsp;13.2 External Discords</h3>
         <p className="my-2">
-          <b>
-            <u>Trolling: </u>
-          </b>
-          Trolling may include, but is not limited to: intentional attempts to incite
-          negative responses from others; intentionally baiting, insulting, or
-          provocative interactions; and intentionally inflammatory or disruptive
-          behavior.{" "}
-        </p>{" "}
-        <p className="my-2">
-          <b>
-            <u>Staff Positions: </u>
-          </b>
-          Users are strongly discouraged from pestering game staff about staff
-          positions. Excessive pestering can constitute harassment or spamming.
-        </p>{" "}
-        <p className="my-2">
-          <b>
-            <u>Reports: </u>
-          </b>{" "}
-          Users may be penalized for persistent and intentional abuse of the report
-          system. Reports are not frivolous toys or tools of personal revenge. It is the
-          reporting user’s responsibility to show both rule-breaking and supporting
-          evidence when filing reports. All reports should contain some form of relevant
-          evidence. Blank reports that include no information whatsoever are essentially
-          unsubstantiated claims, and cannot justify moderating actions. If you are not
-          sure how to report a particular situation, message a moderator for
-          instructions. Encouraging others to file reports is not allowed, e.g.
-          encouraging mass reports of a given user.
+          &nbsp;&nbsp;Any discord besides the main TNR server is considered unofficial,
+          regardless of whether it is run by a staff member or player, and is not
+          required to follow the official TNR rules. These servers are joined at the
+          risk of the player and are not the responsibility of TNR. Except when evidence
+          of in-game infractions (such as botting, account sharing, exploitation etc.)
+          or extreme circumstances (stalking, doxxing etc.) official action will not be
+          taken against a player for behaviour within those servers. If users are
+          experiencing negativity or disruptions within these servers, they are
+          encouraged to leave them.
         </p>
+
+        <h3>&nbsp;&nbsp;13.2.1 Staff</h3>
         <p className="my-2">
-          <b>
-            <u>Punishments: </u>
-          </b>{" "}
-          bans and punishments of specific users are to be kept out of public chat.
-          While discussion amongst users in private is fine, it is to be kept out of the
-          public taverns.
+          &nbsp;&nbsp;Staff may create, moderate, or participate in external discords.
+          While action in these discords are not considered official staff actions,
+          staff are still expected to remain reasonably professional as a reflection of
+          the community they work for.
         </p>
-        <p className="my-2">
-          <b>
-            <u>Staff information: </u>
-          </b>{" "}
-          Staff has access to various user information unavailable to the public
-          (including by not limited to IP address, usage information etc.). Sharing of
-          this information outside of staff circles is strictly prohibited, and will
-          result in severe consequences.
-        </p>
-        <p className="my-2 text-2xl">
-          <b>ACCOUNTS</b>
-        </p>{" "}
-        <p className="my-2">
-          Users are responsible at all times for anything that occurs on their
-          account(s). Accidents (e.g., siblings, pets, mysterious hackers and
-          unverifiable glitches) will not excuse users from the Rules or entitle them to
-          compensation.
-        </p>{" "}
-        <p className="my-2">
-          <b>Account Limit: </b>Users are permitted to maintain a maximum of two
-          accounts at any given time. Exceeding this limit may result in the banning of
-          all associated accounts. Users with more than two accounts should promptly
-          designate the excess accounts for deletion to avoid penalties. The reason for
-          this rule is to avoid ryo farming, spamming bloodline rolls, etc.
-        </p>{" "}
-        <p className="my-2">
-          <b>Account deletions: </b>Accounts that are inactive for over 90 days are
-          automatically flagged for deletion and deleted in the next sweep. Users who
-          anticipate extended periods of inactivity but wish to protect their accounts
-          are advised to contact our support staff before they leave. Accounts are
-          protected from automatic deletion regardless of activity if they have bought
-          20 or more reputation points, have active federal support, or are banned from
-          the game.
-        </p>{" "}
-        <p className="my-2">
-          <b>Account Changes: </b>The administration will not manipulate user data
-          except under special and extraordinarily compelling circumstances. Users that
-          request unethical or prohibited alterations may be subject to nominal
-          penalties. Such alterations may include, but are not limited to: usernames,
-          statistics, jutsu, ryo, reputation points, achievements, bloodlines, and ranks
-          (up or down).
-        </p>{" "}
-        <p className="my-2 text-2xl">
-          <b>FAIR GAMING</b>
-        </p>{" "}
-        <p className="my-2">
-          All users are expected to play the game fairly and in the spirit of good
-          sportsmanship. Cheating and other unfair gaming practices may include, but are
-          not limited to: hacking, scamming, account sharing, account farming, statistic
-          or kill farming, and Kage-holding.
-        </p>{" "}
-        <p className="my-2">
-          Players participate in unfair shortcuts and practices at their own risk.
-          Relevant rules and policies will be interpreted by their intended purpose, not
-          by textual limitations. Loopholes and technicalities (e.g., getting real-life
-          siblings to claim to “own” illegal ryo farms) will not excuse users who act
-          contrary to the spirit of these Rules.
-        </p>{" "}
-        <p className="my-2">
-          <b>Hacking: </b>Searching for and discovering exploits in the game is highly
-          encouraged, and any reported findings richly rewarded by in-game rewards.
-          Threatening or attempting to use, distributing the means for, inquiring about,
-          or withholding information relevant to any founds exploits is however strictly
-          prohibited. In addition to incurring penalties within the game, perpetrators
-          may also be subject to legal action, e.g., for programs deemed illegal by the
-          NITEC.
-        </p>{" "}
-        <p className="my-2">
-          <b>Scamming: </b>Informal transactions and agreements with other users are not
-          condoned, encouraged, or insured by the Rules or staff. Users participate in
-          such unofficial deals at their own risk; any and all resulting damages are the
-          user’s sole responsibility and will not be recovered or compensated for by the
-          administration. You may ask moderators to facilitate these transactions, but
-          moderators are not encouraged or obligated to accommodate such requests in the
-          course of their staff duties. If a moderator decides to help facilitate
-          player-to-player agreements, they do so only in their capacity as a
-          trustworthy third party, not in their position as staff. However, users that
-          are caught scamming or otherwise cheating others may still be subject to
-          penalties pursuant to fair gaming rules. Moderators may also place a visible
-          warning sign on such users’ public profiles as a measure against future scams.
-        </p>{" "}
-        <p className="my-2">
-          <b>Kage-Holding:</b> As a general rule, moderators will not intervene in Kage
-          matters as long as the Kage is reasonably active, fulfilling appropriate Kage
-          functions in a timely manner, and engaging in ordinary gaming/training such
-          that normal challenges from users in general are possible. No Kage is
-          obligated under the Rules to be popular or likeable, act in their village’s
-          best interest (as villagers see it), or accept specific challenges from
-          individual players. If a Kage must be removed for appropriate reasons but is
-          not in violation of any other rules (e.g., trolling), a perfunctory ban may be
-          issued to remove the player from the position, but no other penalties will be
-          imposed.
-        </p>
-        <p className="my-2 text-2xl">
-          <b>MODERATION</b>
-        </p>{" "}
-        <p className="my-2">
-          Case-by-case applications of the Rules are within the jurisdiction of
-          moderators. Scenarios and consequences include, but are not limited to, those
-          described within the text of the Rules. Nothing in the text of the Rules
-          should be construed as a technical limitation to moderators’ ability to
-          accomplish the intended objectives of the Rules.
-        </p>{" "}
-        <p className="my-2">
-          Punishments for disregarding or breaking the rules may result in warnings,
-          silences (for chat behaviour) or bans (for gameplay or more serious chat
-          behaviour) and are given at the discretion of a moderator.
-        </p>
-        <p className="my-2">
-          For communication based conflicts, punishments will be given out based on how
-          the receiving party perceives it as different people will perceive different
-          styles of communication as uncomfortable. Therefore specific words and phrases
-          are not prohibited and instead the greater context will be looked at.
-        </p>
-        <p className="my-2">
-          However it is noted that being mindful is still encouraged as there are many
-          people in public spaces who may be made uncomfortable, even if they
-          aren&apos;t involved in the conversation. Action can still be taken against
-          the offending user if the offensive communications continue.
-        </p>
-        <p className="my-2">
-          As a general policy, ambiguities in the Rules or evidence are presumed in
-          favor of the user. By default, moderators have the burden of proof and must
-          appropriately document and justify all moderating actions.{" "}
-        </p>
-        <p className="my-2">
-          <b>User Responsibility: </b>TheNinja-RPG may change these Rules at any time.
-          Any significant changes will be publicly announced to all users, but will not
-          limit or negate the responsibility of all users to be aware of, understand,
-          and comply with the Rules at all times. Moderators can only regulate what they
-          see, either in publicly accessible areas or in reports. Users are strongly
-          encouraged to use the report system. Reports are reliable evidence, and allow
-          moderators to respond to problems that may occur when no moderators are
-          online. If you are provoked by another user’s inappropriate behavior, report
-          the offensive behavior to a moderator. No other user’s behavior (i.e., “they
-          started it”) will ever be an excuse for breaking rules in retaliation.
-        </p>{" "}
-        <p className="my-2">
-          <b>User Records:</b> Infractions are issued against users, not accounts. A
-          user&rsquo;s record consists of infractions from all their accounts, including
-          from deleted accounts. User can at any time see and review all record entries
-          relating to their account. As a courtesy, moderators will avoid sharing
-          information about a user&rsquo;s record and infractions, past or ongoing, with
-          anyone other than that user. This includes family, friends, and even those
-          attempting to speak with moderators on your behalf. If you need to talk to a
-          moderator about your record or infractions, send them a PM, forum PM, or
-          support ticket.
-        </p>{" "}
-        <p className="my-2">
-          <b>Warnings: </b>Warnings, official or unofficial, may be issued by moderators
-          as a courtesy. In general, moderators are advised to allow each user no more
-          than two official warnings.
-        </p>{" "}
-        <p className="my-2">
-          <b>Bans: </b>Using a different account to bypass an active ban is strictly
-          prohibited, and may result in an extension of the original ban. Generally, the
-          duration of bans will depend on the severity of the offence, the user’s prior
-          record, and other circumstantial factors which moderators may deem appropriate
-          to consider. Repeat offenders may also be subject to appropriate penalties
-          against profits from illicit activities (e.g., ryo drains for scamming,
-          statistics cuts for account sharing). Repeat offenders who continue to break
-          rules may have their tavern privileges permanently removed, and/or be
-          permanently banned from the game.{" "}
-        </p>{" "}
-        <p className="my-2">
-          <b>Staff and the Rules:</b>All staff, like users, are also required to follow
-          all site rules. Ordinary misconduct from content staff and event designers can
-          be reported to any moderator. Other staff misconduct can be reported to a head
-          moderator or to the staff administrator. All staff also have the same
-          protections under the Rules that users have. They are not required to tolerate
-          any special abuses by virtue of their position. Staff impersonation is
-          strictly forbidden, and includes, but is not limited to: falsely claiming to
-          be staff, implicitly pretending to be staff, and falsely asserting staff
-          privileges or authority.{" "}
-        </p>{" "}
-        <p className="my-2">
-          <b>Appeals: </b>If you believe you were issued an infraction in error,
-          intentionally or otherwise, you can challenge it by complaining to the issuing
-          moderator or a head moderator. If you want to appeal a properly-issued ban,
-          you can appeal to the issuing moderator, a head moderator or to the staff
-          administrator if there are no head moderators available/the head moderator(s)
-          were the ones to issue the infraction. Permanent tavern or game ban appeals
-          are usually evaluated by head moderators and the staff administrator.
-          Generally, moderators can overturn their own decisions, but should not
-          overturn other moderators&rsquo; decisions unless absolutely necessary. Head
-          moderators can overturn the decisions of any moderator, but should not
-          overturn other head moderators&rsquo; decisions unless absolutely necessary.
-          The staff administrator can overturn the decisions of any other staff members
-          if necessary. You can use private messages to discuss staff-related issues. If
-          you cannot resolve your issue with a moderator or head moderator, contact the
-          staff administrator.
-        </p>
-        <p className="my-2 text-2xl">
-          <b>EVENTS</b>
-        </p>{" "}
-        <p className="my-2">
-          TNR staff are not officially involved in player-made events and TNR is not
-          liable for any issues resulting from fairness or prizes. Any TNR official
-          events will be posted about in news.
-        </p>
-        <p className="my-2">
-          Players may create and run their own events such as, but not limited to:
-          raiding events, avatar contests, creative writing events etc.
-        </p>
-        <p className="my-2">
-          Player events should follow the rules outlined on this page, however TNR staff
-          will not be responsible for or punish players based on complaints due to
-          fairness or how prizes are distributed.
-        </p>
-        <p className="my-2">
-          Moderators may be requested to retain applicable prizes, such as ryo, for
-          distribution. However, staff members are not required to participate, and
-          their involvement in any capacity does not transform a player event into an
-          official event.
-        </p>
+        <hr />
       </div>
     </ContentBox>
   );

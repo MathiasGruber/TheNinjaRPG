@@ -311,6 +311,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
           </div>
           {requests && requests.length > 0 && (
             <UserRequestSystem
+              isLoading={isAccepting || isRejecting || isCancelling}
               requests={requests}
               userId={userData.userId}
               onAccept={accept}
@@ -590,7 +591,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     fetchNextPage,
     hasNextPage,
   } = api.jutsu.getAll.useInfiniteQuery(
-    { limit: 500, hideAi: true, ...getFilter(state) },
+    { limit: 100, hideAi: true, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       placeholderData: (previousData) => previousData,
@@ -716,7 +717,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
           <JutsuFiltering state={state} fixedBloodline={userData.bloodlineId} />
         }
       >
-        {!isFetching && userData && (
+        {userData && (
           <div className="max-h-[320px] overflow-y-scroll">
             <ActionSelector
               items={alljutsus}

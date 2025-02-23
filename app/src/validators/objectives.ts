@@ -11,6 +11,7 @@ export const SimpleTasks = [
   // "village_funds_earned",
   // "any_missions_completed",
   // "any_crimes_completed",
+  "days_as_kage",
   "errands_total",
   "a_missions_total",
   "b_missions_total",
@@ -184,10 +185,10 @@ export const QuestValidator = z
   })
   .superRefine((val, ctx) => {
     if (["daily", "tier"].includes(val.questType)) {
-      if (val.content.objectives.length !== 3) {
+      if (val.content.objectives.length < 3 || val.content.objectives.length > 7) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Daily & Tier quests must have 3 objectives",
+          message: "Daily & Tier quests must have between 3 and 7 objectives",
         });
       }
     }

@@ -1,5 +1,6 @@
 import React from "react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
+import Loader from "@/layout/Loader";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { Button } from "@/components/ui/button";
 import { Check, X, Trash2 } from "lucide-react";
@@ -18,6 +19,7 @@ type ReturnedRequest = UserRequest & { receiver: RequestUser; sender: RequestUse
 interface UserRequestSystemProps {
   requests: ReturnedRequest[];
   userId: string;
+  isLoading: boolean;
   onAccept: (props: { id: string }) => void;
   onReject: (props: { id: string }) => void;
   onCancel: (props: { id: string }) => void;
@@ -76,7 +78,10 @@ interface ChallengeActionsBoxProps extends UserRequestSystemProps {
 
 const ChallengeActionsBox: React.FC<ChallengeActionsBoxProps> = (props) => {
   // Destructure
-  const { userId, challenge, onAccept, onReject, onCancel } = props;
+  const { userId, challenge, isLoading, onAccept, onReject, onCancel } = props;
+
+  // Loader
+  if (isLoading) return <Loader />;
 
   if (challenge.status === "PENDING") {
     if (challenge.senderId === userId) {

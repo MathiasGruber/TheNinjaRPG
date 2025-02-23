@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
-import { eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
+import { or, eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
@@ -12,6 +12,9 @@ import { userReportSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
 import { requestAvatarForUser } from "@/libs/replicate";
 import { canModerateReports } from "@/utils/permissions";
+import { canBanUsers } from "@/utils/permissions";
+import { canSilenceUsers } from "@/utils/permissions";
+import { canWarnUsers } from "@/utils/permissions";
 import { canSeeReport } from "@/utils/permissions";
 import { canClearReport } from "@/utils/permissions";
 import { canEscalateBan } from "@/utils/permissions";
@@ -269,7 +272,10 @@ export const reportsRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       ctx.drizzle.query.userReport.findFirst({
         where: and(
-          eq(userReport.status, "BAN_ACTIVATED"),
+          or(
+            eq(userReport.status, "BAN_ACTIVATED"),
+            eq(userReport.status, "SILENCE_ACTIVATED"),
+          ),
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
@@ -310,6 +316,7 @@ export const reportsRouter = createTRPCRouter({
     ]);
     // Unsilence user if ban no longer active
     if (!silenceReport && user.isSilenced) {
+      console.log("Unsilencing user 1");
       await ctx.drizzle
         .update(userData)
         .set({ isSilenced: false })
@@ -433,6 +440,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("You cannot resolve this report");
+      if (!canBanUsers(user)) return errorResponse("You cannot ban users");
       if (!input.banTime || input.banTime <= 0) {
         return errorResponse("Ban time must be specified.");
       }
@@ -478,6 +486,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("You cannot resolve this report");
+      if (!canSilenceUsers(user)) return errorResponse("You cannot silence users");
       if (!input.banTime || input.banTime <= 0) {
         return errorResponse("Ban time must be specified.");
       }
@@ -523,6 +532,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("No permission to warn");
+      if (!canWarnUsers(user)) return errorResponse("You cannot warn users");
       // Update
       await Promise.all([
         ctx.drizzle
@@ -618,6 +628,7 @@ export const reportsRouter = createTRPCRouter({
           ),
         });
         if (silences.length === 0) {
+          console.log("Unsilencing user 2");
           await ctx.drizzle
             .update(userData)
             .set({ isSilenced: false })

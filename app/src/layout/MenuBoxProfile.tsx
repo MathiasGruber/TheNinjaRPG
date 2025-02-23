@@ -481,7 +481,8 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
     effect: CollapsedEffect,
   ) => {
     const e = effect;
-    const valTxt = `[${e.value > 0 ? "+" : ""}${e.value}${e.calculation === "percentage" ? "%" : ""}]`;
+    const value = e.value.toFixed(2);
+    const valTxt = `[${e.value > 0 ? "+" : ""}${value}${e.calculation === "percentage" ? "%" : ""}]`;
     const roundsTxt = e.rounds.length > 0 ? `[${e.rounds.join(", ")} rounds]` : "";
     visuals.push(
       <div
@@ -552,7 +553,10 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
           insert(image, "text-red-500", `↓ Taking Dmg`, true, e);
           break;
         case "pierce":
-          insert(image, "text-red-500", `↓ PiercingTaking Dmg`, true, e);
+          insert(image, "text-red-500", `↓ Piercing Dmg`, true, e);
+          break;
+        case "shield":
+          insert(image, "text-green-500", `↑ Shield`, true, e);
           break;
         case "absorb":
           insert(image, "text-green-500", `↑ Absorb`, true, e);

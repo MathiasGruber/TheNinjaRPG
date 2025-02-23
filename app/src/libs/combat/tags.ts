@@ -7,6 +7,7 @@ import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
 import type { DamageTagType, PierceTagType } from "@/libs/combat/types";
 import type { WeaknessTagType } from "@/libs/combat/types";
+import type { ShieldTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -341,6 +342,16 @@ export const adjustDamageGiven = (
             effect.calculation === "percentage"
               ? (power / 100) * consequence.damage
               : power;
+          if (effect.fromType === "bloodline") {
+            if (
+              "allowBloodlineDamageIncrease" in damageEffect &&
+              "allowBloodlineDamageDecrease" in damageEffect &&
+              ((change > 0 && !damageEffect.allowBloodlineDamageIncrease) ||
+                (change < 0 && !damageEffect.allowBloodlineDamageDecrease))
+            ) {
+              return;
+            }
+          }
           consequence.damage = consequence.damage + change * ratio;
         }
       }
@@ -1129,7 +1140,7 @@ export const lifesteal = (
   }
   return getInfo(target, effect, `will steal ${qualifier} damage as health`);
 };
-
+    
 /** Apply poison damage based on Chakra and Stamina usage */
 export const poison = (
   effect: UserEffect,
@@ -1169,6 +1180,28 @@ export const poison = (
     effect,
     `will take ${qualifier}% damage based on Chakra and Stamina usage`,
   );
+
+/** Create a temporary HP shield that absorbs damage */
+export const shield = (effect: UserEffect, target: BattleUserState) => {
+  // Apply
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+  const shieldEffect = effect as ShieldTagType;
+  let info: ActionEffect | undefined = undefined;
+  if (effect.isNew && effect.rounds) {
+    if (primaryCheck) {
+      effect.power = shieldEffect.health;
+      info = getInfo(target, effect, `shield with ${effect.power.toFixed(2)} HP`);
+    } else {
+      effect.rounds = 0;
+      info = { txt: `${target.username}'s shield was not created`, color: "blue" };
+    }
+  }
+  if (effect.power <= 0) {
+    info = { txt: `${target.username}'s shield was destroyed`, color: "red" };
+    effect.rounds = 0;
+  }
+  return info;
 };
 
 /**
@@ -1448,6 +1481,26 @@ export const stealth = (effect: UserEffect, target: BattleUserState) => {
   if (mainCheck) {
     const info = getInfo(target, effect, "will be stealthed");
     return info;
+  } else if (effect.isNew) {
+    effect.rounds = 0;
+  }
+};
+
+/** Seal elemental jutsu */
+export const elementalseal = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const mainCheck = Math.random() < power / 100;
+  if (mainCheck) {
+    // Check if effect has elements property
+    if ("elements" in effect && effect.elements) {
+      const elements = effect.elements.length > 0 ? effect.elements.join(", ") : "no";
+      const info = getInfo(
+        target,
+        effect,
+        `will be sealed from using ${elements} jutsu`,
+      );
+      return info;
+    }
   } else if (effect.isNew) {
     effect.rounds = 0;
   }

@@ -36,6 +36,7 @@ import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { genders } from "@/validators/register";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
+import { sendGTMEvent } from "@next/third-parties/google";
 import { Label } from "@/components/ui/label";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
@@ -80,6 +81,7 @@ const Register: React.FC = () => {
         if (data.success) {
           await utils.profile.getUser.invalidate();
           createAvatar.mutate();
+          sendGTMEvent({ event: "register" });
         }
       },
     });

@@ -21,7 +21,7 @@ import type { QuestTrackerType } from "@/validators/objectives";
 import type { UserQuest } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
 
-const tabs = ["Active", "History", "Battles"] as const;
+const tabs = ["Active", "History", "Battles", "Achievements"] as const;
 type tabType = (typeof tabs)[number];
 
 const Logbook: React.FC = () => {
@@ -41,7 +41,58 @@ const Logbook: React.FC = () => {
       {tab === "Active" && <LogbookActive />}
       {tab === "History" && <LogbookHistory />}
       {tab === "Battles" && <LogbookBattles />}
+      {tab === "Achievements" && <LogbookAchievements />}
     </ContentBox>
+  );
+};
+
+/**
+ * Renders the achievements logbook component.
+ * Shows quests marked as tier and achievement types.
+ *
+ * @component
+ * @example
+ * ```tsx
+ * <LogbookAchievements />
+ * ```
+ */
+const LogbookAchievements: React.FC = () => {
+  const { data: userData } = useRequiredUserData();
+  const [activeElement, setActiveElement] = useState<string>("");
+  const quests = userData?.userQuests.filter((uq) =>
+    ["tier", "achievement"].includes(uq.quest.questType),
+  );
+
+  useEffect(() => {
+    if (quests && quests.length > 0 && !activeElement) {
+      const firstAchievement = quests[0];
+      if (firstAchievement) {
+        setActiveElement(firstAchievement.quest.name);
+      }
+    }
+  }, [quests, activeElement]);
+
+  return (
+    <div className="">
+      {userData?.userQuests
+        .filter((uq) => ["tier", "achievement"].includes(uq.quest.questType))
+        ?.map((uq, i) => {
+          const tracker = userData?.questData?.find((q) => q.id === uq.questId);
+          return (
+            tracker && (
+              <Accordion
+                key={i}
+                title={uq.quest.name}
+                selectedTitle={activeElement}
+                titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}
+                onClick={setActiveElement}
+              >
+                <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
+              </Accordion>
+            )
+          );
+        })}
+    </div>
   );
 };
 
@@ -54,24 +105,26 @@ export default Logbook;
 const LogbookActive: React.FC = () => {
   const { data: userData } = useRequiredUserData();
   const [activeElement, setActiveElement] = useState<string>("");
+  const quests = userData?.userQuests.filter(
+    (uq) => !["tier", "achievement"].includes(uq.quest.questType),
+  );
 
   useEffect(() => {
-    if (userData && !activeElement) {
-      const firstUserQuest = userData.userQuests?.[0];
+    if (quests && !activeElement && quests.length > 0) {
+      const firstUserQuest = quests[0];
       if (firstUserQuest) {
         setActiveElement(firstUserQuest.quest.name);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData]);
+  }, [quests]);
 
   return (
     <div className="">
-      {userData?.userQuests.map((uq, i) => {
+      {quests?.map((uq, i) => {
         const tracker = userData?.questData?.find((q) => q.id === uq.questId);
         return (
-          tracker &&
-          (uq.quest.questType !== "achievement" ? (
+          tracker && (
             <Accordion
               key={i}
               title={uq.quest.name}
@@ -81,9 +134,7 @@ const LogbookActive: React.FC = () => {
             >
               <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
             </Accordion>
-          ) : (
-            <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
-          ))
+          )
         );
       })}
     </div>
@@ -355,9 +406,6 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, userQuest, quest, allDone]);
-
-  // We do not show entries for achievements
-  if (quest.questType === "achievement") return undefined;
 
   return (
     <Post

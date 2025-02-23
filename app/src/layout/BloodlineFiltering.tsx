@@ -52,7 +52,7 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
   const { rank, classification, hidden } = props.state;
 
   // Get all villages
-  const { data: villages } = api.village.getAll.useQuery(undefined);
+  const { data: villages } = api.village.getAllNames.useQuery(undefined);
 
   // Filter shown bloodlines
   const villageData = villages?.find((b) => b.id === village);
@@ -103,7 +103,7 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
           {/* Stat Classification */}
           <div>
             <Select onValueChange={(e) => setClassification(e as StatType)}>
-              <Label htmlFor="rank">Stat Classification</Label>
+              <Label htmlFor="rank">Classification</Label>
               <SelectTrigger>
                 <SelectValue placeholder={classification} />
               </SelectTrigger>

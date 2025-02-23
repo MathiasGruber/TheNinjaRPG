@@ -437,6 +437,8 @@ export const DamageTag = z.object({
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   residualModifier: z.coerce.number().min(0).max(2).default(1).optional(),
   dmgModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  allowBloodlineDamageIncrease: z.coerce.boolean().default(true),
+  allowBloodlineDamageDecrease: z.coerce.boolean().default(true),
 });
 export type DamageTagType = z.infer<typeof DamageTag>;
 
@@ -449,6 +451,8 @@ export const PierceTag = z.object({
   calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
   residualModifier: z.coerce.number().min(0).max(2).default(1).optional(),
   dmgModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  allowBloodlineDamageIncrease: z.coerce.boolean().default(true),
+  allowBloodlineDamageDecrease: z.coerce.boolean().default(true),
 });
 export type PierceTagType = z.infer<typeof PierceTag>;
 
@@ -498,6 +502,17 @@ export const LifeStealTag = z.object({
   description: msg("Heal based on damage given"),
   calculation: z.enum(["percentage"]).default("percentage"),
 });
+
+export const ShieldTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("shield").default("shield"),
+  description: msg("Creates a temporary HP bar that lasts for a set amount of rounds"),
+  rounds: z.coerce.number().int().min(1).max(100).default(3),
+  health: z.coerce.number().int().min(1).max(100000).default(100),
+});
+export type ShieldTagType = z.infer<typeof ShieldTag>;
+
 export const MoveTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -601,6 +616,16 @@ export const StealthTag = z.object({
 });
 
 export type StealthTagType = z.infer<typeof StealthTag>;
+
+export const ElementalSealTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("elementalseal").default("elementalseal"),
+  description: msg("Seals the target's ability to use jutsu of specified elements"),
+  elements: z.array(z.enum(ElementNames)).min(1).default(["Fire"]),
+});
+
+export type ElementalSealTagType = z.infer<typeof ElementalSealTag>;
 
 export const StunPreventTag = z.object({
   ...BaseAttributes,
@@ -726,6 +751,8 @@ export const AllTags = z.union([
   SealPreventTag.default({}),
   SealTag.default({}),
   StealthTag.default({}),
+  ElementalSealTag.default({}),
+  ShieldTag.default({}),
   StunPreventTag.default({}),
   StunTag.default({}),
   SummonPreventTag.default({}),
@@ -767,6 +794,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "sealprevent",
       "stunprevent",
       "summon",
+      "shield",
     ].includes(tag.type)
   ) {
     return true;
@@ -803,6 +831,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "summonprevent",
       "weakness",
       "healprevent",
+      "elementalseal",
     ].includes(tag.type)
   ) {
     return true;
@@ -880,6 +909,7 @@ export type UserEffect = BattleEffect & {
   targetId: string;
   fromGround?: boolean;
   fromType?: "jutsu" | "armor" | "item" | "basic" | "bloodline";
+  elements?: ElementName[]; // TODO: Remove this, should already be in the tag
 };
 
 export type ActionEffect = {

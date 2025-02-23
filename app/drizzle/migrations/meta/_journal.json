@@ -1324,6 +1324,62 @@
       "when": 1738043162256,
       "tag": "0188_little_oracle",
       "breakpoints": false
+    },
+    {
+      "idx": 189,
+      "version": "5",
+      "when": 1738169555295,
+      "tag": "0189_broken_major_mapleleaf",
+      "breakpoints": false
+    },
+    {
+      "idx": 190,
+      "version": "5",
+      "when": 1738216046525,
+      "tag": "0190_jittery_dagger",
+      "breakpoints": false
+    },
+    {
+      "idx": 191,
+      "version": "5",
+      "when": 1738813887273,
+      "tag": "0191_nosy_silver_surfer",
+      "breakpoints": false
+    },
+    {
+      "idx": 192,
+      "version": "5",
+      "when": 1738861580080,
+      "tag": "0192_whole_namor",
+      "breakpoints": false
+    },
+    {
+      "idx": 193,
+      "version": "5",
+      "when": 1739540437435,
+      "tag": "0193_sour_vertigo",
+      "breakpoints": false
+    },
+    {
+      "idx": 194,
+      "version": "5",
+      "when": 1739682225308,
+      "tag": "0194_robust_krista_starr",
+      "breakpoints": false
+    },
+    {
+      "idx": 195,
+      "version": "5",
+      "when": 1739800648408,
+      "tag": "0195_chemical_sentinels",
+      "breakpoints": false
+    },
+    {
+      "idx": 196,
+      "version": "5",
+      "when": 1739977965445,
+      "tag": "0196_brave_the_hunter",
+      "breakpoints": false
     }
   ]
 }
