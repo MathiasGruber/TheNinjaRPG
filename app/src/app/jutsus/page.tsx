@@ -31,11 +31,9 @@ import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
 import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
 import { JUTSU_TRANSFER_COST } from "@/drizzle/constants";
 import { JUTSU_TRANSFER_MAX_LEVEL } from "@/drizzle/constants";
-import { JUTSU_TRANSFER_DAYS } from "@/drizzle/constants";
 import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
-import type { RouterOutputs } from "@/app/_trpc/client";
 
 export default function MyJutsu() {
   // tRPC utility
