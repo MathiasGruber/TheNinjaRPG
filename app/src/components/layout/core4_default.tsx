@@ -106,7 +106,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   }, [theme]);
 
   // Images
-  const imageset = getImageSet();
+  const imageset = getImageSet(userData);
 
   /**
    * SIDEBAR: Left Side
@@ -277,7 +277,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       </div>
       {/* WALLPAPER BACKGROUND */}
       <Image
-        className="absolute left-[50%] translate-x-[-50%] select-none"
+        className="fixed top-0 left-0 w-full h-full object-cover z-[-1] select-none"
         src={imageset.wallpaper}
         width={1600}
         height={800}
@@ -829,12 +829,15 @@ const RightSideBar: React.FC<{
 };
 
 // Get wallpaper based on the season
-const getImageSet = () => {
+const getImageSet = (userData: UserWithRelations) => {
+  // Base settings
   const base = {
     navbar: IMG_LAYOUT_NAVBAR,
     handsign: IMG_LAYOUT_HANDSIGN,
     wallpaper: IMG_WALLPAPER_SUMMER,
   };
+
+  // Check for seasonal overwrites
   switch (getCurrentSeason()) {
     case "winter":
       base.wallpaper = IMG_WALLPAPER_WINTER;
@@ -854,5 +857,12 @@ const getImageSet = () => {
       base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
       break;
   }
+
+  // Check for location-specific overwrites
+  console.log(userData);
+  if (userData?.village?.wallpaperOverwrite) {
+    base.wallpaper = userData.village.wallpaperOverwrite;
+  }
+  console.log(base);
   return base;
 };

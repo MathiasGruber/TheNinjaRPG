@@ -1826,6 +1826,7 @@ export const village = mysqlTable(
     })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    wallpaperOverwrite: varchar("wallpaperOverwrite", { length: 191 }),
   },
   (table) => {
     return {
