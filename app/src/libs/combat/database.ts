@@ -455,7 +455,8 @@ export const updateUser = async (
             curBattle.battleType === "ARENA" ? 1 : 0
           }`,
           questData: user.questData,
-          battleId: null,
+          battleId: result.didWin ? null : curBattle.id,
+          status: result.didWin ? "AWAKE" : "BATTLE",
           regenAt: new Date(),
           ...(isKageChallenge
             ? {
