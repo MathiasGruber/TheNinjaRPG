@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_CLERK_KEY: ${{ secrets.CLERK_SECRET_KEY != '' }}
-    if: env.HAS_CLERK_KEY == 'true'
+    if: ${{ env.HAS_CLERK_KEY == 'true' }}
     steps:
       - uses: actions/checkout@v3
 
