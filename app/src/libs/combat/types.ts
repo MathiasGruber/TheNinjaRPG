@@ -535,6 +535,15 @@ export const MoveTag = z.object({
 
 export type MoveTagType = z.infer<typeof MoveTag>;
 
+export const DisplacementTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("displacement").default("displacement"),
+  description: msg("Move target to an empty ground"),
+});
+
+export type DisplacementTagType = z.infer<typeof DisplacementTag>;
+
 export const MovePreventTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -741,6 +750,7 @@ export const AllTags = z.union([
   DrainTag.default({}),
   MoveTag.default({}),
   MovePreventTag.default({}),
+  DisplacementTag.default({}),
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
   PierceTag.default({}),

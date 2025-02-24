@@ -315,6 +315,7 @@ export const sortEffects = (
     "increaseheal",
     // End-modifiers
     "move",
+    "displacement",
     "visual",
   ];
   if (ordered.includes(a.type) && ordered.includes(b.type)) {
