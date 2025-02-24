@@ -23,7 +23,9 @@ permissions:
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    if: ${{ secrets.CLERK_SECRET_KEY != '' }}
+    env:
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+    if: ${{ env.CLERK_SECRET_KEY == '' }}
     steps:
       - uses: actions/checkout@v3
 
