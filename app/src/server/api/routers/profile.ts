@@ -1667,7 +1667,7 @@ export type UserWithRelations =
           })
         | null;
       loadout?: { jutsuIds: string[] } | null;
-      userQuests: UserQuest[];
+      userQuests?: UserQuest[];
       votes?: UserVote | null;
       home?: {
         id: string;
