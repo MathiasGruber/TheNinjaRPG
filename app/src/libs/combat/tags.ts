@@ -1651,6 +1651,78 @@ export const weakness = (effect: UserEffect, target: BattleUserState) => {
   }
 };
 
+/** Copy positive buffs from enemy to self */
+export const copy = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  // Check if buffing is prevented
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
+
+  // Validate effect creator
+  if (!effect.creatorId) {
+    return {
+      txt: "Invalid effect: missing creator ID",
+      color: "red",
+    };
+  }
+
+  // Only copy positive effects from the target to the caster
+  const targetEffects = usersEffects.filter(
+    (e) =>
+      e.targetId === target.userId &&
+      isPositiveUserEffect(e) &&
+      e.fromType !== "bloodline", // Don't copy bloodline effects
+  );
+
+  if (targetEffects.length === 0) {
+    return {
+      txt: `${target.username} has no positive effects to copy`,
+      color: "blue",
+    };
+  }
+
+  // Get the power for scaling copied effects
+  const { power } = getPower(effect);
+
+  // Copy each positive effect
+  targetEffects.forEach((targetEffect) => {
+    // Create a copy of the effect
+    const copiedEffect: UserEffect = {
+      ...targetEffect,
+      id: nanoid(),
+      targetId: effect.creatorId,
+      creatorId: effect.creatorId,
+      isNew: true,
+      castThisRound: false,
+      createdRound: effect.createdRound,
+      rounds: targetEffect.rounds ?? 1,
+      level: effect.level,
+      fromType: targetEffect.fromType, // Maintain the effect type
+    };
+
+    // Scale the power based on the copy effect's power
+    copiedEffect.power = (copiedEffect.power * power) / 100;
+    if (copiedEffect.powerPerLevel) {
+      copiedEffect.powerPerLevel = (copiedEffect.powerPerLevel * power) / 100;
+    }
+
+    // Add the copied effect to the user's effects
+    usersEffects.push(copiedEffect);
+  });
+
+  const effectsWithDuration = targetEffects.map(e => `${e.type} (${e.rounds} rounds)`).join(', ');
+  return getInfo(
+    target,
+    effect,
+    `copied ${targetEffects.length} positive effect(s) from ${target.username} at ${power}% effectiveness: ${effectsWithDuration}`,
+  );
+};
+
 /**
  * ***********************************************
  *              UTILITY METHODS
