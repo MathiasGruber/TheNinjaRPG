@@ -477,6 +477,10 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           if (damage > 0) {
             target.curHealth -= damage;
             target.curHealth = Math.max(0, target.curHealth);
+            // If residual damage reduces health to 0, mark player as having left battle
+            if (target.curHealth <= 0) {
+              target.leftBattle = true;
+            }
             actionEffects.push({
               txt: `${target.username} takes ${damage.toFixed(2)} residual damage`,
               color: "red",
