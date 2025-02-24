@@ -1316,7 +1316,6 @@ export const fetchUpdatedUser = async (props: {
       with: {
         bloodline: true,
         clan: true,
-        userQuests: true,
         village: {
           with: {
             structures: true,
@@ -1667,7 +1666,7 @@ export type UserWithRelations =
           })
         | null;
       loadout?: { jutsuIds: string[] } | null;
-      userQuests?: UserQuest[];
+      userQuests: UserQuest[];
       votes?: UserVote | null;
       home?: {
         id: string;
