@@ -24,19 +24,19 @@ jobs:
   secret-check:
     runs-on: ubuntu-latest
     outputs:
-      CLERK_SECRET_KEY: ${{ steps.check-secret.outputs.CLERK_SECRET_KEY }}
+      HAS_CLERK_KEY: ${{ steps.check-secret.outputs.hasSecret }}
     steps:
       - uses: actions/checkout@v3
       - name: Check secret
         id: check-secret
         env:
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-        run: echo CLERK_SECRET_KEY=$CLERK_SECRET_KEY >> $GITHUB_OUTPUT
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY != '' }}
+        run: echo hasSecret=$CLERK_SECRET_KEY >> $GITHUB_OUTPUT
 
   analyze:
     runs-on: ubuntu-latest
     needs: secret-check
-    if: needs.secret-check.outputs.CLERK_SECRET_KEY != ''
+    if: needs.secret-check.outputs.HAS_CLERK_KEY != ''
 
     steps:
       - uses: actions/checkout@v3
