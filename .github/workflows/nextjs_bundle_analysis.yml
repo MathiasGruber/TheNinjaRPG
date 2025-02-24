@@ -21,11 +21,23 @@ permissions:
   pull-requests: write # for comments
 
 jobs:
+  secret-check:
+    runs-on: ubuntu-latest
+    outputs:
+      HAS_CLERK_KEY: ${{ steps.check-secret.outputs.hasSecret }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check secret
+        id: check-secret
+        env:
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY != '' }}
+        run: echo hasSecret=$CLERK_SECRET_KEY >> $GITHUB_OUTPUT
+
   analyze:
     runs-on: ubuntu-latest
-    env:
-      HAS_CLERK_KEY: ${{ secrets.CLERK_SECRET_KEY != '' }}
-    if: env.HAS_CLERK_KEY == 'true'
+    needs: secret-check
+    if: needs.secret-check.outputs.HAS_CLERK_KEY != ''
+
     steps:
       - uses: actions/checkout@v3
 

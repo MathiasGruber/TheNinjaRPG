@@ -413,6 +413,12 @@ export const profileRouter = createTRPCRouter({
         where: and(eq(userData.userId, input.userId), eq(userData.isAi, true)),
         with: { jutsus: { with: { jutsu: true } }, items: { with: { item: true } } },
       });
+      // Filter off entries that do not exist
+      if (user) {
+        user.jutsus = user.jutsus.filter((j) => j.jutsu);
+        user.items = user.items.filter((i) => i.item);
+      }
+      // Return user
       return user ?? null;
     }),
   // Create new AI
@@ -970,6 +976,9 @@ export const profileRouter = createTRPCRouter({
       if (!requester || !canSeeIps(requester.role)) {
         user.lastIp = "hidden";
       }
+      // Filter off entries that do not exist
+      user.jutsus = user.jutsus.filter((j) => j.jutsu);
+      user.items = user.items.filter((i) => i.item);
       // If no avatarLight version, create one
       if (!user.avatarLight && user.avatar) {
         const thumbnail = await createThumbnail(user.avatar);

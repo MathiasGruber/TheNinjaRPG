@@ -1,0 +1,1 @@
+ALTER TABLE `Village` ADD `wallpaperOverwrite` varchar(191);

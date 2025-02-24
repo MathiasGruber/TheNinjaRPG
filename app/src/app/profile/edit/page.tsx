@@ -75,6 +75,11 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Bloodline, Village } from "@/drizzle/schema";
+import {
+  AiRule,
+  ConditionDistanceHigherThan,
+  ActionMoveTowardsOpponent,
+} from "@/validators/ai";
 
 export default function EditProfile() {
   // State
@@ -293,6 +298,17 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
       },
     });
 
+  const { mutate: updateAiProfile, isPending } =
+    api.ai.updateAiProfile.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getAi.invalidate();
+          await utils.profile.getPublicUser.invalidate();
+        }
+      },
+    });
+
   // Update highest preferences
   const { mutate: updatePreferences } = api.profile.updatePreferences.useMutation({
     onSuccess: async (data) => {
@@ -445,6 +461,37 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
               }
             />
             <Label htmlFor="battle-description">Show battle descriptions</Label>
+            < br/>
+            < br/>
+            <Confirm
+              title="Reset AI Profile"
+              button={
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={!profile?.aiProfileId || isPending}
+                >
+                  {isPending ? <Loader size={5} /> : "Reset AI Profile"}
+                </Button>
+              }
+              onAccept={() => {
+                if (!profile?.aiProfileId) return;
+                const defaultAiProfilePayload = {
+                  id: profile.aiProfileId,
+                  rules: [
+                    AiRule.parse({
+                      conditions: [ConditionDistanceHigherThan.parse({ value: 2 })],
+                      action: ActionMoveTowardsOpponent.parse({}),
+                    }),
+                  ],
+                  includeDefaultRules: true,
+                };
+                updateAiProfile(defaultAiProfilePayload);
+              }}
+            >
+              This will reset your AI profile to default settings. This action cannot be undone. Are you sure you want to continue?
+            </Confirm>
+
           </TabsContent>
           <TabsContent value="aiprofile">
             <AiProfileEdit userData={profile} hideTitle />
