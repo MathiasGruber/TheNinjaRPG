@@ -1,3 +1,5 @@
+"use client";
+
 import { calculateContentDiff } from "@/utils/diff";
 import { useForm } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
