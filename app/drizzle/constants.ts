@@ -300,6 +300,7 @@ export const QuestTypes = [
   "achievement",
 ] as const;
 export type QuestType = (typeof QuestTypes)[number];
+export const QUESTS_CONCURRENT_LIMIT = 4;
 
 export const SmileyEmotions = ["like", "love", "laugh"] as const;
 
