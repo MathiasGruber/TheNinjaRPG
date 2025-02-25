@@ -1344,7 +1344,17 @@ export const fetchUpdatedUser = async (props: {
         },
         votes: true,
         home: {
-          with: { homeType: true },
+          select: {
+            id: true,
+            homeType: {
+              select: {
+                name: true,
+                regenBonus: true,
+                storageSlots: true,
+                cost: true,
+              },
+            },
+          },
         },
       },
     }),
