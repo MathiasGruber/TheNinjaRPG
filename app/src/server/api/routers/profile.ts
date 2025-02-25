@@ -1361,6 +1361,16 @@ export const fetchUpdatedUser = async (props: {
     });
   }
 
+  if (user.home) {
+    user.home = {
+      id: user.home.id,
+      name: user.home.homeType?.name ?? "Unknown", // Ensure `name` exists
+      regenBonus: user.home.homeType?.regenBonus ?? 0, // Default to 0
+      storageSlots: user.home.homeType?.storageSlots ?? 0, // Default to 0
+      cost: user.home.homeType?.cost ?? 0, // Default to 0
+    };
+  }
+
   // Add in achievements
   if (user) {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
