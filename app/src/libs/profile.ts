@@ -174,12 +174,19 @@ export const deduceActiveUserRegen = (
     clan?: Clan | null;
     bloodline?: Bloodline | null;
     village?: (Village & { structures?: VillageStructure[] }) | null;
+    home?: { 
+      id: string;
+      name: string;
+      regenBonus: number;
+      storageSlots: number;
+      cost: number;
+    };
   },
   settings: GameSetting[],
 ) => {
   let regeneration = user.regeneration;
 
-  // // Bloodline
+  // Bloodline
   if (user.bloodline?.regenIncrease) {
     regeneration = regeneration + user.bloodline.regenIncrease;
   }
@@ -204,6 +211,11 @@ export const deduceActiveUserRegen = (
   const reducedDays = getReducedGainsDays(user);
   if (reducedDays > 0) {
     regeneration *= 0.5;
+  }
+
+  // Home bonus boost
+  if (user.status === "ASLEEP" && user.home?.regenBonus) {
+    regeneration = regeneration + user.home.regenBonus;
   }
 
   // Increase by event
