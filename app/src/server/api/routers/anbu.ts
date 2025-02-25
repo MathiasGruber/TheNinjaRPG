@@ -45,6 +45,7 @@ export const anbuRouter = createTRPCRouter({
       ]);
       // Derived
       const { user } = updatedUser;
+      if (!user) return errorResponse("User not found");
       if (!user.userQuests) user.userQuests = [];
       const { isKage, isElder, inSquad } = getConvenienceStatus(user, squad);
       // Hide orders if not kage or elder
