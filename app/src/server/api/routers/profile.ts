@@ -1314,6 +1314,11 @@ export const fetchUpdatedUser = async (props: {
     client.query.userData.findFirst({
       where: eq(userData.userId, userId),
       with: {
+        userQuests: { 
+          with: { 
+            quest: true 
+          } 
+        },
         bloodline: true,
         clan: true,
         village: {
