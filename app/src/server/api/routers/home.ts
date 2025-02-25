@@ -96,7 +96,7 @@ export const homeRouter = createTRPCRouter({
       if (!selectedHome) return errorResponse("Invalid home type");
 
       if (user.money < selectedHome.cost) {
-        return errorResponse("Not enough ryo");
+        return errorResponse("Not enough money");
       }
 
       const currentHome = await ctx.drizzle.query.userHome.findFirst({
@@ -114,7 +114,7 @@ export const homeRouter = createTRPCRouter({
 
       await ctx.drizzle.transaction(async (tx) => {
         await tx.update(userData)
-          .set({ ryo: user.money - selectedHome.cost })
+          .set({ money: user.money - selectedHome.cost })
           .where(eq(userData.userId, ctx.userId));
 
         if (currentHome) {
