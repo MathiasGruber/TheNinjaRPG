@@ -1223,7 +1223,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
   const canEdit = userData ? canEditClans(userData.role) : false;
 
   // Adjust members for table
-  const members = clanData.members.map((member: UserData) => {
+  const members = clanData.members.map((member) => {
   const memberIsLeader = member.userId === clanData.leaderId;
   const memberIsColeader = checkCoLeader(member.userId, clanData);
   const canKick =
