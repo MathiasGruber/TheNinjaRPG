@@ -795,6 +795,17 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   });
   const onDeposit = toBankForm.handleSubmit((data) => toBank({ ...data, clanId }));
 
+  const { mutate: instantJoinAndLead } = api.clan.instantJoinAndLead.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await utils.clan.get.invalidate();
+        router.push("/clanhall");
+      }
+    },
+  });
+
   // Rename Form
   const renameForm = useForm<ClanRenameSchema>({
     resolver: zodResolver(clanRenameSchema),
@@ -1146,21 +1157,20 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               Resign as Leader
             </Button>
           )}
-          {inClan && !isLeader && (
+          {!inClan && canEditClans(userData.role) && (
             <Confirm
-              title="Challenge Leader"
-              proceed_label="Submit"
+              title="Instantly Join & Take Leadership"
+              proceed_label="Confirm"
               button={
-                <Button id={`challenge-leader`} className="w-full my-2">
+                <Button id={`instant-join-lead`} className="w-full my-2">
                   <Swords className="mr-2 h-5 w-5" />
-                  Challenge Leader
+                  Take Leadership
                 </Button>
               }
-              onAccept={() => fight({ clanId, villageId: userData.villageId ?? "" })}
+              onAccept={() => instantJoinAndLead({ clanId })}
             >
-              Confirm that you wish to challenge the current leader. Note that
-              challenges are carried out as AI vs AI, and if you lose you will be kicked
-              out of the clan!
+              You have the permission to instantly join this clan and take leadership.
+              Are you sure you want to proceed?
             </Confirm>
           )}
         </div>
