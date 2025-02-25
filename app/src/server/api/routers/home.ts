@@ -39,7 +39,14 @@ export const homeRouter = createTRPCRouter({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
-      if (!user) return errorResponse("User not found");
+      if (!user) {
+        return {
+          success: false,
+          message: "User not found",
+          availableHomes: [],
+          storage: [],
+        };
+      }
 
       const userHomeData = await ctx.drizzle.query.userHome.findFirst({
         where: eq(userHome.userId, ctx.userId),
