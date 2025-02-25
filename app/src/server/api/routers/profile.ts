@@ -1343,7 +1343,9 @@ export const fetchUpdatedUser = async (props: {
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
         votes: true,
-      },
+        home: {
+          with: { homeType: true },
+        },
     }),
   ]);
 
