@@ -1347,7 +1347,7 @@ export const fetchUpdatedUser = async (props: {
           with: { homeType: true },
         },
       },
-  ]);
+  });
 
   // Add votes entry if it doesn't exist
   if (user && !user.votes) {
