@@ -1527,39 +1527,6 @@ export const fetchClan = async (client: DrizzleClient, clanId: string) => {
     },
     where: eq(clan.id, clanId),
   });
-  // If leader is missing, promote a co-leader first, then a regular member
-  if (!clanData.leader) {
-    console.warn(`Clan ${clanId} has no valid leader. Attempting promotion.`);
-
-    let newLeaderId =
-      clanData.coLeader1 ||
-      clanData.coLeader2 ||
-      clanData.coLeader3 ||
-      clanData.coLeader4 ||
-      null;
-
-    // If no co-leader exists, promote the first available member
-    if (!newLeaderId && clanData.members.length > 0) {
-      newLeaderId = clanData.members[0].userId; // Pick the first member
-    }
-
-    if (newLeaderId) {
-      // 🔥 Update the database to set the new leader
-      await client.update(clan).set({ leaderId: newLeaderId }).where(eq(clan.id, clanId));
-
-      console.log(`✅ Promoted user ${newLeaderId} to leader of clan ${clanId}.`);
-
-      return {
-        ...clanData,
-        leader: clanData.members.find((m) => m.userId === newLeaderId) || null,
-        leaderId: newLeaderId, // Ensure the new leader is properly assigned
-        coLeader1: clanData.coLeader1 === newLeaderId ? null : clanData.coLeader1,
-        coLeader2: clanData.coLeader2 === newLeaderId ? null : clanData.coLeader2,
-        coLeader3: clanData.coLeader3 === newLeaderId ? null : clanData.coLeader3,
-        coLeader4: clanData.coLeader4 === newLeaderId ? null : clanData.coLeader4,
-      };
-    }
-  }
 };
 
 /**
