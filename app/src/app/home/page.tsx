@@ -144,7 +144,8 @@ export default function Home() {
                   <p>Storage Slots: {data.home.storageSlots}</p>
                 </div>
               ) : (
-                <p className="text-center italic">You don't own a home yet</p>
+                <p className="text-center italic">You don&apos;t own a home yet</p>
+
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
