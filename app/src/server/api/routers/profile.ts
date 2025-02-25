@@ -1314,11 +1314,6 @@ export const fetchUpdatedUser = async (props: {
     client.query.userData.findFirst({
       where: eq(userData.userId, userId),
       with: {
-        userQuests: { 
-          with: { 
-            quest: true 
-          } 
-        },
         bloodline: true,
         clan: true,
         village: {
@@ -1348,19 +1343,6 @@ export const fetchUpdatedUser = async (props: {
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
         votes: true,
-        home: {
-          select: {
-            id: true,
-            homeType: {
-              select: {
-                name: true,
-                regenBonus: true,
-                storageSlots: true,
-                cost: true,
-              },
-            },
-          },
-        },
       },
     }),
   ]);
@@ -1374,16 +1356,6 @@ export const fetchUpdatedUser = async (props: {
       lastVoteAt: new Date(),
       secret: smallNanoid(),
     });
-  }
-
-  if (user.home) {
-    user.home = {
-      id: user.home.id,
-      name: user.home.homeType?.name ?? "Unknown", // Ensure `name` exists
-      regenBonus: user.home.homeType?.regenBonus ?? 0, // Default to 0
-      storageSlots: user.home.homeType?.storageSlots ?? 0, // Default to 0
-      cost: user.home.homeType?.cost ?? 0, // Default to 0
-    };
   }
 
   // Add in achievements
