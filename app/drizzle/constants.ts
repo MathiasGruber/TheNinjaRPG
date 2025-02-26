@@ -358,6 +358,7 @@ export const ElementNames = [
   "Lava",
   "Explosion",
   "Light",
+  "Boil"
   "None",
 ] as const;
 export type ElementName = (typeof ElementNames)[number];
@@ -903,6 +904,8 @@ export const IMG_ELEMENT_DUST =
   "https://utfs.io/f/Hzww9EQvYURJchNmlmSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
 export const IMG_ELEMENT_LIGHTNING =
   "https://utfs.io/f/Hzww9EQvYURJ4DIVIclYIif5CL8BKvMsOh2ZnmS7yHt0jTD3";
+export const IMG_ELEMENT_BOIL =
+  "";
 
 export const IMG_BASIC_HEAL =
   "https://utfs.io/f/Hzww9EQvYURJnlXNSKmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
