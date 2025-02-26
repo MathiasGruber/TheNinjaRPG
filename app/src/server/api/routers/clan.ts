@@ -1187,7 +1187,6 @@ export const clanRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       fetchClan(ctx.drizzle, input.clanId),
     ]);
-
     if (!fetchedClan) return errorResponse("Faction not found");
     if (!user) return errorResponse("User not found");
     if (!canEditClans(user.role)) return errorResponse("Permission denied");
@@ -1209,7 +1208,7 @@ export const clanRouter = createTRPCRouter({
       message: `You have instantly joined and taken leadership of ${fetchedClan.name}`,
     };
   }),
-
+});
 /**
  * Removes a user from an clan.
  *
