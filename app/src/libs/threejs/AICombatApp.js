@@ -787,4 +787,7 @@ const AICombatApp = () => {
                       className="bg-blue-600 h-4 rounded-full" 
                       style={{width: `${player2AI.energy}%`}}
                     ></div>
-                  
+                  </div>
+                  <span>{Math.max(0, player2AI.energy.toFixed(1))}</span>
+                </div>
+              </>        
