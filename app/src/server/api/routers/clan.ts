@@ -1187,28 +1187,28 @@ export const clanRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       fetchClan(ctx.drizzle, input.clanId),
     ]);
+
     if (!fetchedClan) return errorResponse("Faction not found");
     if (!user) return errorResponse("User not found");
     if (!canEditClans(user.role)) return errorResponse("Permission denied");
     if (user.clanId) return errorResponse("Already in a faction");
 
-    await ctx.drizzle.transaction(async (tx) => {
-      await tx
+    await Promise.all([
+      ctx.drizzle
         .update(userData)
         .set({ clanId: fetchedClan.id, villageId: fetchedClan.village?.id })
-        .where(eq(userData.userId, user.userId));
-      await tx
+        .where(eq(userData.userId, user.userId)),
+      ctx.drizzle
         .update(clan)
         .set({ leaderId: user.userId })
-        .where(eq(clan.id, fetchedClan.id));
-    });
+        .where(eq(clan.id, fetchedClan.id)),
+    ]);
 
     return {
       success: true,
       message: `You have instantly joined and taken leadership of ${fetchedClan.name}`,
     };
   }),
-});
 
 /**
  * Removes a user from an clan.
