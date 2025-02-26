@@ -905,7 +905,7 @@ export const IMG_ELEMENT_DUST =
 export const IMG_ELEMENT_LIGHTNING =
   "https://utfs.io/f/Hzww9EQvYURJ4DIVIclYIif5CL8BKvMsOh2ZnmS7yHt0jTD3";
 export const IMG_ELEMENT_BOIL =
-  "https://utfs.io/f/Hzww9EQvYURJAX1vCjoZUC4muiGcQNzjfEndY5y1w20B8hTW";
+  "https://i.imgur.com/63KgdPB.png";
 
 export const IMG_BASIC_HEAL =
   "https://utfs.io/f/Hzww9EQvYURJnlXNSKmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
