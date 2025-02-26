@@ -700,9 +700,9 @@ interface SorroundingUsersProps {
   hex: TerrainHex;
   users: SectorUser[];
   allyAttack: boolean;
-  setAllyAttack: React.Dispatch<React.SetStateAction<boolean>>;
+  setAllyAttack: (newValue: boolean) => void;
   storedLvl: number;
-  setStoredLvl: React.Dispatch<React.SetStateAction<number>>;
+  setStoredLvl: (newValue: number) => void;
   attackUser: (userId: string) => void;
   robUser: (userId: string) => void;
   move: (longitude: number, latitude: number) => void;
@@ -868,7 +868,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
           <Checkbox
             className="m-1 mr-3"
             checked={props.allyAttack}
-            onCheckedChange={() => props.setAllyAttack((prev) => !prev)}
+            onCheckedChange={() => props.setAllyAttack(!props.allyAttack)}
           />
           <Label>Attack button on allies</Label>
         </div>

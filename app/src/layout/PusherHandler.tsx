@@ -75,10 +75,8 @@ export const usePusherHandler = (userId?: string | null) => {
                   ...(old.notifications || []),
                   { href: "/combat", name: "In combat", color: "red" },
                 ],
-              };
+              } as typeof old;
             });
-            // Invalidate user data to force a refetch
-            await utils.profile.getUser.invalidate();
             router.push("/combat");
           }
         } else if (data.type === "newInbox") {
