@@ -1659,6 +1659,13 @@ export type UserWithRelations =
       loadout?: { jutsuIds: string[] } | null;
       userQuests: UserQuest[];
       votes?: UserVote | null;
+      home?: {
+        id: string;
+        name: string;
+        regenBonus: number;
+        storageSlots: number;
+        cost: number;
+      };
     })
   | undefined;
 
