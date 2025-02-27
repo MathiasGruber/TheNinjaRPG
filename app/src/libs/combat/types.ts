@@ -182,6 +182,7 @@ export type Consequence = {
   absorb_sp?: number;
   absorb_cp?: number;
   drain?: number;
+  poison? number;
   types?: (GeneralType | StatType | ElementName | PoolType)[];
 };
 
@@ -526,6 +527,19 @@ export const ShieldTag = z.object({
 });
 export type ShieldTagType = z.infer<typeof ShieldTag>;
 
+export const PoisonTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  ...PoolAttributes,
+  type: z.literal("poison").default("poison"),
+  description: msg("Deals damage based on a percentage of Chakra and Stamina lost."),
+  calculation: z.enum(["percentage", "formula"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+  direction: type("offence"),
+  poolsAffected: z.array(z.enum(PoolTypes)).default(["Health", "Chakra", "Stamina"]),
+});
+export type PoisonTagType = z.infer<typeof PoisonTag>;
+
 export const MoveTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -695,17 +709,6 @@ export const WeaknessTag = z.object({
 });
 export type WeaknessTagType = z.infer<typeof WeaknessTag>;
 
-export const PoisonTag = z.object({
-  ...BaseAttributes,
-  ...PowerAttributes,
-  type: z.literal("poison").default("poison"),
-  description: msg("Deals percentage damage based on Chakra and Stamina usage"),
-  calculation: z.enum(["percentage"]).default("percentage"),
-  rounds: z.coerce.number().int().min(1).max(10).default(3),
-  direction: type("offence"),
-});
-export type PoisonTagType = z.infer<typeof PoisonTag>;
-
 export const UnknownTag = z.object({
   ...BaseAttributes,
   type: z.literal("unknown").default("unknown"),
@@ -734,12 +737,13 @@ export const AllTags = z.union([
   CloneTag.default({}),
   DamageTag.default({}),
   DebuffPreventTag.default({}),
-  PoisonTag.default({}),
   DecreaseDamageGivenTag.default({}),
   DecreaseDamageTakenTag.default({}),
   DecreaseHealGivenTag.default({}),
   DecreasePoolCostTag.default({}),
   DecreaseStatTag.default({}),
+  DrainTag.default({}),
+  ElementalSealTag.default({}),
   FleePreventTag.default({}),
   FleeTag.default({}),
   HealTag.default({}),
@@ -747,15 +751,16 @@ export const AllTags = z.union([
   IncreaseDamageGivenTag.default({}),
   IncreaseDamageTakenTag.default({}),
   IncreaseHealGivenTag.default({}),
+  IncreaseMarriageSlots.default({}),
   IncreasePoolCostTag.default({}),
   IncreaseStatTag.default({}),
   LifeStealTag.default({}),
-  DrainTag.default({}),
   MoveTag.default({}),
   MovePreventTag.default({}),
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
   PierceTag.default({}),
+  PoisonTag.default({}),
   RecoilTag.default({}),
   ReflectTag.default({}),
   RemoveBloodline.default({}),
@@ -765,7 +770,6 @@ export const AllTags = z.union([
   SealPreventTag.default({}),
   SealTag.default({}),
   StealthTag.default({}),
-  ElementalSealTag.default({}),
   ShieldTag.default({}),
   StunPreventTag.default({}),
   StunTag.default({}),
@@ -774,7 +778,6 @@ export const AllTags = z.union([
   UnknownTag.default({}),
   VisualTag.default({}),
   WeaknessTag.default({}),
-  IncreaseMarriageSlots.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 export const tagTypes = AllTags._def.options
@@ -826,7 +829,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
       // "cleanseprevent",
-      // "buffprevent",
+      "buffprevent",
       "decreasedamagegiven",
       "drain",
       "increasedamagetaken",
@@ -837,6 +840,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "damage",
       "moveprevent",
       "pierce",
+      "poison"
       "recoil",
       "flee",
       "fleeprevent",
