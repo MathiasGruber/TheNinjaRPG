@@ -156,6 +156,7 @@ export const combatRouter = createTRPCRouter({
               console.error(e);
             }
           }
+          console.log("ERROR: ", e);
           if (attempts > 2) throw e;
         }
       }
