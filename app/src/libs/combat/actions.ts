@@ -546,7 +546,7 @@ export const insertAction = (info: {
       // Check if the user is poisoned, apply poison damage
       const poisonEffect = user.effects.find((e) => e.type === "poison");
       if (poisonEffect) {
-        poison(poisonEffect, user.effects, user, cpCost, spCost);
+        poison(poisonEffect, usersEffects, user, cpCost, spCost);
       }
       // Update user descriptions
       if (action.battleDescription === "") {
