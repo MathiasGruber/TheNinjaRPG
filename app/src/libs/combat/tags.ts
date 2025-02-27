@@ -1201,7 +1201,7 @@ export const poison = (
 
   // Apply poison damage based on chakra/stamina cost
   poisonEffects.forEach((poison) => {
-    const { power } = getPower(poison);
+    const { power, qualifier } = getPower(poison);
     const poisonDamage = Math.floor((chakraCost + staminaCost) * (power / 100));
 
     if (poisonDamage > 0) {
