@@ -1142,6 +1142,47 @@ export const lifesteal = (
 };
 
 /** Drain target's Chakra and Stamina over time */
+export const drain = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState,
+) => {
+  // Check if the effect is prevented
+  const { pass } = preventCheck(usersEffects, "debuffprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+
+  // Calculate drain amount
+  const { power, qualifier } = getPower(effect);
+
+  // Apply drain effect each round
+  if (!effect.isNew && !effect.castThisRound) {
+    const drainAmount =
+      effect.calculation === "percentage"
+        ? Math.floor((power / 100) * Math.max(target.curChakra, target.curStamina))
+        : power;
+
+    // Reduce target's Chakra and Stamina directly
+    const consequence = consequences.get(effect.targetId) || {
+      userId: effect.targetId,
+      targetId: effect.targetId,
+    };
+
+    consequence.drain = consequence.drain
+      ? consequence.drain + drainAmount
+      : drainAmount;
+
+    consequences.set(effect.targetId, consequence);
+  }
+
+  return getInfo(
+    target,
+    effect,
+    `will be drained ${qualifier} of Chakra and Stamina for ${effect.rounds} rounds`,
+  );
+};
+
+/** Deals damage based on chakra and stamina usage */
 export const poison = (
   effect: UserEffect,
   usersEffects: UserEffect[],
@@ -1166,46 +1207,9 @@ export const poison = (
   return getInfo(
     target,
     effect,
-    `will take ${qualifier} of chakra and stamina lost as poison damage`
-  );
-};
-
-/** Deals damage based on chakra and stamina usage */
-export const poison = (
-  effect: UserEffect,
-  usersEffects: UserEffect[],
-  target: BattleUserState,
-  chakraCost: number,
-  staminaCost: number
-) => {
-  // Check if poison effect is prevented
-  const { pass } = preventCheck(usersEffects, "debuffprevent", target);
-  if (!pass) return preventResponse(effect, target, "cannot be poisoned");
-
-  // Find poison effects on the user
-  const poisonEffects = usersEffects.filter(
-    (e) => e.type === "poison" && e.targetId === target.userId
-  );
-
-  const { power, qualifier } = getPower(poison);
-  
-  // Apply poison damage based on chakra/stamina cost
-  poisonEffects.forEach((poison) => {
-    const { power, qualifier } = getPower(poison);
-    const poisonDamage = Math.floor((chakraCost + staminaCost) * (power / 100));
-
-    if (poisonDamage > 0) {
-      target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
-    }
-  });
-
-  return getInfo(
-    target,
-    effect,
     `will take ${qualifier} of chakra and stamina spent as poison damage`
   );
 };
-
 
 /** Create a temporary HP shield that absorbs damage */
 export const shield = (effect: UserEffect, target: BattleUserState) => {
