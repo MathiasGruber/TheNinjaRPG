@@ -6,7 +6,7 @@ import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
-import { absorb, reflect, recoil, lifesteal, shield } from "./tags";
+import { absorb, reflect, recoil, lifesteal, drain, shield, poison } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -338,6 +338,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               info = seal(e, newUsersEffects, curTarget);
             } else if (e.type === "stun") {
               info = stun(e, newUsersEffects, curTarget);
+            } else if (e.type === "drain") {
+              info = drain(e, usersEffects, consequences, curTarget);
             }
           }
 
@@ -394,6 +396,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = weakness(e, curTarget);
           } else if (e.type === "shield") {
             info = shield(e, curTarget);
+          } else if (e.type === "poison") {
+            info = poison(e, usersEffects, consequences, curTarget);
           }
           updateStatUsage(newTarget, e, true);
         }
@@ -564,6 +568,16 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               2,
             )} damage and converts it to chakra`,
             color: "green",
+          });
+        }
+        if (c.drain && c.drain > 0 && target.curStamina > 0 && target.curChakra > 0) {
+          target.curChakra -= c.drain;
+          target.curChakra = Math.min(target.maxChakra, target.curChakra);
+          target.curStamina -= c.drain;
+          target.curStamina = Math.min(target.maxStamina, target.curStamina);
+          actionEffects.push({
+            txt: `${user.username} is drained of ${c.drain.toFixed(2)} chakra and stamina`,
+            color: "blue",
           });
         }
         // Process disappear animation of characters
