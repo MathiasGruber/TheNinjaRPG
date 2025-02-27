@@ -1146,30 +1146,39 @@ export const poison = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
   const { power, qualifier } = getPower(effect);
+  let poisonDamage = 0;
 
-  if (effect.isNew) {
-    // When first applied, just inform that poison has been inflicted
-    return getInfo(target, effect, `is poisoned and will take damage upon Chakra or Stamina usage`);
+  if (!effect.isNew && !effect.castThisRound) {
+    // Find all chakra/stamina losses in consequences
+    consequences.forEach((consequence) => {
+      if (consequence.targetId === effect.targetId) {
+        const chakraLoss = consequence.chakraCost || 0;
+        const staminaLoss = consequence.staminaCost || 0;
+        const totalLoss = chakraLoss + staminaLoss;
+
+        if (totalLoss > 0) {
+          // Calculate poison damage based on power percentage
+          poisonDamage = Math.ceil(totalLoss * (power / 100));
+          target.curHealth -= poisonDamage;
+          target.curHealth = Math.max(0, target.curHealth); // Prevent negative HP
+
+          // Add poison damage to the consequences so it's registered as damage
+          consequence.damage = (consequence.damage || 0) + poisonDamage;
+        }
+      }
+    });
   }
 
-  // Poison effect is active: check if the target spent Chakra or Stamina
-  const poisonDamage = Math.ceil((target.chakraSpent + target.staminaSpent) * (power / 100));
-
-  if (poisonDamage > 0) {
-    // Apply poison damage
-    const consequence = consequences.get(effect.targetId) || {
-      userId: effect.creatorId,
-      targetId: effect.targetId,
-      damage: 0,
-    };
-    consequence.damage += poisonDamage;
-    consequences.set(effect.targetId, consequence);
-  }
-
-  return getInfo(target, effect, `suffers ${qualifier}% damage based on Chakra and Stamina usage`);
+  // Notify the user in the battle log if poison damage was dealt
+  return poisonDamage > 0
+    ? {
+        txt: `${target.username} takes ${poisonDamage} poison damage from their chakra/stamina use!`,
+        color: "purple",
+      }
+    : undefined;
 };
 /** Drain target's Chakra and Stamina over time */
 export const drain = (
