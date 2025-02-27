@@ -84,7 +84,7 @@ export async function GET() {
     );
 
     console.log(reminders);
-    return Response.json(`OK`);
+    return Response.json(`OK. Send emails to ${reminders.length} users`);
   } catch (cause) {
     await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
     return handleEndpointError(cause);
