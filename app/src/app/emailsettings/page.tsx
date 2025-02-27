@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/app/_trpc/client";
 import ContentBox from "@/layout/ContentBox";
@@ -31,7 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
 
 // Helper function to format dates
 const formatDate = (date: Date | string): string => {
@@ -46,13 +45,11 @@ export const EmailReminderSkeleton: React.FC = () => {
   );
 };
 
-export default function EmailReminderPage() {
+// Component that uses useSearchParams
+const EmailReminderContent: React.FC = () => {
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
   const secret = searchParams.get("secret");
-  const router = useRouter();
-
-  console.log(email, secret);
 
   // Get email reminder data
   const {
@@ -124,10 +121,7 @@ export default function EmailReminderPage() {
     : "No recent requests";
 
   return (
-    <ContentBox
-      title="Email Reminder Settings"
-      subtitle="Manage your email notification preferences"
-    >
+    <>
       {isReminderLoading || toggleMutation.isPending || deleteMutation.isPending ? (
         <EmailReminderSkeleton />
       ) : !reminderData ? (
@@ -225,6 +219,19 @@ export default function EmailReminderPage() {
           </CardFooter>
         </Card>
       )}
+    </>
+  );
+};
+
+export default function EmailReminderPage() {
+  return (
+    <ContentBox
+      title="Email Reminder Settings"
+      subtitle="Manage your email notification preferences"
+    >
+      <Suspense fallback={<EmailReminderSkeleton />}>
+        <EmailReminderContent />
+      </Suspense>
     </ContentBox>
   );
 }

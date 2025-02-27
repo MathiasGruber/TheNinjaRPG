@@ -4,7 +4,7 @@ import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
 import { emailReminder, userData } from "@/drizzle/schema";
 import { cookies } from "next/headers";
 import { env } from "@/env/server.mjs";
-import { secondsFromNow, MONTH_S, MINUTE_S } from "@/utils/time";
+import { secondsFromNow, MONTH_S } from "@/utils/time";
 import { eq, and, lte, asc, isNull, or, sql } from "drizzle-orm";
 import sgMail from "@sendgrid/mail";
 
@@ -26,7 +26,7 @@ export async function GET() {
     const reminders = await drizzleDB.query.emailReminder.findMany({
       where: and(
         eq(emailReminder.validated, true),
-        lte(emailReminder.lastActivity, secondsFromNow(-MINUTE_S)), // TODO: Change to MONTH_S
+        lte(emailReminder.lastActivity, secondsFromNow(-MONTH_S)),
         or(
           lte(emailReminder.latestRejoinRequest, emailReminder.lastActivity),
           isNull(emailReminder.latestRejoinRequest),
