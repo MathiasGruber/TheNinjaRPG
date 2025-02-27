@@ -495,6 +495,17 @@ export const HealPreventTag = z.object({
   description: msg("Prevents healing"),
 });
 
+export const VampTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("vamp").default("vamp"),
+  description: msg("Drains HP from target and transfers it to caster"),
+  calculation: z.enum(["static", "percentage"]).default("percentage"),
+  direction: type("offence"),
+});
+
+export type VampTagType = z.infer<typeof VampTag>;
+
 export const LifeStealTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
@@ -763,6 +774,7 @@ export const AllTags = z.union([
   VisualTag.default({}),
   WeaknessTag.default({}),
   IncreaseMarriageSlots.default({}),
+  VampTag.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 export const tagTypes = AllTags._def.options
@@ -826,6 +838,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "moveprevent",
       "pierce",
       "recoil",
+      "vamp",
       "flee",
       "fleeprevent",
       "onehitkill",
