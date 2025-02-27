@@ -1798,3 +1798,69 @@ const preventCheck = (
   }
   return { pass: true, preventTag: preventTag };
 };
+
+export const vamp = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState,
+  caster: BattleUserState,
+) => {
+  // Check if the effect is prevented
+  const { pass } = preventCheck(usersEffects, "debuffprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+
+  // Calculate vamp amount
+  const { power, qualifier } = getPower(effect);
+
+  // Apply vamp effect each round
+  if (!effect.isNew && !effect.castThisRound) {
+    const vampAmount =
+      effect.calculation === "percentage"
+        ? Math.floor((power / 100) * target.curHp)
+        : power;
+
+    // Cap the vamp amount to prevent draining more than available HP
+    const actualVampAmount = Math.min(vampAmount, target.curHp - 1);
+
+    // Don't allow vamping if target has only 1 HP left
+    if (target.curHp <= 1) return getInfo(target, effect, "cannot drain any more HP");
+
+    // Reduce target's HP directly
+    const targetConsequence = consequences.get(effect.targetId) || {
+      userId: effect.targetId,
+      targetId: effect.targetId,
+    };
+
+    targetConsequence.hpLoss = targetConsequence.hpLoss
+      ? targetConsequence.hpLoss + actualVampAmount
+      : actualVampAmount;
+
+    consequences.set(effect.targetId, targetConsequence);
+
+    // Add HP to the caster
+    const casterConsequence = consequences.get(effect.userId) || {
+      userId: effect.userId,
+      targetId: effect.userId,
+    };
+
+    casterConsequence.hpGain = casterConsequence.hpGain
+      ? casterConsequence.hpGain + actualVampAmount
+      : actualVampAmount;
+
+    consequences.set(effect.userId, casterConsequence);
+
+    // Add a message about the HP transfer
+    return getInfo(
+      target,
+      effect,
+      `lost ${actualVampAmount} HP, which was transferred to ${caster.name}`,
+    );
+  }
+
+  return getInfo(
+    target,
+    effect,
+    `will have HP vamped ${qualifier} for ${effect.rounds} rounds`,
+  );
+};
