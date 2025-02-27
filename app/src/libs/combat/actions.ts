@@ -543,6 +543,11 @@ export const insertAction = (info: {
       user.curHealth = Math.max(0, user.curHealth);
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
+      // Check if the user is poisoned, apply poison damage
+      const poisonEffect = user.effects.find((e) => e.type === "poison");
+      if (poisonEffect) {
+        poison(poisonEffect, user.effects, user, cpCost, spCost);
+      }
       // Update user descriptions
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
