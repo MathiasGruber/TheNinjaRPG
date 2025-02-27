@@ -1,6 +1,6 @@
 import { drizzleDB } from "@/server/db";
 import { updateGameSetting } from "@/libs/gamesettings";
-import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
+import { lockWithHourlyTimer, handleEndpointError } from "@/libs/gamesettings";
 import { emailReminder, userData } from "@/drizzle/schema";
 import { cookies } from "next/headers";
 import { env } from "@/env/server.mjs";
@@ -8,7 +8,7 @@ import { secondsFromNow, MONTH_S } from "@/utils/time";
 import { eq, and, lte, asc, isNull, or, sql } from "drizzle-orm";
 import sgMail from "@sendgrid/mail";
 
-const ENDPOINT_NAME = "daily-emails-reminder";
+const ENDPOINT_NAME = "hourly-emails-reminder";
 
 export async function GET() {
   // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
@@ -18,8 +18,8 @@ export async function GET() {
   sgMail.setApiKey(env.SENDGRID_API_KEY || "");
 
   // Check timer
-  const timerCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME);
-  if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
+  const timerCheck = await lockWithHourlyTimer(drizzleDB, ENDPOINT_NAME);
+  if (!timerCheck.isNewHour && timerCheck.response) return timerCheck.response;
 
   try {
     // Fetch all the emails currently in the database
