@@ -1142,43 +1142,31 @@ export const lifesteal = (
 };
 
 /** Drain target's Chakra and Stamina over time */
-export const drain = (
+export const poison = (
   effect: UserEffect,
   usersEffects: UserEffect[],
-  consequences: Map<string, Consequence>,
   target: BattleUserState,
+  chakraCost: number,
+  staminaCost: number
 ) => {
-  // Check if the effect is prevented
+  // Check if poison effect is prevented
   const { pass } = preventCheck(usersEffects, "debuffprevent", target);
-  if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+  if (!pass) return preventResponse(effect, target, "cannot be poisoned");
 
-  // Calculate drain amount
+  // Get the poison power percentage
   const { power, qualifier } = getPower(effect);
 
-  // Apply drain effect each round
-  if (!effect.isNew && !effect.castThisRound) {
-    const drainAmount =
-      effect.calculation === "percentage"
-        ? Math.floor((power / 100) * Math.max(target.curChakra, target.curStamina))
-        : power;
+  // Calculate poison damage based on chakra/stamina cost
+  const poisonDamage = Math.floor((chakraCost + staminaCost) * (power / 100));
 
-    // Reduce target's Chakra and Stamina directly
-    const consequence = consequences.get(effect.targetId) || {
-      userId: effect.targetId,
-      targetId: effect.targetId,
-    };
-
-    consequence.drain = consequence.drain
-      ? consequence.drain + drainAmount
-      : drainAmount;
-
-    consequences.set(effect.targetId, consequence);
+  if (poisonDamage > 0) {
+    target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
   }
 
   return getInfo(
     target,
     effect,
-    `will be drained ${qualifier} of Chakra and Stamina for ${effect.rounds} rounds`,
+    `will take ${qualifier} of chakra and stamina lost as poison damage`
   );
 };
 
@@ -1199,6 +1187,8 @@ export const poison = (
     (e) => e.type === "poison" && e.targetId === target.userId
   );
 
+  const { power, qualifier } = getPower(poison);
+  
   // Apply poison damage based on chakra/stamina cost
   poisonEffects.forEach((poison) => {
     const { power, qualifier } = getPower(poison);
