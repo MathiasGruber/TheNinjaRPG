@@ -1182,6 +1182,41 @@ export const drain = (
   );
 };
 
+/** Deals damage based on chakra and stamina usage */
+export const poison = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+  chakraCost: number,
+  staminaCost: number
+) => {
+  // Check if poison effect is prevented
+  const { pass } = preventCheck(usersEffects, "debuffprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot be poisoned");
+
+  // Find poison effects on the user
+  const poisonEffects = usersEffects.filter(
+    (e) => e.type === "poison" && e.targetId === target.userId
+  );
+
+  // Apply poison damage based on chakra/stamina cost
+  poisonEffects.forEach((poison) => {
+    const { power } = getPower(poison);
+    const poisonDamage = Math.floor((chakraCost + staminaCost) * (power / 100));
+
+    if (poisonDamage > 0) {
+      target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
+    }
+  });
+
+  return getInfo(
+    target,
+    effect,
+    `will take ${qualifier} of chakra and stamina spent as poison damage`
+  );
+};
+
+
 /** Create a temporary HP shield that absorbs damage */
 export const shield = (effect: UserEffect, target: BattleUserState) => {
   // Apply
