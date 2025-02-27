@@ -15,7 +15,9 @@ export const serverSchema = z.object({
   DISCORD_NEWS_UPDATES: z.string().url().optional(),
   DISCORD_TICKETS: z.string().url().optional(),
   REPLICATE_API_TOKEN: z.string().optional(),
+  SENDGRID_API_KEY: z.string().optional(),
   CAPTCHA_SALT: z.string(),
+  CLERK_SECRET_KEY: z.string(),
 });
 
 /**
@@ -33,7 +35,9 @@ export const serverEnv = {
   DISCORD_NEWS_UPDATES: process.env.DISCORD_NEWS_UPDATES,
   DISCORD_TICKETS: process.env.DISCORD_TICKETS,
   REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
+  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
   CAPTCHA_SALT: process.env.CAPTCHA_SALT,
+  CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
 };
 
 /**

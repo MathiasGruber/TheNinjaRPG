@@ -359,6 +359,7 @@ export const ElementNames = [
   "Lava",
   "Explosion",
   "Light",
+  "Boil",
   "None",
 ] as const;
 export type ElementName = (typeof ElementNames)[number];
@@ -793,16 +794,15 @@ export const IMG_LAYOUT_USERSBANNER_BOTTOM =
 export const IMG_AVATAR_DEFAULT =
   "https://utfs.io/f/630cf6e7-c152-4dea-a3ff-821de76d7f5a_default.webp";
 export const IMG_WALLPAPER_WINTER =
-  "https://tnr-storage-cdn.b-cdn.net/wallpaper-winter-compressed.webp";
-// "https://utfs.io/f/Hzww9EQvYURJTUQ6Nm5IU29dZYJPoOKSh5vmlqatMub3EigH";
+  "https://tnr-storage-cdn.b-cdn.net/wallpaper-winter.webp";
 export const IMG_WALLPAPER_SPRING =
-  "https://utfs.io/f/Hzww9EQvYURJYq2fE0OMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
+  "https://tnr-storage-cdn.b-cdn.net/wallpaper-spring.webp";
 export const IMG_WALLPAPER_SUMMER =
-  "https://utfs.io/f/Hzww9EQvYURJ1HIpcx6bo95WClq4K0wxZUmJcvThgdVenO3P";
+  "https://tnr-storage-cdn.b-cdn.net/wallpaper-summer.webp";
 export const IMG_WALLPAPER_FALL =
-  "https://utfs.io/f/Hzww9EQvYURJ8B1Blddkkp45TvAnoIBa0rtCf1lbyXYjVKQ2";
+  "https://tnr-storage-cdn.b-cdn.net/wallpaper-fall.webp";
 export const IMG_WALLPAPER_HALLOWEEN =
-  "https://utfs.io/f/Hzww9EQvYURJACVJVzoZUC4muiGcQNzjfEndY5y1w20B8hTW";
+  "https://tnr-storage-cdn.b-cdn.net/wallpaper-halloween.webp";
 export const IMG_LAYOUT_BUTTONDECOR =
   "https://utfs.io/f/Hzww9EQvYURJYectQDOMAlNnPZ41ev6fCGcFK3hmjX9I8W7d";
 export const IMG_LAYOUT_NAVBAR =
@@ -905,6 +905,8 @@ export const IMG_ELEMENT_DUST =
   "https://utfs.io/f/Hzww9EQvYURJchNmlmSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
 export const IMG_ELEMENT_LIGHTNING =
   "https://utfs.io/f/Hzww9EQvYURJ4DIVIclYIif5CL8BKvMsOh2ZnmS7yHt0jTD3";
+export const IMG_ELEMENT_BOIL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJ5qAGAlo797jl4ubX8xrRqTZasyMp2WA5eLGU";
 
 export const IMG_BASIC_HEAL =
   "https://utfs.io/f/Hzww9EQvYURJnlXNSKmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";

@@ -284,6 +284,21 @@ export const battleHistoryRelations = relations(battleHistory, ({ one, many }) =
   }),
 }));
 
+export const emailReminder = mysqlTable("EmailReminder", {
+  id: int("id").autoincrement().primaryKey().notNull(),
+  userId: varchar("userId", { length: 191 }),
+  callName: varchar("callName", { length: 191 }),
+  email: varchar("email", { length: 191 }).notNull(),
+  latestRejoinRequest: datetime("latestRejoinRequest", { mode: "date", fsp: 3 }),
+  lastActivity: datetime("lastActivity", { mode: "date", fsp: 3 }),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  secret: varchar("secret", { length: 191 }).notNull(),
+  disabled: boolean("disabled").default(false).notNull(),
+  validated: boolean("validated").default(true).notNull(),
+});
+
 export const userBlackList = mysqlTable(
   "UserBlackList",
   {
@@ -1826,6 +1841,7 @@ export const village = mysqlTable(
     })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    wallpaperOverwrite: varchar("wallpaperOverwrite", { length: 191 }),
   },
   (table) => {
     return {

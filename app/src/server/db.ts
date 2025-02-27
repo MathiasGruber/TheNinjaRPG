@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/planetscale-serverless";
 import { Client } from "@planetscale/database";
-import { env } from "../env/server.mjs";
+import { env } from "@/env/server.mjs";
 import * as schema from "../../drizzle/schema";
 import type { PlanetScaleDatabase } from "drizzle-orm/planetscale-serverless";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useLocalStorage } from "@/hooks/localstorage";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
@@ -46,7 +46,9 @@ import type { StatSchemaType } from "@/libs/combat/types";
 export default function Arena() {
   // Tab selection
   const availableTabs = ["Arena", "Sparring", "Training Arena"] as const;
-  const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
+  type TabType = (typeof availableTabs)[number];
+  const [tab, setTab] = useLocalStorage<TabType | null>("arenaTab", "Arena", true);
+  console.log(tab);
   const [aiId, setAiId] = useLocalStorage<string | undefined>("arenaAI", undefined);
   const [statDistribution, setStatDistribution] = useLocalStorage<
     StatSchemaType | undefined
@@ -117,7 +119,7 @@ export default function Arena() {
 
 interface SelectAIProps {
   aiId: string | undefined;
-  setAiId: React.Dispatch<React.SetStateAction<string | undefined>>;
+  setAiId: (newValue: string | undefined) => void;
 }
 
 const SelectAI: React.FC<SelectAIProps> = (props) => {
@@ -431,7 +433,7 @@ const ActiveChallenges: React.FC = () => {
 
 interface AssignTrainingDummyStatsProps {
   statDistribution: StatSchemaType | undefined;
-  setStatDistribution: React.Dispatch<React.SetStateAction<StatSchemaType | undefined>>;
+  setStatDistribution: (newValue: StatSchemaType | undefined) => void;
 }
 
 const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props) => {
