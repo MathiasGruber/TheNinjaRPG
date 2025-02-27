@@ -187,7 +187,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   // I am here call
   const { mutate: iAmHere } = api.combat.iAmHere.useMutation({
     onSuccess: (data) => {
-      if (data.success && data.battle) {
+      if ("battle" in data && data.success && data.battle) {
         battle.current = data.battle;
         setBattleAtom(battle.current);
         setBattleState({ battle: data.battle, result: null, isPending: false });

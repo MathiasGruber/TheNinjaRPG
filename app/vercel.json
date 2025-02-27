@@ -49,6 +49,14 @@
       "schedule": "0/10 0 * * *"
     },
     {
+      "path": "/api/daily-emails-sync",
+      "schedule": "0/5 0 * * *"
+    },
+    {
+      "path": "/api/daily-emails-reminder",
+      "schedule": "0/5 0 * * *"
+    },
+    {
       "path": "/api/hourly-kage-prestige",
       "schedule": "0 * * * *"
     }

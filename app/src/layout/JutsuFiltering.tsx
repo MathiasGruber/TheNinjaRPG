@@ -41,6 +41,7 @@ import {
 import { statFilters, effectFilters, rarities } from "@/libs/train";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type {
+  LetterRank,
   ElementName,
   UserRank,
   StatType,
@@ -874,7 +875,9 @@ export const getFilter = (state: JutsuFilteringState) => {
     method: state.method === "None" ? undefined : state.method,
     name: state.name || undefined,
     rank: state.rank === "NONE" ? undefined : state.rank,
-    rarity: state.rarity === "ALL" ? undefined : state.rarity,
+    rarity: ["ALL", "None"].includes(state.rarity)
+      ? undefined
+      : (state.rarity as LetterRank),
     requiredLevel: state.requiredLevel ?? undefined,
     stat: processArray(state.stat as StatGenType[]),
     static: state.staticAnim === "None" ? undefined : state.staticAnim,

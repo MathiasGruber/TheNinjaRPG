@@ -32,6 +32,7 @@ import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { QUESTS_CONCURRENT_LIMIT } from "@/drizzle/constants";
 import { questFilteringSchema } from "@/validators/quest";
 import { hideQuestInformation, isAvailableUserQuests } from "@/libs/quest";
 import { QuestTracker } from "@/validators/objectives";
@@ -329,8 +330,12 @@ export const questsRouter = createTRPCRouter({
         (q) => q.quest.questType === "event" && !q.endAt,
       );
       if (!["mission", "crime"].includes(questData.questType)) {
-        if (current && current.length >= 4) {
-          return errorResponse(`Already 4 active event quests`);
+        if (current && current.length >= QUESTS_CONCURRENT_LIMIT) {
+          return errorResponse(
+            `Already ${QUESTS_CONCURRENT_LIMIT} active event quests; ${current
+              .map((c) => c.quest.name)
+              .join(", ")}. Abandon one to start this quest.`,
+          );
         }
         if (!canAccessStructure(user, "/adminbuilding", sectorVillage)) {
           return errorResponse("Must be in your allied village to start quest");

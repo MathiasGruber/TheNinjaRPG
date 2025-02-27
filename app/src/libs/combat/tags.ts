@@ -1181,6 +1181,47 @@ export const poison = (
     `will take ${qualifier}% damage based on Chakra and Stamina usage`,
   );
 
+/** Drain target's Chakra and Stamina over time */
+export const drain = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState,
+) => {
+  // Check if the effect is prevented
+  const { pass } = preventCheck(usersEffects, "debuffprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+
+  // Calculate drain amount
+  const { power, qualifier } = getPower(effect);
+
+  // Apply drain effect each round
+  if (!effect.isNew && !effect.castThisRound) {
+    const drainAmount =
+      effect.calculation === "percentage"
+        ? Math.floor((power / 100) * Math.max(target.curChakra, target.curStamina))
+        : power;
+
+    // Reduce target's Chakra and Stamina directly
+    const consequence = consequences.get(effect.targetId) || {
+      userId: effect.targetId,
+      targetId: effect.targetId,
+    };
+
+    consequence.drain = consequence.drain
+      ? consequence.drain + drainAmount
+      : drainAmount;
+
+    consequences.set(effect.targetId, consequence);
+  }
+
+  return getInfo(
+    target,
+    effect,
+    `will be drained ${qualifier} of Chakra and Stamina for ${effect.rounds} rounds`,
+  );
+};
+
 /** Create a temporary HP shield that absorbs damage */
 export const shield = (effect: UserEffect, target: BattleUserState) => {
   // Apply

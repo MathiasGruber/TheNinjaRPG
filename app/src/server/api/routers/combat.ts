@@ -156,6 +156,7 @@ export const combatRouter = createTRPCRouter({
               console.error(e);
             }
           }
+          console.log("ERROR: ", e);
           if (attempts > 2) throw e;
         }
       }
@@ -593,46 +594,76 @@ export const combatRouter = createTRPCRouter({
   iAmHere: protectedProcedure
     .input(z.object({ battleId: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      // Fetch
-      const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
-      const user = userBattle?.usersState.find((u) => u.userId === ctx.userId);
-      // Guard
-      if (!userBattle) return { success: false, message: "You are not in a battle" };
-      if (!user) return { success: false, message: "You are not in this battle" };
-      if (new Date() > userBattle.roundStartAt) return { success: true, message: "" };
-      // Pre-Mutate
-      user.iAmHere = true;
-      userBattle.updatedAt = new Date();
-      userBattle.version = userBattle.version + 1;
-      const allHere = userBattle.usersState.every((u) => u.iAmHere);
-      if (allHere) {
-        userBattle.createdAt = new Date();
-        userBattle.roundStartAt = new Date();
+      // Maximum number of retry attempts
+      const MAX_RETRIES = 10;
+      let attempts = 0;
+
+      // Retry loop
+      while (attempts < MAX_RETRIES) {
+        attempts++;
+
+        // Fetch
+        const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
+        const user = userBattle?.usersState.find((u) => u.userId === ctx.userId);
+
+        // Guard
+        if (!userBattle) return { success: false, message: "You are not in a battle" };
+        if (!user) return { success: false, message: "You are not in this battle" };
+        if (new Date() > userBattle.roundStartAt) return { success: true, message: "" };
+
+        // Check if user is already marked as here
+        if (user.iAmHere) return { success: true, message: "", battle: userBattle };
+
+        // Pre-Mutate
+        user.iAmHere = true;
+        userBattle.updatedAt = new Date();
+        userBattle.version = userBattle.version + 1;
+        const allHere = userBattle.usersState.every((u) => u.iAmHere);
+        if (allHere) {
+          userBattle.createdAt = new Date();
+          userBattle.roundStartAt = new Date();
+        }
+
+        // Mutate
+        const result = await ctx.drizzle
+          .update(battle)
+          .set({
+            usersState: userBattle.usersState,
+            version: userBattle.version,
+            createdAt: userBattle.createdAt,
+            updatedAt: userBattle.updatedAt,
+            roundStartAt: userBattle.roundStartAt,
+          })
+          .where(
+            and(
+              eq(battle.id, input.battleId),
+              eq(battle.version, userBattle.version - 1),
+            ),
+          );
+
+        if (result.rowsAffected > 0) {
+          void pusher.trigger(userBattle.id, "event", {
+            version: userBattle.version + 1,
+          });
+          return { success: true, message: "", battle: userBattle };
+        } else {
+          // If we're on the last attempt, return failure
+          if (attempts >= MAX_RETRIES) {
+            return errorResponse("Someone else updated the battle state");
+          }
+
+          // Check if the battle version has actually changed
+          const currentBattle = await fetchBattle(ctx.drizzle, input.battleId);
+          if (!currentBattle || currentBattle.version === userBattle.version - 1) {
+            // If the version hasn't changed or battle no longer exists, don't retry
+            return { success: false, message: "Battle state could not be updated" };
+          }
+
+          // Continue to next retry attempt if version has changed
+          continue;
+        }
       }
-      // Mutate
-      const result = await ctx.drizzle
-        .update(battle)
-        .set({
-          usersState: userBattle.usersState,
-          version: userBattle.version,
-          createdAt: userBattle.createdAt,
-          updatedAt: userBattle.updatedAt,
-          roundStartAt: userBattle.roundStartAt,
-        })
-        .where(
-          and(
-            eq(battle.id, input.battleId),
-            eq(battle.version, userBattle.version - 1),
-          ),
-        );
-      if (result.rowsAffected > 0) {
-        void pusher.trigger(userBattle.id, "event", {
-          version: userBattle.version + 1,
-        });
-        return { success: true, message: "", battle: userBattle };
-      } else {
-        return { success: false, message: "Someone else updated the battle state" };
-      }
+      return errorResponse("Failed to update battle state after multiple attempts");
     }),
 });
 
@@ -1065,10 +1096,14 @@ export const initiateBattle = async (
 
   // Hide users on map when in combat
   if (!["KAGE_AI", "CLAN_CHALLENGE"].includes(battleType)) {
-    users.forEach((user) => {
-      void pusher.trigger(user.userId, "event", { type: "battle", battleId });
-      void updateUserOnMap(pusher, user.sector, { ...user, sector: -1 });
-    });
+    await Promise.all(
+      users.map(async (user) => {
+        await Promise.all([
+          pusher.trigger(user.userId, "event", { type: "battle", battleId }),
+          updateUserOnMap(pusher, user.sector, { ...user, sector: -1 }),
+        ]);
+      }),
+    );
   }
 
   // Return the battle

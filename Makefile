@@ -101,6 +101,12 @@ openhands: # Open OpenHands on http://127.0.0.1:3004
 		--name openhands-app \
 		docker.all-hands.dev/all-hands-ai/openhands:0.19
 
+--------------AI-helpers----------------: # -------------------------------------------------------
+.PHONY: browser-tools-server
+browser-tools-server: # Run browser-tools MCP server, allowing AI to see browser
+	@echo "${GREEN}browser-tools-server${RESET}"
+	npx @agentdeskai/browser-tools-server
+
 --------------Migrations----------------: # -------------------------------------------------------
 .PHONY: dbpush
 dbpush: # Push schema to db without creating migrations
