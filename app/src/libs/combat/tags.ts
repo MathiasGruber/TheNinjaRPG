@@ -1140,47 +1140,37 @@ export const lifesteal = (
   }
   return getInfo(target, effect, `will steal ${qualifier} damage as health`);
 };
-    
-/** Apply poison damage based on Chakra and Stamina usage */
+
+/** Apply poison effect and deal damage when Chakra or Stamina is used */
 export const poison = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState,
+  target: BattleUserState
 ) => {
   const { power, qualifier } = getPower(effect);
 
-  if (!effect.isNew && !effect.castThisRound) {
-    // Get all consequences for the target
-    consequences.forEach((consequence, effectId) => {
-      if (consequence.targetId === effect.targetId) {
-        const actionEffect = usersEffects.find((e) => e.id === effectId);
-        if (actionEffect && "data" in actionEffect && actionEffect.data && typeof actionEffect.data === "object" && actionEffect.data !== null && "chakraCost" in actionEffect.data) {
-          // Get the action data which contains the cost information
-          const actionData = actionEffect.data as { chakraCost: number; staminaCost: number };
-          // Calculate poison damage based on chakra and stamina costs
-          const chakraCost = actionData.chakraCost;
-          const staminaCost = actionData.staminaCost;
-          const totalCost = chakraCost + staminaCost;
-
-          if (totalCost > 0) {
-            // Calculate poison damage as a percentage of the total cost
-            const poisonDamage = Math.ceil(totalCost * (power / 100));
-
-            // Add poison damage to existing damage
-            consequence.damage = (consequence.damage || 0) + poisonDamage;
-          }
-        }
-      }
-    });
+  if (effect.isNew) {
+    // When first applied, just inform that poison has been inflicted
+    return getInfo(target, effect, `is poisoned and will take damage upon Chakra or Stamina usage`);
   }
 
-  return getInfo(
-    target,
-    effect,
-    `will take ${qualifier}% damage based on Chakra and Stamina usage`,
-  );
+  // Poison effect is active: check if the target spent Chakra or Stamina
+  const poisonDamage = Math.ceil((target.chakraSpent + target.staminaSpent) * (power / 100));
 
+  if (poisonDamage > 0) {
+    // Apply poison damage
+    const consequence = consequences.get(effect.targetId) || {
+      userId: effect.creatorId,
+      targetId: effect.targetId,
+      damage: 0,
+    };
+    consequence.damage += poisonDamage;
+    consequences.set(effect.targetId, consequence);
+  }
+
+  return getInfo(target, effect, `suffers ${qualifier}% damage based on Chakra and Stamina usage`);
+};
 /** Drain target's Chakra and Stamina over time */
 export const drain = (
   effect: UserEffect,
