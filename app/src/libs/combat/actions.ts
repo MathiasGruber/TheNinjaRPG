@@ -11,7 +11,7 @@ import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
 import { isUserStealthed, isUserImmobilized } from "@/libs/combat/util";
 import { getUserElementalSeal } from "@/libs/combat/util";
-import { updateStatUsage } from "@/libs/combat/tags";
+import { updateStatUsage, poison } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
 import { PathCalculator } from "@/libs/hexgrid";
 import { calcCombatHealPercentage } from "@/libs/hospital/hospital";
