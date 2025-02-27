@@ -516,6 +516,18 @@ export const DrainTag = z.object({
 });
 export type DrainTagType = z.infer<typeof DrainTag>;
 
+export const PoisonTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  ...PoolAttributes,
+  type: z.literal("poison").default("poison"),
+  description: msg("Deal damage based on Chakra and Stamina lost"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+  poolsAffected: z.array(z.enum(PoolTypes)).default(["Health","Chakra", "Stamina"]),
+});
+export type PoisonTagType = z.infer<typeof PoisonTag>;
+
 export const ShieldTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -744,6 +756,7 @@ export const AllTags = z.union([
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
   PierceTag.default({}),
+  PoisonTag.default({}),
   RecoilTag.default({}),
   ReflectTag.default({}),
   RemoveBloodline.default({}),
@@ -814,7 +827,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
       // "cleanseprevent",
-      // "buffprevent",
+      "buffprevent",
       "decreasedamagegiven",
       "drain",
       "increasedamagetaken",
@@ -825,6 +838,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "damage",
       "moveprevent",
       "pierce",
+      "poison",
       "recoil",
       "flee",
       "fleeprevent",
