@@ -1817,14 +1817,14 @@ export const vamp = (
   if (!effect.isNew && !effect.castThisRound) {
     const vampAmount =
       effect.calculation === "percentage"
-        ? Math.floor((power / 100) * target.curHp)
+        ? Math.floor((power / 100) * target.curHealth)
         : power;
 
     // Cap the vamp amount to prevent draining more than available HP
-    const actualVampAmount = Math.min(vampAmount, target.curHp - 1);
+    const actualVampAmount = Math.min(vampAmount, target.curHealth - 1);
 
     // Don't allow vamping if target has only 1 HP left
-    if (target.curHp <= 1) return getInfo(target, effect, "cannot drain any more HP");
+    if (target.curHealth <= 1) return getInfo(target, effect, "cannot drain any more HP");
 
     // Reduce target's HP directly
     const targetConsequence = consequences.get(effect.targetId) || {
@@ -1832,29 +1832,29 @@ export const vamp = (
       targetId: effect.targetId,
     };
 
-    targetConsequence.hpLoss = targetConsequence.hpLoss
-      ? targetConsequence.hpLoss + actualVampAmount
+    targetConsequence.damage = targetConsequence.damage
+      ? targetConsequence.damage + actualVampAmount
       : actualVampAmount;
 
     consequences.set(effect.targetId, targetConsequence);
 
     // Add HP to the caster
-    const casterConsequence = consequences.get(effect.userId) || {
-      userId: effect.userId,
-      targetId: effect.userId,
+    const casterConsequence = consequences.get(effect.creatorId) || {
+      userId: effect.creatorId,
+      targetId: effect.creatorId,
     };
 
-    casterConsequence.hpGain = casterConsequence.hpGain
-      ? casterConsequence.hpGain + actualVampAmount
+    casterConsequence.heal_hp = casterConsequence.heal_hp
+      ? casterConsequence.heal_hp + actualVampAmount
       : actualVampAmount;
 
-    consequences.set(effect.userId, casterConsequence);
+    consequences.set(effect.creatorId, casterConsequence);
 
     // Add a message about the HP transfer
     return getInfo(
       target,
       effect,
-      `lost ${actualVampAmount} HP, which was transferred to ${caster.name}`,
+      `lost ${actualVampAmount} HP, which was transferred to ${caster.username}`,
     );
   }
 
