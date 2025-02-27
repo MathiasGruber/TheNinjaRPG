@@ -4,6 +4,7 @@ import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
 import { emailReminder } from "@/drizzle/schema";
 import { cookies } from "next/headers";
 import { env } from "@/env/server.mjs";
+import { secondsFromNow, MONTH_S } from "@/utils/time";
 import { nanoid } from "nanoid";
 import { sql } from "drizzle-orm";
 
@@ -82,9 +83,10 @@ export async function GET() {
     let hasMoreUsers = true;
     let offset = 0;
     const limit = 500;
+    const lastActiveAtAfter = secondsFromNow(-MONTH_S).getTime();
     while (hasMoreUsers) {
       const response = await fetch(
-        `${CLERK_API_ENDPOINT}/users?offset=${offset}&order_by=-created_at&limit=${limit}`,
+        `${CLERK_API_ENDPOINT}/users?offset=${offset}&order_by=-created_at&limit=${limit}&last_active_at_after=${lastActiveAtAfter}`,
         {
           headers: {
             "Content-Type": "application/json",
