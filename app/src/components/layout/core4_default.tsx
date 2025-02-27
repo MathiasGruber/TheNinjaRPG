@@ -859,10 +859,9 @@ const getImageSet = (userData: UserWithRelations) => {
   }
 
   // Check for location-specific overwrites
-  console.log(userData);
   if (userData?.village?.wallpaperOverwrite) {
     base.wallpaper = userData.village.wallpaperOverwrite;
   }
-  console.log(base);
+
   return base;
 };
