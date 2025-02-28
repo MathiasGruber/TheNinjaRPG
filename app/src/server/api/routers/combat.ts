@@ -475,7 +475,6 @@ export const combatRouter = createTRPCRouter({
               logEntries: logEntries,
             };
           } catch (e) {
-            console.error("Battle error: ", e);
             return {
               notification: `Seems like the battle was out of sync with server, please try again`,
             };
