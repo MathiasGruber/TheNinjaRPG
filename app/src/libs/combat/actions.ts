@@ -545,7 +545,6 @@ export const insertAction = (info: {
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
       // Inflict poison damage
-      const localPoisonMessages: ActionEffect[] = [];
       battle.usersEffects.forEach((effect) => {
         if (
           effect.type === "poison" &&
@@ -555,10 +554,6 @@ export const insertAction = (info: {
           const poisonDamage = Math.floor((cpCost + spCost) * (effect.power / 100));
           if (poisonDamage > 0) {
             user.curHealth = Math.max(user.curHealth - poisonDamage, 0);
-            localPoisonMessages.push({
-              txt: `${user.username} takes ${poisonDamage} poison damage`,
-              color: "red",
-            });
           }
         }
       });
@@ -704,8 +699,7 @@ export const performBattleAction = (props: {
 
   // Apply relevant effects, and get back new state + active effects
   const { newBattle, actionEffects } = applyEffects(battle, actorId);
-  const finalActionEffects = [...localPoisonMessages, ...actionEffects];
-  return { newBattle, actionEffects: finalActionEffects };
+  return { newBattle, actionEffects };
 };
 
 /**
