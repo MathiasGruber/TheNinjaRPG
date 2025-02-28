@@ -928,6 +928,8 @@ export type UserEffect = BattleEffect & {
   fromGround?: boolean;
   fromType?: "jutsu" | "armor" | "item" | "basic" | "bloodline";
   elements?: ElementName[]; // TODO: Remove this, should already be in the tag
+  cpSpent?: number;
+  spSpent?: number;
 };
 
 export type ActionEffect = {
