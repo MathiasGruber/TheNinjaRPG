@@ -15,7 +15,7 @@ import SendTicketBtn from "@/layout/SendTicketButton";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { CircleUserRound, CircleHelp, Compass, Cog, Milk } from "lucide-react";
 import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
-import { Earth, House, MessageCircleWarning, Receipt } from "lucide-react";
+import { Earth, House, MessageCircleWarning, Inbox } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -441,11 +441,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                     <CircleUserRound className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
                   </Link>
                   <Link
-                    href="/points"
+                    href="/inbox"
                     className="flex justify-center -top-2 relative"
                     prefetch={true}
                   >
-                    <Receipt className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                    <Inbox className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
                   </Link>
                   {location ? (
                     <>

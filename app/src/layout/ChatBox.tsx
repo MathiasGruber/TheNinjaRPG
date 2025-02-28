@@ -10,7 +10,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import AvatarImage from "@/layout/Avatar";
-import Loader from "@/layout/Loader";
 import RichInput from "@/layout/RichInput";
 import { X, BrainCircuit, ThumbsUp, ThumbsDown, Meh } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -110,7 +109,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   });
 
   // Loader
-  if (!userData) return <Loader explanation="Loading user" />;
+  if (!userData) return <p>Must be logged in to use chat</p>;
 
   // Calculate max height for messages container
   const messagesContainerClass =
