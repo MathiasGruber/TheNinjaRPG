@@ -423,10 +423,9 @@ export const insertAction = (info: {
               level: action.level,
               round: battle.round,
               barrierAbsorb: totalAbsorb,
+              cpSpent: cpCost,
+              spSpent: spCost,
             });
-            effect.cpSpent = cpCost;
-            effect.spSpent = spCost;
-            usersEffects.push(effect);
             if (effect && checkFriendlyFire(effect, user, alive)) {
               const idx = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
               if (!appliedEffects.has(idx)) {
@@ -443,6 +442,8 @@ export const insertAction = (info: {
               level: action.level,
               round: battle.round,
               barrierAbsorb: totalAbsorb,
+              cpSpent: cpCost,
+              spSpent: spCost,
             });
             effect.longitude = effectTile.col;
             effect.latitude = effectTile.row;
@@ -469,6 +470,8 @@ export const insertAction = (info: {
             level: action.level,
             round: battle.round,
             barrierAbsorb: totalAbsorb,
+            cpSpent: cpCost,
+            spSpent: spCost,
           });
           if (effect) {
             effect.longitude = tile.col;
@@ -548,18 +551,18 @@ export const insertAction = (info: {
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
       // Inflict poison damage
-      battle.usersEffects.forEach((effect) => {
-        if (
-          effect.type === "poison" &&
-          effect.targetId === user.userId &&
-          isEffectActive(effect)
-        ) {
-          const poisonDamage = Math.floor((cpCost + spCost) * (effect.power / 100));
-          if (poisonDamage > 0) {
-            user.curHealth = Math.max(user.curHealth - poisonDamage, 0);
-          }
-        }
-      });
+      // battle.usersEffects.forEach((effect) => {
+      //   if (
+      //     effect.type === "poison" &&
+      //     effect.targetId === user.userId &&
+      //     isEffectActive(effect)
+      //   ) {
+      //     const poisonDamage = Math.floor((cpCost + spCost) * (effect.power / 100));
+      //     if (poisonDamage > 0) {
+      //       user.curHealth = Math.max(user.curHealth - poisonDamage, 0);
+      //     }
+      //   }
+      // });
       // Update user descriptions
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
