@@ -33,6 +33,7 @@ import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { CombatAction } from "@/libs/combat/types";
 import type { GroundEffect, UserEffect } from "@/libs/combat/types";
+import type { ActionEffect } from "@/libs/combat/types";
 
 /**
  * Given a user, return a list of actions that the user can perform
