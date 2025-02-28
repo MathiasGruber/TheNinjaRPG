@@ -1187,9 +1187,7 @@ export const poison = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   consequences: Map<string, Consequence>,
-  target: BattleUserState,
-  cpCost = 0,
-  spCost = 0
+  target: BattleUserState
 ) => {
   // Check if poison effect is prevented
   const { pass } = preventCheck(usersEffects, "debuffprevent", target);
@@ -1198,8 +1196,12 @@ export const poison = (
   // Get poison power
   const { power, qualifier } = getPower(effect);
 
-  // Calculate poison damage based on last CP/SP costs
-  const poisonDamage = Math.floor((cpCost + spCost) * (power / 100));
+  // Retrieve CP and SP costs from the effect
+  const cpCost = effect.cpSpent || 0;
+  const spCost = effect.spSpent || 0;
+
+  // Calculate poison damage based on the CP and SP costs
+  const poisonDamage = Math.floor((cpCost  spCost) * (power / 100));
 
   if (poisonDamage > 0) {
     target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
