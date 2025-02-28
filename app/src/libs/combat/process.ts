@@ -582,7 +582,7 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
         }
         if (c.poison && c.poison > 0) {
           target.curHealth -= c.poison;
-          target.curHealth = Math.max(0, target.curHealth);
+          target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
             txt: `${target.username} takes ${c.poison.toFixed(2)} poison damage`,
             color: "green",
