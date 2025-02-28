@@ -544,6 +544,7 @@ export const insertAction = (info: {
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
       // Update user descriptions
+      const actionEffects: ActionEffect[] = [];
       battle.usersEffects.forEach((effect) => {
         if (
           effect.type === "poison" &&
