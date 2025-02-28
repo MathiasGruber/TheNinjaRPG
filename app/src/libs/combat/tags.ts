@@ -1201,7 +1201,7 @@ export const poison = (
   const spCost = effect.spSpent || 0;
 
   // Calculate poison damage based on the CP and SP costs
-  const poisonDamage = Math.floor((cpCost  spCost) * (power / 100));
+  const poisonDamage = Math.floor((cpCost + spCost) * (power / 100));
 
   if (poisonDamage > 0) {
     target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
