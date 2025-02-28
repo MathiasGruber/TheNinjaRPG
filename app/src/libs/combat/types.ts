@@ -182,7 +182,7 @@ export type Consequence = {
   absorb_sp?: number;
   absorb_cp?: number;
   drain?: number;
-  poison?: number
+  poison?: number;
   types?: (GeneralType | StatType | ElementName | PoolType)[];
 };
 
