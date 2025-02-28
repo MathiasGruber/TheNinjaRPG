@@ -551,18 +551,18 @@ export const insertAction = (info: {
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
       // Inflict poison damage
-      // battle.usersEffects.forEach((effect) => {
-      //   if (
-      //     effect.type === "poison" &&
-      //     effect.targetId === user.userId &&
-      //     isEffectActive(effect)
-      //   ) {
-      //     const poisonDamage = Math.floor((cpCost + spCost) * (effect.power / 100));
-      //     if (poisonDamage > 0) {
-      //       user.curHealth = Math.max(user.curHealth - poisonDamage, 0);
-      //     }
-      //   }
-      // });
+      battle.usersEffects.forEach((effect) => {
+        if (
+          effect.type === "poison" &&
+          effect.targetId === user.userId &&
+          isEffectActive(effect)
+        ) {
+          const poisonDamage = Math.floor((cpCost + spCost) * (effect.power / 100));
+          if (poisonDamage > 0) {
+            user.curHealth = Math.max(user.curHealth - poisonDamage, 0);
+          }
+        }
+      });
       // Update user descriptions
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
