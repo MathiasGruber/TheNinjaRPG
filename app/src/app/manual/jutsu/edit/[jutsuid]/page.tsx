@@ -14,7 +14,7 @@ import { DamageTag } from "@/libs/combat/types";
 import { JutsuValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
 import { tagTypes } from "@/libs/combat/types";
-import { useJutsuEditForm } from "@/libs/jutsu";
+import { useJutsuEditForm } from "@/hooks/jutsu";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { getTagSchema } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";

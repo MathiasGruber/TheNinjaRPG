@@ -16,7 +16,7 @@ import { effectFilters } from "@/libs/train";
 import { JutsuValidator } from "@/libs/combat/types";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { ItemValidator } from "@/libs/combat/types";
-import { useJutsuEditForm } from "@/libs/jutsu";
+import { useJutsuEditForm } from "@/hooks/jutsu";
 import { useQuestEditForm } from "@/hooks/quest";
 import { useBloodlineEditForm } from "@/hooks/bloodline";
 import { useItemEditForm } from "@/hooks/item";
