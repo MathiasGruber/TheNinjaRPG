@@ -23,6 +23,7 @@ import { useLocalStorage } from "@/hooks/localstorage";
 import { showMutationToast } from "@/libs/toast";
 import { SiDiscord } from "@icons-pack/react-simple-icons";
 import type { TicketType } from "@/validators/misc";
+import ChatBox from "@/layout/ChatBox";
 
 interface SendTicketBtnProps {
   children?: React.ReactNode;
@@ -30,8 +31,8 @@ interface SendTicketBtnProps {
 
 const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
   const [showActive, setShowActive] = useLocalStorage<TicketType>(
-    "ticketType",
-    "human_support",
+    "ticketType2",
+    "ai_support",
   );
 
   // Mutations
@@ -54,6 +55,12 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
   const onSubmit = createForm.handleSubmit((data) => {
     create({ ...data, type: showActive });
   });
+
+  // Handle tool calls from AI
+  const handleToolCall = (toolCall: any) => {
+    console.log("Tool call received:", toolCall);
+    // Implement specific tool call handling if needed
+  };
 
   return (
     <Popover>
@@ -125,9 +132,23 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
                 channel and create a &quot;ticket&quot;.
               </p>
             </TabsContent>
-            <TabsContent value="ai_support">
-              <p className="font-bold text-lg">Get AI Help</p>
-              Coming soon - ask our AI for help!
+            <TabsContent value="ai_support" className="w-full">
+              <p className="font-bold text-lg mb-2">Get AI Help</p>
+              <div className="h-[400px]">
+                <ChatBox
+                  aiProps={{
+                    apiEndpoint: "/api/chat/support",
+                    systemMessage:
+                      "You are Seichi AI, a helpful assistant for TheNinja-RPG players.",
+                  }}
+                  onToolCall={handleToolCall}
+                  position="relative"
+                  showCloseButton={false}
+                  showHeader={false}
+                  showFeedback={true}
+                  className="h-full"
+                />
+              </div>
             </TabsContent>
             <TabsContent value="bug_report">
               <p className="font-bold text-lg">Create Bug Report</p>
@@ -160,8 +181,8 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
             </TabsContent>
 
             <TabsList className="text-center mt-2">
-              <TabsTrigger value="human_support">Human Support</TabsTrigger>
               <TabsTrigger value="ai_support">AI Support</TabsTrigger>
+              <TabsTrigger value="human_support">Human Support</TabsTrigger>
               <TabsTrigger value="bug_report">Bugs</TabsTrigger>
             </TabsList>
           </Tabs>

@@ -1,17 +1,39 @@
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { checkContentAiAuth } from "@/libs/llm";
+import { auth } from "@clerk/nextjs/server";
+import { drizzleDB } from "@/server/db";
 import { BadgeValidator } from "@/validators/badge";
+import { MAX_DAILY_AI_CALLS } from "@/drizzle/constants";
+import { userData } from "@/drizzle/schema";
+import { eq, lte, sql } from "drizzle-orm";
+import { and } from "drizzle-orm";
 import type { CoreMessage } from "ai";
 
 export async function POST(req: Request) {
   // Auth guard
-  await checkContentAiAuth();
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response("Not authenticated", { status: 401 });
+  }
+
+  // User update & guard
+  const updateResult = await drizzleDB
+    .update(userData)
+    .set({
+      aiCalls: sql`${userData.aiCalls} + 1`,
+    })
+    .where(and(eq(userData.userId, userId), lte(userData.aiCalls, MAX_DAILY_AI_CALLS)));
+  if (updateResult.rowsAffected === 0) {
+    return new Response(
+      "You have reached the maximum number of AI calls for the day.",
+      { status: 429 },
+    );
+  }
 
   // Call LLM
   const { messages } = (await req.json()) as { messages: CoreMessage[] };
   const result = streamText({
-    model: openai("gpt-4o"),
+    model: openai("gpt-4o-mini"),
     system: `
 As an AI assistant, your role is to promptly assist the clients of TheNinja-RPG, adopting the persona of Seichi AI.
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 import path from "path";
 import TextToSVG from "text-to-svg";
 import { randomString } from "@/libs/random";
-import { sql, and, desc, eq, inArray } from "drizzle-orm";
+import { sql, and, desc, eq, inArray, gte } from "drizzle-orm";
 import {
   notification,
   userData,
@@ -11,21 +11,23 @@ import {
   captcha,
   userRewards,
   emailReminder,
+  supportReview,
 } from "@/drizzle/schema";
 import { canAwardReputation } from "@/utils/permissions";
 import { nanoid } from "nanoid";
 import { awardSchema } from "@/validators/reputation";
 import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
+import { secondsFromNow, DAY_S } from "@/utils/time";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { ratelimitMiddleware, hasUserMiddleware } from "../trpc";
 import { updateGameSetting } from "@/libs/gamesettings";
 import { changeSettingSchema } from "@/validators/misc";
-import { secondsFromNow } from "@/utils/time";
 import { callDiscordTicket } from "@/libs/discord";
 import { TicketTypes } from "@/validators/misc";
 import { createTicketSchema } from "@/validators/misc";
+import { Sentiment } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 export const miscRouter = createTRPCRouter({
@@ -309,6 +311,37 @@ export const miscRouter = createTRPCRouter({
         success: true,
         message: "Email reminder deleted successfully",
       };
+    }),
+
+  reviewSupportWithAI: protectedProcedure
+    .input(
+      z.object({
+        apiRoute: z.string(),
+        chatHistory: z.array(z.any()),
+        sentiment: z.enum(Sentiment),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const reviewsToday = await ctx.drizzle.query.supportReview.findMany({
+        where: gte(supportReview.createdAt, secondsFromNow(-DAY_S)),
+      });
+      // Guard
+      if (reviewsToday.length >= 5) {
+        return errorResponse(
+          "You have reached the maximum number of reviews for today",
+        );
+      }
+      // Insert
+      await ctx.drizzle.insert(supportReview).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        apiRoute: input.apiRoute,
+        chatHistory: input.chatHistory,
+        sentiment: input.sentiment,
+      });
+      return { success: true, message: "Review submitted" };
     }),
 });
 

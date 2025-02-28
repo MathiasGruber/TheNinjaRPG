@@ -372,6 +372,7 @@ export const MAX_ATTRIBUTES = 5;
 export const RYO_CAP = 1000000000;
 export const MAX_STATS_CAP = 450000;
 export const MAX_GENS_CAP = 200000;
+export const MAX_DAILY_AI_CALLS = 100;
 
 export const ROLL_CHANCE = {
   ["H"]: 0,
@@ -402,6 +403,9 @@ export const BLOODLINE_COST = {
 } as const;
 
 export const REMOVAL_COST = 5;
+
+export const Sentiment = ["POSITIVE", "NEGATIVE", "NEUTRAL"] as const;
+export type SentimentType = (typeof Sentiment)[number];
 
 // Bank config
 export const BankTransferTypes = ["bank", "sensei", "recruiter"] as const;
