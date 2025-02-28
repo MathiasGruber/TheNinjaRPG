@@ -13,7 +13,7 @@ import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import SendTicketBtn from "@/layout/SendTicketButton";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
-import { CircleUserRound, Inbox, Compass, Cog, Milk } from "lucide-react";
+import { CircleUserRound, CircleHelp, Compass, Cog, Milk } from "lucide-react";
 import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
 import { Earth, House, MessageCircleWarning, Receipt } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
@@ -441,11 +441,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                     <CircleUserRound className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
                   </Link>
                   <Link
-                    href="/inbox"
+                    href="/points"
                     className="flex justify-center -top-2 relative"
                     prefetch={true}
                   >
-                    <Inbox className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                    <Receipt className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
                   </Link>
                   {location ? (
                     <>
@@ -486,13 +486,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                       </Link>
                     </>
                   )}
-                  <Link
-                    href="/points"
-                    className="flex justify-center -top-2 relative"
-                    prefetch={true}
-                  >
-                    <Receipt className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
-                  </Link>
+
                   <Link
                     href="/profile/edit"
                     className="flex justify-center -top-2 relative"
@@ -500,6 +494,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                   >
                     <Cog className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
                   </Link>
+                  <div className="flex justify-center -top-2 relative">
+                    <SendTicketBtn>
+                      <CircleHelp className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                    </SendTicketBtn>
+                  </div>
                 </div>
               ) : (
                 <div className="absolute top-4 left-0 right-0 block md:hidden">
