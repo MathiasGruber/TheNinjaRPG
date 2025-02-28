@@ -11,7 +11,7 @@ import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
 import { isUserStealthed, isUserImmobilized } from "@/libs/combat/util";
 import { getUserElementalSeal } from "@/libs/combat/util";
-import { updateStatUsage, poison } from "@/libs/combat/tags";
+import { updateStatUsage } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
 import { PathCalculator } from "@/libs/hexgrid";
 import { calcCombatHealPercentage } from "@/libs/hospital/hospital";
@@ -543,11 +543,6 @@ export const insertAction = (info: {
       user.curHealth = Math.max(0, user.curHealth);
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
-      // Check if the user is poisoned, apply poison damage
-      const poisonEffect = user.effects.find((e) => e.type === "poison");
-      if (poisonEffect) {
-        poison(poisonEffect, usersEffects, user, cpCost, spCost);
-      }
       // Update user descriptions
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
