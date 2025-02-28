@@ -553,7 +553,10 @@ export const insertAction = (info: {
           const poisonDamage = Math.floor((cpCost + spCost) * (effect.power / 100));
           if (poisonDamage > 0) {
             user.curHealth = Math.max(user.curHealth - poisonDamage, 0);
-            // Optionally, record or display a message about the poison damage here
+            actionEffects.push({
+              txt: `${user.username} takes ${poisonDamage} poison damage`,
+              color: "red",
+            });
           }
         }
       });
