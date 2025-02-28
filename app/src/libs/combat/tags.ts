@@ -1195,18 +1195,7 @@ export const poison = (
 
   // Get poison power
   const { power, qualifier } = getPower(effect);
-
-  // Retrieve CP and SP costs from the effect
-  const cpCost = effect.cpSpent || 0;
-  const spCost = effect.spSpent || 0;
-
-  // Calculate poison damage based on the CP and SP costs
-  const poisonDamage = Math.floor((cpCost + spCost) * (power / 100));
-
-  if (poisonDamage > 0) {
-    target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
-  }
-
+  
   return getInfo(
     target,
     effect,
