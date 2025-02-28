@@ -1199,7 +1199,7 @@ export const poison = (
   return getInfo(
     target,
     effect,
-    `takes ${qualifier} of chakra and stamina spent as poison damage`
+    `will take ${qualifier} of chakra and stamina spent as poison damage`
   );
 };
 
