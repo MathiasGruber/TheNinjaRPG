@@ -305,6 +305,7 @@ export const sortEffects = (
     "increasedamagetaken",
     "lifesteal",
     "drain",
+    "poison",
     // Piercing damage
     "pierce",
     // Post-modifiers after pierce
@@ -432,6 +433,11 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
       current.drain = current.drain 
         ? current.drain + val.drain 
         : val.drain;
+    }
+    if (val.poison) {
+      current.poison = current.poison 
+        ? current.poison + val.poison 
+        : val.poison;
     }
   } else {
     acc.push(val);
