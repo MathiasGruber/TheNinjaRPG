@@ -424,6 +424,9 @@ export const insertAction = (info: {
               round: battle.round,
               barrierAbsorb: totalAbsorb,
             });
+            effect.cpSpent = cpCost;
+            effect.spSpent = spCost;
+            usersEffects.push(effect);
             if (effect && checkFriendlyFire(effect, user, alive)) {
               const idx = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
               if (!appliedEffects.has(idx)) {
