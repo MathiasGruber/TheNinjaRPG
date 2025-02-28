@@ -5,7 +5,7 @@ import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
 import { realizeTag, checkFriendlyFire } from "@/libs/combat/process";
 import { applyEffects } from "@/libs/combat/process";
-import { calcPoolCost } from "@/libs/combat/util";
+import { calcPoolCost, isEffectActive } from "@/libs/combat/util";
 import { hasNoAvailableActions } from "@/libs/combat/util";
 import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
