@@ -368,6 +368,7 @@ export const calcPoolCost = (
         });
       }
     });
+  user.lastActionCost = { hpCost, cpCost, spCost };
   return { hpCost, cpCost, spCost };
 };
 
