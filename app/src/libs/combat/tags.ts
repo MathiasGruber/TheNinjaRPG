@@ -1186,19 +1186,20 @@ export const drain = (
 export const poison = (
   effect: UserEffect,
   usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
   target: BattleUserState,
-  chakraCost: number,
-  staminaCost: number
+  cpCost = 0,
+  spCost = 0
 ) => {
   // Check if poison effect is prevented
   const { pass } = preventCheck(usersEffects, "debuffprevent", target);
   if (!pass) return preventResponse(effect, target, "cannot be poisoned");
 
-  // Get the poison power percentage
+  // Get poison power
   const { power, qualifier } = getPower(effect);
 
-  // Calculate poison damage based on chakra/stamina cost
-  const poisonDamage = Math.floor((chakraCost + staminaCost) * (power / 100));
+  // Calculate poison damage based on last CP/SP costs
+  const poisonDamage = Math.floor((cpCost + spCost) * (power / 100));
 
   if (poisonDamage > 0) {
     target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
@@ -1207,7 +1208,7 @@ export const poison = (
   return getInfo(
     target,
     effect,
-    `will take ${qualifier} of chakra and stamina spent as poison damage`
+    `takes ${poisonDamage} poison damage from chakra and stamina spent`
   );
 };
 
