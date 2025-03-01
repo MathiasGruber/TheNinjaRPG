@@ -83,6 +83,11 @@ build: # Build Next.js app
 	@echo "${GREEN}build${RESET}"
 	cd app && bun run build
 
+.PHONY: bundleanalysis
+bundleanalysis: # Build Next.js app with bundle analysis
+	@echo "${GREEN}bundleanalysis${RESET}"
+	cd app && bun run build-stats
+
 .PHONY: openhands
 openhands: # Open OpenHands on http://127.0.0.1:3004
 	@echo "${GREEN}Launch Open Hands${RESET}"
