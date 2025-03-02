@@ -820,13 +820,13 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   if (isDepositing) return <Loader explanation="Depositing money" />;
 
   // Derived
-  const village = clanData?.village;
+  const village = clanData.village;
   const inClan = userData.clanId === clanData.id;
   const isLeader = userData.userId === clanData.leaderId;
   const isCoLeader = checkCoLeader(userData.userId, clanData);
   const leaderLike = isLeader || isCoLeader;
   const hadHideout = village?.type !== "OUTLAW" && userData.isOutlaw;
-  const hadTown = village?.type === "TOWN" || village.wasDowngraded;
+  const hadTown = village?.type === "TOWN" || village?.wasDowngraded || false;
   // Can we upgrade from hideout to town?
   const hasReps = clanData.repTreasury >= HIDEOUT_TOWN_UPGRADE;
   const hasMembers = clanData.members.length >= FACTION_MIN_MEMBERS_FOR_TOWN;
@@ -1223,76 +1223,83 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
   const canEdit = userData ? canEditClans(userData.role) : false;
 
   // Adjust members for table
-  const members = clanData.members.map((member) => {
-  const memberIsLeader = member.userId === clanData.leaderId;
-  const memberIsColeader = checkCoLeader(member.userId, clanData);
-  const canKick =
-    canEdit || // canEdit role can kick anyone
-    (isLeader && !memberIsLeader) || // Leader can kick anyone except other leaders
-    (isColeader && !memberIsLeader && !memberIsColeader); // Co-leaders can kick normal members only
-    return {
-      ...member,
-      rank: memberIsLeader ? "Leader" : memberIsColeader ? "Coleader" : showUserRank(member),
-      actions: (
-        <div className="flex flex-row gap-1">
-          {member.userId !== userId && (
-            <>
-              {/* KICK BUTTON (Now allows kicking leaders if canEdit is true) */}
-              {canKick && (
-                <Confirm
-                  title="Kick Member"
-                  proceed_label="Submit"
-                  button={
-                    <Button id={`kick-${member.userId}`}>
-                      <DoorOpen className="mr-2 h-5 w-5" />
-                      Kick
-                    </Button>
-                  }
-                  onAccept={() => kick({ clanId, memberId: member.userId })}
-                >
-                  {memberIsLeader
-                    ? "You are about to kick the leader. Ensure leadership transition is planned."
-                    : "Confirm that you want to kick this member from the clan."}
-                </Confirm>
-              )}
+  const members = clanData.members
+    .map((member) => {
+      const memberIsLeader = member.userId === clanData.leaderId;
+      const memberIsColeader = checkCoLeader(member.userId, clanData);
+      const canKick =
+        canEdit || // canEdit role can kick anyone
+        (isLeader && !memberIsLeader) || // Leader can kick anyone except other leaders
+        (isColeader && !memberIsLeader && !memberIsColeader); // Co-leaders can kick normal members only
+      return {
+        ...member,
+        rank: memberIsLeader
+          ? "Leader"
+          : memberIsColeader
+            ? "Coleader"
+            : showUserRank(member),
+        actions: (
+          <div className="flex flex-row gap-1">
+            {member.userId !== userId && (
+              <>
+                {/* KICK BUTTON (Now allows kicking leaders if canEdit is true) */}
+                {canKick && (
+                  <Confirm
+                    title="Kick Member"
+                    proceed_label="Submit"
+                    button={
+                      <Button id={`kick-${member.userId}`}>
+                        <DoorOpen className="mr-2 h-5 w-5" />
+                        Kick
+                      </Button>
+                    }
+                    onAccept={() => kick({ clanId, memberId: member.userId })}
+                  >
+                    {memberIsLeader
+                      ? "You are about to kick the leader. Ensure leadership transition is planned."
+                      : "Confirm that you want to kick this member from the clan."}
+                  </Confirm>
+                )}
 
-              {/* DEMOTE BUTTON */}
-              {(isLeader || canEdit) && (
-                <Confirm
-                  title="Demote Member"
-                  button={
-                    <Button id={`demote-${member.userId}`}>
-                      <ArrowBigDownDash className="mr-2 h-5 w-5" />
-                      Demote
-                    </Button>
-                  }
-                  onAccept={() => demote({ clanId, memberId: member.userId })}
-                >
-                  Confirm that you want to demote this member.
-                </Confirm>
-              )}
+                {/* DEMOTE BUTTON */}
+                {(isLeader || canEdit) && (
+                  <Confirm
+                    title="Demote Member"
+                    button={
+                      <Button id={`demote-${member.userId}`}>
+                        <ArrowBigDownDash className="mr-2 h-5 w-5" />
+                        Demote
+                      </Button>
+                    }
+                    onAccept={() => demote({ clanId, memberId: member.userId })}
+                  >
+                    Confirm that you want to demote this member.
+                  </Confirm>
+                )}
 
-              {/* PROMOTE BUTTON */}
-              {(isLeader || (isColeader && !memberIsLeader && !memberIsColeader) || canEdit) && (
-                <Confirm
-                  title="Promote Member"
-                  button={
-                    <Button id={`promote-${member.userId}`}>
-                      <ArrowBigUpDash className="mr-2 h-5 w-5" />
-                      Promote
-                    </Button>
-                  }
-                  onAccept={() => promote({ clanId, memberId: member.userId })}
-                >
-                  Confirm that you want to promote this member.
-                </Confirm>
-              )}
-            </>
-          )}
-        </div>
-      ),
-    };
-  })
+                {/* PROMOTE BUTTON */}
+                {(isLeader ||
+                  (isColeader && !memberIsLeader && !memberIsColeader) ||
+                  canEdit) && (
+                  <Confirm
+                    title="Promote Member"
+                    button={
+                      <Button id={`promote-${member.userId}`}>
+                        <ArrowBigUpDash className="mr-2 h-5 w-5" />
+                        Promote
+                      </Button>
+                    }
+                    onAccept={() => promote({ clanId, memberId: member.userId })}
+                  >
+                    Confirm that you want to promote this member.
+                  </Confirm>
+                )}
+              </>
+            )}
+          </div>
+        ),
+      };
+    })
     .sort((a, b) => {
       if (a.rank === "Leader") return -1;
       if (b.rank === "Leader") return 1;
