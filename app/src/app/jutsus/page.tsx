@@ -399,7 +399,14 @@ export default function MyJutsu() {
                             onChange={(e) =>
                               setTransferValue(parseInt(e.target.value) || 1)
                             }
-                            style={{ width: "50px", margin: "0 5px" }}
+                            style={{
+                              width: "50px",
+                              margin: "0 5px",
+                              backgroundColor: "white",
+                              color: "black",
+                              border: "1px solid #ccc",
+                              padding: "2px 4px",
+                            }}
                           />{" "}
                           level(s) from {userjutsu.name} to {transferTarget.name}?
                         </p>
