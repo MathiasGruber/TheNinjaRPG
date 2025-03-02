@@ -165,48 +165,52 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   // Convenience method for updating user list
   const updateUsersList = async (data: UserData, instantMove = false) => {
-    if (users.current) {
-      const allianceStatus = getAllyStatus(userData?.village, data.villageId);
-      const idx = users.current.findIndex((user) => user.userId === data.userId);
-      if (idx !== -1 && users.current[idx]) {
-        if (instantMove) {
-          // User exists - instant movement
-          users.current[idx] = { ...data, allianceStatus };
-        } else {
-          // User exists - animate movement
-          const currentHex = findHex(grid.current, {
-            x: users.current[idx].longitude,
-            y: users.current[idx].latitude,
-          });
-          const targetHex = findHex(grid.current, {
-            x: data.longitude,
-            y: data.latitude,
-          });
-          if (pathFinder.current && currentHex && targetHex) {
-            const path = pathFinder.current.getShortestPath(currentHex, targetHex);
-            if (path) {
-              for (const tile of path) {
-                users.current[idx] = {
-                  ...data,
-                  allianceStatus,
-                  longitude: tile.col,
-                  latitude: tile.row,
-                };
-                await sleep(50);
+    if (data.userId) {
+      if (users.current) {
+        const allianceStatus = getAllyStatus(userData?.village, data.villageId);
+        const idx = users.current
+          .filter((u) => u.userId)
+          .findIndex((u) => u.userId === data.userId);
+        if (idx !== -1 && users.current[idx]) {
+          if (instantMove) {
+            // User exists - instant movement
+            users.current[idx] = { ...data, allianceStatus };
+          } else {
+            // User exists - animate movement
+            const currentHex = findHex(grid.current, {
+              x: users.current[idx].longitude,
+              y: users.current[idx].latitude,
+            });
+            const targetHex = findHex(grid.current, {
+              x: data.longitude,
+              y: data.latitude,
+            });
+            if (pathFinder.current && currentHex && targetHex) {
+              const path = pathFinder.current.getShortestPath(currentHex, targetHex);
+              if (path) {
+                for (const tile of path) {
+                  users.current[idx] = {
+                    ...data,
+                    allianceStatus,
+                    longitude: tile.col,
+                    latitude: tile.row,
+                  };
+                  await sleep(50);
+                }
               }
             }
           }
+        } else {
+          // New user enters
+          users.current.push({ ...data, allianceStatus });
         }
-      } else {
-        // New user enters
-        users.current.push({ ...data, allianceStatus });
+        // Remove users who are no longer in the sector
+        users.current
+          .map((user, idx) => (user.sector !== props.sector ? idx : null))
+          .filter((idx) => idx !== null)
+          .reverse()
+          .map((idx) => users.current?.splice(idx, 1));
       }
-      // Remove users who are no longer in the sector
-      users.current
-        .map((user, idx) => (user.sector !== props.sector ? idx : null))
-        .filter((idx) => idx !== null)
-        .reverse()
-        .map((idx) => users.current?.splice(idx, 1));
     }
     setSorrounding(users.current || []);
   };
