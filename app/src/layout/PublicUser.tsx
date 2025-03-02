@@ -275,9 +275,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   });
 
   const accountStatus = profile
-    ? profile.isBanned === 1
+    ? profile.isBanned
       ? "BANNED"
-      : profile.isSilenced === 1
+      : profile.isSilenced
       ? "SILENCED"
       : "GOOD STANDING"
     : "Loading...";
