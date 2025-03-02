@@ -52,6 +52,7 @@ export default function MyJutsu() {
   const [transferTarget, setTransferTarget] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
+  const [transferValue, setTransferValue] = useState<number>(1);
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
@@ -370,6 +371,7 @@ export default function MyJutsu() {
                     }
                     onClose={() => {
                       setTransferTarget(undefined);
+                      setTransferValue(1);
                     }}
                     onAccept={(e) => {
                       e.preventDefault();
@@ -377,6 +379,7 @@ export default function MyJutsu() {
                         transferLevel({
                           fromJutsuId: userjutsu.jutsuId,
                           toJutsuId: transferTarget.jutsuId,
+                          transferLevels: transferValue,
                         });
                       }
                     }}
@@ -384,12 +387,24 @@ export default function MyJutsu() {
                     {transferTarget ? (
                       <>
                         <p>
-                          Transfer level {userjutsu.level} from {userjutsu.name} to{" "}
-                          {transferTarget.name}?
+                          Transfer{" "}
+                          <input
+                            type="number"
+                            min={1}
+                            max={Math.min(
+                              userjutsu.level - 1,
+                              JUTSU_TRANSFER_MAX_LEVEL - transferTarget.level
+                            )}
+                            value={transferValue}
+                            onChange={(e) =>
+                              setTransferValue(parseInt(e.target.value) || 1)
+                            }
+                            style={{ width: "50px", margin: "0 5px" }}
+                          />{" "}
+                          level(s) from {userjutsu.name} to {transferTarget.name}?
                         </p>
                         <p>
-                          This will reset {userjutsu.name} to level 1 and set{" "}
-                          {transferTarget.name} to level {userjutsu.level}.
+                          This will subtract {transferValue} level{transferValue > 1 ? "s" : ""} from {userjutsu.name} (new level: {userjutsu.level - transferValue}) and add {transferValue} level{transferValue > 1 ? "s" : ""} to {transferTarget.name} (new level: {transferTarget.level + transferValue}).
                         </p>
                         <p>
                           Cost:{" "}
@@ -406,16 +421,14 @@ export default function MyJutsu() {
                             (jutsu) =>
                               jutsu.jutsuType === userjutsu.jutsuType &&
                               jutsu.jutsuRank === userjutsu.jutsuRank &&
-                              jutsu.id !== userjutsu.id,
+                              jutsu.id !== userjutsu.id
                           )}
                           counts={userJutsuCounts}
                           labelSingles={true}
                           showBgColor={false}
                           showLabels={true}
                           onClick={(id) => {
-                            setTransferTarget(
-                              allJutsu?.find((jutsu) => jutsu.id === id),
-                            );
+                            setTransferTarget(allJutsu?.find((jutsu) => jutsu.id === id));
                           }}
                         />
                       </div>
