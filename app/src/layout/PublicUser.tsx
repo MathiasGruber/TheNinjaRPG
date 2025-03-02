@@ -272,6 +272,14 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     });
   });
 
+  const accountStatus = profile
+    ? profile.isBanned
+      ? "BANNED"
+      : profile.isSilenced
+      ? "SILENCED"
+      : "GOOD STANDING"
+    : "Loading...";
+
   // Derived
   const canChange = userData && canClearUserNindo(userData);
   const availableRoles = userData && canChangeUserRole(userData.role);
@@ -455,6 +463,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             </p>
             <p>Village: {profile.village?.name}</p>
             <p>Status: {profile.status}</p>
+            <p>Account Status: {accountStatus}</p>
             <p>Gender: {profile.gender}</p>
             <br />
             <b>Associations</b>

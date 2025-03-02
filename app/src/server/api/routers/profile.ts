@@ -903,6 +903,7 @@ export const profileRouter = createTRPCRouter({
             gender: true,
             isAi: true,
             isBanned: true,
+            isSilenced: true,
             isOutlaw: true,
             lastIp: true,
             level: true,
