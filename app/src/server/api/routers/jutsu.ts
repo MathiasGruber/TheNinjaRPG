@@ -149,7 +149,7 @@ export const jutsuRouter = createTRPCRouter({
           userId: ctx.userId,
           tableName: "userjutsu",
           changes: [
-            'Transferred ${transfer} level(s) from ${fromJutsu.name} (new level: ${fromUserJutsu.level - transfer}) to ${toJutsu.name} (new level: ${toUserJutsu.level + transfer})`,
+            `Transferred ${transfer} level(s) from ${fromJutsu.name} (new level: ${fromUserJutsu.level - transfer}) to ${toJutsu.name} (new level: ${toUserJutsu.level + transfer})`,
           ],
           relatedId: ctx.userId,
           relatedMsg: "JutsuLevelTransfer",
