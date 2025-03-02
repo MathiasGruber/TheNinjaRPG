@@ -60,11 +60,13 @@ export const jutsuRouter = createTRPCRouter({
       z.object({
         fromJutsuId: z.string(),
         toJutsuId: z.string(),
+        transferLevels: z.number().min(1, "Must transfer at least 1 level"),
       }),
     )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
+      const transfer = input.transferLevels;
       const [user, userJutsus, recentTransfers] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUserJutsus(ctx.drizzle, ctx.userId),
@@ -97,6 +99,15 @@ export const jutsuRouter = createTRPCRouter({
           `Cannot transfer levels above ${JUTSU_TRANSFER_MAX_LEVEL}`,
         );
       }
+
+      // Guard: Check that source has enough levels and target won't exceed maximum
+      if (fromUserJutsu.level - transfer < 1) {
+        return errorResponse("Source jutsu does not have enough levels to transfer");
+      }
+      if (toUserJutsu.level + transfer > JUTSU_TRANSFER_MAX_LEVEL) {
+        return errorResponse("Target jutsu cannot exceed the maximum allowed level");
+      }
+      
       // Check if user has free transfers
       const freeTransfers = getFreeTransfers(user.federalStatus);
       const usedTransfers = recentTransfers.length;
@@ -127,18 +138,18 @@ export const jutsuRouter = createTRPCRouter({
       await Promise.all([
         ctx.drizzle
           .update(userJutsu)
-          .set({ level: fromUserJutsu.level })
+          .set({ level: toUserJutsu.level + transfer })
           .where(eq(userJutsu.id, toUserJutsu.id)),
         ctx.drizzle
           .update(userJutsu)
-          .set({ level: 1 })
+          .set({ level: fromUserJutsu.level - transfer })
           .where(eq(userJutsu.id, fromUserJutsu.id)),
         ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
           tableName: "userjutsu",
           changes: [
-            `Transfered jutsu level ${fromUserJutsu.level} from ${fromJutsu.name} to ${toJutsu.name}`,
+            'Transferred ${transfer} level(s) from ${fromJutsu.name} (new level: ${fromUserJutsu.level - transfer}) to ${toJutsu.name} (new level: ${toUserJutsu.level + transfer})`,
           ],
           relatedId: ctx.userId,
           relatedMsg: "JutsuLevelTransfer",
