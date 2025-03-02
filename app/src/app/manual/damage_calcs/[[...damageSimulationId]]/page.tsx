@@ -587,7 +587,7 @@ export default function Simulator(props: {
                       })}
                     </div>
 
-                    <div className="flex-grow" />
+                    <div className="grow" />
                     <Trash2
                       className="mr-1 h-5 w-5 hover:text-orange-500 hover:cursor-pointer"
                       onClick={() => deleteEntry({ id: entry.id })}

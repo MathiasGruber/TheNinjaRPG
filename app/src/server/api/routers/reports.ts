@@ -6,6 +6,7 @@ import { or, eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm"
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
+import { automatedModeration } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { userReportSchema } from "@/validators/reports";
@@ -32,6 +33,7 @@ import { getAdditionalContext } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
 import { canModerateRoles } from "@/utils/permissions";
 import { reportFilteringSchema } from "@/validators/reports";
+import type { AutomoderationCategory } from "@/drizzle/constants";
 import type { BanState } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
 import type { AdditionalContext } from "@/validators/reports";
@@ -829,5 +831,54 @@ export const insertUserReport = async (
     reason: sanitize(info.reason),
     predictedStatus: info.predictedStatus,
     additionalContext: info.additionalContext,
+  });
+};
+
+/**
+ * Insert an automated moderation report
+ * @param client - The database client
+ * @param info - The information to insert
+ */
+export const insertAutomatedModeration = async (
+  client: DrizzleClient,
+  info: {
+    userId: string;
+    content: string;
+    relationType: AutomoderationCategory;
+    categories: {
+      sexual: boolean;
+      sexual_minors: boolean;
+      harassment: boolean;
+      harassment_threatening: boolean;
+      hate: boolean;
+      hate_threatening: boolean;
+      illicit: boolean;
+      illicit_violent: boolean;
+      self_harm: boolean;
+      self_harm_intent: boolean;
+      self_harm_instructions: boolean;
+      violence: boolean;
+      violence_graphic: boolean;
+    };
+  },
+) => {
+  await client.insert(automatedModeration).values({
+    id: nanoid(),
+    userId: info.userId,
+    content: info.content,
+    relationType: info.relationType,
+    sexual: info.categories.sexual,
+    sexual_minors: info.categories.sexual_minors,
+    harassment: info.categories.harassment,
+    harassment_threatening: info.categories.harassment_threatening,
+    hate: info.categories.hate,
+    hate_threatening: info.categories.hate_threatening,
+    illicit: info.categories.illicit,
+    illicit_violent: info.categories.illicit_violent,
+    self_harm: info.categories.self_harm,
+    self_harm_intent: info.categories.self_harm_intent,
+    self_harm_instructions: info.categories.self_harm_instructions,
+    violence: info.categories.violence,
+    violence_graphic: info.categories.violence_graphic,
   });
 };

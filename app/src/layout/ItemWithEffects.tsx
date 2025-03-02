@@ -120,7 +120,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   }
 
   return (
-    <div className="mb-3 flex flex-row items-center rounded-lg border bg-popover p-2 align-middle shadow ">
+    <div className="mb-3 flex flex-row items-center rounded-lg border bg-popover p-2 align-middle shadow-sm ">
       {!hideDetails && !hideImage && (
         <div className="mx-3 hidden basis-1/3 md:block">{image}</div>
       )}

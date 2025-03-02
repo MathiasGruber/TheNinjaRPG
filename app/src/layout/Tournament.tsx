@@ -401,7 +401,7 @@ const UserMatch: React.FC<UserMatchProps> = (props) => {
       )}
       <Link
         href={`/userid/${seed.userId1}`}
-        className={`flex-grow text-slate-100 ${seed.userId1 ? "hover:cursor-pointer hover:text-orange-100" : ""}`}
+        className={`grow text-slate-100 ${seed.userId1 ? "hover:cursor-pointer hover:text-orange-100" : ""}`}
       >
         {user?.username || "---"}
       </Link>

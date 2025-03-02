@@ -159,7 +159,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                   )}
                   key={message.id}
                 >
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0">
                     {message.role === "user" ? (
                       <AvatarImage
                         href={userData.avatar}
@@ -194,7 +194,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                 messages.length % 2 === 0 ? "bg-card" : "bg-popover",
               )}
             >
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <BrainCircuit className="h-10 w-10" />
               </div>
               <div className="flex-1 space-y-1">

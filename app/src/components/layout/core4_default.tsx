@@ -290,7 +290,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         {/* LOGO */}
         <Link href="/">
           <Image
-            className="hidden md:block z-[2] relative top-3 left-[50%] translate-x-[-50%] select-none"
+            className="hidden md:block z-2 relative top-3 left-[50%] translate-x-[-50%] select-none"
             src={IMG_LOGO_FULL}
             width={384}
             height={138}
@@ -307,7 +307,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           />
         </Link>
         {/* DESKTOP NAVBAR */}
-        <div className="hidden md:block z-[1] relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
+        <div className="hidden md:block z-1 relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
           <Image
             className="select-none"
             src={imageset.navbar}
@@ -407,9 +407,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             </div>
             <div className="h-20 max-h-28 flex flex-col fixed bottom-0  w-full md:relative">
               <div className="absolute top-0 left-[-20px] right-0 md:right-[-20px] -z-30">
-                <div className="h-5 bg-gradient-to-b from-rose-950 to-rose-800"></div>
+                <div className="h-5 bg-linear-to-b from-rose-950 to-rose-800"></div>
                 <div className="h-8 bg-rose-800"></div>
-                <div className="h-7 bg-gradient-to-b from-rose-800 to-rose-950"></div>
+                <div className="h-7 bg-linear-to-b from-rose-800 to-rose-950"></div>
               </div>
               <Image
                 className="left-[-120px] top-[-195px] absolute select-none -z-20 hidden md:block"
@@ -454,7 +454,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                         className="flex justify-center -top-8 relative"
                         prefetch={true}
                       >
-                        <div className="p-4 bg-gradient-to-b from-black/5 to-black/50 rounded-full">
+                        <div className="p-4 bg-linear-to-b from-black/5 to-black/50 rounded-full">
                           <House className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
                         </div>
                       </Link>
@@ -473,7 +473,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                         className="flex justify-center -top-8 relative"
                         prefetch={true}
                       >
-                        <div className="p-4 bg-gradient-to-b from-black/5 to-black/50 rounded-full">
+                        <div className="p-4 bg-linear-to-b from-black/5 to-black/50 rounded-full">
                           <Compass className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
                         </div>
                       </Link>
@@ -723,10 +723,10 @@ export const SideBannerTitle: React.FC<{
   return (
     <>
       {props.break && <br />}
-      <p className="hidden md:block text-xl font-bold text-orange-100 px-1 pt-2 leading-0">
+      <p className="hidden md:block text-xl font-bold text-orange-100 px-1 pt-2">
         {props.children}
       </p>
-      <p className="block md:hidden text-xl font-bold text-foreground px-1 pt-2 leading-0">
+      <p className="block md:hidden text-xl font-bold text-foreground px-1 pt-2">
         {props.children}
       </p>
     </>
