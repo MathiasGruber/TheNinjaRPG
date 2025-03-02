@@ -272,12 +272,13 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     });
   });
 
-  const accountStatus =
-    profile.isBanned === 1
+  const accountStatus = profile
+    ? profile.isBanned === 1
       ? "BANNED"
       : profile.isSilenced === 1
       ? "SILENCED"
-      : "GOOD STANDING";
+      : "GOOD STANDING"
+    : "Loading...";
 
   // Derived
   const canChange = userData && canClearUserNindo(userData);
