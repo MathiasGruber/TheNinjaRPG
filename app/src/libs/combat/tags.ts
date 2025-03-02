@@ -1182,6 +1182,33 @@ export const drain = (
   );
 };
 
+/** Deals damage based on chakra and stamina usage */
+export const poison = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  consequences: Map<string, Consequence>,
+  target: BattleUserState
+) => {
+  // ... (prevent check, etc.)
+  const { power, qualifier } = getPower(effect);
+  // Retrieve the costs from the effect
+  const cpCost = effect.cpSpent || 0;
+  const spCost = effect.spSpent || 0;
+
+  // Calculate poison damage based on costs
+  const poisonDamage = Math.floor((cpCost + spCost) * (power / 100));
+
+  if (poisonDamage > 0) {
+    target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
+  }
+  
+  return getInfo(
+    target,
+    effect,
+    `will take ${qualifier} of chakra and stamina spent as poison damage`
+  );
+};
+
 /** Create a temporary HP shield that absorbs damage */
 export const shield = (effect: UserEffect, target: BattleUserState) => {
   // Apply

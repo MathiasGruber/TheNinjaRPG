@@ -5,7 +5,7 @@ import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
 import { realizeTag, checkFriendlyFire } from "@/libs/combat/process";
 import { applyEffects } from "@/libs/combat/process";
-import { calcPoolCost } from "@/libs/combat/util";
+import { calcPoolCost, isEffectActive } from "@/libs/combat/util";
 import { hasNoAvailableActions } from "@/libs/combat/util";
 import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
@@ -33,6 +33,7 @@ import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { CombatAction } from "@/libs/combat/types";
 import type { GroundEffect, UserEffect } from "@/libs/combat/types";
+import type { ActionEffect } from "@/libs/combat/types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -422,6 +423,8 @@ export const insertAction = (info: {
               level: action.level,
               round: battle.round,
               barrierAbsorb: totalAbsorb,
+              cpSpent: cpCost,
+              spSpent: spCost,
             });
             if (effect && checkFriendlyFire(effect, user, alive)) {
               const idx = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
@@ -439,6 +442,8 @@ export const insertAction = (info: {
               level: action.level,
               round: battle.round,
               barrierAbsorb: totalAbsorb,
+              cpSpent: cpCost,
+              spSpent: spCost,
             });
             effect.longitude = effectTile.col;
             effect.latitude = effectTile.row;
@@ -465,6 +470,8 @@ export const insertAction = (info: {
             level: action.level,
             round: battle.round,
             barrierAbsorb: totalAbsorb,
+            cpSpent: cpCost,
+            spSpent: spCost,
           });
           if (effect) {
             effect.longitude = tile.col;
@@ -543,6 +550,19 @@ export const insertAction = (info: {
       user.curHealth = Math.max(0, user.curHealth);
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
+      // Inflict poison damage
+      battle.usersEffects.forEach((effect) => {
+        if (
+          effect.type === "poison" &&
+          effect.targetId === user.userId &&
+          isEffectActive(effect)
+        ) {
+          const poisonDamage = Math.floor((cpCost + spCost) * (effect.power / 100));
+          if (poisonDamage > 0) {
+            user.curHealth = Math.max(user.curHealth - poisonDamage, 0);
+          }
+        }
+      });
       // Update user descriptions
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
@@ -685,7 +705,6 @@ export const performBattleAction = (props: {
 
   // Apply relevant effects, and get back new state + active effects
   const { newBattle, actionEffects } = applyEffects(battle, actorId);
-
   return { newBattle, actionEffects };
 };
 
