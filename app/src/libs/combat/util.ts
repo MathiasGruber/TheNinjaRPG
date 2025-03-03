@@ -430,14 +430,10 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
       current.types = current.types ? current.types.concat(val.types) : val.types;
     }
     if (val.drain) {
-      current.drain = current.drain 
-        ? current.drain + val.drain 
-        : val.drain;
+      current.drain = current.drain ? current.drain + val.drain : val.drain;
     }
     if (val.poison) {
-      current.poison = current.poison 
-        ? current.poison + val.poison 
-        : val.poison;
+      current.poison = current.poison ? current.poison + val.poison : val.poison;
     }
   } else {
     acc.push(val);
