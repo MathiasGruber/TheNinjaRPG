@@ -159,7 +159,11 @@ const getVisual = (
   };
 };
 
-export const applyEffects = (battle: CompleteBattle, actorId: string) => {
+export const applyEffects = ( 
+    battle: CompleteBattle,
+    actorId: string
+    action?: CombatAction,
+    => {
   // Destructure
   const { usersState, usersEffects, groundEffects, round } = battle;
   const actor = usersState.find((u) => u.userId === actorId);
@@ -398,8 +402,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = weakness(e, curTarget);
           } else if (e.type === "shield") {
             info = shield(e, curTarget);
-          } else if (e.type === "poison") {
-            info = poison(e, usersEffects, consequences, curTarget);
+          } else if (e.type === "poison" && action) {
+            info = poison(e, action, actorId, consequences, curTarget);
           }
           updateStatUsage(newTarget, e, true);
         }
