@@ -525,7 +525,7 @@ export const PoisonTag = z.object({
   description: msg("Deal damage based on Chakra and Stamina lost"),
   calculation: z.enum(["percentage"]).default("percentage"),
   rounds: z.coerce.number().int().min(1).max(10).default(3),
-  poolsAffected: z.array(z.enum(PoolTypes)).default(["Health","Chakra", "Stamina"]),
+  poolsAffected: z.array(z.enum(PoolTypes)).default(["Health", "Chakra", "Stamina"]),
 });
 export type PoisonTagType = z.infer<typeof PoisonTag>;
 
