@@ -22,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ElementNames, LetterRanks } from "@/drizzle/constants";
 import { statFilters, effectFilters } from "@/libs/train";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
@@ -62,7 +62,7 @@ const BloodFiltering: React.FC<BloodFilteringProps> = (props) => {
     resolver: zodResolver(searchJutsuSchema),
     defaultValues: { name: name },
   });
-  const watchName = form.watch("name", "");
+  const watchName = useWatch({ control: form.control, name: "name", defaultValue: "" });
 
   // Update the state
   useEffect(() => {

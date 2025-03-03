@@ -35,7 +35,7 @@ import { ObjectiveReward } from "@/validators/objectives";
 import { mutateContentSchema } from "@/validators/comments";
 import { api } from "@/app/_trpc/client";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -426,7 +426,11 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     resolver: zodResolver(clanSearchSchema),
     defaultValues: { name: "", clans: [] },
   });
-  const targetClan = clanSearchMethods.watch("clans", [])?.[0];
+  const targetClan = useWatch({
+    control: clanSearchMethods.control,
+    name: "clans",
+    defaultValue: [],
+  })?.[0];
 
   // Loaders
   if (!data) return <Loader explanation="Loading clan battles" />;
@@ -812,7 +816,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     defaultValues: { name: clanData.name, image: clanData.image, clanId },
   });
   const onEdit = renameForm.handleSubmit((data) => edit(data));
-  const currentImage = renameForm.watch("image");
+  const currentImage = useWatch({ control: renameForm.control, name: "image" });
 
   // Loader
   if (!clanData) return <Loader explanation="Loading clan data" />;

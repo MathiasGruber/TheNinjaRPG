@@ -3,7 +3,7 @@
 import { z } from "zod";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
@@ -560,7 +560,11 @@ const Marriage: React.FC = () => {
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: "", users: [] },
   });
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const targetUser = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
     {},
@@ -1472,7 +1476,7 @@ const CustomTitle: React.FC = () => {
     resolver: zodResolver(FormSchema),
     defaultValues: { title: "" },
   });
-  const curTitle = form.watch("title");
+  const curTitle = useWatch({ control: form.control, name: "title" });
 
   // Form handlers
   const onSubmit = form.handleSubmit((data) => {
@@ -1550,7 +1554,7 @@ const ChangeGender: React.FC = () => {
   const form = useForm<FormSchemaType>({
     resolver: zodResolver(FormSchema),
   });
-  const watchGender = form.watch("gender");
+  const watchGender = useWatch({ control: form.control, name: "gender" });
 
   // Set current user gender
   useEffect(() => {

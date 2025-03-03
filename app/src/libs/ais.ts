@@ -1,5 +1,5 @@
 import { calculateContentDiff } from "@/utils/diff";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/app/_trpc/client";
 import { ElementNames, UserRanks, GeneralTypes, StatTypes } from "@/drizzle/constants";
@@ -65,8 +65,16 @@ export const useAiEditForm = (
   );
 
   // Watch for changes to avatar
-  const avatarUrl = form.watch("avatar");
-  const effects = form.watch("effects");
+  const avatarUrl = useWatch({
+    control: form.control,
+    name: "avatar",
+    defaultValue: user.avatar,
+  });
+  const effects = useWatch({
+    control: form.control,
+    name: "effects",
+    defaultValue: [],
+  });
 
   // Handle updating of effects
   const setEffects = (newEffects: ZodAllTags[]) => {

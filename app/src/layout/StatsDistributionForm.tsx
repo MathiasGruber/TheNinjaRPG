@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { round } from "@/utils/math";
 import { createStatSchema, type StatSchemaType } from "@/libs/combat/types";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -49,7 +49,7 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
     mode: "all",
     resolver: zodResolver(statSchema),
   });
-  const formValues = form.watch();
+  const formValues = useWatch({ control: form.control });
   const formSum = Object.values(formValues)
     .map((v) => Number(v))
     .reduce((a, b) => a + b, 0);

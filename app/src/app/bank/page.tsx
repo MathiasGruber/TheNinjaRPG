@@ -14,7 +14,7 @@ import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { Coins, Landmark, ChevronsUp, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { useRequireInVillage } from "@/utils/UserContext";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,7 +117,11 @@ export default function Bank() {
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: "", users: [] },
   });
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const targetUser = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // User search for ledger sender
   const userSearchSchemaFrom = getSearchValidator({ max: maxUsers });
@@ -125,7 +129,11 @@ export default function Bank() {
     resolver: zodResolver(userSearchSchemaFrom),
     defaultValues: { username: "", users: [] },
   });
-  const targetUserFrom = userSearchMethodsFrom.watch("users", [])?.[0];
+  const targetUserFrom = useWatch({
+    control: userSearchMethodsFrom.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // User search for ledger receiver
   const userSearchSchemaTo = getSearchValidator({ max: maxUsers });
@@ -133,7 +141,11 @@ export default function Bank() {
     resolver: zodResolver(userSearchSchemaTo),
     defaultValues: { username: "", users: [] },
   });
-  const targetUserTo = userSearchMethodsTo.watch("users", [])?.[0];
+  const targetUserTo = useWatch({
+    control: userSearchMethodsTo.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // Getting bank transers
   const {

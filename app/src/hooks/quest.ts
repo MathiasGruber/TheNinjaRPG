@@ -1,5 +1,5 @@
 import { calculateContentDiff } from "@/utils/diff";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
 import { LetterRanks, TimeFrames, QuestTypes, UserRanks } from "@/drizzle/constants";
@@ -99,7 +99,10 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   );
 
   // Watch the effects
-  const content = form.watch("content");
+  const content = useWatch({
+    control: form.control,
+    name: "content",
+  });
   const objectives = content.objectives ?? [];
 
   // Handle updating of effects
@@ -112,8 +115,14 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const loading = l1 || l2 || l3 || l4 || l5;
 
   // Watch for changes
-  const imageUrl = form.watch("image");
-  const questType = form.watch("questType");
+  const imageUrl = useWatch({
+    control: form.control,
+    name: "image",
+  });
+  const questType = useWatch({
+    control: form.control,
+    name: "questType",
+  });
 
   // Object for form values
   const formData: FormEntry<keyof ZodCombinedQuest>[] = [
