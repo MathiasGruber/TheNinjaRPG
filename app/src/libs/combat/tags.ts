@@ -1203,7 +1203,7 @@ export const poison = (
   }
 
   // If not cast round, figure out how much poison damage target took
-  if (!effect.castThisRound && actorId === target.userId) {
+  if (actorId === target.userId) {
     const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
     consequences.set(effect.id, {
       userId: effect.creatorId,
