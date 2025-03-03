@@ -54,7 +54,7 @@ export default function MyJutsu() {
   const [transferTarget, setTransferTarget] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
-  const transferCost = canTransferJutsu(userData.role) ? 0 : JUTSU_TRANSFER_COST;
+  const transferCost = canTransferJutsu(userData!.role) ? 0 : JUTSU_TRANSFER_COST;
   const [transferValue, setTransferValue] = useState<number>(1);
 
   // User Jutsus & items
