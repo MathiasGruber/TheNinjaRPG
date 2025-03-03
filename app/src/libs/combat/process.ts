@@ -29,7 +29,7 @@ import { updateStatUsage } from "./tags";
 import { BATTLE_TAG_STACKING, ID_ANIMATION_SMOKE } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import type { CompleteBattle, Consequence } from "./types";
+import type { CompleteBattle, Consequence, CombatAction } from "./types";
 import type { ShieldTagType } from "./types";
 /**
  * Check whether to apply given effect to a user, based on friendly fire settings
