@@ -26,7 +26,7 @@ import {
 import { DAY_S, secondsFromDate } from "@/utils/time";
 import { getFreeTransfers } from "@/libs/jutsu";
 import { JutsuValidator } from "@/libs/combat/types";
-import { canChangeContent, canEditPublicUser } from "@/utils/permissions";
+import { canChangeContent, canEditPublicUser, canTransferJutsu  } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
@@ -109,6 +109,7 @@ export const jutsuRouter = createTRPCRouter({
       }
       
       // Check if user has free transfers
+      const cost = canTransferJutsu(user.role) ? 0 : JUTSU_TRANSFER_COST;
       const freeTransfers = getFreeTransfers(user.federalStatus);
       const usedTransfers = recentTransfers.length;
       const needsReputation = usedTransfers >= freeTransfers;
