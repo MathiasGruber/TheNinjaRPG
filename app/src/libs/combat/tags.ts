@@ -10,6 +10,7 @@ import type { WeaknessTagType } from "@/libs/combat/types";
 import type { ShieldTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
+import type { CombatAction } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 
 /** Absorb damage & convert it to healing */
@@ -1185,28 +1186,31 @@ export const drain = (
 /** Deals damage based on chakra and stamina usage */
 export const poison = (
   effect: UserEffect,
-  usersEffects: UserEffect[],
+  action: CombatAction,
+  actorId: string,
   consequences: Map<string, Consequence>,
   target: BattleUserState
 ) => {
   // ... (prevent check, etc.)
   const { power, qualifier } = getPower(effect);
-  // Retrieve the costs from the effect
-  const cpCost = effect.cpSpent || 0;
-  const spCost = effect.spSpent || 0;
-
-  // Calculate poison damage based on costs
-  const poisonDamage = Math.floor((cpCost + spCost) * (power / 100));
-
-  if (poisonDamage > 0) {
-    target.curHealth = Math.max(target.curHealth - poisonDamage, 0);
+  // Either let the user know they're poisoned, or figure out how much damage they took
+  if (effect.isNew && effect.castThisRound) {
+    return getInfo(
+      target,
+      effect,
+      `will take ${qualifier} of chakra and stamina spent as poison damage`,
+    );
   }
-  
-  return getInfo(
-    target,
-    effect,
-    `will take ${qualifier} of chakra and stamina spent as poison damage`
-  );
+
+  // If not cast round, figure out how much poison damage target took
+  if (!effect.castThisRound && actorId === target.userId) {
+    const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
+    consequences.set(effect.id, {
+      userId: effect.creatorId,
+      targetId: effect.targetId,
+      poison: dmg,
+    });
+  }
 };
 
 /** Create a temporary HP shield that absorbs damage */
