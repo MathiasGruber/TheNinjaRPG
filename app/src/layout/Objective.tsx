@@ -1,4 +1,4 @@
-import { React, useState } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import Countdown from "@/layout/Countdown";
@@ -25,8 +25,8 @@ interface ObjectiveProps {
   tier?: number;
   grayedOut?: boolean;
 }
-const [modalOpen, setModalOpen] = useState(false);
 export const Objective: React.FC<ObjectiveProps> = (props) => {
+  const [modalOpen, setModalOpen] = useState(false);
   const { data: userData } = useRequiredUserData();
   const { objective, tier, tracker, titlePrefix, checkRewards } = props;
   const { image, title } = getObjectiveImage(objective);
