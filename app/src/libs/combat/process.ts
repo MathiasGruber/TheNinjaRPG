@@ -161,7 +161,7 @@ const getVisual = (
 
 export const applyEffects = ( 
     battle: CompleteBattle,
-    actorId: string
+    actorId: string,
     action?: CombatAction,
 )   => {
   // Destructure
