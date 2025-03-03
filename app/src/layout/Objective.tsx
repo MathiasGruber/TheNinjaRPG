@@ -79,7 +79,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
               />
               {modalOpen && (
                 <Modal title="Objective Details" setIsOpen={() => setModalOpen(false)}>
-                  {objective.description}
+                  <div dangerouslySetInnerHTML={{ __html: objective.description }} />
                 </Modal>
               )}
             </>
