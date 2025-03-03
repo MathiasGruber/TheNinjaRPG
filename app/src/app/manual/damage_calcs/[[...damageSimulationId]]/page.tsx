@@ -2,7 +2,7 @@
 
 import { nanoid } from "nanoid";
 import { useState, useEffect, useRef, use } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useUserData } from "@/utils/UserContext";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save, Users, ClipboardCopy, Trash2, Eye, EyeOff } from "lucide-react";
@@ -97,10 +97,10 @@ export default function Simulator(props: {
   });
 
   // Watch all the forms simultaneously
-  const attValues = attForm.watch();
-  const defValues = defForm.watch();
-  const actValues = actForm.watch();
-  const configValues = configForm.watch();
+  const attValues = useWatch({ control: attForm.control }) as StatSchema;
+  const defValues = useWatch({ control: defForm.control }) as StatSchema;
+  const actValues = useWatch({ control: actForm.control }) as ActSchema;
+  const configValues = useWatch({ control: configForm.control }) as ConfigSchema;
 
   // Query for fetching previous entries
   const { data, refetch } = api.simulator.getDamageSimulations.useQuery(undefined, {

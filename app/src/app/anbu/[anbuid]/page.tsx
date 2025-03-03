@@ -13,7 +13,7 @@ import AvatarImage from "@/layout/Avatar";
 import { mutateContentSchema } from "@/validators/comments";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -161,7 +161,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
     defaultValues: { name: squad.name, image: squad.image },
   });
   const onEdit = renameForm.handleSubmit((data) => edit({ ...data, squadId }));
-  const currentImage = renameForm.watch("image");
+  const currentImage = useWatch({ control: renameForm.control, name: "image" });
 
   // Set squad name
   useEffect(() => {

@@ -16,7 +16,7 @@ import {
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import AvatarImage from "@/layout/Avatar";
 import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { anbuCreateSchema } from "@/validators/anbu";
 import { UsersRound } from "lucide-react";
@@ -106,7 +106,11 @@ export default function ANBU() {
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: "", users: [] },
   });
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const targetUser = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { gameAssetSchema } from "@/validators/asset";
 import { Filter } from "lucide-react";
@@ -42,7 +42,7 @@ const GameAssetFiltering: React.FC<GameAssetFilteringProps> = (props) => {
     resolver: zodResolver(gameAssetSchema),
     defaultValues: { name: name, type: type },
   });
-  const watchName = form.watch("name", "");
+  const watchName = useWatch({ control: form.control, name: "name", defaultValue: "" });
 
   // Get all content tags
   const { data: dbTags } =

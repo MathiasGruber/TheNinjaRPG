@@ -8,7 +8,7 @@ import Loader from "@/layout/Loader";
 import { Ban, UserPlus } from "lucide-react";
 import { Label } from "src/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getSearchValidator } from "@/validators/register";
 import { showMutationToast } from "@/libs/toast";
@@ -41,7 +41,11 @@ const UserBlacklistControl: React.FC = () => {
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: "", users: [] },
   });
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const targetUser = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // Render
   return (

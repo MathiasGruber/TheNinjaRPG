@@ -1,7 +1,7 @@
 "use client";
 
 import { calculateContentDiff } from "@/utils/diff";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { JutsuValidator } from "@/libs/combat/types";
@@ -61,7 +61,10 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   );
 
   // Watch the effects
-  const effects = form.watch("effects");
+  const effects = useWatch({
+    control: form.control,
+    name: "effects",
+  });
 
   // Handle updating of effects
   const setEffects = (newEffects: ZodAllTags[]) => {
@@ -72,7 +75,10 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   const loading = l1 || l2 || l3;
 
   // Watch for changes to avatar
-  const imageUrl = form.watch("image");
+  const imageUrl = useWatch({
+    control: form.control,
+    name: "image",
+  });
 
   // Object for form values
   const formData: FormEntry<keyof ZodJutsuType>[] = [

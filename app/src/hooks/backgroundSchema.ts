@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { calculateContentDiff } from "@/utils/diff";
 import { api } from "@/app/_trpc/client";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,7 +48,10 @@ export const useBackgroundSchemaEditForm = (
   );
 
   // Watch for changes to image URLs
-  const imageUrls = form.watch("schema");
+  const imageUrls = useWatch({
+    control: form.control,
+    name: "schema",
+  });
 
   // Object for form values
   const formData: FormEntry<keyof ZodBackgroundSchemaType>[] = [
