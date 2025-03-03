@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
@@ -77,9 +77,9 @@ export default function ConceptArt() {
   });
 
   // Filters
-  const only_own = filterForm.watch("only_own");
-  const sort = filterForm.watch("sort");
-  const time_frame = filterForm.watch("time_frame");
+  const only_own = useWatch({ control: filterForm.control, name: "only_own" });
+  const sort = useWatch({ control: filterForm.control, name: "sort" });
+  const time_frame = useWatch({ control: filterForm.control, name: "time_frame" });
 
   // Fetch data
   const { data, fetchNextPage, hasNextPage } = api.conceptart.getAll.useInfiniteQuery(

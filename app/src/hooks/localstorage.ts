@@ -31,7 +31,7 @@ export const useLocalStorage = <T>(
     }
 
     // Fall back to local storage
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && localStorage) {
       const storedValue = localStorage.getItem(key);
       if (storedValue && storedValue !== "undefined") {
         return JSON.parse(storedValue) as T;

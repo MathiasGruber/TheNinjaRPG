@@ -53,7 +53,7 @@ const AvatarImage: React.FC<AvatarImageProps> = (props) => {
   if (!href) {
     return (
       <div
-        className={`relative m-auto w-5/6 aspect-square rounded-2xl border-2 border-black bg-gradient-to-r from-slate-500 to-slate-400 background-animate opacity-20`}
+        className={`relative m-auto w-5/6 aspect-square rounded-2xl border-2 border-black bg-linear-to-r from-slate-500 to-slate-400 background-animate opacity-20`}
       ></div>
     );
   } else {

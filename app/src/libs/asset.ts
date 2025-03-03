@@ -1,5 +1,5 @@
 import { calculateContentDiff } from "@/utils/diff";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { gameAssetValidator } from "@/validators/asset";
 import { api } from "@/app/_trpc/client";
@@ -44,7 +44,10 @@ export const useAssetEditForm = (asset: GameAsset, refetch: () => void) => {
   );
 
   // Watch for changes to avatar
-  const imageUrl = form.watch("image");
+  const imageUrl = useWatch({
+    control: form.control,
+    name: "image",
+  });
 
   // Object for form values
   const formData: FormEntry<keyof ZodGameAssetType>[] = [

@@ -181,7 +181,7 @@ const Welcome: React.FC = () => {
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
                         <Suspense
-                          fallback={<Skeleton className="w-full aspect-[1024/716]" />}
+                          fallback={<Skeleton className="w-full aspect-1024/716" />}
                         >
                           <Image
                             src={IMG_FRONTPAGE_SCREENSHOT_JUTSUS}
@@ -200,7 +200,7 @@ const Welcome: React.FC = () => {
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
                         <Suspense
-                          fallback={<Skeleton className="w-full aspect-[1024/702]" />}
+                          fallback={<Skeleton className="w-full aspect-1024/702" />}
                         >
                           <Image
                             src={IMG_FRONTPAGE_SCREENSHOT_COMBAT}
@@ -220,7 +220,7 @@ const Welcome: React.FC = () => {
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
                         <Suspense
-                          fallback={<Skeleton className="w-full aspect-[1024/679]" />}
+                          fallback={<Skeleton className="w-full aspect-1024/679" />}
                         >
                           <Image
                             src={IMG_FRONTPAGE_SCREENSHOT_VILLAGE}
@@ -239,7 +239,7 @@ const Welcome: React.FC = () => {
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6 w-full">
                         <Suspense
-                          fallback={<Skeleton className="w-full aspect-[1024/732]" />}
+                          fallback={<Skeleton className="w-full aspect-1024/732" />}
                         >
                           <Image
                             src={IMG_FRONTPAGE_SCREENSHOT_SECTOR}
@@ -258,7 +258,7 @@ const Welcome: React.FC = () => {
                     <Card>
                       <CardContent className="flex flex-col gap-4 items-center justify-center p-6">
                         <Suspense
-                          fallback={<Skeleton className="w-full aspect-[1024/743]" />}
+                          fallback={<Skeleton className="w-full aspect-1024/743" />}
                         >
                           <Image
                             src={IMG_FRONTPAGE_SCREENSHOT_GLOBAL}

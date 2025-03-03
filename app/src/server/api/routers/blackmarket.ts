@@ -190,68 +190,92 @@ export const blackMarketRouter = createTRPCRouter({
   takeOffer: protectedProcedure
     .input(z.object({ offerId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Query offer first to validate it exists
-      const offer = await fetchOffer(ctx.drizzle, input.offerId);
+      // Fetch both the offer and user data simultaneously
+      const [offer, user] = await Promise.all([
+        fetchOffer(ctx.drizzle, input.offerId),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+
+      // Validate offer
       if (!offer) return errorResponse("Offer not found");
       if (offer.purchaserUserId) return errorResponse("Offer already taken");
       if (offer.creatorUserId === ctx.userId) return errorResponse("Your own offer");
       if (offer.allowedPurchaserId && offer.allowedPurchaserId !== ctx.userId) {
         return errorResponse("You are not allowed to purchase this offer");
       }
-
-      try {
-        // Perform all checks and updates in a single transaction
-        await ctx.drizzle.transaction(async (tx) => {
-          // First verify the offer is still available
-          const currentOffer = await tx.query.ryoTrade.findFirst({
-            where: and(
-              eq(ryoTrade.id, input.offerId),
-              isNull(ryoTrade.purchaserUserId),
-            ),
-          });
-          if (!currentOffer) {
-            throw new Error("Offer no longer available");
-          }
-
-          // Get current user state within transaction
-          const currentUser = await fetchUser(ctx.drizzle, ctx.userId);
-          if (currentUser.money < offer.requestedRyo) {
-            throw new Error("Insufficient funds");
-          }
-          await tx
-            .update(ryoTrade)
-            .set({ purchaserUserId: ctx.userId })
-            .where(eq(ryoTrade.id, input.offerId));
-          await tx
-            .update(userData)
-            .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
-            .where(eq(userData.userId, offer.creatorUserId));
-          const buyerResult = await tx
-            .update(userData)
-            .set({
-              money: sql`${userData.money} - ${offer.requestedRyo}`,
-              reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
-            })
-            .where(
-              and(
-                eq(userData.userId, ctx.userId),
-                gte(userData.money, offer.requestedRyo),
-              ),
-            );
-          if (buyerResult.rowsAffected === 0) {
-            throw new Error("Failed to update buyer");
-          }
-        });
-
-        return {
-          success: true,
-          message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
-        };
-      } catch (error) {
-        return errorResponse(
-          error instanceof Error ? error.message : "Transaction failed",
-        );
+      if (user.money < offer.requestedRyo) {
+        return errorResponse("Insufficient funds");
       }
+
+      // Mark the offer as taken first - this will fail if someone else has taken it
+      const offerResult = await ctx.drizzle
+        .update(ryoTrade)
+        .set({ purchaserUserId: ctx.userId })
+        .where(and(eq(ryoTrade.id, input.offerId), isNull(ryoTrade.purchaserUserId)));
+      if (offerResult.rowsAffected === 0) {
+        return errorResponse("Offer no longer available");
+      }
+
+      // Perform both updates simultaneously
+      const [buyerResult, sellerResult] = await Promise.all([
+        // Update buyer's money and reputation points
+        ctx.drizzle
+          .update(userData)
+          .set({
+            money: sql`${userData.money} - ${offer.requestedRyo}`,
+            reputationPoints: sql`${userData.reputationPoints} + ${offer.repsForSale}`,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              gte(userData.money, offer.requestedRyo),
+            ),
+          ),
+        // Update seller's money - add the requested ryo
+        ctx.drizzle
+          .update(userData)
+          .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
+          .where(eq(userData.userId, offer.creatorUserId)),
+      ]);
+
+      if (buyerResult.rowsAffected === 0) {
+        // This should not happen since we checked funds earlier, but handle it anyway
+        // We need to revert the offer status since the buyer update failed
+        await Promise.all([
+          // Always reset the offer status
+          ctx.drizzle
+            .update(ryoTrade)
+            .set({ purchaserUserId: null })
+            .where(eq(ryoTrade.id, input.offerId)),
+
+          // Only attempt to roll back seller's money if their update succeeded
+          // and ensure they still have enough money to roll back
+          ...(sellerResult.rowsAffected === 1
+            ? [
+                ctx.drizzle
+                  .update(userData)
+                  .set({ money: sql`${userData.money} - ${offer.requestedRyo}` })
+                  .where(eq(userData.userId, offer.creatorUserId)),
+                ,
+              ]
+            : []),
+          ctx.drizzle.insert(actionLog).values({
+            id: nanoid(),
+            userId: ctx.userId,
+            tableName: "ryoTrade",
+            changes: [`Attempted rollback of offer ${input.offerId}`],
+            relatedId: input.offerId,
+            relatedMsg: `Rollback attempt: Buyer update failed`,
+          }),
+        ]);
+
+        return errorResponse("Failed to update buyer - transaction reverted");
+      }
+
+      return {
+        success: true,
+        message: `Bought ${offer.repsForSale} reputation points for ${offer.requestedRyo} ryo.`,
+      };
     }),
   // Update custom title
   updateCustomTitle: protectedProcedure

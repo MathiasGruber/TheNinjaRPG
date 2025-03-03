@@ -14,6 +14,7 @@ import { getUnique } from "@/utils/grouping";
 import { api } from "@/app/_trpc/client";
 import type { FederalStatus } from "../../drizzle/schema";
 import type { UseFormReturn } from "react-hook-form";
+import { useWatch } from "react-hook-form";
 
 type SelectedUser = {
   username: string;
@@ -50,8 +51,16 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
 
   const form = props.useFormMethods;
 
-  const watchUsername = form.watch("username", "");
-  const watchUsers = form.watch("users", []);
+  const watchUsername = useWatch({
+    control: form.control,
+    name: "username",
+    defaultValue: "",
+  });
+  const watchUsers = useWatch({
+    control: form.control,
+    name: "users",
+    defaultValue: [],
+  });
 
   const { data: searchResults } = api.profile.searchUsers.useQuery(
     {

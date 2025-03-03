@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { round } from "@/utils/math";
 import ContentBox from "@/layout/ContentBox";
@@ -285,21 +285,33 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
   const creatorSearchMethods = useForm<z.infer<typeof creatorSearchSchema>>({
     resolver: zodResolver(creatorSearchSchema),
   });
-  const creatorUser = creatorSearchMethods.watch("users", [])?.[0];
+  const creatorUser = useWatch({
+    control: creatorSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // Buyer search
   const buyerSearchSchema = getSearchValidator({ max: maxUsers });
   const buyerSearchMethods = useForm<z.infer<typeof buyerSearchSchema>>({
     resolver: zodResolver(buyerSearchSchema),
   });
-  const buyerUser = buyerSearchMethods.watch("users", [])?.[0];
+  const buyerUser = useWatch({
+    control: buyerSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // Allowed buyer schema
   const allowedSearchSchema = getSearchValidator({ max: maxUsers });
   const allowedSearchMethods = useForm<z.infer<typeof allowedSearchSchema>>({
     resolver: zodResolver(allowedSearchSchema),
   });
-  const allowedUser = allowedSearchMethods.watch("users", [])?.[0];
+  const allowedUser = useWatch({
+    control: allowedSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // Query
   const { data, fetchNextPage, hasNextPage } =
@@ -416,8 +428,8 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
     resolver: zodResolver(FormSchema),
     defaultValues: { reps: 0, ryo: 0 },
   });
-  const offerReps = form.watch("reps");
-  const offerRyo = form.watch("ryo");
+  const offerReps = useWatch({ control: form.control, name: "reps" });
+  const offerRyo = useWatch({ control: form.control, name: "ryo" });
   const onSubmit = form.handleSubmit((data) =>
     create({ ...data, allowedUser: allowedUser?.userId }),
   );

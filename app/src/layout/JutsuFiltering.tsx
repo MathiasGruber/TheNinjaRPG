@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
@@ -372,8 +372,16 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     resolver: zodResolver(searchJutsuSchema),
     defaultValues: { name },
   });
-  const watchName = form.watch("name", undefined);
-  const watchRequiredLevel = form.watch("requiredLevel", requiredLevel);
+  const watchName = useWatch({
+    control: form.control,
+    name: "name",
+    defaultValue: undefined,
+  });
+  const watchRequiredLevel = useWatch({
+    control: form.control,
+    name: "requiredLevel",
+    defaultValue: requiredLevel,
+  });
 
   // Debounce name changes
   useEffect(() => {

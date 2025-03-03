@@ -219,7 +219,16 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   /**
    * Submit comment
    */
-  const handleSubmitComment = handleSubmit((data) => createComment(data));
+  const handleSubmitComment = handleSubmit((data) => {
+    if (userData?.isSilenced) {
+      showMutationToast({
+        success: false,
+        message: "You are silenced and cannot send a message.",
+      });
+      return;
+    }
+    createComment(data);
+  });
 
   /**
    * Invalidate comments & allow refetches again
