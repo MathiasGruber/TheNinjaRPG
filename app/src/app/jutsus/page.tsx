@@ -418,8 +418,8 @@ export default function MyJutsu() {
                         </p>
                         <p>
                           Cost:{" "}
-                          {usedTransfers >= freeTransfers
-                            ? `${JUTSU_TRANSFER_COST} reputation points`
+                          {usedTransfers >= freeTransfers && transferCost > 0
+                            ? `${transferCost} reputation points`
                             : "Free"}
                         </p>
                       </>
