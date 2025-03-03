@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import RichInput from "@/layout/RichInput";
@@ -23,7 +23,6 @@ import { changeSettingSchema, type ChangeSettingSchema } from "@/validators/misc
 import { useInfinitePagination } from "@/libs/pagination";
 import { GAME_SETTING_GAINS_MULTIPLIER } from "@/drizzle/constants";
 import { secondsPassed } from "@/utils/time";
-import { round } from "@/utils/math";
 import type { z } from "zod";
 
 export default function NotifyUsers() {
@@ -61,23 +60,22 @@ const RegenGainSystem: React.FC = () => {
     });
 
   // Form control
-  const {
-    register,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<ChangeSettingSchema>({
+  const regenForm = useForm<ChangeSettingSchema>({
     resolver: zodResolver(changeSettingSchema),
   });
-  const watchedDays = round(watch("days", 2));
+  const watchedDays = useWatch({
+    control: regenForm.control,
+    name: "days",
+    defaultValue: 2,
+  });
 
   // When setting loaded, update the slider value
   useEffect(() => {
     if (setting) {
       const daysLeft = secondsPassed(setting.time, timeDiff) / (24 * 3600);
-      if (daysLeft < 0) setValue("days", -daysLeft);
+      if (daysLeft < 0) regenForm.setValue("days", -daysLeft);
     }
-  }, [setting, timeDiff, setValue]);
+  }, [setting, timeDiff, regenForm]);
 
   // Guard
   if (!userData) return null;
@@ -96,10 +94,10 @@ const RegenGainSystem: React.FC = () => {
             max={31}
             unit="days"
             label="Select duration in days"
-            register={register}
-            setValue={setValue}
+            register={regenForm.register}
+            setValue={regenForm.setValue}
             watchedValue={watchedDays}
-            error={errors.days?.message}
+            error={regenForm.formState.errors.days?.message}
           />
           <div className="flex flex-row gap-2">
             {GAME_SETTING_GAINS_MULTIPLIER.map((multiplier, i) => (
@@ -150,23 +148,22 @@ const TrainingGainSystem: React.FC = () => {
     });
 
   // Form control
-  const {
-    register,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<ChangeSettingSchema>({
+  const trainingForm = useForm<ChangeSettingSchema>({
     resolver: zodResolver(changeSettingSchema),
   });
-  const watchedDays = round(watch("days", 2));
+  const watchedDays = useWatch({
+    control: trainingForm.control,
+    name: "days",
+    defaultValue: 2,
+  });
 
   // When setting loaded, update the slider value
   useEffect(() => {
     if (setting) {
       const daysLeft = secondsPassed(setting.time, timeDiff) / (24 * 3600);
-      if (daysLeft < 0) setValue("days", -daysLeft);
+      if (daysLeft < 0) trainingForm.setValue("days", -daysLeft);
     }
-  }, [setting, timeDiff, setValue]);
+  }, [setting, timeDiff, trainingForm]);
 
   // Guard
   if (!userData) return null;
@@ -189,10 +186,10 @@ const TrainingGainSystem: React.FC = () => {
             max={31}
             unit="days"
             label="Select duration in days"
-            register={register}
-            setValue={setValue}
+            register={trainingForm.register}
+            setValue={trainingForm.setValue}
             watchedValue={watchedDays}
-            error={errors.days?.message}
+            error={trainingForm.formState.errors.days?.message}
           />
           <div className="flex flex-row gap-2">
             {GAME_SETTING_GAINS_MULTIPLIER.map((multiplier, i) => (
@@ -278,8 +275,12 @@ const NotificationSystem: React.FC = () => {
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: "", users: [] },
   });
-  const watchedUsers = userSearchMethods.watch("users", []);
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const watchedUsers = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  });
+  const targetUser = watchedUsers?.[0];
 
   useEffect(() => {
     if (userData && userData.username && watchedUsers.length === 0) {

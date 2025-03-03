@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { actionLogSchema } from "@/validators/logs";
 import { Filter } from "lucide-react";
@@ -40,7 +40,10 @@ const ActionLogFiltering: React.FC<ActionLogFilteringProps> = (props) => {
     resolver: zodResolver(actionLogSchema),
     defaultValues: { search: search, logtype: logtype },
   });
-  const watchSearch = form.watch("search", "");
+  const watchSearch = useWatch({
+    control: form.control,
+    name: "search",
+  });
 
   // Update the state
   useEffect(() => {
@@ -59,26 +62,7 @@ const ActionLogFiltering: React.FC<ActionLogFilteringProps> = (props) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent>
-        <div className="grid grid-cols-2 gap-1 gap-x-3">
-          {/* Search */}
-          <div>
-            <Form {...form}>
-              <Label htmlFor="rank">Search</Label>
-              <FormField
-                control={form.control}
-                name="search"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input id="search" placeholder="Search" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </Form>
-            <p className="text-xs">Search IDs for bloodlines</p>
-          </div>
+        <div className="grid grid-cols-1 gap-1 gap-x-3">
           {/* Type */}
           <div className="">
             <Label htmlFor="method">Type</Label>
@@ -96,6 +80,25 @@ const ActionLogFiltering: React.FC<ActionLogFilteringProps> = (props) => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          {/* Search */}
+          <div>
+            <Form {...form}>
+              <Label htmlFor="rank">Search</Label>
+              <FormField
+                control={form.control}
+                name="search"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input id="search" placeholder="Search" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </Form>
+            <p className="text-xs italic">Note: to find bloodline search for ID</p>
           </div>
         </div>
       </PopoverContent>

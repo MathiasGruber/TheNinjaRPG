@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchQuestSchema } from "@/validators/quest";
 import { Filter } from "lucide-react";
@@ -61,8 +61,16 @@ const QuestFiltering: React.FC<QuestFilteringProps> = (props) => {
     resolver: zodResolver(searchQuestSchema),
     defaultValues: { name: name, userLevel: userLevel },
   });
-  const watchName = form.watch("name", undefined);
-  const watchLevel = form.watch("userLevel", undefined);
+  const watchName = useWatch({
+    control: form.control,
+    name: "name",
+    defaultValue: undefined,
+  });
+  const watchLevel = useWatch({
+    control: form.control,
+    name: "userLevel",
+    defaultValue: undefined,
+  });
 
   // Update the state
   useEffect(() => {

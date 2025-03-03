@@ -2,7 +2,7 @@
 
 import { type z } from "zod";
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Conversation from "@/layout/Conversation";
 import RichInput from "@/layout/RichInput";
@@ -24,7 +24,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { SquarePen, Users, X, Trash2, BellRing } from "lucide-react";
+import { SquarePen, Users, X, Trash2, BellRing, BellOff } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { createConversationSchema } from "@/validators/comments";
@@ -46,7 +46,7 @@ export default function Inbox() {
           </Button>
         </PopoverTrigger>
         <PopoverContent>
-          <div className="max-w-[320px] min-w-[320px]">
+          <div>
             <UserBlacklistControl />
           </div>
         </PopoverContent>
@@ -223,7 +223,11 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
     resolver: zodResolver(userSearchSchema),
   });
 
-  const users = userSearchMethods.watch("users");
+  const users = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  });
   useEffect(() => {
     if (users && users.length > 0) {
       create.setValue(
@@ -249,6 +253,13 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
 
   return (
     <div className="flex flex-row items-center">
+      {userData && (userData.isBanned || userData.isSilenced) && (
+        <Button id="conversation">
+          <BellOff className="h-6 w-6 text-red-500 mr-2" />
+          {userData.isBanned && "Banned"}
+          {userData.isSilenced && "Silenced"}
+        </Button>
+      )}
       {userData && !userData.isBanned && !userData.isSilenced && (
         <Confirm
           title="Create a new conversation"

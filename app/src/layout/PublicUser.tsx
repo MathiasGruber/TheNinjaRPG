@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { getSearchValidator } from "@/validators/register";
@@ -163,10 +163,14 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   const userSearchSchema = getSearchValidator({ max: 10 });
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
+    defaultValues: { users: [] },
   });
-  const watchedUsers = userSearchMethods.watch("users");
+  const watchedUsers = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  });
 
-  // Effects
   useEffect(() => {
     if (profile) {
       userSearchMethods.setValue("users", [
@@ -183,14 +187,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   }, [profile, userSearchMethods]);
 
   useEffect(() => {
-    const users = userSearchMethods.watch("users");
-    if (users && users.length > 0) {
+    if (watchedUsers && watchedUsers.length > 0) {
       form.setValue(
         "userIds",
-        users.map((u) => u.userId),
+        watchedUsers.map((u) => u.userId),
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedUsers, form]);
 
   // tRPC utility
