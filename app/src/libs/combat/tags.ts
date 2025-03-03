@@ -1203,14 +1203,12 @@ export const poison = (
   }
 
   // If not cast round, figure out how much poison damage target took
-  if (actorId === target.userId) {
-    const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
-    consequences.set(effect.id, {
-      userId: effect.creatorId,
-      targetId: effect.targetId,
-      poison: dmg,
-    });
-  }
+  const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
+  consequences.set(effect.id, {
+    userId: effect.creatorId,
+    targetId: effect.targetId,
+    poison: dmg,
+  });
 };
 
 /** Create a temporary HP shield that absorbs damage */
