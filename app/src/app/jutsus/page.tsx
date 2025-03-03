@@ -34,6 +34,8 @@ import { JUTSU_TRANSFER_MAX_LEVEL } from "@/drizzle/constants";
 import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
+import { canTransferJutsu } from "@/utils/permissions";
+
 
 export default function MyJutsu() {
   // tRPC utility
@@ -52,6 +54,7 @@ export default function MyJutsu() {
   const [transferTarget, setTransferTarget] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
+  const transferCost = canTransferJutsu(userData.role) ? 0 : JUTSU_TRANSFER_COST;
   const [transferValue, setTransferValue] = useState<number>(1);
 
   // User Jutsus & items
@@ -154,9 +157,9 @@ export default function MyJutsu() {
         showMutationToast(data);
         if (data.success && userData) {
           await utils.jutsu.getUserJutsus.invalidate();
-          if (usedTransfers >= freeTransfers) {
+          if (usedTransfers >= freeTransfers && transferCost > 0) {
             await updateUser({
-              reputationPoints: userData.reputationPoints - JUTSU_TRANSFER_COST,
+              reputationPoints: userData.reputationPoints - transferCost,
             });
           }
         }
