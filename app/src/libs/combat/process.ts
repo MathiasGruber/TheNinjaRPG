@@ -163,7 +163,7 @@ export const applyEffects = (
     battle: CompleteBattle,
     actorId: string
     action?: CombatAction,
-    => {
+)   => {
   // Destructure
   const { usersState, usersEffects, groundEffects, round } = battle;
   const actor = usersState.find((u) => u.userId === actorId);
