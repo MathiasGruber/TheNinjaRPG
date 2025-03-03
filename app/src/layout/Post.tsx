@@ -93,7 +93,7 @@ const Post: React.FC<PostProps> = (props) => {
         "bg-linear-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent";
       userRole = "bg-purple-400";
       break;
-    case "Coder":
+    case "CODER":
       userColor =
         "bg-linear-to-r from-pink-500 via-pink-300 to-pink-500 bg-clip-text text-transparent";
       userRole = "bg-pink-300";
