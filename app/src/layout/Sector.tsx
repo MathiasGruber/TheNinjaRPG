@@ -212,7 +212,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           .map((idx) => users.current?.splice(idx, 1));
       }
     }
-    setSorrounding(users.current || []);
+    setSorrounding(users.current.filter((u) => u?.userId) || []);
   };
 
   const { mutate: move, isPending: isMoving } = api.travel.moveInSector.useMutation({
@@ -387,7 +387,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         const allianceStatus = getAllyStatus(userData?.village, user.villageId);
         return { ...user, allianceStatus };
       });
-      setSorrounding(enrichedData || []);
+      setSorrounding(enrichedData.filter((u) => u?.userId) || []);
       users.current = enrichedData || [];
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
