@@ -109,25 +109,25 @@ export const jutsuRouter = createTRPCRouter({
       }
       
       // Check if user has free transfers
-      const cost = canTransferJutsu(user.role) ? 0 : JUTSU_TRANSFER_COST;
+      const transferCost = canTransferJutsu(user.role) ? 0 : JUTSU_TRANSFER_COST;
       const freeTransfers = getFreeTransfers(user.federalStatus);
       const usedTransfers = recentTransfers.length;
       const needsReputation = usedTransfers >= freeTransfers;
 
       // If needs reputation, check and deduct
       if (needsReputation) {
-        if (user.reputationPoints < JUTSU_TRANSFER_COST) {
+        if (user.reputationPoints < transferCost) {
           return errorResponse("Not enough reputation points");
         }
         const reputationUpdate = await ctx.drizzle
           .update(userData)
           .set({
-            reputationPoints: sql`${userData.reputationPoints} - ${JUTSU_TRANSFER_COST}`,
+            reputationPoints: sql`${userData.reputationPoints} - ${transferCost}`,
           })
           .where(
             and(
               eq(userData.userId, ctx.userId),
-              gte(userData.reputationPoints, JUTSU_TRANSFER_COST),
+              gte(userData.reputationPoints, transferCost),
             ),
           );
         if (reputationUpdate.rowsAffected !== 1) {
@@ -161,7 +161,7 @@ export const jutsuRouter = createTRPCRouter({
       return {
         success: true,
         message: needsReputation
-          ? `Level transferred for ${JUTSU_TRANSFER_COST} reputation points`
+          ? `Level transferred for ${transferCost} reputation points`
           : "Level transferred for free",
       };
     }),
