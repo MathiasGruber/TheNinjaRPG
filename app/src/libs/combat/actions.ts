@@ -729,39 +729,77 @@ export const calcActiveUser = (
   const inBattleuserIds = usersInBattle.map((u) => u.userId);
   let activeUserId = battle.activeUserId ? battle.activeUserId : userId;
   let progressRound = false;
-  // Check 1: We have an active user, but the round is up
-  const check1 = battle.activeUserId && secondsLeft <= 0;
-  // Check 2: We have an active user, but he/she does not have any more action points
-  const check2 = activeUserId && hasNoAvailableActions(battle, activeUserId);
-  // Check 3: Current active userID is not in active user array
-  const check3 = activeUserId && !inBattleuserIds.includes(activeUserId);
-  // Progress to next user in case of any checks went through
-  if (inBattleuserIds.length > 1 && (check1 || check2 || check3)) {
+  // Determine if the current user should have their turn ended or be skipped
+  const shouldEndTurn = battle.activeUserId && secondsLeft <= 0;
+  const shouldSkipTurn =
+    activeUserId &&
+    (hasNoAvailableActions(battle, activeUserId) ||
+      !inBattleuserIds.includes(activeUserId));
+
+  if (shouldEndTurn) {
+    const activeUser = battle.usersState.find((u) => u.userId === activeUserId);
+
+    if (activeUser) {
+      console.log(`Timer expired for ${activeUser.username}. Auto-ending turn.`);
+
+      const endTurnAction = {
+        id: "wait",
+        name: "End Turn",
+        image: IMG_BASIC_WAIT,
+        battleDescription: `${activeUser.username} stands and does nothing.`,
+        type: "basic",
+        target: "SELF",
+        method: "SINGLE",
+        healthCost: 0,
+        chakraCost: 0,
+        staminaCost: 0,
+        actionCostPerc: activeUser.actionPoints,
+        range: 0,
+        updatedAt: Date.now(),
+        cooldown: 0,
+        effects: [],
+      };
+
+      try {
+        performBattleAction({
+          battle,
+          action: endTurnAction,
+          grid: battle.grid,
+          contextUserId: activeUser.userId,
+          actorId: activeUser.userId,
+          longitude: activeUser.longitude,
+          latitude: activeUser.latitude,
+        });
+      } catch (err) {
+        console.error("Error auto-ending turn:", err);
+      }
+    }
+  }
+
+  // If turn should end or be skipped, progress to the next player
+  if (shouldEndTurn || shouldSkipTurn) {
     const curIdx = inBattleuserIds.indexOf(activeUserId ?? "");
     const newIdx = (curIdx + 1) % inBattleuserIds.length;
     const curUser = usersInBattle.find((u) => u.userId === activeUserId);
     if (curUser) curUser.round = battle.round;
     if (usersInBattle.every((u) => u.round >= battle.round)) progressRound = true;
     activeUserId = inBattleuserIds[newIdx] || userId;
-  } else if (inBattleuserIds.length === 1) {
-    activeUserId = inBattleuserIds[0];
   }
-
-  // Find the user in question, and return him
-  const actor = battle.usersState.find((u) => u.userId === activeUserId);
-  if (!actor) {
-    throw new Error(`
-      No active user: ${activeUserId}. 
-      Initial userId: ${userId}. 
-      Check 1/2/3: ${check1}/${check2}/${check3}.
-      BattleRound: ${battle.round}.
-      BattleType: ${battle.battleType}.
-      activeUserId: ${battle.activeUserId}.
-      usersInBattle: ${usersInBattle.length}.
-    `);
-  }
-  // Check if we have a new active user
-  const changedActor = actor.userId !== battle.activeUserId;
-  // Return info
-  return { actor, changedActor, progressRound, mseconds, secondsLeft };
+ // Find the user in question, and return him
+ const actor = battle.usersState.find((u) => u.userId === activeUserId);
+ if (!actor) {
+  throw new Error(`
+    No active user: ${activeUserId}. 
+    Initial userId: ${userId}. 
+    Check 1/2/3: ${check1}/${check2}/${check3}.
+    BattleRound: ${battle.round}.
+    BattleType: ${battle.battleType}.
+    activeUserId: ${battle.activeUserId}.
+    usersInBattle: ${usersInBattle.length}.
+  `);
+}
+// Check if we have a new active user
+const changedActor = actor.userId !== battle.activeUserId;
+// Return info
+return { actor, changedActor, progressRound, mseconds, secondsLeft };
 };
