@@ -934,7 +934,7 @@ export type UserEffect = BattleEffect & {
 
 export type ActionEffect = {
   txt: string;
-  color: "red" | "green" | "blue";
+  type EffectColor = | "red" | "green" | "blue" | "yellow" | "purple" | "orange" | "pink" | "gray";
   types?: (GeneralType | StatType | ElementName | PoolType)[];
 };
 
