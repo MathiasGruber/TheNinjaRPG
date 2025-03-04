@@ -1191,24 +1191,19 @@ export const poison = (
   consequences: Map<string, Consequence>,
   target: BattleUserState
 ) => {
-  // ... (prevent check, etc.)
   const { power, qualifier } = getPower(effect);
-  // Either let the user know they're poisoned, or figure out how much damage they took
-  if (effect.isNew && effect.castThisRound) {
-    return getInfo(
-      target,
-      effect,
-      `will take ${qualifier} of chakra and stamina spent as poison damage`,
-    );
-  }
-
-  // If not cast round, figure out how much poison damage target took
+  // Always calculate poison damage every tick:
   const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
   consequences.set(effect.id, {
     userId: effect.creatorId,
     targetId: effect.targetId,
     poison: dmg,
   });
+  return getInfo(
+    target,
+    effect,
+    `will take ${qualifier} of chakra and stamina spent as poison damage`
+  );
 };
 
 /** Create a temporary HP shield that absorbs damage */
