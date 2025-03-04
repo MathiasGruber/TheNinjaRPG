@@ -760,19 +760,31 @@ export const calcActiveUser = (
         effects: [],
       };
 
-      try {
-        performBattleAction({
-          battle,
-          action: endTurnAction,
-          grid: battle.grid,
-          contextUserId: activeUser.userId,
-          actorId: activeUser.userId,
-          longitude: activeUser.longitude,
-          latitude: activeUser.latitude,
-        });
-      } catch (err) {
-        console.error("Error auto-ending turn:", err);
-      }
+      const completeBattle: CompleteBattle = {
+        ...battle,
+        usersState: battle.usersState.map((user) => ({
+          ...user,
+          ninjutsuOffence: user.ninjutsuOffence ?? 0,
+          taijutsuOffence: user.taijutsuOffence ?? 0,
+          genjutsuOffence: user.genjutsuOffence ?? 0,
+          bukijutsuOffence: user.bukijutsuOffence ?? 0,
+          ninjutsuDefence: user.ninjutsuDefence ?? 0,
+          taijutsuDefence: user.taijutsuDefence ?? 0,
+          genjutsuDefence: user.genjutsuDefence ?? 0,
+          bukijutsuDefence: user.bukijutsuDefence ?? 0,
+          aiCalls: user.aiCalls ?? 0,
+        })),
+      };
+
+      performBattleAction({
+        battle: completeBattle,
+        action: endTurnAction,
+        grid: battle.grid,
+        contextUserId: activeUser.userId,
+        actorId: activeUser.userId,
+        longitude: activeUser.longitude,
+        latitude: activeUser.latitude,
+      });
     }
   }
 
