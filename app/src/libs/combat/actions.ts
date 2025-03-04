@@ -731,60 +731,68 @@ export const calcActiveUser = (
   let progressRound = false;
   // Determine if the current user should have their turn ended or be skipped
   const shouldEndTurn = battle.activeUserId && secondsLeft <= 0;
-  const shouldSkipTurn =
-    activeUserId &&
-    (hasNoAvailableActions(battle, activeUserId) ||
-      !inBattleuserIds.includes(activeUserId));
+const shouldSkipTurn =
+  activeUserId &&
+  (hasNoAvailableActions(battle, activeUserId) ||
+    !inBattleuserIds.includes(activeUserId));
 
-  if (shouldEndTurn) {
-    const activeUser = battle.usersState.find((u) => u.userId === activeUserId);
+if (shouldEndTurn) {
+  const activeUser = battle.usersState.find((u) => u.userId === activeUserId);
 
-    if (activeUser) {
-      console.log(`Timer expired for ${activeUser.username}. Auto-ending turn.`);
+  if (activeUser) {
+    console.log(`Timer expired for ${activeUser.username}. Auto-ending turn.`);
 
-      const endTurnAction = {
-        id: "wait",
-        name: "End Turn",
-        image: IMG_BASIC_WAIT,
-        battleDescription: `${activeUser.username} stands and does nothing.`,
-        type: "basic",
-        target: "SELF",
-        method: "SINGLE",
-        healthCost: 0,
-        chakraCost: 0,
-        staminaCost: 0,
-        actionCostPerc: activeUser.actionPoints,
-        range: 0,
-        updatedAt: Date.now(),
-        cooldown: 0,
-        effects: [],
-      };
+    const endTurnAction = {
+      id: "wait",
+      name: "End Turn",
+      image: IMG_BASIC_WAIT,
+      battleDescription: `${activeUser.username} stands and does nothing.`,
+      type: "basic",
+      target: "SELF",
+      method: "SINGLE",
+      healthCost: 0,
+      chakraCost: 0,
+      staminaCost: 0,
+      actionCostPerc: activeUser.actionPoints ?? 100,
+      range: 0,
+      updatedAt: Date.now(),
+      cooldown: 0,
+      effects: [],
+    };
 
-      const completeBattle: CompleteBattle = {
-        ...battle,
-        usersState: battle.usersState.map((user) => ({
-          ...user,
-          ninjutsuOffence: user.ninjutsuOffence ?? 0,
-          taijutsuOffence: user.taijutsuOffence ?? 0,
-          genjutsuOffence: user.genjutsuOffence ?? 0,
-          bukijutsuOffence: user.bukijutsuOffence ?? 0,
-          ninjutsuDefence: user.ninjutsuDefence ?? 0,
-          taijutsuDefence: user.taijutsuDefence ?? 0,
-          genjutsuDefence: user.genjutsuDefence ?? 0,
-          bukijutsuDefence: user.bukijutsuDefence ?? 0,
-          strength: user.strength ?? 0,
-          speed: user.speed ?? 0,
-          intelligence: user.intelligence ?? 0,
-          willpower: user.willpower ?? 0,
-          curHealth: user.curHealth ?? 0,
-          curChakra: user.curChakra ?? 0,
-          curStamina: user.curStamina ?? 0,
-          actionPoints: user.actionPoints ?? 0,
-          round: user.round ?? 0,
-          aiCalls: user.aiCalls ?? 0,
-        })),
-      };
+    const completeBattle: CompleteBattle = {
+      ...battle,
+      usersState: battle.usersState.map((user) => ({
+        ...user,
+        ninjutsuOffence: user.ninjutsuOffence ?? 0,
+        taijutsuOffence: user.taijutsuOffence ?? 0,
+        genjutsuOffence: user.genjutsuOffence ?? 0,
+        bukijutsuOffence: user.bukijutsuOffence ?? 0,
+        ninjutsuDefence: user.ninjutsuDefence ?? 0,
+        taijutsuDefence: user.taijutsuDefence ?? 0,
+        genjutsuDefence: user.genjutsuDefence ?? 0,
+        bukijutsuDefence: user.bukijutsuDefence ?? 0,
+        strength: user.strength ?? 10,
+        speed: user.speed ?? 10,
+        intelligence: user.intelligence ?? 10,
+        willpower: user.willpower ?? 10,
+        curHealth: user.curHealth ?? 100,
+        curChakra: user.curChakra ?? 100,
+        curStamina: user.curStamina ?? 100,
+        actionPoints: user.actionPoints ?? 100,
+        round: user.round ?? 0,
+        aiCalls: user.aiCalls ?? 0,
+        initiative: user.initiative ?? 0,
+        direction: user.direction ?? "right",
+        allyVillage: user.allyVillage ?? false,
+        moneyStolen: user.moneyStolen ?? 0,
+        usedActions: user.usedActions ?? [],
+        leftBattle: user.leftBattle ?? false,
+        fledBattle: user.fledBattle ?? false,
+      })),
+    };
 
+    try {
       performBattleAction({
         battle: completeBattle,
         action: endTurnAction,
@@ -794,18 +802,21 @@ export const calcActiveUser = (
         longitude: activeUser.longitude,
         latitude: activeUser.latitude,
       });
+    } catch (error) {
+      console.error("Error auto-ending turn:", error);
     }
   }
+}
 
-  // If turn should end or be skipped, progress to the next player
-  if (shouldEndTurn || shouldSkipTurn) {
-    const curIdx = inBattleuserIds.indexOf(activeUserId ?? "");
-    const newIdx = (curIdx + 1) % inBattleuserIds.length;
-    const curUser = usersInBattle.find((u) => u.userId === activeUserId);
-    if (curUser) curUser.round = battle.round;
-    if (usersInBattle.every((u) => u.round >= battle.round)) progressRound = true;
-    activeUserId = inBattleuserIds[newIdx] || userId;
-  }
+// If turn should end or be skipped, progress to the next player
+if (shouldEndTurn || shouldSkipTurn) {
+  const curIdx = inBattleuserIds.indexOf(activeUserId ?? "");
+  const newIdx = (curIdx + 1) % inBattleuserIds.length;
+  const curUser = usersInBattle.find((u) => u.userId === activeUserId);
+  if (curUser) curUser.round = battle.round;
+  if (usersInBattle.every((u) => u.round >= battle.round)) progressRound = true;
+  activeUserId = inBattleuserIds[newIdx] || userId;
+}
  // Find the user in question, and return him
  const actor = battle.usersState.find((u) => u.userId === activeUserId);
  if (!actor) {
