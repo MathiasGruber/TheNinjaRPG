@@ -1189,21 +1189,30 @@ export const poison = (
   action: CombatAction,
   actorId: string,
   consequences: Map<string, Consequence>,
-  target: BattleUserState
+  target: BattleUserState,
 ) => {
+  const { pass } = preventCheck(usersEffects, "debuffprevent", target);
+  if (!pass) return preventResponse(effect, target, "cannot be debuffed");
   const { power, qualifier } = getPower(effect);
-  // Always calculate poison damage every tick:
-  const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
-  consequences.set(effect.id,{
-    userId: effect.creatorId,
-    targetId: effect.targetId,
-    poison: dmg,
-  });
-  return getInfo(
-    target,
-    effect,
-    `will take ${qualifier} of chakra and stamina spent as poison damage`
-  );
+
+  // Either let the user know they're poisoned, or figure out how much damage they took
+  if (effect.isNew && effect.castThisRound) {
+    return getInfo(
+      target,
+      effect,
+      `will take ${qualifier} of chakra and stamina spent as poison damage`,
+    );
+  }
+
+  // Figure out how much poison damage target took
+  if (actorId === target.userId) {
+    const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
+    consequences.set(effect.id, {
+      userId: effect.creatorId,
+      targetId: effect.targetId,
+      poison: dmg,
+    });
+  }
 };
 
 /** Create a temporary HP shield that absorbs damage */
