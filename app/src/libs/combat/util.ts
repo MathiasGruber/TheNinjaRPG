@@ -196,6 +196,7 @@ export const calcApplyRatio = (
     "lifesteal",
     "moveprevent",
     "onehitkillprevent",
+    "poison",
     "recoil",
     "reflect",
     "robprevent",
