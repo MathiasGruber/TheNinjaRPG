@@ -1230,21 +1230,19 @@ export const poison = (
         }
       }
     });
-  }
+    // Sum the modified costs.
+    const totalCost = modifiedChakraCost + modifiedStaminaCost;
 
-  // Sum the modified costs.
-  const totalCost = modifiedChakraCost + modifiedStaminaCost;
+    // Calculate poison damage using the modified total cost.
+    const dmg = Math.floor(totalCost * (power / 100));
 
-  // Calculate poison damage using the modified total cost.
-  const dmg = Math.floor(totalCost * (power / 100));
-
-  consequences.set(effect.id, {
-    userId: effect.creatorId,
-    targetId: effect.targetId,
-    poison: dmg,
-  });
+    consequences.set(effect.id, {
+      userId: effect.creatorId,
+      targetId: effect.targetId,
+      poison: dmg,
+    });
+  };
 };
-
 /** Create a temporary HP shield that absorbs damage */
 export const shield = (effect: UserEffect, target: BattleUserState) => {
   // Apply
