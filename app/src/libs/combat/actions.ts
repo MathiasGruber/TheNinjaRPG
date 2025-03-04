@@ -764,14 +764,14 @@ if (shouldEndTurn) {
   ...battle,
   usersState: battle.usersState.map((user) => ({
     ...user,
-    ninjutsuOffence: user.ninjutsuOffence ?? 0,
-    taijutsuOffence: user.taijutsuOffence ?? 0,
-    genjutsuOffence: user.genjutsuOffence ?? 0,
-    bukijutsuOffence: user.bukijutsuOffence ?? 0,
-    ninjutsuDefence: user.ninjutsuDefence ?? 0,
-    taijutsuDefence: user.taijutsuDefence ?? 0,
-    genjutsuDefence: user.genjutsuDefence ?? 0,
-    bukijutsuDefence: user.bukijutsuDefence ?? 0,
+    ninjutsuOffence: user.ninjutsuOffence ?? 10,
+    taijutsuOffence: user.taijutsuOffence ?? 10,
+    genjutsuOffence: user.genjutsuOffence ?? 10,
+    bukijutsuOffence: user.bukijutsuOffence ?? 10,
+    ninjutsuDefence: user.ninjutsuDefence ?? 10,
+    taijutsuDefence: user.taijutsuDefence ?? 10,
+    genjutsuDefence: user.genjutsuDefence ?? 10,
+    bukijutsuDefence: user.bukijutsuDefence ?? 10,
     strength: user.strength ?? 10,
     speed: user.speed ?? 10,
     intelligence: user.intelligence ?? 10,
@@ -806,7 +806,9 @@ if (shouldEndTurn) {
     items: user.items ?? [],
     hex: user.hex ?? undefined,
     clan: user.clan ?? null,
-    status: user.status ?? "BATTLE"
+    status: user.status ?? "BATTLE",
+    hidden: user.hidden ?? false,
+    createdAt: user.createdAt ?? new Date(),
   })),
 };
 
