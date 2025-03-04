@@ -745,7 +745,7 @@ export const calcActiveUser = (
     const endTurnAction = availableUserActions(battle, safeUserId).find(a => a.id === "wait");
     if (endTurnAction) {
       performBattleAction({
-        battle,
+        battle: battle as CompleteBattle,
         action: endTurnAction,
         grid,
         contextUserId: safeUserId,
