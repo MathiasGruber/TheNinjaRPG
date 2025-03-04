@@ -1196,24 +1196,50 @@ export const poison = (
   if (!pass) return preventResponse(effect, target, "cannot be debuffed");
   const { power, qualifier } = getPower(effect);
 
-  // Either let the user know they're poisoned, or figure out how much damage they took
+  // If the effect is new and is being cast this round, just return an info message.
   if (effect.isNew && effect.castThisRound) {
     return getInfo(
       target,
       effect,
-      `will take ${qualifier} of chakra and stamina spent as poison damage`,
+      `will take ${qualifier} of chakra and stamina spent as poison damage`
     );
   }
 
-  // Figure out how much poison damage target took
-  if (!effect.castThisRound && actorId === target.userId) {
-    const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
-    consequences.set(effect.id, {
-      userId: effect.creatorId,
-      targetId: effect.targetId,
-      poison: dmg,
-    });
-  }
+  // Calculate modified costs based on pool adjustment effects.
+  // Start with the base costs from the action.
+  let modifiedChakraCost = action.chakraCost;
+  let modifiedStaminaCost = action.staminaCost;
+
+  // Iterate over active pool adjustment effects affecting the target.
+  usersEffects.forEach((eff) => {
+    if (
+      (eff.type === "increasepoolcost" || eff.type === "decreasepoolcost") &&
+      eff.targetId === target.userId &&
+      eff.poolsAffected &&
+      Array.isArray(eff.poolsAffected)
+    ) {
+      // For Chakra: use the multiplier (1 + eff.power/100).
+      if (eff.poolsAffected.includes("Chakra")) {
+        modifiedChakraCost *= (1 + eff.power / 100);
+      }
+      // For Stamina: use the multiplier (1 + eff.power/100).
+      if (eff.poolsAffected.includes("Stamina")) {
+        modifiedStaminaCost *= (1 + eff.power / 100);
+      }
+    }
+  });
+
+  // Sum the modified costs.
+  const totalCost = modifiedChakraCost + modifiedStaminaCost;
+
+  // Calculate poison damage using the modified total cost.
+  const dmg = Math.floor(totalCost * (power / 100));
+
+  consequences.set(effect.id, {
+    userId: effect.creatorId,
+    targetId: effect.targetId,
+    poison: dmg,
+  });
 };
 
 /** Create a temporary HP shield that absorbs damage */
