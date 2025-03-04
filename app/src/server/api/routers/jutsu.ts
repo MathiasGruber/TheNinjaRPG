@@ -17,6 +17,7 @@ import {
   JUTSU_TRANSFER_COST,
   JUTSU_TRANSFER_DAYS,
   JUTSU_TRANSFER_MAX_LEVEL,
+  JUTSU_TRANSFER_MINIMUM_LEVEL
 } from "@/drizzle/constants";
 import {
   calcJutsuTrainTime,
@@ -93,6 +94,11 @@ export const jutsuRouter = createTRPCRouter({
       }
       if (fromJutsu.jutsuRank !== toJutsu.jutsuRank) {
         return errorResponse("Jutsus must be of the same rank");
+      }
+      if (fromUserJutsu.level < JUTSU_TRANSFER_MINIMUM_LEVEL) {
+        return errorResponse(
+          `Source jutsu must be at least ${JUTSU_TRANSFER_MINIMUM_LEVEL} to transfer levels`
+        );
       }
       if (fromUserJutsu.level > JUTSU_TRANSFER_MAX_LEVEL) {
         return errorResponse(
