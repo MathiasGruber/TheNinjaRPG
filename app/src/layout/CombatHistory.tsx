@@ -1,4 +1,4 @@
-import React from "react";
+import React from "react"; 
 import Loader from "./Loader";
 import ElementImage from "@/layout/ElementImage";
 import { api } from "@/app/_trpc/client";
