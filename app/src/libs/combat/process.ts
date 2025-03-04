@@ -403,7 +403,7 @@ export const applyEffects = (
           } else if (e.type === "shield") {
             info = shield(e, curTarget);
           } else if (e.type === "poison" && action) {
-            info = poison(e, action, actorId, consequences, curTarget);
+            info = poison(e, action, actorId, consequences, curTarget, usersEffects);
           }
           updateStatUsage(newTarget, e, true);
         }
