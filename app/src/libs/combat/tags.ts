@@ -803,7 +803,7 @@ export const damageCalc = (
 
 /** Calculate damage modifier, e.g. from weakness tag */
 export const calcDmgModifier = (
-  dmgEffect: UserEffect & (DamageTagType | PierceTagType | ResidualTagType),
+  dmgEffect: UserEffect & (DamageTagType | PierceTagType),
   target: BattleUserState,
   usersState: UserEffect[],
 ) => {
