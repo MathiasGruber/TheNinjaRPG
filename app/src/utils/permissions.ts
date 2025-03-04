@@ -29,6 +29,10 @@ export const canSubmitNotification = (role: UserRole) => {
   ].includes(role);
 };
 
+export const canTransferJutsu = (role: UserRole) => {
+  return role !== "USER";
+};
+
 export const canModifyEventGains = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };

@@ -1025,7 +1025,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
                                     type="number"
                                     className="w-20"
                                     min={0}
-                                    max={JUTSU_LEVEL_CAP}
+                                    max={25}
                                     {...field}
                                     onChange={(e) => {
                                       const value = e.target.value;
