@@ -1194,7 +1194,7 @@ export const poison = (
   const { power, qualifier } = getPower(effect);
   // Always calculate poison damage every tick:
   const dmg = Math.floor((action.chakraCost + action.staminaCost) * (power / 100));
-  consequences.set({
+  consequences.set(effect.id,{
     userId: effect.creatorId,
     targetId: effect.targetId,
     poison: dmg,
