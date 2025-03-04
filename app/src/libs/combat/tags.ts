@@ -1190,6 +1190,7 @@ export const poison = (
   actorId: string,
   consequences: Map<string, Consequence>,
   target: BattleUserState,
+  usersEffects: UserEffect[],
 ) => {
   const { pass } = preventCheck(usersEffects, "debuffprevent", target);
   if (!pass) return preventResponse(effect, target, "cannot be debuffed");
