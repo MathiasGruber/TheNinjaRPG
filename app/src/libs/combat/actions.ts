@@ -729,129 +729,55 @@ export const calcActiveUser = (
   const inBattleuserIds = usersInBattle.map((u) => u.userId);
   let activeUserId = battle.activeUserId ? battle.activeUserId : userId;
   let progressRound = false;
-  // Determine if the current user should have their turn ended or be skipped
-  const shouldEndTurn = battle.activeUserId && secondsLeft <= 0;
-const shouldSkipTurn =
-  activeUserId &&
-  (hasNoAvailableActions(battle, activeUserId) ||
-    !inBattleuserIds.includes(activeUserId));
-
-if (shouldEndTurn) {
-  const activeUser = battle.usersState.find((u) => u.userId === activeUserId);
-
-  if (activeUser) {
-    console.log(`Timer expired for ${activeUser.username}. Auto-ending turn.`);
-
-    const endTurnAction = {
-      id: "wait",
-      name: "End Turn",
-      image: IMG_BASIC_WAIT,
-      battleDescription: `${activeUser.username} stands and does nothing.`,
-      type: "basic",
-      target: "SELF",
-      method: "SINGLE",
-      healthCost: 0,
-      chakraCost: 0,
-      staminaCost: 0,
-      actionCostPerc: activeUser.actionPoints ?? 100,
-      range: 0,
-      updatedAt: Date.now(),
-      cooldown: 0,
-      effects: [],
-    };
-
-    const completeBattle: CompleteBattle = {
-  ...battle,
-  usersState: battle.usersState.map((user) => ({
-    ...user,
-    ninjutsuOffence: user.ninjutsuOffence ?? 10,
-    taijutsuOffence: user.taijutsuOffence ?? 10,
-    genjutsuOffence: user.genjutsuOffence ?? 10,
-    bukijutsuOffence: user.bukijutsuOffence ?? 10,
-    ninjutsuDefence: user.ninjutsuDefence ?? 10,
-    taijutsuDefence: user.taijutsuDefence ?? 10,
-    genjutsuDefence: user.genjutsuDefence ?? 10,
-    bukijutsuDefence: user.bukijutsuDefence ?? 10,
-    strength: user.strength ?? 10,
-    speed: user.speed ?? 10,
-    intelligence: user.intelligence ?? 10,
-    willpower: user.willpower ?? 10,
-    curHealth: user.curHealth ?? 100,
-    curChakra: user.curChakra ?? 100,
-    curStamina: user.curStamina ?? 100,
-    actionPoints: user.actionPoints ?? 100,
-    round: user.round ?? 0,
-    aiCalls: user.aiCalls ?? 0,
-    initiative: user.initiative ?? 0,
-    direction: user.direction ?? "right",
-    allyVillage: user.allyVillage ?? false,
-    moneyStolen: user.moneyStolen ?? 0,
-    usedActions: user.usedActions ?? [],
-    leftBattle: user.leftBattle ?? false,
-    fledBattle: user.fledBattle ?? false,
-    isAggressor: user.isAggressor ?? false,
-    bank: user.bank ?? 0, // <-- Fixing the bank field issue
-    originalLongitude: user.originalLongitude ?? 0,
-    originalLatitude: user.originalLatitude ?? 0,
-    originalMoney: user.originalMoney ?? 0,
-    controllerId: user.controllerId ?? "",
-    highestOffence: user.highestOffence ?? "ninjutsuOffence",
-    highestDefence: user.highestDefence ?? "ninjutsuDefence",
-    highestGenerals: user.highestGenerals ?? [],
-    relations: user.relations ?? [],
-    usedGenerals: user.usedGenerals ?? [],
-    usedStats: user.usedStats ?? [],
-    jutsus: user.jutsus ?? [],
-    basicActions: user.basicActions ?? [],
-    items: user.items ?? [],
-    hex: user.hex ?? undefined,
-    clan: user.clan ?? null,
-    status: user.status ?? "BATTLE",
-    hidden: user.hidden ?? false,
-    createdAt: user.createdAt ?? new Date(),
-  })),
-};
-
-    try {
+  // Check 1: We have an active user, but the round is up
+  const check1 = battle.activeUserId && secondsLeft <= 0;
+  const { actor, changedActor, progressRound, mseconds, secondsLeft } = calcActiveUser(battle, userId);
+  if (check1) {
+    // Automatically trigger end-turn (i.e. the "wait" action)
+    const endTurnAction = availableUserActions(battle, userId).find(a => a.id === "wait");
+    if (endTurnAction) {
       performBattleAction({
-        battle: completeBattle,
+        battle,
         action: endTurnAction,
-        grid: battle.grid,
-        contextUserId: activeUser.userId,
-        actorId: activeUser.userId,
-        longitude: activeUser.longitude,
-        latitude: activeUser.latitude,
+        grid,
+        contextUserId: userId,
+        actorId: userId,
+        longitude: actor.longitude,
+        latitude: actor.latitude,
       });
-    } catch (error) {
-      console.error("Error auto-ending turn:", error);
     }
   }
-}
+  // Check 2: We have an active user, but he/she does not have any more action points
+  const check2 = activeUserId && hasNoAvailableActions(battle, activeUserId);
+  // Check 3: Current active userID is not in active user array
+  const check3 = activeUserId && !inBattleuserIds.includes(activeUserId);
+  // Progress to next user in case of any checks went through
+  if (inBattleuserIds.length > 1 && (check1 || check2 || check3)) {
+    const curIdx = inBattleuserIds.indexOf(activeUserId ?? "");
+    const newIdx = (curIdx + 1) % inBattleuserIds.length;
+    const curUser = usersInBattle.find((u) => u.userId === activeUserId);
+    if (curUser) curUser.round = battle.round;
+    if (usersInBattle.every((u) => u.round >= battle.round)) progressRound = true;
+    activeUserId = inBattleuserIds[newIdx] || userId;
+  } else if (inBattleuserIds.length === 1) {
+    activeUserId = inBattleuserIds[0];
+  }
 
-// If turn should end or be skipped, progress to the next player
-if (shouldEndTurn || shouldSkipTurn) {
-  const curIdx = inBattleuserIds.indexOf(activeUserId ?? "");
-  const newIdx = (curIdx + 1) % inBattleuserIds.length;
-  const curUser = usersInBattle.find((u) => u.userId === activeUserId);
-  if (curUser) curUser.round = battle.round;
-  if (usersInBattle.every((u) => u.round >= battle.round)) progressRound = true;
-  activeUserId = inBattleuserIds[newIdx] || userId;
-}
- // Find the user in question, and return him
- const actor = battle.usersState.find((u) => u.userId === activeUserId);
- if (!actor) {
-  throw new Error(`
-    No active user: ${activeUserId}. 
-    Initial userId: ${userId}. 
-    Check 1/2/3: ${check1}/${check2}/${check3}.
-    BattleRound: ${battle.round}.
-    BattleType: ${battle.battleType}.
-    activeUserId: ${battle.activeUserId}.
-    usersInBattle: ${usersInBattle.length}.
-  `);
-}
-// Check if we have a new active user
-const changedActor = actor.userId !== battle.activeUserId;
-// Return info
-return { actor, changedActor, progressRound, mseconds, secondsLeft };
+  // Find the user in question, and return him
+  const actor = battle.usersState.find((u) => u.userId === activeUserId);
+  if (!actor) {
+    throw new Error(`
+      No active user: ${activeUserId}. 
+      Initial userId: ${userId}. 
+      Check 1/2/3: ${check1}/${check2}/${check3}.
+      BattleRound: ${battle.round}.
+      BattleType: ${battle.battleType}.
+      activeUserId: ${battle.activeUserId}.
+      usersInBattle: ${usersInBattle.length}.
+    `);
+  }
+  // Check if we have a new active user
+  const changedActor = actor.userId !== battle.activeUserId;
+  // Return info
+  return { actor, changedActor, progressRound, mseconds, secondsLeft };
 };
