@@ -731,7 +731,13 @@ export const calcActiveUser = (
   let progressRound = false;
   // Check 1: We have an active user, but the round is up
   const check1 = battle.activeUserId && secondsLeft <= 0;
-  const { actor, changedActor, progressRound, mseconds, secondsLeft } = calcActiveUser(battle, userId);
+  const {
+    actor: newActor,
+    changedActor: newChangedActor,
+    progressRound: newProgressRound,
+    mseconds: newMseconds,
+    secondsLeft: newSecondsLeft,
+  } = calcActiveUser(battle, userId);
   if (check1) {
     // Automatically trigger end-turn (i.e. the "wait" action)
     const endTurnAction = availableUserActions(battle, userId).find(a => a.id === "wait");
@@ -742,8 +748,8 @@ export const calcActiveUser = (
         grid,
         contextUserId: userId,
         actorId: userId,
-        longitude: actor.longitude,
-        latitude: actor.latitude,
+        longitude: newActor.longitude,
+        latitude: newActor.latitude,
       });
     }
   }
