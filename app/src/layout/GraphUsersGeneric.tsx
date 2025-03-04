@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useCallback } from "react";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getSearchValidator } from "@/validators/register";
 import Cytoscape from "cytoscape";
@@ -34,7 +34,11 @@ const GraphUsersGeneric: React.FC<GraphUsersGenericProps> = (props) => {
     resolver: zodResolver(userSearchSchema),
     defaultValues: { users: [] },
   });
-  const highlights = userSearchMethods.watch("users", []).map((u) => u.userId);
+  const highlights = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  }).map((u) => u.userId);
   const joinedHighlights = highlights.sort((a, b) => (a < b ? -1 : 1)).join(",");
 
   // If we are highlighting users, find out which users to show

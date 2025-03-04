@@ -650,26 +650,28 @@ export const intersectUsers = (info: {
       }
     }
     if (locationUsers.length === 1 && userMesh) {
-      const userId = userMesh.userData.userId as string;
-      const user = users.find((u) => u.userId === userId);
-      if (user) {
-        const attack = userMesh?.children[3] as Sprite;
-        const details = userMesh?.children[4] as Sprite;
-        const relationship =
-          userData.village &&
-          findVillageUserRelationship(userData.village, user.villageId);
-        const isAlly =
-          user.villageId === userData.villageId || relationship?.status === "ALLY";
-        const showAttack =
-          !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (allyAttack || !isAlly);
-        if (attack && userData.userId !== userId && showAttack) {
-          attack.visible = true;
+      const userId = userMesh.userData.userId as string | undefined;
+      if (userId) {
+        const user = users.filter(Boolean).find((u) => u.userId === userId);
+        if (user) {
+          const attack = userMesh?.children[3] as Sprite;
+          const details = userMesh?.children[4] as Sprite;
+          const relationship =
+            userData.village &&
+            findVillageUserRelationship(userData.village, user.villageId);
+          const isAlly =
+            user.villageId === userData.villageId || relationship?.status === "ALLY";
+          const showAttack =
+            !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (allyAttack || !isAlly);
+          if (attack && userData.userId !== userId && showAttack) {
+            attack.visible = true;
+          }
+          if (details) details.visible = true;
+          if (document.body.style.cursor !== "wait") {
+            document.body.style.cursor = "pointer";
+          }
+          newUserTooltips.add(userMesh.name);
         }
-        if (details) details.visible = true;
-        if (document.body.style.cursor !== "wait") {
-          document.body.style.cursor = "pointer";
-        }
-        newUserTooltips.add(userMesh.name);
       }
     }
   }

@@ -5,7 +5,7 @@ import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { registrationSchema } from "@/validators/register";
 import { secondsFromNow } from "@/utils/time";
 import { getMostCommonElement } from "@/utils/array";
-import { userData, village, userAttribute } from "@/drizzle/schema";
+import { userData, village, userAttribute, emailReminder } from "@/drizzle/schema";
 
 export const registerRouter = createTRPCRouter({
   // Create Character
@@ -22,12 +22,15 @@ export const registerRouter = createTRPCRouter({
         input.question5,
         input.question6,
       ]);
-      const [villageData, user] = await Promise.all([
+      const [villageData, user, reminder] = await Promise.all([
         ctx.drizzle.query.village.findFirst({
           where: eq(village.name, villageName || "none"),
         }),
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.username, input.username),
+        }),
+        ctx.drizzle.query.emailReminder.findFirst({
+          where: eq(emailReminder.userId, ctx.userId),
         }),
       ]);
 
@@ -70,6 +73,7 @@ export const registerRouter = createTRPCRouter({
           approvedTos: 1,
           sector: villageData.sector,
           immunityUntil: secondsFromNow(24 * 3600),
+          ...(reminder ? { earnedExperience: 10000 } : {}),
         }),
       ]);
       if (input.recruiter_userid) {

@@ -30,6 +30,7 @@ export async function GET() {
       dailyMissions: 0,
       dailyErrands: 0,
       dailyTrainings: 0,
+      aiCalls: 0,
     });
 
     // For kages, reduce village Prestige by KAGE_DAILY_PRESTIGE_LOSS & the 1 just added

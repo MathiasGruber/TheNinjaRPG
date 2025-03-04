@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userSearchSchema } from "@/validators/register";
 import type { UserSearchSchema } from "@/validators/register";
@@ -20,7 +20,11 @@ export const useUserSearch = () => {
     mode: "all",
   });
   // Watch username field
-  const watchUsername = form.watch("username", "");
+  const watchUsername = useWatch({
+    control: form.control,
+    name: "username",
+    defaultValue: "",
+  });
   // Update search term with delay
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -49,7 +53,11 @@ export const useFieldSearch = () => {
     mode: "all",
   });
   // Watch username field
-  const watchedValue = form.watch("term", "");
+  const watchedValue = useWatch({
+    control: form.control,
+    name: "term",
+    defaultValue: "",
+  });
   // Update search term with delay
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {

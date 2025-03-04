@@ -1,6 +1,4 @@
 import OpenAI from "openai";
-import { nanoid } from "nanoid";
-import { automatedModeration } from "@/drizzle/schema";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { openai as openaiSdk } from "@ai-sdk/openai";
@@ -9,6 +7,7 @@ import { conversationComment, forumPost, userReportComment } from "@/drizzle/sch
 import { userData } from "@/drizzle/schema";
 import { generateText } from "ai";
 import { insertUserReport } from "@/routers/reports";
+import { insertAutomatedModeration } from "@/routers/reports";
 import { TERR_BOT_ID, REPORT_CONTEXT_WINDOW, BanStates } from "@/drizzle/constants";
 import type { UserReport } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -113,24 +112,25 @@ export const moderateContent = async (
     ]);
     // Step 3: Insert moderation & if relevant the report + update reported status
     return Promise.all([
-      client.insert(automatedModeration).values({
-        id: nanoid(),
-        content: content,
+      insertAutomatedModeration(client, {
         userId: userId,
+        content: content,
         relationType: relationType,
-        sexual: result.categories.sexual,
-        sexual_minors: result.categories["sexual/minors"],
-        harassment: result.categories.harassment,
-        harassment_threatening: result.categories["harassment/threatening"],
-        hate: result.categories.hate,
-        hate_threatening: result.categories["hate/threatening"],
-        illicit: result.categories.illicit,
-        illicit_violent: result.categories["illicit/violent"],
-        self_harm: result.categories["self-harm"],
-        self_harm_intent: result.categories["self-harm/intent"],
-        self_harm_instructions: result.categories["self-harm/instructions"],
-        violence: result.categories.violence,
-        violence_graphic: result.categories["violence/graphic"],
+        categories: {
+          sexual: result.categories.sexual,
+          sexual_minors: result.categories["sexual/minors"],
+          harassment: result.categories.harassment,
+          harassment_threatening: result.categories["harassment/threatening"],
+          hate: result.categories.hate,
+          hate_threatening: result.categories["hate/threatening"],
+          illicit: result.categories.illicit ?? false,
+          illicit_violent: result.categories["illicit/violent"] ?? false,
+          self_harm: result.categories["self-harm"],
+          self_harm_intent: result.categories["self-harm/intent"],
+          self_harm_instructions: result.categories["self-harm/instructions"],
+          violence: result.categories.violence,
+          violence_graphic: result.categories["violence/graphic"],
+        },
       }),
       ...(decision.createReport !== "REPORT_CLEARED"
         ? [

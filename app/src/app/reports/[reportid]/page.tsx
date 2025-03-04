@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseHtml } from "@/utils/parse";
 import { MessagesSquare, Rocket, ShieldAlert } from "lucide-react";
@@ -80,32 +80,33 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
     reset,
     register,
     setValue,
-    watch,
     control,
     formState: { errors },
   } = useForm<ReportCommentSchema>({
     defaultValues: {
+      comment: "",
       banTime: 0,
       banTimeUnit: "days",
     },
     resolver: zodResolver(reportCommentSchema),
   });
 
-  const watchedComment = watch("comment", "");
-  const watchedLength = watch("banTime", 0);
-  const watchedUnit = watch("banTimeUnit", "days");
+  const watchedComment = useWatch({ control, name: "comment", defaultValue: "" });
+  const watchedLength = useWatch({ control, name: "banTime", defaultValue: 0 });
+  const watchedUnit = useWatch({ control, name: "banTimeUnit", defaultValue: "days" });
 
   // Get utils
   const utils = api.useUtils();
 
-  // How to deal with success responses
   const onSuccess = async (data: BaseServerResponse) => {
     showMutationToast(data);
-    await utils.reports.getAll.invalidate();
-    await utils.reports.get.invalidate();
-    await utils.comments.getReportComments.invalidate();
-    await utils.profile.getUser.invalidate();
-    reset();
+    if (data.success) {
+      await utils.reports.getAll.invalidate();
+      await utils.reports.get.invalidate();
+      await utils.comments.getReportComments.invalidate();
+      await utils.profile.getUser.invalidate();
+      reset();
+    }
   };
 
   const banUser = api.reports.ban.useMutation({ onSuccess });
@@ -241,9 +242,9 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
                     <SelectValue placeholder={`None`} />
                   </SelectTrigger>
                   <SelectContent>
-                    {TimeUnits.map((unit) => (
-                      <SelectItem key={unit} value={unit}>
-                        {unit}
+                    {TimeUnits.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
                       </SelectItem>
                     ))}
                   </SelectContent>

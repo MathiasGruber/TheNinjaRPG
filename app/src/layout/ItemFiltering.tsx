@@ -26,7 +26,7 @@ import {
 } from "@/drizzle/constants";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { effectFilters } from "@/libs/train";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
@@ -60,7 +60,7 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
     resolver: zodResolver(searchJutsuSchema),
     defaultValues: { name: name },
   });
-  const watchName = form.watch("name", "");
+  const watchName = useWatch({ control: form.control, name: "name", defaultValue: "" });
 
   // Update the state
   useEffect(() => {

@@ -83,6 +83,11 @@ build: # Build Next.js app
 	@echo "${GREEN}build${RESET}"
 	cd app && bun run build
 
+.PHONY: bundleanalysis
+bundleanalysis: # Build Next.js app with bundle analysis
+	@echo "${GREEN}bundleanalysis${RESET}"
+	cd app && bun run build-stats
+
 .PHONY: openhands
 openhands: # Open OpenHands on http://127.0.0.1:3004
 	@echo "${GREEN}Launch Open Hands${RESET}"
@@ -100,6 +105,12 @@ openhands: # Open OpenHands on http://127.0.0.1:3004
 		--add-host host.docker.internal:host-gateway \
 		--name openhands-app \
 		docker.all-hands.dev/all-hands-ai/openhands:0.19
+
+--------------AI-helpers----------------: # -------------------------------------------------------
+.PHONY: browser-tools-server
+browser-tools-server: # Run browser-tools MCP server, allowing AI to see browser
+	@echo "${GREEN}browser-tools-server${RESET}"
+	npx @agentdeskai/browser-tools-server
 
 --------------Migrations----------------: # -------------------------------------------------------
 .PHONY: dbpush

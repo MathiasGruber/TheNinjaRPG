@@ -300,6 +300,7 @@ export const QuestTypes = [
   "achievement",
 ] as const;
 export type QuestType = (typeof QuestTypes)[number];
+export const QUESTS_CONCURRENT_LIMIT = 4;
 
 export const SmileyEmotions = ["like", "love", "laugh"] as const;
 
@@ -358,6 +359,7 @@ export const ElementNames = [
   "Lava",
   "Explosion",
   "Light",
+  "Boil",
   "None",
 ] as const;
 export type ElementName = (typeof ElementNames)[number];
@@ -370,6 +372,7 @@ export const MAX_ATTRIBUTES = 5;
 export const RYO_CAP = 1000000000;
 export const MAX_STATS_CAP = 450000;
 export const MAX_GENS_CAP = 200000;
+export const MAX_DAILY_AI_CALLS = 100;
 
 export const ROLL_CHANCE = {
   ["H"]: 0,
@@ -400,6 +403,9 @@ export const BLOODLINE_COST = {
 } as const;
 
 export const REMOVAL_COST = 5;
+
+export const Sentiment = ["POSITIVE", "NEGATIVE", "NEUTRAL"] as const;
+export type SentimentType = (typeof Sentiment)[number];
 
 // Bank config
 export const BankTransferTypes = ["bank", "sensei", "recruiter"] as const;
@@ -841,7 +847,7 @@ export const IMG_SECTOR_VS_ICON =
 export const IMG_SECTOR_WALL_STONE_TOWER =
   "https://utfs.io/f/aab037bb-7ac7-48f7-9994-548d87eb55f1-lga892.webp";
 export const IMG_MAP_HEXASPHERE =
-  "https://utfs.io/f/eb805d73-5216-4d5c-b3e9-c39cc2340922-ixejn7.json";
+  "https://tnr-storage-cdn.b-cdn.net/eb805d73-5216-4d5c-b3e9-c39cc2340922-ixejn7.json";
 export const IMG_TRAIN_INTELLIGENCE =
   "https://utfs.io/f/815a53ea-23d2-4767-9219-a36ed3d4c619-d73vsv.png";
 export const IMG_TRAIN_WILLPOWER =
@@ -903,6 +909,8 @@ export const IMG_ELEMENT_DUST =
   "https://utfs.io/f/Hzww9EQvYURJchNmlmSnxBpQqGNDcTHbLmYz8uXAl3oa54ti";
 export const IMG_ELEMENT_LIGHTNING =
   "https://utfs.io/f/Hzww9EQvYURJ4DIVIclYIif5CL8BKvMsOh2ZnmS7yHt0jTD3";
+export const IMG_ELEMENT_BOIL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJ5qAGAlo797jl4ubX8xrRqTZasyMp2WA5eLGU";
 
 export const IMG_BASIC_HEAL =
   "https://utfs.io/f/Hzww9EQvYURJnlXNSKmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";

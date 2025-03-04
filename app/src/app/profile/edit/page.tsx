@@ -3,7 +3,7 @@
 import { z } from "zod";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
@@ -85,6 +85,7 @@ export default function EditProfile() {
   // State
   const { data: userData } = useRequiredUserData();
   const [activeElement, setActiveElement] = useState("AI Avatar");
+  const { data: emailReminder } = api.misc.getPersonalEmailReminder.useQuery();
 
   // Loaders
   if (!userData) return <Loader explanation="Loading profile page..." />;
@@ -200,6 +201,16 @@ export default function EditProfile() {
         >
           <ResetStats />
         </Accordion>
+        {emailReminder && (
+          <Accordion
+            title="Email Reminder Settings"
+            selectedTitle={activeElement}
+            unselectedSubtitle="Manage your email notification preferences"
+            onClick={setActiveElement}
+          >
+            <EmailReminderSettings emailReminder={emailReminder} />
+          </Accordion>
+        )}
         <Accordion
           title="Re-Roll Elements"
           selectedTitle={activeElement}
@@ -270,6 +281,36 @@ export default function EditProfile() {
 }
 
 /**
+ * Email Reminder Settings component that shows a button to redirect to the email settings page
+ */
+const EmailReminderSettings: React.FC<{
+  emailReminder: { email: string; secret: string };
+}> = ({ emailReminder }) => {
+  const emailSettingsUrl = `/emailsettings?email=${encodeURIComponent(emailReminder.email)}&secret=${encodeURIComponent(emailReminder.secret)}`;
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="space-y-2 pb-4">
+        <p className="text-sm text-muted-foreground">
+          You have email reminders set up for:{" "}
+          <span className="font-medium">{emailReminder.email}</span>
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Click the button below to manage your email notification preferences.
+        </p>
+      </div>
+
+      <Link href={emailSettingsUrl} passHref>
+        <Button className="flex items-center gap-2 ">
+          <SendHorizontal className="h-4 w-4" />
+          Manage Email Settings
+        </Button>
+      </Link>
+    </div>
+  );
+};
+
+/**
  * Battle Settings Edit
  */
 const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
@@ -298,16 +339,15 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
       },
     });
 
-  const { mutate: updateAiProfile, isPending } =
-    api.ai.updateAiProfile.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getAi.invalidate();
-          await utils.profile.getPublicUser.invalidate();
-        }
-      },
-    });
+  const { mutate: updateAiProfile, isPending } = api.ai.updateAiProfile.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getAi.invalidate();
+        await utils.profile.getPublicUser.invalidate();
+      }
+    },
+  });
 
   // Update highest preferences
   const { mutate: updatePreferences } = api.profile.updatePreferences.useMutation({
@@ -461,8 +501,8 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
               }
             />
             <Label htmlFor="battle-description">Show battle descriptions</Label>
-            < br/>
-            < br/>
+            <br />
+            <br />
             <Confirm
               title="Reset AI Profile"
               button={
@@ -489,9 +529,9 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                 updateAiProfile(defaultAiProfilePayload);
               }}
             >
-              This will reset your AI profile to default settings. This action cannot be undone. Are you sure you want to continue?
+              This will reset your AI profile to default settings. This action cannot be
+              undone. Are you sure you want to continue?
             </Confirm>
-
           </TabsContent>
           <TabsContent value="aiprofile">
             <AiProfileEdit userData={profile} hideTitle />
@@ -520,7 +560,11 @@ const Marriage: React.FC = () => {
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: "", users: [] },
   });
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const targetUser = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
     {},
@@ -1432,7 +1476,7 @@ const CustomTitle: React.FC = () => {
     resolver: zodResolver(FormSchema),
     defaultValues: { title: "" },
   });
-  const curTitle = form.watch("title");
+  const curTitle = useWatch({ control: form.control, name: "title" });
 
   // Form handlers
   const onSubmit = form.handleSubmit((data) => {
@@ -1510,7 +1554,7 @@ const ChangeGender: React.FC = () => {
   const form = useForm<FormSchemaType>({
     resolver: zodResolver(FormSchema),
   });
-  const watchGender = form.watch("gender");
+  const watchGender = useWatch({ control: form.control, name: "gender" });
 
   // Set current user gender
   useEffect(() => {

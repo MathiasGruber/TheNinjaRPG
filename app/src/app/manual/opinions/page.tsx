@@ -8,7 +8,7 @@ import { useUserData } from "@/utils/UserContext";
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Form } from "@/components/ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -112,7 +112,7 @@ const ReportImage: React.FC<ReportimageProps> = (props) => {
       staffUserId: user.userId,
     },
   });
-  const watchedPositive = createForm.watch("positive");
+  const watchedPositive = useWatch({ control: createForm.control, name: "positive" });
 
   // Form handlers
   const onSubmit = createForm.handleSubmit((data) => {

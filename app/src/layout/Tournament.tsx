@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { UserRoundPlus, Swords, Medal, ShieldBan, Eye } from "lucide-react";
 import { groupBy } from "@/utils/grouping";
 import { UploadButton } from "@/utils/uploadthing";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { showMutationToast } from "@/libs/toast";
 import { Trophy } from "lucide-react";
@@ -101,7 +101,7 @@ const Tournament: React.FC<TournamentProps> = (props) => {
       type: props.type,
     },
   });
-  const currentImage = createForm.watch("image");
+  const currentImage = useWatch({ control: createForm.control, name: "image" });
 
   // Form handlers
   const onSubmit = createForm.handleSubmit((data) => {
@@ -401,7 +401,7 @@ const UserMatch: React.FC<UserMatchProps> = (props) => {
       )}
       <Link
         href={`/userid/${seed.userId1}`}
-        className={`flex-grow text-slate-100 ${seed.userId1 ? "hover:cursor-pointer hover:text-orange-100" : ""}`}
+        className={`grow text-slate-100 ${seed.userId1 ? "hover:cursor-pointer hover:text-orange-100" : ""}`}
       >
         {user?.username || "---"}
       </Link>

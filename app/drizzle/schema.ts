@@ -33,6 +33,7 @@ import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import type { AdditionalContext } from "@/validators/reports";
 import type { ZodBgSchemaType } from "@/validators/backgroundSchema";
+import type { CoreMessage } from "ai";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -283,6 +284,21 @@ export const battleHistoryRelations = relations(battleHistory, ({ one, many }) =
     references: [userData.userId],
   }),
 }));
+
+export const emailReminder = mysqlTable("EmailReminder", {
+  id: int("id").autoincrement().primaryKey().notNull(),
+  userId: varchar("userId", { length: 191 }),
+  callName: varchar("callName", { length: 191 }),
+  email: varchar("email", { length: 191 }).notNull(),
+  latestRejoinRequest: datetime("latestRejoinRequest", { mode: "date", fsp: 3 }),
+  lastActivity: datetime("lastActivity", { mode: "date", fsp: 3 }),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  secret: varchar("secret", { length: 191 }).notNull(),
+  disabled: boolean("disabled").default(false).notNull(),
+  validated: boolean("validated").default(true).notNull(),
+});
 
 export const userBlackList = mysqlTable(
   "UserBlackList",
@@ -1437,6 +1453,7 @@ export const userData = mysqlTable(
     marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
     aiProfileId: varchar("aiProfileId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
+    aiCalls: int("openaiCalls").default(0).notNull(),
   },
   (table) => {
     return {
@@ -1787,6 +1804,20 @@ export const automatedModeration = mysqlTable(
     };
   },
 );
+
+export const supportReview = mysqlTable("SupportReview", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  apiRoute: varchar("apiRoute", { length: 191 }).notNull(),
+  chatHistory: json("chatHistory").$type<CoreMessage[]>().notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  sentiment: mysqlEnum("sentiment", consts.Sentiment).notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+});
 
 export const village = mysqlTable(
   "Village",

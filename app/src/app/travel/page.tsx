@@ -22,7 +22,7 @@ import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import { hasRequiredRank } from "@/libs/train";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
@@ -98,7 +98,10 @@ export default function Travel() {
     mode: "all",
     resolver: zodResolver(sectorSelect),
   });
-  const highlightedSector = sectorForm.watch("sector");
+  const highlightedSector = useWatch({
+    control: sectorForm.control,
+    name: "sector",
+  });
 
   useEffect(() => {
     if (userData && globe) {
@@ -248,12 +251,12 @@ export default function Travel() {
                 {showActive ? (
                   <Eye
                     className={`h-7 w-7 mr-2 text-orange-500`}
-                    onClick={() => setShowActive((prev) => !prev)}
+                    onClick={() => setShowActive(false)}
                   />
                 ) : (
                   <EyeOff
                     className={`h-7 w-7  mr-2`}
-                    onClick={() => setShowActive((prev) => !prev)}
+                    onClick={() => setShowActive(true)}
                   />
                 )}
                 <UserRoundSearch

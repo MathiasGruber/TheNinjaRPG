@@ -165,50 +165,54 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   // Convenience method for updating user list
   const updateUsersList = async (data: UserData, instantMove = false) => {
-    if (users.current) {
-      const allianceStatus = getAllyStatus(userData?.village, data.villageId);
-      const idx = users.current.findIndex((user) => user.userId === data.userId);
-      if (idx !== -1 && users.current[idx]) {
-        if (instantMove) {
-          // User exists - instant movement
-          users.current[idx] = { ...data, allianceStatus };
-        } else {
-          // User exists - animate movement
-          const currentHex = findHex(grid.current, {
-            x: users.current[idx].longitude,
-            y: users.current[idx].latitude,
-          });
-          const targetHex = findHex(grid.current, {
-            x: data.longitude,
-            y: data.latitude,
-          });
-          if (pathFinder.current && currentHex && targetHex) {
-            const path = pathFinder.current.getShortestPath(currentHex, targetHex);
-            if (path) {
-              for (const tile of path) {
-                users.current[idx] = {
-                  ...data,
-                  allianceStatus,
-                  longitude: tile.col,
-                  latitude: tile.row,
-                };
-                await sleep(50);
+    if (data.userId) {
+      if (users.current) {
+        const allianceStatus = getAllyStatus(userData?.village, data.villageId);
+        const idx = users.current
+          .filter((u) => u.userId)
+          .findIndex((u) => u.userId === data.userId);
+        if (idx !== -1 && users.current[idx]) {
+          if (instantMove) {
+            // User exists - instant movement
+            users.current[idx] = { ...data, allianceStatus };
+          } else {
+            // User exists - animate movement
+            const currentHex = findHex(grid.current, {
+              x: users.current[idx].longitude,
+              y: users.current[idx].latitude,
+            });
+            const targetHex = findHex(grid.current, {
+              x: data.longitude,
+              y: data.latitude,
+            });
+            if (pathFinder.current && currentHex && targetHex) {
+              const path = pathFinder.current.getShortestPath(currentHex, targetHex);
+              if (path) {
+                for (const tile of path) {
+                  users.current[idx] = {
+                    ...data,
+                    allianceStatus,
+                    longitude: tile.col,
+                    latitude: tile.row,
+                  };
+                  await sleep(50);
+                }
               }
             }
           }
+        } else {
+          // New user enters
+          users.current.push({ ...data, allianceStatus });
         }
-      } else {
-        // New user enters
-        users.current.push({ ...data, allianceStatus });
+        // Remove users who are no longer in the sector
+        users.current
+          .map((user, idx) => (user.sector !== props.sector ? idx : null))
+          .filter((idx) => idx !== null)
+          .reverse()
+          .map((idx) => users.current?.splice(idx, 1));
       }
-      // Remove users who are no longer in the sector
-      users.current
-        .map((user, idx) => (user.sector !== props.sector ? idx : null))
-        .filter((idx) => idx !== null)
-        .reverse()
-        .map((idx) => users.current?.splice(idx, 1));
     }
-    setSorrounding(users.current || []);
+    setSorrounding(users.current.filter((u) => u?.userId) || []);
   };
 
   const { mutate: move, isPending: isMoving } = api.travel.moveInSector.useMutation({
@@ -379,12 +383,15 @@ const Sector: React.FC<SectorProps> = (props) => {
   // Update the state containing sorrounding users on first load
   useEffect(() => {
     if (userData) {
-      const enrichedData = fetchedUsers?.map((user) => {
-        const allianceStatus = getAllyStatus(userData?.village, user.villageId);
-        return { ...user, allianceStatus };
-      });
-      setSorrounding(enrichedData || []);
-      users.current = enrichedData || [];
+      const enrichedData =
+        fetchedUsers
+          ?.map((user) => {
+            const allianceStatus = getAllyStatus(userData?.village, user.villageId);
+            return { ...user, allianceStatus };
+          })
+          .filter((u) => u?.userId) || [];
+      setSorrounding(enrichedData);
+      users.current = enrichedData;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedUsers]);
@@ -700,9 +707,9 @@ interface SorroundingUsersProps {
   hex: TerrainHex;
   users: SectorUser[];
   allyAttack: boolean;
-  setAllyAttack: React.Dispatch<React.SetStateAction<boolean>>;
+  setAllyAttack: (newValue: boolean) => void;
   storedLvl: number;
-  setStoredLvl: React.Dispatch<React.SetStateAction<number>>;
+  setStoredLvl: (newValue: number) => void;
   attackUser: (userId: string) => void;
   robUser: (userId: string) => void;
   move: (longitude: number, latitude: number) => void;
@@ -839,13 +846,11 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                   </div>
                 )}
               </div>
-              <p className="leading-0">{user.username}</p>
-              <p className="text-white leading-0  text-xs">
+              <p>{user.username}</p>
+              <p className="text-white text-xs">
                 Lvl. {user.level} [{user.longitude}, {user.latitude}]
               </p>
-              <p className="leading-0" style={{ color: villageColor }}>
-                {villageName}
-              </p>
+              <p style={{ color: villageColor }}>{villageName}</p>
             </div>
           );
         })}
@@ -868,7 +873,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
           <Checkbox
             className="m-1 mr-3"
             checked={props.allyAttack}
-            onCheckedChange={() => props.setAllyAttack((prev) => !prev)}
+            onCheckedChange={() => props.setAllyAttack(!props.allyAttack)}
           />
           <Label>Attack button on allies</Label>
         </div>

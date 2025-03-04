@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ import {
 import { statFilters, effectFilters, rarities } from "@/libs/train";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type {
+  LetterRank,
   ElementName,
   UserRank,
   StatType,
@@ -371,8 +372,16 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
     resolver: zodResolver(searchJutsuSchema),
     defaultValues: { name },
   });
-  const watchName = form.watch("name", undefined);
-  const watchRequiredLevel = form.watch("requiredLevel", requiredLevel);
+  const watchName = useWatch({
+    control: form.control,
+    name: "name",
+    defaultValue: undefined,
+  });
+  const watchRequiredLevel = useWatch({
+    control: form.control,
+    name: "requiredLevel",
+    defaultValue: requiredLevel,
+  });
 
   // Debounce name changes
   useEffect(() => {
@@ -874,7 +883,9 @@ export const getFilter = (state: JutsuFilteringState) => {
     method: state.method === "None" ? undefined : state.method,
     name: state.name || undefined,
     rank: state.rank === "NONE" ? undefined : state.rank,
-    rarity: state.rarity === "ALL" ? undefined : state.rarity,
+    rarity: ["ALL", "None"].includes(state.rarity)
+      ? undefined
+      : (state.rarity as LetterRank),
     requiredLevel: state.requiredLevel ?? undefined,
     stat: processArray(state.stat as StatGenType[]),
     static: state.staticAnim === "None" ? undefined : state.staticAnim,

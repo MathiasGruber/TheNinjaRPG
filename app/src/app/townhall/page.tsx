@@ -32,7 +32,7 @@ import { KAGE_RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_COST } from "@/drizzle/constants";
 import { KAGE_MIN_DAYS_IN_VILLAGE } from "@/drizzle/constants";
 import { getSearchValidator } from "@/validators/register";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { Village, VillageAlliance } from "@/drizzle/schema";
@@ -105,7 +105,11 @@ const ElderHall: React.FC<{
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: "", users: [] },
   });
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const targetUser = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // Derived
   const isKage = user.userId === user.village?.kageId;

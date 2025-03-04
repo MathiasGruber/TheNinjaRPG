@@ -43,7 +43,7 @@ export const callDiscordTicket = async (
 ) => {
   const nhm = new NodeHtmlMarkdown({}, undefined, undefined);
   const image_url = user.avatar;
-  const content = `*Report from TNR interface*\n\n**Username:** ${user.username}\n**Reason:** ${nhm.translate(reason)}\n${type === "content" ? "<@&1131406837762244760>" : "<@&1086822053254017105>"}\n`;
+  const content = `*Report from TNR interface*\n\n**Username:** ${user.username}\n**Reason:** ${nhm.translate(reason)}\n${type === "bug_report" ? "<@&1131406837762244760>" : "<@&1086822053254017105>"}\n`;
   return fetch(process.env.DISCORD_TICKETS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

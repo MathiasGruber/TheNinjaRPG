@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getSearchValidator } from "@/validators/register";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { Button } from "@/components/ui/button";
@@ -123,7 +123,11 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
   });
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const targetUser = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // Queries
   const { data: students, isFetching } = api.sensei.getStudents.useQuery(
