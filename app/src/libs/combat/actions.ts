@@ -789,6 +789,7 @@ if (shouldEndTurn) {
     usedActions: user.usedActions ?? [],
     leftBattle: user.leftBattle ?? false,
     fledBattle: user.fledBattle ?? false,
+    isAggressor: user.isAggressor ?? false,
     bank: user.bank ?? 0, // <-- Fixing the bank field issue
     originalLongitude: user.originalLongitude ?? 0,
     originalLatitude: user.originalLatitude ?? 0,
@@ -805,6 +806,7 @@ if (shouldEndTurn) {
     items: user.items ?? [],
     hex: user.hex ?? undefined,
     clan: user.clan ?? null,
+    status: user.status ?? "BATTLE"
   })),
 };
 
