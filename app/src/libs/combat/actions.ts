@@ -739,20 +739,23 @@ export const calcActiveUser = (
     secondsLeft: newSecondsLeft,
   } = calcActiveUser(battle, userId);
   if (check1) {
+    // Ensure that userId is not null by converting it to undefined if necessary
+    const safeUserId = userId ?? undefined;
     // Automatically trigger end-turn (i.e. the "wait" action)
-    const endTurnAction = availableUserActions(battle, userId).find(a => a.id === "wait");
+    const endTurnAction = availableUserActions(battle, safeUserId).find(a => a.id === "wait");
     if (endTurnAction) {
       performBattleAction({
         battle,
         action: endTurnAction,
         grid,
-        contextUserId: userId,
-        actorId: userId,
+        contextUserId: safeUserId,
+        actorId: safeUserId!, // Using non-null assertion if you're sure it's not null here
         longitude: newActor.longitude,
         latitude: newActor.latitude,
       });
     }
   }
+
   // Check 2: We have an active user, but he/she does not have any more action points
   const check2 = activeUserId && hasNoAvailableActions(battle, activeUserId);
   // Check 3: Current active userID is not in active user array
