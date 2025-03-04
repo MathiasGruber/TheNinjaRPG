@@ -718,7 +718,7 @@ export const stillInBattle = (user: ReturnedUserState) => {
  * Calculate (based on current time), which user is currently the one to perform a move
  */
 export const calcActiveUser = (
-  battle: ReturnedBattle
+  battle: ReturnedBattle,
   grid: Grid<TerrainHex>,
   userId?: string | null,
   timeDiff = 0,
