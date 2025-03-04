@@ -344,8 +344,8 @@ export const applyEffects = (
               info = seal(e, newUsersEffects, curTarget);
             } else if (e.type === "stun") {
               info = stun(e, newUsersEffects, curTarget);
-            } else if (e.type === "") {
-              info = (e, usersEffects, consequences, curTarget);
+            } else if (e.type === "drain") {
+              info = drain(e, usersEffects, consequences, curTarget);
             }
           }
 
