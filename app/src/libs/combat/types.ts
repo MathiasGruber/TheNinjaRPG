@@ -443,6 +443,20 @@ export const DamageTag = z.object({
 });
 export type DamageTagType = z.infer<typeof DamageTag>;
 
+export const ResidualTag = z.object({
+  ...BaseAttributes,
+  ...IncludeStats,
+  ...PowerAttributes,
+  type: z.literal("residual").default("residual"),
+  description: msg("Deals residual damage over time"),
+  calculation: z.enum(["formula", "static", "percentage"]).default("formula"),
+  residualModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  dmgModifier: z.coerce.number().min(0).max(2).default(1).optional(),
+  allowBloodlineDamageIncrease: z.coerce.boolean().default(true),
+  allowBloodlineDamageDecrease: z.coerce.boolean().default(true),
+});
+export type ResidualTagType = z.infer<typeof ResidualTag>;
+
 export const PierceTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
@@ -747,6 +761,7 @@ export const AllTags = z.union([
   RecoilTag.default({}),
   ReflectTag.default({}),
   RemoveBloodline.default({}),
+  ResidualTag.default({}),
   RobPreventTag.default({}),
   RobTag.default({}),
   RollRandomBloodline.default({}),
