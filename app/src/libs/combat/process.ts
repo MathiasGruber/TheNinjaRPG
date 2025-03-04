@@ -344,8 +344,8 @@ export const applyEffects = (
               info = seal(e, newUsersEffects, curTarget);
             } else if (e.type === "stun") {
               info = stun(e, newUsersEffects, curTarget);
-            } else if (e.type === "drain") {
-              info = drain(e, usersEffects, consequences, curTarget);
+            } else if (e.type === "") {
+              info = (e, usersEffects, consequences, curTarget);
             }
           }
 
@@ -583,7 +583,7 @@ export const applyEffects = (
           target.curStamina = Math.min(target.maxStamina, target.curStamina);
           actionEffects.push({
             txt: `${user.username} is drained of ${c.drain.toFixed(2)} chakra and stamina`,
-            color: "blue",
+            color: "purple",
           });
         }
         if (c.poison && c.poison > 0) {
