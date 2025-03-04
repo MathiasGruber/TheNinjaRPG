@@ -1210,24 +1210,27 @@ export const poison = (
   let modifiedChakraCost = action.chakraCost;
   let modifiedStaminaCost = action.staminaCost;
 
-  // Iterate over active pool adjustment effects affecting the target.
-  usersEffects.forEach((eff) => {
-    if (
-      (eff.type === "increasepoolcost" || eff.type === "decreasepoolcost") &&
-      eff.targetId === target.userId &&
-      eff.poolsAffected &&
-      Array.isArray(eff.poolsAffected)
-    ) {
-      // For Chakra: use the multiplier (1 + eff.power/100).
-      if (eff.poolsAffected.includes("Chakra")) {
-        modifiedChakraCost *= (1 + eff.power / 100);
+  
+  if (!effect.castThisRound && actorId === target.userId) {
+    // Iterate over active pool adjustment effects affecting the target.
+    usersEffects.forEach((eff) => {
+      if (
+        (eff.type === "increasepoolcost" || eff.type === "decreasepoolcost") &&
+        eff.targetId === target.userId &&
+        eff.poolsAffected &&
+        Array.isArray(eff.poolsAffected)
+      ) {
+        // For Chakra: use the multiplier (1 + eff.power/100).
+        if (eff.poolsAffected.includes("Chakra")) {
+          modifiedChakraCost *= (1 + eff.power / 100);
+        }
+        // For Stamina: use the multiplier (1 + eff.power/100).
+        if (eff.poolsAffected.includes("Stamina")) {
+          modifiedStaminaCost *= (1 + eff.power / 100);
+        }
       }
-      // For Stamina: use the multiplier (1 + eff.power/100).
-      if (eff.poolsAffected.includes("Stamina")) {
-        modifiedStaminaCost *= (1 + eff.power / 100);
-      }
-    }
-  });
+    });
+  }
 
   // Sum the modified costs.
   const totalCost = modifiedChakraCost + modifiedStaminaCost;
