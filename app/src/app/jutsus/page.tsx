@@ -29,8 +29,11 @@ import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
 import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
-import { JUTSU_TRANSFER_COST } from "@/drizzle/constants";
-import { JUTSU_TRANSFER_MAX_LEVEL } from "@/drizzle/constants";
+import { 
+  JUTSU_TRANSFER_COST, 
+  JUTSU_TRANSFER_MAX_LEVEL, 
+  JUTSU_TRANSFER_MINIMUM_LEVEL 
+} from "@/drizzle/constants";
 import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
@@ -360,7 +363,7 @@ export default function MyJutsu() {
                 )}
 
                 <div className="grow"></div>
-                {userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
+                {userjutsu.level >= JUTSU_TRANSFER_MINIMUM_LEVEL && userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
                   <Confirm
                     title="Transfer Level"
                     button={
