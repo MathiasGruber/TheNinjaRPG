@@ -591,7 +591,7 @@ export const applyEffects = (
           target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({
             txt: `${target.username} takes ${c.poison.toFixed(2)} poison damage`,
-            color: "green",
+            color: "purple",
           });
         }
         // Process disappear animation of characters
