@@ -719,7 +719,6 @@ export const stillInBattle = (user: ReturnedUserState) => {
  */
 export const calcActiveUser = (
   battle: ReturnedBattle,
-  grid: Grid<TerrainHex>,
   userId?: string | null,
   timeDiff = 0,
 ) => {
@@ -732,31 +731,6 @@ export const calcActiveUser = (
   let progressRound = false;
   // Check 1: We have an active user, but the round is up
   const check1 = battle.activeUserId && secondsLeft <= 0;
-  const {
-    actor: newActor,
-    changedActor: newChangedActor,
-    progressRound: newProgressRound,
-    mseconds: newMseconds,
-    secondsLeft: newSecondsLeft,
-  } = calcActiveUser(battle, userId);
-  if (check1) {
-    // Ensure that userId is not null by converting it to undefined if necessary
-    const safeUserId = userId ?? undefined;
-    // Automatically trigger end-turn (i.e. the "wait" action)
-    const endTurnAction = availableUserActions(battle, safeUserId).find(a => a.id === "wait");
-    if (endTurnAction) {
-      performBattleAction({
-        battle: battle as CompleteBattle,
-        action: endTurnAction,
-        grid,
-        contextUserId: safeUserId,
-        actorId: safeUserId!, // Using non-null assertion if you're sure it's not null here
-        longitude: newActor.longitude,
-        latitude: newActor.latitude,
-      });
-    }
-  }
-
   // Check 2: We have an active user, but he/she does not have any more action points
   const check2 = activeUserId && hasNoAvailableActions(battle, activeUserId);
   // Check 3: Current active userID is not in active user array
