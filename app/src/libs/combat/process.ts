@@ -314,6 +314,9 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             } else if (e.type === "pierce" && isTargetOrNew) {
               const modifier = calcDmgModifier(e, curTarget, usersEffects);
               info = damageUser(e, newUser, newTarget, consequences, modifier, config);
+            } else if (e.type === "residual" && isTargetOrNew) {
+              const modifier = calcDmgModifier(e, curTarget, usersEffects);
+              info = damageUser(e, newUser, newTarget, consequences, modifier, config);
             } else if (e.type === "heal" && isTargetOrNew) {
               info = heal(e, newUsersEffects, curTarget, consequences, ratio);
             } else if (e.type === "flee" && isTargetOrNew) {
