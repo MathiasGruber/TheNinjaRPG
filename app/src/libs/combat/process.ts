@@ -472,23 +472,13 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             });
           }
         }
-        if (c.residual && c.residual > 0) {
+        if (c.residual && c.residual > 0 && target.curHealth > 0) {
           const damage = calcAdjustedDamage(target, c.residual);
           if (damage > 0) {
             target.curHealth -= damage;
             target.curHealth = Math.max(0, target.curHealth);
-            // If residual damage reduces health to 0, mark player as having left battle and died
-            if (target.curHealth <= 0) {
-              target.leftBattle = true;
-              // Also mark them as having died (not fled) to properly end combat
-              target.fledBattle = false;
-              // If this is a Kage challenge and the defender dies from residual damage, they should lose Kage status
-              if (battle.battleType === "KAGE_CHALLENGE" && target.isAggressor === false) {
-                target.isKage = false;
-              }
-            }
             actionEffects.push({
-              txt: `${target.username} takes ${damage.toFixed(2)} residual damage${target.curHealth <= 0 ? " and dies" : ""}`,
+              txt: `${target.username} takes ${damage.toFixed(2)} residual damage`,
               color: "red",
               types: c.types,
             });
