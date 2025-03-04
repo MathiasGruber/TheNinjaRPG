@@ -1730,9 +1730,14 @@ const getInfo = (
   msg: string,
 ): ActionEffect | undefined => {
   if (e.isNew && e.rounds) {
+    // If the effect is for pool adjustment, use purple; otherwise blue.
+    const infoColor =
+      e.type === "increasepoolcost" || e.type === "decreasepoolcost"
+        ? "purple"
+        : "blue";
     return {
       txt: `${target.username} ${msg} for the next ${e.rounds} rounds`,
-      color: "blue",
+      color: infoColor,
     };
   }
   return undefined;
