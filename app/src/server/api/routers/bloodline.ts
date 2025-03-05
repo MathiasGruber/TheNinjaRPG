@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { randomInt } from "crypto";
 import { eq, or, sql, gte, and, inArray, isNull, isNotNull, like } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
 import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
@@ -217,11 +218,14 @@ export const bloodlineRouter = createTRPCRouter({
       fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId),
     ]);
     // Guard
-    if (prevRoll) return errorResponse("You have already rolled a bloodline");
+    //if (prevRoll) return errorResponse("You have already rolled a bloodline");
     if (user.status !== "AWAKE")
       return errorResponse(`Cannot roll bloodline while ${user.status.toLowerCase()}`);
     // Derived
-    const rand = Math.random();
+    function secureRandom(): number {
+      return randomInt(0, 1_000_000) / 1_000_000; 
+    }
+    const rand = secureRandom();
     let bloodlineRank: BloodlineRank | undefined = undefined;
     if (rand < ROLL_CHANCE.S) {
       bloodlineRank = "S";
