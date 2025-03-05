@@ -22,6 +22,7 @@ import { logsRouter } from "./routers/logs";
 import { miscRouter } from "./routers/misc";
 import { openaiRouter } from "./routers/openai";
 import { paypalRouter } from "./routers/paypal";
+import { pollRouter } from "./routers/poll";
 import { profileRouter } from "./routers/profile";
 import { questsRouter } from "./routers/quests";
 import { registerRouter } from "./routers/register";
@@ -67,6 +68,7 @@ export const appRouter = createTRPCRouter({
   misc: miscRouter,
   openai: openaiRouter,
   paypal: paypalRouter,
+  poll: pollRouter,
   profile: profileRouter,
   quests: questsRouter,
   register: registerRouter,

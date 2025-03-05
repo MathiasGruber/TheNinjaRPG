@@ -14,6 +14,7 @@ import {
   IMG_MANUAL_ASSET,
   IMG_MANUAL_OPINION,
   IMG_MANUAL_AWARDS,
+  IMG_MANUAL_POLLS,
 } from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
 
@@ -32,6 +33,7 @@ export default function ManualMain() {
     { name: "asset", img: IMG_MANUAL_ASSET },
     { name: "opinions", img: IMG_MANUAL_OPINION },
     { name: "awards", img: IMG_MANUAL_AWARDS },
+    { name: "polls", img: IMG_MANUAL_POLLS },
   ];
   return (
     <ContentBox
