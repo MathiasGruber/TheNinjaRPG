@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { randomInt } from "crypto";
 import { eq, or, sql, gte, and, inArray, isNull, isNotNull, like } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
 import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
@@ -217,22 +218,32 @@ export const bloodlineRouter = createTRPCRouter({
       fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId),
     ]);
     // Guard
-    if (prevRoll) return errorResponse("You have already rolled a bloodline");
+    //if (prevRoll) return errorResponse("You have already rolled a bloodline");
     if (user.status !== "AWAKE")
       return errorResponse(`Cannot roll bloodline while ${user.status.toLowerCase()}`);
     // Derived
-    const rand = Math.random();
-    let bloodlineRank: BloodlineRank | undefined = undefined;
+    function secureRandom(): number {
+      return randomInt(0, 1_000_000) / 1_000_000; 
+    }
+    const rand = secureRandom();
+    // let bloodlineRank: BloodlineRank | undefined = undefined;
+    // if (rand < ROLL_CHANCE.S) {
+    //   bloodlineRank = "S";
+    // } else if (rand < ROLL_CHANCE.A) {
+    //   bloodlineRank = "A";
+    // } else if (rand < ROLL_CHANCE.B) {
+    //   bloodlineRank = "B";
+    // } else if (rand < ROLL_CHANCE.C) {
+    //   bloodlineRank = "C";
+    // } else if (rand < ROLL_CHANCE.D) {
+    //   bloodlineRank = "D";
+    // }
+    //Testing
+    let bloodlineRank: BloodlineRank | undefined = "B"; // Default to B
     if (rand < ROLL_CHANCE.S) {
       bloodlineRank = "S";
     } else if (rand < ROLL_CHANCE.A) {
       bloodlineRank = "A";
-    } else if (rand < ROLL_CHANCE.B) {
-      bloodlineRank = "B";
-    } else if (rand < ROLL_CHANCE.C) {
-      bloodlineRank = "C";
-    } else if (rand < ROLL_CHANCE.D) {
-      bloodlineRank = "D";
     }
     // Update roll & user if successfull
     if (bloodlineRank) {
@@ -244,6 +255,7 @@ export const bloodlineRouter = createTRPCRouter({
             or(
               eq(bloodline.villageId, user.villageId ?? ""),
               isNull(bloodline.villageId),
+              eq(bloodline.villageId, "None"),
             ),
           ),
         }),
