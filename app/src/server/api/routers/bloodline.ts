@@ -253,10 +253,11 @@ export const bloodlineRouter = createTRPCRouter({
             eq(bloodline.rank, bloodlineRank),
             eq(bloodline.hidden, false),
             or(
-              eq(bloodline.villageId, user.villageId ?? ""),
-              isNull(bloodline.villageId),
+              user.villageId !== null && user.villageId !== undefined
+                ? eq(bloodline.villageId, user.villageId)
+                : isNull(bloodline.villageId),
               eq(bloodline.villageId, "None"),
-            ),
+            )
           ),
         }),
       );
