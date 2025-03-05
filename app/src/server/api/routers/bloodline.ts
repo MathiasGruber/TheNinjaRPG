@@ -248,6 +248,7 @@ export const bloodlineRouter = createTRPCRouter({
             or(
               eq(bloodline.villageId, user.villageId ?? ""),
               isNull(bloodline.villageId),
+              eq(bloodline.villageId, "None"),
             ),
           ),
         }),
