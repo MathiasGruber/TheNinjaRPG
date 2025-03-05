@@ -83,7 +83,6 @@ export default function PollsPage() {
   const { data: userData } = useUserData();
   const [activeTab, setActiveTab] = useState<string>("active");
   const [selectedPollId, setSelectedPollId] = useState<string>("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Check permissions
   const userCanCreatePolls = userData?.role ? canCreatePolls(userData.role) : false;
@@ -111,7 +110,8 @@ export default function PollsPage() {
 
   // Handle form success
   const handleCreateSuccess = () => {
-    setShowCreateForm(false);
+    // Switch back to active tab after creating a poll
+    setActiveTab("active");
   };
 
   return (
@@ -211,13 +211,7 @@ export default function PollsPage() {
 
           {userCanCreatePolls && (
             <TabsContent value="create">
-              {showCreateForm ? (
-                <CreatePollForm onSuccess={handleCreateSuccess} />
-              ) : (
-                <Button onClick={() => setShowCreateForm(!showCreateForm)}>
-                  {showCreateForm ? "Cancel" : "Create Poll"}
-                </Button>
-              )}
+              <CreatePollForm onSuccess={handleCreateSuccess} />
             </TabsContent>
           )}
         </Tabs>
