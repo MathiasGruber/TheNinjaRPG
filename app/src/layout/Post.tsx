@@ -120,8 +120,8 @@ const Post: React.FC<PostProps> = (props) => {
     <div className="basis-1/4">
       <div className={`${userColor} font-bold`}>{props.user.username}</div>
       <div className="text-xs pt-1 pb-4">
-        <span className="bg-slate-300 p-1 m-1 rounded-md">Lvl. {props.user.level}</span>
-        <span className="bg-slate-300 p-1 m-1 rounded-md">
+        <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Lvl. {props.user.level}</span>
+        <span className="bg-slate-300 p-1 m-1 rounded-md text-black">
           {showUserRank(props.user)}
         </span>
         {props.user.customTitle && (
