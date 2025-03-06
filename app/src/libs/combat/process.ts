@@ -98,8 +98,6 @@ export const realizeTag = <T extends BattleEffect>(props: {
   level: number | undefined;
   round?: number;
   barrierAbsorb?: number;
-  cpSpent?: number;
-  spSpent?: number;
 }): T => {
   const { tag, user, target, level, round, barrierAbsorb } = props;
   if ("rounds" in tag) {
