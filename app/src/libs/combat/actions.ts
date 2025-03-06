@@ -423,8 +423,6 @@ export const insertAction = (info: {
               level: action.level,
               round: battle.round,
               barrierAbsorb: totalAbsorb,
-              cpSpent: cpCost,
-              spSpent: spCost,
             });
             if (effect && checkFriendlyFire(effect, user, alive)) {
               const idx = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
@@ -442,8 +440,6 @@ export const insertAction = (info: {
               level: action.level,
               round: battle.round,
               barrierAbsorb: totalAbsorb,
-              cpSpent: cpCost,
-              spSpent: spCost,
             });
             effect.longitude = effectTile.col;
             effect.latitude = effectTile.row;
@@ -470,8 +466,6 @@ export const insertAction = (info: {
             level: action.level,
             round: battle.round,
             barrierAbsorb: totalAbsorb,
-            cpSpent: cpCost,
-            spSpent: spCost,
           });
           if (effect) {
             effect.longitude = tile.col;
