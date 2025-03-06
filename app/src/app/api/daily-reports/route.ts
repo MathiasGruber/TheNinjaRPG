@@ -37,13 +37,13 @@ export async function GET() {
 
     // Process each expired report
     for (const report of expiredReports) {
-      if (report.status === "BAN_ACTIVATED" && report.reportedUser?.isBanned && report.banEnd <= now) {
+      if (report.status === "BAN_ACTIVATED" && report.reportedUser?.isBanned && (report.banEnd ?? now)  <= now) {
         // Unban user if ban has expired
         await drizzleDB
           .update(userData)
           .set({ isBanned: false })
           .where(eq(userData.userId, report.reportedUser.userId));
-      } else if (report.status === "SILENCE_ACTIVATED" && report.reportedUser?.isSilenced && report.banEnd <= now) {
+      } else if (report.status === "SILENCE_ACTIVATED" && report.reportedUser?.isSilenced && (report.banEnd && now) <= now) {
         // Unsilence user if silence has expired
         await drizzleDB
           .update(userData)
