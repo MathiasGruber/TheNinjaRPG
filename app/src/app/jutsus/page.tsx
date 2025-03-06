@@ -29,11 +29,16 @@ import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
 import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
-import { JUTSU_TRANSFER_COST } from "@/drizzle/constants";
-import { JUTSU_TRANSFER_MAX_LEVEL } from "@/drizzle/constants";
+import { 
+  JUTSU_TRANSFER_COST, 
+  JUTSU_TRANSFER_MAX_LEVEL, 
+  JUTSU_TRANSFER_MINIMUM_LEVEL 
+} from "@/drizzle/constants";
 import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
+import { canTransferJutsu } from "@/utils/permissions";
+
 
 export default function MyJutsu() {
   // tRPC utility
@@ -52,6 +57,8 @@ export default function MyJutsu() {
   const [transferTarget, setTransferTarget] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
+  const transferCost = canTransferJutsu(userData?.role || "USER") ? 0 : JUTSU_TRANSFER_COST;
+  const [transferValue, setTransferValue] = useState<number>(1);
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
@@ -153,9 +160,9 @@ export default function MyJutsu() {
         showMutationToast(data);
         if (data.success && userData) {
           await utils.jutsu.getUserJutsus.invalidate();
-          if (usedTransfers >= freeTransfers) {
+          if (usedTransfers >= freeTransfers && transferCost > 0) {
             await updateUser({
-              reputationPoints: userData.reputationPoints - JUTSU_TRANSFER_COST,
+              reputationPoints: userData.reputationPoints - transferCost,
             });
           }
         }
@@ -356,7 +363,7 @@ export default function MyJutsu() {
                 )}
 
                 <div className="grow"></div>
-                {userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
+                {userjutsu.level >= JUTSU_TRANSFER_MINIMUM_LEVEL && userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
                   <Confirm
                     title="Transfer Level"
                     button={
@@ -370,6 +377,7 @@ export default function MyJutsu() {
                     }
                     onClose={() => {
                       setTransferTarget(undefined);
+                      setTransferValue(1);
                     }}
                     onAccept={(e) => {
                       e.preventDefault();
@@ -377,6 +385,7 @@ export default function MyJutsu() {
                         transferLevel({
                           fromJutsuId: userjutsu.jutsuId,
                           toJutsuId: transferTarget.jutsuId,
+                          transferLevels: transferValue,
                         });
                       }
                     }}
@@ -384,17 +393,36 @@ export default function MyJutsu() {
                     {transferTarget ? (
                       <>
                         <p>
-                          Transfer level {userjutsu.level} from {userjutsu.name} to{" "}
-                          {transferTarget.name}?
+                          Transfer{" "}
+                          <input
+                            type="number"
+                            min={1}
+                            max={Math.min(
+                              userjutsu.level - 1,
+                              JUTSU_TRANSFER_MAX_LEVEL - transferTarget.level
+                            )}
+                            value={transferValue}
+                            onChange={(e) =>
+                              setTransferValue(parseInt(e.target.value) || 1)
+                            }
+                            style={{
+                              width: "50px",
+                              margin: "0 5px",
+                              backgroundColor: "white",
+                              color: "black",
+                              border: "1px solid #ccc",
+                              padding: "2px 4px",
+                            }}
+                          />{" "}
+                          level(s) from {userjutsu.name} to {transferTarget.name}?
                         </p>
                         <p>
-                          This will reset {userjutsu.name} to level 1 and set{" "}
-                          {transferTarget.name} to level {userjutsu.level}.
+                          This will subtract {transferValue} level{transferValue > 1 ? "s" : ""} from {userjutsu.name} (new level: {userjutsu.level - transferValue}) and add {transferValue} level{transferValue > 1 ? "s" : ""} to {transferTarget.name} (new level: {transferTarget.level + transferValue}).
                         </p>
                         <p>
                           Cost:{" "}
-                          {usedTransfers >= freeTransfers
-                            ? `${JUTSU_TRANSFER_COST} reputation points`
+                          {usedTransfers >= freeTransfers && transferCost > 0
+                            ? `${transferCost} reputation points`
                             : "Free"}
                         </p>
                       </>
@@ -406,16 +434,14 @@ export default function MyJutsu() {
                             (jutsu) =>
                               jutsu.jutsuType === userjutsu.jutsuType &&
                               jutsu.jutsuRank === userjutsu.jutsuRank &&
-                              jutsu.id !== userjutsu.id,
+                              jutsu.id !== userjutsu.id
                           )}
                           counts={userJutsuCounts}
                           labelSingles={true}
                           showBgColor={false}
                           showLabels={true}
                           onClick={(id) => {
-                            setTransferTarget(
-                              allJutsu?.find((jutsu) => jutsu.id === id),
-                            );
+                            setTransferTarget(allJutsu?.find((jutsu) => jutsu.id === id));
                           }}
                         />
                       </div>

@@ -455,7 +455,8 @@ export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM"] as const;
 // Jutsu level transfer config
 export const JUTSU_TRANSFER_DAYS = 20;
 export const JUTSU_TRANSFER_COST = 20;
-export const JUTSU_TRANSFER_MAX_LEVEL = 20;
+export const JUTSU_TRANSFER_MAX_LEVEL = 25;
+export const JUTSU_TRANSFER_MINIMUM_LEVEL = 10;
 export const JUTSU_TRANSFER_FREE_AMOUNT = 2;
 export const JUTSU_TRANSFER_FREE_NORMAL = 3;
 export const JUTSU_TRANSFER_FREE_SILVER = 4;

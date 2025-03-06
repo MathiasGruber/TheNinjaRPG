@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import Countdown from "@/layout/Countdown";
+import Modal from "@/layout/Modal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CircleHelp } from "lucide-react";
 import { secondsFromNow, secondsFromDate } from "@/utils/time";
@@ -24,8 +25,8 @@ interface ObjectiveProps {
   tier?: number;
   grayedOut?: boolean;
 }
-
 export const Objective: React.FC<ObjectiveProps> = (props) => {
+  const [modalOpen, setModalOpen] = useState(false);
   const { data: userData } = useRequiredUserData();
   const { objective, tier, tracker, titlePrefix, checkRewards } = props;
   const { image, title } = getObjectiveImage(objective);
@@ -71,12 +72,17 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
             {title}
           </p>
           {objective.description && objective.description !== "" && (
-            <Popover>
-              <PopoverTrigger>
-                <CircleHelp className="h-5 w-5 hover:text-orange-500 hover:cursor-pointer" />
-              </PopoverTrigger>
-              <PopoverContent>{objective.description}</PopoverContent>
-            </Popover>
+            <>
+              <CircleHelp
+                className="h-5 w-5 hover:text-orange-500 hover:cursor-pointer"
+                onClick={() => setModalOpen(true)}
+              />
+              {modalOpen && (
+                <Modal title="Objective Details" setIsOpen={() => setModalOpen(false)}>
+                  <div dangerouslySetInnerHTML={{ __html: objective.description }} />
+                </Modal>
+              )}
+            </>
           )}
         </div>
         <hr className="my-0" />
