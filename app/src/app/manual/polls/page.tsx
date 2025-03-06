@@ -46,27 +46,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { showMutationToast } from "@/libs/toast";
 
+type PollUser = {
+  userId: string;
+  username: string;
+  avatar: string | null;
+};
+
+type PollOptionWithRelations = PollOption & {
+  createdBy: PollUser;
+  targetUser?: PollUser | null;
+  voteCount: number;
+  percentage: number;
+};
+
 // Define types for the poll data
 interface PollWithRelations extends Poll {
-  createdBy: {
-    userId: string;
-    username: string;
-    avatar: string | null;
-  };
-  options: (PollOption & {
-    createdBy: {
-      userId: string;
-      username: string;
-      avatar: string | null;
-    };
-    targetUser?: {
-      userId: string;
-      username: string;
-      avatar: string | null;
-    } | null;
-    voteCount: number;
-    percentage: number;
-  })[];
+  createdBy: PollUser;
+  options: PollOptionWithRelations[];
   totalVotes: number;
 }
 
@@ -87,9 +83,6 @@ export default function PollsPage() {
   // Check permissions
   const userCanCreatePolls = userData?.role ? canCreatePolls(userData.role) : false;
   const userCanClosePolls = userData?.role ? canClosePolls(userData.role) : false;
-  const userCanDeleteOptions = userData?.role
-    ? canDeletePollOptions(userData.role)
-    : false;
 
   // Get polls data
   const { data: pollsData, isLoading } = api.poll.getPolls.useQuery({
@@ -165,7 +158,6 @@ export default function PollsPage() {
                     key={poll.id}
                     poll={poll}
                     userCanClosePolls={userCanClosePolls}
-                    userCanDeleteOptions={userCanDeleteOptions}
                     selectedPollId={selectedPollId}
                     setSelectedPollId={setSelectedPollId}
                   />
@@ -193,7 +185,6 @@ export default function PollsPage() {
                     key={poll.id}
                     poll={poll}
                     userCanClosePolls={userCanClosePolls}
-                    userCanDeleteOptions={userCanDeleteOptions}
                     selectedPollId={selectedPollId}
                     setSelectedPollId={setSelectedPollId}
                   />
@@ -223,13 +214,11 @@ export default function PollsPage() {
 function PollAccordion({
   poll,
   userCanClosePolls,
-  userCanDeleteOptions,
   selectedPollId,
   setSelectedPollId,
 }: {
   poll: PollWithRelations;
   userCanClosePolls: boolean;
-  userCanDeleteOptions: boolean;
   selectedPollId: string;
   setSelectedPollId: React.Dispatch<React.SetStateAction<string>>;
 }) {
@@ -249,7 +238,6 @@ function PollAccordion({
         poll={poll}
         userLoggedIn={!!userData}
         userCanClosePolls={userCanClosePolls}
-        userCanDeleteOptions={userCanDeleteOptions}
       />
     </Accordion>
   );
@@ -260,12 +248,10 @@ function PollContent({
   poll,
   userLoggedIn,
   userCanClosePolls,
-  userCanDeleteOptions,
 }: {
   poll: PollWithRelations;
   userLoggedIn: boolean;
   userCanClosePolls: boolean;
-  userCanDeleteOptions: boolean;
 }) {
   const utils = api.useUtils();
   const [showResults, setShowResults] = useState(true);
@@ -345,11 +331,16 @@ function PollContent({
     });
 
   // Check if user can delete a specific option
-  const canDeleteOption = (option: PollWithRelations["options"][0]) => {
+  const canDeleteOption = (option: PollOptionWithRelations) => {
     if (!userLoggedIn || !userData) return false;
 
     // User can delete their own options with no votes
-    return option.createdBy.userId === userData.userId && option.voteCount === 0;
+    const isCreator = option.createdBy.userId === userData.userId;
+
+    // Admin can delete any option based on role permissions
+    const isAdmin = userData.role ? canDeletePollOptions(userData.role) : false;
+
+    return isCreator || isAdmin;
   };
 
   // User search form for adding user options
@@ -416,7 +407,6 @@ function PollContent({
   };
 
   const handleDeleteOption = (optionId: string) => {
-    if (!userCanDeleteOptions) return;
     deleteOption({ pollId: poll.id, optionId });
   };
 
