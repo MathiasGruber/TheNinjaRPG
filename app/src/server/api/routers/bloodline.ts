@@ -247,7 +247,7 @@ export const bloodlineRouter = createTRPCRouter({
     }
     // If no rank was assigned, default to B-rank for testing purposes
     if (!bloodlineRank) {
-      bloodlineRank = "B";
+      bloodlineRank = "A";
     }
   
     // If a rank was determined, use filterRollableBloodlines to select a bloodline
