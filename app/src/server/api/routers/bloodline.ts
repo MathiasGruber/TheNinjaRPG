@@ -221,7 +221,7 @@ export const bloodlineRouter = createTRPCRouter({
     ]);
   
     // Guard
-    if (prevRoll) return errorResponse("You have already rolled a bloodline");
+    //if (prevRoll) return errorResponse("You have already rolled a bloodline");
     if (user.status !== "AWAKE") {
       return errorResponse(`Cannot roll bloodline while ${user.status.toLowerCase()}`);
     }
