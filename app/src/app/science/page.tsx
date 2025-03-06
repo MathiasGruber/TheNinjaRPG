@@ -57,7 +57,7 @@ export default function Science() {
           I invite you to consult with our experts.
         </p>
         {isPendingBlood && <Loader explanation="Loading bloodlines" />}
-        {!isPendingBlood && <RollBloodline refetch={refetchBloodline} />}
+        {!isPendingBlood && !hasRolled && <RollBloodline refetch={refetchBloodline} />}
       </ContentBox>
       {!isPendingBlood && bloodlineId && (
         <CurrentBloodline bloodlineId={bloodlineId} initialBreak />
