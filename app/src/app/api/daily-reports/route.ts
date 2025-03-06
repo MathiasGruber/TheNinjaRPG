@@ -43,7 +43,7 @@ export async function GET() {
           .update(userData)
           .set({ isBanned: false })
           .where(eq(userData.userId, report.reportedUser.userId));
-      } else if (report.status === "SILENCE_ACTIVATED" && report.reportedUser?.isSilenced && (report.banEnd && now) <= now) {
+      } else if (report.status === "SILENCE_ACTIVATED" && report.reportedUser?.isSilenced && (report.banEnd ?? now) <= now) {
         // Unsilence user if silence has expired
         await drizzleDB
           .update(userData)
