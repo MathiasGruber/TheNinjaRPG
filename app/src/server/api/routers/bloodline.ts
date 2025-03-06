@@ -304,7 +304,7 @@ export const bloodlineRouter = createTRPCRouter({
       success: false,
       message: "After thorough examination, the doctors conclude you have no bloodline.",
     };
-  };
+  },
   // Pity Roll a bloodline
   pityRoll: protectedProcedure
     .input(z.object({ rank: z.enum(LetterRanks).optional().nullish() }))
