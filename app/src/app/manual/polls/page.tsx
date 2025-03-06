@@ -785,29 +785,9 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
   useEffect(() => {
     // Update the form's options field whenever the options state changes
     form.setValue("options", options);
-    console.log("Synced options with form:", options);
   }, [options, form]);
 
   const onSubmit = (data: PollFormValues) => {
-    console.log("Form submitted with data:", data);
-
-    // Check if title and description are provided
-    if (!data.title.trim()) {
-      form.setError("title", {
-        type: "manual",
-        message: "Title is required",
-      });
-      return;
-    }
-
-    if (!data.description.trim()) {
-      form.setError("description", {
-        type: "manual",
-        message: "Description is required",
-      });
-      return;
-    }
-
     // Filter out empty options and ensure all options have the required fields
     const filteredOptions = options
       .filter((option) => {
@@ -834,64 +814,20 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
         return option;
       });
 
-    console.log("Filtered options:", filteredOptions);
-
-    if (filteredOptions.length < 2) {
-      console.log("Not enough valid options");
-      form.setError("options", {
-        type: "manual",
-        message: "At least 2 options are required",
-      });
-      return;
-    }
-
-    // Create the poll with the filtered options
-    const createPollData: CreatePollSchema = {
+    // Validate the data against the schema
+    createPoll({
       title: data.title,
       description: data.description,
       options: filteredOptions,
       allowCustomOptions: data.allowCustomOptions,
       endDate: data.endDate,
-    };
-
-    // Validate the data against the schema
-    try {
-      // This is a simple validation check - you can expand it if needed
-      if (createPollData.options.length < 2) {
-        throw new Error("At least 2 options are required");
-      }
-
-      createPollData.options.forEach((option) => {
-        if (option.type === "text" && (!option.text || option.text.trim() === "")) {
-          throw new Error("Text options must have text");
-        }
-        if (option.type === "user" && (!option.userId || option.userId.trim() === "")) {
-          throw new Error("User options must have a userId");
-        }
-      });
-
-      console.log("Data is valid, submitting poll data:", createPollData);
-      createPoll(createPollData);
-    } catch (error) {
-      console.error("Validation error:", error);
-      form.setError("root", {
-        type: "manual",
-        message: error instanceof Error ? error.message : "Validation error",
-      });
-    }
+    });
   };
 
   return (
     <Form {...form}>
       <form
         onSubmit={(e) => {
-          console.log("Form submit event triggered");
-          // Check if the form is valid before submitting
-          const isValid = form.formState.isValid;
-          console.log("Form is valid:", isValid);
-          console.log("Form errors:", form.formState.errors);
-
-          // Continue with form submission
           void form.handleSubmit(onSubmit)(e);
         }}
         className="space-y-6"
