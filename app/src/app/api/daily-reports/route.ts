@@ -14,7 +14,6 @@ export async function GET() {
 
   // Check timer
   const timerCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME);
-  const now = new Date();
   // if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
 
   try {
@@ -37,13 +36,16 @@ export async function GET() {
 
     // Process each expired report
     for (const report of expiredReports) {
-      if (report.status === "BAN_ACTIVATED" && report.reportedUser?.isBanned && user.banEnd <= now) {
+      if (report.status === "BAN_ACTIVATED" && report.reportedUser?.isBanned) {
         // Unban user if ban has expired
         await drizzleDB
           .update(userData)
           .set({ isBanned: false })
           .where(eq(userData.userId, report.reportedUser.userId));
-      } else if (report.status === "SILENCE_ACTIVATED" && report.reportedUser?.isSilenced && user.banEnd <= now) {
+      } else if (
+        report.status === "SILENCE_ACTIVATED" &&
+        report.reportedUser?.isSilenced
+      ) {
         // Unsilence user if silence has expired
         await drizzleDB
           .update(userData)
