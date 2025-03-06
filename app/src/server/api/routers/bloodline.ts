@@ -292,18 +292,19 @@ export const bloodlineRouter = createTRPCRouter({
       }
     }
 
-// If no bloodline should have been rolled at all, simply log the roll attempt
-await ctx.drizzle.insert(bloodlineRolls).values({
-  id: nanoid(),
-  used: 0,
-  userId: ctx.userId,
-  bloodlineId: null, // No attempt to roll a bloodline
-});
-
-return {
-  success: false,
-  message: "After thorough examination, the doctors conclude you have no bloodline.",
-};
+    // If no bloodline should have been rolled at all, simply log the roll attempt
+    await ctx.drizzle.insert(bloodlineRolls).values({
+      id: nanoid(),
+      used: 0,
+      userId: ctx.userId,
+      bloodlineId: null, // No attempt to roll a bloodline
+    });
+    
+    return {
+      success: false,
+      message: "After thorough examination, the doctors conclude you have no bloodline.",
+    };
+  };
   // Pity Roll a bloodline
   pityRoll: protectedProcedure
     .input(z.object({ rank: z.enum(LetterRanks).optional().nullish() }))
