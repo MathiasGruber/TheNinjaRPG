@@ -695,6 +695,16 @@ export const WeaknessTag = z.object({
 });
 export type WeaknessTagType = z.infer<typeof WeaknessTag>;
 
+export const CopyTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("copy").default("copy"),
+  description: msg("Copies all positive effects from the target to the user"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+});
+export type CopyTagType = z.infer<typeof CopyTag>;
+
 export const UnknownTag = z.object({
   ...BaseAttributes,
   type: z.literal("unknown").default("unknown"),
@@ -721,6 +731,7 @@ export const AllTags = z.union([
   ClearPreventTag.default({}),
   ClearTag.default({}),
   CloneTag.default({}),
+  CopyTag.default({}),
   DamageTag.default({}),
   DebuffPreventTag.default({}),
   DecreaseDamageGivenTag.default({}),
