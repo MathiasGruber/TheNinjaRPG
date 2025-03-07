@@ -655,17 +655,17 @@ export const WeaknessTag = z.object({
   description: msg("Extra raw damage from specific things"),
   dmgModifier: z.coerce.number().min(1).max(50).default(1).optional(),
 });
+export type WeaknessTagType = z.infer<typeof WeaknessTag>;
 
 export const CopyTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
   type: z.literal("copy").default("copy"),
-  description: msg("Copy positive buffs from enemy to self"),
-  target: z.enum(BaseTagTargets).optional().default("SELF"),
-  direction: type("defence"),
+  description: msg("Copies all positive effects from the target to the user"),
   calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
 });
-export type WeaknessTagType = z.infer<typeof WeaknessTag>;
+export type CopyTagType = z.infer<typeof CopyTag>;
 
 export const UnknownTag = z.object({
   ...BaseAttributes,
