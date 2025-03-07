@@ -340,7 +340,10 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               info = stun(e, newUsersEffects, curTarget);
             } else if (e.type === "drain") {
               info = drain(e, usersEffects, consequences, curTarget);
+            } else if (e.type === "copy") {
+              info = copy(e, usersEffects, curUser, curTarget);
             }
+
           }
 
           // Always apply
