@@ -13,6 +13,7 @@ import { X } from "lucide-react";
 import { getUnique } from "@/utils/grouping";
 import { api } from "@/app/_trpc/client";
 import type { UseFormReturn } from "react-hook-form";
+import { useWatch } from "react-hook-form";
 
 type SelectedClan = {
   name: string;
@@ -45,8 +46,12 @@ const ClanSearchSelect: React.FC<ClanSearchSelectProps> = (props) => {
 
   const form = props.useFormMethods;
 
-  const watchName = form.watch("name", "");
-  const watchClans = form.watch("clans", []);
+  const watchName = useWatch({ control: form.control, name: "name", defaultValue: "" });
+  const watchClans = useWatch({
+    control: form.control,
+    name: "clans",
+    defaultValue: [],
+  });
 
   const { data: searchResults } = api.clan.searchClans.useQuery(
     { name: searchTerm },

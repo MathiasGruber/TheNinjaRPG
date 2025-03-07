@@ -33,6 +33,7 @@ import type { AiRuleType } from "@/validators/ai";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import type { AdditionalContext } from "@/validators/reports";
 import type { ZodBgSchemaType } from "@/validators/backgroundSchema";
+import type { CoreMessage } from "ai";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -284,6 +285,21 @@ export const battleHistoryRelations = relations(battleHistory, ({ one, many }) =
   }),
 }));
 
+export const emailReminder = mysqlTable("EmailReminder", {
+  id: int("id").autoincrement().primaryKey().notNull(),
+  userId: varchar("userId", { length: 191 }),
+  callName: varchar("callName", { length: 191 }),
+  email: varchar("email", { length: 191 }).notNull(),
+  latestRejoinRequest: datetime("latestRejoinRequest", { mode: "date", fsp: 3 }),
+  lastActivity: datetime("lastActivity", { mode: "date", fsp: 3 }),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  secret: varchar("secret", { length: 191 }).notNull(),
+  disabled: boolean("disabled").default(false).notNull(),
+  validated: boolean("validated").default(true).notNull(),
+});
+
 export const userBlackList = mysqlTable(
   "UserBlackList",
   {
@@ -427,6 +443,8 @@ export const clan = mysqlTable(
     points: int("points").default(0).notNull(),
     bank: bigint("bank", { mode: "number" }).default(0).notNull(),
     pvpActivity: int("pvpActivity").default(0).notNull(),
+    repTreasury: int("repTreasury").default(0).notNull(),
+    hasHideout: boolean("hasHideout").default(false).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -1199,9 +1217,14 @@ export const actionLog = mysqlTable(
     relatedId: varchar("relatedId", { length: 191 }),
     relatedMsg: varchar("relatedText", { length: 191 }),
     relatedImage: varchar("relatedImage", { length: 191 }),
+    relatedValue: double("relatedValue").default(0).notNull(),
   },
   (table) => {
-    return { userId: index("ActionLog_userId_idx").on(table.userId) };
+    return {
+      userId: index("ActionLog_userId_idx").on(table.userId),
+      relatedIdIdx: index("ActionLog_relatedId_idx").on(table.relatedId),
+      tableNameIdx: index("ActionLog_tableName_idx").on(table.tableName),
+    };
   },
 );
 
@@ -1394,6 +1417,11 @@ export const userData = mysqlTable(
     questData: json("questData").$type<QuestTrackerType[]>(),
     senseiId: varchar("senseiId", { length: 191 }),
     medicalExperience: int("medicalExperience").default(0).notNull(),
+    // Settings
+    preferredStat: mysqlEnum("preferredStat", consts.StatTypes),
+    preferredGeneral1: mysqlEnum("preferredGeneral1", consts.GeneralTypes),
+    preferredGeneral2: mysqlEnum("preferredGeneral2", consts.GeneralTypes),
+    showBattleDescription: boolean("showBattleDescription").default(true).notNull(),
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),
@@ -1425,7 +1453,7 @@ export const userData = mysqlTable(
     marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
     aiProfileId: varchar("aiProfileId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
-    showBattleDescription: boolean("showBattleDescription").default(true).notNull(),
+    aiCalls: int("openaiCalls").default(0).notNull(),
   },
   (table) => {
     return {
@@ -1539,6 +1567,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     references: [aiProfile.id],
   }),
   promotions: many(linkPromotion, { relationName: "userPromotions" }),
+  votes: one(userVote, {
+    fields: [userData.userId],
+    references: [userVote.userId],
+  }),
 }));
 
 export const userReview = mysqlTable(
@@ -1773,6 +1805,20 @@ export const automatedModeration = mysqlTable(
   },
 );
 
+export const supportReview = mysqlTable("SupportReview", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  apiRoute: varchar("apiRoute", { length: 191 }).notNull(),
+  chatHistory: json("chatHistory").$type<CoreMessage[]>().notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  sentiment: mysqlEnum("sentiment", consts.Sentiment).notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+});
+
 export const village = mysqlTable(
   "Village",
   {
@@ -1800,6 +1846,18 @@ export const village = mysqlTable(
     pvpDisabled: boolean("pvpDisabled").default(false).notNull(),
     villageLogo: varchar("villageLogo", { length: 191 }).default("").notNull(),
     villageGraphic: varchar("villageGraphic", { length: 191 }).default("").notNull(),
+    lastMaintenancePaidAt: datetime("lastMaintenancePaidAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    wasDowngraded: boolean("wasDowngraded").default(false).notNull(),
+    openForChallenges: boolean("openForChallenges").default(true).notNull(),
+    openForChallengesAt: datetime("openForChallengesAt", {
+      mode: "date",
+      fsp: 3,
+    })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    wallpaperOverwrite: varchar("wallpaperOverwrite", { length: 191 }),
   },
   (table) => {
     return {
@@ -2379,11 +2437,11 @@ export const userVote = mysqlTable(
     arenaTop100: boolean("arenaTop100").default(false).notNull(),
     xtremeTop100: boolean("xtremeTop100").default(false).notNull(),
     topOnlineMmorpg: boolean("topOnlineMmorpg").default(false).notNull(),
-    gamesTop200: boolean("gamesTop200").default(false).notNull(),
     browserMmorpg: boolean("browserMmorpg").default(false).notNull(),
     apexWebGaming: boolean("apexWebGaming").default(false).notNull(),
-    mmorpg100: boolean("mmorpg100").default(false).notNull(),
+    bbogd: boolean("bbogd").default(false).notNull(),
     claimed: boolean("claimed").default(false).notNull(),
+    totalClaims: int("totalClaims").default(0).notNull(),
     secret: varchar("secret", { length: 191 }).notNull(),
     lastVoteAt: datetime("lastVoteAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
@@ -2395,6 +2453,7 @@ export const userVote = mysqlTable(
     };
   },
 );
+export type UserVote = InferSelectModel<typeof userVote>;
 
 export const userVoteRelations = relations(userVote, ({ one }) => ({
   user: one(userData, {
@@ -2402,3 +2461,126 @@ export const userVoteRelations = relations(userVote, ({ one }) => ({
     references: [userData.userId],
   }),
 }));
+
+// Poll schema
+export const poll = mysqlTable(
+  "Poll",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description").notNull(),
+    allowCustomOptions: boolean("allowCustomOptions").default(false).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    endDate: datetime("endDate", { mode: "date", fsp: 3 }),
+    createdByUserId: varchar("createdByUserId", { length: 191 }).notNull(),
+    isActive: boolean("isActive").default(true).notNull(),
+  },
+  (table) => {
+    return {
+      createdByUserIdIdx: index("Poll_createdByUserId_idx").on(table.createdByUserId),
+    };
+  },
+);
+
+export const pollRelations = relations(poll, ({ one, many }) => ({
+  createdBy: one(userData, {
+    fields: [poll.createdByUserId],
+    references: [userData.userId],
+  }),
+  options: many(pollOption),
+  votes: many(userPollVote),
+}));
+
+export type Poll = InferSelectModel<typeof poll>;
+
+// Poll option schema
+export const pollOption = mysqlTable(
+  "PollOption",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    pollId: varchar("pollId", { length: 191 }).notNull(),
+    text: varchar("text", { length: 255 }).notNull(),
+    optionType: mysqlEnum("optionType", consts.PollOptionTypes)
+      .default("text")
+      .notNull(),
+    targetUserId: varchar("targetUserId", { length: 191 }),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    createdByUserId: varchar("createdByUserId", { length: 191 }).notNull(),
+    isCustomOption: boolean("isCustomOption").default(false).notNull(),
+  },
+  (table) => {
+    return {
+      pollIdIdx: index("PollOption_pollId_idx").on(table.pollId),
+      createdByUserIdIdx: index("PollOption_createdByUserId_idx").on(
+        table.createdByUserId,
+      ),
+      targetUserIdIdx: index("PollOption_targetUserId_idx").on(table.targetUserId),
+    };
+  },
+);
+
+export const pollOptionRelations = relations(pollOption, ({ one, many }) => ({
+  poll: one(poll, {
+    fields: [pollOption.pollId],
+    references: [poll.id],
+  }),
+  createdBy: one(userData, {
+    fields: [pollOption.createdByUserId],
+    references: [userData.userId],
+  }),
+  targetUser: one(userData, {
+    fields: [pollOption.targetUserId],
+    references: [userData.userId],
+  }),
+  votes: many(userPollVote),
+}));
+
+export type PollOption = InferSelectModel<typeof pollOption>;
+
+// User poll vote schema
+export const userPollVote = mysqlTable(
+  "UserPollVote",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    pollId: varchar("pollId", { length: 191 }).notNull(),
+    optionId: varchar("optionId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdPollIdIdx: uniqueIndex("UserPollVote_userId_pollId_idx").on(
+        table.userId,
+        table.pollId,
+      ),
+      pollIdIdx: index("UserPollVote_pollId_idx").on(table.pollId),
+      optionIdIdx: index("UserPollVote_optionId_idx").on(table.optionId),
+    };
+  },
+);
+
+export const userPollVoteRelations = relations(userPollVote, ({ one }) => ({
+  user: one(userData, {
+    fields: [userPollVote.userId],
+    references: [userData.userId],
+  }),
+  poll: one(poll, {
+    fields: [userPollVote.pollId],
+    references: [poll.id],
+  }),
+  option: one(pollOption, {
+    fields: [userPollVote.optionId],
+    references: [pollOption.id],
+  }),
+}));
+
+export type UserPollVote = InferSelectModel<typeof userPollVote>;

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Filter } from "lucide-react";
 import { BanStates } from "@/drizzle/constants";
@@ -47,14 +47,22 @@ const ReportFiltering: React.FC<ReportFilteringProps> = (props) => {
     defaultValues: { username: reporterUser },
     mode: "all",
   });
-  const watchReporterName = reporterForm.watch("username", undefined);
+  const watchReporterName = useWatch({
+    control: reporterForm.control,
+    name: "username",
+    defaultValue: undefined,
+  });
 
   const reportedForm = useForm<UserSearchSchema>({
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: reportedUser },
     mode: "all",
   });
-  const watchReportedName = reportedForm.watch("username", undefined);
+  const watchReportedName = useWatch({
+    control: reportedForm.control,
+    name: "username",
+    defaultValue: undefined,
+  });
 
   // Update the state
   useEffect(() => {

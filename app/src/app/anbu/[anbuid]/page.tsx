@@ -13,7 +13,7 @@ import AvatarImage from "@/layout/Avatar";
 import { mutateContentSchema } from "@/validators/comments";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -161,7 +161,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
     defaultValues: { name: squad.name, image: squad.image },
   });
   const onEdit = renameForm.handleSubmit((data) => edit({ ...data, squadId }));
-  const currentImage = renameForm.watch("image");
+  const currentImage = useWatch({ control: renameForm.control, name: "image" });
 
   // Set squad name
   useEffect(() => {
@@ -438,10 +438,17 @@ const AnbuRequests: React.FC<AnbuRequestsProps> = (props) => {
   };
 
   // Mutation
-  const { mutate: create } = api.anbu.createRequest.useMutation({ onSuccess });
-  const { mutate: accept } = api.anbu.acceptRequest.useMutation({ onSuccess });
-  const { mutate: reject } = api.anbu.rejectRequest.useMutation({ onSuccess });
-  const { mutate: cancel } = api.anbu.cancelRequest.useMutation({ onSuccess });
+  const { mutate: create, isPending: isCreating } = api.anbu.createRequest.useMutation({
+    onSuccess,
+  });
+  const { mutate: accept, isPending: isAccepting } = api.anbu.acceptRequest.useMutation(
+    { onSuccess },
+  );
+  const { mutate: reject, isPending: isRejecting } = api.anbu.rejectRequest.useMutation(
+    { onSuccess },
+  );
+  const { mutate: cancel, isPending: isCancelling } =
+    api.anbu.cancelRequest.useMutation({ onSuccess });
 
   // Loaders
   if (!requests) return <Loader explanation="Loading requests" />;
@@ -482,6 +489,7 @@ const AnbuRequests: React.FC<AnbuRequestsProps> = (props) => {
           onAccept={accept}
           onReject={reject}
           onCancel={cancel}
+          isLoading={isCreating || isAccepting || isRejecting || isCancelling}
         />
       )}
     </ContentBox>

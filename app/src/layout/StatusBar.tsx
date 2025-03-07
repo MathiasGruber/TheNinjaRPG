@@ -70,7 +70,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
   // Color for the bars
   const color =
     isInBattle || current === undefined || total === undefined
-      ? `bg-gradient-to-r from-slate-500 to-slate-400 background-animate opacity-20`
+      ? `bg-linear-to-r from-slate-500 to-slate-400 background-animate opacity-20`
       : props.color;
 
   // Updating the bars based on regen

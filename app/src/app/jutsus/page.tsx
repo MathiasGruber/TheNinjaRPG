@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, CircleFadingArrowUp } from "lucide-react";
+import { Trash2, CircleFadingArrowUp, ArrowRightLeft } from "lucide-react";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
@@ -29,8 +29,16 @@ import { showMutationToast } from "@/libs/toast";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
 import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
+import { 
+  JUTSU_TRANSFER_COST, 
+  JUTSU_TRANSFER_MAX_LEVEL, 
+  JUTSU_TRANSFER_MINIMUM_LEVEL 
+} from "@/drizzle/constants";
+import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
+import { canTransferJutsu } from "@/utils/permissions";
+
 
 export default function MyJutsu() {
   // tRPC utility
@@ -46,6 +54,11 @@ export default function MyJutsu() {
   const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
+  const [transferTarget, setTransferTarget] = useState<(Jutsu & UserJutsu) | undefined>(
+    undefined,
+  );
+  const transferCost = canTransferJutsu(userData?.role || "USER") ? 0 : JUTSU_TRANSFER_COST;
+  const [transferValue, setTransferValue] = useState<number>(1);
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
@@ -56,6 +69,9 @@ export default function MyJutsu() {
     undefined,
     { enabled: !!userData },
   );
+  const { data: recentTransfers } = api.jutsu.getRecentTransfers.useQuery(undefined, {
+    enabled: !!userData,
+  });
 
   const userJutsuCounts = userJutsus?.map((userJutsu) => {
     return {
@@ -67,10 +83,15 @@ export default function MyJutsu() {
     };
   });
 
+  // Transfer costs
+  const freeTransfers = getFreeTransfers(userData?.federalStatus || "NONE");
+  const usedTransfers = recentTransfers?.length || 0;
+
   const onSettled = () => {
     document.body.style.cursor = "default";
     setIsOpen(false);
     setUserJutsu(undefined);
+    setTransferTarget(undefined);
   };
 
   // Mutations
@@ -133,7 +154,24 @@ export default function MyJutsu() {
       },
     });
 
-  const isPending = isToggling || isForgetting || isUpgrading || isUnequipping;
+  const { mutate: transferLevel, isPending: isTransferring } =
+    api.jutsu.transferLevel.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success && userData) {
+          await utils.jutsu.getUserJutsus.invalidate();
+          if (usedTransfers >= freeTransfers && transferCost > 0) {
+            await updateUser({
+              reputationPoints: userData.reputationPoints - transferCost,
+            });
+          }
+        }
+      },
+      onSettled,
+    });
+
+  const isPending =
+    isToggling || isForgetting || isUpgrading || isUnequipping || isTransferring;
   const isFetching = l1 || l2;
 
   // Collapse UserItem and Item
@@ -325,6 +363,91 @@ export default function MyJutsu() {
                 )}
 
                 <div className="grow"></div>
+                {userjutsu.level >= JUTSU_TRANSFER_MINIMUM_LEVEL && userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
+                  <Confirm
+                    title="Transfer Level"
+                    button={
+                      <Button id="transfer" variant="secondary">
+                        <ArrowRightLeft className="h-6 w-6 mr-2" />
+                        Transfer Level
+                      </Button>
+                    }
+                    proceed_label={
+                      transferTarget ? "Confirm Transfer" : "Select Target"
+                    }
+                    onClose={() => {
+                      setTransferTarget(undefined);
+                      setTransferValue(1);
+                    }}
+                    onAccept={(e) => {
+                      e.preventDefault();
+                      if (transferTarget) {
+                        transferLevel({
+                          fromJutsuId: userjutsu.jutsuId,
+                          toJutsuId: transferTarget.jutsuId,
+                          transferLevels: transferValue,
+                        });
+                      }
+                    }}
+                  >
+                    {transferTarget ? (
+                      <>
+                        <p>
+                          Transfer{" "}
+                          <input
+                            type="number"
+                            min={1}
+                            max={Math.min(
+                              userjutsu.level - 1,
+                              JUTSU_TRANSFER_MAX_LEVEL - transferTarget.level
+                            )}
+                            value={transferValue}
+                            onChange={(e) =>
+                              setTransferValue(parseInt(e.target.value) || 1)
+                            }
+                            style={{
+                              width: "50px",
+                              margin: "0 5px",
+                              backgroundColor: "white",
+                              color: "black",
+                              border: "1px solid #ccc",
+                              padding: "2px 4px",
+                            }}
+                          />{" "}
+                          level(s) from {userjutsu.name} to {transferTarget.name}?
+                        </p>
+                        <p>
+                          This will subtract {transferValue} level{transferValue > 1 ? "s" : ""} from {userjutsu.name} (new level: {userjutsu.level - transferValue}) and add {transferValue} level{transferValue > 1 ? "s" : ""} to {transferTarget.name} (new level: {transferTarget.level + transferValue}).
+                        </p>
+                        <p>
+                          Cost:{" "}
+                          {usedTransfers >= freeTransfers && transferCost > 0
+                            ? `${transferCost} reputation points`
+                            : "Free"}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <p>Select a jutsu to transfer the level to.</p>
+                        <ActionSelector
+                          items={allJutsu?.filter(
+                            (jutsu) =>
+                              jutsu.jutsuType === userjutsu.jutsuType &&
+                              jutsu.jutsuRank === userjutsu.jutsuRank &&
+                              jutsu.id !== userjutsu.id
+                          )}
+                          counts={userJutsuCounts}
+                          labelSingles={true}
+                          showBgColor={false}
+                          showLabels={true}
+                          onClick={(id) => {
+                            setTransferTarget(allJutsu?.find((jutsu) => jutsu.id === id));
+                          }}
+                        />
+                      </div>
+                    )}
+                  </Confirm>
+                )}
                 <Confirm
                   title="Forget Jutsu"
                   button={

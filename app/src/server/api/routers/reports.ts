@@ -2,16 +2,20 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
-import { eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
+import { or, eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
+import { automatedModeration } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { userReportSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
 import { requestAvatarForUser } from "@/libs/replicate";
 import { canModerateReports } from "@/utils/permissions";
+import { canBanUsers } from "@/utils/permissions";
+import { canSilenceUsers } from "@/utils/permissions";
+import { canWarnUsers } from "@/utils/permissions";
 import { canSeeReport } from "@/utils/permissions";
 import { canClearReport } from "@/utils/permissions";
 import { canEscalateBan } from "@/utils/permissions";
@@ -29,6 +33,7 @@ import { getAdditionalContext } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
 import { canModerateRoles } from "@/utils/permissions";
 import { reportFilteringSchema } from "@/validators/reports";
+import type { AutomoderationCategory } from "@/drizzle/constants";
 import type { BanState } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
 import type { AdditionalContext } from "@/validators/reports";
@@ -269,7 +274,10 @@ export const reportsRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       ctx.drizzle.query.userReport.findFirst({
         where: and(
-          eq(userReport.status, "BAN_ACTIVATED"),
+          or(
+            eq(userReport.status, "BAN_ACTIVATED"),
+            eq(userReport.status, "SILENCE_ACTIVATED"),
+          ),
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
@@ -310,6 +318,7 @@ export const reportsRouter = createTRPCRouter({
     ]);
     // Unsilence user if ban no longer active
     if (!silenceReport && user.isSilenced) {
+      console.log("Unsilencing user 1");
       await ctx.drizzle
         .update(userData)
         .set({ isSilenced: false })
@@ -433,6 +442,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("You cannot resolve this report");
+      if (!canBanUsers(user)) return errorResponse("You cannot ban users");
       if (!input.banTime || input.banTime <= 0) {
         return errorResponse("Ban time must be specified.");
       }
@@ -478,6 +488,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("You cannot resolve this report");
+      if (!canSilenceUsers(user)) return errorResponse("You cannot silence users");
       if (!input.banTime || input.banTime <= 0) {
         return errorResponse("Ban time must be specified.");
       }
@@ -523,6 +534,7 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       const hasModRights = canModerateReports(user, report);
       if (!hasModRights) return errorResponse("No permission to warn");
+      if (!canWarnUsers(user)) return errorResponse("You cannot warn users");
       // Update
       await Promise.all([
         ctx.drizzle
@@ -618,6 +630,7 @@ export const reportsRouter = createTRPCRouter({
           ),
         });
         if (silences.length === 0) {
+          console.log("Unsilencing user 2");
           await ctx.drizzle
             .update(userData)
             .set({ isSilenced: false })
@@ -818,5 +831,54 @@ export const insertUserReport = async (
     reason: sanitize(info.reason),
     predictedStatus: info.predictedStatus,
     additionalContext: info.additionalContext,
+  });
+};
+
+/**
+ * Insert an automated moderation report
+ * @param client - The database client
+ * @param info - The information to insert
+ */
+export const insertAutomatedModeration = async (
+  client: DrizzleClient,
+  info: {
+    userId: string;
+    content: string;
+    relationType: AutomoderationCategory;
+    categories: {
+      sexual: boolean;
+      sexual_minors: boolean;
+      harassment: boolean;
+      harassment_threatening: boolean;
+      hate: boolean;
+      hate_threatening: boolean;
+      illicit: boolean;
+      illicit_violent: boolean;
+      self_harm: boolean;
+      self_harm_intent: boolean;
+      self_harm_instructions: boolean;
+      violence: boolean;
+      violence_graphic: boolean;
+    };
+  },
+) => {
+  await client.insert(automatedModeration).values({
+    id: nanoid(),
+    userId: info.userId,
+    content: info.content,
+    relationType: info.relationType,
+    sexual: info.categories.sexual,
+    sexual_minors: info.categories.sexual_minors,
+    harassment: info.categories.harassment,
+    harassment_threatening: info.categories.harassment_threatening,
+    hate: info.categories.hate,
+    hate_threatening: info.categories.hate_threatening,
+    illicit: info.categories.illicit,
+    illicit_violent: info.categories.illicit_violent,
+    self_harm: info.categories.self_harm,
+    self_harm_intent: info.categories.self_harm_intent,
+    self_harm_instructions: info.categories.self_harm_instructions,
+    violence: info.categories.violence,
+    violence_graphic: info.categories.violence_graphic,
   });
 };

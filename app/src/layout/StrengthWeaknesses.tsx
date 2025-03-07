@@ -164,7 +164,7 @@ const StrengthWeaknesses: React.FC = () => {
             <PopoverContent>
               <div className="flex flex-col gap-2 text-xs">
                 <div>
-                  <p className="font-bold leading-0">Stats Explained</p>
+                  <p className="font-bold">Stats Explained</p>
                   <p className="italic">
                     Your stats influence how strong your character is overall
                   </p>
@@ -176,7 +176,9 @@ const StrengthWeaknesses: React.FC = () => {
                   <li>
                     <b>Intelligence:</b> mental strength
                   </li>
-                  <li>movement speed</li>
+                  <li>
+                    <b>Speed:</b> movement speed
+                  </li>
                   <li>
                     <b>Willpower:</b> mental resistance
                   </li>

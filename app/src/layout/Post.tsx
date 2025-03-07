@@ -59,52 +59,58 @@ const Post: React.FC<PostProps> = (props) => {
   switch (props.user?.federalStatus) {
     case "NORMAL":
       userColor =
-        "bg-gradient-to-r from-blue-800 via-blue-500 to-blue-800 bg-clip-text text-transparent font-black";
+        "bg-linear-to-r from-blue-800 via-blue-500 to-blue-800 bg-clip-text text-transparent font-black";
       break;
     case "SILVER":
       userColor =
-        "bg-gradient-to-r from-gray-500 via-gray-400 to-gray-500 bg-clip-text text-transparent font-black";
+        "bg-linear-to-r from-gray-500 via-gray-400 to-gray-500 bg-clip-text text-transparent font-black";
       break;
     case "GOLD":
       userColor =
-        "bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 bg-clip-text text-transparent font-black";
+        "bg-linear-to-r from-amber-600 via-amber-400 to-amber-600 bg-clip-text text-transparent font-black";
       break;
   }
 
   switch (props.user?.role) {
     case "MODERATOR":
+    case "JR_MODERATOR":
       userColor =
-        "bg-gradient-to-r from-green-800 via-green-500 to-green-800 bg-clip-text text-transparent";
+        "bg-linear-to-r from-green-800 via-green-500 to-green-800 bg-clip-text text-transparent";
       userRole = "bg-green-500";
       break;
     case "HEAD_MODERATOR":
       userColor =
-        "bg-gradient-to-r from-emerald-700 via-emerald-500 to-emerald-700 bg-clip-text text-transparent";
+        "bg-linear-to-r from-emerald-700 via-emerald-500 to-emerald-700 bg-clip-text text-transparent";
       userRole = "bg-emerald-700";
       break;
     case "EVENT":
       userColor =
-        "bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 bg-clip-text text-transparent";
+        "bg-linear-to-r from-orange-600 via-orange-500 to-orange-600 bg-clip-text text-transparent";
       userRole = "bg-orange-500";
       break;
     case "CONTENT":
       userColor =
-        "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent";
+        "bg-linear-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent";
       userRole = "bg-purple-400";
+      break;
+    case "CODER":
+      userColor =
+        "bg-linear-to-r from-pink-500 via-pink-300 to-pink-500 bg-clip-text text-transparent";
+      userRole = "bg-pink-300";
       break;
     case "CONTENT-ADMIN":
       userColor =
-        "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent";
+        "bg-linear-to-r from-purple-500 via-purple-400 to-purple-500 bg-clip-text text-transparent";
       userRole = "bg-purple-400";
       break;
     case "MODERATOR-ADMIN":
       userColor =
-        "bg-gradient-to-r from-red-500 via-red-400 to-red-500 bg-clip-text text-transparent";
+        "bg-linear-to-r from-red-500 via-red-400 to-red-500 bg-clip-text text-transparent";
       userRole = "bg-red-400";
       break;
     case "CODING-ADMIN":
       userColor =
-        "bg-gradient-to-r from-red-500 via-red-400 to-red-500 bg-clip-text text-transparent";
+        "bg-linear-to-r from-red-500 via-red-400 to-red-500 bg-clip-text text-transparent";
       userRole = "bg-red-400";
       break;
   }

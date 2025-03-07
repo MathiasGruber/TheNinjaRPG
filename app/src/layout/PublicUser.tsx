@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { getSearchValidator } from "@/validators/register";
@@ -36,7 +36,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrainingSpeeds } from "@/drizzle/constants";
+import { JUTSU_LEVEL_CAP, TrainingSpeeds } from "@/drizzle/constants";
 import { TransactionHistory } from "src/app/points/page";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
@@ -79,6 +79,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { Jutsu } from "@/drizzle/schema";
 
 interface PublicUserComponentProps {
   userId: string;
@@ -162,10 +163,14 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   const userSearchSchema = getSearchValidator({ max: 10 });
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
+    defaultValues: { users: [] },
   });
-  const watchedUsers = userSearchMethods.watch("users");
+  const watchedUsers = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  });
 
-  // Effects
   useEffect(() => {
     if (profile) {
       userSearchMethods.setValue("users", [
@@ -182,14 +187,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   }, [profile, userSearchMethods]);
 
   useEffect(() => {
-    const users = userSearchMethods.watch("users");
-    if (users && users.length > 0) {
+    if (watchedUsers && watchedUsers.length > 0) {
       form.setValue(
         "userIds",
-        users.map((u) => u.userId),
+        watchedUsers.map((u) => u.userId),
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedUsers, form]);
 
   // tRPC utility
@@ -270,6 +273,14 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
       reason: data.reason,
     });
   });
+
+  const accountStatus = profile
+    ? profile.isBanned
+      ? "BANNED"
+      : profile.isSilenced
+      ? "SILENCED"
+      : "GOOD STANDING"
+    : "Loading...";
 
   // Derived
   const canChange = userData && canClearUserNindo(userData);
@@ -454,6 +465,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             </p>
             <p>Village: {profile.village?.name}</p>
             <p>Status: {profile.status}</p>
+            <p>Account Status: {accountStatus}</p>
             <p>Gender: {profile.gender}</p>
             <br />
             <b>Associations</b>
@@ -883,18 +895,58 @@ interface EditUserComponentProps {
 }
 
 const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }) => {
+  // State
+  const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
+  const [showActive, setShowActive] = useState<string>("userData");
+  const now = new Date();
+
   // tRPC utility
   const utils = api.useUtils();
 
-  // Refetching public user
-  const refetchProfile = () => void utils.profile.getPublicUser.invalidate();
-
   // Form handling
-  const { form, formData, handleUserSubmit } = useUserEditForm(
+  const { form, formData, userJutsus, handleUserSubmit } = useUserEditForm(
     userId,
     profile,
-    refetchProfile,
   );
+
+  // Form for jutsu level
+  const jutsuLevelForm = useForm<{ level: number }>({
+    defaultValues: {
+      level: userJutsus?.find((uj) => uj.jutsuId === jutsu?.id)?.level || 0,
+    },
+  });
+
+  // Mutation for adjusting jutsu level
+  const adjustJutsuLevel = api.jutsu.adjustJutsuLevel.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+        await utils.jutsu.getPublicUserJutsus.invalidate();
+      }
+    },
+  });
+
+  // Derived
+  const userJutsu = userJutsus?.find((uj) => uj.jutsuId === jutsu?.id);
+  const allJutsus = userJutsus?.map((uj) => uj.jutsu);
+  const userJutsuCounts = userJutsus?.map((userJutsu) => {
+    return {
+      id: userJutsu.jutsuId,
+      quantity:
+        userJutsu.finishTraining && userJutsu.finishTraining > now
+          ? userJutsu.level - 1
+          : userJutsu.level,
+    };
+  });
+  const hasJutsus = userJutsus && userJutsus.length > 0;
+
+  // Update jutsu level form default value when jutsu changes
+  useEffect(() => {
+    if (userJutsu) {
+      jutsuLevelForm.reset({ level: userJutsu.level });
+    }
+  }, [userJutsu, jutsuLevelForm]);
 
   return (
     <Confirm
@@ -902,16 +954,100 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
       proceed_label="Done"
       button={<Settings className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
     >
-      <EditContent
-        schema={updateUserSchema}
-        form={form}
-        formData={formData}
-        showSubmit={form.formState.isDirty}
-        buttonTxt="Save to Database"
-        type="ai"
-        allowImageUpload={true}
-        onAccept={handleUserSubmit}
-      />
+      <Tabs
+        defaultValue={showActive}
+        className="flex flex-col items-center justify-center"
+        onValueChange={(value) => setShowActive(value)}
+      >
+        <TabsList className="text-center mt-3">
+          <TabsTrigger value="userData">Main Data</TabsTrigger>
+          {hasJutsus && <TabsTrigger value="jutsus">Jutsus Specifics</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="userData">
+          <EditContent
+            schema={updateUserSchema}
+            form={form}
+            formData={formData}
+            showSubmit={form.formState.isDirty}
+            buttonTxt="Save to Database"
+            type="ai"
+            allowImageUpload={true}
+            onAccept={handleUserSubmit}
+          />
+        </TabsContent>
+        {hasJutsus && (
+          <TabsContent value="jutsus">
+            <div className="mt-5">
+              <ActionSelector
+                items={allJutsus}
+                counts={userJutsuCounts}
+                selectedId={jutsu?.id}
+                labelSingles={true}
+                emptyText="No jutsus assigned to this user"
+                gridClassNameOverwrite="grid grid-cols-5 sm:grid-cols-10 md:grid-cols-12"
+                onClick={(id) => {
+                  if (id == jutsu?.id) {
+                    setJutsu(undefined);
+                  } else {
+                    setJutsu(allJutsus?.find((jutsu) => jutsu.id === id));
+                  }
+                }}
+                showBgColor={false}
+                showLabels={true}
+              />
+            </div>
+            {jutsu && (
+              <div className="mt-4 flex items-center justify-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Form {...jutsuLevelForm}>
+                    <form
+                      onSubmit={jutsuLevelForm.handleSubmit((data) => {
+                        if (jutsu) {
+                          adjustJutsuLevel.mutate({
+                            userId: userId,
+                            jutsuId: jutsu.id,
+                            level: data.level,
+                          });
+                        }
+                      })}
+                      className="flex items-center justify-between w-full gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FormField
+                          control={jutsuLevelForm.control}
+                          name="level"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Level</FormLabel>
+                              <div className="relative flex flex-row gap-2">
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    className="w-20"
+                                    min={0}
+                                    max={25}
+                                    {...field}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      field.onChange(value ? parseInt(value) : 0);
+                                    }}
+                                  />
+                                </FormControl>
+                                <Button type="submit">Update</Button>
+                              </div>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </form>
+                  </Form>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        )}
+      </Tabs>
     </Confirm>
   );
 };

@@ -1,8 +1,8 @@
 import { calculateContentDiff } from "@/utils/diff";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/app/_trpc/client";
-import { ElementNames, UserRanks } from "@/drizzle/constants";
+import { ElementNames, UserRanks, GeneralTypes, StatTypes } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { insertAiSchema } from "@/drizzle/schema";
 import type { InsertAiSchema } from "@/drizzle/schema";
@@ -65,8 +65,16 @@ export const useAiEditForm = (
   );
 
   // Watch for changes to avatar
-  const avatarUrl = form.watch("avatar");
-  const effects = form.watch("effects");
+  const avatarUrl = useWatch({
+    control: form.control,
+    name: "avatar",
+    defaultValue: user.avatar,
+  });
+  const effects = useWatch({
+    control: form.control,
+    name: "effects",
+    defaultValue: [],
+  });
 
   // Handle updating of effects
   const setEffects = (newEffects: ZodAllTags[]) => {
@@ -117,6 +125,24 @@ export const useAiEditForm = (
       id: "secondaryElement",
       type: "str_array",
       values: ElementNames,
+      resetButton: true,
+    },
+    {
+      id: "preferredStat",
+      type: "str_array",
+      values: StatTypes,
+      resetButton: true,
+    },
+    {
+      id: "preferredGeneral1",
+      type: "str_array",
+      values: GeneralTypes,
+      resetButton: true,
+    },
+    {
+      id: "preferredGeneral2",
+      type: "str_array",
+      values: GeneralTypes,
       resetButton: true,
     },
     {

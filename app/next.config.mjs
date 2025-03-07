@@ -1,4 +1,4 @@
-// import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs";
 import bundleAnalyzer from "@next/bundle-analyzer";
 
 // @ts-check
@@ -15,6 +15,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 /** @type {import("next").NextConfig} */
 const config = {
   experimental: {
+    reactCompiler: true, // Fix user search, money sending, combat, search jutsu name
     nextScriptWorkers: true,
     turbo: {
       resolveExtensions: [".tsx", ".ts", ".jsx", ".js"],
@@ -71,53 +72,52 @@ const config = {
   },
 };
 
-export default withBundleAnalyzer(config);
-
 // TODO: Uncomment when sentry has turbopack support
-// export default withSentryConfig(withBundleAnalyzer(config), {
-//   // For all available options, see:
-//   // https://github.com/getsentry/sentry-webpack-plugin#options
+// export default withBundleAnalyzer(config);
+export default withSentryConfig(withBundleAnalyzer(config), {
+  // For all available options, see:
+  // https://github.com/getsentry/sentry-webpack-plugin#options
 
-//   org: "studie-tech-aps",
-//   project: "theninjarpg",
+  org: "studie-tech-aps",
+  project: "theninjarpg",
 
-//   // Only print logs for uploading source maps in CI
-//   silent: !process.env.CI,
+  // Only print logs for uploading source maps in CI
+  silent: !process.env.CI,
 
-//   // For all available options, see:
-//   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+  // For all available options, see:
+  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
 
-//   // Upload a larger set of source maps for prettier stack traces (increases build time)
-//   widenClientFileUpload: true,
+  // Upload a larger set of source maps for prettier stack traces (increases build time)
+  widenClientFileUpload: true,
 
-//   // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-//   // This can increase your server load as well as your hosting bill.
-//   // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-//   // side errors will fail.
-//   // tunnelRoute: "/monitoring",
+  // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
+  // This can increase your server load as well as your hosting bill.
+  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
+  // side errors will fail.
+  // tunnelRoute: "/monitoring",
 
-//   // Hides source maps from generated client bundles
-//   hideSourceMaps: true,
+  // Hides source maps from generated client bundles
+  hideSourceMaps: true,
 
-//   // Sourcemaps
-//   sourcemaps: {
-//     deleteSourceMapsAfterUpload: true,
-//   },
+  // Sourcemaps
+  sourcemaps: {
+    deleteSourceMapsAfterUpload: true,
+  },
 
-//   // Automatically tree-shake Sentry logger statements to reduce bundle size
-//   disableLogger: true,
+  // Automatically tree-shake Sentry logger statements to reduce bundle size
+  disableLogger: true,
 
-//   // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-//   // See the following for more information:
-//   // https://docs.sentry.io/product/crons/
-//   // https://vercel.com/docs/cron-jobs
-//   automaticVercelMonitors: true,
-// });
+  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
+  // See the following for more information:
+  // https://docs.sentry.io/product/crons/
+  // https://vercel.com/docs/cron-jobs
+  automaticVercelMonitors: true,
+});
 
 // https://securityheaders.com
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' *.google-analytics.com *.analytics.google.com *.googletagmanager.com *.doubleclick.net *.clerk.accounts.dev *.vercel.live *.paypal.com *.paypalobjects.com *.tiny.cloud *.theninja-rpg.com *.opendns.com *.cookiebot.com *.termly.io connect.facebook.net;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' *.google-analytics.com *.analytics.google.com *.googletagmanager.com *.doubleclick.net *.clerk.accounts.dev *.vercel.live *.paypal.com *.paypalobjects.com *.tiny.cloud *.theninja-rpg.com *.opendns.com *.cookiebot.com *.termly.io connect.facebook.net va.vercel-scripts.com;
   child-src 'self' *.doubleclick.net *.paypal.com ghbtns.com *.youtube.com *.widgetbot.io *.cookiebot.com *.termly.io *.googletagmanager.com https://fastsvr.com https://www.facebook.com/;
   style-src 'self' 'unsafe-inline' *.googleapis.com *.tiny.cloud;
   img-src * blob: data:;

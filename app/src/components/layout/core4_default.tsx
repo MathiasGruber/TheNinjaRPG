@@ -1,6 +1,7 @@
 "use client";
 
 import ReactDOM from "react-dom";
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -12,11 +13,12 @@ import NavTabs from "@/layout/NavTabs";
 import AvatarImage from "@/layout/Avatar";
 import SendTicketBtn from "@/layout/SendTicketButton";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
-import { CircleUserRound, Inbox, Compass, Cog, Milk } from "lucide-react";
+import { CircleUserRound, CircleHelp, Compass, Cog, Milk } from "lucide-react";
 import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
-import { Earth, House, MessageCircleWarning, Receipt } from "lucide-react";
+import { Earth, House, MessageCircleWarning, Inbox } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -65,14 +67,14 @@ export interface LayoutProps {
 
 const LayoutCore4: React.FC<LayoutProps> = (props) => {
   // Prefetching
-  // ReactDOM.prefetchDNS("https://o4507797256601600.ingest.de.sentry.io");
+  ReactDOM.prefetchDNS("https://o4507797256601600.ingest.de.sentry.io");
   ReactDOM.prefetchDNS("https://consentcdn.cookiebot.com");
   ReactDOM.prefetchDNS("https://region1.analytics.google.com");
   ReactDOM.prefetchDNS("https://connect.facebook.net");
   ReactDOM.prefetchDNS("https://api.github.com");
 
   // Get data
-  const { data: userData, timeDiff, notifications } = useUserData();
+  const { data: userData, timeDiff, notifications, isClerkLoaded } = useUserData();
   const { systems, location } = useGameMenu(userData);
   const [leftSideBarOpen, setLeftSideBarOpen] = useState(false);
   const [rightSideBarOpen, setRightSideBarOpen] = useState(false);
@@ -104,7 +106,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   }, [theme]);
 
   // Images
-  const imageset = getImageSet();
+  const imageset = getImageSet(userData);
 
   /**
    * SIDEBAR: Left Side
@@ -117,23 +119,36 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       </SignedIn>
       <SignedOut>
         <SideBannerTitle>Participate</SideBannerTitle>
-        <div className="grid grid-cols-2 md:grid-cols-1 lg:grid-cols-2 pt-4 gap-4">
+        <div className="flex flex-row gap-4 pt-3">
           <Link
             href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
-            <SiGithub size={60} className="dark:text-white text-black w-1/2" />
-            <p>Contribute</p>
+            <SiGithub
+              size={60}
+              className="dark:text-white text-black md:text-white p-2"
+            />
           </Link>
           <Link
             href="https://discord.gg/grPmTr4z9C"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
-            <SiDiscord size={60} className="dark:text-white text-black w-1/2" />
-            <p>Community</p>
+            <SiDiscord
+              size={60}
+              className="dark:text-white text-black md:text-white p-2"
+            />
           </Link>
         </div>
       </SignedOut>
+      {!isClerkLoaded && (
+        <div>
+          <Skeleton className="h-6 w-full bg-muted/70 mt-6" />
+          <div className="flex flex-row gap-4 pt-4">
+            <Skeleton className="h-16 w-full bg-muted/70" />
+            <Skeleton className="h-16 w-full bg-muted/70" />
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -191,6 +206,22 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           </Button>
         </Link>
       </SignedOut>
+      {!isClerkLoaded && (
+        <div>
+          <div className="flex flex-col gap-2 pt-5">
+            <Skeleton className="h-6 w-3/4 bg-muted/70" />
+            <Skeleton className="h-6 w-4/5 bg-muted/70" />
+          </div>
+          <div className="flex flex-row gap-2 pt-2">
+            <Skeleton className="aspect-square w-full bg-muted/70" />
+            <Skeleton className="aspect-square w-full bg-muted/70" />
+            <Skeleton className="aspect-square w-full bg-muted/70" />
+            <Skeleton className="aspect-square w-full bg-muted/70" />
+          </div>
+          <Skeleton className="h-8 w-full bg-muted/70 mt-3" />
+        </div>
+      )}
+
       <div className="pl-2 pt-6 flex align-center justify-center">
         <iframe
           src="https://ghbtns.com/github-btn.html?user=MathiasGruber&repo=TheNinjaRPG&type=star&count=true"
@@ -246,7 +277,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       </div>
       {/* WALLPAPER BACKGROUND */}
       <Image
-        className="absolute left-[50%] translate-x-[-50%] select-none"
+        className="fixed top-0 left-0 w-full h-full object-cover z-[-1] select-none"
         src={imageset.wallpaper}
         width={1600}
         height={800}
@@ -259,7 +290,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         {/* LOGO */}
         <Link href="/">
           <Image
-            className="hidden md:block z-[2] relative top-3 left-[50%] translate-x-[-50%] select-none"
+            className="hidden md:block z-2 relative top-3 left-[50%] translate-x-[-50%] select-none"
             src={IMG_LOGO_FULL}
             width={384}
             height={138}
@@ -276,7 +307,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           />
         </Link>
         {/* DESKTOP NAVBAR */}
-        <div className="hidden md:block z-[1] relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
+        <div className="hidden md:block z-1 relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
           <Image
             className="select-none"
             src={imageset.navbar}
@@ -376,9 +407,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             </div>
             <div className="h-20 max-h-28 flex flex-col fixed bottom-0  w-full md:relative">
               <div className="absolute top-0 left-[-20px] right-0 md:right-[-20px] -z-30">
-                <div className="h-5 bg-gradient-to-b from-rose-950 to-rose-800"></div>
+                <div className="h-5 bg-linear-to-b from-rose-950 to-rose-800"></div>
                 <div className="h-8 bg-rose-800"></div>
-                <div className="h-7 bg-gradient-to-b from-rose-800 to-rose-950"></div>
+                <div className="h-7 bg-linear-to-b from-rose-800 to-rose-950"></div>
               </div>
               <Image
                 className="left-[-120px] top-[-195px] absolute select-none -z-20 hidden md:block"
@@ -423,7 +454,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                         className="flex justify-center -top-8 relative"
                         prefetch={true}
                       >
-                        <div className="p-4 bg-gradient-to-b from-black/5 to-black/50 rounded-full">
+                        <div className="p-4 bg-linear-to-b from-black/5 to-black/50 rounded-full">
                           <House className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
                         </div>
                       </Link>
@@ -442,7 +473,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                         className="flex justify-center -top-8 relative"
                         prefetch={true}
                       >
-                        <div className="p-4 bg-gradient-to-b from-black/5 to-black/50 rounded-full">
+                        <div className="p-4 bg-linear-to-b from-black/5 to-black/50 rounded-full">
                           <Compass className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
                         </div>
                       </Link>
@@ -455,13 +486,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                       </Link>
                     </>
                   )}
-                  <Link
-                    href="/points"
-                    className="flex justify-center -top-2 relative"
-                    prefetch={true}
-                  >
-                    <Receipt className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
-                  </Link>
+
                   <Link
                     href="/profile/edit"
                     className="flex justify-center -top-2 relative"
@@ -469,6 +494,11 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                   >
                     <Cog className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
                   </Link>
+                  <div className="flex justify-center -top-2 relative">
+                    <SendTicketBtn>
+                      <CircleHelp className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                    </SendTicketBtn>
+                  </div>
                 </div>
               ) : (
                 <div className="absolute top-4 left-0 right-0 block md:hidden">
@@ -511,30 +541,32 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               <SheetTitle>
                 <SideBannerTitle>Main Menu</SideBannerTitle>
               </SheetTitle>
-              <div className="mt-1 grid gap-3 grid-cols-2">
-                {navbarMenuItems.map((system, i) => {
-                  return (
-                    <Link
-                      key={i}
-                      href={system.href}
-                      onClick={() => setLeftSideBarOpen(false)}
-                      className={system.className ? system.className : ""}
-                    >
-                      <Button
-                        decoration="gold"
-                        className={`w-full hover:bg-orange-200`}
+              <Suspense fallback={<Loader explanation="Loading..." />}>
+                <div className="mt-1 grid gap-3 grid-cols-2">
+                  {navbarMenuItems.map((system, i) => {
+                    return (
+                      <Link
+                        key={i}
+                        href={system.href}
+                        onClick={() => setLeftSideBarOpen(false)}
+                        className={system.className ? system.className : ""}
                       >
-                        <div className="grow">{system.name}</div>
-                        <div>{system.icon && system.icon}</div>
-                      </Button>
-                    </Link>
-                  );
-                })}
-                <div className="flex flex-row items-center justify-center">
-                  {signedInIcons}
+                        <Button
+                          decoration="gold"
+                          className={`w-full hover:bg-orange-200`}
+                        >
+                          <div className="grow">{system.name}</div>
+                          <div>{system.icon && system.icon}</div>
+                        </Button>
+                      </Link>
+                    );
+                  })}
+                  <div className="flex flex-row items-center justify-center">
+                    {signedInIcons}
+                  </div>
                 </div>
-              </div>
-              <div className="relative pt-4">{leftSideBar}</div>
+                <div className="relative pt-4">{leftSideBar}</div>
+              </Suspense>
             </SheetHeader>
           </SheetContent>
         </Sheet>
@@ -548,7 +580,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             <VisuallyHidden.Root>
               <SheetTitle>Test</SheetTitle>
             </VisuallyHidden.Root>
-            <SheetHeader>{rightSideBar}</SheetHeader>
+            <Suspense fallback={<Loader explanation="Loading..." />}>
+              <SheetHeader>{rightSideBar}</SheetHeader>
+            </Suspense>
           </SheetContent>
         </Sheet>
 
@@ -651,7 +685,16 @@ const StrongestUsersBanner: React.FC = () => {
                 </div>
               </Link>
             ))}
-            {isPending && <Loader explanation="Loading top players" />}
+            {isPending && (
+              <div className="flex flex-col gap-1 items-center pb-4">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <Skeleton
+                    className="h-9 lg:h-10 w-full w-[154px] max-w-[154px] lg:w-[200px] lg:max-w-[200px] bg-muted/70"
+                    key={i}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <Image
@@ -680,10 +723,10 @@ export const SideBannerTitle: React.FC<{
   return (
     <>
       {props.break && <br />}
-      <p className="hidden md:block text-xl font-bold text-orange-100 px-1 pt-2 leading-0">
+      <p className="hidden md:block text-xl font-bold text-orange-100 px-1 pt-2">
         {props.children}
       </p>
-      <p className="block md:hidden text-xl font-bold text-foreground px-1 pt-2 leading-0">
+      <p className="block md:hidden text-xl font-bold text-foreground px-1 pt-2">
         {props.children}
       </p>
     </>
@@ -785,12 +828,15 @@ const RightSideBar: React.FC<{
 };
 
 // Get wallpaper based on the season
-const getImageSet = () => {
+const getImageSet = (userData: UserWithRelations) => {
+  // Base settings
   const base = {
     navbar: IMG_LAYOUT_NAVBAR,
     handsign: IMG_LAYOUT_HANDSIGN,
     wallpaper: IMG_WALLPAPER_SUMMER,
   };
+
+  // Check for seasonal overwrites
   switch (getCurrentSeason()) {
     case "winter":
       base.wallpaper = IMG_WALLPAPER_WINTER;
@@ -810,5 +856,11 @@ const getImageSet = () => {
       base.handsign = IMG_LAYOUT_HANDSIGN_HALLOWEEN;
       break;
   }
+
+  // Check for location-specific overwrites
+  if (userData?.village?.wallpaperOverwrite) {
+    base.wallpaper = userData.village.wallpaperOverwrite;
+  }
+
   return base;
 };

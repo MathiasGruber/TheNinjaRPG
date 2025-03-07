@@ -142,3 +142,23 @@ export const getMillisecondsFromTimeUnit = (timeUnit: TimeUnit) => {
       return 1000;
   }
 };
+
+/**
+ * Get the week number of the given date
+ */
+export const getWeekNumber = (date: Date) => {
+  const yearStart = +new Date(date.getFullYear(), 0, 1);
+  const today = +new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayOfYear = (today - yearStart + 1) / 86400000;
+  return Math.ceil(dayOfYear / 7).toString();
+};
+
+/**
+ * Convenience variables for time units
+ */
+export const MINUTE_S = 60;
+export const HOUR_S = 60 * MINUTE_S;
+export const DAY_S = 24 * HOUR_S;
+export const WEEK_S = 7 * DAY_S;
+export const MONTH_S = 30 * DAY_S;
+export const YEAR_S = 365 * DAY_S;

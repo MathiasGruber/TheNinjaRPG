@@ -5,7 +5,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -36,6 +36,7 @@ import { attributes } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
 import { genders } from "@/validators/register";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
+import { sendGTMEvent } from "@next/third-parties/google";
 import { Label } from "@/components/ui/label";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
@@ -80,6 +81,7 @@ const Register: React.FC = () => {
         if (data.success) {
           await utils.profile.getUser.invalidate();
           createAvatar.mutate();
+          sendGTMEvent({ event: "register" });
         }
       },
     });
@@ -120,11 +122,31 @@ const Register: React.FC = () => {
   }, [cApi, form]);
 
   // Handle username changes
-  const watchUsername = form.watch("username", "");
-  const watchGender = form.watch("gender", undefined);
-  const watchAttr1 = form.watch("attribute_1", undefined);
-  const watchAttr2 = form.watch("attribute_2", undefined);
-  const watchAttr3 = form.watch("attribute_3", undefined);
+  const watchUsername = useWatch({
+    control: form.control,
+    name: "username",
+    defaultValue: "",
+  });
+  const watchGender = useWatch({
+    control: form.control,
+    name: "gender",
+    defaultValue: undefined,
+  });
+  const watchAttr1 = useWatch({
+    control: form.control,
+    name: "attribute_1",
+    defaultValue: undefined,
+  });
+  const watchAttr2 = useWatch({
+    control: form.control,
+    name: "attribute_2",
+    defaultValue: undefined,
+  });
+  const watchAttr3 = useWatch({
+    control: form.control,
+    name: "attribute_3",
+    defaultValue: undefined,
+  });
   const errors = form.formState.errors;
 
   // Checking for unique username

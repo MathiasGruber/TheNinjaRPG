@@ -1,0 +1,32 @@
+You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, Radix UI and Tailwind.
+
+Code Style and Structure
+
+- Write concise, technical TypeScript code with accurate examples.
+- Use functional and declarative programming patterns; avoid classes.
+- Prefer iteration and modularization over code duplication.
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+- Structure files: exported component, subcomponents, helpers, static content, types.
+
+Naming Conventions
+
+- Use lowercase with dashes for directories (e.g., components/auth-wizard).
+- Favor named exports for components.
+
+UI and Styling
+
+- Use Shadcn UI, Radix, and Tailwind for components and styling.
+- Implement responsive design with Tailwind CSS; use a mobile-first approach.
+
+Key Conventions
+
+- Optimize Web Vitals (LCP, CLS, FID).
+- Use the same components and structure things in a similar manner across the codebase.
+- Use tRPC endpoints across the codebase to ensure consistency.
+- Always check other tRPC endpoints across the codebase to ensure you are not duplicating endpoints
+- Always check other tRPC endpoints to ensure you are conforming to the same structure and naming conventions.
+- Always use bun to run the project, install dependencies, etc.
+
+Always iterate on linting errors until they are fixed.
+
+Follow Next.js docs for Data Fetching, Rendering, and Routing.

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { canSeeIps } from "@/utils/permissions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getPublicUsersSchema } from "@/validators/user";
 import { Filter } from "lucide-react";
@@ -44,15 +44,15 @@ const UserFiltering: React.FC<UserFilteringProps> = (props) => {
 
   // Query
   const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined);
-  const { data: villages } = api.village.getAll.useQuery(undefined);
+  const { data: villages } = api.village.getAllNames.useQuery(undefined);
 
   // Name search schema
   const form = useForm<GetPublicUsersSchema>({
     resolver: zodResolver(getPublicUsersSchema),
     defaultValues: { username: username, ip: ip },
   });
-  const watchUsername = form.watch("username", "");
-  const watchIp = form.watch("ip", "");
+  const watchUsername = useWatch({ control: form.control, name: "username" });
+  const watchIp = useWatch({ control: form.control, name: "ip" });
 
   // Update the state
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useLocalStorage } from "@/hooks/localstorage";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
@@ -21,7 +21,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ContentBox from "@/layout/ContentBox";
 import UserRequestSystem from "@/layout/UserRequestSystem";
@@ -46,7 +46,9 @@ import type { StatSchemaType } from "@/libs/combat/types";
 export default function Arena() {
   // Tab selection
   const availableTabs = ["Arena", "Sparring", "Training Arena"] as const;
-  const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
+  type TabType = (typeof availableTabs)[number];
+  const [tab, setTab] = useLocalStorage<TabType | null>("arenaTab", "Arena", true);
+  console.log(tab);
   const [aiId, setAiId] = useLocalStorage<string | undefined>("arenaAI", undefined);
   const [statDistribution, setStatDistribution] = useLocalStorage<
     StatSchemaType | undefined
@@ -117,7 +119,7 @@ export default function Arena() {
 
 interface SelectAIProps {
   aiId: string | undefined;
-  setAiId: React.Dispatch<React.SetStateAction<string | undefined>>;
+  setAiId: (newValue: string | undefined) => void;
 }
 
 const SelectAI: React.FC<SelectAIProps> = (props) => {
@@ -299,7 +301,11 @@ const ChallengeUser: React.FC = () => {
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
   });
-  const targetUser = userSearchMethods.watch("users", [])?.[0];
+  const targetUser = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  })?.[0];
 
   // tRPC utility
   const utils = api.useUtils();
@@ -403,11 +409,7 @@ const ActiveChallenges: React.FC = () => {
       },
     });
 
-  // Derived features
-  const isPending = isAccepting || isRejecting || isCancelling;
-
   // If loading
-  if (isPending) return <Loader explanation="Loading" />;
   if (!userData) return null;
 
   // Render
@@ -421,6 +423,7 @@ const ActiveChallenges: React.FC = () => {
         padding={false}
       >
         <UserRequestSystem
+          isLoading={isAccepting || isRejecting || isCancelling}
           requests={challenges}
           userId={userData.userId}
           onAccept={accept}
@@ -434,7 +437,7 @@ const ActiveChallenges: React.FC = () => {
 
 interface AssignTrainingDummyStatsProps {
   statDistribution: StatSchemaType | undefined;
-  setStatDistribution: React.Dispatch<React.SetStateAction<StatSchemaType | undefined>>;
+  setStatDistribution: (newValue: StatSchemaType | undefined) => void;
 }
 
 const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props) => {

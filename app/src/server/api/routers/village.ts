@@ -6,7 +6,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trp
 import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
 import { village, villageStructure, userData, notification } from "@/drizzle/schema";
 import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
-import { eq, sql, gte, and, or } from "drizzle-orm";
+import { eq, sql, gte, and, or, inArray } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { fetchUpdatedUser } from "@/routers/profile";
@@ -20,9 +20,10 @@ import { findRelationship } from "@/utils/alliance";
 import { canAlly, canWar, canSurrender } from "@/utils/alliance";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
+import { KAGE_WAR_DECLARE_COST } from "@/drizzle/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/drizzle/constants";
-import { deleteSenseiRequests } from "@/routers/sensei";
+import { deleteRequests } from "@/routers/sensei";
 import { hasRequiredRank } from "@/libs/train";
 import { canSwapVillage } from "@/utils/permissions";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
@@ -34,6 +35,13 @@ import type { VillageAlliance } from "@/drizzle/schema";
 const availRequests = ["SURRENDER", "ALLIANCE"];
 
 export const villageRouter = createTRPCRouter({
+  // Get all village names
+  getAllNames: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.village.findMany({
+      columns: { id: true, name: true },
+      where: inArray(village.type, ["VILLAGE", "OUTLAW", "SAFEZONE"]),
+    });
+  }),
   // Get all villages
   getAll: publicProcedure.query(async ({ ctx }) => {
     return await fetchVillages(ctx.drizzle);
@@ -194,14 +202,16 @@ export const villageRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       if (!village) return errorResponse("Village does not exist");
       if (!user.isOutlaw) return errorResponse("You are not an outlaw");
-      if (!village.joinable) return errorResponse("Village is not joinable");
-      if (user.villageId === village.id) return errorResponse("Already in village");
+      if (!village.joinable) return errorResponse("Not joinable");
+      if (user.villageId === village.id) return errorResponse("Already joined");
       if (user.clanId) return errorResponse("Leave faction first");
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.isBanned) return errorResponse("Cannot leave while banned");
       if (village.type !== "VILLAGE") return errorResponse("Can only join villages");
       if (!hasRequiredRank(user.rank, VILLAGE_LEAVE_REQUIRED_RANK)) {
-        return errorResponse("Must be at least chunin to join village");
+        return errorResponse(
+          `Must be at least ${VILLAGE_LEAVE_REQUIRED_RANK.toLowerCase()} to join village`,
+        );
       }
 
       // Update
@@ -218,7 +228,7 @@ export const villageRouter = createTRPCRouter({
           })
           .where(and(eq(userData.userId, ctx.userId), eq(userData.status, "AWAKE"))),
         // Clear current sensei requests for this user
-        deleteSenseiRequests(ctx.drizzle, ctx.userId),
+        deleteRequests(ctx.drizzle, ctx.userId),
         // Remove the user as sensei for any active students
         ctx.drizzle
           .update(userData)
@@ -281,7 +291,7 @@ export const villageRouter = createTRPCRouter({
             ),
           ),
         // Clear current sensei requests for this user
-        deleteSenseiRequests(ctx.drizzle, ctx.userId),
+        deleteRequests(ctx.drizzle, ctx.userId),
         // Remove the user as sensei for any active students
         ctx.drizzle
           .update(userData)
@@ -311,6 +321,7 @@ export const villageRouter = createTRPCRouter({
 
       // General guards
       if (!target) return errorResponse("Target village not found");
+      if (!target.kageId) return errorResponse("Target village does not have kage");
       if (!user || !villageId) return errorResponse("Not in this village");
       if (!isKage(user)) return errorResponse("You are not kage");
       if (target.type !== "VILLAGE") return errorResponse("Only for villages");
@@ -505,6 +516,12 @@ export const villageRouter = createTRPCRouter({
           .update(village)
           .set({ tokens: sql`${village.tokens} - ${WAR_FUNDS_COST}` })
           .where(eq(village.id, villageId)),
+        ctx.drizzle
+          .update(userData)
+          .set({
+            villagePrestige: sql`${userData.villagePrestige} - ${KAGE_WAR_DECLARE_COST}`,
+          })
+          .where(eq(userData.userId, user.userId)),
       ]);
       // Return
       return { success: true, message: "You have declared war" };
@@ -640,9 +657,13 @@ export const fetchSectorVillage = async (
     where: !isOutlaw
       ? eq(village.sector, sector)
       : or(
-          and(eq(village.type, "SAFEZONE"), eq(village.sector, sector)),
+          and(eq(village.sector, sector), eq(village.type, "SAFEZONE")),
+          and(eq(village.sector, sector), eq(village.type, "HIDEOUT")),
+          and(eq(village.sector, sector), eq(village.type, "TOWN")),
           eq(village.type, "OUTLAW"),
         ),
+    orderBy: (villages) =>
+      sql`FIELD(${villages.type}, 'SAFEZONE', 'HIDEOUT', 'TOWN', 'OUTLAW')`,
     with: {
       notice: true,
       relationshipA: true,
@@ -684,7 +705,7 @@ export const fetchStructures = async (
   villageId?: string | null,
 ) => {
   return await client.query.villageStructure.findMany({
-    where: eq(villageStructure.villageId, villageId ?? "syndicate"),
+    where: eq(villageStructure.villageId, villageId ?? VILLAGE_SYNDICATE_ID),
   });
 };
 

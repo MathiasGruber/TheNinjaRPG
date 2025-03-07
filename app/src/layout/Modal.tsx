@@ -15,6 +15,7 @@ interface ModalProps {
       | React.MouseEvent<HTMLButtonElement, MouseEvent>
       | React.KeyboardEvent<KeyboardEvent>,
   ) => void;
+  onClose?: () => void;
 }
 
 const Modal: React.FC<ModalProps> = (props) => {
@@ -53,7 +54,7 @@ const Modal: React.FC<ModalProps> = (props) => {
         }}
       ></div>
       <div
-        className={`fixed left-1/2 top-1/2 z-40 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow ${props.className}`}
+        className={`fixed left-1/2 top-1/2 z-40 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-gray-700 shadow-sm ${props.className}`}
       >
         <div className="flex items-start justify-between rounded-t border-b border-gray-600 p-4">
           <h3 className="text-xl font-semibold text-white">{props.title}</h3>
@@ -62,6 +63,7 @@ const Modal: React.FC<ModalProps> = (props) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (props.onClose) props.onClose();
               props.setIsOpen(false);
             }}
           >
@@ -92,6 +94,7 @@ const Modal: React.FC<ModalProps> = (props) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (props.onClose) props.onClose();
               props.setIsOpen(false);
             }}
             className="z-30 rounded-lg border border-gray-500 bg-gray-700 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white"

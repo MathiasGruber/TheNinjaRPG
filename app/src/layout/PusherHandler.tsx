@@ -60,24 +60,19 @@ export const usePusherHandler = (userId?: string | null) => {
           if (data?.battleId) {
             // NOTE: for some reason using updateUser does not work from this hook
             await utils.profile.getUser.cancel();
+            // Update user data with battle status
             utils.profile.getUser.setData(undefined, (old) => {
+              if (!old) return old;
               return {
                 ...old,
                 userData: {
-                  ...old?.userData,
-                  ...{
-                    status: "BATTLE",
-                    battleId: data.battleId,
-                    updatedAt: new Date(),
-                  },
+                  ...old.userData,
+                  status: "BATTLE",
+                  battleId: data.battleId,
+                  updatedAt: new Date(),
                 },
-              } as typeof old;
-            });
-            utils.profile.getUser.setData(undefined, (old) => {
-              return {
-                ...old,
                 notifications: [
-                  ...(old?.notifications || []),
+                  ...(old.notifications || []),
                   { href: "/combat", name: "In combat", color: "red" },
                 ],
               } as typeof old;

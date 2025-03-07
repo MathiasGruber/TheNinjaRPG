@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { calculateContentDiff } from "@/utils/diff";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import Image from "next/image";
 import React, { useEffect } from "react";
 import AvatarImage from "@/layout/Avatar";
@@ -510,12 +510,15 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   });
 
   // A few fields we need to watch
-  const watchType = form.watch("type");
-  const watchStaticPath = form.watch("staticAssetPath");
-  const watchAppear = form.watch("appearAnimation");
-  const watchStatic = form.watch("staticAnimation");
-  const watchDisappear = form.watch("disappearAnimation");
-  const watchAll = form.watch();
+  const watchType = useWatch({ control: form.control, name: "type" });
+  const watchStaticPath = useWatch({ control: form.control, name: "staticAssetPath" });
+  const watchAppear = useWatch({ control: form.control, name: "appearAnimation" });
+  const watchStatic = useWatch({ control: form.control, name: "staticAnimation" });
+  const watchDisappear = useWatch({
+    control: form.control,
+    name: "disappearAnimation",
+  });
+  const watchAll = useWatch({ control: form.control });
 
   // Get images for the different animations and statics
   const statics = assetData?.filter((a) => a.type === "STATIC");
@@ -689,6 +692,8 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
       ) {
         const values = innerType._def.type._def.values as string[];
         return { id: value, type: "str_array", values: values, multiple: true };
+      } else if (innerType instanceof z.ZodBoolean) {
+        return { id: value, label: value, type: "boolean" };
       } else {
         return { id: value, label: value, type: "text" };
       }
@@ -773,8 +778,8 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   });
 
   // A few fields we need to watch
-  const watchTask = form.watch("task");
-  const watchAll = form.watch();
+  const watchTask = useWatch({ control: form.control, name: "task" });
+  const watchAll = useWatch({ control: form.control });
 
   // When user changes type, we need to update the effects array to re-render form
   useEffect(() => {
@@ -803,16 +808,18 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     const newObjectives = [...objectives];
     const parsedTag = objectiveSchema.safeParse(watchAll);
     const shownTag = parsedTag.success ? parsedTag.data : watchAll;
-    newObjectives[idx] = shownTag;
-    const diff = calculateContentDiff(objectives, newObjectives);
-    if (diff.length > 0) {
-      if (objective.task === watchTask) {
-        if (form.formState.isDirty) {
-          void form.trigger();
-        }
-        if (form.formState.isValid) {
-          setObjectives(newObjectives);
-          form.reset(watchAll);
+    if ("id" in shownTag && shownTag.id) {
+      newObjectives[idx] = shownTag as AllObjectivesType;
+      const diff = calculateContentDiff(objectives, newObjectives);
+      if (diff.length > 0) {
+        if (objective.task === watchTask) {
+          if (form.formState.isDirty) {
+            void form.trigger();
+          }
+          if (form.formState.isValid) {
+            setObjectives(newObjectives);
+            form.reset(watchAll);
+          }
         }
       }
     }

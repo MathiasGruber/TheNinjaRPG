@@ -4,7 +4,7 @@ SHELL := bash
 .DEFAULT_GOAL = help
 
 # Extract arguments for relevant targets.
-ARGS_TARGETS=makemigrations,bun
+ARGS_TARGETS=makemigrations,bun,uncommit
 ifneq ($(findstring $(firstword $(MAKECMDGOALS)),$(ARGS_TARGETS)),)
   ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
   $(eval $(ARGS):;@:)
@@ -37,6 +37,11 @@ cloc: # Count lines of code
 	@echo "${YELLOW}Count lines of code${RESET}"
 	cloc --exclude-dir=node_modules --exclude-ext=csv  --exclude-ext=json  --exclude-ext=svg .
 
+.PHONY: loadEnv
+loadEnv: # Load environment variables
+	@echo "${YELLOW}Loading environment variables${RESET}"
+	source ./app/.env
+
 -------------DockerSetup---------------: # -------------------------------------------------------
 .PHONY: docker-build
 docker-build: # Build/Rebuild the application.
@@ -58,7 +63,7 @@ setup: # Start required services and install bun locally
 .PHONY: install
 install: # Install application dependencies with bun locally
 	@echo "${GREEN}install${RESET}"
-	bun install --cwd ./app
+	bun install --cwd ./app --save-text-lockfile
 
 .PHONY: bun
 bun: install ## Execute bun command in local development.
@@ -68,15 +73,20 @@ bun: install ## Execute bun command in local development.
 	cd app && bun $(ARGS)
 
 .PHONY: start
-start: # Run Next.js server, access at http://127.0.0.1:3000
+start: loadEnv # Run Next.js server, access at http://127.0.0.1:3000
 	@echo "${GREEN}start${RESET}"
 	rm -rf app/.next
-	@make bun -- dev
+	@make bun -- OPENAI_API_KEY=$(OPENAI_API_KEY) dev
 
 .PHONY: build
 build: # Build Next.js app
 	@echo "${GREEN}build${RESET}"
 	cd app && bun run build
+
+.PHONY: bundleanalysis
+bundleanalysis: # Build Next.js app with bundle analysis
+	@echo "${GREEN}bundleanalysis${RESET}"
+	cd app && bun run build-stats
 
 .PHONY: openhands
 openhands: # Open OpenHands on http://127.0.0.1:3004
@@ -95,6 +105,12 @@ openhands: # Open OpenHands on http://127.0.0.1:3004
 		--add-host host.docker.internal:host-gateway \
 		--name openhands-app \
 		docker.all-hands.dev/all-hands-ai/openhands:0.19
+
+--------------AI-helpers----------------: # -------------------------------------------------------
+.PHONY: browser-tools-server
+browser-tools-server: # Run browser-tools MCP server, allowing AI to see browser
+	@echo "${GREEN}browser-tools-server${RESET}"
+	npx @agentdeskai/browser-tools-server
 
 --------------Migrations----------------: # -------------------------------------------------------
 .PHONY: dbpush
@@ -135,4 +151,10 @@ lint: # Push schema to db without creating migrations
 deps-upgrade: # Upgrade all dependencies to their latest version
 	@echo "${YELLOW}Upgrading all dependencies ${RESET}"
 	cd app && npx npm-check-updates -u
+
+---------------Git--------------------: # -------------------------------------------------------
+.PHONY: uncommit
+uncommit: # Undo the last N commits (keeping changes staged), usage: make uncommit N
+	@echo "${YELLOW}Uncommitting last $(ARGS) commits${RESET}"
+	git reset --soft HEAD~$(ARGS)
 	

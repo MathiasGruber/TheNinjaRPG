@@ -17,6 +17,7 @@ import { Check } from "lucide-react";
 import { mutateCommentSchema } from "@/validators/comments";
 import { useInfinitePagination } from "@/libs/pagination";
 import { CONVERSATION_QUIET_MINS } from "@/drizzle/constants";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { MutateCommentSchema } from "@/validators/comments";
 import type { ArrayElement } from "@/utils/typeutils";
 
@@ -31,6 +32,31 @@ interface ConversationProps {
   topRightContent?: React.ReactNode;
   onBack?: () => void;
 }
+
+export const ConversationSkeleton: React.FC<ConversationProps> = (props) => {
+  return (
+    <ContentBox
+      title={props.title}
+      subtitle={props.subtitle}
+      back_href={props.back_href}
+      initialBreak={props.initialBreak}
+      topRightContent={props.topRightContent}
+      onBack={props.onBack}
+    >
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-[100px] w-full items-center justify-center flex bg-popover">
+          <Loader explanation="Loading conversation" />
+        </Skeleton>
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div className="flex flex-row gap-2" key={i}>
+            <Skeleton className="h-[110px] lg:h-[150px] w-1/4 bg-popover" />
+            <Skeleton className="h-[110px] lg:h-[150px] w-3/4 bg-popover" />
+          </div>
+        ))}
+      </div>
+    </ContentBox>
+  );
+};
 
 const Conversation: React.FC<ConversationProps> = (props) => {
   const onMutateCheck = useGlobalOnMutateProtect();
@@ -193,7 +219,16 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   /**
    * Submit comment
    */
-  const handleSubmitComment = handleSubmit((data) => createComment(data));
+  const handleSubmitComment = handleSubmit((data) => {
+    if (userData?.isSilenced) {
+      showMutationToast({
+        success: false,
+        message: "You are silenced and cannot send a message.",
+      });
+      return;
+    }
+    createComment(data);
+  });
 
   /**
    * Invalidate comments & allow refetches again
@@ -206,7 +241,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
 
   return (
     <div key={props.refreshKey}>
-      {isPending && <Loader explanation="Loading data" />}
+      {isPending && <ConversationSkeleton {...props} />}
       {!isPending && (
         <ContentBox
           title={props.title}
@@ -216,27 +251,31 @@ const Conversation: React.FC<ConversationProps> = (props) => {
           topRightContent={props.topRightContent}
           onBack={props.onBack}
         >
-          {conversation && !conversation.isLocked && userData && !userData.isBanned && (
-            <div className="relative mb-2">
-              <RichInput
-                id="comment"
-                refreshKey={editorKey}
-                height="120"
-                disabled={isCommenting}
-                placeholder="Write comment..."
-                control={control}
-                error={errors.comment?.message}
-                onSubmit={handleSubmitComment}
-              />
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
-                {isCommenting && <Loader />}
+          {conversation &&
+            !conversation.isLocked &&
+            userData &&
+            !userData.isBanned &&
+            !userData.isSilenced && (
+              <div className="relative mb-2">
+                <RichInput
+                  id="comment"
+                  refreshKey={editorKey}
+                  height="120"
+                  disabled={isCommenting}
+                  placeholder="Write comment..."
+                  control={control}
+                  error={errors.comment?.message}
+                  onSubmit={handleSubmitComment}
+                />
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
+                  {isCommenting && <Loader />}
+                </div>
+                <RefreshCw
+                  className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-20 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
+                  onClick={invalidateComments}
+                />
               </div>
-              <RefreshCw
-                className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-20 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
-                onClick={invalidateComments}
-              />
-            </div>
-          )}
+            )}
           {allComments
             ?.filter((c) => c.conversationId === conversation?.id)
             .filter((c) => {

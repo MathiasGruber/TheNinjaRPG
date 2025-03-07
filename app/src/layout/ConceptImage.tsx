@@ -90,7 +90,7 @@ const ConceptImage: React.FC<InputProps> = (props) => {
     }
 
     return (
-      <div className="aspect-[256/345] w-full rounded-xl p-2 flex animate-pulse flex-row items-center justify-center bg-amber-500 text-center text-black">
+      <div className="aspect-256/345 w-full rounded-xl p-2 flex animate-pulse flex-row items-center justify-center bg-amber-500 text-center text-black">
         {image?.status}
       </div>
     );

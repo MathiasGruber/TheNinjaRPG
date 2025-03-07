@@ -1,6 +1,7 @@
 import { tagTypes } from "./combat/types";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { LetterRanks } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { FED_NORMAL_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_SILVER_JUTSU_SLOTS } from "@/drizzle/constants";
 import { FED_GOLD_JUTSU_SLOTS } from "@/drizzle/constants";
@@ -28,7 +29,7 @@ export const availableJutsuLetterRanks = (userrank: UserRank): LetterRank[] => {
       return ["D", "C", "B", "A", "S", "H"];
     case "ELDER":
       return ["D", "C", "B", "A", "S", "H"];
-    case "COMMANDER":
+    case "ELITE JONIN":
       return ["D", "C", "B", "A", "S", "H"];
   }
   return ["D"];
@@ -46,7 +47,7 @@ export const availableQuestLetterRanks = (userrank: UserRank): LetterRank[] => {
       return ["D", "C", "B", "A", "S", "H"];
     case "ELDER":
       return ["D", "C", "B", "A", "S", "H"];
-    case "COMMANDER":
+    case "ELITE JONIN":
       return ["D", "C", "B", "A", "S", "H"];
   }
   return ["D"];
@@ -63,13 +64,13 @@ export const hasRequiredRank = (userRank?: UserRank, requiredRank?: UserRank) =>
     case "STUDENT":
       return true;
     case "GENIN":
-      return ["GENIN", "CHUNIN", "JONIN", "ELDER", "COMMANDER"].includes(userRank);
+      return ["GENIN", "CHUNIN", "JONIN", "ELDER", "ELITE JONIN"].includes(userRank);
     case "CHUNIN":
-      return ["CHUNIN", "JONIN", "ELDER", "COMMANDER"].includes(userRank);
+      return ["CHUNIN", "JONIN", "ELDER", "ELITE JONIN"].includes(userRank);
     case "JONIN":
-      return ["JONIN", "ELDER", "COMMANDER"].includes(userRank);
-    case "COMMANDER":
-      return userRank === "COMMANDER";
+      return ["JONIN", "ELDER", "ELITE JONIN"].includes(userRank);
+    case "ELITE JONIN":
+      return userRank === "ELITE JONIN";
   }
   return false;
 };
@@ -96,9 +97,9 @@ export const availableRanks = (letterRank?: LetterRank): UserRank[] => {
     case "A":
       return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELDER"];
     case "S":
-      return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELDER", "COMMANDER"];
+      return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELDER", "ELITE JONIN"];
   }
-  return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELDER", "COMMANDER"];
+  return ["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELDER", "ELITE JONIN"];
 };
 
 export const getAvailableLetterRanks = (rank: LetterRank) => {
@@ -113,7 +114,11 @@ export const checkJutsuRank = (rank: JutsuRank | undefined, userrank: UserRank) 
 
 export const checkJutsuVillage = (jutsu: Jutsu | undefined, userdata: UserData) => {
   if (!jutsu) return false;
-  return !jutsu.villageId || jutsu.villageId === userdata.villageId;
+  return (
+    !jutsu.villageId ||
+    jutsu.villageId === userdata.villageId ||
+    (jutsu.villageId === VILLAGE_SYNDICATE_ID && userdata.isOutlaw)
+  );
 };
 
 export const checkJutsuBloodline = (jutsu: Jutsu | undefined, userdata: UserData) => {
@@ -208,7 +213,7 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
         return 7 + 2;
       case "ELDER":
         return 7 + 2;
-      case "COMMANDER":
+      case "ELITE JONIN":
         return 8 + 2;
     }
     return 4 + 2;

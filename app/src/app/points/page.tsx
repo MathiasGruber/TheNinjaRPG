@@ -10,7 +10,7 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import NavTabs from "@/layout/NavTabs";
 import BanInfo from "@/layout/BanInfo";
 import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useState, useEffect } from "react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { getScriptID, destroySDKScript } from "@paypal/react-paypal-js";
@@ -161,8 +161,16 @@ const ReputationStore = (props: { currency: string }) => {
     resolver: zodResolver(userSearchSchema),
   });
 
-  const watchedUsers = userSearchMethods.watch("users", []);
-  const watchedPoints = repFormMethods.watch("reputationPoints", 20);
+  const watchedUsers = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  });
+  const watchedPoints = useWatch({
+    control: repFormMethods.control,
+    name: "reputationPoints",
+    defaultValue: 20,
+  });
   const selectedUser = watchedUsers?.[0];
 
   useEffect(() => {
@@ -564,7 +572,11 @@ const FederalStore = () => {
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
   });
-  const watchedUsers = userSearchMethods.watch("users", []);
+  const watchedUsers = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
+    defaultValue: [],
+  });
   const selectedUser = watchedUsers?.[0];
 
   useEffect(() => {

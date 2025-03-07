@@ -23,6 +23,7 @@ import { useLocalStorage } from "@/hooks/localstorage";
 import { showMutationToast } from "@/libs/toast";
 import { SiDiscord } from "@icons-pack/react-simple-icons";
 import type { TicketType } from "@/validators/misc";
+import ChatBox from "@/layout/ChatBox";
 
 interface SendTicketBtnProps {
   children?: React.ReactNode;
@@ -30,8 +31,8 @@ interface SendTicketBtnProps {
 
 const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
   const [showActive, setShowActive] = useLocalStorage<TicketType>(
-    "ticketType",
-    "content",
+    "ticketType2",
+    "ai_support",
   );
 
   // Mutations
@@ -54,6 +55,12 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
   const onSubmit = createForm.handleSubmit((data) => {
     create({ ...data, type: showActive });
   });
+
+  // Handle tool calls from AI
+  const handleToolCall = (toolCall: any) => {
+    console.log("Tool call received:", toolCall);
+    // Implement specific tool call handling if needed
+  };
 
   return (
     <Popover>
@@ -81,35 +88,69 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
             className="flex flex-col items-center justify-center"
             onValueChange={(value) => setShowActive(value as TicketType)}
           >
-            <TabsContent value="moderator" className="flex flex-col gap-2">
-              <p className="font-bold text-lg">Create Support Ticket</p>
+            <TabsContent value="human_support" className="flex flex-col gap-2">
+              <p className="font-bold text-lg">Get Human Help</p>
               <p className="italic">
                 1. Questions related to game mechanics, please ask your fellow ninja in
                 the{" "}
-                <Link href="/tavern" className="font-bold hover:text-orange-500">
+                <Link
+                  href="/tavern"
+                  className="font-bold hover:text-orange-700 text-orange-500"
+                >
                   tavern
                 </Link>
                 .
               </p>
               <p className="italic">
                 2. Questions related to moderation decisions, please comment on the{" "}
-                <Link href="/reports" className="font-bold hover:text-orange-500">
+                <Link
+                  href="/reports"
+                  className="font-bold hover:text-orange-700 text-orange-500"
+                >
                   report
                 </Link>{" "}
                 in question.
               </p>
+              <p className="italic">
+                3. Maybe you can find the answer you are looking for on our{" "}
+                <Link
+                  href="https://the-ninja-rpg.fandom.com/wiki/Getting_Started"
+                  className="font-bold hover:text-orange-700 text-orange-500"
+                >
+                  community manual
+                </Link>
+                .
+              </p>
               <p>
-                3. Alternatively, you may sign on to our{" "}
+                4. Alternatively, you may sign on to our{" "}
                 <Link
                   href="https://discord.gg/grPmTr4z9C"
-                  className="font-bold hover:text-orange-500"
+                  className="font-bold hover:text-orange-700 text-orange-500"
                 >
                   Discord
                 </Link>{" "}
                 channel and create a &quot;ticket&quot;.
               </p>
             </TabsContent>
-            <TabsContent value="content">
+            <TabsContent value="ai_support" className="w-full">
+              <p className="font-bold text-lg mb-2">Get AI Help</p>
+              <div className="h-[400px]">
+                <ChatBox
+                  aiProps={{
+                    apiEndpoint: "/api/chat/support",
+                    systemMessage:
+                      "You are Seichi AI, a helpful assistant for TheNinja-RPG players.",
+                  }}
+                  onToolCall={handleToolCall}
+                  position="relative"
+                  showCloseButton={false}
+                  showHeader={false}
+                  showFeedback={true}
+                  className="h-full"
+                />
+              </div>
+            </TabsContent>
+            <TabsContent value="bug_report">
               <p className="font-bold text-lg">Create Bug Report</p>
               <Form {...createForm}>
                 <div className="w-full">
@@ -140,8 +181,9 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
             </TabsContent>
 
             <TabsList className="text-center mt-2">
-              <TabsTrigger value="moderator">Support</TabsTrigger>
-              <TabsTrigger value="content">Bug Report</TabsTrigger>
+              <TabsTrigger value="ai_support">AI Support</TabsTrigger>
+              <TabsTrigger value="human_support">Human Support</TabsTrigger>
+              <TabsTrigger value="bug_report">Bugs</TabsTrigger>
             </TabsList>
           </Tabs>
         )}

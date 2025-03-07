@@ -37,7 +37,7 @@ export const sparringRouter = createTRPCRouter({
       void pusher.trigger(input.targetId, "event", {
         type: "userMessage",
         message: "You have been challenged",
-        route: "/battlearena",
+        route: "/battlearena#Sparring",
         routeText: "To Arena",
       });
       return { success: true, message: "Challenge created" };
@@ -70,13 +70,15 @@ export const sparringRouter = createTRPCRouter({
         "SPARRING",
       );
       if (result.success) {
-        await updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "SPAR");
-        void pusher.trigger(challenge.senderId, "event", {
-          type: "userMessage",
-          message: "Your challenge has been accepted",
-          route: "/combat",
-          routeText: "To Combat",
-        });
+        await Promise.all([
+          updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "SPAR"),
+          pusher.trigger(challenge.senderId, "event", {
+            type: "userMessage",
+            message: "Your challenge has been accepted",
+            route: "/combat",
+            routeText: "To Combat",
+          }),
+        ]);
       }
       return result;
     }),

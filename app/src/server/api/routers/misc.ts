@@ -2,7 +2,7 @@ import { z } from "zod";
 import path from "path";
 import TextToSVG from "text-to-svg";
 import { randomString } from "@/libs/random";
-import { sql, and, desc, eq, inArray } from "drizzle-orm";
+import { sql, and, desc, eq, inArray, gte } from "drizzle-orm";
 import {
   notification,
   userData,
@@ -10,21 +10,24 @@ import {
   gameAsset,
   captcha,
   userRewards,
+  emailReminder,
+  supportReview,
 } from "@/drizzle/schema";
 import { canAwardReputation } from "@/utils/permissions";
 import { nanoid } from "nanoid";
 import { awardSchema } from "@/validators/reputation";
 import { canSubmitNotification, canModifyEventGains } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
+import { secondsFromNow, DAY_S } from "@/utils/time";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { ratelimitMiddleware, hasUserMiddleware } from "../trpc";
 import { updateGameSetting } from "@/libs/gamesettings";
 import { changeSettingSchema } from "@/validators/misc";
-import { secondsFromNow } from "@/utils/time";
 import { callDiscordTicket } from "@/libs/discord";
 import { TicketTypes } from "@/validators/misc";
 import { createTicketSchema } from "@/validators/misc";
+import { Sentiment } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 export const miscRouter = createTRPCRouter({
@@ -221,6 +224,125 @@ export const miscRouter = createTRPCRouter({
       const nextCursor = results.length < limit ? null : currentCursor + 1;
       return { data: results, nextCursor: nextCursor };
     }),
+
+  getPersonalEmailReminder: protectedProcedure.query(async ({ ctx }) => {
+    const reminder = await ctx.drizzle.query.emailReminder.findFirst({
+      where: eq(emailReminder.userId, ctx.userId),
+    });
+    return reminder ?? null;
+  }),
+
+  getEmailReminder: publicProcedure
+    .input(z.object({ email: z.string().email(), secret: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const result = await fetchEmailReminder(ctx.drizzle, input.email, input.secret);
+      return result ?? null;
+    }),
+
+  toggleEmailReminder: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        secret: z.string(),
+        disabled: z.boolean(),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Find the email reminder
+      const reminder = await fetchEmailReminder(ctx.drizzle, input.email, input.secret);
+
+      if (!reminder) {
+        return errorResponse("Email reminder not found");
+      }
+
+      // Update the disabled status
+      const result = await ctx.drizzle
+        .update(emailReminder)
+        .set({ disabled: input.disabled })
+        .where(
+          and(
+            eq(emailReminder.email, input.email),
+            eq(emailReminder.secret, input.secret),
+          ),
+        );
+
+      if (result.rowsAffected === 0) {
+        return { success: false, message: "Failed to update email reminder" };
+      }
+
+      return {
+        success: true,
+        message: `Email reminders ${input.disabled ? "disabled" : "enabled"} successfully`,
+      };
+    }),
+
+  deleteEmailReminder: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        secret: z.string(),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Find the email reminder
+      const reminder = await fetchEmailReminder(ctx.drizzle, input.email, input.secret);
+
+      if (!reminder) {
+        return errorResponse("Email reminder not found");
+      }
+
+      // Delete the email reminder
+      const result = await ctx.drizzle
+        .delete(emailReminder)
+        .where(
+          and(
+            eq(emailReminder.email, input.email),
+            eq(emailReminder.secret, input.secret),
+          ),
+        );
+
+      if (result.rowsAffected === 0) {
+        return errorResponse("Failed to delete email reminder");
+      }
+
+      return {
+        success: true,
+        message: "Email reminder deleted successfully",
+      };
+    }),
+
+  reviewSupportWithAI: protectedProcedure
+    .input(
+      z.object({
+        apiRoute: z.string(),
+        chatHistory: z.array(z.any()),
+        sentiment: z.enum(Sentiment),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const reviewsToday = await ctx.drizzle.query.supportReview.findMany({
+        where: gte(supportReview.createdAt, secondsFromNow(-DAY_S)),
+      });
+      // Guard
+      if (reviewsToday.length >= 5) {
+        return errorResponse(
+          "You have reached the maximum number of reviews for today",
+        );
+      }
+      // Insert
+      await ctx.drizzle.insert(supportReview).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        apiRoute: input.apiRoute,
+        chatHistory: input.chatHistory,
+        sentiment: input.sentiment,
+      });
+      return { success: true, message: "Review submitted" };
+    }),
 });
 
 /**
@@ -290,5 +412,22 @@ export const fetchGameAssets = async (client: DrizzleClient) => {
   return await client.query.gameAsset.findMany({
     where: eq(gameAsset.hidden, false),
     orderBy: [desc(gameAsset.name)],
+  });
+};
+
+/**
+ * Fetches an email reminder by email and secret
+ * @param client - The DrizzleClient instance
+ * @param email - The email address
+ * @param secret - The secret token
+ * @returns The email reminder or null if not found
+ */
+export const fetchEmailReminder = async (
+  client: DrizzleClient,
+  email: string,
+  secret: string,
+) => {
+  return await client.query.emailReminder.findFirst({
+    where: and(eq(emailReminder.email, email), eq(emailReminder.secret, secret)),
   });
 };

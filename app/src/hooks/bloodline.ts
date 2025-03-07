@@ -1,5 +1,5 @@
 import { calculateContentDiff } from "@/utils/diff";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { api } from "@/app/_trpc/client";
@@ -29,7 +29,7 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   });
 
   // Query for bloodlines and villages
-  const { data: villages, isPending: l1 } = api.village.getAll.useQuery(undefined);
+  const { data: villages, isPending: l1 } = api.village.getAllNames.useQuery(undefined);
 
   // Mutation for updating bloodline
   const { mutate: updateBloodline, isPending: l2 } = api.bloodline.update.useMutation({
@@ -52,7 +52,10 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   );
 
   // Watch the effects
-  const effects = form.watch("effects");
+  const effects = useWatch({
+    control: form.control,
+    name: "effects",
+  });
 
   // Handle updating of effects. This casting should be safe, and is a hack to make it work with MassEdit functionality types
   const setEffects = (newEffects: ZodAllTags[] | ZodBloodlineTags[]) => {
@@ -63,7 +66,10 @@ export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   const loading = l1 || l2;
 
   // Watch for changes to avatar
-  const imageUrl = form.watch("image");
+  const imageUrl = useWatch({
+    control: form.control,
+    name: "image",
+  });
 
   // Object for form values
   const formData: FormEntry<keyof ZodBloodlineType>[] = [

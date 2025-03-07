@@ -30,6 +30,7 @@ import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
 import { calcBankInterest } from "@/utils/village";
+import { cn } from "src/libs/shadui";
 import type { Village } from "@/drizzle/schema";
 import type { VillageStructure } from "@/drizzle/schema";
 import type { MutateContentSchema } from "@/validators/comments";
@@ -52,7 +53,11 @@ export default function VillageOverview() {
   const ownSector = userData?.village?.sector === sectorVillage?.sector;
   const notice = villageData?.notice?.content ?? "No notice at this point";
   const isKage = villageData?.kageId === userData?.userId;
-  const title = villageData ? `${villageData.name}` : "Village";
+  const title = villageData
+    ? `${villageData.name}`
+    : userData?.isOutlaw
+      ? "Faction"
+      : "Village";
   const subtitle = ownSector ? "Your Community" : `Ally of ${userData?.village?.name}`;
   const href = villageData ? `/users/village/${villageData.id}` : "/users";
 
@@ -100,8 +105,13 @@ export default function VillageOverview() {
 
   // Loading states
   if (!userData) return <Loader explanation="Loading userdata" />;
-  if (!userData) return <Loader explanation="Loading userdata" />;
+  if (!villageData) return <Loader explanation="Loading userdata" />;
   if (isLeaving) return <Loader explanation="Leaving village" />;
+
+  // Overwrite village tokens if user is outlaw
+  villageData.tokens = userData.isOutlaw
+    ? userData.clan?.points || 0
+    : villageData.tokens;
 
   // Derived
   const canLeave = hasRequiredRank(userData.rank, VILLAGE_LEAVE_REQUIRED_RANK);
@@ -135,7 +145,9 @@ export default function VillageOverview() {
                       </div>
                     </Link>
                   </TooltipTrigger>
-                  <TooltipContent>Total village population</TooltipContent>
+                  <TooltipContent>
+                    Total {userData?.isOutlaw ? "faction" : "village"} population
+                  </TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger>
@@ -157,7 +169,8 @@ export default function VillageOverview() {
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    Tokens earned through PvP and quests can be used to improve village.
+                    Tokens earned through PvP and quests can be used to improve{" "}
+                    {userData?.isOutlaw ? "faction" : "village"}.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -173,10 +186,11 @@ export default function VillageOverview() {
                 }
                 onAccept={() => leaveVillage()}
               >
-                Do you confirm that you wish to leave your village? Your prestige will
-                be reset to 0. Please be aware that if you join another village your
-                training benefits & regen will be reduced for{" "}
-                {VILLAGE_REDUCED_GAINS_DAYS} days.
+                Do you confirm that you wish to leave your{" "}
+                {userData?.isOutlaw ? "faction" : "village"}? Your prestige will be
+                reset to 0. Please be aware that if you join another{" "}
+                {userData?.isOutlaw ? "faction" : "village"} your training benefits &
+                regen will be reduced for {VILLAGE_REDUCED_GAINS_DAYS} days.
               </Confirm>
             )}
           </div>
@@ -264,7 +278,11 @@ const Building: React.FC<BuildingProps> = (props) => {
           </Tooltip>
         </TooltipProvider>
         {userData && userData?.village?.kageId === userData?.userId && (
-          <UpgradeButton structure={structure} village={village} />
+          <UpgradeButton
+            structure={structure}
+            village={village}
+            clanId={userData.clanId}
+          />
         )}
       </div>
     </div>
@@ -306,22 +324,25 @@ const Building: React.FC<BuildingProps> = (props) => {
 const UpgradeButton = ({
   structure,
   village,
+  clanId,
 }: {
   structure: VillageStructure;
   village: Village;
+  clanId: string | null;
 }) => {
   const utils = api.useUtils();
 
   const { data } = api.village.get.useQuery({ id: structure.villageId }, {});
 
-  const { mutate: purchase } = api.kage.upgradeStructure.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.village.get.invalidate();
-      }
-    },
-  });
+  const { mutate: purchase, isPending: isPurchasing } =
+    api.kage.upgradeStructure.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.village.get.invalidate();
+        }
+      },
+    });
 
   const currentFunds = data?.villageData.tokens ?? 0;
   const { cost, tax, discount, total } = calcStructureUpgrade(structure, {
@@ -341,10 +362,16 @@ const UpgradeButton = ({
             purchase({
               structureId: structure.id,
               villageId: structure.villageId,
+              clanId: clanId,
             })
           }
           button={
-            <CircleArrowUp className="h-4 w-4 hover:text-orange-500 hover:cursor-pointer" />
+            <CircleArrowUp
+              className={cn(
+                "h-4 w-4 hover:text-orange-500 hover:cursor-pointer",
+                isPurchasing && "animate-spin",
+              )}
+            />
           }
         >
           <p>

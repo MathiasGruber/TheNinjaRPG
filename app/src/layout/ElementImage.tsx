@@ -34,6 +34,7 @@ import {
   IMG_ELEMENT_SCORCH,
   IMG_ELEMENT_DUST,
   IMG_ELEMENT_LIGHTNING,
+  IMG_ELEMENT_BOIL,
 } from "@/drizzle/constants";
 
 import { GeneralTypes, StatTypes, PoolTypes, ElementNames } from "@/drizzle/constants";
@@ -83,6 +84,8 @@ export const getElementImg = (element: ElementName): string => {
       return IMG_ELEMENT_DUST;
     case "Lightning":
       return IMG_ELEMENT_LIGHTNING;
+    case "Boil":
+      return IMG_ELEMENT_BOIL;
   }
 };
 

@@ -18,6 +18,7 @@ export const canPlayHiddenQuests = (role: UserRole) => {
 
 export const canSubmitNotification = (role: UserRole) => {
   return [
+    "CODER",
     "CONTENT",
     "EVENT",
     "HEAD_MODERATOR",
@@ -26,6 +27,10 @@ export const canSubmitNotification = (role: UserRole) => {
     "MODERATOR-ADMIN",
     "CONTENT-ADMIN",
   ].includes(role);
+};
+
+export const canTransferJutsu = (role: UserRole) => {
+  return role !== "USER";
 };
 
 export const canModifyEventGains = (role: UserRole) => {
@@ -130,10 +135,34 @@ export const canModerateReports = (user: UserData, report: UserReport) => {
       (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
       (user.role === "HEAD_MODERATOR" && report.status === "SILENCE_ESCALATED") ||
       (user.role === "MODERATOR" && report.status === "OFFICIAL_WARNING") ||
-      (user.role === "MODERATOR" && report.status === "SILENCE_ACTIVATED") ||
-      (user.role === "JR_MODERATOR" && report.status === "OFFICIAL_WARNING") ||
-      (user.role === "JR_MODERATOR" && report.status === "SILENCE_ACTIVATED"))
+      (user.role === "MODERATOR" && report.status === "SILENCE_ACTIVATED"))
   );
+};
+
+export const canBanUsers = (user: UserData) => {
+  return ["MODERATOR-ADMIN", "HEAD_MODERATOR", "MODERATOR", "CODING-ADMIN"].includes(
+    user.role,
+  );
+};
+
+export const canSilenceUsers = (user: UserData) => {
+  return [
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+    "JR_MODERATOR",
+    "CODING-ADMIN",
+  ].includes(user.role);
+};
+
+export const canWarnUsers = (user: UserData) => {
+  return [
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+    "JR_MODERATOR",
+    "CODING-ADMIN",
+  ].includes(user.role);
 };
 
 export const canDeleteComment = (user: UserData, commentAuthorId: string) => {
@@ -186,4 +215,28 @@ export const canChangeCombatBgScheme = (role: UserRole) => {
 
 export const canReviewLinkPromotions = (role: UserRole) => {
   return ["CODING-ADMIN"].includes(role);
+};
+
+export const canEditClans = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canAddNonCustomPollOptions = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canCreatePolls = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canEditPolls = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canClosePolls = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canDeletePollOptions = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
 };
