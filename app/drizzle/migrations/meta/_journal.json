@@ -1401,6 +1401,13 @@
       "when": 1740731718310,
       "tag": "0199_orange_giant_man",
       "breakpoints": false
+    },
+    {
+      "idx": 200,
+      "version": "5",
+      "when": 1741234676167,
+      "tag": "0200_stale_warbound",
+      "breakpoints": false
     }
   ]
 }
