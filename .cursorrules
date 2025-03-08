@@ -8,10 +8,11 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, 
 - Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
 - Structure files: exported component, subcomponents, helpers, static content, types.
 
-# Naming Conventions
+# Code & Naming Conventions
 
 - Use lowercase with dashes for directories (e.g., components/auth-wizard).
 - Favor named exports for components.
+- When adding "convenience" methods for e.g. fetching data in a file, always add at bottom.
 
 # UI and Styling
 
@@ -46,6 +47,10 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, 
 - `/app/src/validators`: here we place zod-schemas & inferred types, which are useful for sharing between UI and corresponding tRPC endpoints.
 - `/app/src/components`: the (slightly) modified shadcn layout components
 - `/app/src/layout`: more custom layout components pertaining to the codebase.
+
+# Permissions
+
+We try to aggregate all permission controls for who is allowed to do what in `/app/src/utils/permissions.ts`.
 
 # Combat System layout
 

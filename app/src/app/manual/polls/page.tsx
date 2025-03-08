@@ -4,7 +4,17 @@ import { useState, useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, X, Vote, Eye, User, Type, Trash2 } from "lucide-react";
+import {
+  CalendarIcon,
+  Plus,
+  X,
+  Vote,
+  Eye,
+  User,
+  Type,
+  Trash2,
+  Pencil,
+} from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
 import { cn } from "@/libs/shadui";
@@ -16,6 +26,40 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import AvatarImage from "@/layout/Avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  createPollSchema,
+  updatePollSchema,
+  type PollOptionSchema,
+  type UpdatePollSchema,
+  type AddPollOptionSchema,
+} from "@/validators/poll";
+import type { Poll, PollOption, FederalStatus } from "@/drizzle/schema";
+import type { PollOptionType } from "@/drizzle/constants";
+import {
+  canAddNonCustomPollOptions,
+  canClosePolls,
+  canCreatePolls,
+  canDeletePollOptions,
+  canEditPolls,
+} from "@/utils/permissions";
+import { Card, CardContent } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { showMutationToast } from "@/libs/toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "@/components/ui/use-toast";
 import {
   Form,
   FormControl,
@@ -24,27 +68,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createPollSchema } from "@/validators/poll";
-import type {
-  PollOptionSchema,
-  CreatePollSchema,
-  AddPollOptionSchema,
-} from "@/validators/poll";
-import type { Poll, PollOption, FederalStatus } from "@/drizzle/schema";
-import type { PollOptionType } from "@/drizzle/constants";
-import {
-  canAddNonCustomPollOptions,
-  canCreatePolls,
-  canClosePolls,
-  canDeletePollOptions,
-} from "@/utils/permissions";
-import { Card, CardContent } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { showMutationToast } from "@/libs/toast";
+import { parseHtml } from "@/utils/parse";
 
 type PollUser = {
   userId: string;
@@ -224,6 +248,8 @@ function PollAccordion({
 }) {
   const { data: userData } = useUserData();
   const isSelected = selectedPollId === poll.id;
+  const userCanEditPolls = userData?.role ? canEditPolls(userData.role) : false;
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   return (
     <Accordion
@@ -233,12 +259,42 @@ function PollAccordion({
       unselectedSubtitle={`Created by ${poll.createdBy.username} • ${format(new Date(poll.createdAt), "PPP")} • ${poll.totalVotes} votes${!poll.isActive ? " • Closed" : ""}`}
       selectedSubtitle={`Created by ${poll.createdBy.username} • ${format(new Date(poll.createdAt), "PPP")} • ${poll.totalVotes} votes${!poll.isActive ? " • Closed" : ""}`}
       onClick={() => setSelectedPollId(isSelected ? "" : poll.id)}
+      options={
+        userCanEditPolls ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowEditDialog(true);
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+            <span className="sr-only">Edit poll</span>
+          </Button>
+        ) : undefined
+      }
     >
       <PollContent
         poll={poll}
         userLoggedIn={!!userData}
         userCanClosePolls={userCanClosePolls}
       />
+
+      {showEditDialog && (
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit Poll</DialogTitle>
+              <DialogDescription>
+                Update the title and description of this poll.
+              </DialogDescription>
+            </DialogHeader>
+            <EditPollForm poll={poll} onSuccess={() => setShowEditDialog(false)} />
+          </DialogContent>
+        </Dialog>
+      )}
     </Accordion>
   );
 }
@@ -453,7 +509,7 @@ function PollContent({
       <Card className="bg-muted/50">
         <CardContent className="p-4 bg-popover rounded-xl">
           <div className="prose max-w-none">
-            <p className="text-sm">{poll.description}</p>
+            <p className="text-sm">{parseHtml(poll.description)}</p>
           </div>
         </CardContent>
       </Card>
@@ -1001,6 +1057,96 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
         <Button type="submit" className="hover:cursor-pointer" disabled={isPending}>
           Create Poll
         </Button>
+      </form>
+    </Form>
+  );
+}
+
+function EditPollForm({
+  poll,
+  onSuccess,
+}: {
+  poll: PollWithRelations;
+  onSuccess: () => void;
+}) {
+  const form = useForm<UpdatePollSchema>({
+    resolver: zodResolver(updatePollSchema),
+    defaultValues: {
+      id: poll.id,
+      title: poll.title,
+      description: poll.description,
+    },
+    mode: "onChange",
+  });
+
+  const utils = api.useUtils();
+  const { mutate: updatePoll, isPending } = api.poll.updatePoll.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await utils.poll.getPolls.invalidate();
+      form.reset();
+      onSuccess();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: UpdatePollSchema) => {
+    updatePoll({
+      id: poll.id,
+      title: data.title,
+      description: data.description,
+    });
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title</FormLabel>
+              <FormControl>
+                <Input placeholder="Poll title" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Poll description"
+                  className="min-h-[100px]"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onSuccess}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Updating..." : "Update Poll"}
+          </Button>
+        </DialogFooter>
       </form>
     </Form>
   );
