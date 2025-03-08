@@ -1214,7 +1214,11 @@ export const copy = (
 ): ActionEffect | undefined => {
   // Find all positive effects on the target
   const positiveEffects = usersEffects.filter(
-    (e) => e.targetId === target.userId && isPositiveUserEffect(e)
+    (e) =>
+      e.targetId === target.userId && isPositiveUserEffect(e) &&
+      e.rounds !== undefined && // Ensure rounds are set
+      e.rounds > 0 &&
+      e.rounds <= 10 // Only allow effects with 1-10 rounds
   );
 
   if (positiveEffects.length === 0) {
