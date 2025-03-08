@@ -313,6 +313,7 @@ export const sortEffects = (
     "reflect",
     "decreaseheal",
     "increaseheal",
+    "copy",
     // End-modifiers
     "move",
     "visual",
