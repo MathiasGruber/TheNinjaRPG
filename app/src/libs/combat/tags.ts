@@ -1229,8 +1229,8 @@ export const copy = (
     copiedEffect.id = nanoid(); // Give it a new unique ID
     copiedEffect.targetId = user.userId;
     copiedEffect.creatorId = user.userId;
-    copiedEffect.isNew = true;
-    copiedEffect.castThisRound = true;
+    copiedEffect.isNew = false;
+    copiedEffect.castThisRound = false;
     usersEffects.push(copiedEffect);
   });
 
