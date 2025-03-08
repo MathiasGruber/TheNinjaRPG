@@ -4,7 +4,7 @@ import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
 import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid";===
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
 import { absorb, reflect, recoil, lifesteal, drain, shield, copy, mirror } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
@@ -100,12 +100,17 @@ export const realizeTag = <T extends BattleEffect>(props: {
   barrierAbsorb?: number;
 }): T => {
   const { tag, user, target, level, round, barrierAbsorb } = props;
+
+  // Ensure rounds exist when necessary
   if ("rounds" in tag) {
     tag.timeTracker = {};
+    tag.rounds = tag.rounds ?? 1; // Default to 1 if rounds are undefined
   }
+
   if ("power" in tag) {
     tag.power = tag.power;
   }
+
   tag.id = nanoid();
   tag.createdRound = round || 0;
   tag.creatorId = user.userId;
@@ -119,11 +124,25 @@ export const realizeTag = <T extends BattleEffect>(props: {
   tag.highestGenerals = user.highestGenerals;
   tag.barrierAbsorb = barrierAbsorb || 0;
   tag.actionId = props.actionId;
+
   if (target) {
     tag.targetHighestOffence = target.highestOffence;
     tag.targetHighestDefence = target.highestDefence;
     tag.targetHighestGenerals = target.highestGenerals;
   }
+
+  // Handle Copy Effect (Copies positive effects from target to self)
+  if (tag.type === "copy" && target) {
+    tag.targetId = user.userId; // Copy effects to self
+    tag.creatorId = user.userId;
+  }
+
+  // Handle Mirror Effect (Transfers negative effects from self to target)
+  if (tag.type === "mirror" && target) {
+    tag.targetId = target.userId; // Apply to opponent
+    tag.creatorId = user.userId;
+  }
+
   return structuredClone(tag);
 };
 
@@ -342,10 +361,19 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               info = drain(e, usersEffects, consequences, curTarget);
             } else if (e.type === "copy") {
               info = copy(e, usersEffects, curUser, curTarget);
+              if (info && usersEffects) {
+                usersEffects.push(...usersEffects.filter(
+                  (eff) => eff.targetId === curUser.userId && eff.isNew
+                ));
+              }
             } else if (e.type === "mirror") {
               info = mirror(e, usersEffects, curUser, curTarget);
+              if (info && usersEffects) {
+                usersEffects.push(...usersEffects.filter(
+                  (eff) => eff.targetId === curTarget.userId && eff.isNew
+                ));
+              }
             }
-
           }
 
           // Always apply
