@@ -215,7 +215,7 @@ export const deduceActiveUserRegen = (
 
   // Home bonus boost
   if (user.status === "ASLEEP" && user.home?.regenBonus) {
-    regeneration = regeneration + user.home.regenBonus;
+    regeneration = regeneration + 500;
   }
 
   // Increase by event
