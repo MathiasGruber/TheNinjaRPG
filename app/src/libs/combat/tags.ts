@@ -1205,7 +1205,7 @@ export const shield = (effect: UserEffect, target: BattleUserState) => {
   return info;
 };
 
-/** Copy positive effects from opponent to self */
+/** Copy positive effects from target to self */
 export const copy = (
   effect: UserEffect,
   usersEffects: UserEffect[],
@@ -1240,6 +1240,44 @@ export const copy = (
     color: "blue",
   };
 };
+
+/** Copy negative effects from self to target */
+export const mirror = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  user: BattleUserState,
+  target: BattleUserState
+): ActionEffect | undefined => {
+  // Find all negative effects on the user that have rounds between 1-10
+  const negativeEffects = usersEffects.filter(
+    (e) =>
+      e.targetId === user.userId &&
+      isNegativeUserEffect(e) &&
+      e.rounds !== undefined && // Ensure rounds are set
+      e.rounds > 0 &&
+      e.rounds <= 10 // Only allow effects with 1-10 rounds
+  );
+
+  if (negativeEffects.length === 0) {
+    return { txt: `${user.username} tries to mirror but finds no valid effects to reflect.`, color: "red" };
+  }
+
+  negativeEffects.forEach((negEffect) => {
+    const mirroredEffect = structuredClone(negEffect);
+    mirroredEffect.id = nanoid(); // Give it a new unique ID
+    mirroredEffect.targetId = target.userId;
+    mirroredEffect.creatorId = user.userId;
+    mirroredEffect.isNew = true;
+    mirroredEffect.castThisRound = true;
+    usersEffects.push(mirroredEffect);
+  });
+
+  return {
+    txt: `${user.username} mirrors ${negativeEffects.length} effects onto ${target.username}.`,
+    color: "red",
+  };
+};
+
 
 /**
  * Move user on the battlefield
