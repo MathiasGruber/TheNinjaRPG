@@ -1205,7 +1205,7 @@ export const shield = (effect: UserEffect, target: BattleUserState) => {
   return info;
 };
 
-/** Copy positive effects from target to self */
+/** Copy positive effects from opponent to self */
 export const copy = (
   effect: UserEffect,
   usersEffects: UserEffect[],
@@ -1214,12 +1214,9 @@ export const copy = (
 ): ActionEffect | undefined => {
   // Find all positive effects on the target
   const positiveEffects = usersEffects.filter(
-    (e) =>
-      e.targetId === target.userId && isPositiveUserEffect(e) &&
-      e.rounds !== undefined && // Ensure rounds are set
-      e.rounds > 0 &&
-      e.rounds <= 10 // Only allow effects with 1-10 rounds
+    (e) => e.targetId === target.userId && isPositiveUserEffect(e)
   );
+
   if (positiveEffects.length === 0) {
     return { txt: `${user.username} tries to copy but finds no effects to copy.`, color: "blue" };
   }
@@ -1229,8 +1226,8 @@ export const copy = (
     copiedEffect.id = nanoid(); // Give it a new unique ID
     copiedEffect.targetId = user.userId;
     copiedEffect.creatorId = user.userId;
-    copiedEffect.isNew = false;
-    copiedEffect.castThisRound = false;
+    copiedEffect.isNew = true;
+    copiedEffect.castThisRound = true;
     usersEffects.push(copiedEffect);
   });
 
