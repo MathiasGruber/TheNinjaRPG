@@ -6,7 +6,7 @@ import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
-import { absorb, reflect, recoil, lifesteal, drain, shield, copy, mirror } from "./tags";
+import { absorb, reflect, recoil, lifesteal, drain, shield, poison, copy, mirror } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -29,7 +29,7 @@ import { updateStatUsage } from "./tags";
 import { BATTLE_TAG_STACKING, ID_ANIMATION_SMOKE } from "@/drizzle/constants";
 import type { BattleUserState, ReturnedUserState } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect, BattleEffect } from "./types";
-import type { CompleteBattle, Consequence } from "./types";
+import type { CompleteBattle, Consequence, CombatAction } from "./types";
 import type { ShieldTagType } from "./types";
 /**
  * Check whether to apply given effect to a user, based on friendly fire settings
@@ -179,7 +179,11 @@ const getVisual = (
   };
 };
 
-export const applyEffects = (battle: CompleteBattle, actorId: string) => {
+export const applyEffects = ( 
+    battle: CompleteBattle,
+    actorId: string,
+    action?: CombatAction,
+)   => {
   // Destructure
   const { usersState, usersEffects, groundEffects, round } = battle;
   const actor = usersState.find((u) => u.userId === actorId);
@@ -432,6 +436,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
             info = weakness(e, curTarget);
           } else if (e.type === "shield") {
             info = shield(e, curTarget);
+          } else if (e.type === "poison" && action) {
+            info = poison(e, action, actorId, consequences, curTarget, usersEffects);
           }
           updateStatUsage(newTarget, e, true);
         }
@@ -611,7 +617,15 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
           target.curStamina = Math.min(target.maxStamina, target.curStamina);
           actionEffects.push({
             txt: `${user.username} is drained of ${c.drain.toFixed(2)} chakra and stamina`,
-            color: "blue",
+            color: "purple",
+          });
+        }
+        if (c.poison && c.poison > 0) {
+          target.curHealth -= c.poison;
+          target.curHealth = Math.min(target.maxHealth, target.curHealth);
+          actionEffects.push({
+            txt: `${target.username} takes ${c.poison.toFixed(2)} poison damage`,
+            color: "purple",
           });
         }
         // Process disappear animation of characters

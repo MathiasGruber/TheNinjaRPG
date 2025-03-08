@@ -5,7 +5,7 @@ import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
 import { realizeTag, checkFriendlyFire } from "@/libs/combat/process";
 import { applyEffects } from "@/libs/combat/process";
-import { calcPoolCost } from "@/libs/combat/util";
+import { calcPoolCost, isEffectActive } from "@/libs/combat/util";
 import { hasNoAvailableActions } from "@/libs/combat/util";
 import { calcApReduction } from "@/libs/combat/util";
 import { getBarriersBetween } from "@/libs/combat/util";
@@ -33,6 +33,7 @@ import type { Grid } from "honeycomb-grid";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { CombatAction } from "@/libs/combat/types";
 import type { GroundEffect, UserEffect } from "@/libs/combat/types";
+import type { ActionEffect } from "@/libs/combat/types";
 
 /**
  * Given a user, return a list of actions that the user can perform
@@ -543,7 +544,6 @@ export const insertAction = (info: {
       user.curHealth = Math.max(0, user.curHealth);
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
-      // Update user descriptions
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
       }
@@ -684,8 +684,7 @@ export const performBattleAction = (props: {
   }
 
   // Apply relevant effects, and get back new state + active effects
-  const { newBattle, actionEffects } = applyEffects(battle, actorId);
-
+  const { newBattle, actionEffects } = applyEffects(battle, actorId, action);
   return { newBattle, actionEffects };
 };
 
