@@ -6,7 +6,7 @@ import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
-import { absorb, reflect, recoil, lifesteal, drain, shield, copy } from "./tags";
+import { absorb, reflect, recoil, lifesteal, drain, shield, copy, mirror } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -342,6 +342,8 @@ export const applyEffects = (battle: CompleteBattle, actorId: string) => {
               info = drain(e, usersEffects, consequences, curTarget);
             } else if (e.type === "copy") {
               info = copy(e, usersEffects, curUser, curTarget);
+            } else if (e.type === "mirror") {
+              info = mirror(e, usersEffects, curUser, curTarget);
             }
 
           }
