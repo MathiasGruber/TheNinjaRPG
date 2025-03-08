@@ -1213,7 +1213,7 @@ export const copy = (
   target: BattleUserState
 ): ActionEffect | undefined => {
   // Find all positive effects on the target
-  if (effect.isNew && effect.rounds) {
+  if (!effect.isNew && effect.rounds) {
     const positiveEffects = usersEffects.filter(
       (e) =>
         e.targetId === target.userId && isPositiveUserEffect(e) &&
@@ -1240,7 +1240,7 @@ export const copy = (
       color: "blue",
     };
   } else {
-    return { txt: `${user.username} will attempt to copy beneficial effects from ${target.username} for ${effect.rounds}`, color: "blue" }
+    return { txt: `${user.username} will attempt to copy beneficial effects from ${target.username} for ${effect.rounds} rounds`, color: "blue" }
   }
 };
 
@@ -1252,7 +1252,7 @@ export const mirror = (
   target: BattleUserState
 ): ActionEffect | undefined => {
   // Find all negative effects on the user that have rounds between 1-10
-  if (effect.isNew && effect.rounds) {
+  if (!effect.isNew && effect.rounds) {
     const negativeEffects = usersEffects.filter(
       (e) =>
         e.targetId === user.userId &&
@@ -1281,7 +1281,7 @@ export const mirror = (
       color: "red",
     };
   } else {
-    return { txt: `${user.username} will attempt to mirror their negative effects to ${target.username} for ${effect.rounds}`, color: "blue" }
+    return { txt: `${user.username} will attempt to mirror their negative effects to ${target.username} for ${effect.rounds} rounds`, color: "blue" }
   }
 };
 
