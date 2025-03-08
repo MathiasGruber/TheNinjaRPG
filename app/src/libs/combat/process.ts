@@ -131,16 +131,19 @@ export const realizeTag = <T extends BattleEffect>(props: {
     tag.targetHighestGenerals = target.highestGenerals;
   }
 
-  // Handle Copy Effect (Copies positive effects from target to self)
-  if (tag.type === "copy" && target) {
-    tag.targetId = user.userId; // Copy effects to self
-    tag.creatorId = user.userId;
-  }
+  // Ensure targetId is present in tag (if applicable)
+  if ("targetId" in tag) {
+    // Handle Copy Effect (Copies positive effects from target to self)
+    if (tag.type === "copy" && target) {
+      tag.targetId = user.userId; // Copy effects to self
+      tag.creatorId = user.userId;
+    }
 
-  // Handle Mirror Effect (Transfers negative effects from self to target)
-  if (tag.type === "mirror" && target) {
-    tag.targetId = target.userId; // Apply to opponent
-    tag.creatorId = user.userId;
+    // Handle Mirror Effect (Transfers negative effects from self to target)
+    if (tag.type === "mirror" && target) {
+      tag.targetId = target.userId; // Apply to opponent
+      tag.creatorId = user.userId;
+    }
   }
 
   return structuredClone(tag);
