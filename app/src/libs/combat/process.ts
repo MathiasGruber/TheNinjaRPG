@@ -4,7 +4,7 @@ import { findUser, findBarrier } from "./util";
 import { collapseConsequences, sortEffects } from "./util";
 import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
-import { nanoid } from "nanoid";===
+import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
 import { absorb, reflect, recoil, lifesteal, drain, shield, copy, mirror } from "./tags";
 import { increaseStats, decreaseStats } from "./tags";
