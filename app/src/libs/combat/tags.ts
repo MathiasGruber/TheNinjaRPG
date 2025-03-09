@@ -1266,6 +1266,76 @@ export const shield = (effect: UserEffect, target: BattleUserState) => {
   return info;
 };
 
+/** Copy positive effects from opponent to self */
+export const copy = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  user: BattleUserState,
+  target: BattleUserState
+): ActionEffect | undefined => {
+  // Find all positive effects on the target
+  const positiveEffects = usersEffects.filter(
+    (e) => e.targetId === target.userId && isPositiveUserEffect(e)
+  );
+
+  if (positiveEffects.length === 0) {
+    return { txt: `${user.username} tries to copy but finds no effects to copy.`, color: "blue" };
+  }
+
+  positiveEffects.forEach((posEffect) => {
+    const copiedEffect = structuredClone(posEffect);
+    copiedEffect.id = nanoid(); // Give it a new unique ID
+    copiedEffect.targetId = user.userId;
+    copiedEffect.creatorId = user.userId;
+    copiedEffect.isNew = true;
+    copiedEffect.castThisRound = true;
+    usersEffects.push(copiedEffect);
+  });
+
+  return {
+    txt: `${user.username} copies ${positiveEffects.length} effects from ${target.username}.`,
+    color: "blue",
+  };
+};
+
+/** Copy negative effects from self to target */
+export const mirror = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  user: BattleUserState,
+  target: BattleUserState
+): ActionEffect | undefined => {
+  // Find all negative effects on the user that have rounds between 1-10
+  const negativeEffects = usersEffects.filter(
+    (e) =>
+      e.targetId === user.userId &&
+      isNegativeUserEffect(e) &&
+      e.rounds !== undefined && // Ensure rounds are set
+      e.rounds > 0 &&
+      e.rounds <= 10 // Only allow effects with 1-10 rounds
+  );
+
+  if (negativeEffects.length === 0) {
+    return { txt: `${user.username} tries to mirror but finds no valid effects to reflect.`, color: "red" };
+  }
+
+  negativeEffects.forEach((negEffect) => {
+    const mirroredEffect = structuredClone(negEffect);
+    mirroredEffect.id = nanoid(); // Give it a new unique ID
+    mirroredEffect.targetId = target.userId;
+    mirroredEffect.creatorId = user.userId;
+    mirroredEffect.isNew = true;
+    mirroredEffect.castThisRound = true;
+    usersEffects.push(mirroredEffect);
+  });
+
+  return {
+    txt: `${user.username} mirrors ${negativeEffects.length} effects onto ${target.username}.`,
+    color: "red",
+  };
+};
+
+
 /**
  * Move user on the battlefield
  * 1. Remove user from current ground effect

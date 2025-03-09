@@ -708,6 +708,26 @@ export const WeaknessTag = z.object({
 });
 export type WeaknessTagType = z.infer<typeof WeaknessTag>;
 
+export const CopyTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("copy").default("copy"),
+  description: msg("Copies all positive effects from the target to the user"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+});
+export type CopyTagType = z.infer<typeof CopyTag>;
+
+export const MirrorTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("mirror").default("mirror"),
+  description: msg("Mirrors all negative effects from the user to the target"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+});
+export type MirrorTagType = z.infer<typeof MirrorTag>;
+
 export const UnknownTag = z.object({
   ...BaseAttributes,
   type: z.literal("unknown").default("unknown"),
@@ -734,6 +754,7 @@ export const AllTags = z.union([
   ClearPreventTag.default({}),
   ClearTag.default({}),
   CloneTag.default({}),
+  CopyTag.default({}),
   DamageTag.default({}),
   DebuffPreventTag.default({}),
   DecreaseDamageGivenTag.default({}),
@@ -741,6 +762,7 @@ export const AllTags = z.union([
   DecreaseHealGivenTag.default({}),
   DecreasePoolCostTag.default({}),
   DecreaseStatTag.default({}),
+  DrainTag.default({}),
   FleePreventTag.default({}),
   FleeTag.default({}),
   HealTag.default({}),
@@ -751,7 +773,7 @@ export const AllTags = z.union([
   IncreasePoolCostTag.default({}),
   IncreaseStatTag.default({}),
   LifeStealTag.default({}),
-  DrainTag.default({}),
+  MirrorTag.default({}),
   MoveTag.default({}),
   MovePreventTag.default({}),
   OneHitKillPreventTag.default({}),
