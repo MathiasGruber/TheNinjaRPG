@@ -1,11 +1,11 @@
 import { RankedDivisions } from "@/drizzle/constants";
 import { eq, gte, desc } from "drizzle-orm";
-import { drizzle } from "@/server/db"; // Ensure correct import
+import { drizzleDB } from "@/server/db"; // Ensure correct import
 import { userData } from "@/drizzle/schema"; // Correct schema reference
 
 export const getPvpRank = async (userId: string, rankedLp: number): Promise<string> => {
   // Fetch top 10 players with rankedLp >= 900
-  const topSannins = await drizzle
+  const topSannins = await drizzleDB
     .select({ userId: userData.userId }) // Use correct schema reference
     .from(userData)
     .where(gte(userData.rankedLp, 900)) // Get users with 900+ LP
