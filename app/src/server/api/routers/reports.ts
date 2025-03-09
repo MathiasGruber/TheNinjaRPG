@@ -274,10 +274,7 @@ export const reportsRouter = createTRPCRouter({
       fetchUser(ctx.drizzle, ctx.userId),
       ctx.drizzle.query.userReport.findFirst({
         where: and(
-          or(
-            eq(userReport.status, "BAN_ACTIVATED"),
-            eq(userReport.status, "SILENCE_ACTIVATED"),
-          ),
+          eq(userReport.status, "BAN_ACTIVATED"),
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
@@ -314,16 +311,43 @@ export const reportsRouter = createTRPCRouter({
           eq(userReport.reportedUserId, ctx.userId),
           gt(userReport.banEnd, new Date()),
         ),
+        with: {
+          reporterUser: {
+            columns: {
+              userId: true,
+              username: true,
+              avatar: true,
+              rank: true,
+              isOutlaw: true,
+              level: true,
+              role: true,
+              federalStatus: true,
+            },
+          },
+          reportedUser: {
+            columns: {
+              userId: true,
+              username: true,
+              avatar: true,
+              rank: true,
+              isOutlaw: true,
+              level: true,
+              role: true,
+              federalStatus: true,
+            },
+          },
+        },
       }),
     ]);
-    // Unsilence user if ban no longer active
-    if (!silenceReport && user.isSilenced) {
-      console.log("Unsilencing user 1");
+
+    // Unsilence user if no active silence or ban
+    if (!silenceReport && !banReport && user.isSilenced) {
       await ctx.drizzle
         .update(userData)
         .set({ isSilenced: false })
         .where(eq(userData.userId, ctx.userId));
     }
+
     // Unban user if ban no longer active
     if (!banReport && user.isBanned) {
       await ctx.drizzle
@@ -331,7 +355,7 @@ export const reportsRouter = createTRPCRouter({
         .set({ isBanned: false })
         .where(eq(userData.userId, ctx.userId));
     }
-    return banReport ?? null;
+    return banReport ?? silenceReport ?? null;
   }),
   // Get a single report
   get: protectedProcedure
