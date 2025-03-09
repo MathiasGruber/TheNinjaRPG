@@ -1454,7 +1454,7 @@ export const userData = mysqlTable(
     aiProfileId: varchar("aiProfileId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
     aiCalls: int("openaiCalls").default(0).notNull(),
-    rankedLp: int("rankedLp").default(0).notNull(),
+    rankedLp: int("rankedLp").default(150).notNull(),
   },
   (table) => {
     return {
