@@ -155,6 +155,18 @@ export const UserRanks = [
 ] as const;
 export type UserRank = (typeof UserRanks)[number];
 
+export const RankedDivisions = {
+  WOOD: { name: "Wood", lp: 150 },
+  ADEPT: { name: "Adept", lp: 300 },
+  MASTER: { name: "Master", lp: 600 },
+  LEGEND: { name: "Legend", lp: 900 },
+  SANNIN: { name: "Sannin", lp: Infinity }, // Example for the highest rank
+  NONE: { name: "NONE", lp: 0 },
+} as const;
+export type RankedDivisionKey = keyof typeof RankedDivisions;
+export type RankedDivision = (typeof RankedDivisions)[RankedDivisionKey];
+
+
 export const ItemTypes = [
   "WEAPON",
   "CONSUMABLE",
@@ -268,6 +280,7 @@ export const PvpBattleTypes: BattleType[] = [
   "SPARRING",
   "CLAN_BATTLE",
   "TOURNAMENT",
+  "RANKED"
 ];
 
 export const TournamentTypes = ["CLAN"] as const;
