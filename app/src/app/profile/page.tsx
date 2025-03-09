@@ -36,10 +36,16 @@ export default function Profile() {
   
   // Get pvp rank
   useEffect(() => {
-    if (userData) {
-      getPvpRank(userData.userId, userData.rankedLp).then(setPvpRank);
-    }
+    const fetchRank = async () => {
+      if (userData) {
+        const rank = await getPvpRank(userData.userId, userData.rankedLp);
+        setPvpRank(rank);
+      }
+    };
+  
+    fetchRank().catch(console.error); // Logs any errors
   }, [userData]);
+
 
   // Loader
   if (!userData) {
