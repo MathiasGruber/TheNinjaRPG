@@ -19,6 +19,7 @@ import { getPvpRank } from "@/utils/rankedpvp";
 export default function Profile() {
   // State
   const { data: userData } = useRequiredUserData();
+  const [pvpRank, setPvpRank] = useState<string>("Loading...");
 
   // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
@@ -30,6 +31,13 @@ export default function Profile() {
   const expRequired =
     userData &&
     Math.max(calcLevelRequirements(userData.level) - userData.experience, 0);
+  
+  // Get pvp rank
+  useEffect(() => {
+    if (userData) {
+      getPvpRank(userData.id, userData.rankedLp).then(setPvpRank);
+    }
+  }, [userData]);
 
   // Loader
   if (!userData) {
@@ -59,7 +67,7 @@ export default function Profile() {
             <p>
               Lvl. {userData.level} {showUserRank(userData)}
             </p>
-            <p>PvP Rank: {await getPvpRank(userData.id, userData.rankedLp)}</p>
+            <p>PvP Rank: {pvpRank}</p>
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>
             <p>Status: {userData.status}</p>
