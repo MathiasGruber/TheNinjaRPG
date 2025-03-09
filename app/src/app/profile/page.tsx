@@ -47,8 +47,9 @@ export default function Profile() {
       }
     };
   
-    fetchRank();
+    void fetchRank(); // ✅ Explicitly mark as intentional non-awaited async call
   }, [userData]);
+
 
 
   // Loader
