@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `rankedLp` INT DEFAULT 150 NOT NULL;
