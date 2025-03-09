@@ -28,7 +28,7 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import Loader from "@/layout/Loader";
 import { sendGTMEvent } from "@next/third-parties/google";
 import { Swords } from "lucide-react";
-//import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
+import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
 import {
   Form,
@@ -159,8 +159,7 @@ const SelectAI: React.FC<SelectAIProps> = (props) => {
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   // Derived
-  //const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
-  const canDoArena = true;
+  const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
   return (
     <ContentBox
       title="Configure"
@@ -254,8 +253,7 @@ const ChallengeAI: React.FC<ChallengeAIProps> = (props) => {
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   // Derived
-  //const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
-  const canDoArena = true;
+  const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
   return (
     <div className="flex flex-col items-center">
       The arena is a fairly basic circular and raw battleground, where you can train &
