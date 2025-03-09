@@ -156,17 +156,17 @@ export const UserRanks = [
 export type UserRank = (typeof UserRanks)[number];
 
 export const RankedDivisions = [
-  { key: "UNRANKED", name: "Unranked", lp: 0 },
-  { key: "WOOD", name: "Wood", lp: 150 },
-  { key: "ADEPT", name: "Adept", lp: 300 },
-  { key: "MASTER", name: "Master", lp: 600 },
-  { key: "LEGEND", name: "Legend", lp: 900 },
-  { key: "SANNIN", name: "Sannin", lp: Infinity },
+  { key: "UNRANKED", name: "Unranked", rankedLp: 0 },
+  { key: "WOOD", name: "Wood", rankedLp: 150 },
+  { key: "ADEPT", name: "Adept", rankedLp: 300 },
+  { key: "MASTER", name: "Master", rankedLp: 600 },
+  { key: "LEGEND", name: "Legend", rankedLp: 900 },
+  { key: "SANNIN", name: "Sannin", rankedLp: Infinity },
 ] as const;
 
 // Type Definitions
-export type RankedDivision = (typeof RANKED_DIVISIONS)[number]["name"];
-export type RankedDivisionEntry = (typeof RANKED_DIVISIONS)[number];
+export type RankedDivision = (typeof RankedDivisions)[number]["name"];
+export type RankedDivisionEntry = (typeof RankedDivisions)[number];
 
 
 
