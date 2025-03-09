@@ -1,7 +1,7 @@
 import { RankedDivisions } from "@/drizzle/constants";
 import { userData } from "@/drizzle/schema.ts"; // Import database connection
 
-export const getPvpRank = async (userId: number, rankedLp: number): Promise<string> => {
+export const getPvpRank = async (userId: string, rankedLp: number): Promise<string> => {
   // Fetch top 10 players with rankedLp >= 900
   const topSannins = await db.query(
     `SELECT userId FROM UserData WHERE rankedLp >= 900 ORDER BY rankedLp DESC LIMIT 10;`
