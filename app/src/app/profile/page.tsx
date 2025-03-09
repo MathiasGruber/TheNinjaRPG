@@ -59,7 +59,7 @@ export default function Profile() {
             <p>
               Lvl. {userData.level} {showUserRank(userData)}
             </p>
-            <p>PvP Rank: {getPvpRank(userData.rankedLp)}</p>
+            <p>PvP Rank: {await getPvpRank(userData.id, userData.rankedLp)}</p>
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>
             <p>Status: {userData.status}</p>
