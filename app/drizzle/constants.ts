@@ -272,6 +272,7 @@ export const BattleTypes = [
   "QUEST",
   "VILLAGE_PROTECTOR",
   "TRAINING",
+  "RANKED"
 ] as const;
 export type BattleType = (typeof BattleTypes)[number];
 
@@ -280,7 +281,7 @@ export const PvpBattleTypes: BattleType[] = [
   "SPARRING",
   "CLAN_BATTLE",
   "TOURNAMENT",
-  "RANKED"
+  "RANKED",
 ];
 
 export const TournamentTypes = ["CLAN"] as const;
