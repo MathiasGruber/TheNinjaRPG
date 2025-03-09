@@ -15,6 +15,8 @@ import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getPvpRank } from "@/utils/rankedpvp";
+import { useEffect, useState } from "react";
+
 
 export default function Profile() {
   // State
