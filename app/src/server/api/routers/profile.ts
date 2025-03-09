@@ -57,6 +57,7 @@ import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
 import { MAX_ATTRIBUTES } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
+import { isAvailableUserQuests } from "@/libs/quest";
 import {
   getGameSettingBoost,
   getGameSetting,
@@ -1392,7 +1393,7 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     user.userQuests = user.userQuests
       .filter((q) => q.quest)
-      .filter((q) => !q.quest.hidden || canChangeContent(user.role));
+      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user));
   }
 
   // Hide information relating to quests
