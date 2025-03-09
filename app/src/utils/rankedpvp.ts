@@ -3,7 +3,7 @@ import { RankedDivisions } from "@/drizzle/constants";
 // Get PvP Rank by LP
 export const getPvpRank = (rating: number): string => {
   return (
-    RANKED_DIVISIONS
+    RankedDivisions
       .slice()
       .reverse()
       .find(rank => rating >= rank.lp)?.name || "Wood"
