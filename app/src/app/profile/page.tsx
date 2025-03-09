@@ -15,13 +15,10 @@ import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getPvpRank } from "@/utils/rankedpvp";
-import { useEffect, useState } from "react";
-
 
 export default function Profile() {
   // State
   const { data: userData } = useRequiredUserData();
-  const [pvpRank, setPvpRank] = useState<string>("Loading...");
 
   // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
@@ -33,24 +30,6 @@ export default function Profile() {
   const expRequired =
     userData &&
     Math.max(calcLevelRequirements(userData.level) - userData.experience, 0);
-  
-  // Get pvp rank
-  useEffect(() => {
-    if (!userData?.userId || userData.rankedLp === undefined) return; // Prevent unnecessary calls
-  
-    const fetchRank = async () => {
-      try {
-        const rank = await getPvpRank(userData.userId, userData.rankedLp);
-        setPvpRank(rank);
-      } catch (error) {
-        console.error("Error fetching PvP Rank:", error);
-      }
-    };
-  
-    void fetchRank(); // ✅ Explicitly mark as intentional non-awaited async call
-  }, [userData]);
-
-
 
   // Loader
   if (!userData) {
@@ -80,7 +59,7 @@ export default function Profile() {
             <p>
               Lvl. {userData.level} {showUserRank(userData)}
             </p>
-            <p>PvP Rank: {pvpRank}</p>
+            <p>PvP Rank: {getPvpRank(userData.rankedLp)}</p>
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>
             <p>Status: {userData.status}</p>
