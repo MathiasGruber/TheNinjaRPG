@@ -6,6 +6,6 @@ export const getPvpRank = (rating: number): string => {
     RankedDivisions
       .slice()
       .reverse()
-      .find(rank => rating >= rank.lp)?.name || "Wood"
+      .find(rank => rating >= rank.rankedLp)?.name || "Wood"
   );
 };
