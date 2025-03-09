@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { randomInt } from "crypto";
 import { eq, or, sql, gte, and, inArray, isNull, isNotNull, like } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
 import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
@@ -212,16 +213,21 @@ export const bloodlineRouter = createTRPCRouter({
   }),
   // Roll a bloodline
   roll: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
-    const [user, prevRoll] = await Promise.all([
+    const [user, prevRoll, allBloodlines] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),
       fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId),
+      fetchBloodlines(ctx.drizzle), // Fetch all bloodlines
     ]);
     // Guard
     if (prevRoll) return errorResponse("You have already rolled a bloodline");
-    if (user.status !== "AWAKE")
+    if (user.status !== "AWAKE") {
       return errorResponse(`Cannot roll bloodline while ${user.status.toLowerCase()}`);
-    // Derived
-    const rand = Math.random();
+    }
+    // Determine bloodline rank based on roll chance
+    function secureRandom(): number {
+      return randomInt(0, 1_000_000) / 1_000_000;
+    } 
+    const rand = secureRandom();
     let bloodlineRank: BloodlineRank | undefined = undefined;
     if (rand < ROLL_CHANCE.S) {
       bloodlineRank = "S";
@@ -233,55 +239,43 @@ export const bloodlineRouter = createTRPCRouter({
       bloodlineRank = "C";
     } else if (rand < ROLL_CHANCE.D) {
       bloodlineRank = "D";
-    }
-    // Update roll & user if successfull
+    } 
+    // If a rank was determined, use filterRollableBloodlines to select a bloodline
     if (bloodlineRank) {
-      const randomBloodline = getRandomElement(
-        await ctx.drizzle.query.bloodline.findMany({
-          where: and(
-            eq(bloodline.rank, bloodlineRank),
-            eq(bloodline.hidden, false),
-            or(
-              eq(bloodline.villageId, user.villageId ?? ""),
-              isNull(bloodline.villageId),
-            ),
-          ),
-        }),
-      );
+      const bloodlinePool = filterRollableBloodlines({
+        bloodlines: allBloodlines,
+        rank: bloodlineRank,
+        user,
+        previousRolls: [], // No previous rolls to consider for this standard roll
+      });  
+      const randomBloodline = getRandomElement(bloodlinePool);  
       if (randomBloodline) {
         await ctx.drizzle
           .update(userData)
           .set({ bloodlineId: randomBloodline.id })
-          .where(eq(userData.userId, ctx.userId));
+          .where(eq(userData.userId, ctx.userId)); 
         await ctx.drizzle.insert(bloodlineRolls).values({
           id: nanoid(),
           userId: ctx.userId,
           used: 0,
           bloodlineId: randomBloodline.id,
-        });
+        }); 
         return {
           success: true,
-          message: "After thorough examination a bloodline was detected",
-        };
-      } else {
-        return {
-          success: false,
-          message:
-            "Despite early indications, the doctors conclude you have no bloodline",
+          message: `After thorough examination, a bloodline was detected: ${randomBloodline.name}`,
         };
       }
-    } else {
-      await ctx.drizzle.insert(bloodlineRolls).values({
-        id: nanoid(),
-        used: 0,
-        userId: ctx.userId,
-      });
-      return {
-        success: false,
-        message:
-          "After thorough examination the doctors conclude you have no bloodline",
-      };
     }
+    // If no bloodline was found, proceed with the normal "no bloodline" case
+    await ctx.drizzle.insert(bloodlineRolls).values({
+      id: nanoid(),
+      used: 0,
+      userId: ctx.userId,
+    });
+    return {
+      success: false,
+      message: "After thorough examination, the doctors conclude you have no bloodline",
+    };
   }),
   // Pity Roll a bloodline
   pityRoll: protectedProcedure
