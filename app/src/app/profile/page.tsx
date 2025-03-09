@@ -37,7 +37,7 @@ export default function Profile() {
   // Get pvp rank
   useEffect(() => {
     if (userData) {
-      getPvpRank(ctx.drizzle, userData.userId, userData.rankedLp).then(setPvpRank);
+      getPvpRank(userData.userId, userData.rankedLp).then(setPvpRank);
     }
   }, [userData]);
 
