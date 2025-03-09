@@ -28,7 +28,7 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import Loader from "@/layout/Loader";
 import { sendGTMEvent } from "@next/third-parties/google";
 import { Swords } from "lucide-react";
-import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
+//import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
 import {
   Form,
@@ -67,7 +67,8 @@ export default function Arena() {
   let subtitle = "";
   switch (tab) {
     case "Arena":
-      subtitle = `Daily Training [${userData?.dailyArenaFights} / ${BATTLE_ARENA_DAILY_LIMIT}]`;
+      //subtitle = `Daily Training [${userData?.dailyArenaFights} / ${BATTLE_ARENA_DAILY_LIMIT}]`;
+      subtitle = "Battle Arena Fights Today: ${userData?.dailyArenaFights}";
       break;
     case "Sparring":
       subtitle = "PVP Challenges";
@@ -158,8 +159,8 @@ const SelectAI: React.FC<SelectAIProps> = (props) => {
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   // Derived
-  const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
-
+  //const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
+  const canDoArena = true;
   return (
     <ContentBox
       title="Configure"
