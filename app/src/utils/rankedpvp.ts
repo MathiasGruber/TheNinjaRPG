@@ -1,5 +1,5 @@
 import { RankedDivisions } from "@/drizzle/constants";
-import { db } from "@/drizzle/db"; // Import database connection
+import { userData } from "@/drizzle/schema.ts"; // Import database connection
 
 export const getPvpRank = async (userId: number, rankedLp: number): Promise<string> => {
   // Fetch top 10 players with rankedLp >= 900
