@@ -254,8 +254,8 @@ const ChallengeAI: React.FC<ChallengeAIProps> = (props) => {
   if (!userData) return <Loader explanation="Loading userdata" />;
 
   // Derived
-  const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
-
+  //const canDoArena = userData.dailyArenaFights < BATTLE_ARENA_DAILY_LIMIT;
+  const canDoArena = true;
   return (
     <div className="flex flex-col items-center">
       The arena is a fairly basic circular and raw battleground, where you can train &
