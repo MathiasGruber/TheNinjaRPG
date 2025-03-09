@@ -14,6 +14,7 @@ import { showUserRank } from "@/libs/profile";
 import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { getPvpRank } from "@/utils/rankedpvp";
 
 export default function Profile() {
   // State
@@ -58,6 +59,7 @@ export default function Profile() {
             <p>
               Lvl. {userData.level} {showUserRank(userData)}
             </p>
+            <p>PvP Rank: {getPvpRank(userData.rankedLp)}</p>
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>
             <p>Status: {userData.status}</p>
