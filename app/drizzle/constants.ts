@@ -155,6 +155,21 @@ export const UserRanks = [
 ] as const;
 export type UserRank = (typeof UserRanks)[number];
 
+export const RankedDivisions = [
+  { key: "UNRANKED", name: "Unranked", rankedLp: 0 },
+  { key: "WOOD", name: "Wood", rankedLp: 150 },
+  { key: "ADEPT", name: "Adept", rankedLp: 300 },
+  { key: "MASTER", name: "Master", rankedLp: 600 },
+  { key: "LEGEND", name: "Legend", rankedLp: 900 },
+  { key: "SANNIN", name: "Sannin", rankedLp: Infinity },
+] as const;
+
+// Type Definitions
+export type RankedDivision = (typeof RankedDivisions)[number]["name"];
+export type RankedDivisionEntry = (typeof RankedDivisions)[number];
+
+
+
 export const ItemTypes = [
   "WEAPON",
   "CONSUMABLE",
@@ -260,6 +275,7 @@ export const BattleTypes = [
   "QUEST",
   "VILLAGE_PROTECTOR",
   "TRAINING",
+  "RANKED"
 ] as const;
 export type BattleType = (typeof BattleTypes)[number];
 
@@ -268,6 +284,7 @@ export const PvpBattleTypes: BattleType[] = [
   "SPARRING",
   "CLAN_BATTLE",
   "TOURNAMENT",
+  "RANKED",
 ];
 
 export const TournamentTypes = ["CLAN"] as const;
