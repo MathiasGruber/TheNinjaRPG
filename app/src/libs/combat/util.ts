@@ -32,7 +32,7 @@ import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
 import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
-import type { BattleType } from "@/drizzle/constants";
+import type { BattleType, STREAK_LEVEL_DIFF } from "@/drizzle/constants";
 
 /**
  * Retrieves the battle grid.
@@ -632,13 +632,13 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         experience: 0.01,
         pvpStreak:
             battleType === "COMBAT"
-                ? (user.isAggressor && user.level - Math.max(...targets.map(t => t.level), 0) > 10
-                    ? user.pvpStreak // No change if aggressor is 10+ levels higher
+                ? (user.isAggressor && user.level - Math.max(...targets.map(t => t.level), 0) > STREAK_LEVEL_DIFF
+                    ? user.pvpStreak // No change if aggressor is STREAK_LEVEL_DIFF levels higher
                     : (didWin 
                         ? user.pvpStreak + 1 
-                        : (user.isAggressor || user.level - Math.max(...targets.map(t => t.level), 0) > -10 
+                        : (user.isAggressor || user.level - Math.max(...targets.map(t => t.level), 0) > -STREAK_LEVEL_DIFF 
                             ? 0  // Reset streak for aggressors or if level difference is not extreme
-                            : user.pvpStreak))) // Keep streak if non-aggressor loses to someone 10+ levels higher
+                            : user.pvpStreak))) // Keep streak if non-aggressor loses to someone STREAK_LEVEL_DIFF+ levels higher
                 : user.pvpStreak,
         curHealth: user.curHealth,
         curStamina: user.curStamina,
