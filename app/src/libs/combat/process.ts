@@ -478,7 +478,7 @@ export const applyEffects = (
             });
           }
         }
-        if (c.residual && c.residual > 0) {
+        if (c.residual && c.residual > 0 && target.curHealth > 0) {
           const damage = calcAdjustedDamage(target, c.residual);
           if (damage > 0) {
             target.curHealth -= damage;
