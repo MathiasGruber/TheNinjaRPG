@@ -5,7 +5,7 @@ import { userData } from "@/drizzle/schema";
 import { eq, gte, desc } from "drizzle-orm";
 import { z } from "zod";
 
-export const pvpRouter = createTRPCRouter({
+export const rankedpvpRouter = createTRPCRouter({
   getPvpRank: publicProcedure
     .input(z.object({ userId: z.string(), rankedLp: z.number() }))
     .query(async ({ input }) => {
