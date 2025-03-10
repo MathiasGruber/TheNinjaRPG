@@ -22,9 +22,13 @@ export default function Profile() {
   // Fetch PvP rank
   const { data: pvpRank, error: pvpRankError, isLoading: pvpRankLoading } =
     api.rankedpvp.getPvpRank.useQuery(
-      { userId: userData?.userId, rankedLp: userData?.rankedLp },
-      { enabled: !!userData?.userId } // Ensures API call only happens if userData exists
-  );
+      userData?.userId && userData?.rankedLp !== undefined
+        ? { userId: userData.userId, rankedLp: userData.rankedLp }
+        : undefined, // Pass undefined if data is missing
+      {
+        enabled: !!userData?.userId && userData?.rankedLp !== undefined,
+      }
+    );
 
   // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
