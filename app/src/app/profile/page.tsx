@@ -14,10 +14,22 @@ import { showUserRank } from "@/libs/profile";
 import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+//import { getPvpRank } from "@/utils/rankedpvp";
 
 export default function Profile() {
   // State
   const { data: userData } = useRequiredUserData();
+  // Fetch PvP rank
+  const shouldFetch = !!userData?.userId && userData?.rankedLp !== undefined;
+  const { data: pvpRank, error: pvpRankError, isLoading: pvpRankLoading } =
+    api.rankedpvp.getPvpRank.useQuery(
+      shouldFetch
+        ? { userId: userData.userId, rankedLp: userData.rankedLp }
+        : { userId: "", rankedLp: 0 }, // Provide default values instead of undefined
+      {
+        enabled: shouldFetch, // Prevents execution when data is missing
+      }
+    );
 
   // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
@@ -57,6 +69,14 @@ export default function Profile() {
             <b>General</b>
             <p>
               Lvl. {userData.level} {showUserRank(userData)}
+            </p>
+            <p>
+              PvP Rank:{" "}
+              {pvpRankLoading
+                ? "Loading..."
+                : pvpRankError
+                ? "Error fetching PvP Rank"
+                : pvpRank || "Unknown"}
             </p>
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>
