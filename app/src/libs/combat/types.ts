@@ -331,6 +331,14 @@ export const DecreaseHealGivenTag = z.object({
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
+export const MirrorTag = z.object({
+  ...BaseAttributes,
+  type: z.literal("mirror").default("mirror"),
+  description: msg("Applies all negative effects from the caster to the target"),
+  target: z.enum(BaseTagTargets).optional().default("INHERIT"),
+  direction: type("defence"),
+});
+
 export const IncreasePoolCostTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -726,6 +734,7 @@ export const IncreaseMarriageSlots = z.object({
 /** UNIONS OF TAGS   **/
 /******************** */
 export const AllTags = z.union([
+  MirrorTag.default({}),
   AbsorbTag.default({}),
   BarrierTag.default({}),
   BuffPreventTag.default({}),
