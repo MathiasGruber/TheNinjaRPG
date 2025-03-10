@@ -581,6 +581,7 @@ const Marriage: React.FC = () => {
   const onSuccess = async (data: BaseServerResponse) => {
     showMutationToast(data);
     if (data.success) {
+      await utils.marriage.getMarriedUsers.invalidate();
       await utils.marriage.getRequests.invalidate();
     }
   };
