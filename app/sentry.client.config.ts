@@ -24,7 +24,7 @@ Sentry.init({
   enabled: process.env.NODE_ENV !== "development",
 
   // Only on production URLs
-  allowUrls: [/https?:\/\/(www\.)?theninja-rpg\.com/],
+  allowUrls: [/https?:\/\/(www\.)?theninja-rpg\.com.*/],
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
