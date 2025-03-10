@@ -17,6 +17,7 @@ Sentry.init({
     "Converting circular structure to JSON",
     "Uncaught NetworkError: Failed to execute 'importScripts' on 'WorkerGlobalScope'",
     "CanvasRenderingContext2D.setTransform",
+    "Java bridge method invocation error",
   ],
 
   // Only enable Sentry in production
