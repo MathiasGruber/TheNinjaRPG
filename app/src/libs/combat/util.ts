@@ -631,11 +631,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         eloDiff: eloDiff,
         experience: 0.01,
         pvpStreak:
-          battleType === "COMBAT"
-            ? (user.isAggressor && user.level - Math.max(...targets.map(t => t.level), 0) > 10
-            ? user.pvpStreak // No change if aggressor is 10+ levels higher
-            : (didWin ? user.pvpStreak + 1 : 0))
-          : user.pvpStreak,
+            battleType === "COMBAT"
+                ? (user.isAggressor && user.level - Math.max(...targets.map(t => t.level), 0) > 10
+                    ? user.pvpStreak // No change if aggressor is 10+ levels higher
+                    : (didWin 
+                        ? user.pvpStreak + 1 
+                        : (user.isAggressor || user.level - Math.max(...targets.map(t => t.level), 0) > -10 
+                            ? 0  // Reset streak for aggressors or if level difference is not extreme
+                            : user.pvpStreak))) // Keep streak if non-aggressor loses to someone 10+ levels higher
+                : user.pvpStreak,
         curHealth: user.curHealth,
         curStamina: user.curStamina,
         curChakra: user.curChakra,
