@@ -38,7 +38,7 @@ import { marriageRouter } from "./routers/marriage";
 import { staffRouter } from "./routers/staff";
 import { backgroundSchemaRouter } from "./routers/backgroundSchema";
 import { linkPromotionRouter } from "./routers/linkpromotion";
-import { rankedpvpRouter } from "@/server/api/routers/pvp";
+import { rankedpvpRouter } from "@/server/api/routers/rankedpvp";
 
 /**
  * This is the primary router for your server.
