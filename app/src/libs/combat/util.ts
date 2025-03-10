@@ -23,6 +23,7 @@ import { defineHex } from "../hexgrid";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
+import { STREAK_LEVEL_DIFF  } from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -32,7 +33,7 @@ import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
 import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
-import type { BattleType, STREAK_LEVEL_DIFF } from "@/drizzle/constants";
+import type { BattleType } from "@/drizzle/constants";
 
 /**
  * Retrieves the battle grid.
