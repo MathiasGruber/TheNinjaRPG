@@ -521,6 +521,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Calculate Eperience gain
       let experience = didWin ? eloDiff * expBoost : 0;
+      const streakBonus = 1 + (user.pvpStreak * 0.05); // 5% per streak
       if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
         experience *= 1.5;
       } else if (battleType === "VILLAGE_PROTECTOR") {
@@ -530,6 +531,10 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       ) {
         experience = 0;
       }
+      // Calculate Final Experience
+      experience *= streakBonus;
+      // Cap experience at 100
+      experience = Math.min(experience, 100);
 
       // Find users who did not leave battle yet
       const friendsUsers = friends.filter((u) => !u.isAi);
@@ -618,7 +623,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // ANBU boost to tokens
       if (user.anbuId) deltaTokens *= 2;
-
+      
       // Result object
       const result: CombatResult = {
         outcome: outcome,
@@ -626,7 +631,11 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         eloDiff: eloDiff,
         experience: 0.01,
         pvpStreak:
-          battleType === "COMBAT" ? (didWin ? user.pvpStreak + 1 : 0) : user.pvpStreak,
+          battleType === "COMBAT"
+            ? (user.isAggressor && user.level - Math.max(...targets.map(t => t.level), 0) > 10
+            ? user.pvpStreak // No change if aggressor is 10+ levels higher
+            : (didWin ? user.pvpStreak + 1 : 0))
+          : user.pvpStreak,
         curHealth: user.curHealth,
         curStamina: user.curStamina,
         curChakra: user.curChakra,
