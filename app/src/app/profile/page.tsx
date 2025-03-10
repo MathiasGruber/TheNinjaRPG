@@ -20,13 +20,14 @@ export default function Profile() {
   // State
   const { data: userData } = useRequiredUserData();
   // Fetch PvP rank
+  const shouldFetch = !!userData?.userId && userData?.rankedLp !== undefined;
   const { data: pvpRank, error: pvpRankError, isLoading: pvpRankLoading } =
     api.rankedpvp.getPvpRank.useQuery(
-      userData?.userId && userData?.rankedLp !== undefined
+      shouldFetch
         ? { userId: userData.userId, rankedLp: userData.rankedLp }
-        : undefined, // Pass undefined if data is missing
+        : { userId: "", rankedLp: 0 }, // Provide default values instead of undefined
       {
-        enabled: !!userData?.userId && userData?.rankedLp !== undefined,
+        enabled: shouldFetch, // Prevents execution when data is missing
       }
     );
 
