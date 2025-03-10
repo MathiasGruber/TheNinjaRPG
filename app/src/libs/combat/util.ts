@@ -23,6 +23,7 @@ import { defineHex } from "../hexgrid";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
+import { STREAK_LEVEL_DIFF  } from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -521,6 +522,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Calculate Eperience gain
       let experience = didWin ? eloDiff * expBoost : 0;
+      const streakBonus = 1 + (user.pvpStreak * 0.05); // 5% per streak
       if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
         experience *= 1.5;
       } else if (battleType === "VILLAGE_PROTECTOR") {
@@ -530,6 +532,10 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       ) {
         experience = 0;
       }
+      // Calculate Final Experience
+      experience *= streakBonus;
+      // Cap experience at 100
+      experience = Math.min(experience, 100);
 
       // Find users who did not leave battle yet
       const friendsUsers = friends.filter((u) => !u.isAi);
@@ -618,7 +624,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // ANBU boost to tokens
       if (user.anbuId) deltaTokens *= 2;
-
+      
       // Result object
       const result: CombatResult = {
         outcome: outcome,
@@ -626,7 +632,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         eloDiff: eloDiff,
         experience: 0.01,
         pvpStreak:
-          battleType === "COMBAT" ? (didWin ? user.pvpStreak + 1 : 0) : user.pvpStreak,
+            battleType === "COMBAT"
+                ? (user.isAggressor && user.level - Math.max(...targets.map(t => t.level), 0) > STREAK_LEVEL_DIFF
+                    ? user.pvpStreak // No change if aggressor is STREAK_LEVEL_DIFF levels higher
+                    : (didWin 
+                        ? user.pvpStreak + 1 
+                        : (user.isAggressor || user.level - Math.max(...targets.map(t => t.level), 0) > -STREAK_LEVEL_DIFF 
+                            ? 0  // Reset streak for aggressors or if level difference is not extreme
+                            : user.pvpStreak))) // Keep streak if non-aggressor loses to someone STREAK_LEVEL_DIFF+ levels higher
+                : user.pvpStreak,
         curHealth: user.curHealth,
         curStamina: user.curStamina,
         curChakra: user.curChakra,
