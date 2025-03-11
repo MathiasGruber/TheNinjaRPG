@@ -577,6 +577,10 @@ export const commentsRouter = createTRPCRouter({
                 relationId: commentId,
                 contextId: convo.id,
               }),
+              ctx.drizzle
+                .update(userData)
+                .set({ tavernMessages: sql`${userData.tavernMessages} + 1` })
+                .where(eq(userData.userId, ctx.userId)),
             ]
           : []),
         ctx.drizzle.insert(conversationComment).values({

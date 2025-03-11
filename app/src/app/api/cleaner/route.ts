@@ -220,6 +220,11 @@ export async function GET() {
       sql`UPDATE ${userData} u INNER JOIN ${clan} c ON u.clanId = c.id SET u.villageId = c.villageId WHERE c.hasHideout = true AND u.villageId != c.villageId`,
     );
 
+    // Step 30: Reduce tavern activity every day by 50%
+    await drizzleDB.execute(
+      sql`UPDATE ${userData} SET tavernMessages = FLOOR(tavernMessages * 0.5)`,
+    );
+
     return Response.json(`OK`);
   } catch (cause) {
     console.error(cause);
