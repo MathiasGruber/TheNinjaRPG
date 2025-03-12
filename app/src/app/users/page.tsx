@@ -19,7 +19,7 @@ import type { ArrayElement } from "@/utils/typeutils";
 
 export default function Users() {
   const { data: userData, isClerkLoaded } = useRequiredUserData();
-  const tabNames = ["Online", "Strongest", "PvP", "Outlaws"] as const;
+  const tabNames = ["Online", "Strongest", "PvP", "Outlaws", "Community"] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -81,6 +81,8 @@ export default function Users() {
     columns.push({ key: "pvpStreak", header: "PvP Streak", type: "string" });
   } else if (activeTab === "Outlaws") {
     columns.push({ key: "villagePrestige", header: "Notoriety", type: "string" });
+  } else if (activeTab === "Community") {
+    columns.push({ key: "tavernMessages", header: "Yapper Rank", type: "string" });
   }
   if (userData && canSeeIps(userData.role)) {
     columns.push({ key: "lastIp", header: "LastIP", type: "string" });

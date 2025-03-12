@@ -1571,6 +1571,8 @@ export const fetchPublicUsers = async (
         return [desc(userData.role)];
       case "Outlaws":
         return [desc(userData.villagePrestige)];
+      case "Community":
+        return [desc(userData.tavernMessages)];
     }
   };
   const [users, user] = await Promise.all([
@@ -1618,6 +1620,7 @@ export const fetchPublicUsers = async (
         userId: true,
         username: true,
         villagePrestige: true,
+        tavernMessages: true,
       },
       // If AI, also include relations information
       with: {

@@ -222,7 +222,7 @@ export async function GET() {
 
     // Step 30: Reduce tavern activity every day by 50%
     await drizzleDB.execute(
-      sql`UPDATE ${userData} SET tavernMessages = FLOOR(tavernMessages * 0.5)`,
+      sql`UPDATE ${userData} SET tavernMessages = FLOOR(tavernMessages * 0.95)`,
     );
 
     return Response.json(`OK`);
