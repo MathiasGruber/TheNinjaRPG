@@ -426,11 +426,13 @@ export const reportsRouter = createTRPCRouter({
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }
       };
-      const [{ infraction, context }, { decision, aiInterpretation }] =
-        await Promise.all([
-          getInfraction(input.system),
-          generateModerationDecision(ctx.drizzle, JSON.stringify(input)),
-        ]);
+      // Create interpretation
+      const { infraction, context } = await getInfraction(input.system);
+      const { decision, aiInterpretation } = await generateModerationDecision(
+        ctx.drizzle,
+        JSON.stringify(input),
+        context,
+      );
       // Guard
       if (!infraction) return errorResponse("Infraction not found");
       if ("isReported" in infraction && infraction.isReported) {
