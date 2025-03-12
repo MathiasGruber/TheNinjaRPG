@@ -4,7 +4,6 @@ import Link from "next/link";
 import { showUserRank } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
-import GlowingBorder from "./GlowingBorder";
 
 export interface PostProps {
   user?: {
@@ -169,18 +168,12 @@ const Post: React.FC<PostProps> = (props) => {
       {props.user && (
         <div className="... mr-3 basis-2/12 truncate text-center sm:basis-3/12 sm:text-base">
           <Link href={`/username/${props.user.username}`}>
-            <GlowingBorder
-              messageCount={props.user.tavernMessages}
-              className="rounded-2xl"
-            >
-              <AvatarImage
-                href={props.user.avatar}
-                userId={props.user.userId}
-                alt={props.user.username}
-                className="w-full"
-                size={100}
-              />
-            </GlowingBorder>
+            <AvatarImage
+              href={props.user.avatar}
+              userId={props.user.userId}
+              alt={props.user.username}
+              size={100}
+            />
           </Link>
           {props.user.nRecruited && props.user.nRecruited > 0 ? (
             <Link
