@@ -11,7 +11,7 @@ import { conversation, user2conversation, conversationComment } from "@/drizzle/
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { secondsFromNow } from "@/utils/time";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
-import { userReport } from "@/drizzle/schema";
+import { automatedModeration } from "@/drizzle/schema";
 
 export async function GET() {
   // Check timer
@@ -223,6 +223,11 @@ export async function GET() {
     // Step 30: Reduce tavern activity every day by 50%
     await drizzleDB.execute(
       sql`UPDATE ${userData} SET tavernMessages = FLOOR(tavernMessages * 0.95)`,
+    );
+
+    // Step 31: Clear automatedModeration older than  3 months
+    await drizzleDB.execute(
+      sql`DELETE FROM ${automatedModeration} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 3 MONTH`,
     );
 
     return Response.json(`OK`);

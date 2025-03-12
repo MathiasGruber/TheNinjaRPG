@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { SquarePen, Trash2, Flag } from "lucide-react";
+import { SquarePen, Trash2, Flag, BarChart2 } from "lucide-react";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Confirm from "@/layout/Confirm";
@@ -18,6 +18,8 @@ import type { ForumPost } from "@/drizzle/schema";
 import type { UserReportComment } from "@/drizzle/schema";
 import type { MutateCommentSchema } from "@/validators/comments";
 import type { DeleteCommentSchema } from "@/validators/comments";
+import { canSeeSecretData } from "@/utils/permissions";
+import { ModerationSummary } from "@/layout/ModerationSummary";
 
 /**
  * Component for handling comments on user reports
@@ -163,6 +165,14 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                   props.editing ? "fill-orange-500" : "hover:text-orange-500",
                 )}
                 onClick={() => props.setEditing((prev) => !prev)}
+              />
+            )}
+            {userData && (isAuthor || canSeeSecretData(userData.role)) && (
+              <ModerationSummary
+                userId={props.user.userId}
+                trigger={
+                  <BarChart2 className="h-6 w-6 hover:text-orange-500 cursor-pointer" />
+                }
               />
             )}
             {props.system && !props.comment?.isReported && (
