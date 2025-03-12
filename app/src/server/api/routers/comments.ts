@@ -383,6 +383,7 @@ export const commentsRouter = createTRPCRouter({
           customTitle: posterUser.customTitle,
           federalStatus: posterUser.federalStatus,
           nRecruited: posterUser.nRecruited,
+          tavernMessages: posterUser.tavernMessages,
         })
         .from(conversationComment)
         .innerJoin(posterUser, eq(posterUser.userId, conversationComment.userId))
@@ -471,6 +472,7 @@ export const commentsRouter = createTRPCRouter({
             customTitle: userData.customTitle,
             federalStatus: userData.federalStatus,
             nRecruited: userData.nRecruited,
+            tavernMessages: userData.tavernMessages,
           })
           .from(conversationComment)
           .innerJoin(userData, eq(conversationComment.userId, userData.userId))

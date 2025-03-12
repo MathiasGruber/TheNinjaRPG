@@ -4,6 +4,7 @@ import Link from "next/link";
 import { showUserRank } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
+import GlowingBorder from "./GlowingBorder";
 
 export interface PostProps {
   user?: {
@@ -20,6 +21,7 @@ export interface PostProps {
     villageHexColor?: string | null;
     nRecruited?: number | null;
     federalStatus: FederalStatus;
+    tavernMessages?: number | null;
   };
   className?: string;
   image?: React.ReactNode;
@@ -120,7 +122,9 @@ const Post: React.FC<PostProps> = (props) => {
     <div className="basis-1/4">
       <div className={`${userColor} font-bold`}>{props.user.username}</div>
       <div className="text-xs pt-1 pb-4">
-        <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Lvl. {props.user.level}</span>
+        <span className="bg-slate-300 p-1 m-1 rounded-md text-black">
+          Lvl. {props.user.level}
+        </span>
         <span className="bg-slate-300 p-1 m-1 rounded-md text-black">
           {showUserRank(props.user)}
         </span>
@@ -138,13 +142,17 @@ const Post: React.FC<PostProps> = (props) => {
           </span>
         )}
         {props.user.villageName && props.user.villageHexColor && (
-          <span className={`p-1 m-1 rounded-md ${
-            props.user.villageName.toLowerCase() === "glacier" ? "text-black" : "text-white"}`}
+          <span
+            className={`p-1 m-1 rounded-md ${
+              props.user.villageName.toLowerCase() === "glacier"
+                ? "text-black"
+                : "text-white"
+            }`}
             style={{ backgroundColor: props.user.villageHexColor }}
           >
             {props.user.villageName}
           </span>
-         )}
+        )}
       </div>
     </div>
   );
@@ -161,12 +169,18 @@ const Post: React.FC<PostProps> = (props) => {
       {props.user && (
         <div className="... mr-3 basis-2/12 truncate text-center sm:basis-3/12 sm:text-base">
           <Link href={`/username/${props.user.username}`}>
-            <AvatarImage
-              href={props.user.avatar}
-              userId={props.user.userId}
-              alt={props.user.username}
-              size={100}
-            />
+            <GlowingBorder
+              messageCount={props.user.tavernMessages}
+              className="rounded-2xl"
+            >
+              <AvatarImage
+                href={props.user.avatar}
+                userId={props.user.userId}
+                alt={props.user.username}
+                className="w-full"
+                size={100}
+              />
+            </GlowingBorder>
           </Link>
           {props.user.nRecruited && props.user.nRecruited > 0 ? (
             <Link

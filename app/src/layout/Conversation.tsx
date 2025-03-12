@@ -156,6 +156,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               customTitle: userData.customTitle,
               federalStatus: userData.federalStatus,
               nRecruited: userData.nRecruited,
+              tavernMessages: userData.tavernMessages,
             };
       return {
         pageParams: oldQueryData.pageParams,
