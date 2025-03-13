@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { BriefcaseBusiness } from "lucide-react";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import Loader from "@/layout/Loader";
-import NavTabs from "@/layout/NavTabs";
 import { canSeeIps } from "@/utils/permissions";
 import { ExternalLink } from "lucide-react";
 import { api } from "@/app/_trpc/client";
@@ -16,10 +15,24 @@ import { showUserRank } from "@/libs/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import UserFiltering, { useFiltering, getFilter } from "@/layout/UserFiltering";
 import type { ArrayElement } from "@/utils/typeutils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Users() {
   const { data: userData, isClerkLoaded } = useRequiredUserData();
-  const tabNames = ["Online", "Strongest", "PvP", "Outlaws", "Community"] as const;
+  const tabNames = [
+    "Online",
+    "Strongest",
+    "PvP",
+    "Outlaws",
+    "Community",
+    "Staff",
+  ] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -83,6 +96,8 @@ export default function Users() {
     columns.push({ key: "villagePrestige", header: "Notoriety", type: "string" });
   } else if (activeTab === "Community") {
     columns.push({ key: "tavernMessages", header: "Yapper Rank", type: "string" });
+  } else if (activeTab === "Staff") {
+    columns.push({ key: "tavernMessages", header: "Yapper Rank", type: "string" });
   }
   if (userData && canSeeIps(userData.role)) {
     columns.push({ key: "lastIp", header: "LastIP", type: "string" });
@@ -97,13 +112,18 @@ export default function Users() {
       padding={false}
       topRightContent={
         <div className="flex flex-row items-center gap-1">
-          <NavTabs
-            id="tab"
-            className="text-xs"
-            current={activeTab}
-            options={tabNames}
-            setValue={setActiveTab}
-          />
+          <Select onValueChange={(value) => setActiveTab(value as TabName)}>
+            <SelectTrigger>
+              <SelectValue placeholder={activeTab} />
+            </SelectTrigger>
+            <SelectContent>
+              {tabNames.map((tab) => (
+                <SelectItem key={tab} value={tab}>
+                  {tab}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Link href="/staff">
             <Button>
               <BriefcaseBusiness className="h-6 w-6" />
