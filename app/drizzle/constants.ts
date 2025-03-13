@@ -502,7 +502,7 @@ export const JUTSU_TRAIN_LEVEL_CAP = 25;
 export const MAX_DAILY_TRAININGS = 64;
 
 // Combat config
-export const BATTLE_ARENA_DAILY_LIMIT = 40;
+export const BATTLE_ARENA_DAILY_LIMIT = 99999;
 export const BATTLE_TAG_STACKING = true;
 export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
 
