@@ -725,6 +725,10 @@ export const conversationComment = mysqlTable(
       .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     conversationId: varchar("conversationId", { length: 191 }),
+    reactions: json("reactions")
+      .$type<Record<string, string[]>>()
+      .notNull()
+      .default({}),
     isPinned: tinyint("isPinned").default(0).notNull(),
     isReported: boolean("isReported").default(false).notNull(),
   },

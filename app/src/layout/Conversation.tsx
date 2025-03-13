@@ -20,6 +20,7 @@ import { CONVERSATION_QUIET_MINS } from "@/drizzle/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWatch } from "react-hook-form";
 import { format } from "date-fns";
+import { getNewReactions } from "@/utils/chat";
 import { Quote } from "@/components/ui/quote";
 import type { MutateCommentSchema } from "@/validators/comments";
 import type { ArrayElement } from "@/utils/typeutils";
@@ -93,6 +94,64 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const conversation = comments?.pages[0]?.convo;
   type ReturnedComment = ArrayElement<typeof allComments>;
 
+  /**
+   * Perform an optimistic update of the conversation reactions
+   * @param newMessage
+   * @returns
+   */
+  const optimisticReactionUpdate = async (
+    commentId: string,
+    emoji: string,
+    username: string,
+  ) => {
+    let old = utils.comments.getConversationComments.getInfiniteData();
+    await utils.comments.getConversationComments.cancel();
+    utils.comments.getConversationComments.setInfiniteData(queryKey, (oldQueryData) => {
+      if (!oldQueryData) return undefined;
+
+      // Find the comment looking at all pages in the oldQueryData
+      const comment = oldQueryData.pages
+        .flatMap((page) => page.data)
+        .find((c) => c.id === commentId);
+      if (!comment) return oldQueryData;
+
+      // Update the reactions
+      const newReactions = getNewReactions(comment.reactions, emoji, username);
+
+      old = {
+        pageParams: oldQueryData.pageParams,
+        pages: oldQueryData.pages.map((page) => {
+          return {
+            convo: page.convo,
+            data: page.data.map((c) => {
+              if (c.id === commentId) {
+                return { ...c, reactions: newReactions };
+              }
+              return c;
+            }),
+            nextCursor: page.nextCursor,
+          };
+        }),
+      };
+      return old;
+    });
+    return { old };
+  };
+
+  // Mutation for reactions
+  const { mutate: reactConversationComment } =
+    api.comments.reactConversationComment.useMutation({
+      onMutate: async (data) => {
+        onMutateCheck();
+        if (!userData) return;
+        return await optimisticReactionUpdate(
+          data.commentId,
+          data.emoji,
+          userData.username,
+        );
+      },
+    });
+
   // tRPC utils
   const utils = api.useUtils();
 
@@ -161,6 +220,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               createdAt: new Date(),
               conversationId: conversation.id,
               content: quoteText + newMessage.comment,
+              reactions: {},
               isPinned: 0,
               isReported: false,
               villageName: userData.village?.name ?? null,
@@ -239,11 +299,39 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   useEffect(() => {
     if (conversation && pusher) {
       const channel = pusher.subscribe(conversation.id);
-      channel.bind("event", (data: { fromId?: string; commentId?: string }) => {
-        if (!silence && data?.fromId !== userData?.userId && data?.commentId) {
-          fetchComment({ commentId: data.commentId });
-        }
-      });
+      channel.bind(
+        "event",
+        (data: {
+          message: string;
+          fromId?: string;
+          commentId?: string;
+          emoji?: string;
+          username?: string;
+        }) => {
+          switch (data.message) {
+            case "new":
+              if (!silence && data?.fromId !== userData?.userId && data?.commentId) {
+                fetchComment({ commentId: data.commentId });
+              }
+              break;
+            case "reaction":
+              if (
+                data?.fromId !== userData?.userId &&
+                data?.commentId &&
+                data?.username &&
+                data?.emoji
+              ) {
+                console.log("Reaction", data);
+                void optimisticReactionUpdate(
+                  data.commentId,
+                  data.emoji,
+                  data.username,
+                );
+              }
+              break;
+          }
+        },
+      );
       return () => {
         pusher.unsubscribe(conversation.id);
       };
@@ -353,6 +441,9 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     hover_effect={false}
                     comment={comment}
                     quoteIds={quoteIds}
+                    toggleReaction={(emoji) =>
+                      reactConversationComment({ commentId: comment.id, emoji })
+                    }
                     setQuoteId={(quoteId) => {
                       if (quoteIds?.includes(quoteId)) {
                         setValue(
