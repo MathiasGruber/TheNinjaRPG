@@ -298,8 +298,15 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     const quote = allComments?.find((c) => c.id === quoteId);
                     return quote ? (
                       <Quote
+                        key={quoteId}
                         author={quote.username || "Unknown"}
                         date={format(quote.createdAt, "MM/dd/yyyy")}
+                        onRemove={() => {
+                          setValue(
+                            "quoteIds",
+                            quoteIds.filter((id) => id !== quoteId),
+                          );
+                        }}
                       >
                         {quote.content}
                       </Quote>
