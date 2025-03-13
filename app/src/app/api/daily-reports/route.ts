@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq, and, lt, inArray, gt, or, sql } from "drizzle-orm";
+import { and, lt, inArray, gt } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { userReport, userData } from "@/drizzle/schema";
 import { updateGameSetting } from "@/libs/gamesettings";

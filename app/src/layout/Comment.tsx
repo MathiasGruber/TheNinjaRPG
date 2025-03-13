@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SquarePen, Trash2, Flag, BarChart2 } from "lucide-react";
+import { Quote } from "lucide-react";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Confirm from "@/layout/Confirm";
@@ -39,6 +40,8 @@ export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
  */
 interface ConversationCommentProps extends PostProps {
   comment: ConversationComment;
+  setQuoteId?: (id: string) => void;
+  quoteIds?: string[] | null;
 }
 export const CommentOnConversation: React.FC<ConversationCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
@@ -81,6 +84,8 @@ export const CommentOnConversation: React.FC<ConversationCommentProps> = (props)
  */
 interface ForumCommentProps extends PostProps {
   comment: ForumPost;
+  setQuoteId?: (id: string) => void;
+  quoteIds?: string[] | null;
 }
 export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
@@ -128,9 +133,11 @@ interface BaseCommentProps extends PostProps {
   comment: UserReportComment | ForumPost | ConversationComment;
   editing: boolean;
   system?: (typeof systems)[number];
+  quoteIds?: string[] | null;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   editComment?: (data: MutateCommentSchema) => void;
   deleteComment?: (data: DeleteCommentSchema) => void;
+  setQuoteId?: (id: string) => void;
 }
 const BaseComment: React.FC<BaseCommentProps> = (props) => {
   const { data: userData } = useUserData();
@@ -158,6 +165,21 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
       options={
         props.user && (
           <div className="flex flex-row">
+            {props.setQuoteId && (
+              <Quote
+                className={cn(
+                  "h-6 w-6",
+                  props.quoteIds?.includes(props.comment.id)
+                    ? "fill-orange-500"
+                    : "hover:text-orange-500",
+                )}
+                onClick={() => {
+                  if (props.setQuoteId && props.comment.id) {
+                    props.setQuoteId(props.comment.id);
+                  }
+                }}
+              />
+            )}
             {isAuthor && props.editComment && (
               <SquarePen
                 className={cn(

@@ -4,6 +4,7 @@ export const mutateCommentSchema = z
   .object({
     comment: z.string().min(4).max(5000),
     object_id: z.string(),
+    quoteIds: z.array(z.string()).optional().nullable(),
   })
   .strict()
   .required();
