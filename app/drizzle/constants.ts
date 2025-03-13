@@ -505,6 +505,7 @@ export const MAX_DAILY_TRAININGS = 64;
 export const BATTLE_ARENA_DAILY_LIMIT = 99999;
 export const BATTLE_TAG_STACKING = true;
 export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
+export const STREAK_LEVEL_DIFF = 10;
 
 // Black market config
 export const RYO_FOR_REP_DAYS_FROZEN = 3;
