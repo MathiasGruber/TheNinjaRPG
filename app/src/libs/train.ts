@@ -333,7 +333,7 @@ export const energyPerSecond = (speed: TrainingSpeed) => {
 export const battleJutsuExp = (battleType: BattleType, experienceGain: number, userData: UserData) => {
   switch (battleType) {
     case "COMBAT":
-      experienceGain * (1 + (userData.pvpStreak * 0.05));
+      return experienceGain * (1 + (userData.pvpStreak * 0.05));
     case "ARENA":
       return experienceGain * 0.5;
     case "QUEST":
