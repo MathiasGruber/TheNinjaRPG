@@ -98,6 +98,7 @@ export default function Users() {
     columns.push({ key: "tavernMessages", header: "Yapper Rank", type: "string" });
   } else if (activeTab === "Staff") {
     columns.push({ key: "tavernMessages", header: "Yapper Rank", type: "string" });
+    columns.push({ key: "role", header: "Role", type: "capitalized" });
   }
   if (userData && canSeeIps(userData.role)) {
     columns.push({ key: "lastIp", header: "LastIP", type: "string" });
