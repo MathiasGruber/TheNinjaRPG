@@ -346,7 +346,18 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     hover_effect={false}
                     comment={comment}
                     quoteIds={quoteIds}
-                    setQuoteId={(quoteId) => setValue("quoteIds", [quoteId])}
+                    setQuoteId={(quoteId) => {
+                      if (quoteIds?.includes(quoteId)) {
+                        setValue(
+                          "quoteIds",
+                          quoteIds.filter((id) => id !== quoteId),
+                        );
+                      } else if (quoteIds && quoteIds.length > 0) {
+                        setValue("quoteIds", [...quoteIds, quoteId]);
+                      } else {
+                        setValue("quoteIds", [quoteId]);
+                      }
+                    }}
                   >
                     {parseHtml(comment.content)}
                   </CommentOnConversation>
