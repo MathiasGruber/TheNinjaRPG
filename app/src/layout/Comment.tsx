@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SquarePen, Trash2, Flag, BarChart2 } from "lucide-react";
-import { Quote } from "lucide-react";
+import { Quote, SmilePlus } from "lucide-react";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Confirm from "@/layout/Confirm";
@@ -13,6 +13,7 @@ import { mutateCommentSchema } from "@/validators/comments";
 import { api } from "@/app/_trpc/client";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
+import EmojiPicker from "emoji-picker-react";
 import type { systems } from "@/validators/reports";
 import type { ConversationComment } from "@/drizzle/schema";
 import type { ForumPost } from "@/drizzle/schema";
@@ -40,6 +41,7 @@ export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
  */
 interface ConversationCommentProps extends PostProps {
   comment: ConversationComment;
+  toggleReaction?: (emoji: string) => void;
   setQuoteId?: (id: string) => void;
   quoteIds?: string[] | null;
 }
@@ -84,6 +86,7 @@ export const CommentOnConversation: React.FC<ConversationCommentProps> = (props)
  */
 interface ForumCommentProps extends PostProps {
   comment: ForumPost;
+  toggleReaction?: (emoji: string) => void;
   setQuoteId?: (id: string) => void;
   quoteIds?: string[] | null;
 }
@@ -137,10 +140,16 @@ interface BaseCommentProps extends PostProps {
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   editComment?: (data: MutateCommentSchema) => void;
   deleteComment?: (data: DeleteCommentSchema) => void;
+  toggleReaction?: (emoji: string) => void;
   setQuoteId?: (id: string) => void;
 }
 const BaseComment: React.FC<BaseCommentProps> = (props) => {
+  // State// Reference for emoji element
   const { data: userData } = useUserData();
+  const emojiRef = useRef<HTMLDivElement | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  // Handle submit
   const {
     handleSubmit,
     control,
@@ -158,13 +167,67 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
     props.setEditing(false);
   });
 
+  // Derived
   const isAuthor = props.user && userData?.userId === props.user.userId;
+  const reactions = [];
+  if ("reactions" in props.comment && props.comment.reactions) {
+    for (const [reaction, users] of Object.entries(props.comment.reactions)) {
+      reactions.push(
+        <div
+          key={`${props.comment.id}-${reaction}`}
+          className="border-2 bg-poppopover rounded-md px-1 hover:bg-poppopover/80 cursor-pointer"
+          onClick={() => {
+            props.toggleReaction?.(reaction);
+          }}
+        >
+          {reaction} {users.length}
+        </div>,
+      );
+    }
+  }
+
+  // Handler for clicks outside emoji selector
+  const handleOutsideClick = (e: MouseEvent) => {
+    if (emojiRef.current && !emojiRef.current.contains(e.target as HTMLElement)) {
+      setEmojiOpen(false);
+    }
+  };
+  useEffect(() => {
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  });
 
   return (
     <Post
       options={
         props.user && (
-          <div className="flex flex-row">
+          <div className="flex flex-row gap-1">
+            {props.toggleReaction && (
+              <>
+                <SmilePlus
+                  className="h-6 w-6 hover:text-orange-500 cursor-pointer"
+                  onClick={() => setEmojiOpen(!emojiOpen)}
+                />
+                <div className="z-50 absolute top-0 right-2" ref={emojiRef}>
+                  <EmojiPicker
+                    open={emojiOpen}
+                    lazyLoadEmojis={true}
+                    reactionsDefaultOpen={true}
+                    style={
+                      {
+                        "--epr-emoji-gap": "2px",
+                        "--epr-emoji-size": "16px",
+                      } as React.CSSProperties
+                    }
+                    onEmojiClick={(emojiData) => {
+                      props.toggleReaction?.(emojiData.emoji);
+                    }}
+                  />
+                </div>
+              </>
+            )}
             {props.setQuoteId && (
               <Quote
                 className={cn(
@@ -246,6 +309,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
           <p className="absolute bottom-0 right-2 italic text-xs text-gray-600">
             @{props.comment.createdAt.toLocaleString()}
           </p>
+          <div className="flex flex-row flex-wrap gap-2">{reactions}</div>
         </>
       )}
     </Post>

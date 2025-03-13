@@ -30,6 +30,8 @@ export interface PostProps {
   options?: React.ReactNode;
   align_middle?: boolean;
   hover_effect?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 const Post: React.FC<PostProps> = (props) => {
@@ -169,6 +171,8 @@ const Post: React.FC<PostProps> = (props) => {
       } rounded-lg border ${color} px-1 py-3 shadow ${props.hover_effect ? hover : ""} ${
         props.className ? props.className : ""
       }`}
+      onMouseEnter={props.onMouseEnter}
+      onMouseLeave={props.onMouseLeave}
     >
       {props.image}
       {props.user && (

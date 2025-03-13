@@ -20,6 +20,7 @@ import {
   ratelimitMiddleware,
   hasUserMiddleware,
 } from "@/server/api/trpc";
+import { getNewReactions } from "@/utils/chat";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
@@ -371,6 +372,7 @@ export const commentsRouter = createTRPCRouter({
           conversationId: conversationComment.conversationId,
           isPinned: conversationComment.isPinned,
           isReported: conversationComment.isReported,
+          reactions: conversationComment.reactions,
           villageName: village.name,
           villageHexColor: village.hexColor,
           villageKageId: village.kageId,
@@ -458,6 +460,7 @@ export const commentsRouter = createTRPCRouter({
             createdAt: conversationComment.createdAt,
             content: conversationComment.content,
             conversationId: conversationComment.conversationId,
+            reactions: conversationComment.reactions,
             isPinned: conversationComment.isPinned,
             isReported: conversationComment.isReported,
             villageName: village.name,
@@ -618,6 +621,48 @@ export const commentsRouter = createTRPCRouter({
       ]);
       // Insert
       return { success: true, message: "Comment posted", commentId: commentId };
+    }),
+  reactConversationComment: protectedProcedure
+    .input(z.object({ commentId: z.string(), emoji: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, comment] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.conversationComment.findFirst({
+          where: eq(conversationComment.id, input.commentId),
+        }),
+      ]);
+      // Guard
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.isSilenced) return errorResponse("You are silenced");
+      if (!comment) return errorResponse("Comment not found");
+      // Figure out new reactions
+      const newReactions = getNewReactions(
+        comment.reactions,
+        input.emoji,
+        user.username,
+      );
+      // Update the conversation & mutate
+      const pusher = getServerPusher();
+      await Promise.all([
+        ctx.drizzle
+          .update(conversationComment)
+          .set({ reactions: newReactions })
+          .where(eq(conversationComment.id, input.commentId)),
+        ...(comment?.conversationId
+          ? [
+              pusher.trigger(comment.conversationId, "event", {
+                message: "reaction",
+                fromId: ctx.userId,
+                commentId: comment.id,
+                emoji: input.emoji,
+                username: user.username,
+              }),
+            ]
+          : []),
+      ]);
+      return { success: true, message: "Reaction added" };
     }),
   editConversationComment: protectedProcedure
     .input(mutateCommentSchema)
