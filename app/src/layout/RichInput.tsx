@@ -79,6 +79,33 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     rules: { required: true },
   });
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const clipboardData = e.clipboardData || (window as any).clipboardData;
+  
+    for (let i = 0; i < clipboardData.items.length; i++) {
+      const item = clipboardData.items[i];
+  
+      if (item.type.indexOf("image") !== -1) {
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+  
+        reader.onload = (event) => {
+          const imgTag = `<img src="${event.target?.result}" style="max-width: 100%;" />`;
+          if (contentRef.current) {
+            contentRef.current.innerHTML += imgTag;
+          }
+        };
+  
+        reader.readAsDataURL(blob);
+        return;
+      }
+    }
+  
+    // Paste text as HTML
+    document.execCommand("insertHTML", false, clipboardData.getData("text/html") || clipboardData.getData("text/plain"));
+  };
+
   return (
     <div className={`${props.disabled ? "opacity-50" : ""}`}>
       <label htmlFor={props.id} className="mb-2 block text-sm font-medium">
@@ -92,13 +119,17 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           rules={{ required: true }}
           render={({ field }) => {
             return (
-              <Textarea
-                {...field}
+              <div
+                ref={contentRef}
+                contentEditable={!props.disabled}
+                role="textbox"
                 id={props.id}
-                autoFocus
-                isDirty={props.isDirty}
-                placeholder={props.placeholder}
-                className="w-full"
+                className="w-full p-2 border rounded-md bg-white min-h-[100px] overflow-auto focus:outline-none focus:ring focus:ring-orange-500"
+                style={{ minHeight: props.height }}
+                onInput={(e) => field.onChange((e.target as HTMLDivElement).innerHTML)}
+                onBlur={() => props.onSubmit?.(field.value)}
+                onPaste={handlePaste}
+                dangerouslySetInnerHTML={{ __html: field.value || props.placeholder || "" }}
               />
             );
           }}
