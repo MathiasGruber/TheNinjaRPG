@@ -135,11 +135,11 @@ export const combatRouter = createTRPCRouter({
                 fetchedVersion,
               );
             }
+          }
 
-            // Update user
-            if (result) {
-              await updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId);
-            }
+          // Update user
+          if (result) {
+            await updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId);
           }
 
           // Hide private state of non-session user

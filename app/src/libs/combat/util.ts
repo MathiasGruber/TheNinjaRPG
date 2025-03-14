@@ -23,7 +23,7 @@ import { defineHex } from "../hexgrid";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
-import { STREAK_LEVEL_DIFF  } from "@/drizzle/constants";
+import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -522,7 +522,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Calculate Eperience gain
       let experience = didWin ? eloDiff * expBoost : 0;
-      const streakBonus = 1 + (user.pvpStreak * 0.05); // 5% per streak
+      const streakBonus = 1 + user.pvpStreak * 0.05; // 5% per streak
       if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
         experience *= 1.5;
       } else if (battleType === "VILLAGE_PROTECTOR") {
@@ -626,28 +626,28 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       if (user.anbuId) deltaTokens *= 2;
 
       // Determine if pvpStreak should be adjusted
-     const calculatePvpStreak = ( 
-       battleType: string, 
-       user: { level: number; pvpStreak: number; isAggressor: boolean }, 
-       targets: { level: number }[], 
-       didWin: boolean 
-     ): number => { 
-       if (battleType !== "COMBAT") { 
-         return user.pvpStreak; 
-       } 
-       const maxTargetLevel = Math.max(...targets.map(t => t.level), 0); 
-       const levelDifference = user.level - maxTargetLevel; 
-       if (user.isAggressor && levelDifference > STREAK_LEVEL_DIFF) { 
-         return user.pvpStreak; 
-       } 
-       if (didWin) { 
-         return user.pvpStreak + 1; 
-       } 
-       if (user.isAggressor || levelDifference > -STREAK_LEVEL_DIFF) { 
-         return 0; 
-       } 
-       return user.pvpStreak; 
-     };
+      const calculatePvpStreak = (
+        battleType: string,
+        user: { level: number; pvpStreak: number; isAggressor: boolean },
+        targets: { level: number }[],
+        didWin: boolean,
+      ): number => {
+        if (battleType !== "COMBAT") {
+          return user.pvpStreak;
+        }
+        const maxTargetLevel = Math.max(...targets.map((t) => t.level), 0);
+        const levelDifference = user.level - maxTargetLevel;
+        if (user.isAggressor && levelDifference > STREAK_LEVEL_DIFF) {
+          return user.pvpStreak;
+        }
+        if (didWin) {
+          return user.pvpStreak + 1;
+        }
+        if (user.isAggressor || levelDifference > -STREAK_LEVEL_DIFF) {
+          return 0;
+        }
+        return user.pvpStreak;
+      };
 
       // Result object
       const result: CombatResult = {
