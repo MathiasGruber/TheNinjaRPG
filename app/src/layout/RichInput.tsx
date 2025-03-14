@@ -26,16 +26,56 @@ const RichInput: React.FC<RichInputProps> = (props) => {
   const saveSelection = () => {
     const selection = window.getSelection();
     if (selection?.rangeCount) {
-      return selection.getRangeAt(0);
+      const range = selection.getRangeAt(0);
+      const preSelectionRange = range.cloneRange();
+      preSelectionRange.selectNodeContents(editorRef.current!);
+      preSelectionRange.setEnd(range.startContainer, range.startOffset);
+      return {
+        start: preSelectionRange.toString().length,
+        end: preSelectionRange.toString().length + range.toString().length
+      };
     }
     return null;
   };
 
-  const restoreSelection = (range: Range | null) => {
-    if (range) {
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
+  const restoreSelection = (savedSelection: { start: number; end: number } | null) => {
+    if (!savedSelection || !editorRef.current) return;
+    
+    const range = document.createRange();
+    const sel = window.getSelection();
+    let charIndex = 0;
+    let foundStart = false;
+    let foundEnd = false;
+    
+    range.selectNodeContents(editorRef.current);
+    range.collapse(true);
+    
+    function traverse(node: Node) {
+      if (foundEnd) return;
+      
+      if (node.nodeType === 3) {
+        const nextCharIndex = charIndex + node.length;
+        if (!foundStart && savedSelection.start >= charIndex && savedSelection.start <= nextCharIndex) {
+          range.setStart(node, savedSelection.start - charIndex);
+          foundStart = true;
+        }
+        if (!foundEnd && savedSelection.end >= charIndex && savedSelection.end <= nextCharIndex) {
+          range.setEnd(node, savedSelection.end - charIndex);
+          foundEnd = true;
+        }
+        charIndex = nextCharIndex;
+      } else {
+        for (let i = 0; i < node.childNodes.length; i++) {
+          traverse(node.childNodes[i]);
+        }
+      }
+    }
+    
+    traverse(editorRef.current);
+    
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
     }
   };
 
@@ -166,10 +206,14 @@ const RichInput: React.FC<RichInputProps> = (props) => {
               contentEditable
               className="min-h-[100px] focus:outline-none p-2 border rounded bg-white"
               onInput={(e) => {
-                const range = saveSelection();
+                const selection = saveSelection();
                 const content = e.currentTarget.innerHTML;
                 field.onChange(content);
-                setTimeout(() => restoreSelection(range), 0);
+                if (selection) {
+                  requestAnimationFrame(() => {
+                    restoreSelection(selection);
+                  });
+                }
               }}
               onPaste={handlePaste}
               dangerouslySetInnerHTML={{ __html: (field.value as string) || '' }}
