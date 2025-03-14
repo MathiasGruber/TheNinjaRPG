@@ -107,7 +107,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           const reader = new FileReader();
   
           reader.onload = (event: ProgressEvent<FileReader>) => {
-            const result = event.target?.result;
+            const result = event.target?.result as string | null;
             if (typeof result === "string") {
               const imgTag = `<img src="${result}" style="max-width: 100%;" />`;
               if (contentRef.current) {
