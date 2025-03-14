@@ -53,20 +53,21 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     function traverse(node: Node) {
       if (foundEnd) return;
       
-      if (node.nodeType === 3) {
-        const nextCharIndex = charIndex + node.length;
+      if (node.nodeType === Node.TEXT_NODE) {
+        const textNode = node as Text;
+        const nextCharIndex = charIndex + textNode.length;
         if (!foundStart && savedSelection.start >= charIndex && savedSelection.start <= nextCharIndex) {
-          range.setStart(node, savedSelection.start - charIndex);
+          range.setStart(textNode, savedSelection.start - charIndex);
           foundStart = true;
         }
         if (!foundEnd && savedSelection.end >= charIndex && savedSelection.end <= nextCharIndex) {
-          range.setEnd(node, savedSelection.end - charIndex);
+          range.setEnd(textNode, savedSelection.end - charIndex);
           foundEnd = true;
         }
         charIndex = nextCharIndex;
       } else {
-        for (let i = 0; i < node.childNodes.length; i++) {
-          traverse(node.childNodes[i]);
+        for (const childNode of Array.from(node.childNodes)) {
+          traverse(childNode);
         }
       }
     }
