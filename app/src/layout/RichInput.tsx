@@ -41,7 +41,9 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     ) {
       event.preventDefault();
       const value = editorRef.current?.innerHTML || "";
-      if (props.onSubmit) props.onSubmit(value);
+      if (value.trim().length > 0 && props.onSubmit) {
+        props.onSubmit(value);
+      }
     }
   };
 
@@ -74,46 +76,34 @@ const RichInput: React.FC<RichInputProps> = (props) => {
   });
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
     const items = e.clipboardData.items;
-    let hasHandledItem = false;
     
+    // Handle images
     for (const item of Array.from(items)) {
       if (item.type.includes('image')) {
+        e.preventDefault();
         const file = item.getAsFile();
         if (file) {
           const reader = new FileReader();
           reader.onload = (e) => {
+            if (!editorRef.current) return;
             const img = document.createElement('img');
             img.src = e.target?.result as string;
             img.style.maxWidth = '100%';
             img.style.height = 'auto';
             const selection = window.getSelection();
-            const range = selection?.getRangeAt(0);
-            if (range) {
+            if (selection && selection.rangeCount > 0) {
+              const range = selection.getRangeAt(0);
               range.insertNode(img);
               range.collapse(false);
+            } else {
+              editorRef.current.appendChild(img);
             }
-            const content = editorRef.current?.innerHTML || '';
-            field.onChange(content);
+            field.onChange(editorRef.current.innerHTML);
           };
           reader.readAsDataURL(file);
-          hasHandledItem = true;
-          break;
+          return;
         }
-      }
-    }
-    
-    if (!hasHandledItem) {
-      const text = e.clipboardData.getData('text/plain');
-      const selection = window.getSelection();
-      const range = selection?.getRangeAt(0);
-      if (range) {
-        range.deleteContents();
-        range.insertNode(document.createTextNode(text));
-        range.collapse(false);
-        const content = editorRef.current?.innerHTML || '';
-        field.onChange(content);
       }
     }
   };
@@ -199,7 +189,12 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           {props.onSubmit && (
             <SendHorizontal
               className="h-6 w-6 ml-2 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
-              onClick={() => props.onSubmit && props.onSubmit(editorRef.current?.innerHTML || '')}
+              onClick={() => {
+                const value = editorRef.current?.innerHTML || '';
+                if (value.trim().length > 0 && props.onSubmit) {
+                  props.onSubmit(value);
+                }
+              }}
             />
           )}
         </div>
