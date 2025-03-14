@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { SendHorizontal, PartyPopper, Bold, Italic, List } from "lucide-react";
 import { Controller } from "react-hook-form";
@@ -45,7 +45,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     field.onChange(content);
   };
 
-  const onDocumentKeyDown = (event: KeyboardEvent) => {
+  const onDocumentKeyDown = useCallback((event: KeyboardEvent) => {
     if (
       event.key === "Enter" &&
       !event.shiftKey &&
@@ -61,7 +61,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         props.onSubmit(value);
       }
     }
-  };
+  }, [props.disabled, props.id, props.onSubmit]);
 
   useEffect(() => {
     if (props.onSubmit) {
@@ -172,7 +172,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
                 setTimeout(() => restoreSelection(range), 0);
               }}
               onPaste={handlePaste}
-              dangerouslySetInnerHTML={{ __html: field.value || '' }}
+              dangerouslySetInnerHTML={{ __html: (field.value as string) || '' }}
             />
           )}
         />
