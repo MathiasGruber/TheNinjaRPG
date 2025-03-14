@@ -23,6 +23,22 @@ const RichInput: React.FC<RichInputProps> = (props) => {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
 
+  const saveSelection = () => {
+    const selection = window.getSelection();
+    if (selection?.rangeCount) {
+      return selection.getRangeAt(0);
+    }
+    return null;
+  };
+
+  const restoreSelection = (range: Range | null) => {
+    if (range) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+  };
+
   const executeCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value);
     const content = editorRef.current?.innerHTML || '';
@@ -73,6 +89,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     name: props.id,
     control: props.control,
     rules: { required: true },
+    defaultValue: ''
   });
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -147,10 +164,15 @@ const RichInput: React.FC<RichInputProps> = (props) => {
               ref={editorRef}
               id={props.id}
               contentEditable
-              className="min-h-[100px] focus:outline-none p-2 border rounded"
-              onInput={(e) => field.onChange(e.currentTarget.innerHTML)}
+              className="min-h-[100px] focus:outline-none p-2 border rounded bg-white"
+              onInput={(e) => {
+                const range = saveSelection();
+                const content = e.currentTarget.innerHTML;
+                field.onChange(content);
+                setTimeout(() => restoreSelection(range), 0);
+              }}
               onPaste={handlePaste}
-              dangerouslySetInnerHTML={{ __html: String(field.value) || '' }}
+              dangerouslySetInnerHTML={{ __html: field.value || '' }}
             />
           )}
         />
@@ -181,14 +203,14 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           />
         </div>
 
-        <div className="flex flex-row items-center absolute bottom-2 right-2">
+        <div className="flex flex-row items-center justify-end gap-2 mt-2">
           <PartyPopper
             className="h-6 w-6 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
             onClick={() => setEmojiOpen(!emojiOpen)}
           />
           {props.onSubmit && (
             <SendHorizontal
-              className="h-6 w-6 ml-2 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
+              className="h-6 w-6 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
               onClick={() => {
                 const value = editorRef.current?.innerHTML || '';
                 if (value.trim().length > 0 && props.onSubmit) {
