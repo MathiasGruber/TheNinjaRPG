@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import EmojiPicker from "emoji-picker-react";
-import { SendHorizontal, PartyPopper } from "lucide-react";
+import { SendHorizontal, PartyPopper, Bold, Italic, List, Image as ImageIcon } from "lucide-react";
 import { Controller } from "react-hook-form";
 import { useController } from "react-hook-form";
 import type { Control } from "react-hook-form";
 
-interface RichInputProps<T = any> {
+interface RichInputProps {
   id: string;
   refreshKey?: number;
   label?: string;
@@ -13,41 +13,38 @@ interface RichInputProps<T = any> {
   placeholder?: string;
   error?: string;
   disabled?: boolean;
-  control: Control<T>;
-  onSubmit?: (e: string | BaseSyntheticEvent) => void;
+  control: Control<any>;
+  onSubmit?: (e: any) => void;
   isDirty?: boolean;
 }
 
 const RichInput: React.FC<RichInputProps> = (props) => {
-  // Reference for emoji element
   const emojiRef = useRef<HTMLDivElement | null>(null);
-  //reference for content
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  // Is emoji popover open
+  const editorRef = useRef<HTMLDivElement | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
-  
-  // Handle button clicks
+
+  const executeCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    const content = editorRef.current?.innerHTML || '';
+    field.onChange(content);
+  };
+
   const onDocumentKeyDown = (event: KeyboardEvent) => {
-    switch (event.key) {
-      case "Enter":
-        if (
-          !event.shiftKey &&
-          !event.ctrlKey &&
-          !event.altKey &&
-          !event.metaKey &&
-          !props.disabled &&
-          document.activeElement?.id === props.id
-        ) {
-          event.preventDefault();
-          const value = (props.control._formValues[props.id] || "") as string;
-          if (props.onSubmit) props.onSubmit(value);
-          event.preventDefault();
-        }
-        break;
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !event.metaKey &&
+      !props.disabled &&
+      document.activeElement?.id === props.id
+    ) {
+      event.preventDefault();
+      const value = editorRef.current?.innerHTML || "";
+      if (props.onSubmit) props.onSubmit(value);
     }
   };
 
-  // Add button handler
   useEffect(() => {
     if (props.onSubmit) {
       document.addEventListener("keydown", onDocumentKeyDown);
@@ -55,17 +52,14 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         document.removeEventListener("keydown", onDocumentKeyDown);
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handler for clicks outside emoji selector
   const handleOutsideClick = (e: MouseEvent) => {
     if (emojiRef.current && !emojiRef.current.contains(e.target as HTMLElement)) {
       setEmojiOpen(false);
     }
   };
 
-  // Handle clicks outside of the emoji element
   useEffect(() => {
     document.addEventListener("mousedown", handleOutsideClick);
     return () => {
@@ -79,67 +73,44 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     rules: { required: true },
   });
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const clipboardData: DataTransfer | null = e.clipboardData;
-    if (!clipboardData) return;
-    let pastedHTML = clipboardData.getData("text/html") || clipboardData.getData("text/plain");
-  
-    // Sanitize input: Remove <script> and other unsafe tags
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(pastedHTML, "text/html");
-  
-    // Remove all <script> tags
-    const scripts = doc.getElementsByTagName("script");
-    for (const script of Array.from(scripts)) {
-      script.remove();
+    const items = e.clipboardData.items;
+    
+    for (const item of Array.from(items)) {
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = document.createElement('img');
+            img.src = e.target?.result as string;
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            document.execCommand('insertHTML', false, img.outerHTML);
+            const content = editorRef.current?.innerHTML || '';
+            field.onChange(content);
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+      }
     }
     
-    // Get sanitized inner HTML
-    pastedHTML = doc.body?.innerHTML || "";
-  
-    // Handle image pasting separately
-    for (const item of clipboardData.items) {  
-      // Ensure 'item' is defined before accessing its properties
-      if (item?.type?.includes("image")) {
-        const blob = item.getAsFile();
-        if (blob) {
-          const reader = new FileReader();
-  
-          reader.onload = (event: ProgressEvent<FileReader>) => {
-            const result = event.target?.result as string | null;
-            if (typeof result === "string") {
-              const imgTag = `<img src="${result}" style="max-width: 100%;" />`;
-              if (contentRef.current) {
-                contentRef.current.focus();
-                document.execCommand("insertHTML", false, imgTag);
-                field.onChange(contentRef.current.innerHTML);
-              }
-            }
-          };
-          
-          reader.readAsDataURL(blob);
-        }
-        return;
-      }
-    }
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+  };
 
-    const handleOnSubmit = (e: string | BaseSyntheticEvent) => {
-      if (typeof e === "string") {
-        props.onSubmit?.(e); // ✅ If it's a string, use it directly
-      } else {
-        e.preventDefault(); // ✅ If it's an event, prevent default behavior
-        const value = contentRef.current?.innerHTML || ""; // Extract content
-        props.onSubmit?.(value); // Pass content as a string
-      }
-    };
-
-  
-    // Safely insert sanitized content
-    if (contentRef.current) {
-      contentRef.current.focus();
-      contentRef.current.innerHTML += pastedHTML;
-      field.onChange(contentRef.current.innerHTML);
+  const addImage = () => {
+    const url = window.prompt('Enter the URL of the image:');
+    if (url) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      document.execCommand('insertHTML', false, img.outerHTML);
+      const content = editorRef.current?.innerHTML || '';
+      field.onChange(content);
     }
   };
 
@@ -148,32 +119,53 @@ const RichInput: React.FC<RichInputProps> = (props) => {
       <label htmlFor={props.id} className="mb-2 block text-sm font-medium">
         {props.label}
       </label>
-      <div className="relative">
+      <div className="relative border rounded-md p-2">
+        <div className="flex gap-2 mb-2">
+          <button
+            onClick={() => executeCommand('bold')}
+            className="p-1 rounded hover:bg-gray-200"
+            type="button"
+          >
+            <Bold className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => executeCommand('italic')}
+            className="p-1 rounded hover:bg-gray-200"
+            type="button"
+          >
+            <Italic className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => executeCommand('insertUnorderedList')}
+            className="p-1 rounded hover:bg-gray-200"
+            type="button"
+          >
+            <List className="h-4 w-4" />
+          </button>
+          <button
+            onClick={addImage}
+            className="p-1 rounded hover:bg-gray-200"
+            type="button"
+          >
+            <ImageIcon className="h-4 w-4" />
+          </button>
+        </div>
         <Controller
           key={props.refreshKey}
           name={props.id}
           control={props.control}
           rules={{ required: true }}
-          render={({ field }) => {
-            return (
-              <div
-                ref={contentRef}
-                contentEditable={!props.disabled}
-                role="textbox"
-                id={props.id}
-                className="w-full p-2 border rounded-md bg-white min-h-[100px] overflow-auto focus:outline-none focus:ring focus:ring-orange-500"
-                style={{ minHeight: props.height }}
-                onInput={(e) => {
-                  if (e.target instanceof HTMLDivElement) {
-                    field.onChange(e.target.innerHTML);
-                  }
-                }}
-                onBlur={() => props.onSubmit?.(field.value)}
-                onPaste={handlePaste}
-                dangerouslySetInnerHTML={{ __html: field.value || props.placeholder || "" }}
-              />
-            );
-          }}
+          render={({ field }) => (
+            <div
+              ref={editorRef}
+              id={props.id}
+              contentEditable
+              className="min-h-[100px] focus:outline-none p-2 border rounded"
+              onInput={(e) => field.onChange(e.currentTarget.innerHTML)}
+              onPaste={handlePaste}
+              dangerouslySetInnerHTML={{ __html: field.value || '' }}
+            />
+          )}
         />
 
         <div
@@ -188,30 +180,28 @@ const RichInput: React.FC<RichInputProps> = (props) => {
               field.onChange(current + emojiData.emoji);
               setEmojiOpen(false);
             }}
-            style={
-              {
-                "--epr-emoji-gap": "2px",
-                "--epr-emoji-size": "16px",
-              } as React.CSSProperties
-            }
+            style={{
+              "--epr-emoji-gap": "2px",
+              "--epr-emoji-size": "16px",
+            } as React.CSSProperties}
           />
         </div>
 
-        <div className="flex flex-row items-center absolute top-[50%] translate-y-[-50%] right-5">
+        <div className="flex flex-row items-center absolute bottom-2 right-2">
           <PartyPopper
-            className="h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
+            className="h-6 w-6 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
             onClick={() => setEmojiOpen(!emojiOpen)}
           />
           {props.onSubmit && (
             <SendHorizontal
-              className="h-8 w-8 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
-              onClick={(e) => props.onSubmit && props.onSubmit(e)}
+              className="h-6 w-6 ml-2 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
+              onClick={() => props.onSubmit && props.onSubmit(editorRef.current?.innerHTML || '')}
             />
           )}
         </div>
       </div>
 
-      {props.error && <div className="text-xs italic text-red-500"> {props.error}</div>}
+      {props.error && <div className="text-xs italic text-red-500">{props.error}</div>}
     </div>
   );
 };
