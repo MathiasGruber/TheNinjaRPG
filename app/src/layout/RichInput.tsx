@@ -82,28 +82,47 @@ const RichInput: React.FC<RichInputProps> = (props) => {
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
     const clipboardData = e.clipboardData || (window as any).clipboardData;
+    let pastedHTML = clipboardData.getData("text/html") || clipboardData.getData("text/plain");
   
+    // Sanitize input: Remove <script> and other unsafe tags
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(pastedHTML, "text/html");
+  
+    // Remove all <script> tags
+    const scripts = doc.getElementsByTagName("script");
+    for (let i = scripts.length - 1; i >= 0; i--) {
+      scripts[i].remove();
+    }
+  
+    // Get sanitized inner HTML
+    pastedHTML = doc.body.innerHTML;
+  
+    // Handle image pasting separately
     for (let i = 0; i < clipboardData.items.length; i++) {
       const item = clipboardData.items[i];
   
-      if (item.type.indexOf("image") !== -1) {
+      // Ensure 'item' is defined before accessing its properties
+      if (item && item.type && item.type.indexOf("image") !== -1) {
         const blob = item.getAsFile();
-        const reader = new FileReader();
+        if (blob) {
+          const reader = new FileReader();
   
-        reader.onload = (event) => {
-          const imgTag = `<img src="${event.target?.result}" style="max-width: 100%;" />`;
-          if (contentRef.current) {
-            contentRef.current.innerHTML += imgTag;
-          }
-        };
+          reader.onload = (event) => {
+            const imgTag = `<img src="${event.target?.result}" style="max-width: 100%;" />`;
+            if (contentRef.current) {
+              contentRef.current.innerHTML += imgTag;
+              field.onChange(contentRef.current.innerHTML);
+            }
+          };
   
-        reader.readAsDataURL(blob);
+          reader.readAsDataURL(blob);
+        }
         return;
       }
     }
   
-    // Paste text as HTML
-    document.execCommand("insertHTML", false, clipboardData.getData("text/html") || clipboardData.getData("text/plain"));
+    // Safely insert sanitized content
+    document.execCommand("insertHTML", false, pastedHTML);
   };
 
   return (
