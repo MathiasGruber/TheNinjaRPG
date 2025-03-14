@@ -14,7 +14,7 @@ interface RichInputProps<T = any> {
   error?: string;
   disabled?: boolean;
   control: Control<T>;
-  onSubmit?: (e: string) => void;
+  onSubmit?: (e: string | BaseSyntheticEvent) => void;
   isDirty?: boolean;
 }
 
@@ -123,6 +123,17 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         return;
       }
     }
+
+    const handleOnSubmit = (e: string | BaseSyntheticEvent) => {
+      if (typeof e === "string") {
+        props.onSubmit?.(e); // ✅ If it's a string, use it directly
+      } else {
+        e.preventDefault(); // ✅ If it's an event, prevent default behavior
+        const value = contentRef.current?.innerHTML || ""; // Extract content
+        props.onSubmit?.(value); // Pass content as a string
+      }
+    };
+
   
     // Safely insert sanitized content
     if (contentRef.current) {
