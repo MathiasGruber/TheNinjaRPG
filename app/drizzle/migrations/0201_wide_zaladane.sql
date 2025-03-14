@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `tavernMessages` int DEFAULT 0 NOT NULL;

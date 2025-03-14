@@ -381,7 +381,7 @@ export const updateUser = async (
     // Any jutsus to be updated
     const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
     const jUnique = [...new Set(jUsage)];
-    const jExp = battleJutsuExp(curBattle.battleType, result.eloDiff);
+    const jExp = battleJutsuExp(curBattle.battleType, result.eloDiff, user);
     // If new prestige goes below 0, set allyVillage to false
     if (user.villagePrestige + result.villagePrestige < 0) {
       user.allyVillage = false;

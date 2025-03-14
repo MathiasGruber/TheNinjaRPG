@@ -18,6 +18,10 @@ import { mutateCommentSchema } from "@/validators/comments";
 import { useInfinitePagination } from "@/libs/pagination";
 import { CONVERSATION_QUIET_MINS } from "@/drizzle/constants";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useWatch } from "react-hook-form";
+import { format } from "date-fns";
+import { getNewReactions } from "@/utils/chat";
+import { Quote } from "@/components/ui/quote";
 import type { MutateCommentSchema } from "@/validators/comments";
 import type { ArrayElement } from "@/utils/typeutils";
 
@@ -90,6 +94,64 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const conversation = comments?.pages[0]?.convo;
   type ReturnedComment = ArrayElement<typeof allComments>;
 
+  /**
+   * Perform an optimistic update of the conversation reactions
+   * @param newMessage
+   * @returns
+   */
+  const optimisticReactionUpdate = async (
+    commentId: string,
+    emoji: string,
+    username: string,
+  ) => {
+    let old = utils.comments.getConversationComments.getInfiniteData();
+    await utils.comments.getConversationComments.cancel();
+    utils.comments.getConversationComments.setInfiniteData(queryKey, (oldQueryData) => {
+      if (!oldQueryData) return undefined;
+
+      // Find the comment looking at all pages in the oldQueryData
+      const comment = oldQueryData.pages
+        .flatMap((page) => page.data)
+        .find((c) => c.id === commentId);
+      if (!comment) return oldQueryData;
+
+      // Update the reactions
+      const newReactions = getNewReactions(comment.reactions, emoji, username);
+
+      old = {
+        pageParams: oldQueryData.pageParams,
+        pages: oldQueryData.pages.map((page) => {
+          return {
+            convo: page.convo,
+            data: page.data.map((c) => {
+              if (c.id === commentId) {
+                return { ...c, reactions: newReactions };
+              }
+              return c;
+            }),
+            nextCursor: page.nextCursor,
+          };
+        }),
+      };
+      return old;
+    });
+    return { old };
+  };
+
+  // Mutation for reactions
+  const { mutate: reactConversationComment } =
+    api.comments.reactConversationComment.useMutation({
+      onMutate: async (data) => {
+        onMutateCheck();
+        if (!userData) return;
+        return await optimisticReactionUpdate(
+          data.commentId,
+          data.emoji,
+          userData.username,
+        );
+      },
+    });
+
   // tRPC utils
   const utils = api.useUtils();
 
@@ -105,6 +167,13 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     formState: { errors },
   } = useForm<MutateCommentSchema>({
     resolver: zodResolver(mutateCommentSchema),
+  });
+
+  // Current quote ID
+  const quoteIds = useWatch({
+    control,
+    name: "quoteIds",
+    defaultValue: [],
   });
 
   // Set the object_id to the conversation id
@@ -126,13 +195,23 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   ) => {
     // We are active
     setQuietTime(secondsFromNow(CONVERSATION_QUIET_MINS * 60));
+    // Bookkeeping of old and new
+    let old = utils.comments.getConversationComments.getInfiniteData();
     // Get previous data
-    const old = utils.comments.getConversationComments.getInfiniteData();
     if (!userData || !conversation) return { old };
     // Optimistic update
     await utils.comments.getConversationComments.cancel();
     utils.comments.getConversationComments.setInfiniteData(queryKey, (oldQueryData) => {
       if (!oldQueryData) return undefined;
+      const quoteText =
+        quoteIds
+          ?.map((id) => {
+            const quote = allComments?.find((c) => c.id === id);
+            return quote
+              ? `<blockquote author="${quote.username || "Unknown"}" date="${format(quote.createdAt, "MM/dd/yyyy")}">${quote.content}</blockquote>`
+              : "";
+          })
+          .join("") || "";
       const next =
         "id" in newMessage
           ? newMessage
@@ -140,7 +219,8 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               id: nanoid(),
               createdAt: new Date(),
               conversationId: conversation.id,
-              content: newMessage.comment,
+              content: quoteText + newMessage.comment,
+              reactions: {},
               isPinned: 0,
               isReported: false,
               villageName: userData.village?.name ?? null,
@@ -156,8 +236,10 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               customTitle: userData.customTitle,
               federalStatus: userData.federalStatus,
               nRecruited: userData.nRecruited,
+              tavernMessages: userData.tavernMessages,
             };
-      return {
+      // Bookkeeping of old and new
+      old = {
         pageParams: oldQueryData.pageParams,
         pages: oldQueryData.pages.map((page, i) => {
           if (i === 0) {
@@ -170,6 +252,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
           return page;
         }),
       };
+      return old;
     });
     return { old };
   };
@@ -181,9 +264,21 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         onMutateCheck();
         return await optimisticConversationUpdate(newMessage);
       },
-      onSuccess: () => {
+      onSuccess: (data, _newComment, context) => {
         if (conversation) reset({ object_id: conversation.id, comment: "" });
         setEditorKey((prev) => prev + 1);
+        if (data.commentId) {
+          // Update the ID of the latest message without a current ID
+          if (!context?.old) return;
+          const newComment = { ...context.old };
+          if (newComment?.pages?.[0]?.data?.[0]) {
+            newComment.pages[0].data[0].id = data.commentId;
+            utils.comments.getConversationComments.setInfiniteData(
+              queryKey,
+              newComment,
+            );
+          }
+        }
       },
       onError: (error, _newComment, context) => {
         utils.comments.getConversationComments.setInfiniteData(queryKey, context?.old);
@@ -204,11 +299,39 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   useEffect(() => {
     if (conversation && pusher) {
       const channel = pusher.subscribe(conversation.id);
-      channel.bind("event", (data: { fromId?: string; commentId?: string }) => {
-        if (!silence && data?.fromId !== userData?.userId && data?.commentId) {
-          fetchComment({ commentId: data.commentId });
-        }
-      });
+      channel.bind(
+        "event",
+        (data: {
+          message: string;
+          fromId?: string;
+          commentId?: string;
+          emoji?: string;
+          username?: string;
+        }) => {
+          switch (data.message) {
+            case "new":
+              if (!silence && data?.fromId !== userData?.userId && data?.commentId) {
+                fetchComment({ commentId: data.commentId });
+              }
+              break;
+            case "reaction":
+              if (
+                data?.fromId !== userData?.userId &&
+                data?.commentId &&
+                data?.username &&
+                data?.emoji
+              ) {
+                console.log("Reaction", data);
+                void optimisticReactionUpdate(
+                  data.commentId,
+                  data.emoji,
+                  data.username,
+                );
+              }
+              break;
+          }
+        },
+      );
       return () => {
         pusher.unsubscribe(conversation.id);
       };
@@ -257,23 +380,47 @@ const Conversation: React.FC<ConversationProps> = (props) => {
             !userData.isBanned &&
             !userData.isSilenced && (
               <div className="relative mb-2">
-                <RichInput
-                  id="comment"
-                  refreshKey={editorKey}
-                  height="120"
-                  disabled={isCommenting}
-                  placeholder="Write comment..."
-                  control={control}
-                  error={errors.comment?.message}
-                  onSubmit={handleSubmitComment}
-                />
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
-                  {isCommenting && <Loader />}
+                {quoteIds &&
+                  quoteIds.length > 0 &&
+                  quoteIds.map((quoteId) => {
+                    const quote = allComments?.find((c) => c.id === quoteId);
+                    return quote ? (
+                      <Quote
+                        key={quoteId}
+                        author={quote.username || "Unknown"}
+                        date={format(quote.createdAt, "MM/dd/yyyy")}
+                        onRemove={() => {
+                          setValue(
+                            "quoteIds",
+                            quoteIds.filter((id) => id !== quoteId),
+                          );
+                        }}
+                      >
+                        {quote.content}
+                      </Quote>
+                    ) : (
+                      ""
+                    );
+                  })}
+                <div className="relative">
+                  <RichInput
+                    id="comment"
+                    refreshKey={editorKey}
+                    height="120"
+                    disabled={isCommenting}
+                    placeholder="Write comment..."
+                    control={control}
+                    error={errors.comment?.message}
+                    onSubmit={handleSubmitComment}
+                  />
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
+                    {isCommenting && <Loader />}
+                  </div>
+                  <RefreshCw
+                    className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-20 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
+                    onClick={invalidateComments}
+                  />
                 </div>
-                <RefreshCw
-                  className="h-8 w-8 absolute right-24 top-[50%] translate-y-[-50%]  z-20 text-gray-400 hover:text-gray-600 opacity-50 hover:cursor-pointer"
-                  onClick={invalidateComments}
-                />
               </div>
             )}
           {allComments
@@ -293,6 +440,22 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     user={comment}
                     hover_effect={false}
                     comment={comment}
+                    quoteIds={quoteIds}
+                    toggleReaction={(emoji) =>
+                      reactConversationComment({ commentId: comment.id, emoji })
+                    }
+                    setQuoteId={(quoteId) => {
+                      if (quoteIds?.includes(quoteId)) {
+                        setValue(
+                          "quoteIds",
+                          quoteIds.filter((id) => id !== quoteId),
+                        );
+                      } else if (quoteIds && quoteIds.length > 0) {
+                        setValue("quoteIds", [...quoteIds, quoteId]);
+                      } else {
+                        setValue("quoteIds", [quoteId]);
+                      }
+                    }}
                   >
                     {parseHtml(comment.content)}
                   </CommentOnConversation>

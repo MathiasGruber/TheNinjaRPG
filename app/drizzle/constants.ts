@@ -1,3 +1,6 @@
+export const PollOptionTypes = ["text", "user"] as const;
+export type PollOptionType = (typeof PollOptionTypes)[number];
+
 export const ACTIVE_VOTING_SITES = [
   "top100Arena",
   "mmoHub",
@@ -452,7 +455,8 @@ export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM"] as const;
 // Jutsu level transfer config
 export const JUTSU_TRANSFER_DAYS = 20;
 export const JUTSU_TRANSFER_COST = 20;
-export const JUTSU_TRANSFER_MAX_LEVEL = 20;
+export const JUTSU_TRANSFER_MAX_LEVEL = 25;
+export const JUTSU_TRANSFER_MINIMUM_LEVEL = 10;
 export const JUTSU_TRANSFER_FREE_AMOUNT = 2;
 export const JUTSU_TRANSFER_FREE_NORMAL = 3;
 export const JUTSU_TRANSFER_FREE_SILVER = 4;
@@ -498,9 +502,10 @@ export const JUTSU_TRAIN_LEVEL_CAP = 25;
 export const MAX_DAILY_TRAININGS = 64;
 
 // Combat config
-export const BATTLE_ARENA_DAILY_LIMIT = 40;
+export const BATTLE_ARENA_DAILY_LIMIT = 99999;
 export const BATTLE_TAG_STACKING = true;
 export const RANKS_RESTRICTED_FROM_PVP = ["STUDENT", "GENIN"];
+export const STREAK_LEVEL_DIFF = 10;
 
 // Black market config
 export const RYO_FOR_REP_DAYS_FROZEN = 3;
@@ -779,6 +784,8 @@ export const IMG_MANUAL_ASSET =
   "https://utfs.io/f/Hzww9EQvYURJaGvHErYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk";
 export const IMG_MANUAL_OPINION =
   "https://utfs.io/f/Hzww9EQvYURJ0dX0Z3grYldRWJcD6vE10SjNsXHeA9pVMfQi";
+export const IMG_MANUAL_POLLS =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRc1v3JK0udmODoNtpa0FMcwI4k2Eq7nJhyvj";
 export const IMG_LAYOUT_USERBANNER_MIDDLE =
   "https://utfs.io/f/Hzww9EQvYURJ6sgzOzDfT5pyNCaUruzhPtAJqb8Kj9mc1nlH";
 export const IMG_LAYOUT_SIDESCROLL =

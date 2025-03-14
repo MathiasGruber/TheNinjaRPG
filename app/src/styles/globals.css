@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -121,7 +121,7 @@
     --popover-foreground: 222.2 84% 4.9%;
 
     --poppopover: 32 98% 83%; /* orange-200 */
-    --poppopover-foreground: 210 40% 98%;
+    --poppopover-foreground: 222.2 84% 4.9%;
 
     --primary: 22 78% 26%;
     --primary-foreground: 210 40% 98%;
@@ -195,89 +195,143 @@
 }
 
 @layer utilities {
-
   @-webkit-keyframes AnimationName {
     0% {
-      background-position: 0% 52%;
+      background-position: 0% 50%;
     }
     50% {
-      background-position: 100% 49%;
+      background-position: 100% 50%;
     }
     100% {
-      background-position: 0% 52%;
+      background-position: 0% 50%;
     }
   }
   @-moz-keyframes AnimationName {
     0% {
-      background-position: 0% 52%;
+      background-position: 0% 50%;
     }
     50% {
-      background-position: 100% 49%;
+      background-position: 100% 50%;
     }
     100% {
-      background-position: 0% 52%;
+      background-position: 0% 50%;
     }
   }
   @-o-keyframes AnimationName {
     0% {
-      background-position: 0% 52%;
+      background-position: 0% 50%;
     }
     50% {
-      background-position: 100% 49%;
+      background-position: 100% 50%;
     }
     100% {
-      background-position: 0% 52%;
+      background-position: 0% 50%;
     }
   }
   @keyframes AnimationName {
     0% {
-      background-position: 0% 52%;
+      background-position: 0% 50%;
     }
     50% {
-      background-position: 100% 49%;
+      background-position: 100% 50%;
     }
     100% {
-      background-position: 0% 52%;
+      background-position: 0% 50%;
     }
   }
   @keyframes wiggle {
     0% {
-      transform: skewX(9deg);
-    }
-    10% {
-      transform: skewX(-8deg);
-    }
-    20% {
-      transform: skewX(7deg);
-    }
-    30% {
-      transform: skewX(-6deg);
-    }
-    40% {
-      transform: skewX(5deg);
-    }
-    50% {
-      transform: skewX(-4deg);
-    }
-    60% {
-      transform: skewX(3deg);
-    }
-    70% {
-      transform: skewX(-2deg);
+      transform: rotate(0deg);
     }
     80% {
-      transform: skewX(1deg);
+      transform: rotate(0deg);
     }
-    90% {
-      transform: skewX(0deg);
+    85% {
+      transform: rotate(5deg);
+    }
+    95% {
+      transform: rotate(-5deg);
     }
     100% {
-      transform: skewX(0deg);
+      transform: rotate(0deg);
     }
   }
 }
 
+/* Glowing border animations */
+@keyframes glowingBorder {
+  0% {
+    box-shadow:
+      0 0 5px #ff6b6b,
+      0 0 10px #ff6b6b,
+      0 0 15px #ff6b6b;
+  }
+  25% {
+    box-shadow:
+      0 0 5px #4ecdc4,
+      0 0 10px #4ecdc4,
+      0 0 15px #4ecdc4;
+  }
+  50% {
+    box-shadow:
+      0 0 5px #ffe66d,
+      0 0 10px #ffe66d,
+      0 0 15px #ffe66d;
+  }
+  75% {
+    box-shadow:
+      0 0 5px #6a0572,
+      0 0 10px #6a0572,
+      0 0 15px #6a0572;
+  }
+  100% {
+    box-shadow:
+      0 0 5px #ff6b6b,
+      0 0 10px #ff6b6b,
+      0 0 15px #ff6b6b;
+  }
+}
 
+.glow-border-low {
+  background: transparent;
+  box-shadow:
+    0 0 5px #ff6b6b,
+    0 0 10px #ff6b6b;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.glow-border-medium {
+  background: transparent;
+  box-shadow:
+    0 0 5px #4ecdc4,
+    0 0 10px #4ecdc4,
+    0 0 15px #4ecdc4;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.glow-border-high {
+  background: transparent;
+  box-shadow:
+    0 0 5px #ffe66d,
+    0 0 10px #ffe66d,
+    0 0 15px #ffe66d,
+    0 0 20px #ffe66d;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.glow-border-max {
+  background: transparent;
+  box-shadow:
+    0 0 5px #ff6b6b,
+    0 0 10px #4ecdc4,
+    0 0 15px #ffe66d,
+    0 0 20px #6a0572;
+  opacity: 1;
+  pointer-events: none;
+}
 
 @layer base {
   * {

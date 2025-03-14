@@ -29,6 +29,10 @@ export const canSubmitNotification = (role: UserRole) => {
   ].includes(role);
 };
 
+export const canTransferJutsu = (role: UserRole) => {
+  return role !== "USER";
+};
+
 export const canModifyEventGains = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };
@@ -214,5 +218,25 @@ export const canReviewLinkPromotions = (role: UserRole) => {
 };
 
 export const canEditClans = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canAddNonCustomPollOptions = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canCreatePolls = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canEditPolls = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canClosePolls = (role: UserRole) => {
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canDeletePollOptions = (role: UserRole) => {
   return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
 };

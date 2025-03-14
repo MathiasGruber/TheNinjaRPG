@@ -18,6 +18,7 @@ import {
   jutsu,
   jutsuLoadout,
   notification,
+  poll,
   quest,
   questHistory,
   reportLog,
@@ -28,6 +29,7 @@ import {
   userItem,
   userJutsu,
   userNindo,
+  userPollVote,
   userReport,
   userReportComment,
   userRequest,
@@ -55,6 +57,7 @@ import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
 import { MAX_ATTRIBUTES } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
+import { isAvailableUserQuests } from "@/libs/quest";
 import {
   getGameSettingBoost,
   getGameSetting,
@@ -245,7 +248,7 @@ export const profileRouter = createTRPCRouter({
   // Get all information on logged in user
   getUser: protectedProcedure.query(async ({ ctx }) => {
     // Query
-    const { user, settings, rewards } = await fetchUpdatedUser({
+    const { user, settings, rewards, hasUnvotedPolls } = await fetchUpdatedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
       userIp: ctx.userIp,
@@ -268,6 +271,14 @@ export const profileRouter = createTRPCRouter({
           color: "toast",
         });
       }
+    }
+    // Add notification for unvoted polls
+    if (hasUnvotedPolls && hasUnvotedPolls.length > 0) {
+      notifications.push({
+        href: "/manual/polls",
+        name: "Unvoted Polls",
+        color: "blue",
+      });
     }
     // Add a voting link
     let hasVoted = true;
@@ -920,6 +931,7 @@ export const profileRouter = createTRPCRouter({
             userId: true,
             username: true,
             villageId: true,
+            tavernMessages: true,
           },
           with: {
             village: true,
@@ -1304,9 +1316,10 @@ export const fetchUpdatedUser = async (props: {
   // Destructure
   const { client, userId, userIp } = props;
   let { forceRegen } = props;
+  const now = new Date();
 
   // Ensure we can fetch the user
-  const [achievements, settings, user] = await Promise.all([
+  const [achievements, settings, user, hasUnvotedPolls] = await Promise.all([
     client
       .select()
       .from(quest)
@@ -1346,6 +1359,23 @@ export const fetchUpdatedUser = async (props: {
         votes: true,
       },
     }),
+    client
+      .select({ id: poll.id })
+      .from(poll)
+      .leftJoin(
+        userPollVote,
+        and(eq(userPollVote.pollId, poll.id), eq(userPollVote.userId, userId)),
+      )
+      .where(
+        and(
+          eq(poll.isActive, true),
+          // Either endDate is null or endDate is in the future
+          or(isNull(poll.endDate), sql`${poll.endDate} > ${now}`),
+          // User hasn't voted on this poll
+          isNull(userPollVote.id),
+        ),
+      )
+      .limit(1),
   ]);
 
   // Add votes entry if it doesn't exist
@@ -1364,7 +1394,7 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     user.userQuests = user.userQuests
       .filter((q) => q.quest)
-      .filter((q) => !q.quest.hidden || canChangeContent(user.role));
+      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user));
   }
 
   // Hide information relating to quests
@@ -1517,7 +1547,7 @@ export const fetchUpdatedUser = async (props: {
     const { trackers } = getNewTrackers(user, [{ task: "any" }]);
     user.questData = trackers;
   }
-  return { user, settings, rewards };
+  return { user, settings, rewards, hasUnvotedPolls };
 };
 
 export const fetchPublicUsers = async (
@@ -1538,9 +1568,11 @@ export const fetchPublicUsers = async (
       case "Weakest":
         return [asc(userData.level), asc(userData.experience)];
       case "Staff":
-        return [desc(userData.role)];
+        return [desc(userData.tavernMessages)];
       case "Outlaws":
         return [desc(userData.villagePrestige)];
+      case "Community":
+        return [desc(userData.tavernMessages)];
     }
   };
   const [users, user] = await Promise.all([
@@ -1588,6 +1620,7 @@ export const fetchPublicUsers = async (
         userId: true,
         username: true,
         villagePrestige: true,
+        tavernMessages: true,
       },
       // If AI, also include relations information
       with: {

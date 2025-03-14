@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, asc, eq, sql, notInArray } from "drizzle-orm";
 import { drizzleDB } from "@/server/db";
 import { userReport } from "@/drizzle/schema";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
@@ -22,12 +22,15 @@ export async function GET() {
       columns: {
         id: true,
         infraction: true,
+        additionalContext: true,
       },
       where: and(
         eq(userReport.aiInterpretation, ""),
+        sql`json_length(${userReport.additionalContext}) > 0`,
         notInArray(userReport.system, ["user_profile"]),
       ),
       limit: 50,
+      orderBy: asc(userReport.createdAt),
     });
 
     // For each report, generate an AI interpretation of the situation, and embed it
@@ -35,6 +38,7 @@ export async function GET() {
       const { decision, aiInterpretation } = await generateModerationDecision(
         drizzleDB,
         JSON.stringify(report.infraction),
+        report.additionalContext,
       );
       await drizzleDB
         .update(userReport)

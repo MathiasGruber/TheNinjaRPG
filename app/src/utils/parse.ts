@@ -3,11 +3,15 @@ import type { Transform } from "react-html-parser";
 import { randomString } from "@/libs/random";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import React from "react";
+import { Quote } from "@/components/ui/quote";
+import { nanoid } from "nanoid";
 
 interface HtmlNode {
   type: string;
   name: string;
   attribs?: Record<string, string>;
+  children?: HtmlNode[];
+  data?: string;
 }
 
 const isValidStyle = (value: unknown): value is React.CSSProperties => {
@@ -75,6 +79,24 @@ export const parseHtml = (html: string) => {
       return React.createElement("img", cleanProps);
     } else if (node.type === "tag" && node.name === "h1") {
       node.name = "h2";
+    } else if (node.type === "tag" && node.name === "blockquote") {
+      // Process our quote markers      // Use our Quote component
+      const content = node.children?.reduce((acc, child) => {
+        if (child.type === "text") {
+          return acc + child.data;
+        }
+        return acc;
+      }, "");
+
+      return React.createElement(
+        Quote,
+        {
+          author: node.attribs?.author || undefined,
+          date: node.attribs?.date || undefined,
+          key: nanoid(),
+        },
+        content,
+      );
     }
     return undefined;
   };

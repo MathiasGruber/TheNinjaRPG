@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { SquarePen, Trash2, Flag } from "lucide-react";
+import { SquarePen, Trash2, Flag, BarChart2 } from "lucide-react";
+import { Quote, SmilePlus } from "lucide-react";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
 import Confirm from "@/layout/Confirm";
@@ -12,12 +13,21 @@ import { mutateCommentSchema } from "@/validators/comments";
 import { api } from "@/app/_trpc/client";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
+import EmojiPicker from "emoji-picker-react";
 import type { systems } from "@/validators/reports";
 import type { ConversationComment } from "@/drizzle/schema";
 import type { ForumPost } from "@/drizzle/schema";
 import type { UserReportComment } from "@/drizzle/schema";
 import type { MutateCommentSchema } from "@/validators/comments";
 import type { DeleteCommentSchema } from "@/validators/comments";
+import { canSeeSecretData } from "@/utils/permissions";
+import { ModerationSummary } from "@/layout/ModerationSummary";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /**
  * Component for handling comments on user reports
@@ -37,6 +47,9 @@ export const CommentOnReport: React.FC<UserReportCommentProps> = (props) => {
  */
 interface ConversationCommentProps extends PostProps {
   comment: ConversationComment;
+  toggleReaction?: (emoji: string) => void;
+  setQuoteId?: (id: string) => void;
+  quoteIds?: string[] | null;
 }
 export const CommentOnConversation: React.FC<ConversationCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
@@ -79,6 +92,9 @@ export const CommentOnConversation: React.FC<ConversationCommentProps> = (props)
  */
 interface ForumCommentProps extends PostProps {
   comment: ForumPost;
+  toggleReaction?: (emoji: string) => void;
+  setQuoteId?: (id: string) => void;
+  quoteIds?: string[] | null;
 }
 export const CommentOnForum: React.FC<ForumCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
@@ -126,12 +142,20 @@ interface BaseCommentProps extends PostProps {
   comment: UserReportComment | ForumPost | ConversationComment;
   editing: boolean;
   system?: (typeof systems)[number];
+  quoteIds?: string[] | null;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   editComment?: (data: MutateCommentSchema) => void;
   deleteComment?: (data: DeleteCommentSchema) => void;
+  toggleReaction?: (emoji: string) => void;
+  setQuoteId?: (id: string) => void;
 }
 const BaseComment: React.FC<BaseCommentProps> = (props) => {
+  // State// Reference for emoji element
   const { data: userData } = useUserData();
+  const emojiRef = useRef<HTMLDivElement | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  // Handle submit
   const {
     handleSubmit,
     control,
@@ -149,13 +173,101 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
     props.setEditing(false);
   });
 
+  // Derived
   const isAuthor = props.user && userData?.userId === props.user.userId;
+  const reactions = [];
+  if ("reactions" in props.comment && props.comment.reactions) {
+    for (const [reaction, users] of Object.entries(props.comment.reactions)) {
+      reactions.push(
+        <Tooltip key={`${props.comment.id}-${reaction}`} delayDuration={300}>
+          <TooltipTrigger asChild>
+            <div
+              className="border-2 bg-popover rounded-md px-1 hover:bg-poppopover/80 cursor-pointer text-lg pt-1 px-1"
+              onClick={() => {
+                props.toggleReaction?.(reaction);
+              }}
+            >
+              {reaction} {users.length}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            className="bg-poppopover text-poppopover-foreground border p-2 shadow-md rounded-md w-auto max-w-[250px]"
+          >
+            <div className="font-semibold mb-1 text-center border-b pb-1">
+              {users.length} {users.length === 1 ? "user" : "users"} reacted with{" "}
+              {reaction}
+            </div>
+            <div className="max-h-40 overflow-y-auto">
+              {users.map((username) => (
+                <div key={username} className="py-0.5 px-2 text-sm">
+                  {username}
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>,
+      );
+    }
+  }
+
+  // Handler for clicks outside emoji selector
+  const handleOutsideClick = (e: MouseEvent) => {
+    if (emojiRef.current && !emojiRef.current.contains(e.target as HTMLElement)) {
+      setEmojiOpen(false);
+    }
+  };
+  useEffect(() => {
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  });
 
   return (
     <Post
       options={
         props.user && (
-          <div className="flex flex-row">
+          <div className="flex flex-row gap-1">
+            {props.toggleReaction && (
+              <>
+                <SmilePlus
+                  className="h-6 w-6 hover:text-orange-500 cursor-pointer"
+                  onClick={() => setEmojiOpen(!emojiOpen)}
+                />
+                <div className="z-50 absolute top-0 right-2" ref={emojiRef}>
+                  <EmojiPicker
+                    open={emojiOpen}
+                    lazyLoadEmojis={true}
+                    reactionsDefaultOpen={true}
+                    style={
+                      {
+                        "--epr-emoji-gap": "2px",
+                        "--epr-emoji-size": "16px",
+                      } as React.CSSProperties
+                    }
+                    onEmojiClick={(emojiData) => {
+                      props.toggleReaction?.(emojiData.emoji);
+                    }}
+                  />
+                </div>
+              </>
+            )}
+            {props.setQuoteId && (
+              <Quote
+                className={cn(
+                  "h-6 w-6",
+                  props.quoteIds?.includes(props.comment.id)
+                    ? "fill-orange-500"
+                    : "hover:text-orange-500",
+                )}
+                onClick={() => {
+                  if (props.setQuoteId && props.comment.id) {
+                    props.setQuoteId(props.comment.id);
+                  }
+                }}
+              />
+            )}
             {isAuthor && props.editComment && (
               <SquarePen
                 className={cn(
@@ -163,6 +275,14 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                   props.editing ? "fill-orange-500" : "hover:text-orange-500",
                 )}
                 onClick={() => props.setEditing((prev) => !prev)}
+              />
+            )}
+            {userData && (isAuthor || canSeeSecretData(userData.role)) && (
+              <ModerationSummary
+                userId={props.user.userId}
+                trigger={
+                  <BarChart2 className="h-6 w-6 hover:text-orange-500 cursor-pointer" />
+                }
               />
             )}
             {props.system && !props.comment?.isReported && (
@@ -214,6 +334,9 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
           <p className="absolute bottom-0 right-2 italic text-xs text-gray-600">
             @{props.comment.createdAt.toLocaleString()}
           </p>
+          <TooltipProvider>
+            <div className="flex flex-row flex-wrap gap-2">{reactions}</div>
+          </TooltipProvider>
         </>
       )}
     </Post>

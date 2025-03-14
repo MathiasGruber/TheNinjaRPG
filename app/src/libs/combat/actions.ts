@@ -543,7 +543,6 @@ export const insertAction = (info: {
       user.curHealth = Math.max(0, user.curHealth);
       user.updatedAt = new Date();
       user.actionPoints = apAfter;
-      // Update user descriptions
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
       }
@@ -684,8 +683,7 @@ export const performBattleAction = (props: {
   }
 
   // Apply relevant effects, and get back new state + active effects
-  const { newBattle, actionEffects } = applyEffects(battle, actorId);
-
+  const { newBattle, actionEffects } = applyEffects(battle, actorId, action);
   return { newBattle, actionEffects };
 };
 
