@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { SendHorizontal, PartyPopper } from "lucide-react";
 import { Controller } from "react-hook-form";
-import { Textarea } from "@/components/ui/textarea";
 import { useController } from "react-hook-form";
 import type { Control } from "react-hook-form";
 
@@ -82,7 +81,8 @@ const RichInput: React.FC<RichInputProps> = (props) => {
 
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const clipboardData = e.clipboardData || (window as any).clipboardData;
+    const clipboardData = e.clipboardData as DataTransfer | null;
+    if (!clipboardData) return;
     let pastedHTML = clipboardData.getData("text/html") || clipboardData.getData("text/plain");
   
     // Sanitize input: Remove <script> and other unsafe tags
@@ -91,8 +91,8 @@ const RichInput: React.FC<RichInputProps> = (props) => {
   
     // Remove all <script> tags
     const scripts = doc.getElementsByTagName("script");
-    for (let i = scripts.length - 1; i >= 0; i--) {
-      scripts[i]?.remove();
+    for (const script of Array.from(scripts)) {
+      script.remove();
     }
     
     // Get sanitized inner HTML
@@ -103,17 +103,18 @@ const RichInput: React.FC<RichInputProps> = (props) => {
       const item = clipboardData.items[i];
   
       // Ensure 'item' is defined before accessing its properties
-      if (item && item.type && item.type.indexOf("image") !== -1) {
+      if (item && item.type?.includes("image")) {
         const blob = item.getAsFile();
         if (blob) {
           const reader = new FileReader();
   
           reader.onload = (event) => {
-            const imgTag = `<img src="${event.target?.result}" style="max-width: 100%;" />`;
-            if (contentRef.current) {
-              contentRef.current.innerHTML += imgTag;
-              field.onChange(contentRef.current.innerHTML);
-            }
+            const result = event.target?.result as string | null;
+              if (result) {
+                const imgTag = `<img src="${result}" style="max-width: 100%;" />`;
+                contentRef.current!.innerHTML += imgTag;
+                field.onChange(contentRef.current!.innerHTML);
+              }
           };
   
           reader.readAsDataURL(blob);
