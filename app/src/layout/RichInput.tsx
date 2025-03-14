@@ -5,7 +5,7 @@ import { Controller } from "react-hook-form";
 import { useController } from "react-hook-form";
 import type { Control } from "react-hook-form";
 
-interface RichInputProps {
+interface RichInputProps<T = any> {
   id: string;
   refreshKey?: number;
   label?: string;
@@ -13,8 +13,8 @@ interface RichInputProps {
   placeholder?: string;
   error?: string;
   disabled?: boolean;
-  control: Control<any>;
-  onSubmit?: (e: any) => void;
+  control: Control<T>;
+  onSubmit?: (e: string) => void;
   isDirty?: boolean;
 }
 
