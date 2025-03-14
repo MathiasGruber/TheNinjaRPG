@@ -91,9 +91,11 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     // Remove all <script> tags
     const scripts = doc.getElementsByTagName("script");
     for (let i = scripts.length - 1; i >= 0; i--) {
-      scripts[i].remove();
+      if (scripts[i]) {
+        scripts[i].remove();
+      }
     }
-  
+    
     // Get sanitized inner HTML
     pastedHTML = doc.body.innerHTML;
   
