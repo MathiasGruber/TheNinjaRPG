@@ -81,7 +81,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
 
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const clipboardData = e.clipboardData as DataTransfer | null;
+    const clipboardData: DataTransfer | null = e.clipboardData;
     if (!clipboardData) return;
     let pastedHTML = clipboardData.getData("text/html") || clipboardData.getData("text/plain");
   
@@ -99,24 +99,26 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     pastedHTML = doc.body.innerHTML;
   
     // Handle image pasting separately
-    for (let i = 0; i < clipboardData.items.length; i++) {
+    for (const item of clipboardData.items) {
       const item = clipboardData.items[i];
   
       // Ensure 'item' is defined before accessing its properties
-      if (item && item.type?.includes("image")) {
+      if (item?.type?.includes("image")) {
         const blob = item.getAsFile();
         if (blob) {
           const reader = new FileReader();
   
-          reader.onload = (event) => {
-            const result = event.target?.result as string | null;
-              if (result) {
-                const imgTag = `<img src="${result}" style="max-width: 100%;" />`;
-                contentRef.current!.innerHTML += imgTag;
-                field.onChange(contentRef.current!.innerHTML);
+          reader.onload = (event: ProgressEvent<FileReader>) => {
+            const result = event.target?.result;
+            if (typeof result === "string") {
+              const imgTag = `<img src="${result}" style="max-width: 100%;" />`;
+              if (contentRef.current) {
+                contentRef.current.focus();
+                document.execCommand("insertHTML", false, pastedHTML);
               }
+            }
           };
-  
+          
           reader.readAsDataURL(blob);
         }
         return;
@@ -147,7 +149,11 @@ const RichInput: React.FC<RichInputProps> = (props) => {
                 id={props.id}
                 className="w-full p-2 border rounded-md bg-white min-h-[100px] overflow-auto focus:outline-none focus:ring focus:ring-orange-500"
                 style={{ minHeight: props.height }}
-                onInput={(e) => field.onChange((e.target as HTMLDivElement).innerHTML)}
+                onInput={(e) => {
+                  if (e.target instanceof HTMLDivElement) {
+                    field.onChange(e.target.innerHTML);
+                  }
+                }}
                 onBlur={() => props.onSubmit?.(field.value)}
                 onPaste={handlePaste}
                 dangerouslySetInnerHTML={{ __html: field.value || props.placeholder || "" }}
