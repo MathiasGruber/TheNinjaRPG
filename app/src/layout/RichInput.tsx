@@ -91,9 +91,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     // Remove all <script> tags
     const scripts = doc.getElementsByTagName("script");
     for (let i = scripts.length - 1; i >= 0; i--) {
-      if (scripts[i]) {
-        scripts[i].remove();
-      }
+      scripts[i]?.remove(); // ✅ Optional chaining prevents undefined errors
     }
     
     // Get sanitized inner HTML
