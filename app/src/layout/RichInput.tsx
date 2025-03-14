@@ -96,12 +96,10 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     }
     
     // Get sanitized inner HTML
-    pastedHTML = doc.body.innerHTML;
+    pastedHTML = doc.body?.innerHTML || "";
   
     // Handle image pasting separately
-    for (const item of clipboardData.items) {
-      const item = clipboardData.items[i];
-  
+    for (const item of clipboardData.items) {  
       // Ensure 'item' is defined before accessing its properties
       if (item?.type?.includes("image")) {
         const blob = item.getAsFile();
@@ -114,7 +112,8 @@ const RichInput: React.FC<RichInputProps> = (props) => {
               const imgTag = `<img src="${result}" style="max-width: 100%;" />`;
               if (contentRef.current) {
                 contentRef.current.focus();
-                document.execCommand("insertHTML", false, pastedHTML);
+                document.execCommand("insertHTML", false, imgTag);
+                field.onChange(contentRef.current.innerHTML);
               }
             }
           };
@@ -126,7 +125,11 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     }
   
     // Safely insert sanitized content
-    document.execCommand("insertHTML", false, pastedHTML);
+    if (contentRef.current) {
+      contentRef.current.focus();
+      contentRef.current.innerHTML += pastedHTML;
+      field.onChange(contentRef.current.innerHTML);
+    }
   };
 
   return (
