@@ -52,7 +52,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         document.removeEventListener("keydown", onDocumentKeyDown);
       };
     }
-  }, []);
+  }, [onDocumentKeyDown, props.onSubmit]);
 
   const handleOutsideClick = (e: MouseEvent) => {
     if (emojiRef.current && !emojiRef.current.contains(e.target as HTMLElement)) {
@@ -65,7 +65,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
     };
-  });
+  }, []);
 
   const { field } = useController({
     name: props.id,
@@ -78,7 +78,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     const items = e.clipboardData.items;
     
     for (const item of Array.from(items)) {
-      if (item.type.indexOf('image') !== -1) {
+      if (item.type.includes('image')) {
         const file = item.getAsFile();
         if (file) {
           const reader = new FileReader();
@@ -163,7 +163,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
               className="min-h-[100px] focus:outline-none p-2 border rounded"
               onInput={(e) => field.onChange(e.currentTarget.innerHTML)}
               onPaste={handlePaste}
-              dangerouslySetInnerHTML={{ __html: field.value || '' }}
+              dangerouslySetInnerHTML={{ __html: String(field.value) || '' }}
             />
           )}
         />
@@ -176,7 +176,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
             open={emojiOpen}
             lazyLoadEmojis={true}
             onEmojiClick={(emojiData) => {
-              const current = (field.value as string) || "";
+              const current = String(field.value) || "";
               field.onChange(current + emojiData.emoji);
               setEmojiOpen(false);
             }}
