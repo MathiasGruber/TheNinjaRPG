@@ -22,10 +22,11 @@ interface RichInputProps {
 const RichInput: React.FC<RichInputProps> = (props) => {
   // Reference for emoji element
   const emojiRef = useRef<HTMLDivElement | null>(null);
-
+  //reference for content
+  const contentRef = useRef<HTMLDivElement | null>(null);
   // Is emoji popover open
   const [emojiOpen, setEmojiOpen] = useState(false);
-
+  
   // Handle button clicks
   const onDocumentKeyDown = (event: KeyboardEvent) => {
     switch (event.key) {
@@ -91,7 +92,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     // Remove all <script> tags
     const scripts = doc.getElementsByTagName("script");
     for (let i = scripts.length - 1; i >= 0; i--) {
-      scripts[i]?.remove(); // ✅ Optional chaining prevents undefined errors
+      scripts[i]?.remove();
     }
     
     // Get sanitized inner HTML
