@@ -377,15 +377,6 @@ export const MAX_STATS_CAP = 450000;
 export const MAX_GENS_CAP = 200000;
 export const MAX_DAILY_AI_CALLS = 100;
 
-export const ROLL_CHANCE = {
-  ["H"]: 0,
-  ["S"]: 0.005,
-  ["A"]: 0.015,
-  ["B"]: 0.065,
-  ["C"]: 0.315,
-  ["D"]: 0.615,
-} as const;
-
 export const ROLL_CHANCE_PERCENTAGE = {
   ["H"]: 0,
   ["S"]: 0.005,
@@ -393,6 +384,25 @@ export const ROLL_CHANCE_PERCENTAGE = {
   ["B"]: 0.05,
   ["C"]: 0.25,
   ["D"]: 0.3,
+} as const;
+
+// Calculate cumulative probabilities from individual percentages
+export const ROLL_CHANCE = {
+  ["H"]: 0,
+  ["S"]: ROLL_CHANCE_PERCENTAGE.S,
+  ["A"]: ROLL_CHANCE_PERCENTAGE.S + ROLL_CHANCE_PERCENTAGE.A,
+  ["B"]: ROLL_CHANCE_PERCENTAGE.S + ROLL_CHANCE_PERCENTAGE.A + ROLL_CHANCE_PERCENTAGE.B,
+  ["C"]:
+    ROLL_CHANCE_PERCENTAGE.S +
+    ROLL_CHANCE_PERCENTAGE.A +
+    ROLL_CHANCE_PERCENTAGE.B +
+    ROLL_CHANCE_PERCENTAGE.C,
+  ["D"]:
+    ROLL_CHANCE_PERCENTAGE.S +
+    ROLL_CHANCE_PERCENTAGE.A +
+    ROLL_CHANCE_PERCENTAGE.B +
+    ROLL_CHANCE_PERCENTAGE.C +
+    ROLL_CHANCE_PERCENTAGE.D,
 } as const;
 
 // Bloodline Pricing
