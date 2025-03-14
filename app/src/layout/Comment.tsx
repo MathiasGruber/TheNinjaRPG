@@ -22,6 +22,12 @@ import type { MutateCommentSchema } from "@/validators/comments";
 import type { DeleteCommentSchema } from "@/validators/comments";
 import { canSeeSecretData } from "@/utils/permissions";
 import { ModerationSummary } from "@/layout/ModerationSummary";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /**
  * Component for handling comments on user reports
@@ -173,15 +179,34 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
   if ("reactions" in props.comment && props.comment.reactions) {
     for (const [reaction, users] of Object.entries(props.comment.reactions)) {
       reactions.push(
-        <div
-          key={`${props.comment.id}-${reaction}`}
-          className="border-2 bg-poppopover rounded-md px-1 hover:bg-poppopover/80 cursor-pointer"
-          onClick={() => {
-            props.toggleReaction?.(reaction);
-          }}
-        >
-          {reaction} {users.length}
-        </div>,
+        <Tooltip key={`${props.comment.id}-${reaction}`} delayDuration={300}>
+          <TooltipTrigger asChild>
+            <div
+              className="border-2 bg-popover rounded-md px-1 hover:bg-poppopover/80 cursor-pointer text-lg pt-1 px-1"
+              onClick={() => {
+                props.toggleReaction?.(reaction);
+              }}
+            >
+              {reaction} {users.length}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            className="bg-poppopover text-poppopover-foreground border p-2 shadow-md rounded-md w-auto max-w-[250px]"
+          >
+            <div className="font-semibold mb-1 text-center border-b pb-1">
+              {users.length} {users.length === 1 ? "user" : "users"} reacted with{" "}
+              {reaction}
+            </div>
+            <div className="max-h-40 overflow-y-auto">
+              {users.map((username) => (
+                <div key={username} className="py-0.5 px-2 text-sm">
+                  {username}
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>,
       );
     }
   }
@@ -309,7 +334,9 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
           <p className="absolute bottom-0 right-2 italic text-xs text-gray-600">
             @{props.comment.createdAt.toLocaleString()}
           </p>
-          <div className="flex flex-row flex-wrap gap-2">{reactions}</div>
+          <TooltipProvider>
+            <div className="flex flex-row flex-wrap gap-2">{reactions}</div>
+          </TooltipProvider>
         </>
       )}
     </Post>
