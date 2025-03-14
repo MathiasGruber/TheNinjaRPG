@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import EmojiPicker from "emoji-picker-react";
-import { SendHorizontal, PartyPopper, Bold, Italic, List, Image as ImageIcon } from "lucide-react";
+import { SendHorizontal, PartyPopper, Bold, Italic, List } from "lucide-react";
 import { Controller } from "react-hook-form";
 import { useController } from "react-hook-form";
 import type { Control } from "react-hook-form";
@@ -76,6 +76,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const items = e.clipboardData.items;
+    let hasHandledItem = false;
     
     for (const item of Array.from(items)) {
       if (item.type.includes('image')) {
@@ -87,30 +88,33 @@ const RichInput: React.FC<RichInputProps> = (props) => {
             img.src = e.target?.result as string;
             img.style.maxWidth = '100%';
             img.style.height = 'auto';
-            document.execCommand('insertHTML', false, img.outerHTML);
+            const selection = window.getSelection();
+            const range = selection?.getRangeAt(0);
+            if (range) {
+              range.insertNode(img);
+              range.collapse(false);
+            }
             const content = editorRef.current?.innerHTML || '';
             field.onChange(content);
           };
           reader.readAsDataURL(file);
-          return;
+          hasHandledItem = true;
+          break;
         }
       }
     }
     
-    const text = e.clipboardData.getData('text/plain');
-    document.execCommand('insertText', false, text);
-  };
-
-  const addImage = () => {
-    const url = window.prompt('Enter the URL of the image:');
-    if (url) {
-      const img = document.createElement('img');
-      img.src = url;
-      img.style.maxWidth = '100%';
-      img.style.height = 'auto';
-      document.execCommand('insertHTML', false, img.outerHTML);
-      const content = editorRef.current?.innerHTML || '';
-      field.onChange(content);
+    if (!hasHandledItem) {
+      const text = e.clipboardData.getData('text/plain');
+      const selection = window.getSelection();
+      const range = selection?.getRangeAt(0);
+      if (range) {
+        range.deleteContents();
+        range.insertNode(document.createTextNode(text));
+        range.collapse(false);
+        const content = editorRef.current?.innerHTML || '';
+        field.onChange(content);
+      }
     }
   };
 
@@ -142,13 +146,6 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           >
             <List className="h-4 w-4" />
           </button>
-          <button
-            onClick={addImage}
-            className="p-1 rounded hover:bg-gray-200"
-            type="button"
-          >
-            <ImageIcon className="h-4 w-4" />
-          </button>
         </div>
         <Controller
           key={props.refreshKey}
@@ -176,8 +173,15 @@ const RichInput: React.FC<RichInputProps> = (props) => {
             open={emojiOpen}
             lazyLoadEmojis={true}
             onEmojiClick={(emojiData) => {
-              const current = String(field.value) || "";
-              field.onChange(current + emojiData.emoji);
+              const selection = window.getSelection();
+              const range = selection?.getRangeAt(0);
+              if (range) {
+                range.deleteContents();
+                range.insertNode(document.createTextNode(emojiData.emoji));
+                range.collapse(false);
+                const content = editorRef.current?.innerHTML || '';
+                field.onChange(content);
+              }
               setEmojiOpen(false);
             }}
             style={{
