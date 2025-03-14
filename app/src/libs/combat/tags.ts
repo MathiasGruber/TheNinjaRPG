@@ -97,6 +97,86 @@ export const buffPrevent = (
   }
 };
 
+/** Copy positive effects from opponent to self */
+export const copy = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  user: BattleUserState,
+  target: BattleUserState,
+): ActionEffect | undefined => {
+  // Calcualte chance of success
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+  if (effect.isNew && effect.rounds && effect.castThisRound) {
+    if (primaryCheck) {
+      return getInfo(user, effect, `copies positive effects from ${target.username}`);
+    } else {
+      return {
+        txt: `${user.username} tries to copy positive effects from ${target.username} but fails.`,
+        color: "blue",
+      };
+    }
+  } else {
+    const positiveEffects = usersEffects.filter(
+      (e) => e.targetId === target.userId && isPositiveUserEffect(e),
+    );
+    if (positiveEffects.length === 0) {
+      return {
+        txt: `${user.username} tries to copy positive effects from ${target.username} but finds no positive effects to copy.`,
+        color: "blue",
+      };
+    }
+    positiveEffects.forEach((posEffect) => {
+      const copiedEffect = structuredClone(posEffect);
+      copiedEffect.id = nanoid();
+      copiedEffect.targetId = user.userId;
+      copiedEffect.creatorId = user.userId;
+      copiedEffect.rounds = 1;
+      usersEffects.push(copiedEffect);
+    });
+  }
+};
+
+/** Copy negative effects from self to target */
+export const mirror = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  user: BattleUserState,
+  target: BattleUserState,
+): ActionEffect | undefined => {
+  // Calculate chance of success
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+  if (effect.isNew && effect.rounds && effect.castThisRound) {
+    if (primaryCheck) {
+      return getInfo(user, effect, `mirrors negative effects onto ${target.username}`);
+    } else {
+      return {
+        txt: `${user.username} tries to mirror negative effects onto ${target.username} but fails.`,
+        color: "blue",
+      };
+    }
+  } else {
+    const negativeEffects = usersEffects.filter(
+      (e) => e.targetId === user.userId && isNegativeUserEffect(e),
+    );
+    if (negativeEffects.length === 0) {
+      return {
+        txt: `${user.username} tries to mirror negative effects onto ${target.username} but finds no negative effects to reflect.`,
+        color: "blue",
+      };
+    }
+    negativeEffects.forEach((negEffect) => {
+      const mirroredEffect = structuredClone(negEffect);
+      mirroredEffect.id = nanoid();
+      mirroredEffect.targetId = target.userId;
+      mirroredEffect.creatorId = user.userId;
+      mirroredEffect.rounds = 1;
+      usersEffects.push(mirroredEffect);
+    });
+  }
+};
+
 /** Prevent debuffing */
 export const debuffPrevent = (
   effect: UserEffect,
@@ -1201,7 +1281,7 @@ export const poison = (
     return getInfo(
       target,
       effect,
-      `will take ${qualifier} of chakra and stamina spent as poison damage`
+      `will take ${qualifier} of chakra and stamina spent as poison damage`,
     );
   }
 
@@ -1210,7 +1290,6 @@ export const poison = (
   let modifiedChakraCost = action.chakraCost;
   let modifiedStaminaCost = action.staminaCost;
 
-  
   if (!effect.castThisRound && actorId === target.userId) {
     // Iterate over active pool adjustment effects affecting the target.
     usersEffects.forEach((eff) => {
@@ -1222,11 +1301,11 @@ export const poison = (
       ) {
         // For Chakra: use the multiplier (1 + eff.power/100).
         if (eff.poolsAffected.includes("Chakra")) {
-          modifiedChakraCost *= (1 + eff.power / 100);
+          modifiedChakraCost *= 1 + eff.power / 100;
         }
         // For Stamina: use the multiplier (1 + eff.power/100).
         if (eff.poolsAffected.includes("Stamina")) {
-          modifiedStaminaCost *= (1 + eff.power / 100);
+          modifiedStaminaCost *= 1 + eff.power / 100;
         }
       }
     });
@@ -1241,7 +1320,7 @@ export const poison = (
       targetId: effect.targetId,
       poison: dmg,
     });
-  };
+  }
 };
 /** Create a temporary HP shield that absorbs damage */
 export const shield = (effect: UserEffect, target: BattleUserState) => {

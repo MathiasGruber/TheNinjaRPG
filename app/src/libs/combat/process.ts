@@ -7,7 +7,7 @@ import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
 import { absorb, reflect, recoil, lifesteal, drain, shield, poison } from "./tags";
-import { increaseStats, decreaseStats } from "./tags";
+import { increaseStats, decreaseStats, copy, mirror } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
 import { increaseHealGiven, decreaseHealGiven } from "./tags";
@@ -157,11 +157,11 @@ const getVisual = (
   };
 };
 
-export const applyEffects = ( 
-    battle: CompleteBattle,
-    actorId: string,
-    action?: CombatAction,
-)   => {
+export const applyEffects = (
+  battle: CompleteBattle,
+  actorId: string,
+  action?: CombatAction,
+) => {
   // Destructure
   const { usersState, usersEffects, groundEffects, round } = battle;
   const actor = usersState.find((u) => u.userId === actorId);
@@ -402,6 +402,10 @@ export const applyEffects = (
             info = shield(e, curTarget);
           } else if (e.type === "poison" && action) {
             info = poison(e, action, actorId, consequences, curTarget, usersEffects);
+          } else if (e.type === "copy") {
+            info = copy(e, usersEffects, curUser, curTarget);
+          } else if (e.type === "mirror") {
+            info = mirror(e, usersEffects, curUser, curTarget);
           }
           updateStatUsage(newTarget, e, true);
         }

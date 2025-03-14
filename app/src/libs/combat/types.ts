@@ -444,6 +444,26 @@ export const DamageTag = z.object({
 });
 export type DamageTagType = z.infer<typeof DamageTag>;
 
+export const CopyTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("copy").default("copy"),
+  description: msg("Copies all positive effects from the target to the user"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+});
+export type CopyTagType = z.infer<typeof CopyTag>;
+
+export const MirrorTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("mirror").default("mirror"),
+  description: msg("Mirrors all negative effects from the user to the target"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+  rounds: z.coerce.number().int().min(1).max(10).default(3),
+});
+export type MirrorTagType = z.infer<typeof MirrorTag>;
+
 export const PierceTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
@@ -734,6 +754,7 @@ export const AllTags = z.union([
   ClearPreventTag.default({}),
   ClearTag.default({}),
   CloneTag.default({}),
+  CopyTag.default({}),
   DamageTag.default({}),
   DebuffPreventTag.default({}),
   DecreaseDamageGivenTag.default({}),
@@ -741,19 +762,22 @@ export const AllTags = z.union([
   DecreaseHealGivenTag.default({}),
   DecreasePoolCostTag.default({}),
   DecreaseStatTag.default({}),
+  DrainTag.default({}),
+  ElementalSealTag.default({}),
   FleePreventTag.default({}),
   FleeTag.default({}),
-  HealTag.default({}),
   HealPreventTag.default({}),
+  HealTag.default({}),
   IncreaseDamageGivenTag.default({}),
   IncreaseDamageTakenTag.default({}),
   IncreaseHealGivenTag.default({}),
+  IncreaseMarriageSlots.default({}),
   IncreasePoolCostTag.default({}),
   IncreaseStatTag.default({}),
   LifeStealTag.default({}),
-  DrainTag.default({}),
-  MoveTag.default({}),
+  MirrorTag.default({}),
   MovePreventTag.default({}),
+  MoveTag.default({}),
   OneHitKillPreventTag.default({}),
   OneHitKillTag.default({}),
   PierceTag.default({}),
@@ -766,9 +790,8 @@ export const AllTags = z.union([
   RollRandomBloodline.default({}),
   SealPreventTag.default({}),
   SealTag.default({}),
-  StealthTag.default({}),
-  ElementalSealTag.default({}),
   ShieldTag.default({}),
+  StealthTag.default({}),
   StunPreventTag.default({}),
   StunTag.default({}),
   SummonPreventTag.default({}),
@@ -776,7 +799,6 @@ export const AllTags = z.union([
   UnknownTag.default({}),
   VisualTag.default({}),
   WeaknessTag.default({}),
-  IncreaseMarriageSlots.default({}),
 ]);
 export type ZodAllTags = z.infer<typeof AllTags>;
 export const tagTypes = AllTags._def.options
@@ -934,7 +956,7 @@ export type UserEffect = BattleEffect & {
 
 export type ActionEffect = {
   txt: string;
-  color: | "red" | "green" | "blue" | "yellow" | "purple" | "orange" | "pink" | "gray";
+  color: "red" | "green" | "blue" | "yellow" | "purple" | "orange" | "pink" | "gray";
   types?: (GeneralType | StatType | ElementName | PoolType)[];
 };
 
