@@ -188,15 +188,18 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   }, [profile, userSearchMethods]);
 
   useEffect(() => {
-    async function updateForm() {
-      form.setValue("userIds", watchedUsers.map((u) => u.userId), { shouldDirty: true });
-      await form.trigger(); // Ensures validation updates
-    }
-  
     if (watchedUsers.length > 0) {
-      void updateForm();
+      form.setValue("userIds", watchedUsers.map((u) => u.userId), {
+        shouldDirty: true,
+        shouldValidate: true
+      });
+  
+      void form.trigger();
+  
+      // 🔹 Force a state update like Jutsu Transfers
+      void utils.profile.getPublicUser.invalidate(); 
     }
-  }, [watchedUsers, form]);
+  }, [watchedUsers, form, utils]);
 
   // tRPC utility
   const utils = api.useUtils();
