@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { SendHorizontal, PartyPopper, Bold, Italic, List } from "lucide-react";
 import { Controller } from "react-hook-form";
+import { Textarea } from "@/components/ui/textarea";
 import { useController } from "react-hook-form";
 import type { Control } from "react-hook-form";
 
@@ -20,71 +21,7 @@ interface RichInputProps {
 
 const RichInput: React.FC<RichInputProps> = (props) => {
   const emojiRef = useRef<HTMLDivElement | null>(null);
-  const editorRef = useRef<HTMLDivElement | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
-
-  const saveSelection = () => {
-    const selection = window.getSelection();
-    if (selection?.rangeCount) {
-      const range = selection.getRangeAt(0);
-      const preSelectionRange = range.cloneRange();
-      preSelectionRange.selectNodeContents(editorRef.current!);
-      preSelectionRange.setEnd(range.startContainer, range.startOffset);
-      return {
-        start: preSelectionRange.toString().length,
-        end: preSelectionRange.toString().length + range.toString().length
-      };
-    }
-    return null;
-  };
-
-  const restoreSelection = (savedSelection: { start: number; end: number } | null) => {
-    if (!savedSelection || !editorRef.current) return;
-    
-    const range = document.createRange();
-    const sel = window.getSelection();
-    let charIndex = 0;
-    let foundStart = false;
-    let foundEnd = false;
-    
-    range.selectNodeContents(editorRef.current);
-    range.collapse(true);
-    
-    const traverse = (node: Node) => {
-      if (foundEnd) return;
-      
-      if (node.nodeType === Node.TEXT_NODE) {
-        const textNode = node as Text;
-        const nextCharIndex = charIndex + textNode.length;
-        if (!foundStart && savedSelection.start >= charIndex && savedSelection.start <= nextCharIndex) {
-          range.setStart(textNode, savedSelection.start - charIndex);
-          foundStart = true;
-        }
-        if (!foundEnd && savedSelection.end >= charIndex && savedSelection.end <= nextCharIndex) {
-          range.setEnd(textNode, savedSelection.end - charIndex);
-          foundEnd = true;
-        }
-        charIndex = nextCharIndex;
-      } else {
-        for (const childNode of Array.from(node.childNodes)) {
-          traverse(childNode);
-        }
-      }
-    };
-    
-    traverse(editorRef.current);
-    
-    if (sel) {
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-  };
-
-  const executeCommand = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    const content = editorRef.current?.innerHTML || '';
-    field.onChange(content);
-  };
 
   const onDocumentKeyDown = useCallback((event: KeyboardEvent) => {
     if (
@@ -97,12 +34,12 @@ const RichInput: React.FC<RichInputProps> = (props) => {
       document.activeElement?.id === props.id
     ) {
       event.preventDefault();
-      const value = editorRef.current?.innerHTML || "";
+      const value = (props.control._formValues[props.id] || "") as string;
       if (value.trim().length > 0 && props.onSubmit) {
         props.onSubmit(value);
       }
     }
-  }, [props.disabled, props.id, props.onSubmit]);
+  }, [props.disabled, props.id, props.onSubmit, props.control._formValues]);
 
   useEffect(() => {
     if (props.onSubmit) {
@@ -133,62 +70,86 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     defaultValue: ''
   });
 
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items;
-    
-    // Handle images
-    for (const item of Array.from(items)) {
-      if (item.type.includes('image')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            if (!editorRef.current) return;
-            const img = document.createElement('img');
-            img.src = e.target?.result as string;
-            img.style.maxWidth = '100%';
-            img.style.height = 'auto';
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0) {
-              const range = selection.getRangeAt(0);
-              range.insertNode(img);
-              range.collapse(false);
-            } else {
-              editorRef.current.appendChild(img);
-            }
-            field.onChange(editorRef.current.innerHTML);
-          };
-          reader.readAsDataURL(file);
-          return;
-        }
-      }
-    }
-  };
-
   return (
     <div className={`${props.disabled ? "opacity-50" : ""}`}>
       <label htmlFor={props.id} className="mb-2 block text-sm font-medium">
         {props.label}
       </label>
-      <div className="relative border rounded-md p-2">
+      <div className="relative">
         <div className="flex gap-2 mb-2">
           <button
-            onClick={() => executeCommand('bold')}
+            onClick={() => {
+              const textarea = document.getElementById(props.id) as HTMLTextAreaElement;
+              if (!textarea) return;
+              
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const text = textarea.value;
+              
+              const selectedText = text.substring(start, end);
+              const newText = text.substring(0, start) + `**${selectedText}**` + text.substring(end);
+              
+              field.onChange(newText);
+              
+              // Restore cursor position
+              setTimeout(() => {
+                textarea.selectionStart = start + 2;
+                textarea.selectionEnd = end + 2;
+                textarea.focus();
+              }, 0);
+            }}
             className="p-1 rounded hover:bg-gray-200"
             type="button"
           >
             <Bold className="h-4 w-4" />
           </button>
           <button
-            onClick={() => executeCommand('italic')}
+            onClick={() => {
+              const textarea = document.getElementById(props.id) as HTMLTextAreaElement;
+              if (!textarea) return;
+              
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const text = textarea.value;
+              
+              const selectedText = text.substring(start, end);
+              const newText = text.substring(0, start) + `*${selectedText}*` + text.substring(end);
+              
+              field.onChange(newText);
+              
+              // Restore cursor position
+              setTimeout(() => {
+                textarea.selectionStart = start + 1;
+                textarea.selectionEnd = end + 1;
+                textarea.focus();
+              }, 0);
+            }}
             className="p-1 rounded hover:bg-gray-200"
             type="button"
           >
             <Italic className="h-4 w-4" />
           </button>
           <button
-            onClick={() => executeCommand('insertUnorderedList')}
+            onClick={() => {
+              const textarea = document.getElementById(props.id) as HTMLTextAreaElement;
+              if (!textarea) return;
+              
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const text = textarea.value;
+              
+              const selectedText = text.substring(start, end);
+              const newText = text.substring(0, start) + `\n- ${selectedText}` + text.substring(end);
+              
+              field.onChange(newText);
+              
+              // Restore cursor position
+              setTimeout(() => {
+                textarea.selectionStart = start + 3;
+                textarea.selectionEnd = end + 3;
+                textarea.focus();
+              }, 0);
+            }}
             className="p-1 rounded hover:bg-gray-200"
             type="button"
           >
@@ -201,90 +162,67 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           control={props.control}
           rules={{ required: true }}
           render={({ field }) => (
-            <div className="relative">
-              <div
-                ref={editorRef}
-                id={props.id}
-                contentEditable
-                className="min-h-[100px] focus:outline-none p-2 border rounded bg-white pr-24"
-                onInput={(e) => {
-                  const selection = saveSelection();
-                  const content = e.currentTarget.innerHTML;
-                  field.onChange(content);
-                  if (selection) {
-                    requestAnimationFrame(() => {
-                      restoreSelection(selection);
-                    });
-                  }
-                }}
-                onPaste={handlePaste}
-                dangerouslySetInnerHTML={{ __html: (field.value as string) || '' }}
-              />
-              <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                <PartyPopper
-                  className="h-5 w-5 text-gray-400 hover:cursor-pointer hover:text-gray-600"
-                  onClick={() => setEmojiOpen(!emojiOpen)}
-                />
-                {props.onSubmit && (
-                  <SendHorizontal
-                    className="h-5 w-5 text-gray-400 hover:cursor-pointer hover:text-gray-600"
-                    onClick={() => {
-                      const value = editorRef.current?.innerHTML || '';
-                      if (value.trim().length > 0 && props.onSubmit) {
-                        props.onSubmit(value);
-                      }
-                    }}
-                  />
-                )}
-              </div>
-              <div
-                className="absolute top-0 left-[50%] translate-x-[-50%] z-50"
-                ref={emojiRef}
-              >
-                <EmojiPicker
-                  open={emojiOpen}
-                  lazyLoadEmojis={true}
-                  onEmojiClick={(emojiData) => {
-                    if (!editorRef.current) return;
-                    
-                    const selection = window.getSelection();
-                    let range: Range;
-
-                    if (selection && selection.rangeCount > 0) {
-                      // Use existing selection
-                      range = selection.getRangeAt(0);
-                    } else {
-                      // Create a new range at the end of the content
-                      range = document.createRange();
-                      range.selectNodeContents(editorRef.current);
-                      range.collapse(false);
-                      selection?.removeAllRanges();
-                      selection?.addRange(range);
-                    }
-
-                    // Insert the emoji
-                    const emojiNode = document.createTextNode(emojiData.emoji);
-                    range.insertNode(emojiNode);
-                    range.setStartAfter(emojiNode);
-                    range.collapse(true);
-                    
-                    // Update form state
-                    const content = editorRef.current.innerHTML;
-                    field.onChange(content);
-                    
-                    // Focus back on the editor
-                    editorRef.current.focus();
-                    setEmojiOpen(false);
-                  }}
-                  style={{
-                    "--epr-emoji-gap": "2px",
-                    "--epr-emoji-size": "16px",
-                  } as React.CSSProperties}
-                />
-              </div>
-            </div>
+            <Textarea
+              {...field}
+              id={props.id}
+              autoFocus
+              isDirty={props.isDirty}
+              placeholder={props.placeholder}
+              className="w-full pr-24"
+            />
           )}
         />
+
+        <div
+          className="z-50 absolute top-0 left-[50%] translate-x-[-50%]"
+          ref={emojiRef}
+        >
+          <EmojiPicker
+            open={emojiOpen}
+            lazyLoadEmojis={true}
+            onEmojiClick={(emojiData) => {
+              const textarea = document.getElementById(props.id) as HTMLTextAreaElement;
+              if (!textarea) return;
+              
+              const start = textarea.selectionStart;
+              const text = textarea.value;
+              const newText = text.substring(0, start) + emojiData.emoji + text.substring(start);
+              
+              field.onChange(newText);
+              
+              // Restore cursor position after emoji
+              setTimeout(() => {
+                textarea.selectionStart = start + emojiData.emoji.length;
+                textarea.selectionEnd = start + emojiData.emoji.length;
+                textarea.focus();
+              }, 0);
+              
+              setEmojiOpen(false);
+            }}
+            style={{
+              "--epr-emoji-gap": "2px",
+              "--epr-emoji-size": "16px",
+            } as React.CSSProperties}
+          />
+        </div>
+
+        <div className="absolute bottom-2 right-2 flex items-center gap-2">
+          <PartyPopper
+            className="h-5 w-5 text-gray-400 hover:cursor-pointer hover:text-gray-600"
+            onClick={() => setEmojiOpen(!emojiOpen)}
+          />
+          {props.onSubmit && (
+            <SendHorizontal
+              className="h-5 w-5 text-gray-400 hover:cursor-pointer hover:text-gray-600"
+              onClick={() => {
+                const value = field.value || '';
+                if (value.trim().length > 0 && props.onSubmit) {
+                  props.onSubmit(value);
+                }
+              }}
+            />
+          )}
+        </div>
       </div>
 
       {props.error && <div className="text-xs italic text-red-500">{props.error}</div>}
