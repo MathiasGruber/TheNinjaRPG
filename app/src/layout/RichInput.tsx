@@ -201,70 +201,70 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           control={props.control}
           rules={{ required: true }}
           render={({ field }) => (
-            <div
-              ref={editorRef}
-              id={props.id}
-              contentEditable
-              className="min-h-[100px] focus:outline-none p-2 border rounded bg-white"
-              onInput={(e) => {
-                const selection = saveSelection();
-                const content = e.currentTarget.innerHTML;
-                field.onChange(content);
-                if (selection) {
-                  requestAnimationFrame(() => {
-                    restoreSelection(selection);
-                  });
-                }
-              }}
-              onPaste={handlePaste}
-              dangerouslySetInnerHTML={{ __html: (field.value as string) || '' }}
-            />
+            <div className="relative">
+              <div
+                ref={editorRef}
+                id={props.id}
+                contentEditable
+                className="min-h-[100px] focus:outline-none p-2 border rounded bg-white pr-24"
+                onInput={(e) => {
+                  const selection = saveSelection();
+                  const content = e.currentTarget.innerHTML;
+                  field.onChange(content);
+                  if (selection) {
+                    requestAnimationFrame(() => {
+                      restoreSelection(selection);
+                    });
+                  }
+                }}
+                onPaste={handlePaste}
+                dangerouslySetInnerHTML={{ __html: (field.value as string) || '' }}
+              />
+              <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                <PartyPopper
+                  className="h-5 w-5 text-gray-400 hover:cursor-pointer hover:text-gray-600"
+                  onClick={() => setEmojiOpen(!emojiOpen)}
+                />
+                {props.onSubmit && (
+                  <SendHorizontal
+                    className="h-5 w-5 text-gray-400 hover:cursor-pointer hover:text-gray-600"
+                    onClick={() => {
+                      const value = editorRef.current?.innerHTML || '';
+                      if (value.trim().length > 0 && props.onSubmit) {
+                        props.onSubmit(value);
+                      }
+                    }}
+                  />
+                )}
+              </div>
+              <div
+                className="absolute top-0 left-[50%] translate-x-[-50%] z-50"
+                ref={emojiRef}
+              >
+                <EmojiPicker
+                  open={emojiOpen}
+                  lazyLoadEmojis={true}
+                  onEmojiClick={(emojiData) => {
+                    const selection = window.getSelection();
+                    const range = selection?.getRangeAt(0);
+                    if (range) {
+                      range.deleteContents();
+                      range.insertNode(document.createTextNode(emojiData.emoji));
+                      range.collapse(false);
+                      const content = editorRef.current?.innerHTML || '';
+                      field.onChange(content);
+                    }
+                    setEmojiOpen(false);
+                  }}
+                  style={{
+                    "--epr-emoji-gap": "2px",
+                    "--epr-emoji-size": "16px",
+                  } as React.CSSProperties}
+                />
+              </div>
+            </div>
           )}
         />
-
-        <div
-          className="z-50 absolute top-0 left-[50%] translate-x-[-50%]"
-          ref={emojiRef}
-        >
-          <EmojiPicker
-            open={emojiOpen}
-            lazyLoadEmojis={true}
-            onEmojiClick={(emojiData) => {
-              const selection = window.getSelection();
-              const range = selection?.getRangeAt(0);
-              if (range) {
-                range.deleteContents();
-                range.insertNode(document.createTextNode(emojiData.emoji));
-                range.collapse(false);
-                const content = editorRef.current?.innerHTML || '';
-                field.onChange(content);
-              }
-              setEmojiOpen(false);
-            }}
-            style={{
-              "--epr-emoji-gap": "2px",
-              "--epr-emoji-size": "16px",
-            } as React.CSSProperties}
-          />
-        </div>
-
-        <div className="flex flex-row items-center justify-end gap-2 mt-2">
-          <PartyPopper
-            className="h-6 w-6 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
-            onClick={() => setEmojiOpen(!emojiOpen)}
-          />
-          {props.onSubmit && (
-            <SendHorizontal
-              className="h-6 w-6 text-gray-400 hover:cursor-pointer hover:text-gray-600 opacity-50"
-              onClick={() => {
-                const value = editorRef.current?.innerHTML || '';
-                if (value.trim().length > 0 && props.onSubmit) {
-                  props.onSubmit(value);
-                }
-              }}
-            />
-          )}
-        </div>
       </div>
 
       {props.error && <div className="text-xs italic text-red-500">{props.error}</div>}
