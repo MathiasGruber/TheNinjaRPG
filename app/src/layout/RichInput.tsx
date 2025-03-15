@@ -6,6 +6,7 @@ import { Controller } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
 import { useController } from "react-hook-form";
 import type { Control } from "react-hook-form";
+import type { BaseSyntheticEvent } from "react";
 
 interface RichInputProps {
   id: string;
@@ -16,7 +17,7 @@ interface RichInputProps {
   error?: string;
   disabled?: boolean;
   control: Control<any>;
-  onSubmit?: (e: string) => void;
+  onSubmit?: (e?: BaseSyntheticEvent) => void | Promise<void>;
   isDirty?: boolean;
 }
 
@@ -42,7 +43,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
       event.preventDefault();
       const value = (control._formValues[id] || "") as string;
       if (value.trim().length > 0 && onSubmit) {
-        onSubmit(value);
+        onSubmit();
       }
     }
   }, [id, disabled, onSubmit, control._formValues]);
@@ -223,7 +224,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
               onClick={() => {
                 const value = field.value as string;
                 if (value?.trim().length > 0 && onSubmit) {
-                  onSubmit(value);
+                  onSubmit();
                 }
               }}
             />
