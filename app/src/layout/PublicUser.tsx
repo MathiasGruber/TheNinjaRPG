@@ -188,15 +188,15 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   }, [profile, userSearchMethods]);
 
   useEffect(() => {
-    if (watchedUsers && watchedUsers.length > 0) {
-      form.setValue(
-        "userIds",
-        watchedUsers.map((u) => u.userId)
-      );
-      
-      form.trigger(); // Ensures validation runs and updates formState
+    async function updateForm() {
+      form.setValue("userIds", watchedUsers.map((u) => u.userId));
+      await form.trigger(); // ✅ Awaiting to fix the error
     }
-  }, [watchedUsers, form]);
+  
+    if (watchedUsers.length > 0) {
+      updateForm();
+    }
+  }, [watchedUsers, form]); 
 
   // tRPC utility
   const utils = api.useUtils();
