@@ -50,7 +50,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     range.selectNodeContents(editorRef.current);
     range.collapse(true);
     
-    function traverse(node: Node) {
+    const traverse = (node: Node) => {
       if (foundEnd) return;
       
       if (node.nodeType === Node.TEXT_NODE) {
@@ -70,7 +70,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
           traverse(childNode);
         }
       }
-    }
+    };
     
     traverse(editorRef.current);
     
