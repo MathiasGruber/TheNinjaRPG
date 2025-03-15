@@ -188,13 +188,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   }, [profile, userSearchMethods]);
 
   useEffect(() => {
-    if (watchedUsers.length > 0) {
-      form.setValue("userIds", watchedUsers.map((u) => u.userId), {
-        shouldDirty: true,
-        shouldValidate: true
-      });
-  
-      void form.trigger();
+    if (watchedUsers && watchedUsers.length > 0) {
+      form.setValue(
+        "userIds",
+        watchedUsers.map((u) => u.userId),
+      );
     }
   }, [watchedUsers, form]);
 
@@ -978,7 +976,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
             schema={updateUserSchema}
             form={form}
             formData={formData}
-            showSubmit={form.formState.isDirty}
+            showSubmit={true}
             buttonTxt="Save to Database"
             type="ai"
             allowImageUpload={true}
