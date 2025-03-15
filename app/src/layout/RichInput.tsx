@@ -245,15 +245,35 @@ const RichInput: React.FC<RichInputProps> = (props) => {
                   open={emojiOpen}
                   lazyLoadEmojis={true}
                   onEmojiClick={(emojiData) => {
+                    if (!editorRef.current) return;
+                    
                     const selection = window.getSelection();
-                    const range = selection?.getRangeAt(0);
-                    if (range) {
-                      range.deleteContents();
-                      range.insertNode(document.createTextNode(emojiData.emoji));
+                    let range: Range;
+
+                    if (selection && selection.rangeCount > 0) {
+                      // Use existing selection
+                      range = selection.getRangeAt(0);
+                    } else {
+                      // Create a new range at the end of the content
+                      range = document.createRange();
+                      range.selectNodeContents(editorRef.current);
                       range.collapse(false);
-                      const content = editorRef.current?.innerHTML || '';
-                      field.onChange(content);
+                      selection?.removeAllRanges();
+                      selection?.addRange(range);
                     }
+
+                    // Insert the emoji
+                    const emojiNode = document.createTextNode(emojiData.emoji);
+                    range.insertNode(emojiNode);
+                    range.setStartAfter(emojiNode);
+                    range.collapse(true);
+                    
+                    // Update form state
+                    const content = editorRef.current.innerHTML;
+                    field.onChange(content);
+                    
+                    // Focus back on the editor
+                    editorRef.current.focus();
                     setEmojiOpen(false);
                   }}
                   style={{
