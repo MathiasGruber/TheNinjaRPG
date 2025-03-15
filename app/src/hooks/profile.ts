@@ -5,6 +5,7 @@ import { api } from "@/app/_trpc/client";
 import { UserRoles, UserRanks } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import { updateUserSchema } from "@/validators/user";
+import { useEffect } from "react";
 import type { UpdateUserSchema } from "@/validators/user";
 import type { FormEntry } from "@/layout/EditContent";
 
@@ -17,10 +18,13 @@ export const useUserEditForm = (userId: string, user: UpdateUserSchema) => {
   const form = useForm<UpdateUserSchema>({
     mode: "all",
     criteriaMode: "all",
-    values: user,
     defaultValues: user,
     resolver: zodResolver(updateUserSchema),
   });
+
+  useEffect(() => {
+    form.reset(user);  // ✅ Ensures changes are detected
+  }, [user, form]);
 
   // Query for bloodlines and villages
   const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined);
