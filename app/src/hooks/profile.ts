@@ -25,6 +25,12 @@ export const useUserEditForm = (userId: string, user: UpdateUserSchema) => {
   useEffect(() => {
     form.reset(user);  // ✅ Ensures changes are detected
   }, [user, form]);
+  useEffect(() => {
+    const subscription = form.watch(() => {
+      form.trigger();  // 🔄 Forces React Hook Form to validate and detect changes
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   // Query for bloodlines and villages
   const { data: jutsus, isPending: l1 } = api.jutsu.getAllNames.useQuery(undefined);
