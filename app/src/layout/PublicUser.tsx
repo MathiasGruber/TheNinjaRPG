@@ -195,9 +195,6 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
       });
   
       void form.trigger();
-  
-      // 🔹 Force a state update like Jutsu Transfers
-      void utils.profile.getPublicUser.invalidate(); 
     }
   }, [watchedUsers, form]);
 
