@@ -2,11 +2,14 @@
 
 import Loader from "@/layout/Loader";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import ContentBox from "@/layout/ContentBox";
 import { RollBloodline, CurrentBloodline, PurchaseBloodline } from "@/layout/Bloodline";
+import { BloodlineStatistics } from "@/layout/BloodlineStatistics";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { IMG_BUILDING_SCIENCEBUILDING } from "@/drizzle/constants";
 import { api } from "@/app/_trpc/client";
+import { BarChart2 } from "lucide-react";
 
 export default function Science() {
   // Settings
@@ -36,6 +39,16 @@ export default function Science() {
         subtitle="Check your genetics"
         padding={false}
         back_href="/village"
+        topRightContent={
+          <BloodlineStatistics
+            trigger={
+              <Button id="filter-bloodline">
+                <BarChart2 className="sm:mr-2 h-6 w-6 hover:text-orange-500" />
+                <p className="hidden sm:block">Roll Statistics</p>
+              </Button>
+            }
+          />
+        }
       >
         <Image
           alt="welcome"
