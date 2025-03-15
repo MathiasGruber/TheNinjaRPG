@@ -199,7 +199,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
       // 🔹 Force a state update like Jutsu Transfers
       void utils.profile.getPublicUser.invalidate(); 
     }
-  }, [watchedUsers, form, utils]);
+  }, [watchedUsers, form]);
 
   // tRPC utility
   const utils = api.useUtils();
