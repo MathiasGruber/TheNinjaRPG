@@ -190,11 +190,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   useEffect(() => {
     async function updateForm() {
       form.setValue("userIds", watchedUsers.map((u) => u.userId));
-      await form.trigger(); // ✅ Awaiting to fix the error
+      await form.trigger();
     }
   
     if (watchedUsers.length > 0) {
-      updateForm();
+      void updateForm();
     }
   }, [watchedUsers, form]); 
 
