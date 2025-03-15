@@ -191,8 +191,10 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     if (watchedUsers && watchedUsers.length > 0) {
       form.setValue(
         "userIds",
-        watchedUsers.map((u) => u.userId),
+        watchedUsers.map((u) => u.userId)
       );
+      
+      form.trigger(); // Ensures validation runs and updates formState
     }
   }, [watchedUsers, form]);
 
