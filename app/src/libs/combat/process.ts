@@ -575,18 +575,16 @@ export const applyEffects = (
           });
         }
         if (c.drain && c.drain > 0 && target.curStamina > 0 && target.curChakra > 0) {
-          target.curChakra -= c.drain;
-          target.curChakra = Math.min(target.maxChakra, target.curChakra);
-          target.curStamina -= c.drain;
-          target.curStamina = Math.min(target.maxStamina, target.curStamina);
+          target.curChakra = Math.max(0, Math.min(target.maxChakra, target.curChakra - c.drain));
+          target.curStamina = Math.max(0, Math.min(target.maxStamina, target.curStamina - c.drain));
+        
           actionEffects.push({
             txt: `${user.username} is drained of ${c.drain.toFixed(2)} chakra and stamina`,
             color: "purple",
           });
         }
         if (c.poison && c.poison > 0) {
-          target.curHealth -= c.poison;
-          target.curHealth = Math.min(target.maxHealth, target.curHealth);
+          target.curHealth = Math.max(0, Math.min(target.maxHealth, target.curHealth - c.poison));
           actionEffects.push({
             txt: `${target.username} takes ${c.poison.toFixed(2)} poison damage`,
             color: "purple",
