@@ -20,7 +20,9 @@ import { getTagSchema } from "@/libs/combat/types";
 import type { ZodBloodlineType } from "@/libs/combat/types";
 import type { Bloodline } from "@/drizzle/schema";
 
-export default function BloodlineEdit(props: { params: Promise<{ bloodlineid: string }> }) {
+export default function BloodlineEdit(props: {
+  params: Promise<{ bloodlineid: string }>;
+}) {
   const params = use(props.params);
   const router = useRouter();
   const bloodlineId = params.bloodlineid;
@@ -141,7 +143,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
             schema={BloodlineValidator}
             form={form}
             formData={formData}
-            showSubmit={form.formState.isDirty}
+            showSubmit={true}
             buttonTxt="Save to Database"
             type="bloodline"
             allowImageUpload={true}

@@ -20,11 +20,9 @@ import { getObjectiveSchema } from "@/validators/objectives";
 import type { ZodQuestType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
 
-export default function ManualBloodlineEdit(
-  props: {
-    params: Promise<{ questid: string }>;
-  }
-) {
+export default function ManualBloodlineEdit(props: {
+  params: Promise<{ questid: string }>;
+}) {
   const params = use(props.params);
   // Setup
   const questId = params.questid;
@@ -156,7 +154,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
             schema={QuestValidator._def.schema.merge(ObjectiveReward)}
             form={form}
             formData={formData}
-            showSubmit={form.formState.isDirty}
+            showSubmit={true}
             buttonTxt="Save to Database"
             type="quest"
             allowImageUpload={true}

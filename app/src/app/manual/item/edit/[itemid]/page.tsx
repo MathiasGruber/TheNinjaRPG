@@ -134,7 +134,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
             schema={ItemValidator._def.schema._def.schema}
             form={form}
             formData={formData}
-            showSubmit={form.formState.isDirty}
+            showSubmit={true}
             buttonTxt="Save to Database"
             type="item"
             allowImageUpload={true}

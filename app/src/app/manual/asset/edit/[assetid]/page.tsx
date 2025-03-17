@@ -66,7 +66,7 @@ const SingleEditAsset: React.FC<SingleEditAssetProps> = (props) => {
           schema={gameAssetValidator}
           form={form}
           formData={formData}
-          showSubmit={form.formState.isDirty}
+          showSubmit={true}
           buttonTxt="Save to Database"
           type="asset"
           allowImageUpload={true}
