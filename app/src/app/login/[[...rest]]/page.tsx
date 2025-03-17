@@ -10,17 +10,19 @@ export default function LoginUser() {
       subtitle="To login please use one of below providers"
       alreadyHasH1
     >
-      <SignIn
-        path="/login"
-        routing="path"
-        signUpUrl="/signup"
-        appearance={{
-          elements: {
-            rootBox: "w-full",
-            cardBox: "w-full",
-          },
-        }}
-      />
+      <div className="flex flex-row items-center justify-center">
+        <SignIn
+          path="/login"
+          routing="path"
+          signUpUrl="/signup"
+          appearance={{
+            elements: {
+              rootBox: "w-full",
+              cardBox: "w-full",
+            },
+          }}
+        />
+      </div>
     </ContentBox>
   );
 }

@@ -157,6 +157,12 @@ const getVisual = (
   };
 };
 
+/**
+ * Apply effects to users
+ * @param battle - Battle to apply effects to
+ * @param actorId - ID of the actor
+ * @param action - Action to apply effects to
+ */
 export const applyEffects = (
   battle: CompleteBattle,
   actorId: string,
@@ -257,183 +263,45 @@ export const applyEffects = (
   // Book-keeping for damage and heal effects
   const consequences = new Map<string, Consequence>();
 
-  // Fetch any active sealing effects
-  const sealEffects = usersEffects.filter(
-    (e) => e.type === "seal" && !e.isNew && isEffectActive(e),
-  );
-
   // Remember effects applied to different users, so that we only apply effects once
   const appliedEffects = new Set<string>();
 
-  // Apply all user effects to their target users
-  usersEffects.sort(sortEffects).forEach((e) => {
-    // Get the round information for the effect
-    const { startRound, curRound } = calcEffectRoundInfo(e, battle);
-    e.castThisRound = startRound === curRound;
-    // Bookkeeping
-    let longitude: number | undefined = undefined;
-    let latitude: number | undefined = undefined;
-    let info: ActionEffect | undefined = undefined;
-    // Get user now and next
-    const curUser = usersState.find((u) => u.userId === e.creatorId);
-    const newUser = newUsersState.find((u) => u.userId === e.creatorId);
-    // Remember the effect
-    const idx = `${e.type}-${e.creatorId}-${e.targetId}-${e.fromType}`;
-    // Determine whether the tags should stack
-    const cacheCheck = BATTLE_TAG_STACKING
-      ? true
-      : !appliedEffects.has(idx) ||
-        e.fromType === "bloodline" ||
-        e.fromType === "armor";
-    // Special cases
-    if (
-      ["damage", "pierce"].includes(e.type) &&
-      e.targetType === "barrier" &&
-      curUser
-    ) {
-      const result = damageBarrier(newGroundEffects, curUser, e, config);
-      if (result) {
-        longitude = result.barrier.longitude;
-        latitude = result.barrier.latitude;
-        actionEffects.push(result.info);
-      }
-    } else if (e.targetType === "user" && cacheCheck) {
-      // Get the user && effect details
-      const curTarget = usersState.find((u) => u.userId === e.targetId);
-      const newTarget = newUsersState.find((u) => u.userId === e.targetId);
-      const isSealed = sealCheck(e, sealEffects);
-      const isTargetOrNew = e.targetId === actorId || e.isNew;
-      if (curUser && newUser && curTarget && newTarget && !isSealed) {
-        appliedEffects.add(idx);
-        longitude = curTarget?.longitude;
-        latitude = curTarget?.latitude;
-        // Figure if tag should be applied
-        const ratio = calcApplyRatio(e, battle, e.targetId, isTargetOrNew);
-        if (ratio > 0) {
-          // Tags only applied when target is user or new
-          if (isTargetOrNew) {
-            if (e.type === "damage" && isTargetOrNew) {
-              const modifier = calcDmgModifier(e, curTarget, usersEffects);
-              info = damageUser(e, curUser, curTarget, consequences, modifier, config);
-            } else if (e.type === "pierce" && isTargetOrNew) {
-              const modifier = calcDmgModifier(e, curTarget, usersEffects);
-              info = damageUser(e, newUser, newTarget, consequences, modifier, config);
-            } else if (e.type === "heal" && isTargetOrNew) {
-              info = heal(e, newUsersEffects, curTarget, consequences, ratio);
-            } else if (e.type === "flee" && isTargetOrNew) {
-              info = flee(e, newUsersEffects, newTarget);
-            } else if (e.type === "increasepoolcost" && isTargetOrNew) {
-              info = increasepoolcost(e, curTarget);
-            } else if (e.type === "decreasepoolcost" && isTargetOrNew) {
-              info = decreasepoolcost(e, curTarget);
-            } else if (e.type === "clear" && isTargetOrNew) {
-              info = clear(e, usersEffects, curTarget);
-            } else if (e.type === "cleanse" && isTargetOrNew) {
-              info = cleanse(e, usersEffects, curTarget);
-            } else if (e.type === "increasedamagegiven") {
-              info = increaseDamageGiven(e, usersEffects, consequences, curTarget);
-            } else if (e.type === "decreasedamagegiven") {
-              info = decreaseDamageGiven(e, usersEffects, consequences, curTarget);
-            } else if (e.type === "onehitkill") {
-              info = onehitkill(e, newUsersEffects, newTarget);
-            } else if (e.type === "rob") {
-              info = rob(e, newUsersEffects, newUser, newTarget, battle.battleType);
-            } else if (e.type === "seal") {
-              info = seal(e, newUsersEffects, curTarget);
-            } else if (e.type === "stun") {
-              info = stun(e, newUsersEffects, curTarget);
-            } else if (e.type === "drain") {
-              info = drain(e, usersEffects, consequences, curTarget);
-            }
-          }
-
-          // Always apply
-          if (e.type === "absorb") {
-            info = absorb(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "increasestat") {
-            info = increaseStats(e, newUsersEffects, curTarget);
-          } else if (e.type === "decreasestat") {
-            info = decreaseStats(e, newUsersEffects, curTarget);
-          } else if (e.type === "increasedamagetaken") {
-            info = increaseDamageTaken(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "decreasedamagetaken") {
-            info = decreaseDamageTaken(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "increaseheal") {
-            info = increaseHealGiven(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "decreaseheal") {
-            info = decreaseHealGiven(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "reflect") {
-            info = reflect(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "recoil") {
-            info = recoil(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "lifesteal") {
-            info = lifesteal(e, usersEffects, consequences, curTarget);
-          } else if (e.type === "fleeprevent") {
-            info = fleePrevent(e, curTarget);
-          } else if (e.type === "healprevent") {
-            info = healPrevent(e, curTarget);
-          } else if (e.type === "stealth") {
-            info = stealth(e, curTarget);
-          } else if (e.type === "elementalseal") {
-            info = elementalseal(e, curTarget);
-          } else if (e.type === "buffprevent") {
-            info = buffPrevent(e, curTarget);
-          } else if (e.type === "debuffprevent") {
-            info = debuffPrevent(e, curTarget);
-          } else if (e.type === "onehitkillprevent") {
-            info = onehitkillPrevent(e, curTarget);
-          } else if (e.type === "robprevent") {
-            info = robPrevent(e, curTarget);
-          } else if (e.type === "cleanseprevent") {
-            info = cleansePrevent(e, curTarget);
-          } else if (e.type === "clearprevent") {
-            info = clearPrevent(e, curTarget);
-          } else if (e.type === "sealprevent") {
-            info = sealPrevent(e, curTarget);
-          } else if (e.type === "stunprevent") {
-            info = stunPrevent(e, curTarget);
-          } else if (e.type === "moveprevent") {
-            info = movePrevent(e, curTarget);
-          } else if (e.type === "summonprevent") {
-            info = summonPrevent(e, curTarget);
-          } else if (e.type === "weakness") {
-            info = weakness(e, curTarget);
-          } else if (e.type === "shield") {
-            info = shield(e, curTarget);
-          } else if (e.type === "poison" && action) {
-            info = poison(e, action, actorId, consequences, curTarget, usersEffects);
-          } else if (e.type === "copy") {
-            info = copy(e, usersEffects, curUser, curTarget);
-          } else if (e.type === "mirror") {
-            info = mirror(e, usersEffects, curUser, curTarget);
-          }
-          updateStatUsage(newTarget, e, true);
-        }
-      }
-    }
-
-    // Show text results of actions
-    if (info) {
-      actionEffects.push(info);
-    }
-
-    // Show once appearing animation
-    if (e.appearAnimation && longitude && latitude) {
-      newGroundEffects.push(
-        getVisual(longitude, latitude, e.appearAnimation, battle.round),
+  // Apply mirror & copy tags first, so that these get added to usersEffects
+  usersEffects
+    .filter((e) => e.type === "mirror" || e.type === "copy")
+    .forEach((effect) => {
+      applySingleEffect(
+        consequences,
+        newUsersState,
+        newUsersEffects,
+        newGroundEffects,
+        actionEffects,
+        appliedEffects,
+        battle,
+        actorId,
+        effect,
+        action,
       );
-    }
+    });
 
-    // Process round reduction & tag removal
-    if ((isEffectActive(e) && !e.fromGround) || e.type === "visual") {
-      e.isNew = false;
-      newUsersEffects.push(e);
-    } else if (e.disappearAnimation && longitude && latitude) {
-      newGroundEffects.push(
-        getVisual(longitude, latitude, e.disappearAnimation, round),
+  // Apply all other user effects to their target users
+  usersEffects
+    .filter((e) => e.type !== "mirror" && e.type !== "copy")
+    .sort(sortEffects)
+    .forEach((effect) => {
+      applySingleEffect(
+        consequences,
+        newUsersState,
+        newUsersEffects,
+        newGroundEffects,
+        actionEffects,
+        appliedEffects,
+        battle,
+        actorId,
+        effect,
+        action,
       );
-    }
-  });
+    });
 
   // Apply consequences to users
   Array.from(consequences.values())
@@ -617,4 +485,221 @@ export const applyEffects = (
     },
     actionEffects,
   };
+};
+
+/**
+ * Function for processing a single effect. Note that this function is not pure,
+ * but mutates the parameters passed in.
+ *
+ * @param consequences - Map of consequences - mutated
+ * @param newUsersState - New users state - mutated
+ * @param newUsersEffects - New users effects - mutated
+ * @param newGroundEffects - New ground effects - mutated
+ * @param actionEffects - Action effects - mutated
+ * @param appliedEffects - Applied effects - mutated
+ * @param battle - Battle
+ * @param actorId - Actor ID
+ * @param effect - Effect to process
+ * @param action - Action
+ */
+export const applySingleEffect = (
+  // Mutated parameters
+  consequences: Map<string, Consequence>,
+  newUsersState: BattleUserState[],
+  newUsersEffects: UserEffect[],
+  newGroundEffects: GroundEffect[],
+  actionEffects: ActionEffect[],
+  appliedEffects: Set<string>,
+  battle: CompleteBattle,
+  // Not mutated parameters
+  actorId: string,
+  effect: UserEffect,
+  action?: CombatAction,
+) => {
+  // Destructure
+  const { usersState, usersEffects, round } = battle;
+  // Get the round information for the effect
+  const { startRound, curRound } = calcEffectRoundInfo(effect, battle);
+  effect.castThisRound = startRound === curRound;
+  // Fetch any active sealing effects
+  const sealEffects = usersEffects.filter(
+    (e) => e.type === "seal" && !e.isNew && isEffectActive(e),
+  );
+  // Bookkeeping
+  let longitude: number | undefined = undefined;
+  let latitude: number | undefined = undefined;
+  let info: ActionEffect | undefined = undefined;
+  // Get user now and next
+  const curUser = usersState.find((u) => u.userId === effect.creatorId);
+  const newUser = newUsersState.find((u) => u.userId === effect.creatorId);
+  // Remember the effect
+  const idx = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
+  // Determine whether the tags should stack
+  const cacheCheck = BATTLE_TAG_STACKING
+    ? true
+    : !appliedEffects.has(idx) ||
+      effect.fromType === "bloodline" ||
+      effect.fromType === "armor";
+  // Special cases
+  if (
+    ["damage", "pierce"].includes(effect.type) &&
+    effect.targetType === "barrier" &&
+    curUser
+  ) {
+    const result = damageBarrier(newGroundEffects, curUser, effect, config);
+    if (result) {
+      longitude = result.barrier.longitude;
+      latitude = result.barrier.latitude;
+      actionEffects.push(result.info);
+    }
+  } else if (effect.targetType === "user" && cacheCheck) {
+    // Get the user && effect details
+    const curTarget = usersState.find((u) => u.userId === effect.targetId);
+    const newTarget = newUsersState.find((u) => u.userId === effect.targetId);
+    const isSealed = sealCheck(effect, sealEffects);
+    const isTargetOrNew = effect.targetId === actorId || effect.isNew;
+    if (curUser && newUser && curTarget && newTarget && !isSealed) {
+      appliedEffects.add(idx);
+      longitude = curTarget?.longitude;
+      latitude = curTarget?.latitude;
+      // Figure if tag should be applied
+      const ratio = calcApplyRatio(effect, battle, effect.targetId, isTargetOrNew);
+      if (ratio > 0) {
+        // Tags only applied when target is user or new
+        if (isTargetOrNew) {
+          if (effect.type === "damage" && isTargetOrNew) {
+            const modifier = calcDmgModifier(effect, curTarget, usersEffects);
+            info = damageUser(
+              effect,
+              curUser,
+              curTarget,
+              consequences,
+              modifier,
+              config,
+            );
+          } else if (effect.type === "pierce" && isTargetOrNew) {
+            const modifier = calcDmgModifier(effect, curTarget, usersEffects);
+            info = damageUser(
+              effect,
+              newUser,
+              newTarget,
+              consequences,
+              modifier,
+              config,
+            );
+          } else if (effect.type === "heal" && isTargetOrNew) {
+            info = heal(effect, newUsersEffects, curTarget, consequences, ratio);
+          } else if (effect.type === "flee" && isTargetOrNew) {
+            info = flee(effect, newUsersEffects, newTarget);
+          } else if (effect.type === "increasepoolcost" && isTargetOrNew) {
+            info = increasepoolcost(effect, curTarget);
+          } else if (effect.type === "decreasepoolcost" && isTargetOrNew) {
+            info = decreasepoolcost(effect, curTarget);
+          } else if (effect.type === "clear" && isTargetOrNew) {
+            info = clear(effect, usersEffects, curTarget);
+          } else if (effect.type === "cleanse" && isTargetOrNew) {
+            info = cleanse(effect, usersEffects, curTarget);
+          } else if (effect.type === "increasedamagegiven") {
+            info = increaseDamageGiven(effect, usersEffects, consequences, curTarget);
+          } else if (effect.type === "decreasedamagegiven") {
+            info = decreaseDamageGiven(effect, usersEffects, consequences, curTarget);
+          } else if (effect.type === "onehitkill") {
+            info = onehitkill(effect, newUsersEffects, newTarget);
+          } else if (effect.type === "rob") {
+            info = rob(effect, newUsersEffects, newUser, newTarget, battle.battleType);
+          } else if (effect.type === "seal") {
+            info = seal(effect, newUsersEffects, curTarget);
+          } else if (effect.type === "stun") {
+            info = stun(effect, newUsersEffects, curTarget);
+          } else if (effect.type === "drain") {
+            info = drain(effect, usersEffects, consequences, curTarget);
+          }
+        }
+
+        // Always apply
+        if (effect.type === "absorb") {
+          info = absorb(effect, usersEffects, consequences, curTarget);
+        } else if (effect.type === "increasestat") {
+          info = increaseStats(effect, newUsersEffects, curTarget);
+        } else if (effect.type === "decreasestat") {
+          info = decreaseStats(effect, newUsersEffects, curTarget);
+        } else if (effect.type === "increasedamagetaken") {
+          info = increaseDamageTaken(effect, usersEffects, consequences, curTarget);
+        } else if (effect.type === "decreasedamagetaken") {
+          info = decreaseDamageTaken(effect, usersEffects, consequences, curTarget);
+        } else if (effect.type === "increaseheal") {
+          info = increaseHealGiven(effect, usersEffects, consequences, curTarget);
+        } else if (effect.type === "decreaseheal") {
+          info = decreaseHealGiven(effect, usersEffects, consequences, curTarget);
+        } else if (effect.type === "reflect") {
+          info = reflect(effect, usersEffects, consequences, curTarget);
+        } else if (effect.type === "recoil") {
+          info = recoil(effect, usersEffects, consequences, curTarget);
+        } else if (effect.type === "lifesteal") {
+          info = lifesteal(effect, usersEffects, consequences, curTarget);
+        } else if (effect.type === "fleeprevent") {
+          info = fleePrevent(effect, curTarget);
+        } else if (effect.type === "healprevent") {
+          info = healPrevent(effect, curTarget);
+        } else if (effect.type === "stealth") {
+          info = stealth(effect, curTarget);
+        } else if (effect.type === "elementalseal") {
+          info = elementalseal(effect, curTarget);
+        } else if (effect.type === "buffprevent") {
+          info = buffPrevent(effect, curTarget);
+        } else if (effect.type === "debuffprevent") {
+          info = debuffPrevent(effect, curTarget);
+        } else if (effect.type === "onehitkillprevent") {
+          info = onehitkillPrevent(effect, curTarget);
+        } else if (effect.type === "robprevent") {
+          info = robPrevent(effect, curTarget);
+        } else if (effect.type === "cleanseprevent") {
+          info = cleansePrevent(effect, curTarget);
+        } else if (effect.type === "clearprevent") {
+          info = clearPrevent(effect, curTarget);
+        } else if (effect.type === "sealprevent") {
+          info = sealPrevent(effect, curTarget);
+        } else if (effect.type === "stunprevent") {
+          info = stunPrevent(effect, curTarget);
+        } else if (effect.type === "moveprevent") {
+          info = movePrevent(effect, curTarget);
+        } else if (effect.type === "summonprevent") {
+          info = summonPrevent(effect, curTarget);
+        } else if (effect.type === "weakness") {
+          info = weakness(effect, curTarget);
+        } else if (effect.type === "shield") {
+          info = shield(effect, curTarget);
+        } else if (effect.type === "poison" && action) {
+          info = poison(effect, action, actorId, consequences, curTarget, usersEffects);
+        } else if (effect.type === "copy") {
+          info = copy(effect, usersEffects, curUser, curTarget);
+        } else if (effect.type === "mirror") {
+          info = mirror(effect, usersEffects, curUser, curTarget);
+        }
+        updateStatUsage(newTarget, effect, true);
+      }
+    }
+  }
+
+  // Show text results of actions
+  if (info) {
+    actionEffects.push(info);
+  }
+
+  // Show once appearing animation
+  if (effect.appearAnimation && longitude && latitude) {
+    newGroundEffects.push(
+      getVisual(longitude, latitude, effect.appearAnimation, battle.round),
+    );
+  }
+
+  // Process round reduction & tag removal
+  if ((isEffectActive(effect) && !effect.fromGround) || effect.type === "visual") {
+    effect.isNew = false;
+    newUsersEffects.push(effect);
+  } else if (effect.disappearAnimation && longitude && latitude) {
+    newGroundEffects.push(
+      getVisual(longitude, latitude, effect.disappearAnimation, round),
+    );
+  }
 };
