@@ -127,12 +127,18 @@ export const copy = (
       };
     }
     positiveEffects.forEach((posEffect) => {
-      const copiedEffect = structuredClone(posEffect);
-      copiedEffect.id = nanoid();
-      copiedEffect.targetId = user.userId;
-      copiedEffect.creatorId = user.userId;
-      copiedEffect.rounds = 1;
-      usersEffects.push(copiedEffect);
+      const prevCopy = usersEffects.find(
+        (e) => e.fromEffectId === posEffect.id && e.rounds && e.rounds > 0,
+      );
+      if (!prevCopy) {
+        const copiedEffect = structuredClone(posEffect);
+        copiedEffect.id = nanoid();
+        copiedEffect.fromEffectId = posEffect.id;
+        copiedEffect.targetId = user.userId;
+        copiedEffect.creatorId = user.userId;
+        copiedEffect.rounds = 1;
+        usersEffects.push(copiedEffect);
+      }
     });
   }
 };
@@ -167,12 +173,18 @@ export const mirror = (
       };
     }
     negativeEffects.forEach((negEffect) => {
-      const mirroredEffect = structuredClone(negEffect);
-      mirroredEffect.id = nanoid();
-      mirroredEffect.targetId = target.userId;
-      mirroredEffect.creatorId = user.userId;
-      mirroredEffect.rounds = 1;
-      usersEffects.push(mirroredEffect);
+      const prevMirror = usersEffects.find(
+        (e) => e.fromEffectId === negEffect.id && e.rounds && e.rounds > 0,
+      );
+      if (!prevMirror) {
+        const mirroredEffect = structuredClone(negEffect);
+        mirroredEffect.id = nanoid();
+        mirroredEffect.fromEffectId = negEffect.id;
+        mirroredEffect.targetId = target.userId;
+        mirroredEffect.creatorId = user.userId;
+        mirroredEffect.rounds = 1;
+        usersEffects.push(mirroredEffect);
+      }
     });
   }
 };
