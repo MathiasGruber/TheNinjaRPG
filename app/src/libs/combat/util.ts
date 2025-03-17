@@ -686,38 +686,53 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         result.money = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.
         // If not, then distribute equally among all stats & generals
-        let total = user.usedStats.length + user.usedGenerals.length;
+        const statsTotal = Object.values(user.usedStats).reduce((sum, value) => sum + value, 0);
+        const gensTotal = Object.values(user.usedGenerals).reduce((sum, value) => sum + value, 0);
+        let total = statsTotal + gensTotal;
         if (total === 0) {
-          user.usedStats = [
-            "ninjutsuOffence",
-            "ninjutsuDefence",
-            "genjutsuOffence",
-            "genjutsuDefence",
-            "taijutsuOffence",
-            "taijutsuDefence",
-            "bukijutsuOffence",
-            "bukijutsuDefence",
-          ];
-          user.usedGenerals = ["strength", "intelligence", "willpower", "speed"];
+          user.usedStats = {
+            ninjutsuOffence: 1,
+            genjutsuOffence: 1,
+            taijutsuOffence: 1,
+            bukijutsuOffence: 1,
+            ninjutsuDefence: 1,
+            genjutsuDefence: 1,
+            taijutsuDefence: 1,
+            bukijutsuDefence: 1,
+          }
+          user.usedGenerals = {
+            strength: 1,
+            intelligence: 1,
+            willpower: 1,
+            speed: 1,
+          };
           total = 12;
         }
         let assignedExp = 0;
-        const gain = Math.floor((experience / total) * 100) / 100;
         const stats_cap = USER_CAPS[user.rank].STATS_CAP;
         const gens_cap = USER_CAPS[user.rank].GENS_CAP;
-        user.usedStats.forEach((stat) => {
-          const value = user[stat] + gain > stats_cap ? stats_cap - user[stat] : gain;
-          result[stat] += value;
-          assignedExp += value;
+
+        const distributeStats = (
+          stat: keyof typeof user.usedStats | keyof typeof user.usedGenerals,
+          count: number,
+          cap: number,
+        ): void => {
+          const expWeighted = (count / total) * experience;
+          const expRounded = Math.floor(expWeighted * 100) / 100;
+          const expResult = user[stat] + expRounded > cap ? cap - user[stat] : expRounded;
+          result[stat] += expResult;
+          assignedExp += expResult;
+        };
+
+        Object.entries(user.usedStats).forEach(([stat, value]) => {
+          distributeStats(stat as keyof typeof user.usedStats, value, stats_cap);
         });
-        user.usedGenerals.forEach((stat) => {
-          const gen = stat.toLowerCase() as Lowercase<typeof stat>;
-          const value = user[gen] + gain > gens_cap ? gens_cap - user[gen] : gain;
-          result[gen] += value;
-          assignedExp += value;
+        Object.entries(user.usedGenerals).forEach(([stat, value]) => {
+          distributeStats(stat as keyof typeof user.usedGenerals, value, gens_cap);
         });
+        
         // Experience
-        result.experience = assignedExp;
+        result.experience = Math.floor(assignedExp * 100) / 100;
       }
 
       // Return results
@@ -1076,8 +1091,22 @@ export const processUsersForBattle = (info: {
     user.isSummon = false;
 
     // Set the history lists to record actions during battle
-    user.usedGenerals = [];
-    user.usedStats = [];
+    user.usedGenerals = {
+      strength: 0,
+      intelligence: 0,
+      willpower: 0,
+      speed: 0,
+    };
+    user.usedStats = {
+      ninjutsuOffence: 0,
+      genjutsuOffence: 0,
+      taijutsuOffence: 0,
+      bukijutsuOffence: 0,
+      ninjutsuDefence: 0,
+      genjutsuDefence: 0,
+      taijutsuDefence: 0,
+      bukijutsuDefence: 0,
+    }
     user.usedActions = [];
 
     // If in own village, add defence bonus
