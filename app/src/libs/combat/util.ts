@@ -747,7 +747,7 @@ const distributeExpToStat = (
   const expRounded = Math.floor(expWeighted * 100) / 100;
   const expResult = user[stat] + expRounded > cap ? cap - user[stat] : expRounded;
   result[stat] += expResult;
-  return expResult
+  return expResult;
 };
 
 /**
