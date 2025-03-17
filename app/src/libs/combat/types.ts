@@ -947,6 +947,7 @@ export type GroundEffect = BattleEffect;
 
 export type UserEffect = BattleEffect & {
   targetId: string;
+  fromEffectId?: string;
   fromGround?: boolean;
   fromType?: "jutsu" | "armor" | "item" | "basic" | "bloodline";
   elements?: ElementName[]; // TODO: Remove this, should already be in the tag

@@ -101,8 +101,6 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
     />
   );
 
-  console.log(form.formState.isDirty);
-
   // Show panel controls
   return (
     <>
