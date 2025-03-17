@@ -712,23 +712,11 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         const stats_cap = USER_CAPS[user.rank].STATS_CAP;
         const gens_cap = USER_CAPS[user.rank].GENS_CAP;
 
-        const distributeStats = (
-          stat: keyof typeof user.usedStats | keyof typeof user.usedGenerals,
-          count: number,
-          cap: number,
-        ): void => {
-          const expWeighted = (count / total) * experience;
-          const expRounded = Math.floor(expWeighted * 100) / 100;
-          const expResult = user[stat] + expRounded > cap ? cap - user[stat] : expRounded;
-          result[stat] += expResult;
-          assignedExp += expResult;
-        };
-
         Object.entries(user.usedStats).forEach(([stat, value]) => {
-          distributeStats(stat as keyof typeof user.usedStats, value, stats_cap);
+          assignedExp += distributeExpToStat(user, stat as keyof typeof user.usedStats, value, stats_cap, total, experience, result);
         });
         Object.entries(user.usedGenerals).forEach(([stat, value]) => {
-          distributeStats(stat as keyof typeof user.usedGenerals, value, gens_cap);
+          assignedExp += distributeExpToStat(user, stat as keyof typeof user.usedGenerals, value, gens_cap, total, experience, result);
         });
         
         // Experience
@@ -740,6 +728,26 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
     }
   }
   return null;
+};
+
+/**
+ * Distributes a portion of experience to a given stat, based on usage
+ * @returns The amount of experience distributed
+ */
+const distributeExpToStat = (
+  user: BattleUserState,
+  stat: keyof typeof user.usedStats | keyof typeof user.usedGenerals,
+  count: number,
+  cap: number,
+  total: number,
+  experience: number,
+  result: CombatResult,
+): number => {
+  const expWeighted = (count / total) * experience;
+  const expRounded = Math.floor(expWeighted * 100) / 100;
+  const expResult = user[stat] + expRounded > cap ? cap - user[stat] : expRounded;
+  result[stat] += expResult;
+  return expResult
 };
 
 /**
