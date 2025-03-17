@@ -6,6 +6,6 @@
       "type": "node-terminal",
       "request": "launch",
       "command": "cd app && bun run dev"
-    },
+    }
   ]
 }
