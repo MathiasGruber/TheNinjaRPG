@@ -42,8 +42,6 @@ import { Input } from "@/components/ui/input";
 import type { z } from "zod";
 import type { GenericObject } from "@/layout/ItemWithEffects";
 import type { StatSchemaType } from "@/libs/combat/types";
-import { RankedPvp } from "./components/RankedPvp";
-import { RankedPvpQueue } from "./components/RankedPvpQueue";
 
 export default function Arena() {
   // Tab selection
@@ -82,6 +80,7 @@ export default function Arena() {
       break;
   }
 
+  // Ranked PvP queue state and mutations
   const { data: queueData } = api.combat.getRankedPvpQueue.useQuery();
   const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
     onSuccess: (result) => {
@@ -130,7 +129,36 @@ export default function Arena() {
             </p>
           </div>
         )}
-        {tab === "Ranked PvP" && <RankedPvp />}
+        {tab === "Ranked PvP" && (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-sm text-muted-foreground">
+              Queue for ranked PvP battles! You will be matched with players of similar LP.
+              All battles are fought with level 100 characters with max stats.
+            </p>
+            {queueData?.inQueue && (
+              <p className="text-yellow-500">
+                You are currently in queue. Waiting for opponent...
+              </p>
+            )}
+            {!queueData?.inQueue ? (
+              <Button
+                className="w-full"
+                onClick={() => queue()}
+                disabled={isQueuing}
+              >
+                {isQueuing ? "Queuing..." : "Queue for Ranked PvP"}
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                onClick={() => leaveQueue()}
+                disabled={isLeaving}
+              >
+                {isLeaving ? "Leaving..." : "Leave Queue"}
+              </Button>
+            )}
+          </div>
+        )}
       </ContentBox>
       {tab === "Arena" && <SelectAI aiId={aiId} setAiId={setAiId} />}
       {tab === "Sparring" && <ActiveChallenges />}
@@ -140,7 +168,6 @@ export default function Arena() {
           setStatDistribution={setStatDistribution}
         />
       )}
-      {tab === "Ranked PvP" && <RankedPvpQueue />}
     </>
   );
 }
