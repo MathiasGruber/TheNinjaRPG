@@ -48,7 +48,6 @@ export default function Arena() {
   const availableTabs = ["Arena", "Sparring", "Training Arena", "Ranked PvP"] as const;
   type TabType = (typeof availableTabs)[number];
   const [tab, setTab] = useLocalStorage<TabType | null>("arenaTab", "Arena", true);
-  console.log(tab);
   const [aiId, setAiId] = useLocalStorage<string | undefined>("arenaAI", undefined);
   const [statDistribution, setStatDistribution] = useLocalStorage<
     StatSchemaType | undefined
@@ -56,6 +55,31 @@ export default function Arena() {
 
   // Ensure user is in village
   const { userData, access } = useRequireInVillage("/battlearena");
+
+  // Ranked PvP queue state and mutations
+  const { data: queueData } = api.combat.getRankedPvpQueue.useQuery(undefined, {
+    enabled: !!userData,
+  });
+
+  const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        showMutationToast({ ...result, message: "Queued for ranked PvP" });
+      } else {
+        showMutationToast(result);
+      }
+    },
+  });
+
+  const { mutate: leaveQueue, isPending: isLeaving } = api.combat.leaveRankedPvpQueue.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        showMutationToast({ ...result, message: "Left ranked PvP queue" });
+      } else {
+        showMutationToast(result);
+      }
+    },
+  });
 
   // Guards
   if (!access) return <Loader explanation="Accessing Battle Arena" />;
@@ -79,30 +103,6 @@ export default function Arena() {
       subtitle = `Current LP: ${userData?.rankedLp}`;
       break;
   }
-
-  // Ranked PvP queue state and mutations
-  const { data: queueData } = api.combat.getRankedPvpQueue.useQuery(undefined, {
-    enabled: !!userData,
-  });
-  const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
-    onSuccess: (result) => {
-      if (result.success) {
-        showMutationToast({ ...result, message: "Queued for ranked PvP" });
-      } else {
-        showMutationToast(result);
-      }
-    },
-  });
-
-  const { mutate: leaveQueue, isPending: isLeaving } = api.combat.leaveRankedPvpQueue.useMutation({
-    onSuccess: (result) => {
-      if (result.success) {
-        showMutationToast({ ...result, message: "Left ranked PvP queue" });
-      } else {
-        showMutationToast(result);
-      }
-    },
-  });
 
   return (
     <>
