@@ -806,6 +806,8 @@ export const combatRouter = createTRPCRouter({
         orderBy: desc(rankedPvpQueue.createdAt),
       });
 
+      console.log("Queued players:", queuedPlayers.map(p => ({ userId: p.userId, lp: p.rankedLp })));
+
       // Try to match players
       for (const player of queuedPlayers) {
         if (!player) continue;
@@ -823,6 +825,10 @@ export const combatRouter = createTRPCRouter({
             Math.abs(opponent.rankedLp - player.rankedLp) <= 100
         );
 
+        console.log(`Potential opponents for ${player.userId} (LP: ${player.rankedLp}):`, 
+          potentialOpponents.map(p => ({ userId: p.userId, lp: p.rankedLp }))
+        );
+
         if (potentialOpponents.length > 0) {
           // Get the opponent who has been waiting the longest
           const opponent = potentialOpponents[0];
@@ -838,7 +844,12 @@ export const combatRouter = createTRPCRouter({
             }),
           ]);
 
-          if (!playerStillQueued || !opponentStillQueued) continue;
+          if (!playerStillQueued || !opponentStillQueued) {
+            console.log("One or both players no longer in queue");
+            continue;
+          }
+
+          console.log(`Attempting to match ${player.userId} with ${opponent.userId}`);
 
           // Start the battle
           const result = await initiateBattle(
@@ -866,6 +877,7 @@ export const combatRouter = createTRPCRouter({
           );
 
           if (result.success && result.battleId) {
+            console.log(`Match found! Battle ID: ${result.battleId}`);
             // Remove both users from queue and update their status
             await Promise.all([
               ctx.drizzle
@@ -906,7 +918,11 @@ export const combatRouter = createTRPCRouter({
             ]);
 
             return { success: true, message: "Match found!", battleId: result.battleId };
+          } else {
+            console.log("Failed to initiate battle:", result);
           }
+        } else {
+          console.log(`No potential opponents found for ${player.userId}`);
         }
       }
 
@@ -1050,7 +1066,7 @@ export const initiateBattle = async (
 
     // Check if user is asleep
     if (
-      ((user.status !== "AWAKE" && battleType !== "CLAN_BATTLE") ||
+      ((user.status !== "AWAKE" && battleType !== "CLAN_BATTLE" && battleType !== "RANKED") ||
         (user.status !== "QUEUED" && battleType === "CLAN_BATTLE")) &&
       !AutoBattleTypes.includes(battleType)
     ) {
