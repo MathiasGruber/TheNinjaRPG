@@ -1459,6 +1459,7 @@ export const userData = mysqlTable(
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
     aiCalls: int("openaiCalls").default(0).notNull(),
     tavernMessages: int("tavernMessages").default(0).notNull(),
+    audioOn: boolean("audioOn").default(true).notNull(),
   },
   (table) => {
     return {

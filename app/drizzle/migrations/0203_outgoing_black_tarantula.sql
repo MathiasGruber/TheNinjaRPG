@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `audioOn` boolean DEFAULT true NOT NULL;

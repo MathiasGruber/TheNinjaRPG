@@ -412,6 +412,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     control={control}
                     error={errors.comment?.message}
                     onSubmit={handleSubmitComment}
+                    enableMentions={true}
                   />
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
                     {isCommenting && <Loader />}
@@ -441,6 +442,11 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     hover_effect={false}
                     comment={comment}
                     quoteIds={quoteIds}
+                    color={
+                      comment.content.includes(`@${userData?.username}`)
+                        ? "orange"
+                        : undefined
+                    }
                     toggleReaction={(emoji) =>
                       reactConversationComment({ commentId: comment.id, emoji })
                     }

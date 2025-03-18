@@ -556,29 +556,9 @@ export const commentsRouter = createTRPCRouter({
           throw serverError("BAD_REQUEST", "Quote not found");
         }
       });
-      // Update inbox news
-      const userIds = convo.users.map((u) => u.userId);
-      if (userIds.length > 0 && !convo.isPublic) {
-        await ctx.drizzle
-          .update(userData)
-          .set({ inboxNews: sql`${userData.inboxNews} + 1` })
-          .where(inArray(userData.userId, userIds));
-      }
       // Update conversation & update user notifications
       const commentId = nanoid();
       const pusher = getServerPusher();
-      void pusher.trigger(convo.id, "event", {
-        message: "new",
-        fromId: ctx.userId,
-        commentId: commentId,
-      });
-      if (!convo.isPublic) {
-        userIds
-          .filter((id) => id !== ctx.userId)
-          .forEach(
-            (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
-          );
-      }
       // Create the content, santizied & with added quotes
       let content = input.comment;
       if (quotes.length > 0) {
@@ -591,8 +571,49 @@ export const commentsRouter = createTRPCRouter({
         content = `${quoteContent}\n\n${content}`;
       }
       const sanitized = sanitize(content);
-      // Auto-moderation
+      // Derived
+      const usersIdsInConvo = convo.users.map((u) => u.userId);
+      let mentionedUserIds: string[] = [];
+      const mentionedUserNames = sanitized
+        .match(/@([^\s]+)/g)
+        ?.map((mention) => mention.slice(1));
+      if (mentionedUserNames && mentionedUserNames.length > 0) {
+        const mentionedUsers = await ctx.drizzle
+          .select({ userId: userData.userId })
+          .from(userData)
+          .where(inArray(userData.username, mentionedUserNames));
+        mentionedUserIds = mentionedUsers.map((u) => u.userId);
+      }
+      // Mutations
       await Promise.all([
+        // Ping users
+        ...mentionedUserIds
+          .filter((id) => id !== ctx.userId)
+          .map((userId) =>
+            pusher.trigger(userId, "event", {
+              type: "pinged",
+              message: `${user.username} pinged you in ${convo.title}`,
+            }),
+          ),
+        // Trigger new comment event
+        pusher.trigger(convo.id, "event", {
+          message: "new",
+          fromId: ctx.userId,
+          commentId: commentId,
+        }),
+        // Inbox news
+        ...(usersIdsInConvo.length > 0 && !convo.isPublic
+          ? [
+              ctx.drizzle
+                .update(userData)
+                .set({ inboxNews: sql`${userData.inboxNews} + 1` })
+                .where(inArray(userData.userId, usersIdsInConvo)),
+              ...usersIdsInConvo
+                .filter((id) => id !== ctx.userId)
+                .map((userId) => pusher.trigger(userId, "event", { type: "newInbox" })),
+            ]
+          : []),
+        // Auto-moderation
         ...(convo.isPublic
           ? [
               moderateContent(ctx.drizzle, {
@@ -608,12 +629,14 @@ export const commentsRouter = createTRPCRouter({
                 .where(eq(userData.userId, ctx.userId)),
             ]
           : []),
+        // Insert into DB
         ctx.drizzle.insert(conversationComment).values({
           id: commentId,
           content: sanitized,
           userId: ctx.userId,
           conversationId: convo.id,
         }),
+        // Update conversation
         ctx.drizzle
           .update(conversation)
           .set({ updatedAt: new Date() })
