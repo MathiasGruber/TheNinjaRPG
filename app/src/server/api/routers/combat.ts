@@ -7,7 +7,7 @@ import {
   hasUserMiddleware,
 } from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
-import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte } from "drizzle-orm";
+import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { desc } from "drizzle-orm";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
@@ -28,7 +28,7 @@ import {
 } from "@/libs/combat/database";
 import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
-import { userData, questHistory, quest, gameSetting } from "@/drizzle/schema";
+import { userData, questHistory, quest, gameSetting, rankedPvpQueue } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
@@ -664,6 +664,115 @@ export const combatRouter = createTRPCRouter({
         }
       }
       return errorResponse("Failed to update battle state after multiple attempts");
+    }),
+  getRankedPvpQueue: protectedProcedure
+    .query(async ({ ctx }) => {
+      const queueEntry = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+        where: eq(rankedPvpQueue.userId, ctx.userId),
+      });
+      return { inQueue: !!queueEntry };
+    }),
+  queueForRankedPvp: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Check if user is already in queue
+      const existingQueue = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+        where: eq(rankedPvpQueue.userId, ctx.userId),
+      });
+      if (existingQueue) {
+        return errorResponse("Already in queue");
+      }
+
+      // Get user's current LP
+      const user = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, ctx.userId),
+        columns: { rankedLp: true },
+      });
+      if (!user) {
+        return errorResponse("User not found");
+      }
+
+      // Add to queue
+      await ctx.drizzle.insert(rankedPvpQueue).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        rankedLp: user.rankedLp,
+      });
+
+      // Update user status
+      await ctx.drizzle
+        .update(userData)
+        .set({ status: "QUEUED" })
+        .where(eq(userData.userId, ctx.userId));
+
+      // Try to find a match
+      const potentialOpponent = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+        where: and(
+          ne(rankedPvpQueue.userId, ctx.userId),
+          gte(rankedPvpQueue.rankedLp, user.rankedLp - 100),
+          lt(rankedPvpQueue.rankedLp, user.rankedLp + 100),
+        ),
+      });
+
+      if (potentialOpponent) {
+        // Start the battle
+        const result = await initiateBattle(
+          {
+            userIds: [ctx.userId],
+            targetIds: [potentialOpponent.userId],
+            client: ctx.drizzle,
+            asset: "arena",
+            statDistribution: {
+              level: 100,
+              strength: 100,
+              intelligence: 100,
+              willpower: 100,
+              speed: 100,
+              ninjutsuOffence: 100,
+              ninjutsuDefence: 100,
+              genjutsuOffence: 100,
+              genjutsuDefence: 100,
+              taijutsuOffence: 100,
+              taijutsuDefence: 100,
+              bukijutsuOffence: 100,
+              bukijutsuDefence: 100,
+            },
+          },
+          "RANKED_PVP",
+        );
+
+        if (result.success && result.battleId) {
+          // Remove both users from queue
+          await Promise.all([
+            ctx.drizzle
+              .delete(rankedPvpQueue)
+              .where(eq(rankedPvpQueue.userId, ctx.userId)),
+            ctx.drizzle
+              .delete(rankedPvpQueue)
+              .where(eq(rankedPvpQueue.userId, potentialOpponent.userId)),
+          ]);
+
+          return { success: true, message: "Match found!" };
+        }
+      }
+
+      return { success: true, message: "Queued for ranked PvP" };
+    }),
+  leaveRankedPvpQueue: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Remove from queue
+      await ctx.drizzle
+        .delete(rankedPvpQueue)
+        .where(eq(rankedPvpQueue.userId, ctx.userId));
+
+      // Update user status
+      await ctx.drizzle
+        .update(userData)
+        .set({ status: "AWAKE" })
+        .where(eq(userData.userId, ctx.userId));
+
+      return { success: true, message: "Left ranked PvP queue" };
     }),
 });
 
