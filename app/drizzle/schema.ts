@@ -2590,3 +2590,30 @@ export const userPollVoteRelations = relations(userPollVote, ({ one }) => ({
 }));
 
 export type UserPollVote = InferSelectModel<typeof userPollVote>;
+
+export const rankedPvpQueue = mysqlTable(
+  "RankedPvpQueue",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    rankedLp: int("rankedLp").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("RankedPvpQueue_userId_idx").on(table.userId),
+      rankedLpIdx: index("RankedPvpQueue_rankedLp_idx").on(table.rankedLp),
+    };
+  },
+);
+
+export type RankedPvpQueue = InferSelectModel<typeof rankedPvpQueue>;
+
+export const rankedPvpQueueRelations = relations(rankedPvpQueue, ({ one }) => ({
+  user: one(userData, {
+    fields: [rankedPvpQueue.userId],
+    references: [userData.userId],
+  }),
+}));
