@@ -673,7 +673,7 @@ export const combatRouter = createTRPCRouter({
       return { inQueue: !!queueEntry };
     }),
   queueForRankedPvp: protectedProcedure
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx }) => {
       // Check if user is already in queue
       const existingQueue = await ctx.drizzle.query.rankedPvpQueue.findFirst({
