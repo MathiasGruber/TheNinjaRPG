@@ -1232,7 +1232,8 @@ export const initiateBattle = async (
           defenderId: t,
           createdAt: new Date(),
         })),
-      ),
+      )
+    ),
     client
       .update(userData)
       .set({
@@ -1257,7 +1258,7 @@ export const initiateBattle = async (
             inArray(userData.userId, userIds),
             ...(!AutoBattleTypes.includes(battleType)
               ? [inArray(userData.userId, targetIds)]
-              : []),
+              : [])
           ),
           or(eq(userData.status, "AWAKE"), eq(userData.status, "QUEUED")),
           ...(battleType === "COMBAT"
@@ -1265,12 +1266,12 @@ export const initiateBattle = async (
                 and(
                   ...(sector ? [eq(userData.sector, sector)] : []),
                   ...(longitude ? [eq(userData.longitude, longitude)] : []),
-                  ...(latitude ? [eq(userData.latitude, latitude)] : []),
+                  ...(latitude ? [eq(userData.latitude, latitude)] : [])
                 ),
               ]
-            : []),
-        ),
-      ),
+            : [])
+        )
+      )
   ]);
 
   // Check if success
