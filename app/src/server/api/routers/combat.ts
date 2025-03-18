@@ -807,8 +807,7 @@ export const combatRouter = createTRPCRouter({
       });
 
       // Try to match players
-      for (let i = 0; i < queuedPlayers.length; i++) {
-        const player = queuedPlayers[i];
+      for (const player of queuedPlayers) {
         if (!player) continue;
         
         // Skip if player already matched
