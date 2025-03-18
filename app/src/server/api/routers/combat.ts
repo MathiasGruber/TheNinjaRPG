@@ -697,6 +697,7 @@ export const combatRouter = createTRPCRouter({
         id: nanoid(),
         userId: ctx.userId,
         rankedLp: user.rankedLp,
+        createdAt: new Date(),
       });
 
       // Update user status
@@ -706,20 +707,24 @@ export const combatRouter = createTRPCRouter({
         .where(eq(userData.userId, ctx.userId));
 
       // Try to find a match
-      const potentialOpponent = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+      const potentialOpponents = await ctx.drizzle.query.rankedPvpQueue.findMany({
         where: and(
           ne(rankedPvpQueue.userId, ctx.userId),
           gte(rankedPvpQueue.rankedLp, user.rankedLp - 100),
           lt(rankedPvpQueue.rankedLp, user.rankedLp + 100),
         ),
+        orderBy: desc(rankedPvpQueue.createdAt),
       });
 
-      if (potentialOpponent) {
+      if (potentialOpponents.length > 0) {
+        // Get the opponent who has been waiting the longest
+        const opponent = potentialOpponents[0];
+
         // Start the battle
         const result = await initiateBattle(
           {
             userIds: [ctx.userId],
-            targetIds: [potentialOpponent.userId],
+            targetIds: [opponent.userId],
             client: ctx.drizzle,
             asset: "arena",
             statDistribution: {
@@ -748,10 +753,27 @@ export const combatRouter = createTRPCRouter({
               .where(eq(rankedPvpQueue.userId, ctx.userId)),
             ctx.drizzle
               .delete(rankedPvpQueue)
-              .where(eq(rankedPvpQueue.userId, potentialOpponent.userId)),
+              .where(eq(rankedPvpQueue.userId, opponent.userId)),
+            // Update both users' status
+            ctx.drizzle
+              .update(userData)
+              .set({ 
+                status: "BATTLE",
+                battleId: result.battleId,
+                updatedAt: new Date(),
+              })
+              .where(eq(userData.userId, ctx.userId)),
+            ctx.drizzle
+              .update(userData)
+              .set({ 
+                status: "BATTLE",
+                battleId: result.battleId,
+                updatedAt: new Date(),
+              })
+              .where(eq(userData.userId, opponent.userId)),
           ]);
 
-          return { success: true, message: "Match found!" };
+          return { success: true, message: "Match found!", battleId: result.battleId };
         }
       }
 
@@ -772,6 +794,93 @@ export const combatRouter = createTRPCRouter({
         .where(eq(userData.userId, ctx.userId));
 
       return { success: true, message: "Left ranked PvP queue" };
+    }),
+  checkRankedPvpMatches: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Get all queued players
+      const queuedPlayers = await ctx.drizzle.query.rankedPvpQueue.findMany({
+        orderBy: desc(rankedPvpQueue.createdAt),
+      });
+
+      // Try to match players
+      for (let i = 0; i < queuedPlayers.length; i++) {
+        const player = queuedPlayers[i];
+        
+        // Skip if player already matched
+        const stillQueued = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+          where: eq(rankedPvpQueue.userId, player.userId),
+        });
+        if (!stillQueued) continue;
+
+        // Find potential opponents
+        const potentialOpponents = queuedPlayers.filter(
+          (opponent) =>
+            opponent.userId !== player.userId &&
+            Math.abs(opponent.rankedLp - player.rankedLp) <= 100
+        );
+
+        if (potentialOpponents.length > 0) {
+          // Get the opponent who has been waiting the longest
+          const opponent = potentialOpponents[0];
+
+          // Start the battle
+          const result = await initiateBattle(
+            {
+              userIds: [player.userId],
+              targetIds: [opponent.userId],
+              client: ctx.drizzle,
+              asset: "arena",
+              statDistribution: {
+                strength: 200000,
+                intelligence: 200000,
+                willpower: 200000,
+                speed: 200000,
+                ninjutsuOffence: 450000,
+                ninjutsuDefence: 450000,
+                genjutsuOffence: 450000,
+                genjutsuDefence: 450000,
+                taijutsuOffence: 450000,
+                taijutsuDefence: 450000,
+                bukijutsuOffence: 450000,
+                bukijutsuDefence: 450000,
+              },
+            },
+            "RANKED",
+          );
+
+          if (result.success && result.battleId) {
+            // Remove both users from queue
+            await Promise.all([
+              ctx.drizzle
+                .delete(rankedPvpQueue)
+                .where(eq(rankedPvpQueue.userId, player.userId)),
+              ctx.drizzle
+                .delete(rankedPvpQueue)
+                .where(eq(rankedPvpQueue.userId, opponent.userId)),
+              // Update both users' status
+              ctx.drizzle
+                .update(userData)
+                .set({ 
+                  status: "BATTLE",
+                  battleId: result.battleId,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userData.userId, player.userId)),
+              ctx.drizzle
+                .update(userData)
+                .set({ 
+                  status: "BATTLE",
+                  battleId: result.battleId,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userData.userId, opponent.userId)),
+            ]);
+          }
+        }
+      }
+
+      return { success: true, message: "Checked for matches" };
     }),
 });
 
@@ -1124,7 +1233,6 @@ export const initiateBattle = async (
           createdAt: new Date(),
         })),
       ),
-    ),
     client
       .update(userData)
       .set({
@@ -1163,25 +1271,6 @@ export const initiateBattle = async (
             : []),
         ),
       ),
-    ...(battleType === "TOURNAMENT"
-      ? [
-          client
-            .update(tournamentMatch)
-            .set({ battleId })
-            .where(
-              or(
-                and(
-                  inArray(tournamentMatch.userId1, userIds),
-                  inArray(tournamentMatch.userId2, targetIds),
-                ),
-                and(
-                  inArray(tournamentMatch.userId2, userIds),
-                  inArray(tournamentMatch.userId1, targetIds),
-                ),
-              ),
-            ),
-        ]
-      : []),
   ]);
 
   // Check if success
