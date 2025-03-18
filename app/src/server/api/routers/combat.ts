@@ -809,6 +809,7 @@ export const combatRouter = createTRPCRouter({
       // Try to match players
       for (let i = 0; i < queuedPlayers.length; i++) {
         const player = queuedPlayers[i];
+        if (!player) continue;
         
         // Skip if player already matched
         const stillQueued = await ctx.drizzle.query.rankedPvpQueue.findFirst({
