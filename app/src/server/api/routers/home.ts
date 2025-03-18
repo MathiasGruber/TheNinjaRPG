@@ -31,7 +31,24 @@ export const homeRouter = createTRPCRouter({
           id: z.string(),
           slot: z.number(),
           itemId: z.string(),
+          item: z.object({
+            id: z.string(),
+            name: z.string(),
+            image: z.string(),
+            description: z.string(),
+          }),
         })).optional(),
+        userItems: z.array(z.object({
+          id: z.string(),
+          itemId: z.string(),
+          quantity: z.number(),
+          item: z.object({
+            id: z.string(),
+            name: z.string(),
+            image: z.string(),
+            description: z.string(),
+          }),
+        })),
       }),
     )
     .query(async ({ ctx }) => {
@@ -45,6 +62,7 @@ export const homeRouter = createTRPCRouter({
           message: "User not found",
           availableHomes: [],
           storage: [],
+          userItems: [],
         };
       }
 
@@ -59,7 +77,36 @@ export const homeRouter = createTRPCRouter({
 
       const storage = userHomeData ? await ctx.drizzle.query.userHomeStorage.findMany({
         where: eq(userHomeStorage.userHomeId, userHomeData.id),
+        with: {
+          item: {
+            columns: {
+              id: true,
+              name: true,
+              image: true,
+              description: true,
+            },
+          },
+        },
       }) : undefined;
+
+      const userItems = await ctx.drizzle.query.userItem.findMany({
+        where: eq(userItem.userId, ctx.userId),
+        columns: {
+          id: true,
+          itemId: true,
+          quantity: true,
+        },
+        with: {
+          item: {
+            columns: {
+              id: true,
+              name: true,
+              image: true,
+              description: true,
+            },
+          },
+        },
+      });
 
       return {
         success: true,
@@ -67,6 +114,7 @@ export const homeRouter = createTRPCRouter({
         home: userHomeData?.homeType,
         availableHomes,
         storage,
+        userItems: userItems.filter(ui => ui.item && !ui.item.hidden),
       };
     }),
 
@@ -139,7 +187,7 @@ export const homeRouter = createTRPCRouter({
 
   storeItem: protectedProcedure
     .input(z.object({
-      itemId: z.string(),
+      userItemId: z.string(),
       slot: z.number(),
     }))
     .output(baseServerResponse)
@@ -164,16 +212,39 @@ export const homeRouter = createTRPCRouter({
       });
       if (existingItem) return errorResponse("Slot already occupied");
 
-      await ctx.drizzle.insert(userHomeStorage).values({
-        id: crypto.randomUUID(),
-        userHomeId: userHomeData.id,
-        itemId: input.itemId,
-        slot: input.slot,
+      const userItem = await ctx.drizzle.query.userItem.findFirst({
+        where: and(
+          eq(userItem.userId, ctx.userId),
+          eq(userItem.id, input.userItemId),
+        ),
+        with: {
+          item: true,
+        },
+      });
+      if (!userItem) return errorResponse("Item not found in your inventory");
+      if (userItem.equipped !== "NONE") return errorResponse("Cannot store equipped items");
+
+      await ctx.drizzle.transaction(async (tx) => {
+        if (userItem.quantity > 1) {
+          await tx.update(userItem)
+            .set({ quantity: userItem.quantity - 1 })
+            .where(eq(userItem.id, input.userItemId));
+        } else {
+          await tx.delete(userItem)
+            .where(eq(userItem.id, input.userItemId));
+        }
+
+        await tx.insert(userHomeStorage).values({
+          id: crypto.randomUUID(),
+          userHomeId: userHomeData.id,
+          itemId: userItem.itemId,
+          slot: input.slot,
+        });
       });
 
       return {
         success: true,
-        message: "Item stored successfully",
+        message: `${userItem.item.name} stored successfully`,
       };
     }),
 
@@ -188,19 +259,49 @@ export const homeRouter = createTRPCRouter({
       });
       if (!userHomeData) return errorResponse("You don't own a home");
 
-      const result = await ctx.drizzle.delete(userHomeStorage)
-        .where(and(
+      const storedItem = await ctx.drizzle.query.userHomeStorage.findFirst({
+        where: and(
           eq(userHomeStorage.userHomeId, userHomeData.id),
           eq(userHomeStorage.slot, input.slot),
-        ));
+        ),
+        with: {
+          item: true,
+        },
+      });
+      if (!storedItem) return errorResponse("No item found in that slot");
 
-      if (result.rowsAffected === 0) {
-        return errorResponse("No item found in that slot");
-      }
+      await ctx.drizzle.transaction(async (tx) => {
+        // Remove from storage
+        await tx.delete(userHomeStorage)
+          .where(eq(userHomeStorage.id, storedItem.id));
+
+        // Add to user inventory
+        const existingUserItem = await tx.query.userItem.findFirst({
+          where: and(
+            eq(userItem.userId, ctx.userId),
+            eq(userItem.itemId, storedItem.itemId),
+            eq(userItem.equipped, "NONE"),
+          ),
+        });
+
+        if (existingUserItem) {
+          await tx.update(userItem)
+            .set({ quantity: existingUserItem.quantity + 1 })
+            .where(eq(userItem.id, existingUserItem.id));
+        } else {
+          await tx.insert(userItem).values({
+            id: crypto.randomUUID(),
+            userId: ctx.userId,
+            itemId: storedItem.itemId,
+            quantity: 1,
+            equipped: "NONE",
+          });
+        }
+      });
 
       return {
         success: true,
-        message: "Item removed successfully",
+        message: `${storedItem.item.name} returned to your inventory`,
       };
     }),
 

@@ -193,21 +193,44 @@ export default function Home() {
                       className="aspect-square border border-gray-300 rounded-lg p-2 flex items-center justify-center"
                     >
                       {storedItem ? (
-                        <button
-                          className="text-red-500 hover:text-red-600"
-                          onClick={() => removeItem({ slot: i })}
-                          disabled={isRemovingItem}
-                        >
-                          Remove Item
-                        </button>
+                        <div className="flex flex-col items-center gap-2">
+                          <Image
+                            src={storedItem.item.image}
+                            alt={storedItem.item.name}
+                            width={32}
+                            height={32}
+                            className="rounded-md"
+                          />
+                          <p className="text-sm font-medium">{storedItem.item.name}</p>
+                          <button
+                            className="text-red-500 hover:text-red-600 text-sm"
+                            onClick={() => removeItem({ slot: i })}
+                            disabled={isRemovingItem}
+                          >
+                            Remove
+                          </button>
+                        </div>
                       ) : (
-                        <button
-                          className="text-blue-500 hover:text-blue-600"
-                          onClick={() => storeItem({ itemId: "some-item", slot: i })}
-                          disabled={isStoringItem}
-                        >
-                          Store Item
-                        </button>
+                        <div className="text-center">
+                          <p className="text-sm text-gray-500 mb-2">Empty Slot</p>
+                          <select
+                            className="w-full max-w-[200px] text-sm p-1 border rounded"
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                storeItem({ userItemId: e.target.value, slot: i });
+                              }
+                            }}
+                            value=""
+                            disabled={isStoringItem}
+                          >
+                            <option value="">Select Item</option>
+                            {data?.userItems.map((userItem) => (
+                              <option key={userItem.id} value={userItem.id}>
+                                {userItem.item.name} ({userItem.quantity})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                     </div>
                   );
