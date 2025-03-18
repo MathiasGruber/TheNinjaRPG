@@ -719,6 +719,9 @@ export const combatRouter = createTRPCRouter({
       if (potentialOpponents.length > 0) {
         // Get the opponent who has been waiting the longest
         const opponent = potentialOpponents[0];
+        if (!opponent) {
+          return { success: false, message: "No opponent found" };
+        }
 
         // Start the battle
         const result = await initiateBattle(
@@ -823,6 +826,7 @@ export const combatRouter = createTRPCRouter({
         if (potentialOpponents.length > 0) {
           // Get the opponent who has been waiting the longest
           const opponent = potentialOpponents[0];
+          if (!opponent) continue;
 
           // Start the battle
           const result = await initiateBattle(
