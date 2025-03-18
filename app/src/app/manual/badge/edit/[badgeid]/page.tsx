@@ -92,7 +92,7 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
           schema={BadgeValidator}
           form={form}
           formData={formData}
-          showSubmit={form.formState.isDirty}
+          showSubmit={true}
           buttonTxt="Save to Database"
           type="badge"
           allowImageUpload={true}

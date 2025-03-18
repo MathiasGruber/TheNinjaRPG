@@ -116,6 +116,12 @@ const RichInput: React.FC<RichInputProps> = (props) => {
               field.onChange(current + emojiData.emoji);
               setEmojiOpen(false);
             }}
+            style={
+              {
+                "--epr-emoji-gap": "2px",
+                "--epr-emoji-size": "16px",
+              } as React.CSSProperties
+            }
           />
         </div>
 

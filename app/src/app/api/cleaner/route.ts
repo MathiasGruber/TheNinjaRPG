@@ -11,7 +11,7 @@ import { conversation, user2conversation, conversationComment } from "@/drizzle/
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { secondsFromNow } from "@/utils/time";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
-import { userReport } from "@/drizzle/schema";
+import { automatedModeration } from "@/drizzle/schema";
 
 export async function GET() {
   // Check timer
@@ -220,25 +220,14 @@ export async function GET() {
       sql`UPDATE ${userData} u INNER JOIN ${clan} c ON u.clanId = c.id SET u.villageId = c.villageId WHERE c.hasHideout = true AND u.villageId != c.villageId`,
     );
 
-    // Step 30: Re-ban & re-silence users who are not banned or silenced
-    // Re-ban users with active BAN_ACTIVATED reports
+    // Step 30: Reduce tavern activity every day by 50%
     await drizzleDB.execute(
-      sql`UPDATE ${userData} u 
-          INNER JOIN ${userReport} r ON u.userId = r.reportedUserId 
-          SET u.isBanned = 1 
-          WHERE u.isBanned = 0 
-          AND r.status = 'BAN_ACTIVATED' 
-          AND (r.banEnd IS NULL OR r.banEnd > CURRENT_TIMESTAMP(3))`,
+      sql`UPDATE ${userData} SET tavernMessages = FLOOR(tavernMessages * 0.95)`,
     );
 
-    // Re-silence users with active SILENCE_ACTIVATED reports
+    // Step 31: Clear automatedModeration older than  3 months
     await drizzleDB.execute(
-      sql`UPDATE ${userData} u 
-          INNER JOIN ${userReport} r ON u.userId = r.reportedUserId 
-          SET u.isSilenced = 1 
-          WHERE u.isSilenced = 0 
-          AND r.status = 'SILENCE_ACTIVATED' 
-          AND (r.banEnd IS NULL OR r.banEnd > CURRENT_TIMESTAMP(3))`,
+      sql`DELETE FROM ${automatedModeration} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 3 MONTH`,
     );
 
     return Response.json(`OK`);

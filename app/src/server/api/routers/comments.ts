@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { eq, or, and, sql, desc, asc, inArray, isNull, notInArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
+import { format } from "date-fns";
 import {
   village,
   userBlackList,
@@ -19,6 +20,7 @@ import {
   ratelimitMiddleware,
   hasUserMiddleware,
 } from "@/server/api/trpc";
+import { getNewReactions } from "@/utils/chat";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
@@ -370,6 +372,7 @@ export const commentsRouter = createTRPCRouter({
           conversationId: conversationComment.conversationId,
           isPinned: conversationComment.isPinned,
           isReported: conversationComment.isReported,
+          reactions: conversationComment.reactions,
           villageName: village.name,
           villageHexColor: village.hexColor,
           villageKageId: village.kageId,
@@ -383,6 +386,7 @@ export const commentsRouter = createTRPCRouter({
           customTitle: posterUser.customTitle,
           federalStatus: posterUser.federalStatus,
           nRecruited: posterUser.nRecruited,
+          tavernMessages: posterUser.tavernMessages,
         })
         .from(conversationComment)
         .innerJoin(posterUser, eq(posterUser.userId, conversationComment.userId))
@@ -456,6 +460,7 @@ export const commentsRouter = createTRPCRouter({
             createdAt: conversationComment.createdAt,
             content: conversationComment.content,
             conversationId: conversationComment.conversationId,
+            reactions: conversationComment.reactions,
             isPinned: conversationComment.isPinned,
             isReported: conversationComment.isReported,
             villageName: village.name,
@@ -471,6 +476,7 @@ export const commentsRouter = createTRPCRouter({
             customTitle: userData.customTitle,
             federalStatus: userData.federalStatus,
             nRecruited: userData.nRecruited,
+            tavernMessages: userData.tavernMessages,
           })
           .from(conversationComment)
           .innerJoin(userData, eq(conversationComment.userId, userData.userId))
@@ -529,22 +535,30 @@ export const commentsRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .use(hasUserMiddleware)
     .input(mutateCommentSchema)
+    .output(baseServerResponse.extend({ commentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Fetch data
-      const [convo, user] = await Promise.all([
+      const [convo, user, quotes] = await Promise.all([
         fetchConversation({
           client: ctx.drizzle,
           id: input.object_id,
           userId: ctx.userId,
         }),
         fetchUser(ctx.drizzle, ctx.userId),
+        fetchComments(ctx.drizzle, input.quoteIds || []),
       ]);
       // Guard
       if (user.isBanned || user.isSilenced) {
         throw serverError("UNAUTHORIZED", "You are banned");
       }
+      quotes.forEach((quote) => {
+        if (quote.conversationId !== convo.id) {
+          throw serverError("BAD_REQUEST", "Quote not found");
+        }
+      });
+      // Update inbox news
       const userIds = convo.users.map((u) => u.userId);
-      if (userIds.length > 0) {
+      if (userIds.length > 0 && !convo.isPublic) {
         await ctx.drizzle
           .update(userData)
           .set({ inboxNews: sql`${userData.inboxNews} + 1` })
@@ -565,8 +579,19 @@ export const commentsRouter = createTRPCRouter({
             (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
           );
       }
+      // Create the content, santizied & with added quotes
+      let content = input.comment;
+      if (quotes.length > 0) {
+        const quoteContent = quotes
+          .map(
+            (q) =>
+              `<blockquote author="${q.user?.username || "Unknown"}" date="${format(q.createdAt, "MM/dd/yyyy")}">${q.content}</blockquote>`,
+          )
+          .join("");
+        content = `${quoteContent}\n\n${content}`;
+      }
+      const sanitized = sanitize(content);
       // Auto-moderation
-      const sanitized = sanitize(input.comment);
       await Promise.all([
         ...(convo.isPublic
           ? [
@@ -577,6 +602,10 @@ export const commentsRouter = createTRPCRouter({
                 relationId: commentId,
                 contextId: convo.id,
               }),
+              ctx.drizzle
+                .update(userData)
+                .set({ tavernMessages: sql`${userData.tavernMessages} + 1` })
+                .where(eq(userData.userId, ctx.userId)),
             ]
           : []),
         ctx.drizzle.insert(conversationComment).values({
@@ -591,7 +620,49 @@ export const commentsRouter = createTRPCRouter({
           .where(eq(conversation.id, convo.id)),
       ]);
       // Insert
-      return { success: true, message: "Comment posted" };
+      return { success: true, message: "Comment posted", commentId: commentId };
+    }),
+  reactConversationComment: protectedProcedure
+    .input(z.object({ commentId: z.string(), emoji: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, comment] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.conversationComment.findFirst({
+          where: eq(conversationComment.id, input.commentId),
+        }),
+      ]);
+      // Guard
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.isSilenced) return errorResponse("You are silenced");
+      if (!comment) return errorResponse("Comment not found");
+      // Figure out new reactions
+      const newReactions = getNewReactions(
+        comment.reactions,
+        input.emoji,
+        user.username,
+      );
+      // Update the conversation & mutate
+      const pusher = getServerPusher();
+      await Promise.all([
+        ctx.drizzle
+          .update(conversationComment)
+          .set({ reactions: newReactions })
+          .where(eq(conversationComment.id, input.commentId)),
+        ...(comment?.conversationId
+          ? [
+              pusher.trigger(comment.conversationId, "event", {
+                message: "reaction",
+                fromId: ctx.userId,
+                commentId: comment.id,
+                emoji: input.emoji,
+                username: user.username,
+              }),
+            ]
+          : []),
+      ]);
+      return { success: true, message: "Reaction added" };
     }),
   editConversationComment: protectedProcedure
     .input(mutateCommentSchema)
@@ -653,6 +724,31 @@ export const commentsRouter = createTRPCRouter({
       return { success: true, message: "Comment deleted" };
     }),
 });
+
+/**
+ * Fetches comments from the database.
+ * @param client - The DrizzleClient instance used for database operations.
+ * @param ids - An array of comment IDs to fetch.
+ * @returns An array of comments.
+ */
+export const fetchComments = async (client: DrizzleClient, ids: string[]) => {
+  if (ids.length > 0) {
+    const comments = await client.query.conversationComment.findMany({
+      where: inArray(conversationComment.id, ids),
+      with: {
+        user: {
+          columns: {
+            userId: true,
+            username: true,
+          },
+        },
+      },
+    });
+    return comments;
+  } else {
+    return [];
+  }
+};
 
 interface FetchConvoOptions {
   client: DrizzleClient;

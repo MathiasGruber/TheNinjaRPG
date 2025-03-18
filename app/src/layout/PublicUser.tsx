@@ -36,7 +36,8 @@ import { ActionSelector } from "@/layout/CombatActions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { JUTSU_LEVEL_CAP, TrainingSpeeds } from "@/drizzle/constants";
+import { TrainingSpeeds } from "@/drizzle/constants";
+import GlowingBorder from "./GlowingBorder";
 import { TransactionHistory } from "src/app/points/page";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { EditContent } from "@/layout/EditContent";
@@ -278,8 +279,8 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     ? profile.isBanned
       ? "BANNED"
       : profile.isSilenced
-      ? "SILENCED"
-      : "GOOD STANDING"
+        ? "SILENCED"
+        : "GOOD STANDING"
     : "Loading...";
 
   // Derived
@@ -491,6 +492,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             {canSeeSecrets && <p>Unclaimed Exp: {profile.earnedExperience}</p>}
             <p>Experience for lvl: ---</p>
             <p>PVE Fights: {`${profile.pveFights} (+${todayPveCount})`}</p>
+            <p>Yapper Rank: {profile.tavernMessages}</p>
             <br />
             <b>Special</b>
             <p>Reputation points: {profile.reputationPoints}</p>
@@ -518,20 +520,26 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           </div>
           <div>
             <div className="basis-1/3">
-              <div className="relative">
-                <AvatarImage
-                  href={profile.avatar}
-                  alt={profile.username}
-                  userId={profile.userId}
-                  hover_effect={false}
-                  priority={true}
-                  size={100}
-                />
+              <div className="relative flex justify-center">
+                <GlowingBorder
+                  messageCount={profile.tavernMessages}
+                  className="rounded-2xl"
+                >
+                  <AvatarImage
+                    href={profile.avatar}
+                    alt={profile.username}
+                    userId={profile.userId}
+                    hover_effect={false}
+                    className="w-full"
+                    priority={true}
+                    size={100}
+                  />
+                </GlowingBorder>
                 {canChange && !profile.isAi && (
                   <Confirm
                     title="Confirm Deletion"
                     button={
-                      <RefreshCcwDot className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer rounded-full bg-slate-300 p-1 hover:text-orange-500" />
+                      <RefreshCcwDot className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer z-10 rounded-full bg-slate-300 p-1 hover:text-orange-500" />
                     }
                     onAccept={(e) => {
                       e.preventDefault();
@@ -968,7 +976,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
             schema={updateUserSchema}
             form={form}
             formData={formData}
-            showSubmit={form.formState.isDirty}
+            showSubmit={true}
             buttonTxt="Save to Database"
             type="ai"
             allowImageUpload={true}

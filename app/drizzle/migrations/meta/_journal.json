@@ -1408,6 +1408,20 @@
       "when": 1741234676167,
       "tag": "0200_stale_warbound",
       "breakpoints": false
+    },
+    {
+      "idx": 201,
+      "version": "5",
+      "when": 1741610335397,
+      "tag": "0201_wide_zaladane",
+      "breakpoints": false
+    },
+    {
+      "idx": 202,
+      "version": "5",
+      "when": 1741880923688,
+      "tag": "0202_broad_nitro",
+      "breakpoints": false
     }
   ]
 }

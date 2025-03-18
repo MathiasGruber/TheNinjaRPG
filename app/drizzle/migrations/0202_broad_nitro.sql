@@ -1,0 +1,1 @@
+ALTER TABLE `ConversationComment` ADD `reactions` json DEFAULT ('{}') NOT NULL;

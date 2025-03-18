@@ -143,7 +143,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
               schema={insertAiSchema}
               form={form}
               formData={formData}
-              showSubmit={form.formState.isDirty}
+              showSubmit={true}
               buttonTxt="Save to Database"
               type="ai"
               allowImageUpload={true}

@@ -19,6 +19,9 @@ Sentry.init({
   // Only enable Sentry in production
   enabled: process.env.NODE_ENV !== "development",
 
+  // Only on production URLs
+  allowUrls: [/https?:\/\/(www\.)?theninja-rpg\.com.*/],
+
   // Uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: process.env.NODE_ENV === 'development',
 });

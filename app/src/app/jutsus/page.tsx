@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Trash2, CircleFadingArrowUp, ArrowRightLeft } from "lucide-react";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
@@ -36,8 +36,9 @@ import {
 } from "@/drizzle/constants";
 import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
-import type { Jutsu, UserJutsu } from "@/drizzle/schema";
 import { canTransferJutsu } from "@/utils/permissions";
+import type { Jutsu, UserJutsu } from "@/drizzle/schema";
+
 
 
 export default function MyJutsu() {
@@ -84,8 +85,18 @@ export default function MyJutsu() {
   });
 
   // Transfer costs
-  const freeTransfers = getFreeTransfers(userData?.federalStatus || "NONE");
-  const usedTransfers = recentTransfers?.length || 0;
+  const [usedTransfers, setUsedTransfers] = useState(0);
+  const [freeTransfers, setFreeTransfers] = useState(0);
+
+  // Auto-update when recentTransfers change
+  useEffect(() => {
+    if (recentTransfers) {
+      setUsedTransfers(recentTransfers.length);
+    }
+    if (userData) {
+      setFreeTransfers(getFreeTransfers(userData.federalStatus || "NONE"));
+    }
+  }, [recentTransfers, userData]);
 
   const onSettled = () => {
     document.body.style.cursor = "default";
@@ -159,7 +170,9 @@ export default function MyJutsu() {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success && userData) {
-          await utils.jutsu.getUserJutsus.invalidate();
+          await utils.jutsu.getUserJutsus.invalidate(); // Refresh Jutsu list
+          await utils.jutsu.getRecentTransfers.invalidate(); // 🔹 Refresh free transfers
+          await utils.profile.getUser.invalidate(); // Refresh user profile to update free transfer count
           if (usedTransfers >= freeTransfers && transferCost > 0) {
             await updateUser({
               reputationPoints: userData.reputationPoints - transferCost,
@@ -421,9 +434,9 @@ export default function MyJutsu() {
                         </p>
                         <p>
                           Cost:{" "}
-                          {usedTransfers >= freeTransfers && transferCost > 0
-                            ? `${transferCost} reputation points`
-                            : "Free"}
+                          {usedTransfers < freeTransfers
+                            ? `Free (${Math.max(0, freeTransfers - usedTransfers)} remaining)`
+                            : `${transferCost} reputation points`}
                         </p>
                       </>
                     ) : (

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
-import { or, eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
+import { eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
 import { reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
@@ -426,11 +426,13 @@ export const reportsRouter = createTRPCRouter({
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }
       };
-      const [{ infraction, context }, { decision, aiInterpretation }] =
-        await Promise.all([
-          getInfraction(input.system),
-          generateModerationDecision(ctx.drizzle, JSON.stringify(input)),
-        ]);
+      // Create interpretation
+      const { infraction, context } = await getInfraction(input.system);
+      const { decision, aiInterpretation } = await generateModerationDecision(
+        ctx.drizzle,
+        JSON.stringify(input),
+        context,
+      );
       // Guard
       if (!infraction) return errorResponse("Infraction not found");
       if ("isReported" in infraction && infraction.isReported) {
@@ -776,6 +778,81 @@ export const reportsRouter = createTRPCRouter({
         });
         return { success: true, message: "Staff review created" };
       }
+    }),
+  getUserModerationSummary: protectedProcedure
+    .input(z.object({ userId: z.string().optional() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const targetUserId = input.userId ?? ctx.userId;
+      const [user, results] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle
+          .select({
+            totalEntries: sql<number>`COUNT(*)`.mapWith(Number),
+            sexual:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.sexual} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            sexual_minors:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.sexual_minors} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            harassment:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.harassment} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            harassment_threatening:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.harassment_threatening} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            hate: sql<number>`SUM(CASE WHEN ${automatedModeration.hate} = true THEN 1 ELSE 0 END)`.mapWith(
+              Number,
+            ),
+            hate_threatening:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.hate_threatening} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            illicit:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.illicit} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            illicit_violent:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.illicit_violent} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            self_harm:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.self_harm} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            self_harm_intent:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.self_harm_intent} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            self_harm_instructions:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.self_harm_instructions} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            violence:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.violence} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+            violence_graphic:
+              sql<number>`SUM(CASE WHEN ${automatedModeration.violence_graphic} = true THEN 1 ELSE 0 END)`.mapWith(
+                Number,
+              ),
+          })
+          .from(automatedModeration)
+          .where(eq(automatedModeration.userId, targetUserId)),
+      ]);
+
+      // Only allow users to see their own moderation data or staff to see anyone's
+      if (targetUserId !== ctx.userId && !canSeeSecretData(user.role)) {
+        throw serverError(
+          "UNAUTHORIZED",
+          "You cannot view this user's moderation data",
+        );
+      }
+      return results;
     }),
 });
 

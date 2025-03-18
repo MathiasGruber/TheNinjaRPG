@@ -139,31 +139,38 @@ export const marriageRouter = createTRPCRouter({
     .input(z.object({ userId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const associations = await fetchAssociations(ctx.drizzle, ctx.userId, "MARRIAGE");
-      const associationToUpdate = associations.find(
+      // Derived
+      const marriage = associations.find(
         (x) =>
           (x.userOne.userId === input.userId || x.userTwo.userId === input.userId) &&
           x.associationType === "MARRIAGE",
       );
-
-      if (associationToUpdate) {
-        await Promise.all([
-          await updateAssociation(
-            ctx.drizzle,
-            associationToUpdate.id,
-            "MARRIAGE",
-            "DIVORCED",
-          ),
-        ]);
+      const prevDivorce = associations.find(
+        (x) =>
+          (x.userOne.userId === input.userId || x.userTwo.userId === input.userId) &&
+          x.associationType === "DIVORCED",
+      );
+      // Guard
+      if (!marriage) return errorResponse("Marriage was unable to be found");
+      // Mutate
+      if (prevDivorce) {
+        await deleteAssociation(ctx.drizzle, marriage.id);
       } else {
-        return errorResponse("Marriage was unable to be found");
+        await updateAssociation(ctx.drizzle, marriage.id, "MARRIAGE", "DIVORCED");
       }
-
-      void pusher.trigger(input.userId, "event", { type: "DIVORCED" });
       return { success: true, message: "Divorce finalized" };
     }),
 });
 
+/**
+ * Inserts a new association into the database
+ * @param client - The database client
+ * @param userOne - The first user in the association
+ * @param userTwo - The second user in the association
+ * @param associationType - The type of association
+ */
 export const insertAssociation = async (
   client: DrizzleClient,
   userOne: string,
@@ -178,6 +185,13 @@ export const insertAssociation = async (
   });
 };
 
+/**
+ * Updates an existing association in the database
+ * @param client - The database client
+ * @param associationId - The ID of the association to update
+ * @param currentAssociationType - The current type of association
+ * @param associationType - The new type of association
+ */
 export const updateAssociation = async (
   client: DrizzleClient,
   associationId: string,
@@ -193,9 +207,26 @@ export const updateAssociation = async (
         eq(userAssociation.associationType, currentAssociationType),
       ),
     );
-  return { success: true, message: "Challenge state updated" };
 };
 
+/**
+ * Deletes an association from the database
+ * @param client - The database client
+ * @param associationId - The ID of the association to delete
+ */
+export const deleteAssociation = async (
+  client: DrizzleClient,
+  associationId: string,
+) => {
+  await client.delete(userAssociation).where(eq(userAssociation.id, associationId));
+};
+
+/**
+ * Fetches associations from the database
+ * @param client - The database client
+ * @param idOne - The ID of the first user in the association
+ * @param type - The type of association to fetch
+ */
 export const fetchAssociations = async (
   client: DrizzleClient,
   idOne?: string,

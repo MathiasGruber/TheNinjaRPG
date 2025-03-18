@@ -20,6 +20,7 @@ export interface PostProps {
     villageHexColor?: string | null;
     nRecruited?: number | null;
     federalStatus: FederalStatus;
+    tavernMessages?: number | null;
   };
   className?: string;
   image?: React.ReactNode;
@@ -29,6 +30,8 @@ export interface PostProps {
   options?: React.ReactNode;
   align_middle?: boolean;
   hover_effect?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 const Post: React.FC<PostProps> = (props) => {
@@ -59,7 +62,7 @@ const Post: React.FC<PostProps> = (props) => {
   switch (props.user?.federalStatus) {
     case "NORMAL":
       userColor =
-        "bg-linear-to-r from-blue-800 via-blue-500 to-blue-800 bg-clip-text text-transparent font-black";
+        "bg-linear-to-r from-sky-500 via-sky-300 to-sky-500 bg-clip-text text-transparent font-black";
       break;
     case "SILVER":
       userColor =
@@ -120,7 +123,9 @@ const Post: React.FC<PostProps> = (props) => {
     <div className="basis-1/4">
       <div className={`${userColor} font-bold`}>{props.user.username}</div>
       <div className="text-xs pt-1 pb-4">
-        <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Lvl. {props.user.level}</span>
+        <span className="bg-slate-300 p-1 m-1 rounded-md text-black">
+          Lvl. {props.user.level}
+        </span>
         <span className="bg-slate-300 p-1 m-1 rounded-md text-black">
           {showUserRank(props.user)}
         </span>
@@ -130,21 +135,31 @@ const Post: React.FC<PostProps> = (props) => {
           </span>
         )}
         {props.user.villageKageId && props.user.villageKageId === props.user.userId && (
-          <span className="bg-slate-300 p-1 m-1 rounded-md">Kage</span>
+          <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Kage</span>
         )}
         {props.user?.role !== "USER" && (
-          <span className={`${userRole} p-1 m-1 rounded-md`}>
+          <span
+            className={`${userRole} p-1 m-1 rounded-md ${
+              ["CODER", "MODERATOR", "JR_MODERATOR"].includes(props.user.role) 
+                ? "text-black" 
+                : ""
+            }`}
+          >
             {capitalizeFirstLetter(props.user?.role)}
           </span>
         )}
         {props.user.villageName && props.user.villageHexColor && (
-          <span className={`p-1 m-1 rounded-md ${
-            props.user.villageName.toLowerCase() === "glacier" ? "text-black" : "text-white"}`}
+          <span 
+            className={`p-1 m-1 rounded-md ${
+              ["glacier", "shine", "shroud"].includes(props.user.villageName.toLowerCase()) 
+                ? "text-black" 
+                : "text-white"
+            }`}
             style={{ backgroundColor: props.user.villageHexColor }}
           >
             {props.user.villageName}
           </span>
-         )}
+        )}
       </div>
     </div>
   );
@@ -156,6 +171,8 @@ const Post: React.FC<PostProps> = (props) => {
       } rounded-lg border ${color} px-1 py-3 shadow ${props.hover_effect ? hover : ""} ${
         props.className ? props.className : ""
       }`}
+      onMouseEnter={props.onMouseEnter}
+      onMouseLeave={props.onMouseLeave}
     >
       {props.image}
       {props.user && (

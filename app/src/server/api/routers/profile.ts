@@ -931,6 +931,7 @@ export const profileRouter = createTRPCRouter({
             userId: true,
             username: true,
             villageId: true,
+            tavernMessages: true,
           },
           with: {
             village: true,
@@ -1567,9 +1568,11 @@ export const fetchPublicUsers = async (
       case "Weakest":
         return [asc(userData.level), asc(userData.experience)];
       case "Staff":
-        return [desc(userData.role)];
+        return [desc(userData.tavernMessages)];
       case "Outlaws":
         return [desc(userData.villagePrestige)];
+      case "Community":
+        return [desc(userData.tavernMessages)];
     }
   };
   const [users, user] = await Promise.all([
@@ -1617,6 +1620,7 @@ export const fetchPublicUsers = async (
         userId: true,
         username: true,
         villagePrestige: true,
+        tavernMessages: true,
       },
       // If AI, also include relations information
       with: {

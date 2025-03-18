@@ -3,7 +3,6 @@ import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import Countdown from "@/layout/Countdown";
 import Modal from "@/layout/Modal";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CircleHelp } from "lucide-react";
 import { secondsFromNow, secondsFromDate } from "@/utils/time";
 import { getObjectiveImage } from "@/libs/objectives";
