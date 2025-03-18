@@ -828,6 +828,18 @@ export const combatRouter = createTRPCRouter({
           const opponent = potentialOpponents[0];
           if (!opponent) continue;
 
+          // Double check both players are still in queue
+          const [playerStillQueued, opponentStillQueued] = await Promise.all([
+            ctx.drizzle.query.rankedPvpQueue.findFirst({
+              where: eq(rankedPvpQueue.userId, player.userId),
+            }),
+            ctx.drizzle.query.rankedPvpQueue.findFirst({
+              where: eq(rankedPvpQueue.userId, opponent.userId),
+            }),
+          ]);
+
+          if (!playerStillQueued || !opponentStillQueued) continue;
+
           // Start the battle
           const result = await initiateBattle(
             {
@@ -854,7 +866,7 @@ export const combatRouter = createTRPCRouter({
           );
 
           if (result.success && result.battleId) {
-            // Remove both users from queue
+            // Remove both users from queue and update their status
             await Promise.all([
               ctx.drizzle
                 .delete(rankedPvpQueue)
@@ -862,7 +874,6 @@ export const combatRouter = createTRPCRouter({
               ctx.drizzle
                 .delete(rankedPvpQueue)
                 .where(eq(rankedPvpQueue.userId, opponent.userId)),
-              // Update both users' status
               ctx.drizzle
                 .update(userData)
                 .set({ 
@@ -879,6 +890,19 @@ export const combatRouter = createTRPCRouter({
                   updatedAt: new Date(),
                 })
                 .where(eq(userData.userId, opponent.userId)),
+            ]);
+
+            // Notify both players about the match
+            const pusher = getServerPusher();
+            await Promise.all([
+              pusher.trigger(player.userId, "event", { 
+                type: "battle", 
+                battleId: result.battleId 
+              }),
+              pusher.trigger(opponent.userId, "event", { 
+                type: "battle", 
+                battleId: result.battleId 
+              }),
             ]);
 
             return { success: true, message: "Match found!", battleId: result.battleId };
