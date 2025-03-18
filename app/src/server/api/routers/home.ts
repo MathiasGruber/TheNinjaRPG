@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, gte, and, sql } from "drizzle-orm";
-import { userData, userHome, homeType, userHomeStorage } from "@/drizzle/schema";
+import { userData, userHome, homeType, userHomeStorage, userItem } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
