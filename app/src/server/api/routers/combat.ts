@@ -796,7 +796,7 @@ export const combatRouter = createTRPCRouter({
       return { success: true, message: "Left ranked PvP queue" };
     }),
   checkRankedPvpMatches: protectedProcedure
-    .output(baseServerResponse)
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx }) => {
       // Get all queued players
       const queuedPlayers = await ctx.drizzle.query.rankedPvpQueue.findMany({
@@ -876,6 +876,8 @@ export const combatRouter = createTRPCRouter({
                 })
                 .where(eq(userData.userId, opponent.userId)),
             ]);
+
+            return { success: true, message: "Match found!", battleId: result.battleId };
           }
         }
       }
