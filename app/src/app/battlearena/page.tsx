@@ -42,10 +42,12 @@ import { Input } from "@/components/ui/input";
 import type { z } from "zod";
 import type { GenericObject } from "@/layout/ItemWithEffects";
 import type { StatSchemaType } from "@/libs/combat/types";
+import { RankedPvp } from "./components/RankedPvp";
+import { RankedPvpQueue } from "./components/RankedPvpQueue";
 
 export default function Arena() {
   // Tab selection
-  const availableTabs = ["Arena", "Sparring", "Training Arena"] as const;
+  const availableTabs = ["Arena", "Sparring", "Training Arena", "Ranked PvP"] as const;
   type TabType = (typeof availableTabs)[number];
   const [tab, setTab] = useLocalStorage<TabType | null>("arenaTab", "Arena", true);
   console.log(tab);
@@ -75,7 +77,31 @@ export default function Arena() {
     case "Training Arena":
       subtitle = "Training Dummy";
       break;
+    case "Ranked PvP":
+      subtitle = `Current LP: ${userData?.rankedLp}`;
+      break;
   }
+
+  const { data: queueData } = api.combat.getRankedPvpQueue.useQuery();
+  const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        showMutationToast({ ...result, message: "Queued for ranked PvP" });
+      } else {
+        showMutationToast(result);
+      }
+    },
+  });
+
+  const { mutate: leaveQueue, isPending: isLeaving } = api.combat.leaveRankedPvpQueue.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        showMutationToast({ ...result, message: "Left ranked PvP queue" });
+      } else {
+        showMutationToast(result);
+      }
+    },
+  });
 
   return (
     <>
@@ -104,6 +130,7 @@ export default function Arena() {
             </p>
           </div>
         )}
+        {tab === "Ranked PvP" && <RankedPvp />}
       </ContentBox>
       {tab === "Arena" && <SelectAI aiId={aiId} setAiId={setAiId} />}
       {tab === "Sparring" && <ActiveChallenges />}
@@ -113,6 +140,7 @@ export default function Arena() {
           setStatDistribution={setStatDistribution}
         />
       )}
+      {tab === "Ranked PvP" && <RankedPvpQueue />}
     </>
   );
 }
