@@ -81,7 +81,9 @@ export default function Arena() {
   }
 
   // Ranked PvP queue state and mutations
-  const { data: queueData } = api.combat.getRankedPvpQueue.useQuery();
+  const { data: queueData } = api.combat.getRankedPvpQueue.useQuery(undefined, {
+    enabled: !!userData,
+  });
   const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
     onSuccess: (result) => {
       if (result.success) {
