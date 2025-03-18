@@ -737,7 +737,7 @@ export const combatRouter = createTRPCRouter({
               bukijutsuDefence: 450000,
             },
           },
-          "RANKED_PVP",
+          "RANKED",
         );
 
         if (result.success && result.battleId) {
