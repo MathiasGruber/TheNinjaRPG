@@ -36,6 +36,7 @@ export const homeRouter = createTRPCRouter({
             name: z.string(),
             image: z.string(),
             description: z.string(),
+            hidden: z.boolean(),
           }),
         })).optional(),
         userItems: z.array(z.object({
@@ -47,6 +48,7 @@ export const homeRouter = createTRPCRouter({
             name: z.string(),
             image: z.string(),
             description: z.string(),
+            hidden: z.boolean(),
           }),
         })),
       }),
