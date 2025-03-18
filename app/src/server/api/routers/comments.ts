@@ -573,20 +573,32 @@ export const commentsRouter = createTRPCRouter({
       const sanitized = sanitize(content);
       // Derived
       const usersIdsInConvo = convo.users.map((u) => u.userId);
-      let mentionedUserIds: string[] = [];
       const mentionedUserNames = sanitized
         .match(/@([^\s]+)/g)
         ?.map((mention) => mention.slice(1));
+
+      // More efficient approach: fetch mentioned users and blacklists in a single query
+      let mentionedUserIds: string[] = [];
       if (mentionedUserNames && mentionedUserNames.length > 0) {
-        const mentionedUsers = await ctx.drizzle
-          .select({ userId: userData.userId })
-          .from(userData)
-          .where(inArray(userData.username, mentionedUserNames));
-        mentionedUserIds = mentionedUsers.map((u) => u.userId);
+        // Fetch users with their blacklist status in a single query
+        const mentionedUsersWithBlacklist = await ctx.drizzle.query.userData.findMany({
+          where: inArray(userData.username, mentionedUserNames),
+          columns: { userId: true },
+          with: {
+            // Users who have blacklisted the sender (current user is the target)
+            creatorBlacklist: {
+              where: eq(userBlackList.targetUserId, ctx.userId),
+            },
+          },
+        });
+        mentionedUserIds = mentionedUsersWithBlacklist
+          .filter((u) => u.creatorBlacklist.length === 0)
+          .map((u) => u.userId);
       }
+
       // Mutations
       await Promise.all([
-        // Ping users
+        // Ping users (only those not in a blacklist relationship)
         ...mentionedUserIds
           .filter((id) => id !== ctx.userId)
           .map((userId) =>
