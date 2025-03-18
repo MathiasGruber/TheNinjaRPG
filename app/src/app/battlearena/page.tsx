@@ -53,18 +53,25 @@ export default function Arena() {
     StatSchemaType | undefined
   >("statDistribution", undefined);
 
+  // Router for forwarding
+  const router = useRouter();
+
   // Ensure user is in village
   const { userData, access } = useRequireInVillage("/battlearena");
 
   // Ranked PvP queue state and mutations
   const { data: queueData } = api.combat.getRankedPvpQueue.useQuery(undefined, {
     enabled: !!userData,
+    refetchInterval: 5000, // Refetch queue status every 5 seconds
   });
 
   const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
     onSuccess: (result) => {
       if (result.success) {
         showMutationToast({ ...result, message: "Queued for ranked PvP" });
+        if (result.battleId) {
+          router.push("/combat");
+        }
       } else {
         showMutationToast(result);
       }
@@ -80,6 +87,24 @@ export default function Arena() {
       }
     },
   });
+
+  const { mutate: checkMatches } = api.combat.checkRankedPvpMatches.useMutation({
+    onSuccess: (result) => {
+      if (result.success && result.battleId) {
+        router.push("/combat");
+      }
+    },
+  });
+
+  // Check for matches periodically when in queue
+  useEffect(() => {
+    if (queueData?.inQueue) {
+      const interval = setInterval(() => {
+        checkMatches();
+      }, 5000); // Check for matches every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [queueData?.inQueue, checkMatches]);
 
   // Guards
   if (!access) return <Loader explanation="Accessing Battle Arena" />;
