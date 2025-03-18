@@ -168,8 +168,6 @@ export const RankedDivisions = [
 export type RankedDivision = (typeof RankedDivisions)[number]["name"];
 export type RankedDivisionEntry = (typeof RankedDivisions)[number];
 
-
-
 export const ItemTypes = [
   "WEAPON",
   "CONSUMABLE",
@@ -275,7 +273,7 @@ export const BattleTypes = [
   "QUEST",
   "VILLAGE_PROTECTOR",
   "TRAINING",
-  "RANKED"
+  "RANKED",
 ] as const;
 export type BattleType = (typeof BattleTypes)[number];
 
