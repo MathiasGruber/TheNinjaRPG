@@ -169,10 +169,10 @@ export default function Arena() {
               <>
                 <div className="flex flex-col gap-2">
                   <div className="text-sm text-muted-foreground">
-                    Time in queue: {Math.floor(queueStatus.timeInQueue / 60)}:{(queueStatus.timeInQueue % 60).toString().padStart(2, "0")}
+                    Time in queue: {queueStatus.timeInQueue ? `${Math.floor(queueStatus.timeInQueue / 60)}:${(queueStatus.timeInQueue % 60).toString().padStart(2, "0")}` : "0:00"}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Current LP range: ±{queueStatus.lpRange}
+                    Current LP range: ±{queueStatus.lpRange ?? 0}
                   </div>
                 </div>
                 <p className="text-yellow-500">
