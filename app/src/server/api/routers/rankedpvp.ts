@@ -10,6 +10,7 @@ import { calculateLPChange } from "@/libs/combat/ranked";
 import { sql } from "drizzle-orm";
 import type { DrizzleClient } from "@/server/db";
 import { initiateBattle } from "@/libs/combat/actions";
+import { baseServerResponse } from "@/api/trpc";
 
 // K-factor adjustments based on LP
 const K_FACTOR_BASE = 32;
@@ -17,7 +18,7 @@ const STREAK_BONUS = 2;
 
 async function checkRankedPvpMatches(client: DrizzleClient) {
   const queue = await client.select().from(rankedPvpQueue);
-  if (queue.length < 2) return;
+  if (queue.length < 2) return null;
 
   // Sort queue by LP to find closest matches
   queue.sort((a, b) => a.rankedLp - b.rankedLp);
@@ -54,7 +55,7 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
       ]);
 
       // Start the battle
-      await initiateBattle(
+      const result = await initiateBattle(
         client,
         {
           battleType: "RANKED",
@@ -62,9 +63,11 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
         },
         null,
       );
-      break;
+
+      return result.battleId;
     }
   }
+  return null;
 }
 
 export const rankedpvpRouter = createTRPCRouter({
@@ -120,8 +123,10 @@ export const rankedpvpRouter = createTRPCRouter({
       };
     }),
 
-  checkMatches: protectedProcedure.mutation(async ({ ctx }) => {
-    await checkRankedPvpMatches(ctx.drizzle);
-    return { success: true };
-  }),
+  checkMatches: protectedProcedure
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
+    .mutation(async ({ ctx }) => {
+      const battleId = await checkRankedPvpMatches(ctx.drizzle);
+      return { success: true, battleId };
+    }),
 });
