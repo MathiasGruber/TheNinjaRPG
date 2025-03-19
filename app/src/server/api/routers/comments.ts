@@ -425,6 +425,7 @@ export const commentsRouter = createTRPCRouter({
           cursor: z.number().nullish(),
           limit: z.number().min(1).max(100),
           refreshKey: z.number(),
+          searchQuery: z.string().optional(),
         })
         .refine(
           (data) => !!data.convo_id || !!data.convo_title,
@@ -453,6 +454,22 @@ export const commentsRouter = createTRPCRouter({
       ]);
       const posterBlacklist = alias(userBlackList, "posterBlacklist");
       const readerBlacklist = alias(userBlackList, "readerBlacklist");
+
+      // Build where conditions
+      let whereConditions = and(
+        eq(conversationComment.conversationId, convo.id),
+        or(isNull(readerBlacklist.id), inArray(userData.role, canModerateRoles)),
+        isNull(posterBlacklist.id),
+      );
+
+      // Add search filter if searchQuery is provided
+      if (input.searchQuery && input.searchQuery.trim() !== "") {
+        whereConditions = and(
+          whereConditions,
+          sql`${conversationComment.content} LIKE ${`%${input.searchQuery}%`}`,
+        );
+      }
+
       const [comments] = await Promise.all([
         ctx.drizzle
           .select({
@@ -498,13 +515,7 @@ export const commentsRouter = createTRPCRouter({
             ),
           )
           .leftJoin(village, eq(village.id, userData.villageId))
-          .where(
-            and(
-              eq(conversationComment.conversationId, convo.id),
-              or(isNull(readerBlacklist.id), inArray(userData.role, canModerateRoles)),
-              isNull(posterBlacklist.id),
-            ),
-          )
+          .where(whereConditions)
           .orderBy(desc(conversationComment.createdAt))
           .limit(input.limit)
           .offset(skip),
