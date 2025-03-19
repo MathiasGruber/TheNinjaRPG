@@ -248,4 +248,21 @@ export const rankedpvpRouter = createTRPCRouter({
       });
       return { inQueue: !!queueEntry };
     }),
+
+  leaveRankedPvpQueue: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Remove from queue
+      await ctx.drizzle
+        .delete(rankedPvpQueue)
+        .where(eq(rankedPvpQueue.userId, ctx.userId));
+
+      // Update user status
+      await ctx.drizzle
+        .update(userData)
+        .set({ status: "AWAKE" })
+        .where(eq(userData.userId, ctx.userId));
+
+      return { success: true, message: "Left ranked PvP queue" };
+    }),
 });
