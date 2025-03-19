@@ -60,12 +60,12 @@ export default function Arena() {
   const { userData, access } = useRequireInVillage("/battlearena");
 
   // Ranked PvP queue state and mutations
-  const { data: queueStatus } = api.rankedpvp.getQueueStatus.useQuery(
+  const { data: queueStatus, refetch: refetchQueueStatus } = api.rankedpvp.getQueueStatus.useQuery(
     { userId: userData?.userId ?? "" },
     {
       enabled: !!userData,
-      refetchInterval: 1000, // Update every second for the timer
-    }
+      refetchInterval: 1000, // Poll every second
+    },
   );
 
   const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
@@ -73,7 +73,7 @@ export default function Arena() {
       if (result.success) {
         showMutationToast({ ...result, message: "Queued for ranked PvP" });
         if (result.battleId) {
-          router.push("/combat");
+          router.push(`/combat/${result.battleId}`);
         }
       } else {
         showMutationToast(result);
@@ -94,7 +94,7 @@ export default function Arena() {
   const { mutate: checkMatches } = api.rankedpvp.checkMatches.useMutation({
     onSuccess: (result) => {
       if (result.success && result.battleId) {
-        router.push("/combat");
+        router.push(`/combat/${result.battleId}`);
       }
     },
   });
@@ -169,7 +169,7 @@ export default function Arena() {
               <>
                 <div className="flex flex-col gap-2">
                   <div className="text-sm text-muted-foreground">
-                    Time in queue: {queueStatus.timeInQueue ? `${Math.floor(queueStatus.timeInQueue / 60)}:${(queueStatus.timeInQueue % 60).toString().padStart(2, "0")}` : "0:00"}
+                    Time in queue: {queueStatus.timeInQueue ? `${queueStatus.timeInQueue}:${queueStatus.secondsInQueue?.toString().padStart(2, "0") ?? "00"}` : "0:00"}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Current LP range: ±{queueStatus.lpRange ?? 0}
