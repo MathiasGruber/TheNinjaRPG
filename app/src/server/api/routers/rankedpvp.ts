@@ -137,6 +137,10 @@ export const rankedpvpRouter = createTRPCRouter({
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx }) => {
       const battleId = await checkRankedPvpMatches(ctx.drizzle);
-      return { success: true, battleId };
+      return { 
+        success: true, 
+        message: battleId ? "Match found!" : "No matches found.",
+        battleId 
+      };
     }),
 });
