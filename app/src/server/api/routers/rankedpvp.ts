@@ -27,6 +27,9 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
     const player1 = queue[i];
     const player2 = queue[i + 1];
 
+    // Skip if either player is undefined
+    if (!player1 || !player2) continue;
+
     // Calculate queue time in minutes for both players
     const now = new Date();
     const player1QueueTime = (now.getTime() - player1.queueStartTime.getTime()) / (1000 * 60);
