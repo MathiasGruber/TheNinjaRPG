@@ -476,7 +476,7 @@ export const updateUser = async (
             : { status: "AWAKE" }),
           ...(curBattle.battleType === "RANKED" && result.eloDiff
             ? {
-                rankedLp: sql`rankedLp + ${result.eloDiff}`,
+                rankedLp: sql`rankedLp + ${result.didWin > 0 ? result.eloDiff : -result.eloDiff}`,
               }
             : {}),
         })
