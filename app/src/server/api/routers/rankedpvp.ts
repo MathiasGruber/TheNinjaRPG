@@ -18,99 +18,114 @@ const STREAK_BONUS = 2;
 
 async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | null> {
   const queue = await client.select().from(rankedPvpQueue);
-  console.log("Current queue:", queue);
+  console.log("Current queue:", queue.map(q => ({ userId: q.userId, lp: q.rankedLp })));
   
   if (queue.length < 2) {
     console.log("Not enough players in queue:", queue.length);
     return null;
   }
 
-  // Sort queue by LP to find closest matches
-  queue.sort((a, b) => a.rankedLp - b.rankedLp);
-  console.log("Sorted queue by LP:", queue);
+  // Sort queue by queue time (oldest first)
+  queue.sort((a, b) => a.queueStartTime.getTime() - b.queueStartTime.getTime());
+  console.log("Sorted queue by time:", queue.map(q => ({ userId: q.userId, time: q.queueStartTime })));
 
-  for (let i = 0; i < queue.length - 1; i++) {
-    const player1 = queue[i];
-    const player2 = queue[i + 1];
+  // Get the player who has been waiting the longest
+  const oldestPlayer = queue[0];
+  const now = new Date();
+  const oldestPlayerQueueTime = (now.getTime() - oldestPlayer.queueStartTime.getTime()) / (1000 * 60);
+  const oldestPlayerRange = 100 + (Math.floor(oldestPlayerQueueTime / 3) * 50);
+  
+  console.log("Oldest player:", {
+    userId: oldestPlayer.userId,
+    lp: oldestPlayer.rankedLp,
+    queueTime: oldestPlayerQueueTime,
+    range: oldestPlayerRange
+  });
 
-    // Skip if either player is undefined
-    if (!player1 || !player2) continue;
-
-    // Calculate queue time in minutes for both players
-    const now = new Date();
-    const player1QueueTime = (now.getTime() - player1.queueStartTime.getTime()) / (1000 * 60);
-    const player2QueueTime = (now.getTime() - player2.queueStartTime.getTime()) / (1000 * 60);
-
-    // Calculate allowed LP range based on queue time (50 LP per 3 minutes)
-    const player1Range = 100 + (Math.floor(player1QueueTime / 3) * 50);
-    const player2Range = 100 + (Math.floor(player2QueueTime / 3) * 50);
-
-    // Check if players are within each other's range
-    const lpDiff = Math.abs(player1.rankedLp - player2.rankedLp);
+  // Find potential matches for the oldest player
+  const potentialMatches = queue.filter(player => {
+    if (player.userId === oldestPlayer.userId) return false;
+    
+    const playerQueueTime = (now.getTime() - player.queueStartTime.getTime()) / (1000 * 60);
+    const playerRange = 100 + (Math.floor(playerQueueTime / 3) * 50);
+    const lpDiff = Math.abs(player.rankedLp - oldestPlayer.rankedLp);
+    
     console.log("Checking match:", {
-      player1: { id: player1.userId, lp: player1.rankedLp, range: player1Range },
-      player2: { id: player2.userId, lp: player2.rankedLp, range: player2Range },
+      player: { userId: player.userId, lp: player.rankedLp, range: playerRange },
+      oldestPlayer: { userId: oldestPlayer.userId, lp: oldestPlayer.rankedLp, range: oldestPlayerRange },
       lpDiff
     });
 
-    if (lpDiff <= player1Range && lpDiff <= player2Range) {
-      console.log("Match found! Creating battle...");
-      
-      try {
-        // First, initiate the battle
-        const result = await initiateBattle(
-          {
-            client,
-            userIds: [player1.userId, player2.userId],
-            targetIds: [],
-            asset: "arena",
-            scaleTarget: false,
-            statDistribution: {
-              strength: 200000,
-              intelligence: 200000,
-              willpower: 200000,
-              speed: 200000,
-              ninjutsuOffence: 450000,
-              ninjutsuDefence: 450000,
-              genjutsuOffence: 450000,
-              genjutsuDefence: 450000,
-              taijutsuOffence: 450000,
-              taijutsuDefence: 450000,
-              bukijutsuOffence: 450000,
-              bukijutsuDefence: 450000,
-            },
+    return lpDiff <= oldestPlayerRange && lpDiff <= playerRange;
+  });
+
+  if (potentialMatches.length > 0) {
+    // Get the closest LP match
+    const opponent = potentialMatches.reduce((closest, current) => {
+      const closestDiff = Math.abs(closest.rankedLp - oldestPlayer.rankedLp);
+      const currentDiff = Math.abs(current.rankedLp - oldestPlayer.rankedLp);
+      return currentDiff < closestDiff ? current : closest;
+    });
+
+    console.log("Match found! Creating battle between:", {
+      player1: { userId: oldestPlayer.userId, lp: oldestPlayer.rankedLp },
+      player2: { userId: opponent.userId, lp: opponent.rankedLp }
+    });
+    
+    try {
+      // First, initiate the battle
+      const result = await initiateBattle(
+        {
+          client,
+          userIds: [oldestPlayer.userId, opponent.userId],
+          targetIds: [],
+          asset: "arena",
+          scaleTarget: false,
+          statDistribution: {
+            strength: 200000,
+            intelligence: 200000,
+            willpower: 200000,
+            speed: 200000,
+            ninjutsuOffence: 450000,
+            ninjutsuDefence: 450000,
+            genjutsuOffence: 450000,
+            genjutsuDefence: 450000,
+            taijutsuOffence: 450000,
+            taijutsuDefence: 450000,
+            bukijutsuOffence: 450000,
+            bukijutsuDefence: 450000,
           },
-          "RANKED",
-          1,
-        );
+        },
+        "RANKED",
+        1,
+      );
 
-        if (!result.battleId) {
-          console.error("Failed to create battle");
-          return null;
-        }
-
-        console.log("Battle created successfully:", result.battleId);
-
-        // Update user status first
-        await client
-          .update(userData)
-          .set({ status: "BATTLE" })
-          .where(
-            or(
-              eq(userData.userId, player1.userId),
-              eq(userData.userId, player2.userId),
-            ),
-          );
-
-        // Then remove from queue
-        await client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player1.id));
-        await client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player2.id));
-
-        return result.battleId;
-      } catch (error) {
-        console.error("Error during battle creation:", error);
+      if (!result.battleId) {
+        console.error("Failed to create battle");
         return null;
       }
+
+      console.log("Battle created successfully:", result.battleId);
+
+      // Update user status first
+      await client
+        .update(userData)
+        .set({ status: "BATTLE" })
+        .where(
+          or(
+            eq(userData.userId, oldestPlayer.userId),
+            eq(userData.userId, opponent.userId),
+          ),
+        );
+
+      // Then remove from queue
+      await client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, oldestPlayer.id));
+      await client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, opponent.id));
+
+      return result.battleId;
+    } catch (error) {
+      console.error("Error during battle creation:", error);
+      return null;
     }
   }
   console.log("No matches found in queue");
