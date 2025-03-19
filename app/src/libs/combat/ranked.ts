@@ -1,62 +1,83 @@
 import { RankedDivisions } from "@/drizzle/constants";
-import type { BattleUserState } from "./types";
+import type { BattleUserState } from "@/libs/combat/types";
 
+// K-factor adjustments based on LP
 const K_FACTOR_BASE = 32;
+const K_FACTOR_LOW = 48; // For players < 300 LP
+const K_FACTOR_MID = 40; // For players 300-600 LP
+const K_FACTOR_HIGH = 24; // For players > 900 LP
+
+// Win streak bonus
 const STREAK_BONUS = 5;
 
 function getKFactor(lp: number): number {
-  // Higher K-factor for lower ranked players to help them climb faster
-  if (lp < 300) return K_FACTOR_BASE * 1.5;
-  if (lp < 600) return K_FACTOR_BASE * 1.25;
-  if (lp < 900) return K_FACTOR_BASE;
-  return K_FACTOR_BASE * 0.75; // Lower K-factor for higher ranked players
+  if (lp < 300) return K_FACTOR_LOW;
+  if (lp < 600) return K_FACTOR_MID;
+  if (lp > 900) return K_FACTOR_HIGH;
+  return K_FACTOR_BASE;
 }
 
 function getRank(lp: number): string {
+  // Start from highest rank (lowest LP requirement)
   for (let i = RankedDivisions.length - 1; i >= 0; i--) {
-    if (lp >= RankedDivisions[i].rankedLp) {
-      return RankedDivisions[i].name;
+    const division = RankedDivisions[i];
+    if (!division) continue;
+    if (lp >= division.rankedLp) {
+      return division.name;
     }
   }
-  return "UNRANKED";
+  // If no rank found (shouldn't happen), return lowest rank
+  return RankedDivisions[0]?.name ?? "UNRANKED";
 }
 
-function getRankIndex(rank: string): number {
-  return RankedDivisions.findIndex(d => d.name === rank);
+function getRankIndex(lp: number): number {
+  for (let i = RankedDivisions.length - 1; i >= 0; i--) {
+    const division = RankedDivisions[i];
+    if (!division) continue;
+    if (lp >= division.rankedLp) {
+      return i;
+    }
+  }
+  return 0;
 }
 
 export function calculateLPChange(
   player: BattleUserState,
   opponent: BattleUserState,
-  playerWon: boolean,
+  didWin: boolean,
 ): number {
-  const kFactor = getKFactor(player.rankedLp);
-  const expectedScore = 1 / (1 + Math.pow(10, (opponent.rankedLp - player.rankedLp) / 400));
-  const actualScore = playerWon ? 1 : 0;
+  const playerLP = player.rankedLp ?? 0;
+  const opponentLP = opponent.rankedLp ?? 0;
+  const playerRank = getRankIndex(playerLP);
+  const opponentRank = getRankIndex(opponentLP);
 
-  let lpChange = kFactor * (actualScore - expectedScore);
+  // Calculate expected probability (Elo formula)
+  const expectedScore = 1 / (1 + Math.pow(10, (opponentLP - playerLP) / 400));
+  const actualScore = didWin ? 1 : 0;
 
-  // Get ranks of both players
-  const playerRank = getRank(player.rankedLp);
-  const opponentRank = getRank(opponent.rankedLp);
-  const playerRankIndex = getRankIndex(playerRank);
-  const opponentRankIndex = getRankIndex(opponentRank);
-  const rankDifference = opponentRankIndex - playerRankIndex;
+  // Get K-factor based on player's LP
+  const kFactor = getKFactor(playerLP);
 
-  // Bonus LP for beating a higher-ranked opponent
-  if (playerWon && rankDifference > 0) {
-    lpChange += rankDifference * 10;
+  // Calculate base LP change
+  let lpChange = Math.round(kFactor * (actualScore - expectedScore));
+
+  // Apply rank-based adjustments
+  if (didWin) {
+    // Bonus for beating higher-ranked opponents
+    if (opponentRank < playerRank) {
+      lpChange += Math.min(10, (playerRank - opponentRank) * 2);
+    }
+  } else {
+    // Protection against losing to much higher-ranked opponents
+    if (opponentRank < playerRank - 1) {
+      lpChange = Math.max(-10, lpChange);
+    }
   }
 
-  // LP Protection: Reduce loss if losing to an opponent 2+ ranks above
-  if (!playerWon && rankDifference <= -2) {
-    lpChange *= 0.5;
+  // Add win streak bonus
+  if (didWin && player.pvpStreak > 0) {
+    lpChange += STREAK_BONUS * Math.min(5, player.pvpStreak);
   }
 
-  // Apply streak bonus
-  if (playerWon && player.pvpStreak > 0) {
-    lpChange += STREAK_BONUS * player.pvpStreak;
-  }
-
-  return Math.round(lpChange);
+  return lpChange;
 } 
