@@ -84,7 +84,7 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
         1,
       );
 
-      return battleId;
+      return { battleId };
     }
   }
   return null;
@@ -156,11 +156,11 @@ export const rankedpvpRouter = createTRPCRouter({
   checkMatches: protectedProcedure
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx }) => {
-      const battleId = await checkRankedPvpMatches(ctx.drizzle);
+      const result = await checkRankedPvpMatches(ctx.drizzle);
       return { 
         success: true, 
-        message: battleId ? "Match found!" : "No matches found.",
-        battleId: battleId ?? undefined
+        message: "Checked for matches",
+        battleId: result?.battleId
       };
     }),
 });
