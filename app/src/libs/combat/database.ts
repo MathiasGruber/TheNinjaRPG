@@ -474,6 +474,11 @@ export const updateUser = async (
                     : sql`immunityUntil`,
               }
             : { status: "AWAKE" }),
+          ...(curBattle.battleType === "RANKED" && result.eloDiff
+            ? {
+                rankedLp: sql`rankedLp + ${result.eloDiff}`,
+              }
+            : {}),
         })
         .where(eq(userData.userId, userId)),
     ]);
