@@ -466,7 +466,10 @@ export const commentsRouter = createTRPCRouter({
       if (input.searchQuery && input.searchQuery.trim() !== "") {
         whereConditions = and(
           whereConditions,
-          sql`${conversationComment.content} LIKE ${`%${input.searchQuery}%`}`,
+          or(
+            sql`${conversationComment.content} LIKE ${`%${input.searchQuery}%`}`,
+            sql`${userData.username} LIKE ${`%${input.searchQuery}%`}`,
+          ),
         );
       }
 

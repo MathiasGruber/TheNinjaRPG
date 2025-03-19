@@ -157,6 +157,15 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                         placeholder="Search for messages..."
                         {...field}
                         className="flex-1"
+                        autoComplete="off"
+                        onFocus={(e) => {
+                          // Prevent automatic selection of text on focus
+                          const target = e.target;
+                          const length = target.value.length;
+                          setTimeout(() => {
+                            target.setSelectionRange(length, length);
+                          }, 0);
+                        }}
                       />
                     </FormControl>
                     {searchQuery && (
