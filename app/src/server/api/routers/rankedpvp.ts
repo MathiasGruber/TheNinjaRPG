@@ -57,13 +57,14 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
           ),
       ]);
 
-      // Start the battle
-      const result = await initiateBattle(
+      // Initiate battle between matched players
+      const battleId = await initiateBattle(
         {
           client,
           userIds: [player1.userId, player2.userId],
           targetIds: [],
           asset: "arena",
+          scaleTarget: false,
           statDistribution: {
             strength: 200000,
             intelligence: 200000,
@@ -80,10 +81,10 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
           },
         },
         "RANKED",
-        undefined,
+        1,
       );
 
-      return result.battleId;
+      return battleId;
     }
   }
   return null;
