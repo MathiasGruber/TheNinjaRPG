@@ -1,6 +1,14 @@
 import { RankedDivisions } from "@/drizzle/constants";
 import type { BattleUserState } from "@/libs/combat/types";
 
+export interface RankedPvpQueue {
+  id: string;
+  userId: string;
+  rankedLp: number;
+  queueStartTime: Date;
+  createdAt: Date;
+}
+
 // K-factor adjustments based on LP
 const K_FACTOR_BASE = 32;
 const K_FACTOR_LOW = 48; // For players < 300 LP
