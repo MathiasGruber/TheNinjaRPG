@@ -61,8 +61,8 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
       const result = await initiateBattle(
         {
           client,
-          userIds: [player1.userId],
-          targetIds: [player2.userId],
+          userIds: [player1.userId, player2.userId],
+          targetIds: [],
         },
         "RANKED",
         undefined,
