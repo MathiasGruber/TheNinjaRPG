@@ -18,10 +18,16 @@ const STREAK_BONUS = 2;
 
 async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | null> {
   const queue = await client.select().from(rankedPvpQueue);
-  if (queue.length < 2) return null;
+  console.log("Current queue:", queue);
+  
+  if (queue.length < 2) {
+    console.log("Not enough players in queue:", queue.length);
+    return null;
+  }
 
   // Sort queue by LP to find closest matches
   queue.sort((a, b) => a.rankedLp - b.rankedLp);
+  console.log("Sorted queue by LP:", queue);
 
   for (let i = 0; i < queue.length - 1; i++) {
     const player1 = queue[i];
@@ -41,23 +47,16 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
 
     // Check if players are within each other's range
     const lpDiff = Math.abs(player1.rankedLp - player2.rankedLp);
-    if (lpDiff <= player1Range && lpDiff <= player2Range) {
-      // Found a match! Remove both players from queue and start battle
-      await Promise.all([
-        client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player1.id)),
-        client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player2.id)),
-        client
-          .update(userData)
-          .set({ status: "BATTLE" })
-          .where(
-            or(
-              eq(userData.userId, player1.userId),
-              eq(userData.userId, player2.userId),
-            ),
-          ),
-      ]);
+    console.log("Checking match:", {
+      player1: { id: player1.userId, lp: player1.rankedLp, range: player1Range },
+      player2: { id: player2.userId, lp: player2.rankedLp, range: player2Range },
+      lpDiff
+    });
 
-      // Initiate battle between matched players
+    if (lpDiff <= player1Range && lpDiff <= player2Range) {
+      console.log("Match found! Creating battle...");
+      
+      // First, initiate the battle
       const result = await initiateBattle(
         {
           client,
@@ -89,20 +88,27 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
         return null;
       }
 
-      // Update both players' status to BATTLE
-      await client
-        .update(userData)
-        .set({ status: "BATTLE" })
-        .where(
-          or(
-            eq(userData.userId, player1.userId),
-            eq(userData.userId, player2.userId),
+      console.log("Battle created successfully:", result.battleId);
+
+      // Only after battle is created successfully, update user status and remove from queue
+      await Promise.all([
+        client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player1.id)),
+        client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player2.id)),
+        client
+          .update(userData)
+          .set({ status: "BATTLE" })
+          .where(
+            or(
+              eq(userData.userId, player1.userId),
+              eq(userData.userId, player2.userId),
+            ),
           ),
-        );
+      ]);
 
       return result.battleId;
     }
   }
+  console.log("No matches found in queue");
   return null;
 }
 
