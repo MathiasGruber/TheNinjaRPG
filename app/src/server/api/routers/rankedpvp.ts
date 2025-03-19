@@ -9,7 +9,7 @@ import { nanoid } from "nanoid";
 import { calculateLPChange } from "@/libs/combat/ranked";
 import { sql } from "drizzle-orm";
 import type { DrizzleClient } from "@/server/db";
-import { initiateBattle } from "@/routers/combat";
+import { initiateBattle } from "@/server/api/routers/combat";
 import { baseServerResponse } from "@/api/trpc";
 
 // K-factor adjustments based on LP
@@ -84,7 +84,23 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
         1,
       );
 
-      return result.battleId ?? null;
+      if (!result.battleId) {
+        console.error("Failed to create battle");
+        return null;
+      }
+
+      // Update both players' status to BATTLE
+      await client
+        .update(userData)
+        .set({ status: "BATTLE" })
+        .where(
+          or(
+            eq(userData.userId, player1.userId),
+            eq(userData.userId, player2.userId),
+          ),
+        );
+
+      return result.battleId;
     }
   }
   return null;
