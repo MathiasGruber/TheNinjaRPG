@@ -108,6 +108,7 @@ export const rankedpvpRouter = createTRPCRouter({
       inQueue: z.boolean(),
       queueStartTime: z.date().optional(),
       timeInQueue: z.number().optional(),
+      secondsInQueue: z.number().optional(),
       lpRange: z.number().optional(),
     }))
     .query(async ({ ctx, input }) => {
@@ -122,13 +123,16 @@ export const rankedpvpRouter = createTRPCRouter({
       }
 
       const now = new Date();
-      const diffInMinutes = Math.floor((now.getTime() - queueEntry.queueStartTime.getTime()) / (1000 * 60));
-      const lpRange = Math.floor(diffInMinutes / 3) * 50;
+      const diffInSeconds = Math.floor((now.getTime() - queueEntry.queueStartTime.getTime()) / 1000);
+      const minutes = Math.floor(diffInSeconds / 60);
+      const seconds = diffInSeconds % 60;
+      const lpRange = 100 + (Math.floor(minutes / 3) * 50);
 
       return {
         inQueue: true,
         queueStartTime: queueEntry.queueStartTime,
-        timeInQueue: diffInMinutes,
+        timeInQueue: minutes,
+        secondsInQueue: seconds,
         lpRange,
       };
     }),
