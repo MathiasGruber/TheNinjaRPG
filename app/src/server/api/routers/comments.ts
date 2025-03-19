@@ -573,40 +573,32 @@ export const commentsRouter = createTRPCRouter({
       const sanitized = sanitize(content);
       // Derived
       const usersIdsInConvo = convo.users.map((u) => u.userId);
-      const mentionedUserNames = sanitized
-        .match(/@([^\s]+)/g)
-        ?.map((mention) => mention.slice(1));
+      const mentionedUserNames =
+        sanitized.match(/@([^\s]+)/g)?.map((mention) => mention.slice(1)) || [];
 
-      // More efficient approach: fetch mentioned users and blacklists in a single query
-      let mentionedUserIds: string[] = [];
-      if (mentionedUserNames && mentionedUserNames.length > 0) {
-        // Fetch users with their blacklist status in a single query
-        const mentionedUsersWithBlacklist = await ctx.drizzle.query.userData.findMany({
-          where: inArray(userData.username, mentionedUserNames),
-          columns: { userId: true },
-          with: {
-            // Users who have blacklisted the sender (current user is the target)
-            creatorBlacklist: {
-              where: eq(userBlackList.targetUserId, ctx.userId),
-            },
-          },
-        });
-        mentionedUserIds = mentionedUsersWithBlacklist
-          .filter((u) => u.creatorBlacklist.length === 0)
-          .map((u) => u.userId);
-      }
+      // Extract quoted user IDs - filter out null/undefined values
+      const quotedUserIds = quotes
+        .filter((q) => q.user?.userId)
+        .map((q) => q.user?.userId)
+        .filter((id): id is string => !!id);
+
+      // Fetch users to notify about mentions and quotes
+      const notifiedUserIds = await fetchUsersToNotify(
+        ctx.drizzle,
+        ctx.userId,
+        mentionedUserNames,
+        quotedUserIds,
+      );
 
       // Mutations
       await Promise.all([
-        // Ping users (only those not in a blacklist relationship)
-        ...mentionedUserIds
-          .filter((id) => id !== ctx.userId)
-          .map((userId) =>
-            pusher.trigger(userId, "event", {
-              type: "pinged",
-              message: `${user.username} pinged you in ${convo.title}`,
-            }),
-          ),
+        // Ping users (both mentioned and quoted, only those not in a blacklist relationship)
+        ...notifiedUserIds.map(({ userId, type }) =>
+          pusher.trigger(userId, "event", {
+            type: "pinged",
+            message: `${user.username} ${type === "mentioned" ? "pinged" : "quoted"} you in ${convo.title}`,
+          }),
+        ),
         // Trigger new comment event
         pusher.trigger(convo.id, "event", {
           message: "new",
@@ -884,4 +876,79 @@ export const createConvo = async (
     }),
   ]);
   return convoId;
+};
+
+/**
+ * Interface for users to be notified in comments
+ */
+interface NotifiedUser {
+  userId: string;
+  type: "mentioned" | "quoted";
+}
+
+/**
+ * Fetches users to notify about mentions and quotes, checking for blacklists
+ * @param options - The options for fetching users to notify
+ * @returns Array of user IDs with notification types
+ */
+export const fetchUsersToNotify = async (
+  client: DrizzleClient,
+  currentUserId: string,
+  mentionedUserNames: string[],
+  quotedUserIds: string[],
+) => {
+  const notifiedUserIds: NotifiedUser[] = [];
+
+  const hasMentions = mentionedUserNames.length > 0;
+  const hasQuotes = quotedUserIds.length > 0;
+
+  if (!hasMentions && !hasQuotes) {
+    return notifiedUserIds;
+  }
+
+  // Build the query for fetching users
+  const whereClause =
+    hasQuotes && hasMentions
+      ? or(
+          inArray(userData.username, mentionedUserNames),
+          inArray(userData.userId, quotedUserIds),
+        )
+      : hasMentions
+        ? inArray(userData.username, mentionedUserNames)
+        : inArray(userData.userId, quotedUserIds);
+
+  // Execute the query with the appropriate where conditions
+  const usersWithBlacklist = await client.query.userData.findMany({
+    where: whereClause,
+    columns: {
+      userId: true,
+      username: true,
+    },
+    with: {
+      // Users who have blacklisted the sender (current user is the target)
+      creatorBlacklist: {
+        where: eq(userBlackList.targetUserId, currentUserId),
+      },
+    },
+  });
+
+  // Process results - filtering out those who have blacklisted the current user
+  for (const user of usersWithBlacklist) {
+    // Skip if user has blacklisted the sender or it's the current user
+    if (user.creatorBlacklist.length > 0 || user.userId === currentUserId) {
+      continue;
+    }
+
+    // Determine notification type (prioritize mentions over quotes if both apply)
+    let type: "mentioned" | "quoted" = "quoted";
+
+    // Check if user was mentioned by username
+    if (mentionedUserNames.includes(user.username)) {
+      type = "mentioned";
+    }
+
+    notifiedUserIds.push({ userId: user.userId, type });
+  }
+
+  return notifiedUserIds;
 };

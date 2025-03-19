@@ -443,8 +443,9 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     comment={comment}
                     quoteIds={quoteIds}
                     color={
+                      comment.content.includes(`quote author="${userData?.username}`) ||
                       comment.content.includes(`@${userData?.username}`)
-                        ? "orange"
+                        ? "poppopover"
                         : undefined
                     }
                     toggleReaction={(emoji) =>
