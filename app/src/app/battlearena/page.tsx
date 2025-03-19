@@ -68,20 +68,17 @@ export default function Arena() {
     },
   );
 
-  const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
+  const { mutate: queue, isPending: isQueuing } = api.rankedpvp.queueForRankedPvp.useMutation({
     onSuccess: (result) => {
       if (result.success) {
         showMutationToast({ ...result, message: "Queued for ranked PvP" });
-        if (result.battleId) {
-          router.push(`/combat/${result.battleId}`);
-        }
       } else {
         showMutationToast(result);
       }
     },
   });
 
-  const { mutate: leaveQueue, isPending: isLeaving } = api.combat.leaveRankedPvpQueue.useMutation({
+  const { mutate: leaveQueue, isPending: isLeaving } = api.rankedpvp.leaveRankedPvpQueue.useMutation({
     onSuccess: (result) => {
       if (result.success) {
         showMutationToast({ ...result, message: "Left ranked PvP queue" });
