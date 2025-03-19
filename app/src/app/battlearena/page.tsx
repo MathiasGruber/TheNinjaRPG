@@ -180,7 +180,7 @@ export default function Arena() {
             {!queueStatus?.inQueue ? (
               <Button
                 className="w-full"
-                onClick={() => queue()}
+                onClick={() => queue({ userId: userData.userId })}
                 disabled={isQueuing}
               >
                 {isQueuing ? "Queuing..." : "Queue for Ranked PvP"}
