@@ -19,6 +19,7 @@ import {
   double,
   primaryKey,
   unique,
+  timestamp,
 } from "drizzle-orm/mysql-core";
 import * as consts from "@/drizzle/constants";
 import { createInsertSchema } from "drizzle-zod";
@@ -2595,11 +2596,12 @@ export const rankedPvpQueue = mysqlTable(
   "RankedPvpQueue",
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
-    userId: varchar("userId", { length: 191 }).notNull(),
+    userId: varchar("userId", { length: 191 })
+      .notNull()
+      .references(() => userData.userId),
     rankedLp: int("rankedLp").notNull(),
-    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
-      .default(sql`(CURRENT_TIMESTAMP(3))`)
-      .notNull(),
+    queueStartTime: timestamp("queueStartTime").notNull().defaultNow(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
   (table) => {
     return {
