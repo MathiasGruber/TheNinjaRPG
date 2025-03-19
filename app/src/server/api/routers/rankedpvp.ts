@@ -9,7 +9,7 @@ import { nanoid } from "nanoid";
 import { calculateLPChange } from "@/libs/combat/ranked";
 import { sql } from "drizzle-orm";
 import type { DrizzleClient } from "@/server/db";
-import { initiateBattle } from "@/libs/combat/actions";
+import { initiateBattle } from "@/routers/combat";
 import { baseServerResponse } from "@/api/trpc";
 
 // K-factor adjustments based on LP
@@ -56,12 +56,13 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
 
       // Start the battle
       const result = await initiateBattle(
-        client,
         {
-          battleType: "RANKED",
-          users: [player1.userId, player2.userId],
+          client,
+          userIds: [player1.userId],
+          targetIds: [player2.userId],
         },
-        null,
+        "RANKED",
+        undefined,
       );
 
       return result.battleId;
