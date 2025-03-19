@@ -140,7 +140,7 @@ export const rankedpvpRouter = createTRPCRouter({
       return { 
         success: true, 
         message: battleId ? "Match found!" : "No matches found.",
-        battleId 
+        battleId: battleId ?? undefined
       };
     }),
 });
