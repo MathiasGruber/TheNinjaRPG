@@ -100,6 +100,12 @@ export const rankedpvpRouter = createTRPCRouter({
 
   getQueueStatus: protectedProcedure
     .input(z.object({ userId: z.string() }))
+    .output(z.object({
+      inQueue: z.boolean(),
+      queueStartTime: z.date().optional(),
+      timeInQueue: z.number().optional(),
+      lpRange: z.number().optional(),
+    }))
     .query(async ({ ctx, input }) => {
       const queueEntry = await ctx.drizzle.query.rankedPvpQueue.findFirst({
         where: eq(rankedPvpQueue.userId, input.userId),
