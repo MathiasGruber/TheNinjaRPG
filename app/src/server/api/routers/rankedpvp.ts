@@ -56,58 +56,61 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
     if (lpDiff <= player1Range && lpDiff <= player2Range) {
       console.log("Match found! Creating battle...");
       
-      // First, initiate the battle
-      const result = await initiateBattle(
-        {
-          client,
-          userIds: [player1.userId, player2.userId],
-          targetIds: [],
-          asset: "arena",
-          scaleTarget: false,
-          statDistribution: {
-            strength: 200000,
-            intelligence: 200000,
-            willpower: 200000,
-            speed: 200000,
-            ninjutsuOffence: 450000,
-            ninjutsuDefence: 450000,
-            genjutsuOffence: 450000,
-            genjutsuDefence: 450000,
-            taijutsuOffence: 450000,
-            taijutsuDefence: 450000,
-            bukijutsuOffence: 450000,
-            bukijutsuDefence: 450000,
+      try {
+        // First, initiate the battle
+        const result = await initiateBattle(
+          {
+            client,
+            userIds: [player1.userId, player2.userId],
+            targetIds: [],
+            asset: "arena",
+            scaleTarget: false,
+            statDistribution: {
+              strength: 200000,
+              intelligence: 200000,
+              willpower: 200000,
+              speed: 200000,
+              ninjutsuOffence: 450000,
+              ninjutsuDefence: 450000,
+              genjutsuOffence: 450000,
+              genjutsuDefence: 450000,
+              taijutsuOffence: 450000,
+              taijutsuDefence: 450000,
+              bukijutsuOffence: 450000,
+              bukijutsuDefence: 450000,
+            },
           },
-        },
-        "RANKED",
-        1,
-      );
-
-      if (!result.battleId) {
-        console.error("Failed to create battle");
-        return null;
-      }
-
-      console.log("Battle created successfully:", result.battleId);
-
-      // Only after battle is created successfully, update user status and remove from queue
-      await Promise.all([
-        client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player1.id)),
-        client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player2.id)),
-      ]);
-
-      // Update user status separately to avoid the values() error
-      await client
-        .update(userData)
-        .set({ status: "BATTLE" })
-        .where(
-          or(
-            eq(userData.userId, player1.userId),
-            eq(userData.userId, player2.userId),
-          ),
+          "RANKED",
+          1,
         );
 
-      return result.battleId;
+        if (!result.battleId) {
+          console.error("Failed to create battle");
+          return null;
+        }
+
+        console.log("Battle created successfully:", result.battleId);
+
+        // Update user status first
+        await client
+          .update(userData)
+          .set({ status: "BATTLE" })
+          .where(
+            or(
+              eq(userData.userId, player1.userId),
+              eq(userData.userId, player2.userId),
+            ),
+          );
+
+        // Then remove from queue
+        await client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player1.id));
+        await client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player2.id));
+
+        return result.battleId;
+      } catch (error) {
+        console.error("Error during battle creation:", error);
+        return null;
+      }
     }
   }
   console.log("No matches found in queue");
@@ -185,6 +188,56 @@ export const rankedpvpRouter = createTRPCRouter({
         success: true, 
         message: battleId ? "Match found!" : "No matches found.",
         battleId: battleId ?? undefined
+      };
+    }),
+
+  queueForRankedPvp: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      // Check if user is already in queue
+      const existingQueue = await ctx.drizzle
+        .select()
+        .from(rankedPvpQueue)
+        .where(eq(rankedPvpQueue.userId, input.userId));
+
+      if (existingQueue.length > 0) {
+        return {
+          success: false,
+          message: "Already in queue",
+        };
+      }
+
+      // Check if user is already in a battle
+      const userState = await ctx.drizzle
+        .select()
+        .from(userData)
+        .where(eq(userData.userId, input.userId));
+
+      if (userState[0]?.status === "BATTLE") {
+        return {
+          success: false,
+          message: "Already in a battle",
+        };
+      }
+
+      // Add user to queue
+      await ctx.drizzle.insert(rankedPvpQueue).values({
+        id: nanoid(),
+        userId: input.userId,
+        rankedLp: userState[0]?.rankedLp ?? 0,
+        queueStartTime: new Date(),
+      });
+
+      // Set user status to QUEUED
+      await ctx.drizzle
+        .update(userData)
+        .set({ status: "QUEUED" })
+        .where(eq(userData.userId, input.userId));
+
+      return {
+        success: true,
+        message: "Queued for ranked PvP",
       };
     }),
 });
