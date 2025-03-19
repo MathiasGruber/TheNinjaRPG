@@ -36,8 +36,8 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
     const player2QueueTime = (now.getTime() - player2.queueStartTime.getTime()) / (1000 * 60);
 
     // Calculate allowed LP range based on queue time (50 LP per 3 minutes)
-    const player1Range = Math.floor(player1QueueTime / 3) * 50;
-    const player2Range = Math.floor(player2QueueTime / 3) * 50;
+    const player1Range = 100 + (Math.floor(player1QueueTime / 3) * 50);
+    const player2Range = 100 + (Math.floor(player2QueueTime / 3) * 50);
 
     // Check if players are within each other's range
     const lpDiff = Math.abs(player1.rankedLp - player2.rankedLp);
