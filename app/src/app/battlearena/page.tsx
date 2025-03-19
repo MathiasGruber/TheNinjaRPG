@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocalStorage } from "@/hooks/localstorage";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
@@ -60,10 +60,13 @@ export default function Arena() {
   const { userData, access } = useRequireInVillage("/battlearena");
 
   // Ranked PvP queue state and mutations
-  const { data: queueData } = api.combat.getRankedPvpQueue.useQuery(undefined, {
-    enabled: !!userData,
-    refetchInterval: 5000, // Refetch queue status every 5 seconds
-  });
+  const { data: queueStatus } = api.rankedpvp.getQueueStatus.useQuery(
+    { userId: userData?.userId ?? "" },
+    {
+      enabled: !!userData,
+      refetchInterval: 1000, // Update every second for the timer
+    }
+  );
 
   const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
     onSuccess: (result) => {
@@ -88,7 +91,7 @@ export default function Arena() {
     },
   });
 
-  const { mutate: checkMatches } = api.combat.checkRankedPvpMatches.useMutation({
+  const { mutate: checkMatches } = api.rankedpvp.checkMatches.useMutation({
     onSuccess: (result) => {
       if (result.success && result.battleId) {
         router.push("/combat");
@@ -98,13 +101,13 @@ export default function Arena() {
 
   // Check for matches periodically when in queue
   useEffect(() => {
-    if (queueData?.inQueue) {
+    if (queueStatus?.inQueue) {
       const interval = setInterval(() => {
         checkMatches();
       }, 5000); // Check for matches every 5 seconds
       return () => clearInterval(interval);
     }
-  }, [queueData?.inQueue, checkMatches]);
+  }, [queueStatus?.inQueue, checkMatches]);
 
   // Guards
   if (!access) return <Loader explanation="Accessing Battle Arena" />;
@@ -162,12 +165,22 @@ export default function Arena() {
               Queue for ranked PvP battles! You will be matched with players of similar LP.
               All battles are fought with level 100 characters with max stats.
             </p>
-            {queueData?.inQueue && (
-              <p className="text-yellow-500">
-                You are currently in queue. Waiting for opponent...
-              </p>
+            {queueStatus?.inQueue && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <div className="text-sm text-muted-foreground">
+                    Time in queue: {Math.floor(queueStatus.timeInQueue / 60)}:{(queueStatus.timeInQueue % 60).toString().padStart(2, "0")}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Current LP range: ±{queueStatus.lpRange}
+                  </div>
+                </div>
+                <p className="text-yellow-500">
+                  You are currently in queue. Waiting for opponent...
+                </p>
+              </>
             )}
-            {!queueData?.inQueue ? (
+            {!queueStatus?.inQueue ? (
               <Button
                 className="w-full"
                 onClick={() => queue()}
