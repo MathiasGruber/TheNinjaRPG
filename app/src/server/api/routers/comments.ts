@@ -20,7 +20,7 @@ import {
   ratelimitMiddleware,
   hasUserMiddleware,
 } from "@/server/api/trpc";
-import { getNewReactions } from "@/utils/chat";
+import { getNewReactions, processMentions } from "@/utils/chat";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
@@ -570,11 +570,13 @@ export const commentsRouter = createTRPCRouter({
           .join("");
         content = `${quoteContent}\n\n${content}`;
       }
-      const sanitized = sanitize(content);
+
+      // Extract all mentioned usernames before sanitizing
+      const { processedContent, mentionedUserNames } = processMentions(content);
+      const sanitized = sanitize(processedContent);
+
       // Derived
       const usersIdsInConvo = convo.users.map((u) => u.userId);
-      const mentionedUserNames =
-        sanitized.match(/@([^\s]+)/g)?.map((mention) => mention.slice(1)) || [];
 
       // Extract quoted user IDs - filter out null/undefined values
       const quotedUserIds = quotes

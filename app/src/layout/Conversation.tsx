@@ -20,7 +20,7 @@ import { CONVERSATION_QUIET_MINS } from "@/drizzle/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWatch } from "react-hook-form";
 import { format } from "date-fns";
-import { getNewReactions } from "@/utils/chat";
+import { getNewReactions, processMentions } from "@/utils/chat";
 import { Quote } from "@/components/ui/quote";
 import type { MutateCommentSchema } from "@/validators/comments";
 import type { ArrayElement } from "@/utils/typeutils";
@@ -212,6 +212,15 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               : "";
           })
           .join("") || "";
+
+      // Process content for mentions and formatting if this is a new comment
+      let processedContent = "";
+      if (!("id" in newMessage)) {
+        const content = quoteText + newMessage.comment;
+        const { processedContent: processed } = processMentions(content);
+        processedContent = processed;
+      }
+
       const next =
         "id" in newMessage
           ? newMessage
@@ -219,7 +228,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               id: nanoid(),
               createdAt: new Date(),
               conversationId: conversation.id,
-              content: quoteText + newMessage.comment,
+              content: processedContent,
               reactions: {},
               isPinned: 0,
               isReported: false,
