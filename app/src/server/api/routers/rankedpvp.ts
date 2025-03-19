@@ -240,4 +240,12 @@ export const rankedpvpRouter = createTRPCRouter({
         message: "Queued for ranked PvP",
       };
     }),
+
+  getRankedPvpQueue: protectedProcedure
+    .query(async ({ ctx }) => {
+      const queueEntry = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+        where: eq(rankedPvpQueue.userId, ctx.userId),
+      });
+      return { inQueue: !!queueEntry };
+    }),
 });
