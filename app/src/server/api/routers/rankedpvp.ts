@@ -16,7 +16,7 @@ import { baseServerResponse } from "@/api/trpc";
 const K_FACTOR_BASE = 32;
 const STREAK_BONUS = 2;
 
-async function checkRankedPvpMatches(client: DrizzleClient) {
+async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | null> {
   const queue = await client.select().from(rankedPvpQueue);
   if (queue.length < 2) return null;
 
@@ -84,7 +84,7 @@ async function checkRankedPvpMatches(client: DrizzleClient) {
         1,
       );
 
-      return { battleId };
+      return battleId;
     }
   }
   return null;
@@ -156,11 +156,11 @@ export const rankedpvpRouter = createTRPCRouter({
   checkMatches: protectedProcedure
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx }) => {
-      const result = await checkRankedPvpMatches(ctx.drizzle);
+      const battleId = await checkRankedPvpMatches(ctx.drizzle);
       return { 
         success: true, 
-        message: "Checked for matches",
-        battleId: result?.battleId
+        message: battleId ? "Match found!" : "No matches found.",
+        battleId: battleId ?? undefined
       };
     }),
 });
