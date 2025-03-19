@@ -58,7 +58,7 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
       ]);
 
       // Initiate battle between matched players
-      const battleId = await initiateBattle(
+      const result = await initiateBattle(
         {
           client,
           userIds: [player1.userId, player2.userId],
@@ -84,7 +84,7 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
         1,
       );
 
-      return battleId;
+      return result.battleId ?? null;
     }
   }
   return null;
