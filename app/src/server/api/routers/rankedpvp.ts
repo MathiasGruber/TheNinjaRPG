@@ -94,16 +94,18 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
       await Promise.all([
         client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player1.id)),
         client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, player2.id)),
-        client
-          .update(userData)
-          .set({ status: "BATTLE" })
-          .where(
-            or(
-              eq(userData.userId, player1.userId),
-              eq(userData.userId, player2.userId),
-            ),
-          ),
       ]);
+
+      // Update user status separately to avoid the values() error
+      await client
+        .update(userData)
+        .set({ status: "BATTLE" })
+        .where(
+          or(
+            eq(userData.userId, player1.userId),
+            eq(userData.userId, player2.userId),
+          ),
+        );
 
       return result.battleId;
     }
