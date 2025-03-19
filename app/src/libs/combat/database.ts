@@ -20,6 +20,7 @@ import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { KAGE_DEFAULT_PRESTIGE } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
+import { calculateLPChange } from "./ranked";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -386,6 +387,16 @@ export const updateUser = async (
     if (user.villagePrestige + result.villagePrestige < 0) {
       user.allyVillage = false;
     }
+
+    // Calculate LP change for ranked battles
+    let lpChange = 0;
+    if (curBattle.battleType === "RANKED") {
+      const opponent = curBattle.usersState.find(u => u.userId !== userId);
+      if (opponent) {
+        lpChange = calculateLPChange(user, opponent, result.didWin > 0);
+      }
+    }
+
     // Update user & user items
     await Promise.all([
       // Delete items
@@ -474,9 +485,9 @@ export const updateUser = async (
                     : sql`immunityUntil`,
               }
             : { status: "AWAKE" }),
-          ...(curBattle.battleType === "RANKED" && result.eloDiff
+          ...(curBattle.battleType === "RANKED" && lpChange !== 0
             ? {
-                rankedLp: sql`rankedLp + ${result.didWin > 0 ? result.eloDiff : -result.eloDiff}`,
+                rankedLp: sql`rankedLp + ${lpChange}`,
               }
             : {}),
         })
