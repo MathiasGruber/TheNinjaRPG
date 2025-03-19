@@ -62,6 +62,15 @@ const LogbookAchievements: React.FC = () => {
   const quests = userData?.userQuests.filter((uq) =>
     ["tier", "achievement"].includes(uq.quest.questType),
   );
+  const utils = api.useUtils();
+
+  // Mutation for deleting achievements
+  const { mutate: deleteAchievement } = api.quests.deleteAchievement.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await utils.profile.getUser.invalidate();
+    },
+  });
 
   useEffect(() => {
     if (quests && quests.length > 0 && !activeElement) {
@@ -86,6 +95,22 @@ const LogbookAchievements: React.FC = () => {
                 selectedTitle={activeElement}
                 titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}
                 onClick={setActiveElement}
+                rightContent={
+                  uq.quest.questType === "achievement" && (
+                    <Confirm
+                      title="Confirm removing achievement"
+                      button={
+                        <X className="ml-2 h-6 w-6 hover:text-orange-500 cursor-pointer" />
+                      }
+                      onAccept={(e) => {
+                        e.preventDefault();
+                        void deleteAchievement({ id: uq.quest.id });
+                      }}
+                    >
+                      Are you sure you want to remove this achievement from your logbook?
+                    </Confirm>
+                  )
+                }
               >
                 <LogbookEntry key={i} userQuest={uq} tracker={tracker} hideTitle />
               </Accordion>

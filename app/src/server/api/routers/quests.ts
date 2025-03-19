@@ -409,6 +409,38 @@ export const questsRouter = createTRPCRouter({
       ]);
       return { success: true, message: `Quest abandoned` };
     }),
+  deleteAchievement: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      if (!user) {
+        throw serverError("PRECONDITION_FAILED", "User does not exist");
+      }
+      
+      const achievementEntry = user?.userQuests?.find(
+        (q) => q.questId === input.id && ["tier", "achievement"].includes(q.quest.questType)
+      );
+      
+      if (!achievementEntry) {
+        throw serverError("PRECONDITION_FAILED", `No achievement with id ${input.id} found`);
+      }
+
+      // Delete the achievement entry from the user's logbook
+      await ctx.drizzle
+        .delete(questHistory)
+        .where(
+          and(
+            eq(questHistory.questId, input.id),
+            eq(questHistory.userId, ctx.userId),
+          ),
+        );
+
+      return { success: true, message: `Achievement deleted from logbook` };
+    }),
   getQuestHistory: protectedProcedure
     .input(
       z.object({
