@@ -888,6 +888,12 @@ export const combatRouter = createTRPCRouter({
       }
 
       const entry = queueEntry[0];
+      if (!entry) {
+        return {
+          inQueue: false,
+        };
+      }
+
       const now = new Date();
       const diffInSeconds = Math.floor((now.getTime() - entry.queueStartTime.getTime()) / 1000);
       const minutes = Math.floor(diffInSeconds / 60);
