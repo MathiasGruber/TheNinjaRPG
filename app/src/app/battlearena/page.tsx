@@ -91,7 +91,7 @@ export default function Arena() {
   const { mutate: checkMatches } = api.rankedpvp.checkMatches.useMutation({
     onSuccess: (result) => {
       if (result.success && result.battleId) {
-        router.push(`/combat/${result.battleId}`);
+        void router.push(`/combat/${result.battleId}`);
       }
     },
   });
