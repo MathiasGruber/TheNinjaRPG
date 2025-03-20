@@ -104,6 +104,7 @@ type QueueEntry = {
   userId: string;
   rankedLp: number;
   queueStartTime: Date;
+  createdAt: Date;
 };
 
 async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | null> {
@@ -954,6 +955,7 @@ export const combatRouter = createTRPCRouter({
         userId: input.userId,
         rankedLp: userState[0]?.rankedLp ?? 0,
         queueStartTime: now,
+        createdAt: now,
       });
 
       // Set user status to QUEUED
