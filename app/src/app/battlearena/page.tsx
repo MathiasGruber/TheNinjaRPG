@@ -104,7 +104,7 @@ export default function Arena() {
     if (!queueStatus?.inQueue) return;
 
     const interval = setInterval(() => {
-      checkMatches();
+      void checkMatches();
       refetchQueueStatus();
     }, 5000);
 
