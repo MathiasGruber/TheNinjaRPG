@@ -78,7 +78,7 @@ const LogbookAchievements: React.FC = () => {
       if (activeElement && quests) {
         const stillExists = quests.some(q => q.quest.name === activeElement);
         if (!stillExists && quests.length > 0) {
-          setActiveElement(quests[0].quest.name);
+          setActiveElement(quests[0]?.quest?.name || "");
         } else if (!stillExists) {
           setActiveElement("");
         }
