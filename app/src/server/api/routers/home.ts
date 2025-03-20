@@ -105,6 +105,7 @@ export const homeRouter = createTRPCRouter({
               name: true,
               image: true,
               description: true,
+              hidden: true,
             },
           },
         },
