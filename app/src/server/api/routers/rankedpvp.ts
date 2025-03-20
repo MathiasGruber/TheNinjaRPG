@@ -15,12 +15,15 @@ let matchCheckInterval: ReturnType<typeof setInterval> | null = null;
 function startMatchCheckInterval() {
   if (matchCheckInterval) return;
   
-  matchCheckInterval = setInterval(async () => {
-    try {
-      await checkRankedPvpMatches(drizzleDB);
-    } catch (error) {
-      console.error('Error checking ranked PvP matches:', error);
-    }
+  matchCheckInterval = setInterval(() => {
+    // Wrap the async call in a regular function
+    void (async () => {
+      try {
+        await checkRankedPvpMatches(drizzleDB);
+      } catch (error) {
+        console.error('Error checking ranked PvP matches:', error);
+      }
+    })();
   }, 5000); // Check every 5 seconds
 }
 
