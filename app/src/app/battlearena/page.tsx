@@ -60,7 +60,7 @@ export default function Arena() {
   const { userData, access } = useRequireInVillage("/battlearena");
 
   // Ranked PvP queue state and mutations
-  const { data: queueStatus, refetch: refetchQueueStatus } = api.rankedpvp.getQueueStatus.useQuery(
+  const { data: queueStatus, refetch: refetchQueueStatus } = api.combat.getQueueStatus.useQuery(
     { userId: userData?.userId ?? "" },
     {
       enabled: !!userData,
@@ -68,7 +68,7 @@ export default function Arena() {
     },
   );
 
-  const { mutate: queue, isPending: isQueuing } = api.rankedpvp.queueForRankedPvp.useMutation({
+  const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
     onSuccess: (result) => {
       if (result.success) {
         showMutationToast({ ...result, message: "Queued for ranked PvP" });
@@ -78,7 +78,7 @@ export default function Arena() {
     },
   });
 
-  const { mutate: leaveQueue, isPending: isLeaving } = api.rankedpvp.leaveRankedPvpQueue.useMutation({
+  const { mutate: leaveQueue, isPending: isLeaving } = api.combat.leaveRankedPvpQueue.useMutation({
     onSuccess: (result) => {
       if (result.success) {
         showMutationToast({ ...result, message: "Left ranked PvP queue" });
@@ -88,7 +88,7 @@ export default function Arena() {
     },
   });
 
-  const { mutate: checkMatches } = api.rankedpvp.checkMatches.useMutation({
+  const { mutate: checkMatches } = api.combat.checkMatches.useMutation({
     onSuccess: (result) => {
       if (result.success && result.battleId) {
         void router.push(`/combat/${result.battleId}`);
