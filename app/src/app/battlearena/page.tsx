@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocalStorage } from "@/hooks/localstorage";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
@@ -105,7 +105,9 @@ export default function Arena() {
 
     const interval = setInterval(() => {
       void checkMatches();
-      refetchQueueStatus();
+      refetchQueueStatus().catch((error) => {
+        console.error('Failed to refetch queue status:', error);
+      });
     }, 5000);
 
     return () => clearInterval(interval);
