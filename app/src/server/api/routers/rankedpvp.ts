@@ -27,7 +27,7 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
 
   // Sort queue by queue time (oldest first)
   queue.sort((a, b) => a.queueStartTime.getTime() - b.queueStartTime.getTime());
-  console.log("Sorted queue by time:", queue.map(q => ({ userId: q.userId, time: q.queueStartTime })));
+  console.log("Sorted queue by time:", queue.map(q => ({ userId: q.userId, time: q.queueStartTime, lp: q.rankedLp })));
 
   // Get the player who has been waiting the longest
   const oldestPlayer = queue[0];
@@ -58,11 +58,14 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
     console.log("Checking match:", {
       player: { userId: player.userId, lp: player.rankedLp, range: playerRange },
       oldestPlayer: { userId: oldestPlayer.userId, lp: oldestPlayer.rankedLp, range: oldestPlayerRange },
-      lpDiff
+      lpDiff,
+      isMatch: lpDiff <= oldestPlayerRange && lpDiff <= playerRange
     });
 
     return lpDiff <= oldestPlayerRange && lpDiff <= playerRange;
   });
+
+  console.log("Potential matches found:", potentialMatches.map(p => ({ userId: p.userId, lp: p.rankedLp })));
 
   if (potentialMatches.length > 0) {
     // Get the closest LP match
@@ -72,9 +75,10 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
       return currentDiff < closestDiff ? current : closest;
     });
 
-    console.log("Match found! Creating battle between:", {
-      player1: { userId: oldestPlayer.userId, lp: oldestPlayer.rankedLp },
-      player2: { userId: opponent.userId, lp: opponent.rankedLp }
+    console.log("Selected opponent:", {
+      userId: opponent.userId,
+      lp: opponent.rankedLp,
+      lpDiff: Math.abs(opponent.rankedLp - oldestPlayer.rankedLp)
     });
     
     try {
