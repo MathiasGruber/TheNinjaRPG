@@ -31,13 +31,15 @@ function startMatchCheckInterval() {
 startMatchCheckInterval();
 
 async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | null> {
-  const queue = await client.select().from(rankedPvpQueue);
+  // Use the query builder consistently
+  const queue = await client.query.rankedPvpQueue.findMany();
   console.log("[RankedPvP] Current queue size:", queue.length);
   console.log("[RankedPvP] Queue contents:", queue.map((q: typeof rankedPvpQueue.$inferSelect) => ({ 
     userId: q.userId, 
     lp: q.rankedLp,
     queueTime: (new Date().getTime() - q.queueStartTime.getTime()) / 1000,
-    queueTimeMinutes: Math.floor((new Date().getTime() - q.queueStartTime.getTime()) / (1000 * 60))
+    queueTimeMinutes: Math.floor((new Date().getTime() - q.queueStartTime.getTime()) / (1000 * 60)),
+    id: q.id
   })));
   
   if (queue.length < 2) {
@@ -46,12 +48,16 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
   }
 
   // Sort queue by queue time (oldest first)
-  queue.sort((a, b) => a.queueStartTime.getTime() - b.queueStartTime.getTime());
+  queue.sort((a: typeof rankedPvpQueue.$inferSelect, b: typeof rankedPvpQueue.$inferSelect) => 
+    a.queueStartTime.getTime() - b.queueStartTime.getTime()
+  );
+  
   console.log("[RankedPvP] Sorted queue by time:", queue.map((q: typeof rankedPvpQueue.$inferSelect) => ({ 
     userId: q.userId, 
     time: q.queueStartTime, 
     lp: q.rankedLp,
-    queueTimeMinutes: Math.floor((new Date().getTime() - q.queueStartTime.getTime()) / (1000 * 60))
+    queueTimeMinutes: Math.floor((new Date().getTime() - q.queueStartTime.getTime()) / (1000 * 60)),
+    id: q.id
   })));
 
   // Get the player who has been waiting the longest
@@ -75,7 +81,8 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
     queueTime: oldestPlayerQueueTime,
     queueTimeMinutes: Math.floor(oldestPlayerQueueTime),
     matchRange,
-    rangeCalculation: `${baseRange} + (${Math.floor(oldestPlayerQueueTime / 3)} * 50)`
+    rangeCalculation: `${baseRange} + (${Math.floor(oldestPlayerQueueTime / 3)} * 50)`,
+    id: oldestPlayer.id
   });
 
   // Find potential matches for the oldest player
@@ -88,12 +95,14 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
       player: { 
         userId: player.userId, 
         lp: player.rankedLp,
-        queueTimeMinutes: Math.floor((now.getTime() - player.queueStartTime.getTime()) / (1000 * 60))
+        queueTimeMinutes: Math.floor((now.getTime() - player.queueStartTime.getTime()) / (1000 * 60)),
+        id: player.id
       },
       oldestPlayer: { 
         userId: oldestPlayer.userId, 
         lp: oldestPlayer.rankedLp,
-        queueTimeMinutes: Math.floor(oldestPlayerQueueTime)
+        queueTimeMinutes: Math.floor(oldestPlayerQueueTime),
+        id: oldestPlayer.id
       },
       lpDiff,
       isMatch: lpDiff <= matchRange,
