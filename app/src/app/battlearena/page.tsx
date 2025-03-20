@@ -105,11 +105,11 @@ export default function Arena() {
 
     const interval = setInterval(() => {
       checkMatches();
-      getQueueStatus({ userId: userData.userId });
+      refetchQueueStatus();
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [userData?.userId, queueStatus?.inQueue, checkMatches, getQueueStatus]);
+  }, [userData?.userId, queueStatus?.inQueue, checkMatches, refetchQueueStatus]);
 
   // Guards
   if (!access) return <Loader explanation="Accessing Battle Arena" />;
