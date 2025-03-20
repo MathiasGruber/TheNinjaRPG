@@ -9,38 +9,51 @@ import type { DrizzleClient } from "@/server/db";
 import { initiateBattle } from "@/server/api/routers/combat";
 import { baseServerResponse } from "@/api/trpc";
 
+// Define types for queue entries
+type QueueEntry = {
+  id: string;
+  userId: string;
+  rankedLp: number;
+  queueStartTime: Date;
+  createdAt: Date;
+};
+
 // Server-side interval to check for matches
 let matchCheckInterval: ReturnType<typeof setInterval> | null = null;
 
 function startMatchCheckInterval() {
-  if (matchCheckInterval) return;
+  if (matchCheckInterval) {
+    console.log("[RankedPvP] Match check interval already running");
+    return;
+  }
   
+  console.log("[RankedPvP] Starting match check interval");
   matchCheckInterval = setInterval(() => {
     // Wrap the async call in a regular function
     void (async () => {
       try {
-        await checkRankedPvpMatches(drizzleDB);
+        console.log("[RankedPvP] Running scheduled match check");
+        const battleId = await checkRankedPvpMatches(drizzleDB);
+        if (battleId) {
+          console.log("[RankedPvP] Match found in interval:", battleId);
+        }
       } catch (error) {
-        console.error('Error checking ranked PvP matches:', error);
+        console.error('[RankedPvP] Error checking ranked PvP matches:', error);
       }
     })();
-  }, 5000); // Check every 5 seconds
+  }, 1000); // Check every second
 }
 
 // Start the interval when the server starts
 startMatchCheckInterval();
 
 async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | null> {
-  // Use the query builder consistently
-  const queue = await client.query.rankedPvpQueue.findMany();
-  console.log("[RankedPvP] Current queue size:", queue.length);
-  console.log("[RankedPvP] Queue contents:", queue.map((q: typeof rankedPvpQueue.$inferSelect) => ({ 
-    userId: q.userId, 
-    lp: q.rankedLp,
-    queueTime: (new Date().getTime() - q.queueStartTime.getTime()) / 1000,
-    queueTimeMinutes: Math.floor((new Date().getTime() - q.queueStartTime.getTime()) / (1000 * 60)),
-    id: q.id
-  })));
+  // Use the same query method as queueForRankedPvp
+  const queue = await client
+    .select()
+    .from(rankedPvpQueue);
+    
+  console.log("[RankedPvP] Raw queue query:", JSON.stringify(queue, null, 2));
   
   if (queue.length < 2) {
     console.log("[RankedPvP] Not enough players in queue:", queue.length);
@@ -48,18 +61,8 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
   }
 
   // Sort queue by queue time (oldest first)
-  queue.sort((a: typeof rankedPvpQueue.$inferSelect, b: typeof rankedPvpQueue.$inferSelect) => 
-    a.queueStartTime.getTime() - b.queueStartTime.getTime()
-  );
+  queue.sort((a: QueueEntry, b: QueueEntry) => a.queueStartTime.getTime() - b.queueStartTime.getTime());
   
-  console.log("[RankedPvP] Sorted queue by time:", queue.map((q: typeof rankedPvpQueue.$inferSelect) => ({ 
-    userId: q.userId, 
-    time: q.queueStartTime, 
-    lp: q.rankedLp,
-    queueTimeMinutes: Math.floor((new Date().getTime() - q.queueStartTime.getTime()) / (1000 * 60)),
-    id: q.id
-  })));
-
   // Get the player who has been waiting the longest
   const oldestPlayer = queue[0];
   if (!oldestPlayer) {
@@ -74,61 +77,65 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
   const baseRange = 100;
   const additionalRange = Math.floor(oldestPlayerQueueTime / 3) * 50;
   const matchRange = baseRange + additionalRange;
-  
-  console.log("[RankedPvP] Oldest player:", {
-    userId: oldestPlayer.userId,
-    lp: oldestPlayer.rankedLp,
-    queueTime: oldestPlayerQueueTime,
-    queueTimeMinutes: Math.floor(oldestPlayerQueueTime),
+
+  console.log("[RankedPvP] Matchmaking parameters:", {
+    oldestPlayer: {
+      userId: oldestPlayer.userId,
+      lp: oldestPlayer.rankedLp,
+      queueTime: oldestPlayerQueueTime,
+      queueStartTime: oldestPlayer.queueStartTime
+    },
     matchRange,
-    rangeCalculation: `${baseRange} + (${Math.floor(oldestPlayerQueueTime / 3)} * 50)`,
-    id: oldestPlayer.id
+    baseRange,
+    additionalRange,
+    queueSize: queue.length
   });
 
   // Find potential matches for the oldest player
-  const potentialMatches = queue.filter((player: typeof rankedPvpQueue.$inferSelect) => {
+  const potentialMatches = queue.filter((player: QueueEntry) => {
     if (player.userId === oldestPlayer.userId) return false;
     
     const lpDiff = Math.abs(player.rankedLp - oldestPlayer.rankedLp);
+    const isMatch = lpDiff <= matchRange;
     
     console.log("[RankedPvP] Checking match:", {
-      player: { 
-        userId: player.userId, 
+      player: {
+        userId: player.userId,
         lp: player.rankedLp,
-        queueTimeMinutes: Math.floor((now.getTime() - player.queueStartTime.getTime()) / (1000 * 60)),
-        id: player.id
+        queueTime: (now.getTime() - player.queueStartTime.getTime()) / (1000 * 60)
       },
-      oldestPlayer: { 
-        userId: oldestPlayer.userId, 
+      oldestPlayer: {
+        userId: oldestPlayer.userId,
         lp: oldestPlayer.rankedLp,
-        queueTimeMinutes: Math.floor(oldestPlayerQueueTime),
-        id: oldestPlayer.id
+        queueTime: oldestPlayerQueueTime
       },
       lpDiff,
-      isMatch: lpDiff <= matchRange,
-      matchRequirement: `LP difference (${lpDiff}) must be <= match range (${matchRange})`
+      matchRange,
+      isMatch
     });
 
-    return lpDiff <= matchRange;
+    return isMatch;
   });
 
-  console.log("[RankedPvP] Potential matches found:", potentialMatches.map((p: typeof rankedPvpQueue.$inferSelect) => ({ 
-    userId: p.userId, 
-    lp: p.rankedLp 
+  console.log("[RankedPvP] Potential matches found:", potentialMatches.map((p: QueueEntry) => ({
+    userId: p.userId,
+    lp: p.rankedLp,
+    queueTime: (now.getTime() - p.queueStartTime.getTime()) / (1000 * 60)
   })));
 
   if (potentialMatches.length > 0) {
     // Get the closest LP match
-    const opponent = potentialMatches.reduce((closest: typeof rankedPvpQueue.$inferSelect, current: typeof rankedPvpQueue.$inferSelect) => {
+    const opponent = potentialMatches.reduce((closest: QueueEntry, current: QueueEntry) => {
       const closestDiff = Math.abs(closest.rankedLp - oldestPlayer.rankedLp);
       const currentDiff = Math.abs(current.rankedLp - oldestPlayer.rankedLp);
       return currentDiff < closestDiff ? current : closest;
     });
-
+    
     console.log("[RankedPvP] Selected opponent:", {
       userId: opponent.userId,
       lp: opponent.rankedLp,
-      lpDiff: Math.abs(opponent.rankedLp - oldestPlayer.rankedLp)
+      lpDiff: Math.abs(opponent.rankedLp - oldestPlayer.rankedLp),
+      queueTime: (now.getTime() - opponent.queueStartTime.getTime()) / (1000 * 60)
     });
     
     try {
@@ -229,25 +236,28 @@ export const rankedpvpRouter = createTRPCRouter({
       lpRange: z.number().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const queueEntry = await ctx.drizzle.query.rankedPvpQueue.findFirst({
-        where: eq(rankedPvpQueue.userId, input.userId),
-      });
+      const queueEntry = await ctx.drizzle
+        .select()
+        .from(rankedPvpQueue)
+        .where(eq(rankedPvpQueue.userId, input.userId))
+        .limit(1);
 
-      if (!queueEntry) {
+      if (!queueEntry.length) {
         return {
           inQueue: false,
         };
       }
 
+      const entry = queueEntry[0];
       const now = new Date();
-      const diffInSeconds = Math.floor((now.getTime() - queueEntry.queueStartTime.getTime()) / 1000);
+      const diffInSeconds = Math.floor((now.getTime() - entry.queueStartTime.getTime()) / 1000);
       const minutes = Math.floor(diffInSeconds / 60);
       const seconds = diffInSeconds % 60;
       const lpRange = 100 + (Math.floor(minutes / 3) * 50);
 
       return {
         inQueue: true,
-        queueStartTime: queueEntry.queueStartTime,
+        queueStartTime: entry.queueStartTime,
         timeInQueue: minutes,
         secondsInQueue: seconds,
         lpRange,
@@ -295,12 +305,19 @@ export const rankedpvpRouter = createTRPCRouter({
         };
       }
 
+      const now = new Date();
+      console.log("[RankedPvP] Adding user to queue:", {
+        userId: input.userId,
+        rankedLp: userState[0]?.rankedLp ?? 0,
+        queueStartTime: now
+      });
+
       // Add user to queue
       await ctx.drizzle.insert(rankedPvpQueue).values({
         id: nanoid(),
         userId: input.userId,
         rankedLp: userState[0]?.rankedLp ?? 0,
-        queueStartTime: new Date(),
+        queueStartTime: now,
       });
 
       // Set user status to QUEUED
@@ -309,18 +326,24 @@ export const rankedpvpRouter = createTRPCRouter({
         .set({ status: "QUEUED" })
         .where(eq(userData.userId, input.userId));
 
+      // Immediately check for matches
+      const battleId = await checkRankedPvpMatches(ctx.drizzle);
+
       return {
         success: true,
         message: "Queued for ranked PvP",
+        battleId: battleId ?? undefined
       };
     }),
 
   getRankedPvpQueue: protectedProcedure
     .query(async ({ ctx }) => {
-      const queueEntry = await ctx.drizzle.query.rankedPvpQueue.findFirst({
-        where: eq(rankedPvpQueue.userId, ctx.userId),
-      });
-      return { inQueue: !!queueEntry };
+      const queueEntry = await ctx.drizzle
+        .select()
+        .from(rankedPvpQueue)
+        .where(eq(rankedPvpQueue.userId, ctx.userId))
+        .limit(1);
+      return { inQueue: queueEntry.length > 0 };
     }),
 
   leaveRankedPvpQueue: protectedProcedure
@@ -338,5 +361,37 @@ export const rankedpvpRouter = createTRPCRouter({
         .where(eq(userData.userId, ctx.userId));
 
       return { success: true, message: "Left ranked PvP queue" };
+    }),
+
+  getQueueState: protectedProcedure
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+      queue: z.array(z.object({
+        userId: z.string(),
+        rankedLp: z.number(),
+        queueStartTime: z.date(),
+        timeInQueue: z.number(),
+      })),
+    }))
+    .query(async ({ ctx }) => {
+      const queue = await ctx.drizzle
+        .select()
+        .from(rankedPvpQueue)
+        .orderBy(rankedPvpQueue.queueStartTime);
+
+      const now = new Date();
+      const queueState = queue.map(entry => ({
+        userId: entry.userId,
+        rankedLp: entry.rankedLp,
+        queueStartTime: entry.queueStartTime,
+        timeInQueue: (now.getTime() - entry.queueStartTime.getTime()) / (1000 * 60),
+      }));
+
+      return {
+        success: true,
+        message: `Found ${queue.length} players in queue`,
+        queue: queueState,
+      };
     }),
 });
