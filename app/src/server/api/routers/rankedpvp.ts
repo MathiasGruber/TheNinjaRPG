@@ -36,7 +36,8 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
   console.log("[RankedPvP] Queue contents:", queue.map((q: typeof rankedPvpQueue.$inferSelect) => ({ 
     userId: q.userId, 
     lp: q.rankedLp,
-    queueTime: (new Date().getTime() - q.queueStartTime.getTime()) / 1000
+    queueTime: (new Date().getTime() - q.queueStartTime.getTime()) / 1000,
+    queueTimeMinutes: Math.floor((new Date().getTime() - q.queueStartTime.getTime()) / (1000 * 60))
   })));
   
   if (queue.length < 2) {
@@ -49,7 +50,8 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
   console.log("[RankedPvP] Sorted queue by time:", queue.map((q: typeof rankedPvpQueue.$inferSelect) => ({ 
     userId: q.userId, 
     time: q.queueStartTime, 
-    lp: q.rankedLp 
+    lp: q.rankedLp,
+    queueTimeMinutes: Math.floor((new Date().getTime() - q.queueStartTime.getTime()) / (1000 * 60))
   })));
 
   // Get the player who has been waiting the longest
@@ -61,31 +63,44 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
 
   const now = new Date();
   const oldestPlayerQueueTime = (now.getTime() - oldestPlayer.queueStartTime.getTime()) / (1000 * 60);
-  const oldestPlayerRange = 100 + (Math.floor(oldestPlayerQueueTime / 3) * 50);
+  
+  // Base range is 100 LP, increases by 50 every 3 minutes if no matches found
+  const baseRange = 100;
+  const additionalRange = Math.floor(oldestPlayerQueueTime / 3) * 50;
+  const matchRange = baseRange + additionalRange;
   
   console.log("[RankedPvP] Oldest player:", {
     userId: oldestPlayer.userId,
     lp: oldestPlayer.rankedLp,
     queueTime: oldestPlayerQueueTime,
-    range: oldestPlayerRange
+    queueTimeMinutes: Math.floor(oldestPlayerQueueTime),
+    matchRange,
+    rangeCalculation: `${baseRange} + (${Math.floor(oldestPlayerQueueTime / 3)} * 50)`
   });
 
   // Find potential matches for the oldest player
   const potentialMatches = queue.filter((player: typeof rankedPvpQueue.$inferSelect) => {
     if (player.userId === oldestPlayer.userId) return false;
     
-    const playerQueueTime = (now.getTime() - player.queueStartTime.getTime()) / (1000 * 60);
-    const playerRange = 100 + (Math.floor(playerQueueTime / 3) * 50);
     const lpDiff = Math.abs(player.rankedLp - oldestPlayer.rankedLp);
     
     console.log("[RankedPvP] Checking match:", {
-      player: { userId: player.userId, lp: player.rankedLp, range: playerRange },
-      oldestPlayer: { userId: oldestPlayer.userId, lp: oldestPlayer.rankedLp, range: oldestPlayerRange },
+      player: { 
+        userId: player.userId, 
+        lp: player.rankedLp,
+        queueTimeMinutes: Math.floor((now.getTime() - player.queueStartTime.getTime()) / (1000 * 60))
+      },
+      oldestPlayer: { 
+        userId: oldestPlayer.userId, 
+        lp: oldestPlayer.rankedLp,
+        queueTimeMinutes: Math.floor(oldestPlayerQueueTime)
+      },
       lpDiff,
-      isMatch: lpDiff <= oldestPlayerRange && lpDiff <= playerRange
+      isMatch: lpDiff <= matchRange,
+      matchRequirement: `LP difference (${lpDiff}) must be <= match range (${matchRange})`
     });
 
-    return lpDiff <= oldestPlayerRange && lpDiff <= playerRange;
+    return lpDiff <= matchRange;
   });
 
   console.log("[RankedPvP] Potential matches found:", potentialMatches.map((p: typeof rankedPvpQueue.$inferSelect) => ({ 
