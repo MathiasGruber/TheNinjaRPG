@@ -2,37 +2,57 @@ import { createTRPCRouter, publicProcedure, protectedProcedure } from "@/api/trp
 import { drizzleDB } from "@/server/db";
 import { RankedDivisions } from "@/drizzle/constants";
 import { userData, rankedPvpQueue } from "@/drizzle/schema";
-import { eq, gte, desc, ne, lt, or } from "drizzle-orm";
+import { eq, gte, desc, or } from "drizzle-orm";
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
-import { calculateLPChange } from "@/libs/combat/ranked";
-import { sql } from "drizzle-orm";
 import type { DrizzleClient } from "@/server/db";
 import { initiateBattle } from "@/server/api/routers/combat";
 import { baseServerResponse } from "@/api/trpc";
 
-// K-factor adjustments based on LP
-const K_FACTOR_BASE = 32;
-const STREAK_BONUS = 2;
+// Server-side interval to check for matches
+let matchCheckInterval: ReturnType<typeof setInterval> | null = null;
+
+function startMatchCheckInterval() {
+  if (matchCheckInterval) return;
+  
+  matchCheckInterval = setInterval(async () => {
+    try {
+      await checkRankedPvpMatches(drizzleDB);
+    } catch (error) {
+      console.error('Error checking ranked PvP matches:', error);
+    }
+  }, 5000); // Check every 5 seconds
+}
+
+// Start the interval when the server starts
+startMatchCheckInterval();
 
 async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | null> {
   const queue = await client.select().from(rankedPvpQueue);
-  console.log("Current queue:", queue.map(q => ({ userId: q.userId, lp: q.rankedLp })));
+  console.log("[RankedPvP] Current queue size:", queue.length);
+  console.log("[RankedPvP] Queue contents:", queue.map((q: typeof rankedPvpQueue.$inferSelect) => ({ 
+    userId: q.userId, 
+    lp: q.rankedLp,
+    queueTime: (new Date().getTime() - q.queueStartTime.getTime()) / 1000
+  })));
   
   if (queue.length < 2) {
-    console.log("Not enough players in queue:", queue.length);
+    console.log("[RankedPvP] Not enough players in queue:", queue.length);
     return null;
   }
 
   // Sort queue by queue time (oldest first)
   queue.sort((a, b) => a.queueStartTime.getTime() - b.queueStartTime.getTime());
-  console.log("Sorted queue by time:", queue.map(q => ({ userId: q.userId, time: q.queueStartTime, lp: q.rankedLp })));
+  console.log("[RankedPvP] Sorted queue by time:", queue.map((q: typeof rankedPvpQueue.$inferSelect) => ({ 
+    userId: q.userId, 
+    time: q.queueStartTime, 
+    lp: q.rankedLp 
+  })));
 
   // Get the player who has been waiting the longest
   const oldestPlayer = queue[0];
   if (!oldestPlayer) {
-    console.log("No players in queue");
+    console.log("[RankedPvP] No players in queue");
     return null;
   }
 
@@ -40,7 +60,7 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
   const oldestPlayerQueueTime = (now.getTime() - oldestPlayer.queueStartTime.getTime()) / (1000 * 60);
   const oldestPlayerRange = 100 + (Math.floor(oldestPlayerQueueTime / 3) * 50);
   
-  console.log("Oldest player:", {
+  console.log("[RankedPvP] Oldest player:", {
     userId: oldestPlayer.userId,
     lp: oldestPlayer.rankedLp,
     queueTime: oldestPlayerQueueTime,
@@ -48,14 +68,14 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
   });
 
   // Find potential matches for the oldest player
-  const potentialMatches = queue.filter(player => {
+  const potentialMatches = queue.filter((player: typeof rankedPvpQueue.$inferSelect) => {
     if (player.userId === oldestPlayer.userId) return false;
     
     const playerQueueTime = (now.getTime() - player.queueStartTime.getTime()) / (1000 * 60);
     const playerRange = 100 + (Math.floor(playerQueueTime / 3) * 50);
     const lpDiff = Math.abs(player.rankedLp - oldestPlayer.rankedLp);
     
-    console.log("Checking match:", {
+    console.log("[RankedPvP] Checking match:", {
       player: { userId: player.userId, lp: player.rankedLp, range: playerRange },
       oldestPlayer: { userId: oldestPlayer.userId, lp: oldestPlayer.rankedLp, range: oldestPlayerRange },
       lpDiff,
@@ -65,17 +85,20 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
     return lpDiff <= oldestPlayerRange && lpDiff <= playerRange;
   });
 
-  console.log("Potential matches found:", potentialMatches.map(p => ({ userId: p.userId, lp: p.rankedLp })));
+  console.log("[RankedPvP] Potential matches found:", potentialMatches.map((p: typeof rankedPvpQueue.$inferSelect) => ({ 
+    userId: p.userId, 
+    lp: p.rankedLp 
+  })));
 
   if (potentialMatches.length > 0) {
     // Get the closest LP match
-    const opponent = potentialMatches.reduce((closest, current) => {
+    const opponent = potentialMatches.reduce((closest: typeof rankedPvpQueue.$inferSelect, current: typeof rankedPvpQueue.$inferSelect) => {
       const closestDiff = Math.abs(closest.rankedLp - oldestPlayer.rankedLp);
       const currentDiff = Math.abs(current.rankedLp - oldestPlayer.rankedLp);
       return currentDiff < closestDiff ? current : closest;
     });
 
-    console.log("Selected opponent:", {
+    console.log("[RankedPvP] Selected opponent:", {
       userId: opponent.userId,
       lp: opponent.rankedLp,
       lpDiff: Math.abs(opponent.rankedLp - oldestPlayer.rankedLp)
@@ -110,11 +133,11 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
       );
 
       if (!result.battleId) {
-        console.error("Failed to create battle");
+        console.error("[RankedPvP] Failed to create battle");
         return null;
       }
 
-      console.log("Battle created successfully:", result.battleId);
+      console.log("[RankedPvP] Battle created successfully:", result.battleId);
 
       // Update user status first
       await client
@@ -133,11 +156,11 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
 
       return result.battleId;
     } catch (error) {
-      console.error("Error during battle creation:", error);
+      console.error("[RankedPvP] Error during battle creation:", error);
       return null;
     }
   }
-  console.log("No matches found in queue");
+  console.log("[RankedPvP] No matches found in queue");
   return null;
 }
 
