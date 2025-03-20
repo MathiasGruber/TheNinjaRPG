@@ -25,7 +25,7 @@ export interface PostProps {
   className?: string;
   image?: React.ReactNode;
   title?: string;
-  color?: "default" | "green" | "red" | "blue" | "orange";
+  color?: "default" | "green" | "red" | "blue" | "orange" | "poppopover";
   children: any;
   options?: React.ReactNode;
   align_middle?: boolean;
@@ -56,6 +56,10 @@ const Post: React.FC<PostProps> = (props) => {
     case "orange":
       color = "bg-orange-200 text-black";
       hover = "hover:bg-orange-300";
+      break;
+    case "poppopover":
+      color = "bg-poppopover text-popover-foreground";
+      hover = "hover:bg-poppopover";
       break;
   }
 
@@ -140,8 +144,8 @@ const Post: React.FC<PostProps> = (props) => {
         {props.user?.role !== "USER" && (
           <span
             className={`${userRole} p-1 m-1 rounded-md ${
-              ["CODER", "MODERATOR", "JR_MODERATOR"].includes(props.user.role) 
-                ? "text-black" 
+              ["CODER", "MODERATOR", "JR_MODERATOR"].includes(props.user.role)
+                ? "text-black"
                 : ""
             }`}
           >
@@ -149,10 +153,12 @@ const Post: React.FC<PostProps> = (props) => {
           </span>
         )}
         {props.user.villageName && props.user.villageHexColor && (
-          <span 
+          <span
             className={`p-1 m-1 rounded-md ${
-              ["glacier", "shine", "shroud"].includes(props.user.villageName.toLowerCase()) 
-                ? "text-black" 
+              ["glacier", "shine", "shroud"].includes(
+                props.user.villageName.toLowerCase(),
+              )
+                ? "text-black"
                 : "text-white"
             }`}
             style={{ backgroundColor: props.user.villageHexColor }}

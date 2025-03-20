@@ -54,6 +54,7 @@ export const usePusherHandler = (userId?: string | null) => {
             },
       );
       setPusher(pusher);
+      // Listening on userId channel
       const channel = pusher.subscribe(userId);
       channel.bind("event", async (data: UserEvent) => {
         if (data.type === "battle") {
@@ -104,6 +105,12 @@ export const usePusherHandler = (userId?: string | null) => {
                 </Link>
               </ToastAction>
             ),
+          });
+        } else if (data.type === "pinged") {
+          showMutationToast({
+            success: true,
+            message: data.message ?? "You have been pinged",
+            title: "Notification!",
           });
         }
       });

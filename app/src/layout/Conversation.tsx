@@ -8,7 +8,7 @@ import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Search, X } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { secondsFromNow } from "@/utils/time";
@@ -20,8 +20,12 @@ import { CONVERSATION_QUIET_MINS } from "@/drizzle/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWatch } from "react-hook-form";
 import { format } from "date-fns";
-import { getNewReactions } from "@/utils/chat";
+import { getNewReactions, processMentions } from "@/utils/chat";
 import { Quote } from "@/components/ui/quote";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
+import { z } from "zod";
 import type { MutateCommentSchema } from "@/validators/comments";
 import type { ArrayElement } from "@/utils/typeutils";
 
@@ -67,6 +71,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const { data: userData, pusher } = useUserData();
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const [editorKey, setEditorKey] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [quietTime, setQuietTime] = useState<Date>(
     secondsFromNow(CONVERSATION_QUIET_MINS * 60),
   );
@@ -77,6 +82,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     convo_title: props.convo_title,
     limit: 10,
     refreshKey: props.refreshKey,
+    searchQuery: searchQuery,
   };
 
   // Fetch comments
@@ -85,6 +91,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     fetchNextPage,
     hasNextPage,
     isPending,
+    refetch,
   } = api.comments.getConversationComments.useInfiniteQuery(queryKey, {
     enabled: props.convo_id !== undefined || props.convo_title !== undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -93,6 +100,102 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   const allComments = comments?.pages.map((page) => page.data).flat();
   const conversation = comments?.pages[0]?.convo;
   type ReturnedComment = ArrayElement<typeof allComments>;
+
+  // Search functionality
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+
+  // Create a search form schema
+  const searchFormSchema = z.object({
+    searchTerm: z.string(),
+  });
+
+  // Create form for search
+  const searchForm = useForm<z.infer<typeof searchFormSchema>>({
+    resolver: zodResolver(searchFormSchema),
+    defaultValues: { searchTerm: "" },
+  });
+
+  const onSearchSubmit = (values: z.infer<typeof searchFormSchema>) => {
+    setSearchQuery(values.searchTerm);
+    void refetch();
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    searchForm.reset({ searchTerm: "" });
+    void refetch();
+  };
+
+  // Create search button component
+  const SearchButton = () => (
+    <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="ml-2"
+          aria-label="Search messages"
+        >
+          <Search className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80">
+        <Form {...searchForm}>
+          <form
+            onSubmit={searchForm.handleSubmit(onSearchSubmit)}
+            className="flex flex-col gap-2"
+          >
+            <div className="text-sm font-medium">Search in conversation</div>
+            <FormField
+              control={searchForm.control}
+              name="searchTerm"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <FormControl>
+                      <Input
+                        placeholder="Search for messages..."
+                        {...field}
+                        className="flex-1"
+                        autoComplete="off"
+                        onFocus={(e) => {
+                          // Prevent automatic selection of text on focus
+                          const target = e.target;
+                          const length = target.value.length;
+                          setTimeout(() => {
+                            target.setSelectionRange(length, length);
+                          }, 0);
+                        }}
+                      />
+                    </FormControl>
+                    {searchQuery && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={clearSearch}
+                        className="h-8 w-8"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button type="submit" size="sm">
+                      Search
+                    </Button>
+                  </div>
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
+        {searchQuery && (
+          <div className="text-xs text-muted-foreground mt-1">
+            Showing results for: <span className="font-medium">{searchQuery}</span>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
 
   /**
    * Perform an optimistic update of the conversation reactions
@@ -199,6 +302,14 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     let old = utils.comments.getConversationComments.getInfiniteData();
     // Get previous data
     if (!userData || !conversation) return { old };
+
+    // If we're in search mode and this is a new message, don't show it unless it matches the search
+    if (searchQuery && "comment" in newMessage) {
+      if (!newMessage.comment.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return { old };
+      }
+    }
+
     // Optimistic update
     await utils.comments.getConversationComments.cancel();
     utils.comments.getConversationComments.setInfiniteData(queryKey, (oldQueryData) => {
@@ -212,6 +323,15 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               : "";
           })
           .join("") || "";
+
+      // Process content for mentions and formatting if this is a new comment
+      let processedContent = "";
+      if (!("id" in newMessage)) {
+        const content = quoteText + newMessage.comment;
+        const { processedContent: processed } = processMentions(content);
+        processedContent = processed;
+      }
+
       const next =
         "id" in newMessage
           ? newMessage
@@ -219,7 +339,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
               id: nanoid(),
               createdAt: new Date(),
               conversationId: conversation.id,
-              content: quoteText + newMessage.comment,
+              content: processedContent,
               reactions: {},
               isPinned: 0,
               isReported: false,
@@ -357,6 +477,9 @@ const Conversation: React.FC<ConversationProps> = (props) => {
    * Invalidate comments & allow refetches again
    */
   const invalidateComments = async () => {
+    // Clear search when refreshing comments manually
+    setSearchQuery("");
+    searchForm.reset({ searchTerm: "" });
     await utils.comments.getConversationComments.invalidate();
   };
 
@@ -371,9 +494,29 @@ const Conversation: React.FC<ConversationProps> = (props) => {
           subtitle={props.subtitle}
           back_href={props.back_href}
           initialBreak={props.initialBreak}
-          topRightContent={props.topRightContent}
+          topRightContent={
+            <div className="flex items-center gap-1">
+              <SearchButton />
+              {props.topRightContent}
+            </div>
+          }
           onBack={props.onBack}
         >
+          {searchQuery && (
+            <div className="mb-4 flex items-center gap-2 bg-popover p-2 rounded-md">
+              <p className="text-sm">
+                Showing messages containing: <strong>{searchQuery}</strong>
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSearch}
+                className="ml-auto"
+              >
+                Clear search
+              </Button>
+            </div>
+          )}
           {conversation &&
             !conversation.isLocked &&
             userData &&
@@ -412,6 +555,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     control={control}
                     error={errors.comment?.message}
                     onSubmit={handleSubmitComment}
+                    enableMentions={true}
                   />
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-row-reverse">
                     {isCommenting && <Loader />}
@@ -441,6 +585,12 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                     hover_effect={false}
                     comment={comment}
                     quoteIds={quoteIds}
+                    color={
+                      comment.content.includes(`quote author="${userData?.username}`) ||
+                      comment.content.includes(`@${userData?.username}`)
+                        ? "poppopover"
+                        : undefined
+                    }
                     toggleReaction={(emoji) =>
                       reactConversationComment({ commentId: comment.id, emoji })
                     }

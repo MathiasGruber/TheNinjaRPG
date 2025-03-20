@@ -14,8 +14,9 @@ import AvatarImage from "@/layout/Avatar";
 import SendTicketBtn from "@/layout/SendTicketButton";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { CircleUserRound, CircleHelp, Compass, Cog, Milk } from "lucide-react";
-import { Megaphone, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
+import { Bell, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
 import { Earth, House, MessageCircleWarning, Inbox } from "lucide-react";
+import { Volume2, VolumeX } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +33,7 @@ import { api } from "@/app/_trpc/client";
 import { showUserRank } from "@/libs/profile";
 import { useUser } from "@clerk/nextjs";
 import { getCurrentSeason } from "@/utils/time";
+import { showMutationToast } from "@/libs/toast";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import {
   IMG_WALLPAPER_WINTER,
@@ -74,7 +76,13 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   ReactDOM.prefetchDNS("https://api.github.com");
 
   // Get data
-  const { data: userData, timeDiff, notifications, isClerkLoaded } = useUserData();
+  const {
+    data: userData,
+    timeDiff,
+    notifications,
+    isClerkLoaded,
+    updateUser,
+  } = useUserData();
   const { systems, location } = useGameMenu(userData);
   const [leftSideBarOpen, setLeftSideBarOpen] = useState(false);
   const [rightSideBarOpen, setRightSideBarOpen] = useState(false);
@@ -89,6 +97,16 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   // Split menu into two parts
   const navbarMenuItemsLeft = navbarMenuItems.slice(0, 3);
   const navbarMenuItemsRight = navbarMenuItems.slice(3);
+
+  // Toggle audio mutation
+  const { mutate: toggleAudioMutation } = api.profile.toggleAudio.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      if (result.success && result.data && userData) {
+        await updateUser({ audioOn: result.data.audioOn });
+      }
+    },
+  });
 
   // Set theme
   useEffect(() => {
@@ -250,8 +268,21 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         onClick={() => setLeftSideBarOpen(false)}
         aria-label="Event Notifications"
       >
-        <Megaphone className="h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 ml-2 p-1" />
+        <Bell className="h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 ml-2 p-1" />
       </Link>
+      {userData && (
+        <div
+          className="hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1"
+          onClick={() => toggleAudioMutation()}
+          aria-label="Toggle Audio"
+        >
+          {userData.audioOn ? (
+            <Volume2 className="h-5 w-5" />
+          ) : (
+            <VolumeX className="h-5 w-5" />
+          )}
+        </div>
+      )}
       <Eclipse
         className={`hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${theme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
         onClick={() => {

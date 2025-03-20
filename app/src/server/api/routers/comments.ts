@@ -20,7 +20,7 @@ import {
   ratelimitMiddleware,
   hasUserMiddleware,
 } from "@/server/api/trpc";
-import { getNewReactions } from "@/utils/chat";
+import { getNewReactions, processMentions } from "@/utils/chat";
 import { serverError, baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { mutateCommentSchema } from "@/validators/comments";
 import { reportCommentSchema } from "@/validators/reports";
@@ -425,6 +425,7 @@ export const commentsRouter = createTRPCRouter({
           cursor: z.number().nullish(),
           limit: z.number().min(1).max(100),
           refreshKey: z.number(),
+          searchQuery: z.string().optional(),
         })
         .refine(
           (data) => !!data.convo_id || !!data.convo_title,
@@ -453,6 +454,25 @@ export const commentsRouter = createTRPCRouter({
       ]);
       const posterBlacklist = alias(userBlackList, "posterBlacklist");
       const readerBlacklist = alias(userBlackList, "readerBlacklist");
+
+      // Build where conditions
+      let whereConditions = and(
+        eq(conversationComment.conversationId, convo.id),
+        or(isNull(readerBlacklist.id), inArray(userData.role, canModerateRoles)),
+        isNull(posterBlacklist.id),
+      );
+
+      // Add search filter if searchQuery is provided
+      if (input.searchQuery && input.searchQuery.trim() !== "") {
+        whereConditions = and(
+          whereConditions,
+          or(
+            sql`${conversationComment.content} LIKE ${`%${input.searchQuery}%`}`,
+            sql`${userData.username} LIKE ${`%${input.searchQuery}%`}`,
+          ),
+        );
+      }
+
       const [comments] = await Promise.all([
         ctx.drizzle
           .select({
@@ -498,13 +518,7 @@ export const commentsRouter = createTRPCRouter({
             ),
           )
           .leftJoin(village, eq(village.id, userData.villageId))
-          .where(
-            and(
-              eq(conversationComment.conversationId, convo.id),
-              or(isNull(readerBlacklist.id), inArray(userData.role, canModerateRoles)),
-              isNull(posterBlacklist.id),
-            ),
-          )
+          .where(whereConditions)
           .orderBy(desc(conversationComment.createdAt))
           .limit(input.limit)
           .offset(skip),
@@ -556,29 +570,9 @@ export const commentsRouter = createTRPCRouter({
           throw serverError("BAD_REQUEST", "Quote not found");
         }
       });
-      // Update inbox news
-      const userIds = convo.users.map((u) => u.userId);
-      if (userIds.length > 0 && !convo.isPublic) {
-        await ctx.drizzle
-          .update(userData)
-          .set({ inboxNews: sql`${userData.inboxNews} + 1` })
-          .where(inArray(userData.userId, userIds));
-      }
       // Update conversation & update user notifications
       const commentId = nanoid();
       const pusher = getServerPusher();
-      void pusher.trigger(convo.id, "event", {
-        message: "new",
-        fromId: ctx.userId,
-        commentId: commentId,
-      });
-      if (!convo.isPublic) {
-        userIds
-          .filter((id) => id !== ctx.userId)
-          .forEach(
-            (userId) => void pusher.trigger(userId, "event", { type: "newInbox" }),
-          );
-      }
       // Create the content, santizied & with added quotes
       let content = input.comment;
       if (quotes.length > 0) {
@@ -590,9 +584,56 @@ export const commentsRouter = createTRPCRouter({
           .join("");
         content = `${quoteContent}\n\n${content}`;
       }
-      const sanitized = sanitize(content);
-      // Auto-moderation
+
+      // Extract all mentioned usernames before sanitizing
+      const { processedContent, mentionedUserNames } = processMentions(content);
+      const sanitized = sanitize(processedContent);
+
+      // Derived
+      const usersIdsInConvo = convo.users.map((u) => u.userId);
+
+      // Extract quoted user IDs - filter out null/undefined values
+      const quotedUserIds = quotes
+        .filter((q) => q.user?.userId)
+        .map((q) => q.user?.userId)
+        .filter((id): id is string => !!id);
+
+      // Fetch users to notify about mentions and quotes
+      const notifiedUserIds = await fetchUsersToNotify(
+        ctx.drizzle,
+        ctx.userId,
+        mentionedUserNames,
+        quotedUserIds,
+      );
+
+      // Mutations
       await Promise.all([
+        // Ping users (both mentioned and quoted, only those not in a blacklist relationship)
+        ...notifiedUserIds.map(({ userId, type }) =>
+          pusher.trigger(userId, "event", {
+            type: "pinged",
+            message: `${user.username} ${type === "mentioned" ? "pinged" : "quoted"} you in ${convo.title}`,
+          }),
+        ),
+        // Trigger new comment event
+        pusher.trigger(convo.id, "event", {
+          message: "new",
+          fromId: ctx.userId,
+          commentId: commentId,
+        }),
+        // Inbox news
+        ...(usersIdsInConvo.length > 0 && !convo.isPublic
+          ? [
+              ctx.drizzle
+                .update(userData)
+                .set({ inboxNews: sql`${userData.inboxNews} + 1` })
+                .where(inArray(userData.userId, usersIdsInConvo)),
+              ...usersIdsInConvo
+                .filter((id) => id !== ctx.userId)
+                .map((userId) => pusher.trigger(userId, "event", { type: "newInbox" })),
+            ]
+          : []),
+        // Auto-moderation
         ...(convo.isPublic
           ? [
               moderateContent(ctx.drizzle, {
@@ -608,12 +649,14 @@ export const commentsRouter = createTRPCRouter({
                 .where(eq(userData.userId, ctx.userId)),
             ]
           : []),
+        // Insert into DB
         ctx.drizzle.insert(conversationComment).values({
           id: commentId,
           content: sanitized,
           userId: ctx.userId,
           conversationId: convo.id,
         }),
+        // Update conversation
         ctx.drizzle
           .update(conversation)
           .set({ updatedAt: new Date() })
@@ -849,4 +892,79 @@ export const createConvo = async (
     }),
   ]);
   return convoId;
+};
+
+/**
+ * Interface for users to be notified in comments
+ */
+interface NotifiedUser {
+  userId: string;
+  type: "mentioned" | "quoted";
+}
+
+/**
+ * Fetches users to notify about mentions and quotes, checking for blacklists
+ * @param options - The options for fetching users to notify
+ * @returns Array of user IDs with notification types
+ */
+export const fetchUsersToNotify = async (
+  client: DrizzleClient,
+  currentUserId: string,
+  mentionedUserNames: string[],
+  quotedUserIds: string[],
+) => {
+  const notifiedUserIds: NotifiedUser[] = [];
+
+  const hasMentions = mentionedUserNames.length > 0;
+  const hasQuotes = quotedUserIds.length > 0;
+
+  if (!hasMentions && !hasQuotes) {
+    return notifiedUserIds;
+  }
+
+  // Build the query for fetching users
+  const whereClause =
+    hasQuotes && hasMentions
+      ? or(
+          inArray(userData.username, mentionedUserNames),
+          inArray(userData.userId, quotedUserIds),
+        )
+      : hasMentions
+        ? inArray(userData.username, mentionedUserNames)
+        : inArray(userData.userId, quotedUserIds);
+
+  // Execute the query with the appropriate where conditions
+  const usersWithBlacklist = await client.query.userData.findMany({
+    where: whereClause,
+    columns: {
+      userId: true,
+      username: true,
+    },
+    with: {
+      // Users who have blacklisted the sender (current user is the target)
+      creatorBlacklist: {
+        where: eq(userBlackList.targetUserId, currentUserId),
+      },
+    },
+  });
+
+  // Process results - filtering out those who have blacklisted the current user
+  for (const user of usersWithBlacklist) {
+    // Skip if user has blacklisted the sender or it's the current user
+    if (user.creatorBlacklist.length > 0 || user.userId === currentUserId) {
+      continue;
+    }
+
+    // Determine notification type (prioritize mentions over quotes if both apply)
+    let type: "mentioned" | "quoted" = "quoted";
+
+    // Check if user was mentioned by username
+    if (mentionedUserNames.includes(user.username)) {
+      type = "mentioned";
+    }
+
+    notifiedUserIds.push({ userId: user.userId, type });
+  }
+
+  return notifiedUserIds;
 };

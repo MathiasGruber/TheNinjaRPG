@@ -87,12 +87,20 @@ export async function GET() {
       .delete(conversationComment)
       .where(lte(conversationComment.createdAt, new Date(Date.now() - oneDay * 14)));
 
-    // Step 8b: Delete public conversation comments older than 1 days
+    // Step 8b: Delete global tavern conversation comments older than 2 hours
     await drizzleDB.execute(
       sql`
         DELETE a FROM ${conversationComment} a 
         INNER JOIN ${conversation} b ON a.conversationId = b.id
-        WHERE b.isPublic AND a.createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 2 HOUR`,
+        WHERE b.isPublic AND b.title = 'Global' AND a.createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 2 HOUR`,
+    );
+
+    // Step 8c: Delete other public conversation comments older than 1 days
+    await drizzleDB.execute(
+      sql`
+        DELETE a FROM ${conversationComment} a 
+        INNER JOIN ${conversation} b ON a.conversationId = b.id
+        WHERE b.isPublic AND b.title != 'Global' AND a.createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 2 DAY`,
     );
 
     // Step 9: Delete user2conversation where the conversation does not exist anymore

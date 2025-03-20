@@ -267,6 +267,8 @@ export const sortEffects = (
 ) => {
   const ordered: ZodAllTags["type"][] = [
     // Prevents
+    "copy",
+    "mirror",
     "stealth",
     "buffprevent",
     "cleanseprevent",
@@ -525,17 +527,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const streakBonus = 1 + user.pvpStreak * 0.05; // 5% per streak
       if (["COMBAT", "TOURNAMENT"].includes(battleType)) {
         experience *= 1.5;
-      } else if (battleType === "VILLAGE_PROTECTOR") {
+        if (battleType === "COMBAT") {
+          experience *= streakBonus;
+          experience = Math.min(experience, 100);
+        }
+      } else if (["CLAN_CHALLENGE", "KAGE_AI", "KAGE_PVP", "TRAINING", "VILLAGE_PROTECTOR"].includes(battleType)) {
         experience = 0;
-      } else if (
-        ["CLAN_CHALLENGE", "KAGE_AI", "KAGE_PVP", "TRAINING"].includes(battleType)
-      ) {
-        experience = 0;
+      } else if (battleType === "ARENA") {
+        experience = Math.min(experience, 20);
       }
-      // Calculate Final Experience
-      experience *= streakBonus;
-      // Cap experience at 100
-      experience = Math.min(experience, 100);
 
       // Find users who did not leave battle yet
       const friendsUsers = friends.filter((u) => !u.isAi);

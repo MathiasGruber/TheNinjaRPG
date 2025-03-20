@@ -136,7 +136,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
             schema={JutsuValidator._def.schema._def.schema}
             form={form}
             formData={formData}
-            showSubmit={form.formState.isDirty}
+            showSubmit={true}
             buttonTxt="Save to Database"
             type="jutsu"
             allowImageUpload={true}
