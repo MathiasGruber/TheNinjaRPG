@@ -1477,17 +1477,21 @@ export const userData = mysqlTable(
     homeType: mysqlEnum("homeType", consts.HomeTypes).default("ONE_BEDROOM_APARTMENT").notNull(),
     homeStorage: int("homeStorage").default(0).notNull(),
   },
-  (table: any) => ({
+  (table) => ({
+    userIdKey: uniqueIndex("UserData_userId_key").on(table.userId),
     usernameKey: uniqueIndex("UserData_username_key").on(table.username),
     recruiterIdIdx: index("UserData_recruiterId_idx").on(table.recruiterId),
-  }),
-      anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
-      clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
-      villageIdIdx: index("UserData_villageId_idx").on(table.villageId),
-      bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
-      battleIdIdx: index("UserData_battleId_idx").on(table.battleId),
-    };
-  },
+    isAiIdx: index("UserData_isAi_idx").on(table.isAi),
+    rankIdx: index("UserData_rank_idx").on(table.rank),
+    roleIdx: index("UserData_role_idx").on(table.role),
+    clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
+    anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
+    villageIdIdx: index("UserData_villageId_idx").on(table.villageId),
+    bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
+    battleIdIdx: index("UserData_battleId_idx").on(table.battleId),
+    jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
+    levelIdx: index("UserData_level_idx").on(table.level),
+  })
 );
 export const insertAiSchema = createInsertSchema(userData)
   .omit({
