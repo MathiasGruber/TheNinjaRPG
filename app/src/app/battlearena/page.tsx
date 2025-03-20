@@ -96,15 +96,20 @@ export default function Arena() {
     },
   });
 
-  // Check for matches periodically when in queue
+  // Poll for queue status and matches
   useEffect(() => {
-    if (queueStatus?.inQueue) {
-      const interval = setInterval(() => {
-        checkMatches();
-      }, 5000); // Check for matches every 5 seconds
-      return () => clearInterval(interval);
-    }
-  }, [queueStatus?.inQueue, checkMatches]);
+    if (!userData?.userId) return;
+
+    // Only start polling if we're in queue
+    if (!queueStatus?.inQueue) return;
+
+    const interval = setInterval(() => {
+      checkMatches();
+      getQueueStatus({ userId: userData.userId });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [userData?.userId, queueStatus?.inQueue, checkMatches, getQueueStatus]);
 
   // Guards
   if (!access) return <Loader explanation="Accessing Battle Arena" />;
