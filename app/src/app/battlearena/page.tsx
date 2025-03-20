@@ -68,7 +68,7 @@ export default function Arena() {
     },
   );
 
-  const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
+  const { mutate: queue, isPending: isQueuing } = api.combat.joinRankedPvpQueue.useMutation({
     onSuccess: (result) => {
       if (result.success) {
         showMutationToast({ ...result, message: "Queued for ranked PvP" });
