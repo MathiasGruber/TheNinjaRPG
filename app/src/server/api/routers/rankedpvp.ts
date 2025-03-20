@@ -31,6 +31,11 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
 
   // Get the player who has been waiting the longest
   const oldestPlayer = queue[0];
+  if (!oldestPlayer) {
+    console.log("No players in queue");
+    return null;
+  }
+
   const now = new Date();
   const oldestPlayerQueueTime = (now.getTime() - oldestPlayer.queueStartTime.getTime()) / (1000 * 60);
   const oldestPlayerRange = 100 + (Math.floor(oldestPlayerQueueTime / 3) * 50);
