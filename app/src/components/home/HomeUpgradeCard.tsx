@@ -6,30 +6,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { api } from "@/trpc/react";
-import { formatNumber } from "@/utils/format";
+import { api } from "@/app/_trpc/client";
 import { HomeUpgrades } from "@/drizzle/constants";
-import { toast } from "sonner";
+import { showMutationToast } from "@/libs/toast";
 
 export function HomeUpgradeCard() {
   const { data: homeInfo, refetch } = api.home.getHomeInfo.useQuery();
   const upgradeMutation = api.home.upgradeHome.useMutation({
     onSuccess: (data) => {
+      showMutationToast({
+        success: data.success,
+        message: data.message,
+      });
       if (data.success) {
-        toast.success(data.message);
         void refetch();
-      } else {
-        toast.error(data.message);
       }
     },
   });
   const downgradeMutation = api.home.downgradeHome.useMutation({
     onSuccess: (data) => {
+      showMutationToast({
+        success: data.success,
+        message: data.message,
+      });
       if (data.success) {
-        toast.success(data.message);
         void refetch();
-      } else {
-        toast.error(data.message);
       }
     },
   });
@@ -80,7 +81,7 @@ export function HomeUpgradeCard() {
                     onClick={() => upgradeMutation.mutate({ newHomeType: type })}
                     disabled={money < home.cost}
                   >
-                    {formatNumber(home.cost)} Ryo
+                    {home.cost.toLocaleString()} Ryo
                   </Button>
                 </div>
               ))}
@@ -107,7 +108,7 @@ export function HomeUpgradeCard() {
                     variant="outline"
                     onClick={() => downgradeMutation.mutate({ newHomeType: type })}
                   >
-                    Refund: {formatNumber(Math.floor((currentHome.cost - home.cost) * 0.5))} Ryo
+                    Refund: {Math.floor((currentHome.cost - home.cost) * 0.5).toLocaleString()} Ryo
                   </Button>
                 </div>
               ))}
