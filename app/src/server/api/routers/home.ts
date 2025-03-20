@@ -7,7 +7,7 @@ import { fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { fetchSectorVillage } from "@/routers/village";
-import type { UserStatus } from "@/drizzle/constants";
+import type { UserStatus, HomeTypes, HomeUpgrades } from "@/drizzle/constants";
 
 export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
@@ -89,4 +89,150 @@ export const homeRouter = createTRPCRouter({
         newStatus,
       };
     }),
+
+  upgradeHome: protectedProcedure
+    .input(
+      z.object({
+        newHomeType: z.enum(HomeTypes),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.query.userData.findFirst({
+        where: eq(userData.userId, ctx.session.user.id),
+        columns: {
+          homeType: true,
+          money: true,
+        },
+      });
+
+      if (!user) {
+        return baseServerResponse({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      const currentHome = HomeUpgrades[user.homeType];
+      const newHome = HomeUpgrades[input.newHomeType];
+
+      if (!currentHome || !newHome) {
+        return baseServerResponse({
+          success: false,
+          message: "Invalid home type",
+        });
+      }
+
+      // Check if user can afford the upgrade
+      if (user.money < newHome.cost) {
+        return baseServerResponse({
+          success: false,
+          message: "Not enough money",
+        });
+      }
+
+      // Update user's home and money
+      await ctx.db
+        .update(userData)
+        .set({
+          homeType: input.newHomeType,
+          money: user.money - newHome.cost,
+          regeneration: ctx.db.raw(`regeneration + ${newHome.regen - currentHome.regen}`),
+        })
+        .where(eq(userData.userId, ctx.session.user.id));
+
+      return baseServerResponse({
+        success: true,
+        message: "Home upgraded successfully",
+      });
+    }),
+
+  downgradeHome: protectedProcedure
+    .input(
+      z.object({
+        newHomeType: z.enum(HomeTypes),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.query.userData.findFirst({
+        where: eq(userData.userId, ctx.session.user.id),
+        columns: {
+          homeType: true,
+        },
+      });
+
+      if (!user) {
+        return baseServerResponse({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      const currentHome = HomeUpgrades[user.homeType];
+      const newHome = HomeUpgrades[input.newHomeType];
+
+      if (!currentHome || !newHome) {
+        return baseServerResponse({
+          success: false,
+          message: "Invalid home type",
+        });
+      }
+
+      // Check if downgrade is valid (new home must be cheaper)
+      if (newHome.cost >= currentHome.cost) {
+        return baseServerResponse({
+          success: false,
+          message: "Invalid downgrade",
+        });
+      }
+
+      // Calculate refund (50% of the difference)
+      const refund = Math.floor((currentHome.cost - newHome.cost) * 0.5);
+
+      // Update user's home and money
+      await ctx.db
+        .update(userData)
+        .set({
+          homeType: input.newHomeType,
+          money: ctx.db.raw(`money + ${refund}`),
+          regeneration: ctx.db.raw(`regeneration - ${currentHome.regen - newHome.regen}`),
+        })
+        .where(eq(userData.userId, ctx.session.user.id));
+
+      return baseServerResponse({
+        success: true,
+        message: "Home downgraded successfully",
+      });
+    }),
+
+  getHomeInfo: protectedProcedure.query(async ({ ctx }) => {
+    const user = await ctx.db.query.userData.findFirst({
+      where: eq(userData.userId, ctx.session.user.id),
+      columns: {
+        homeType: true,
+        homeStorage: true,
+        money: true,
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    const currentHome = HomeUpgrades[user.homeType];
+    const availableUpgrades = Object.entries(HomeUpgrades).filter(
+      ([_, home]) => home.cost > currentHome.cost,
+    );
+    const availableDowngrades = Object.entries(HomeUpgrades).filter(
+      ([_, home]) => home.cost < currentHome.cost,
+    );
+
+    return {
+      currentHome,
+      availableUpgrades,
+      availableDowngrades,
+      money: user.money,
+      currentStorage: user.homeStorage,
+      maxStorage: currentHome.storage,
+    };
+  }),
 });

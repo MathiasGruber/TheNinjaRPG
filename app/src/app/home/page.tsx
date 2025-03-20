@@ -15,6 +15,7 @@ import { api } from "@/app/_trpc/client";
 import { structureBoost } from "@/utils/village";
 import { showMutationToast } from "@/libs/toast";
 import { useRequireInVillage } from "@/utils/UserContext";
+import { HomeUpgradeCard } from "@/components/home/HomeUpgradeCard";
 
 export default function Home() {
   const { userData, sectorVillage, access, ownVillage, updateUser } =
@@ -101,7 +102,7 @@ export default function Home() {
             subtitle="Decorate, upgrade, host parties"
             initialBreak={true}
           >
-            WIP
+            <HomeUpgradeCard />
           </ContentBox>
           <ContentBox title="Item Storage" subtitle="Store items" initialBreak={true}>
             WIP
