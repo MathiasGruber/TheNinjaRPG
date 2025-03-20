@@ -421,25 +421,65 @@ export const questsRouter = createTRPCRouter({
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
       
+      console.log(`Attempting to delete achievement: ${input.id} for user: ${ctx.userId}`);
+      
+      // First, find the achievement directly in the database
+      const achievementHistoryEntry = await ctx.drizzle.query.questHistory.findFirst({
+        where: and(
+          eq(questHistory.questId, input.id),
+          eq(questHistory.userId, ctx.userId)
+        ),
+        with: {
+          quest: true,
+        }
+      });
+      
+      if (!achievementHistoryEntry) {
+        console.log(`No achievement history entry found with id: ${input.id}`);
+        throw serverError("PRECONDITION_FAILED", `No achievement history entry with id ${input.id} found`);
+      }
+      
+      if (!["tier", "achievement"].includes(achievementHistoryEntry.quest.questType)) {
+        console.log(`Entry is not an achievement or tier: ${achievementHistoryEntry.quest.questType}`);
+        throw serverError("PRECONDITION_FAILED", `Cannot delete non-achievement entries`);
+      }
+      
+      // Also find the entry in the user object to update local state
       const achievementEntry = user?.userQuests?.find(
         (q) => q.questId === input.id && ["tier", "achievement"].includes(q.quest.questType)
       );
       
-      if (!achievementEntry) {
-        throw serverError("PRECONDITION_FAILED", `No achievement with id ${input.id} found`);
+      console.log(`Found achievement to delete: ${achievementHistoryEntry.quest.name}`);
+
+      try {
+        // Delete the achievement entry from the user's logbook
+        const result = await ctx.drizzle
+          .delete(questHistory)
+          .where(
+            and(
+              eq(questHistory.questId, input.id),
+              eq(questHistory.userId, ctx.userId),
+            ),
+          );
+          
+        console.log(`Delete result:`, result);
+        
+        // If this is a badge achievement, we need to check if we should also delete the badge
+        if (achievementHistoryEntry.quest.content?.reward?.reward_badges?.length > 0) {
+          console.log(`Achievement has badges:`, achievementHistoryEntry.quest.content.reward.reward_badges);
+          // We would need additional logic here if we want to also remove granted badges
+        }
+        
+        // Force update user quests to reflect the deletion if it exists in memory
+        if (achievementEntry) {
+          user.userQuests = user.userQuests.filter(uq => uq.questId !== input.id);
+        }
+        
+        return { success: true, message: `Achievement deleted from logbook` };
+      } catch (error) {
+        console.error(`Error deleting achievement:`, error);
+        throw serverError("INTERNAL_SERVER_ERROR", `Failed to delete achievement: ${error.message}`);
       }
-
-      // Delete the achievement entry from the user's logbook
-      await ctx.drizzle
-        .delete(questHistory)
-        .where(
-          and(
-            eq(questHistory.questId, input.id),
-            eq(questHistory.userId, ctx.userId),
-          ),
-        );
-
-      return { success: true, message: `Achievement deleted from logbook` };
     }),
   getQuestHistory: protectedProcedure
     .input(

@@ -68,7 +68,21 @@ const LogbookAchievements: React.FC = () => {
   const { mutate: deleteAchievement } = api.quests.deleteAchievement.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      await utils.profile.getUser.invalidate();
+      // Invalidate multiple endpoints to ensure UI is updated
+      await Promise.all([
+        utils.profile.getUser.invalidate(),
+        utils.quests.getQuestHistory.invalidate()
+      ]);
+      
+      // If the deleted achievement was the active one, reset the active element
+      if (activeElement && quests) {
+        const stillExists = quests.some(q => q.quest.name === activeElement);
+        if (!stillExists && quests.length > 0) {
+          setActiveElement(quests[0].quest.name);
+        } else if (!stillExists) {
+          setActiveElement("");
+        }
+      }
     },
   });
 
