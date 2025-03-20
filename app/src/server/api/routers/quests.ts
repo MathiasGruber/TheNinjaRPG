@@ -478,7 +478,10 @@ export const questsRouter = createTRPCRouter({
         return { success: true, message: `Achievement deleted from logbook` };
       } catch (error) {
         console.error(`Error deleting achievement:`, error);
-        throw serverError("INTERNAL_SERVER_ERROR", `Failed to delete achievement: ${error.message}`);
+        throw serverError(
+          "INTERNAL_SERVER_ERROR", 
+          `${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }),
   getQuestHistory: protectedProcedure
