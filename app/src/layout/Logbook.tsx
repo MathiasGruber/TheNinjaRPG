@@ -95,7 +95,7 @@ const LogbookAchievements: React.FC = () => {
                 selectedTitle={activeElement}
                 titlePrefix={`${capitalizeFirstLetter(uq.quest.questType)}: `}
                 onClick={setActiveElement}
-                rightContent={
+                options={
                   uq.quest.questType === "achievement" && (
                     <Confirm
                       title="Confirm removing achievement"
