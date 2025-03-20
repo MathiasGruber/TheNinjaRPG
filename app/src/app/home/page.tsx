@@ -138,41 +138,57 @@ export default function Home() {
           >
             <div className="space-y-4">
               {data?.home ? (
-                <div className="text-center">
+                <div className="text-center bg-gray-100 p-4 rounded-lg">
                   <h3 className="text-lg font-bold">{data.home.name}</h3>
                   <p>Regeneration Bonus: +{data.home.regenBonus}</p>
                   <p>Storage Slots: {data.home.storageSlots}</p>
                 </div>
               ) : (
                 <p className="text-center italic">You don&apos;t own a home yet</p>
-
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {data?.availableHomes.map((home) => (
-                  <div
-                    key={home.id}
-                    className={`p-4 border rounded-lg ${
-                      data.home?.id === home.id
-                        ? "border-green-500"
-                        : "border-gray-300"
-                    }`}
-                  >
-                    <h4 className="font-bold">{home.name}</h4>
-                    <p>Regeneration: +{home.regenBonus}</p>
-                    <p>Storage: {home.storageSlots} slots</p>
-                    <p>Cost: {home.cost.toLocaleString()} Ryo</p>
-                    {data.home?.id !== home.id && (
-                      <button
-                        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        onClick={() => upgradeHome({ homeTypeId: home.id })}
-                        disabled={isUpgrading}
-                      >
-                        {isUpgrading ? "Upgrading..." : "Upgrade"}
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {data?.availableHomes
+                  .sort((a, b) => a.cost - b.cost)
+                  .map((home) => (
+                    <div
+                      key={home.id}
+                      className={`p-4 border rounded-lg ${
+                        data.home?.id === home.id
+                          ? "border-green-500 bg-green-50"
+                          : "border-gray-300 hover:border-blue-500"
+                      }`}
+                    >
+                      <h4 className="font-bold text-lg">{home.name}</h4>
+                      <div className="mt-2 space-y-1">
+                        <p className="flex justify-between">
+                          <span>Regeneration:</span>
+                          <span className="font-semibold">+{home.regenBonus}</span>
+                        </p>
+                        <p className="flex justify-between">
+                          <span>Storage:</span>
+                          <span className="font-semibold">{home.storageSlots} slots</span>
+                        </p>
+                        <p className="flex justify-between">
+                          <span>Cost:</span>
+                          <span className="font-semibold">{home.cost.toLocaleString()} Ryo</span>
+                        </p>
+                      </div>
+                      {data.home?.id !== home.id && (
+                        <button
+                          className={`mt-4 w-full px-4 py-2 rounded ${
+                            userData.money >= home.cost
+                              ? "bg-blue-500 hover:bg-blue-600 text-white"
+                              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          }`}
+                          onClick={() => upgradeHome({ homeTypeId: home.id })}
+                          disabled={isUpgrading || userData.money < home.cost}
+                        >
+                          {isUpgrading ? "Upgrading..." : "Upgrade"}
+                        </button>
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           </ContentBox>
