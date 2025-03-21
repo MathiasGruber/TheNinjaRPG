@@ -960,6 +960,15 @@ export const processUsersForBattle = (info: {
       user.curStamina = user.maxStamina;
     }
 
+    if (battleType === "RANKED") {
+      user.maxHealth = 5050;
+      user.curHealth = 5050;
+      user.maxChakra = 5050;
+      user.curChakra = 5050;
+      user.maxStamina = 5050;
+      user.curStamina = 5050;
+    }
+
     // Add highest offence name to user
     const offences = {
       ninjutsuOffence: user.ninjutsuOffence,
