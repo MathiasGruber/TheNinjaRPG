@@ -88,12 +88,14 @@ function startMatchCheckInterval() {
         const battleId = await checkRankedPvpMatches(drizzleDB);
         if (battleId) {
           console.log("[RankedPvP] Match found in interval:", battleId);
+        } else {
+          console.log("[RankedPvP] No match found in this interval check");
         }
       } catch (error) {
         console.error('[RankedPvP] Error checking ranked PvP matches:', error);
       }
     })();
-  }, 1000); // Check every second
+  }, 5000); // Check every 5 seconds instead of every second to reduce log spam
 }
 
 // Start the interval when the server starts
@@ -114,6 +116,7 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
     .from(rankedPvpQueue);
     
   console.log("[RankedPvP] Raw queue query:", JSON.stringify(queue, null, 2));
+  console.log("[RankedPvP] Queue length:", queue.length);
   
   if (queue.length < 2) {
     console.log("[RankedPvP] Not enough players in queue:", queue.length);
@@ -148,12 +151,16 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
     matchRange,
     baseRange,
     additionalRange,
-    queueSize: queue.length
+    queueSize: queue.length,
+    allPlayersLP: queue.map(p => ({ userId: p.userId, lp: p.rankedLp }))
   });
 
   // Find potential matches for the oldest player
   const potentialMatches = queue.filter((player: QueueEntry) => {
-    if (player.userId === oldestPlayer.userId) return false;
+    if (player.userId === oldestPlayer.userId) {
+      console.log("[RankedPvP] Skipping self match:", player.userId);
+      return false;
+    }
     
     const lpDiff = Math.abs(player.rankedLp - oldestPlayer.rankedLp);
     const isMatch = lpDiff <= matchRange;
@@ -171,7 +178,8 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
       },
       lpDiff,
       matchRange,
-      isMatch
+      isMatch,
+      reason: isMatch ? "LP difference within range" : "LP difference too high"
     });
 
     return isMatch;
@@ -200,6 +208,19 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
     
     try {
       // First, initiate the battle
+      console.log("[RankedPvP] Attempting to initiate battle between:", {
+        player1: {
+          userId: oldestPlayer.userId,
+          lp: oldestPlayer.rankedLp,
+          status: (await client.select().from(userData).where(eq(userData.userId, oldestPlayer.userId)))[0]?.status
+        },
+        player2: {
+          userId: opponent.userId,
+          lp: opponent.rankedLp,
+          status: (await client.select().from(userData).where(eq(userData.userId, opponent.userId)))[0]?.status
+        }
+      });
+      
       const result = await initiateBattle(
         {
           client,
@@ -227,11 +248,14 @@ async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | nu
       );
 
       if (!result.battleId) {
-        console.error("[RankedPvP] Failed to create battle");
+        console.error("[RankedPvP] Failed to create battle:", result.message);
         return null;
       }
 
-      console.log("[RankedPvP] Battle created successfully:", result.battleId);
+      console.log("[RankedPvP] Battle created successfully:", {
+        battleId: result.battleId,
+        message: result.message
+      });
 
       // Update user status first
       await client
