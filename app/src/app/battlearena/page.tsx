@@ -170,7 +170,16 @@ export default function Arena() {
             {!queueData?.inQueue ? (
               <Button
                 className="w-full"
-                onClick={() => queue()}
+                onClick={() => {
+                  if (userData.status === "BATTLE") {
+                    showMutationToast({ 
+                      success: false, 
+                      message: "You cannot queue while in battle. Please finish your current battle first."
+                    });
+                    return;
+                  }
+                  queue();
+                }}
                 disabled={isQueuing}
               >
                 {isQueuing ? "Queuing..." : "Queue for Ranked PvP"}
