@@ -1225,7 +1225,7 @@ export const processUsersForBattle = (info: {
         effects
           .filter((e) => e.type === "summon")
           .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
-        if ((itemType === "ARMOR" || itemType === "ACCESSORY") && battleType !== "RANKED") {
+        if (itemType === "ARMOR" || itemType === "ACCESSORY") {
           if (useritem.item.effects && useritem.equipped !== "NONE") {
             effects.forEach((effect) => {
               const realized = realizeTag({
