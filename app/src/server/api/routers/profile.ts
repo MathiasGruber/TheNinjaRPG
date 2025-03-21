@@ -1573,6 +1573,8 @@ export const fetchPublicUsers = async (
         return [desc(userData.villagePrestige)];
       case "Community":
         return [desc(userData.tavernMessages)];
+      case "Ranked":
+        return [desc(userData.rankedLp)];
     }
   };
   const [users, user] = await Promise.all([
