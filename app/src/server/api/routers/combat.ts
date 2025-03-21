@@ -713,7 +713,7 @@ export const combatRouter = createTRPCRouter({
         .where(eq(userData.userId, ctx.userId));
 
       // Try to find a match
-      const baseRange = user.rankedLp <= 150 ? 149 : 100;
+      const baseRange = 100;
       const potentialOpponents = await ctx.drizzle.query.rankedPvpQueue.findMany({
         where: ne(rankedPvpQueue.userId, ctx.userId),
         orderBy: desc(rankedPvpQueue.createdAt),
@@ -723,7 +723,7 @@ export const combatRouter = createTRPCRouter({
       for (const opponent of potentialOpponents) {
         // Calculate additional range based on queue time for both players
         const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
-        const opponentAdditionalRange = Math.floor(opponentQueueTimeMinutes / 2) * 25;
+        const opponentAdditionalRange = opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
         const opponentTotalRange = baseRange + opponentAdditionalRange;
 
         // Check if either player is within range of the other
@@ -826,9 +826,9 @@ export const combatRouter = createTRPCRouter({
         if (!stillQueued) continue;
 
         // Calculate base range and additional range based on queue time
-        const baseRange = player.rankedLp <= 150 ? 149 : 100;
+        const baseRange = 100;
         const queueTimeMinutes = (new Date().getTime() - player.createdAt.getTime()) / (1000 * 60);
-        const additionalRange = Math.floor(queueTimeMinutes / 2) * 25;
+        const additionalRange = queueTimeMinutes >= 5 ? 25 + Math.floor((queueTimeMinutes - 5) / 2) * 25 : 0;
         const totalRange = baseRange + additionalRange;
 
         // Find potential opponents considering expanded range
@@ -838,8 +838,8 @@ export const combatRouter = createTRPCRouter({
             
             // Calculate opponent's range
             const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
-            const opponentAdditionalRange = Math.floor(opponentQueueTimeMinutes / 2) * 25;
-            const opponentBaseRange = opponent.rankedLp <= 150 ? 149 : 100;
+            const opponentAdditionalRange = opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
+            const opponentBaseRange = 100;
             const opponentTotalRange = opponentBaseRange + opponentAdditionalRange;
 
             // Check if either player is within range of the other
