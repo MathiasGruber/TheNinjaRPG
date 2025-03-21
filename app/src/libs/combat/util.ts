@@ -1107,7 +1107,7 @@ export const processUsersForBattle = (info: {
     // If in own village, add defence bonus
     const ownSector = user.sector === user.village?.sector;
     const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
-    if (ownSector && inVillage && battleType !== "ARENA") {
+    if (ownSector && inVillage && battleType !== "ARENA" && battleType !== "RANKED") {
       const boost = structureBoost("villageDefencePerLvl", user.village?.structures);
       const effect = DecreaseDamageTakenTag.parse({
         target: "SELF",
@@ -1131,7 +1131,7 @@ export const processUsersForBattle = (info: {
     }
 
     // Add bloodline efects
-    if (user.bloodline?.effects) {
+    if (user.bloodline?.effects && battleType !== "RANKED") {
       user.bloodline.effects.forEach((effect) => {
         const realized = realizeTag({
           tag: effect as UserEffect,
