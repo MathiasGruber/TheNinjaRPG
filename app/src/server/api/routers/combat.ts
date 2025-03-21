@@ -707,11 +707,12 @@ export const combatRouter = createTRPCRouter({
         .where(eq(userData.userId, ctx.userId));
 
       // Try to find a match
+      const lpRange = user.rankedLp <= 150 ? 149 : 100;
       const potentialOpponents = await ctx.drizzle.query.rankedPvpQueue.findMany({
         where: and(
           ne(rankedPvpQueue.userId, ctx.userId),
-          gte(rankedPvpQueue.rankedLp, user.rankedLp - 100),
-          lt(rankedPvpQueue.rankedLp, user.rankedLp + 100),
+          gte(rankedPvpQueue.rankedLp, user.rankedLp - lpRange),
+          lt(rankedPvpQueue.rankedLp, user.rankedLp + lpRange),
         ),
         orderBy: desc(rankedPvpQueue.createdAt),
       });
@@ -730,20 +731,7 @@ export const combatRouter = createTRPCRouter({
             targetIds: [opponent.userId],
             client: ctx.drizzle,
             asset: "arena",
-            statDistribution: {
-              strength: 200000,
-              intelligence: 200000,
-              willpower: 200000,
-              speed: 200000,
-              ninjutsuOffence: 450000,
-              ninjutsuDefence: 450000,
-              genjutsuOffence: 450000,
-              genjutsuDefence: 450000,
-              taijutsuOffence: 450000,
-              taijutsuDefence: 450000,
-              bukijutsuOffence: 450000,
-              bukijutsuDefence: 450000,
-            },
+            statDistribution: { },
           },
           "RANKED",
         );
@@ -819,10 +807,11 @@ export const combatRouter = createTRPCRouter({
         if (!stillQueued) continue;
 
         // Find potential opponents
+        const lpRange = player.rankedLp <= 150 ? 149 : 100;
         const potentialOpponents = queuedPlayers.filter(
           (opponent) =>
             opponent.userId !== player.userId &&
-            Math.abs(opponent.rankedLp - player.rankedLp) <= 100
+            Math.abs(opponent.rankedLp - player.rankedLp) <= lpRange
         );
 
         console.log(`Potential opponents for ${player.userId} (LP: ${player.rankedLp}):`, 
@@ -858,20 +847,7 @@ export const combatRouter = createTRPCRouter({
               targetIds: [opponent.userId],
               client: ctx.drizzle,
               asset: "arena",
-              statDistribution: {
-                strength: 200000,
-                intelligence: 200000,
-                willpower: 200000,
-                speed: 200000,
-                ninjutsuOffence: 450000,
-                ninjutsuDefence: 450000,
-                genjutsuOffence: 450000,
-                genjutsuDefence: 450000,
-                taijutsuOffence: 450000,
-                taijutsuDefence: 450000,
-                bukijutsuOffence: 450000,
-                bukijutsuDefence: 450000,
-              },
+              statDistribution: { },
             },
             "RANKED",
           );
