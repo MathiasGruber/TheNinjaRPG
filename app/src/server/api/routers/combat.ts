@@ -669,8 +669,14 @@ export const combatRouter = createTRPCRouter({
     .query(async ({ ctx }) => {
       const queueEntry = await ctx.drizzle.query.rankedPvpQueue.findFirst({
         where: eq(rankedPvpQueue.userId, ctx.userId),
+        columns: {
+          createdAt: true,
+        },
       });
-      return { inQueue: !!queueEntry };
+      return { 
+        inQueue: !!queueEntry,
+        createdAt: queueEntry?.createdAt,
+      };
     }),
   queueForRankedPvp: protectedProcedure
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
@@ -707,77 +713,77 @@ export const combatRouter = createTRPCRouter({
         .where(eq(userData.userId, ctx.userId));
 
       // Try to find a match
-      const lpRange = user.rankedLp <= 150 ? 149 : 100;
+      const baseRange = user.rankedLp <= 150 ? 149 : 100;
       const potentialOpponents = await ctx.drizzle.query.rankedPvpQueue.findMany({
-        where: and(
-          ne(rankedPvpQueue.userId, ctx.userId),
-          gte(rankedPvpQueue.rankedLp, user.rankedLp - lpRange),
-          lt(rankedPvpQueue.rankedLp, user.rankedLp + lpRange),
-        ),
+        where: ne(rankedPvpQueue.userId, ctx.userId),
         orderBy: desc(rankedPvpQueue.createdAt),
       });
 
-      if (potentialOpponents.length > 0) {
-        // Get the opponent who has been waiting the longest
-        const opponent = potentialOpponents[0];
-        if (!opponent) {
-          return { success: false, message: "No opponent found" };
-        }
+      // Find opponent considering queue time
+      for (const opponent of potentialOpponents) {
+        // Calculate additional range based on queue time for both players
+        const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
+        const opponentAdditionalRange = Math.floor(opponentQueueTimeMinutes / 2) * 25;
+        const opponentTotalRange = baseRange + opponentAdditionalRange;
 
-        // Start the battle
-        const result = await initiateBattle(
-          {
-            userIds: [ctx.userId],
-            targetIds: [opponent.userId],
-            client: ctx.drizzle,
-            asset: "arena",
-            statDistribution: {                 
-              strength: 200000,
-              intelligence: 200000,
-              willpower: 200000,
-              speed: 200000,
-              ninjutsuOffence: 450000,
-              ninjutsuDefence: 450000,
-              genjutsuOffence: 450000,
-              genjutsuDefence: 450000,
-              taijutsuOffence: 450000,
-              taijutsuDefence: 450000,
-              bukijutsuOffence: 450000,
-              bukijutsuDefence: 450000,
+        // Check if either player is within range of the other
+        const lpDiff = Math.abs(user.rankedLp - opponent.rankedLp);
+        if (lpDiff <= opponentTotalRange) {
+          // Start the battle
+          const result = await initiateBattle(
+            {
+              userIds: [ctx.userId],
+              targetIds: [opponent.userId],
+              client: ctx.drizzle,
+              asset: "arena",
+              statDistribution: {                 
+                strength: 200000,
+                intelligence: 200000,
+                willpower: 200000,
+                speed: 200000,
+                ninjutsuOffence: 450000,
+                ninjutsuDefence: 450000,
+                genjutsuOffence: 450000,
+                genjutsuDefence: 450000,
+                taijutsuOffence: 450000,
+                taijutsuDefence: 450000,
+                bukijutsuOffence: 450000,
+                bukijutsuDefence: 450000,
+              },
             },
-          },
-          "RANKED",
-        );
+            "RANKED",
+          );
 
-        if (result.success && result.battleId) {
-          // Remove both users from queue
-          await Promise.all([
-            ctx.drizzle
-              .delete(rankedPvpQueue)
-              .where(eq(rankedPvpQueue.userId, ctx.userId)),
-            ctx.drizzle
-              .delete(rankedPvpQueue)
-              .where(eq(rankedPvpQueue.userId, opponent.userId)),
-            // Update both users' status
-            ctx.drizzle
-              .update(userData)
-              .set({ 
-                status: "BATTLE",
-                battleId: result.battleId,
-                updatedAt: new Date(),
-              })
-              .where(eq(userData.userId, ctx.userId)),
-            ctx.drizzle
-              .update(userData)
-              .set({ 
-                status: "BATTLE",
-                battleId: result.battleId,
-                updatedAt: new Date(),
-              })
-              .where(eq(userData.userId, opponent.userId)),
-          ]);
+          if (result.success && result.battleId) {
+            // Remove both users from queue
+            await Promise.all([
+              ctx.drizzle
+                .delete(rankedPvpQueue)
+                .where(eq(rankedPvpQueue.userId, ctx.userId)),
+              ctx.drizzle
+                .delete(rankedPvpQueue)
+                .where(eq(rankedPvpQueue.userId, opponent.userId)),
+              // Update both users' status
+              ctx.drizzle
+                .update(userData)
+                .set({ 
+                  status: "BATTLE",
+                  battleId: result.battleId,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userData.userId, ctx.userId)),
+              ctx.drizzle
+                .update(userData)
+                .set({ 
+                  status: "BATTLE",
+                  battleId: result.battleId,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userData.userId, opponent.userId)),
+            ]);
 
-          return { success: true, message: "Match found!", battleId: result.battleId };
+            return { success: true, message: "Match found!", battleId: result.battleId };
+          }
         }
       }
 
@@ -819,15 +825,30 @@ export const combatRouter = createTRPCRouter({
         });
         if (!stillQueued) continue;
 
-        // Find potential opponents
-        const lpRange = player.rankedLp <= 150 ? 149 : 100;
+        // Calculate base range and additional range based on queue time
+        const baseRange = player.rankedLp <= 150 ? 149 : 100;
+        const queueTimeMinutes = (new Date().getTime() - player.createdAt.getTime()) / (1000 * 60);
+        const additionalRange = Math.floor(queueTimeMinutes / 2) * 25;
+        const totalRange = baseRange + additionalRange;
+
+        // Find potential opponents considering expanded range
         const potentialOpponents = queuedPlayers.filter(
-          (opponent) =>
-            opponent.userId !== player.userId &&
-            Math.abs(opponent.rankedLp - player.rankedLp) <= lpRange
+          (opponent) => {
+            if (opponent.userId === player.userId) return false;
+            
+            // Calculate opponent's range
+            const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
+            const opponentAdditionalRange = Math.floor(opponentQueueTimeMinutes / 2) * 25;
+            const opponentBaseRange = opponent.rankedLp <= 150 ? 149 : 100;
+            const opponentTotalRange = opponentBaseRange + opponentAdditionalRange;
+
+            // Check if either player is within range of the other
+            const lpDiff = Math.abs(opponent.rankedLp - player.rankedLp);
+            return lpDiff <= totalRange || lpDiff <= opponentTotalRange;
+          }
         );
 
-        console.log(`Potential opponents for ${player.userId} (LP: ${player.rankedLp}):`, 
+        console.log(`Potential opponents for ${player.userId} (LP: ${player.rankedLp}, Range: ${totalRange}):`, 
           potentialOpponents.map(p => ({ userId: p.userId, lp: p.rankedLp }))
         );
 
@@ -924,7 +945,7 @@ export const combatRouter = createTRPCRouter({
             console.log("Failed to initiate battle:", result);
           }
         } else {
-          console.log(`No potential opponents found for ${player.userId}`);
+          console.log(`No potential opponents found for ${player.userId} (Range: ${totalRange})`);
         }
       }
 
