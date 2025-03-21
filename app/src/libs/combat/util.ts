@@ -961,6 +961,9 @@ export const processUsersForBattle = (info: {
     }
 
     if (battleType === "RANKED") {
+      user.level = 100;
+      user.experience = 4399880;
+      user.bloodlineId = "";
       user.maxHealth = 5050;
       user.curHealth = 5050;
       user.maxChakra = 5050;
