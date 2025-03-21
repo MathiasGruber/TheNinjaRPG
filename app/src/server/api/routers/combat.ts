@@ -7,7 +7,7 @@ import {
   hasUserMiddleware,
 } from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
-import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte } from "drizzle-orm";
+import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { desc } from "drizzle-orm";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
@@ -30,7 +30,7 @@ import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
 import { userData, questHistory, quest, gameSetting, rankedPvpQueue } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
-import { villageAlliance, village } from "@/drizzle/schema";
+import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
 import { availableUserActions } from "@/libs/combat/actions";
@@ -58,229 +58,12 @@ import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 import { IMG_BG_FOREST } from "@/drizzle/constants";
 import type { ZodBgSchemaType } from "@/validators/backgroundSchema";
-import { drizzleDB } from "@/server/db";
-import type { inferAsyncReturnType } from "@trpc/server";
-import type { createAppTRPCContext } from "@/server/api/trpc";
-
-type Context = inferAsyncReturnType<typeof createAppTRPCContext>;
 
 // Debug flag when testing battle
 const debug = false;
 
 // Pusher instance
 const pusher = getServerPusher();
-
-// Server-side interval to check for matches
-let matchCheckInterval: ReturnType<typeof setInterval> | null = null;
-
-function startMatchCheckInterval() {
-  if (matchCheckInterval) {
-    console.log("[RankedPvP] Match check interval already running");
-    return;
-  }
-  
-  console.log("[RankedPvP] Starting match check interval");
-  matchCheckInterval = setInterval(() => {
-    // Wrap the async call in a regular function
-    void (async () => {
-      try {
-        console.log("[RankedPvP] Running scheduled match check");
-        const battleId = await checkRankedPvpMatches(drizzleDB);
-        if (battleId) {
-          console.log("[RankedPvP] Match found in interval:", battleId);
-        } else {
-          console.log("[RankedPvP] No match found in this interval check");
-        }
-      } catch (error) {
-        console.error('[RankedPvP] Error checking ranked PvP matches:', error);
-      }
-    })();
-  }, 5000); // Check every 5 seconds instead of every second to reduce log spam
-}
-
-// Start the interval when the server starts
-startMatchCheckInterval();
-
-type QueueEntry = {
-  id: string;
-  userId: string;
-  rankedLp: number;
-  queueStartTime: Date;
-  createdAt: Date;
-};
-
-async function checkRankedPvpMatches(client: DrizzleClient): Promise<string | null> {
-  // Get all players in queue
-  const queue = await client
-    .select()
-    .from(rankedPvpQueue);
-    
-  console.log("[RankedPvP] Raw queue query:", JSON.stringify(queue, null, 2));
-  console.log("[RankedPvP] Queue length:", queue.length);
-  
-  if (queue.length < 2) {
-    console.log("[RankedPvP] Not enough players in queue:", queue.length);
-    return null;
-  }
-
-  // Sort queue by queue time (oldest first)
-  queue.sort((a, b) => a.queueStartTime.getTime() - b.queueStartTime.getTime());
-  
-  // Get the player who has been waiting the longest
-  const oldestPlayer = queue[0];
-  if (!oldestPlayer) {
-    console.log("[RankedPvP] No players in queue");
-    return null;
-  }
-
-  const now = new Date();
-  const oldestPlayerQueueTime = (now.getTime() - oldestPlayer.queueStartTime.getTime()) / (1000 * 60);
-  
-  // Base range is 100 LP, increases by 50 every 3 minutes if no matches found
-  const baseRange = 100;
-  const additionalRange = Math.floor(oldestPlayerQueueTime / 3) * 50;
-  const matchRange = baseRange + additionalRange;
-
-  console.log("[RankedPvP] Matchmaking parameters:", {
-    oldestPlayer: {
-      userId: oldestPlayer.userId,
-      lp: oldestPlayer.rankedLp,
-      queueTime: oldestPlayerQueueTime,
-      queueStartTime: oldestPlayer.queueStartTime
-    },
-    matchRange,
-    baseRange,
-    additionalRange,
-    queueSize: queue.length,
-    allPlayersLP: queue.map(p => ({ userId: p.userId, lp: p.rankedLp }))
-  });
-
-  // Find potential matches for the oldest player
-  const potentialMatches = queue.filter((player: QueueEntry) => {
-    if (player.userId === oldestPlayer.userId) {
-      console.log("[RankedPvP] Skipping self match:", player.userId);
-      return false;
-    }
-    
-    const lpDiff = Math.abs(player.rankedLp - oldestPlayer.rankedLp);
-    const isMatch = lpDiff <= matchRange;
-    
-    console.log("[RankedPvP] Checking match:", {
-      player: {
-        userId: player.userId,
-        lp: player.rankedLp,
-        queueTime: (now.getTime() - player.queueStartTime.getTime()) / (1000 * 60)
-      },
-      oldestPlayer: {
-        userId: oldestPlayer.userId,
-        lp: oldestPlayer.rankedLp,
-        queueTime: oldestPlayerQueueTime
-      },
-      lpDiff,
-      matchRange,
-      isMatch,
-      reason: isMatch ? "LP difference within range" : "LP difference too high"
-    });
-
-    return isMatch;
-  });
-
-  console.log("[RankedPvP] Potential matches found:", potentialMatches.map((p: QueueEntry) => ({
-    userId: p.userId,
-    lp: p.rankedLp,
-    queueTime: (now.getTime() - p.queueStartTime.getTime()) / (1000 * 60)
-  })));
-
-  if (potentialMatches.length > 0) {
-    // Get the closest LP match
-    const opponent = potentialMatches.reduce((closest: QueueEntry, current: QueueEntry) => {
-      const closestDiff = Math.abs(closest.rankedLp - oldestPlayer.rankedLp);
-      const currentDiff = Math.abs(current.rankedLp - oldestPlayer.rankedLp);
-      return currentDiff < closestDiff ? current : closest;
-    });
-    
-    console.log("[RankedPvP] Selected opponent:", {
-      userId: opponent.userId,
-      lp: opponent.rankedLp,
-      lpDiff: Math.abs(opponent.rankedLp - oldestPlayer.rankedLp),
-      queueTime: (now.getTime() - opponent.queueStartTime.getTime()) / (1000 * 60)
-    });
-    
-    try {
-      // First, initiate the battle
-      console.log("[RankedPvP] Attempting to initiate battle between:", {
-        player1: {
-          userId: oldestPlayer.userId,
-          lp: oldestPlayer.rankedLp,
-          status: (await client.select().from(userData).where(eq(userData.userId, oldestPlayer.userId)))[0]?.status
-        },
-        player2: {
-          userId: opponent.userId,
-          lp: opponent.rankedLp,
-          status: (await client.select().from(userData).where(eq(userData.userId, opponent.userId)))[0]?.status
-        }
-      });
-      
-      const result = await initiateBattle(
-        {
-          client,
-          userIds: [oldestPlayer.userId, opponent.userId],
-          targetIds: [],
-          asset: "arena",
-          scaleTarget: false,
-          statDistribution: {
-            strength: 200000,
-            intelligence: 200000,
-            willpower: 200000,
-            speed: 200000,
-            ninjutsuOffence: 450000,
-            ninjutsuDefence: 450000,
-            genjutsuOffence: 450000,
-            genjutsuDefence: 450000,
-            taijutsuOffence: 450000,
-            taijutsuDefence: 450000,
-            bukijutsuOffence: 450000,
-            bukijutsuDefence: 450000,
-          },
-        },
-        "RANKED",
-        1,
-      );
-
-      if (!result.battleId) {
-        console.error("[RankedPvP] Failed to create battle:", result.message);
-        return null;
-      }
-
-      console.log("[RankedPvP] Battle created successfully:", {
-        battleId: result.battleId,
-        message: result.message
-      });
-
-      // Update user status first
-      await client
-        .update(userData)
-        .set({ status: "BATTLE" })
-        .where(
-          or(
-            eq(userData.userId, oldestPlayer.userId),
-            eq(userData.userId, opponent.userId),
-          ),
-        );
-
-      // Then remove from queue
-      await client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, oldestPlayer.id));
-      await client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, opponent.id));
-
-      return result.battleId;
-    } catch (error) {
-      console.error("[RankedPvP] Error during battle creation:", error);
-      return null;
-    }
-  }
-  console.log("[RankedPvP] No matches found in queue");
-  return null;
-}
 
 export const combatRouter = createTRPCRouter({
   getBattle: protectedProcedure
@@ -882,135 +665,122 @@ export const combatRouter = createTRPCRouter({
       }
       return errorResponse("Failed to update battle state after multiple attempts");
     }),
-  getBattleState: protectedProcedure
-    .input(z.object({ battleId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const battle = await fetchBattle(ctx.drizzle, input.battleId);
-      if (!battle) return { success: false, message: "Battle not found" };
-      return { success: true, battle };
+  getRankedPvpQueue: protectedProcedure
+    .query(async ({ ctx }) => {
+      const queueEntry = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+        where: eq(rankedPvpQueue.userId, ctx.userId),
+      });
+      return { inQueue: !!queueEntry };
     }),
-  getQueueStatus: protectedProcedure
-    .input(z.object({ userId: z.string() }))
-    .output(z.object({
-      inQueue: z.boolean(),
-      queueStartTime: z.date().optional(),
-      timeInQueue: z.number().optional(),
-      secondsInQueue: z.number().optional(),
-      lpRange: z.number().optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      const queueEntry = await ctx.drizzle
-        .select()
-        .from(rankedPvpQueue)
-        .where(eq(rankedPvpQueue.userId, input.userId))
-        .limit(1);
-
-      if (!queueEntry.length) {
-        return {
-          inQueue: false,
-        };
-      }
-
-      const entry = queueEntry[0];
-      if (!entry) {
-        return {
-          inQueue: false,
-        };
-      }
-
-      const now = new Date();
-      const diffInSeconds = Math.floor((now.getTime() - entry.queueStartTime.getTime()) / 1000);
-      const minutes = Math.floor(diffInSeconds / 60);
-      const seconds = diffInSeconds % 60;
-      const lpRange = 100 + (Math.floor(minutes / 3) * 50);
-
-      return {
-        inQueue: true,
-        queueStartTime: entry.queueStartTime,
-        timeInQueue: minutes,
-        secondsInQueue: seconds,
-        lpRange,
-      };
-    }),
-  checkMatches: protectedProcedure
+  queueForRankedPvp: protectedProcedure
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx }) => {
-      const battleId = await checkRankedPvpMatches(ctx.drizzle);
-      return { 
-        success: true, 
-        message: battleId ? "Match found!" : "No matches found.",
-        battleId: battleId ?? undefined
-      };
-    }),
-  joinRankedPvpQueue: protectedProcedure
-    .input(z.object({ userId: z.string() }))
-    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
-    .mutation(async ({ ctx, input }) => {
       // Check if user is already in queue
-      const existingQueue = await ctx.drizzle
-        .select()
-        .from(rankedPvpQueue)
-        .where(eq(rankedPvpQueue.userId, input.userId));
-
-      if (existingQueue.length > 0) {
-        return {
-          success: false,
-          message: "Already in queue",
-        };
-      }
-
-      // Check if user is already in a battle
-      const userState = await ctx.drizzle
-        .select()
-        .from(userData)
-        .where(eq(userData.userId, input.userId));
-
-      if (userState[0]?.status === "BATTLE") {
-        return {
-          success: false,
-          message: "Already in a battle",
-        };
-      }
-
-      const now = new Date();
-      console.log("[RankedPvP] Adding user to queue:", {
-        userId: input.userId,
-        rankedLp: userState[0]?.rankedLp ?? 0,
-        queueStartTime: now
+      const existingQueue = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+        where: eq(rankedPvpQueue.userId, ctx.userId),
       });
+      if (existingQueue) {
+        return errorResponse("Already in queue");
+      }
 
-      // Add user to queue
+      // Get user's current LP
+      const user = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, ctx.userId),
+        columns: { rankedLp: true },
+      });
+      if (!user) {
+        return errorResponse("User not found");
+      }
+
+      // Add to queue
       await ctx.drizzle.insert(rankedPvpQueue).values({
         id: nanoid(),
-        userId: input.userId,
-        rankedLp: userState[0]?.rankedLp ?? 0,
-        queueStartTime: now,
-        createdAt: now,
+        userId: ctx.userId,
+        rankedLp: user.rankedLp,
+        createdAt: new Date(),
       });
 
-      // Set user status to QUEUED
+      // Update user status
       await ctx.drizzle
         .update(userData)
         .set({ status: "QUEUED" })
-        .where(eq(userData.userId, input.userId));
+        .where(eq(userData.userId, ctx.userId));
 
-      // Immediately check for matches
-      const battleId = await checkRankedPvpMatches(ctx.drizzle);
+      // Try to find a match
+      const potentialOpponents = await ctx.drizzle.query.rankedPvpQueue.findMany({
+        where: and(
+          ne(rankedPvpQueue.userId, ctx.userId),
+          gte(rankedPvpQueue.rankedLp, user.rankedLp - 100),
+          lt(rankedPvpQueue.rankedLp, user.rankedLp + 100),
+        ),
+        orderBy: desc(rankedPvpQueue.createdAt),
+      });
 
-      return {
-        success: true,
-        message: "Queued for ranked PvP",
-        battleId: battleId ?? undefined
-      };
-    }),
-  getRankedPvpQueue: protectedProcedure
-    .query(async ({ ctx }) => {
-      const queueEntry = await ctx.drizzle
-        .select()
-        .from(rankedPvpQueue)
-        .where(eq(rankedPvpQueue.userId, ctx.userId))
-        .limit(1);
-      return { inQueue: queueEntry.length > 0 };
+      if (potentialOpponents.length > 0) {
+        // Get the opponent who has been waiting the longest
+        const opponent = potentialOpponents[0];
+        if (!opponent) {
+          return { success: false, message: "No opponent found" };
+        }
+
+        // Start the battle
+        const result = await initiateBattle(
+          {
+            userIds: [ctx.userId],
+            targetIds: [opponent.userId],
+            client: ctx.drizzle,
+            asset: "arena",
+            statDistribution: {
+              strength: 200000,
+              intelligence: 200000,
+              willpower: 200000,
+              speed: 200000,
+              ninjutsuOffence: 450000,
+              ninjutsuDefence: 450000,
+              genjutsuOffence: 450000,
+              genjutsuDefence: 450000,
+              taijutsuOffence: 450000,
+              taijutsuDefence: 450000,
+              bukijutsuOffence: 450000,
+              bukijutsuDefence: 450000,
+            },
+          },
+          "RANKED",
+        );
+
+        if (result.success && result.battleId) {
+          // Remove both users from queue
+          await Promise.all([
+            ctx.drizzle
+              .delete(rankedPvpQueue)
+              .where(eq(rankedPvpQueue.userId, ctx.userId)),
+            ctx.drizzle
+              .delete(rankedPvpQueue)
+              .where(eq(rankedPvpQueue.userId, opponent.userId)),
+            // Update both users' status
+            ctx.drizzle
+              .update(userData)
+              .set({ 
+                status: "BATTLE",
+                battleId: result.battleId,
+                updatedAt: new Date(),
+              })
+              .where(eq(userData.userId, ctx.userId)),
+            ctx.drizzle
+              .update(userData)
+              .set({ 
+                status: "BATTLE",
+                battleId: result.battleId,
+                updatedAt: new Date(),
+              })
+              .where(eq(userData.userId, opponent.userId)),
+          ]);
+
+          return { success: true, message: "Match found!", battleId: result.battleId };
+        }
+      }
+
+      return { success: true, message: "Queued for ranked PvP" };
     }),
   leaveRankedPvpQueue: protectedProcedure
     .output(baseServerResponse)
@@ -1027,6 +797,136 @@ export const combatRouter = createTRPCRouter({
         .where(eq(userData.userId, ctx.userId));
 
       return { success: true, message: "Left ranked PvP queue" };
+    }),
+  checkRankedPvpMatches: protectedProcedure
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
+    .mutation(async ({ ctx }) => {
+      // Get all queued players
+      const queuedPlayers = await ctx.drizzle.query.rankedPvpQueue.findMany({
+        orderBy: desc(rankedPvpQueue.createdAt),
+      });
+
+      console.log("Queued players:", queuedPlayers.map(p => ({ userId: p.userId, lp: p.rankedLp })));
+
+      // Try to match players
+      for (const player of queuedPlayers) {
+        if (!player) continue;
+        
+        // Skip if player already matched
+        const stillQueued = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+          where: eq(rankedPvpQueue.userId, player.userId),
+        });
+        if (!stillQueued) continue;
+
+        // Find potential opponents
+        const potentialOpponents = queuedPlayers.filter(
+          (opponent) =>
+            opponent.userId !== player.userId &&
+            Math.abs(opponent.rankedLp - player.rankedLp) <= 100
+        );
+
+        console.log(`Potential opponents for ${player.userId} (LP: ${player.rankedLp}):`, 
+          potentialOpponents.map(p => ({ userId: p.userId, lp: p.rankedLp }))
+        );
+
+        if (potentialOpponents.length > 0) {
+          // Get the opponent who has been waiting the longest
+          const opponent = potentialOpponents[0];
+          if (!opponent) continue;
+
+          // Double check both players are still in queue
+          const [playerStillQueued, opponentStillQueued] = await Promise.all([
+            ctx.drizzle.query.rankedPvpQueue.findFirst({
+              where: eq(rankedPvpQueue.userId, player.userId),
+            }),
+            ctx.drizzle.query.rankedPvpQueue.findFirst({
+              where: eq(rankedPvpQueue.userId, opponent.userId),
+            }),
+          ]);
+
+          if (!playerStillQueued || !opponentStillQueued) {
+            console.log("One or both players no longer in queue");
+            continue;
+          }
+
+          console.log(`Attempting to match ${player.userId} with ${opponent.userId}`);
+
+          // Start the battle
+          const result = await initiateBattle(
+            {
+              userIds: [player.userId],
+              targetIds: [opponent.userId],
+              client: ctx.drizzle,
+              asset: "arena",
+              statDistribution: {
+                strength: 200000,
+                intelligence: 200000,
+                willpower: 200000,
+                speed: 200000,
+                ninjutsuOffence: 450000,
+                ninjutsuDefence: 450000,
+                genjutsuOffence: 450000,
+                genjutsuDefence: 450000,
+                taijutsuOffence: 450000,
+                taijutsuDefence: 450000,
+                bukijutsuOffence: 450000,
+                bukijutsuDefence: 450000,
+              },
+            },
+            "RANKED",
+          );
+
+          if (result.success && result.battleId) {
+            console.log(`Match found! Battle ID: ${result.battleId}`);
+            // Remove both users from queue and update their status
+            await Promise.all([
+              ctx.drizzle
+                .delete(rankedPvpQueue)
+                .where(eq(rankedPvpQueue.userId, player.userId)),
+              ctx.drizzle
+                .delete(rankedPvpQueue)
+                .where(eq(rankedPvpQueue.userId, opponent.userId)),
+              ctx.drizzle
+                .update(userData)
+                .set({ 
+                  status: "BATTLE",
+                  battleId: result.battleId,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userData.userId, player.userId)),
+              ctx.drizzle
+                .update(userData)
+                .set({ 
+                  status: "BATTLE",
+                  battleId: result.battleId,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userData.userId, opponent.userId)),
+            ]);
+
+            // Notify both players about the match
+            const pusher = getServerPusher();
+            await Promise.all([
+              pusher.trigger(player.userId, "event", { 
+                type: "battle", 
+                battleId: result.battleId 
+              }),
+              pusher.trigger(opponent.userId, "event", { 
+                type: "battle", 
+                battleId: result.battleId 
+              }),
+            ]);
+
+            return { success: true, message: "Match found!", battleId: result.battleId };
+          } else {
+            console.log("Failed to initiate battle:", result);
+          }
+        } else {
+          console.log(`No potential opponents found for ${player.userId}`);
+        }
+      }
+
+      return { success: true, message: "Checked for matches" };
     }),
 });
 
