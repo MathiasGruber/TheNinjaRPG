@@ -967,6 +967,19 @@ export const processUsersForBattle = (info: {
       user.curChakra = 5050;
       user.maxStamina = 5050;
       user.curStamina = 5050;
+      user.strength = 200000;
+      user.intelligence = 200000;
+      user.willpower = 200000;
+      user.speed = 200000;
+      user.ninjutsuOffence = 450000;
+      user.ninjutsuDefence = 450000;
+      user.genjutsuOffence = 450000;
+      user.genjutsuDefence = 450000;
+      user.taijutsuOffence = 450000;
+      user.taijutsuDefence = 450000;
+      user.bukijutsuOffence = 450000;
+      user.bukijutsuDefence = 450000;
+      
     }
 
     // Add highest offence name to user
