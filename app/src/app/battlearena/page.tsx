@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocalStorage } from "@/hooks/localstorage";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
@@ -164,7 +164,12 @@ export default function Arena() {
             </p>
             {queueData?.inQueue && (
               <p className="text-yellow-500">
-                You are currently in queue. Waiting for opponent...
+                You are currently in queue. Waiting for opponent... 
+                {queueData.createdAt && (
+                  <span className="ml-2">
+                    Time in queue: <QueueTimer createdAt={queueData.createdAt} />
+                  </span>
+                )}
               </p>
             )}
             {!queueData?.inQueue ? (
@@ -643,5 +648,27 @@ const AssignTrainingDummyStats: React.FC<AssignTrainingDummyStatsProps> = (props
         </form>
       </Form>
     </ContentBox>
+  );
+};
+
+const QueueTimer = ({ createdAt }: { createdAt: Date }) => {
+  const [queueTime, setQueueTime] = useState("0:00");
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      const diff = now.getTime() - new Date(createdAt).getTime();
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setQueueTime(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer(); // Initial update
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [createdAt]);
+
+  return (
+    <span className="font-mono">{queueTime}</span>
   );
 };
