@@ -487,7 +487,7 @@ export const updateUser = async (
             : { status: "AWAKE" }),
           ...(curBattle.battleType === "RANKED" && lpChange !== 0
             ? {
-                rankedLp: sql`rankedLp + ${lpChange}`,
+                rankedLp: sql`GREATEST(rankedLp + ${lpChange}, 0)`,
               }
             : {}),
         })
