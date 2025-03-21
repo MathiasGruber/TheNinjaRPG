@@ -60,18 +60,18 @@ export default function Arena() {
   const { userData, access } = useRequireInVillage("/battlearena");
 
   // Ranked PvP queue state and mutations
-  const { data: queueStatus, refetch: refetchQueueStatus } = api.combat.getQueueStatus.useQuery(
-    { userId: userData?.userId ?? "" },
-    {
-      enabled: !!userData,
-      refetchInterval: 1000, // Poll every second
-    },
-  );
+  const { data: queueData } = api.combat.getRankedPvpQueue.useQuery(undefined, {
+    enabled: !!userData,
+    refetchInterval: 5000, // Refetch queue status every 5 seconds
+  });
 
-  const { mutate: queue, isPending: isQueuing } = api.combat.joinRankedPvpQueue.useMutation({
+  const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
     onSuccess: (result) => {
       if (result.success) {
         showMutationToast({ ...result, message: "Queued for ranked PvP" });
+        if (result.battleId) {
+          router.push("/combat");
+        }
       } else {
         showMutationToast(result);
       }
@@ -88,30 +88,23 @@ export default function Arena() {
     },
   });
 
-  const { mutate: checkMatches } = api.combat.checkMatches.useMutation({
+  const { mutate: checkMatches } = api.combat.checkRankedPvpMatches.useMutation({
     onSuccess: (result) => {
       if (result.success && result.battleId) {
-        void router.push(`/combat/${result.battleId}`);
+        router.push("/combat");
       }
     },
   });
 
-  // Poll for queue status and matches
+  // Check for matches periodically when in queue
   useEffect(() => {
-    if (!userData?.userId) return;
-
-    // Only start polling if we're in queue
-    if (!queueStatus?.inQueue) return;
-
-    const interval = setInterval(() => {
-      void checkMatches();
-      refetchQueueStatus().catch((error) => {
-        console.error('Failed to refetch queue status:', error);
-      });
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [userData?.userId, queueStatus?.inQueue, checkMatches, refetchQueueStatus]);
+    if (queueData?.inQueue) {
+      const interval = setInterval(() => {
+        checkMatches();
+      }, 5000); // Check for matches every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [queueData?.inQueue, checkMatches]);
 
   // Guards
   if (!access) return <Loader explanation="Accessing Battle Arena" />;
@@ -169,25 +162,15 @@ export default function Arena() {
               Queue for ranked PvP battles! You will be matched with players of similar LP.
               All battles are fought with level 100 characters with max stats.
             </p>
-            {queueStatus?.inQueue && (
-              <>
-                <div className="flex flex-col gap-2">
-                  <div className="text-sm text-muted-foreground">
-                    Time in queue: {queueStatus.timeInQueue ? `${queueStatus.timeInQueue}:${queueStatus.secondsInQueue?.toString().padStart(2, "0") ?? "00"}` : "0:00"}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Current LP range: ±{queueStatus.lpRange ?? 0}
-                  </div>
-                </div>
-                <p className="text-yellow-500">
-                  You are currently in queue. Waiting for opponent...
-                </p>
-              </>
+            {queueData?.inQueue && (
+              <p className="text-yellow-500">
+                You are currently in queue. Waiting for opponent...
+              </p>
             )}
-            {!queueStatus?.inQueue ? (
+            {!queueData?.inQueue ? (
               <Button
                 className="w-full"
-                onClick={() => queue({ userId: userData.userId })}
+                onClick={() => queue()}
                 disabled={isQueuing}
               >
                 {isQueuing ? "Queuing..." : "Queue for Ranked PvP"}
