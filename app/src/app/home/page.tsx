@@ -310,9 +310,9 @@ export default function HomePage() {
                             <Card key={itemId} className="mb-2">
                               <CardContent className="p-4 flex justify-between items-center">
                                 <div>
-                                  <h4 className="font-medium">{itemDetails?.name || "Unknown Item"}</h4>
+                                  <h4 className="font-medium">{itemDetails?.item?.name || "Unknown Item"}</h4>
                                   <p className="text-sm text-muted-foreground">
-                                    {itemDetails?.itemType || ""}
+                                    {itemDetails?.item?.itemType || ""}
                                   </p>
                                 </div>
                                 <Button 
@@ -346,9 +346,9 @@ export default function HomePage() {
                             <Card key={item.id} className="mb-2">
                               <CardContent className="p-4 flex justify-between items-center">
                                 <div>
-                                  <h4 className="font-medium">{item.name}</h4>
+                                  <h4 className="font-medium">{item.item?.name || "Unknown Item"}</h4>
                                   <p className="text-sm text-muted-foreground">
-                                    {item.itemType} (x{item.quantity})
+                                    {item.item?.itemType || ""} (x{item.quantity})
                                   </p>
                                 </div>
                                 <Button 
