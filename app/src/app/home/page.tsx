@@ -221,7 +221,7 @@ export default function HomePage() {
                                 <span className="font-semibold">{formatRyo(upgrade.cost)}</span>
                                 <Button 
                                   onClick={() => upgradeHome({ homeType: upgrade.type })}
-                                  disabled={isUpgrading || userData.ryo < upgrade.cost}
+                                  disabled={isUpgrading || (userData?.ryo ?? 0) < upgrade.cost}
                                   size="sm"
                                 >
                                   <PlusCircle className="mr-2 h-4 w-4" /> Upgrade
