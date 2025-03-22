@@ -46,6 +46,7 @@ import type { UserData } from "@/drizzle/schema";
 import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
 import type { TerrainHex } from "@/libs/hexgrid";
+import type { VillageStructure } from "@/drizzle/schema";
 
 interface SectorProps {
   sector: number;
@@ -72,6 +73,9 @@ const Sector: React.FC<SectorProps> = (props) => {
   const [sorrounding, setSorrounding] = useState<SectorUser[]>([]);
   const [allyAttack, setAllyAttack] = useLocalStorage<boolean>("friendlyAttack", false);
   const [storedLvl, setStoredLvl] = useLocalStorage<number>("minLevelOnScout", 1);
+  const [currentStructure, setCurrentStructure] = useState<VillageStructure | null>(
+    null,
+  );
 
   // References which shouldn't update
   const origin = useRef<TerrainHex | undefined>(undefined);
@@ -399,10 +403,19 @@ const Sector: React.FC<SectorProps> = (props) => {
     if (userData) {
       void updateUsersList(userData);
       userRef.current = userData;
-    }
 
+      // Check if user is on a structure
+      if (villageData?.structures) {
+        const structure = villageData.structures.find(
+          (s) => s.longitude === userData.longitude && s.latitude === userData.latitude,
+        );
+        setCurrentStructure(structure || null);
+      } else {
+        setCurrentStructure(null);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData]);
+  }, [userData, villageData]);
 
   useEffect(() => {
     const sceneRef = mountRef.current;
@@ -637,6 +650,30 @@ const Sector: React.FC<SectorProps> = (props) => {
     <>
       <div ref={mountRef}></div>
       {webglError && <WebGlError />}
+      {currentStructure && (
+        <div className="absolute bottom-4 left-4 z-20 rounded-lg bg-black/70 p-4 text-white shadow-lg">
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0">
+              <Image
+                src={currentStructure.image}
+                alt={currentStructure.name}
+                width={48}
+                height={48}
+                className="rounded-md"
+              />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">{currentStructure.name}</h3>
+              <Link
+                href={currentStructure.route}
+                className="mt-2 inline-block rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors"
+              >
+                Enter {currentStructure.name}
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
       {props.showSorrounding && sorrounding && userData && origin.current && (
         <SorroundingUsers
           userData={userData}
