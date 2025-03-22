@@ -164,10 +164,10 @@ export const homeRouter = createTRPCRouter({
       // Upgrading
       if (HomeTypes.indexOf(input.homeType) > HomeTypes.indexOf(user.homeType)) {
         const cost = targetHome.cost;
-        if (user.ryo < cost) return errorResponse("Not enough Ryo to upgrade your home");
+        if (user.money < cost) return errorResponse("Not enough Ryo to upgrade your home");
         
         await ctx.drizzle.update(userData).set({
-          ryo: user.ryo - cost,
+          money: user.money - cost,
           homeType: input.homeType,
         }).where(eq(userData.userId, ctx.userId));
         
