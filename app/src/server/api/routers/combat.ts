@@ -65,6 +65,73 @@ const debug = false;
 // Pusher instance
 const pusher = getServerPusher();
 
+// Ranked PvP stat distribution
+const RANKED_PVP_STATS = {                 
+  strength: 200000,
+  intelligence: 200000,
+  willpower: 200000,
+  speed: 200000,
+  ninjutsuOffence: 450000,
+  ninjutsuDefence: 450000,
+  genjutsuOffence: 450000,
+  genjutsuDefence: 450000,
+  taijutsuOffence: 450000,
+  taijutsuDefence: 450000,
+  bukijutsuOffence: 450000,
+  bukijutsuDefence: 450000,
+};
+
+// Helper function to initiate a ranked battle
+const initiateRankedBattle = async (
+  client: DrizzleClient,
+  player1Id: string,
+  player2Id: string,
+) => {
+  const result = await initiateBattle(
+    {
+      userIds: [player1Id],
+      targetIds: [player2Id],
+      client: client,
+      asset: "arena",
+      statDistribution: RANKED_PVP_STATS,
+    },
+    "RANKED",
+  );
+
+  if (result.success && result.battleId) {
+    // Remove both users from queue
+    await Promise.all([
+      client
+        .delete(rankedPvpQueue)
+        .where(eq(rankedPvpQueue.userId, player1Id)),
+      client
+        .delete(rankedPvpQueue)
+        .where(eq(rankedPvpQueue.userId, player2Id)),
+      // Update both users' status
+      client
+        .update(userData)
+        .set({ 
+          status: "BATTLE",
+          battleId: result.battleId,
+          updatedAt: new Date(),
+        })
+        .where(eq(userData.userId, player1Id)),
+      client
+        .update(userData)
+        .set({ 
+          status: "BATTLE",
+          battleId: result.battleId,
+          updatedAt: new Date(),
+        })
+        .where(eq(userData.userId, player2Id)),
+    ]);
+
+    return { success: true, message: "Match found!", battleId: result.battleId };
+  }
+
+  return { success: false, message: "Failed to initiate battle" };
+};
+
 export const combatRouter = createTRPCRouter({
   getBattle: protectedProcedure
     .input(z.object({ battleId: z.string().optional().nullable() }))
@@ -723,67 +790,23 @@ export const combatRouter = createTRPCRouter({
       for (const opponent of potentialOpponents) {
         // Calculate additional range based on queue time for both players
         const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
-        const opponentAdditionalRange = opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
+        const opponentAdditionalRange = opponentQueueTimeMinutes >= 30 ? 10000 : 
+          opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
         const opponentTotalRange = baseRange + opponentAdditionalRange;
 
         // Check if either player is within range of the other
         const lpDiff = Math.abs(user.rankedLp - opponent.rankedLp);
+        // Allow matching any 1000+ LP players together
+        if (user.rankedLp >= 1000 && opponent.rankedLp >= 1000) {
+          return await initiateRankedBattle(ctx.drizzle, ctx.userId, opponent.userId);
+        }
+        // Prevent matching players below 300 LP with players above 900 LP
+        if ((user.rankedLp < 300 && opponent.rankedLp > 900) || 
+            (opponent.rankedLp < 300 && user.rankedLp > 900)) {
+          continue;
+        }
         if (lpDiff <= opponentTotalRange) {
-          // Start the battle
-          const result = await initiateBattle(
-            {
-              userIds: [ctx.userId],
-              targetIds: [opponent.userId],
-              client: ctx.drizzle,
-              asset: "arena",
-              statDistribution: {                 
-                strength: 200000,
-                intelligence: 200000,
-                willpower: 200000,
-                speed: 200000,
-                ninjutsuOffence: 450000,
-                ninjutsuDefence: 450000,
-                genjutsuOffence: 450000,
-                genjutsuDefence: 450000,
-                taijutsuOffence: 450000,
-                taijutsuDefence: 450000,
-                bukijutsuOffence: 450000,
-                bukijutsuDefence: 450000,
-              },
-            },
-            "RANKED",
-          );
-
-          if (result.success && result.battleId) {
-            // Remove both users from queue
-            await Promise.all([
-              ctx.drizzle
-                .delete(rankedPvpQueue)
-                .where(eq(rankedPvpQueue.userId, ctx.userId)),
-              ctx.drizzle
-                .delete(rankedPvpQueue)
-                .where(eq(rankedPvpQueue.userId, opponent.userId)),
-              // Update both users' status
-              ctx.drizzle
-                .update(userData)
-                .set({ 
-                  status: "BATTLE",
-                  battleId: result.battleId,
-                  updatedAt: new Date(),
-                })
-                .where(eq(userData.userId, ctx.userId)),
-              ctx.drizzle
-                .update(userData)
-                .set({ 
-                  status: "BATTLE",
-                  battleId: result.battleId,
-                  updatedAt: new Date(),
-                })
-                .where(eq(userData.userId, opponent.userId)),
-            ]);
-
-            return { success: true, message: "Match found!", battleId: result.battleId };
-          }
+          return await initiateRankedBattle(ctx.drizzle, ctx.userId, opponent.userId);
         }
       }
 
@@ -828,7 +851,8 @@ export const combatRouter = createTRPCRouter({
         // Calculate base range and additional range based on queue time
         const baseRange = 100;
         const queueTimeMinutes = (new Date().getTime() - player.createdAt.getTime()) / (1000 * 60);
-        const additionalRange = queueTimeMinutes >= 5 ? 25 + Math.floor((queueTimeMinutes - 5) / 2) * 25 : 0;
+        const additionalRange = queueTimeMinutes >= 30 ? 10000 : 
+          queueTimeMinutes >= 5 ? 25 + Math.floor((queueTimeMinutes - 5) / 2) * 25 : 0;
         const totalRange = baseRange + additionalRange;
 
         // Find potential opponents considering expanded range
@@ -838,12 +862,22 @@ export const combatRouter = createTRPCRouter({
             
             // Calculate opponent's range
             const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
-            const opponentAdditionalRange = opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
+            const opponentAdditionalRange = opponentQueueTimeMinutes >= 30 ? 10000 : 
+              opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
             const opponentBaseRange = 100;
             const opponentTotalRange = opponentBaseRange + opponentAdditionalRange;
 
             // Check if either player is within range of the other
             const lpDiff = Math.abs(opponent.rankedLp - player.rankedLp);
+            // Allow matching any 1000+ LP players together
+            if (player.rankedLp >= 1000 && opponent.rankedLp >= 1000) {
+              return true;
+            }
+            // Prevent matching players below 300 LP with players above 900 LP
+            if ((player.rankedLp < 300 && opponent.rankedLp > 900) || 
+                (opponent.rankedLp < 300 && player.rankedLp > 900)) {
+              return false;
+            }
             return lpDiff <= totalRange || lpDiff <= opponentTotalRange;
           }
         );
@@ -874,59 +908,10 @@ export const combatRouter = createTRPCRouter({
 
           console.log(`Attempting to match ${player.userId} with ${opponent.userId}`);
 
-          // Start the battle
-          const result = await initiateBattle(
-            {
-              userIds: [player.userId],
-              targetIds: [opponent.userId],
-              client: ctx.drizzle,
-              asset: "arena",
-              statDistribution: {                 
-                strength: 200000,
-                intelligence: 200000,
-                willpower: 200000,
-                speed: 200000,
-                ninjutsuOffence: 450000,
-                ninjutsuDefence: 450000,
-                genjutsuOffence: 450000,
-                genjutsuDefence: 450000,
-                taijutsuOffence: 450000,
-                taijutsuDefence: 450000,
-                bukijutsuOffence: 450000,
-                bukijutsuDefence: 450000,
-              },
-            },
-            "RANKED",
-          );
+          const result = await initiateRankedBattle(ctx.drizzle, player.userId, opponent.userId);
 
           if (result.success && result.battleId) {
             console.log(`Match found! Battle ID: ${result.battleId}`);
-            // Remove both users from queue and update their status
-            await Promise.all([
-              ctx.drizzle
-                .delete(rankedPvpQueue)
-                .where(eq(rankedPvpQueue.userId, player.userId)),
-              ctx.drizzle
-                .delete(rankedPvpQueue)
-                .where(eq(rankedPvpQueue.userId, opponent.userId)),
-              ctx.drizzle
-                .update(userData)
-                .set({ 
-                  status: "BATTLE",
-                  battleId: result.battleId,
-                  updatedAt: new Date(),
-                })
-                .where(eq(userData.userId, player.userId)),
-              ctx.drizzle
-                .update(userData)
-                .set({ 
-                  status: "BATTLE",
-                  battleId: result.battleId,
-                  updatedAt: new Date(),
-                })
-                .where(eq(userData.userId, opponent.userId)),
-            ]);
-
             // Notify both players about the match
             const pusher = getServerPusher();
             await Promise.all([
@@ -940,7 +925,7 @@ export const combatRouter = createTRPCRouter({
               }),
             ]);
 
-            return { success: true, message: "Match found!", battleId: result.battleId };
+            return result;
           } else {
             console.log("Failed to initiate battle:", result);
           }
