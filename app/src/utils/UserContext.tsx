@@ -33,6 +33,7 @@ export const userBattleAtom = atom<ReturnedBattle | undefined>(undefined);
 export const UserContext = createContext<{
   data: UserWithRelations;
   notifications: NavBarDropdownLink[] | undefined;
+  userAgent: string | undefined;
   status: string;
   pusher: Pusher | undefined;
   timeDiff: number;
@@ -45,6 +46,7 @@ export const UserContext = createContext<{
 }>({
   data: undefined,
   notifications: undefined,
+  userAgent: undefined,
   status: "unknown",
   pusher: undefined,
   timeDiff: 0,
@@ -143,6 +145,7 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
       value={{
         data: data?.userData,
         notifications: data?.notifications,
+        userAgent: data?.userAgent,
         pusher: pusher,
         status: userStatus,
         timeDiff: timeDiff,

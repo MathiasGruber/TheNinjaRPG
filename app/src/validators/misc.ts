@@ -18,7 +18,12 @@ export const createTicketSchema = z
 
 export type CreateTicketSchema = z.infer<typeof createTicketSchema>;
 
-export const TicketTypes = ["bug_report", "human_support", "ai_support"] as const;
+export const TicketTypes = [
+  "bug_report",
+  "human_support",
+  "ai_support",
+  "tutorial",
+] as const;
 export type TicketType = (typeof TicketTypes)[number];
 
 export const captchaVerifySchema = z.object({

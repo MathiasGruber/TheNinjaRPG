@@ -149,6 +149,28 @@ export const profileRouter = createTRPCRouter({
         data: { audioOn: newAudioState },
       };
     }),
+  // Update tutorial step
+  updateTutorialStep: protectedProcedure
+    .input(z.object({ step: z.number() }))
+    .output(
+      baseServerResponse.extend({
+        data: z.object({ tutorialStep: z.number() }).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Update the database
+      await ctx.drizzle
+        .update(userData)
+        .set({ tutorialStep: input.step })
+        .where(eq(userData.userId, ctx.userId));
+
+      // Return success response
+      return {
+        success: true,
+        message: `Tutorial step updated to ${input.step}`,
+        data: { tutorialStep: input.step },
+      };
+    }),
   // Update user preferences
   updatePreferences: protectedProcedure
     .input(updateUserPreferencesSchema)
@@ -443,7 +465,12 @@ export const profileRouter = createTRPCRouter({
         });
       }
     }
-    return { userData: user, notifications: notifications, serverTime: Date.now() };
+    return {
+      userData: user,
+      notifications: notifications,
+      serverTime: Date.now(),
+      userAgent: ctx.userAgent,
+    };
   }),
   // Get an AI
   getAi: protectedProcedure

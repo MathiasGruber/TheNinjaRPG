@@ -24,12 +24,15 @@ import { showMutationToast } from "@/libs/toast";
 import { SiDiscord } from "@icons-pack/react-simple-icons";
 import type { TicketType } from "@/validators/misc";
 import ChatBox from "@/layout/ChatBox";
+import { Button } from "@/components/ui/button";
+import { useUserData } from "@/utils/UserContext";
 
 interface SendTicketBtnProps {
   children?: React.ReactNode;
 }
 
 const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
+  const { updateUser } = useUserData();
   const [showActive, setShowActive] = useLocalStorage<TicketType>(
     "ticketType2",
     "ai_support",
@@ -43,6 +46,16 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
   } = api.misc.sendTicket.useMutation({
     onSuccess: (data) => {
       showMutationToast(data);
+    },
+  });
+
+  // Tutorial reset mutation
+  const { mutate: resetTutorial } = api.profile.updateTutorialStep.useMutation({
+    onSuccess: async (data) => {
+      if (data.success && data.data) {
+        await updateUser({ tutorialStep: data.data.tutorialStep });
+        showMutationToast({ success: true, message: "Tutorial has been reset!" });
+      }
     },
   });
 
@@ -60,6 +73,11 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
   const handleToolCall = (toolCall: any) => {
     console.log("Tool call received:", toolCall);
     // Implement specific tool call handling if needed
+  };
+
+  // Handle tutorial reset
+  const handleTutorialReset = () => {
+    resetTutorial({ step: 0 });
   };
 
   return (
@@ -179,11 +197,21 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
                 </div>
               </Form>
             </TabsContent>
+            <TabsContent value="tutorial" className="flex flex-col gap-4">
+              <p className="font-bold text-lg">Reset Tutorial</p>
+              <p className="text-sm">
+                Click the button below to restart the game tutorial from the beginning.
+              </p>
+              <Button onClick={handleTutorialReset} className="w-full">
+                Reset Tutorial
+              </Button>
+            </TabsContent>
 
             <TabsList className="text-center mt-2">
               <TabsTrigger value="ai_support">AI Support</TabsTrigger>
               <TabsTrigger value="human_support">Human Support</TabsTrigger>
               <TabsTrigger value="bug_report">Bugs</TabsTrigger>
+              <TabsTrigger value="tutorial">Tutorial</TabsTrigger>
             </TabsList>
           </Tabs>
         )}
