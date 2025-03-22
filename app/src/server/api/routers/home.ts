@@ -120,7 +120,7 @@ export const homeRouter = createTRPCRouter({
     
     // Add upgrades (higher tier homes)
     for (let i = currentHomeIndex + 1; i < HomeTypes.length; i++) {
-      const homeType = HomeTypes[i];
+      const homeType = HomeTypes[i] as HomeType;
       upgrades.push({
         type: homeType,
         ...HomeTypeDetails[homeType],
@@ -130,7 +130,7 @@ export const homeRouter = createTRPCRouter({
 
     // Add downgrades (lower tier homes)
     for (let i = currentHomeIndex - 1; i >= 0; i--) {
-      const homeType = HomeTypes[i];
+      const homeType = HomeTypes[i] as HomeType;
       upgrades.push({
         type: homeType,
         ...HomeTypeDetails[homeType],
