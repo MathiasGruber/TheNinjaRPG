@@ -19,6 +19,7 @@ import {
   double,
   primaryKey,
   unique,
+  timestamp,
 } from "drizzle-orm/mysql-core";
 import * as consts from "@/drizzle/constants";
 import { createInsertSchema } from "drizzle-zod";
@@ -1458,6 +1459,7 @@ export const userData = mysqlTable(
     aiProfileId: varchar("aiProfileId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
     aiCalls: int("openaiCalls").default(0).notNull(),
+    rankedLp: int("rankedLp").default(150).notNull(),
     tavernMessages: int("tavernMessages").default(0).notNull(),
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
@@ -2591,3 +2593,31 @@ export const userPollVoteRelations = relations(userPollVote, ({ one }) => ({
 }));
 
 export type UserPollVote = InferSelectModel<typeof userPollVote>;
+
+export const rankedPvpQueue = mysqlTable(
+  "RankedPvpQueue",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 })
+      .notNull()
+      .references(() => userData.userId),
+    rankedLp: int("rankedLp").notNull(),
+    queueStartTime: timestamp("queueStartTime").notNull().defaultNow(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("RankedPvpQueue_userId_idx").on(table.userId),
+      rankedLpIdx: index("RankedPvpQueue_rankedLp_idx").on(table.rankedLp),
+    };
+  },
+);
+
+export type RankedPvpQueue = InferSelectModel<typeof rankedPvpQueue>;
+
+export const rankedPvpQueueRelations = relations(rankedPvpQueue, ({ one }) => ({
+  user: one(userData, {
+    fields: [rankedPvpQueue.userId],
+    references: [userData.userId],
+  }),
+}));
