@@ -1461,6 +1461,8 @@ export const userData = mysqlTable(
     tavernMessages: int("tavernMessages").default(0).notNull(),
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
+    homeType: mysqlEnum("homeType", consts.HomeTypes).default("NONE").notNull(),
+    homeStoredItems: json("homeStoredItems").$type<string[]>().default([]).notNull(),
   },
   (table) => {
     return {
