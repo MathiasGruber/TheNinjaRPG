@@ -1247,7 +1247,7 @@ export const processUsersForBattle = (info: {
           }
         } else {
           useritem.lastUsedRound = -useritem.item.cooldown;
-          if (itemType !== "ARMOR") {
+          if (itemType !== "ARMOR" && itemType !== "ACCESSORY") {
             items.push(useritem);
           }
         }
