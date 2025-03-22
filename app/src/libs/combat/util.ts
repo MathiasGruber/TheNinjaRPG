@@ -1247,7 +1247,9 @@ export const processUsersForBattle = (info: {
           }
         } else {
           useritem.lastUsedRound = -useritem.item.cooldown;
-          items.push(useritem);
+          if (itemType !== "ARMOR") {
+            items.push(useritem);
+          }
         }
       });
     user.items = items;
