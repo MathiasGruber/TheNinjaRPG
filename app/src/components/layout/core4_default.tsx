@@ -627,7 +627,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
               </VisuallyHidden.Root>
               <Suspense fallback={<Loader explanation="Loading..." />}>
                 <SheetHeader>
-                  <div ref={rightSideBarRef}>{rightSideBar}</div>
+                  <div ref={rightSideBarRef} onClick={() => setRightSideBarOpen(false)}>
+                    {rightSideBar}
+                  </div>
                 </SheetHeader>
               </Suspense>
             </SheetContent>
