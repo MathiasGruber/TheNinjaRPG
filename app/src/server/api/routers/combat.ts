@@ -7,7 +7,7 @@ import {
   hasUserMiddleware,
 } from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
-import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte, notInArray } from "drizzle-orm";
+import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { desc } from "drizzle-orm";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
@@ -1028,14 +1028,7 @@ export const initiateBattle = async (
         clan: true,
         items: {
           with: { item: true },
-          where: (items) => and(
-            gt(items.quantity, 0), 
-            ne(items.equipped, "NONE"),
-            // For ranked battles, exclude armor and accessories
-            battleType === "RANKED" 
-              ? notInArray(items.item.itemType, ["ARMOR", "ACCESSORY"])
-              : undefined
-          ),
+          where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
           orderBy: (table, { desc }) => [desc(table.quantity)],
         },
         jutsus: {
