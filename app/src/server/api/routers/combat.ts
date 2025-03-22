@@ -1033,7 +1033,7 @@ export const initiateBattle = async (
             ne(items.equipped, "NONE"),
             // For ranked battles, exclude armor and accessories
             battleType === "RANKED" 
-              ? notInArray(item.type, ["ARMOR", "ACCESSORY"])
+              ? notInArray(item.itemType, ["ARMOR", "ACCESSORY"])
               : undefined
           ),
           orderBy: (table, { desc }) => [desc(table.quantity)],
