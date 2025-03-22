@@ -239,6 +239,8 @@ const Tutorial: React.FC<TutorialProps> = ({
     width: number;
     height: number;
   } | null>(null);
+  const [showMissingElementDialog, setShowMissingElementDialog] =
+    useState<boolean>(false);
 
   // Check if we're on mobile
   const hardwarePlatform = getMobileOperatingSystem(userAgent);
@@ -377,8 +379,13 @@ const Tutorial: React.FC<TutorialProps> = ({
         width: highlightInfo.width,
         height: highlightInfo.height,
       });
+      setShowMissingElementDialog(false);
     } else {
       setHighlight(null);
+      // Only show the dialog if we're looking for a specific element
+      if (currentStepConfig.elementId) {
+        setShowMissingElementDialog(true);
+      }
     }
   };
 
@@ -619,6 +626,30 @@ const Tutorial: React.FC<TutorialProps> = ({
             <Button onClick={() => router.push(currentTutorialStep.page)}>
               Go to {currentTutorialStep.page}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Show dialog when element is not found
+  if (showMissingElementDialog) {
+    return (
+      <Dialog open={true} onOpenChange={() => setShowMissingElementDialog(false)}>
+        <DialogContent className="sm:max-w-md z-60">
+          <DialogHeader>
+            <DialogTitle>Element Not Found</DialogTitle>
+            <DialogDescription>
+              The tutorial element &quot;{currentTutorialStep.title}&quot; could not be
+              found on the page. This might be due to a loading delay or the element may
+              have been moved.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-between mt-4">
+            <Button variant="outline" onClick={handleSkipTutorial}>
+              End Tutorial
+            </Button>
+            <Button onClick={handleNextStep}>Skip to Next Step</Button>
           </div>
         </DialogContent>
       </Dialog>
