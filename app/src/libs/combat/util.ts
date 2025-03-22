@@ -1247,9 +1247,7 @@ export const processUsersForBattle = (info: {
           }
         } else {
           useritem.lastUsedRound = -useritem.item.cooldown;
-          if ((itemType === "ARMOR" || itemType === "ACCESSORY") && battleType !== "RANKED") {
-            items.push(useritem);
-          }
+          items.push(useritem);
         }
       });
     user.items = items;
