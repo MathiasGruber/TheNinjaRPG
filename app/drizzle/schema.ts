@@ -1328,6 +1328,8 @@ export const userData = mysqlTable(
     anbuId: varchar("anbuId", { length: 191 }),
     clanId: varchar("clanId", { length: 191 }),
     jutsuLoadout: varchar("jutsuLoadout", { length: 191 }),
+    senseiId: varchar("senseiId", { length: 191 }),
+    aiProfileId: varchar("aiProfileId", { length: 191 }),
     nRecruited: int("nRecruited").default(0).notNull(),
     lastIp: varchar("lastIp", { length: 191 }),
     username: varchar("username", { length: 191 }).notNull(),
@@ -1419,7 +1421,6 @@ export const userData = mysqlTable(
     unreadNotifications: smallint("unreadNotifications").default(0).notNull(),
     unreadNews: smallint("unreadNews").default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
-    senseiId: varchar("senseiId", { length: 191 }),
     medicalExperience: int("medicalExperience").default(0).notNull(),
     // Settings
     preferredStat: mysqlEnum("preferredStat", consts.StatTypes),
@@ -1462,27 +1463,35 @@ export const userData = mysqlTable(
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
   },
-  (table) => {
-    return {
-      userIdKey: uniqueIndex("UserData_userId_key").on(table.userId),
-      isAiIdx: index("UserData_isAi_idx").on(table.isAi),
-      rankIdx: index("UserData_rank_idx").on(table.rank),
-      roleIdx: index("UserData_role_idx").on(table.role),
-      clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
-      anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
-      jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
-      levelIdx: index("UserData_level_idx").on(table.level),
-      usernameKey: uniqueIndex("UserData_username_key").on(table.username),
-      bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
-      villageIdIdx: index("UserData_villageId_idx").on(table.villageId),
-      battleIdIdx: index("UserData_battleId_idx").on(table.battleId),
-      statusIdx: index("UserData_status_idx").on(table.status),
-      sectorIdx: index("UserData_sector_idx").on(table.sector),
-      senseiIdx: index("UserData_senseiId_idx").on(table.senseiId),
-      latitudeIdx: index("UserData_latitude_idx").on(table.latitude),
-      longitudeIdx: index("UserData_longitude_idx").on(table.longitude),
-    };
+  (table: any) => ({
+    userIdKey: uniqueIndex("UserData_userId_key").on(table.userId),
+    isAiIdx: index("UserData_isAi_idx").on(table.isAi),
+    rankIdx: index("UserData_rank_idx").on(table.rank),
+    roleIdx: index("UserData_role_idx").on(table.role),
+    clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
+    anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
+    jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
+    levelIdx: index("UserData_level_idx").on(table.level),
+  }),
+  {
+    homeType: mysqlEnum("homeType", consts.HomeTypes).default("ONE_BEDROOM_APARTMENT").notNull(),
+    homeStorage: int("homeStorage").default(0).notNull(),
   },
+  (table) => ({
+    userIdKey: uniqueIndex("UserData_userId_key").on(table.userId),
+    usernameKey: uniqueIndex("UserData_username_key").on(table.username),
+    recruiterIdIdx: index("UserData_recruiterId_idx").on(table.recruiterId),
+    isAiIdx: index("UserData_isAi_idx").on(table.isAi),
+    rankIdx: index("UserData_rank_idx").on(table.rank),
+    roleIdx: index("UserData_role_idx").on(table.role),
+    clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
+    anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
+    villageIdIdx: index("UserData_villageId_idx").on(table.villageId),
+    bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
+    battleIdIdx: index("UserData_battleId_idx").on(table.battleId),
+    jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
+    levelIdx: index("UserData_level_idx").on(table.level),
+  })
 );
 export const insertAiSchema = createInsertSchema(userData)
   .omit({

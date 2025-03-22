@@ -1020,3 +1020,60 @@ export const IMG_BATTLEFIELD_TOMBSTONE =
   "https://utfs.io/f/Hzww9EQvYURJVVIq2fF2veAXohUuE59nTQHRJIYjtiG18aF4";
 export const IMG_BATTLEFIELD_STAR =
   "https://utfs.io/f/Hzww9EQvYURJuGvcEjCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
+
+export const HomeTypes = [
+  "ONE_BEDROOM_APARTMENT",
+  "STUDIO_APARTMENT",
+  "TWO_BEDROOM_HOUSE",
+  "TOWN_HOUSE",
+  "SMALL_MANSION",
+  "SMALL_ESTATE",
+  "LARGE_ESTATE",
+] as const;
+
+export type HomeType = (typeof HomeTypes)[number];
+
+export const HomeUpgrades = {
+  ONE_BEDROOM_APARTMENT: {
+    name: "One Bed Room Apartment",
+    regen: 20,
+    storage: 5,
+    cost: 3_000_000,
+  },
+  STUDIO_APARTMENT: {
+    name: "Studio Apartment",
+    regen: 50,
+    storage: 10,
+    cost: 10_000_000,
+  },
+  TWO_BEDROOM_HOUSE: {
+    name: "Two Bed Room House",
+    regen: 70,
+    storage: 15,
+    cost: 20_000_000,
+  },
+  TOWN_HOUSE: {
+    name: "Town House",
+    regen: 100,
+    storage: 20,
+    cost: 35_000_000,
+  },
+  SMALL_MANSION: {
+    name: "Small Mansion",
+    regen: 130,
+    storage: 25,
+    cost: 45_000_000,
+  },
+  SMALL_ESTATE: {
+    name: "Small Estate",
+    regen: 150,
+    storage: 30,
+    cost: 60_000_000,
+  },
+  LARGE_ESTATE: {
+    name: "Large Estate",
+    regen: 200,
+    storage: 40,
+    cost: 100_000_000,
+  },
+} as const;
