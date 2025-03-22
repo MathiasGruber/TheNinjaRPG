@@ -146,6 +146,7 @@ const StrengthWeaknesses: React.FC = () => {
 
   return (
     <ContentBox
+      id="tutorial-strength-weaknesses"
       title="Strengths & Weaknesses"
       subtitle="Current stats for your character"
       topRightContent={

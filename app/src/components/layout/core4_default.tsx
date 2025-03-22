@@ -34,6 +34,7 @@ import { showUserRank } from "@/libs/profile";
 import { useUser } from "@clerk/nextjs";
 import { getCurrentSeason } from "@/utils/time";
 import { showMutationToast } from "@/libs/toast";
+import Tutorial from "@/layout/Tutorial";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import {
   IMG_WALLPAPER_WINTER,
@@ -86,6 +87,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   const { systems, location } = useGameMenu(userData);
   const [leftSideBarOpen, setLeftSideBarOpen] = useState(false);
   const [rightSideBarOpen, setRightSideBarOpen] = useState(false);
+  const rightSideBarRef = React.useRef<HTMLDivElement | null>(null);
 
   // State
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -300,349 +302,364 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   );
 
   return (
-    <div className="w-full absolute top-0 bottom-0 md:relative">
-      <div className="fixed right-1 bottom-1 md:right-5 md:bottom-5 z-50 bg-slate-500 rounded-full">
-        <SendTicketBtn>
-          <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-red-800 md:shadow-black border-2 hidden md:block" />
-        </SendTicketBtn>
-      </div>
-      {/* WALLPAPER BACKGROUND */}
-      <Image
-        className="fixed top-0 left-0 w-full h-full object-cover z-[-1] select-none"
-        src={imageset.wallpaper}
-        width={1600}
-        height={800}
-        alt="wallpaper"
-        loading="eager"
-        priority
-        unoptimized
-      />
-      <div className="max-w-[1280px] ml-auto mr-auto w-full absolute top-0 bottom-0 md:relative">
-        {/* LOGO */}
-        <Link href="/">
-          <Image
-            className="hidden md:block z-2 relative top-3 left-[50%] translate-x-[-50%] select-none"
-            src={IMG_LOGO_FULL}
-            width={384}
-            height={138}
-            alt="logo"
-            loading="lazy"
-          />
-          <Image
-            className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
-            src={IMG_LOGO_SHORT}
-            width={250}
-            height={63}
-            alt="logo"
-            loading="lazy"
-          />
-        </Link>
-        {/* DESKTOP NAVBAR */}
-        <div className="hidden md:block z-1 relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
-          <Image
-            className="select-none"
-            src={imageset.navbar}
-            width={1280}
-            height={133}
-            alt="navbar"
-            loading="lazy"
-          />
-          <div className="absolute top-6 grid grid-cols-3 w-1/2 px-24 lg:px-36">
-            {navbarMenuItemsLeft.map((link) => (
-              <Link
-                key={link.name}
-                className="hover:text-orange-500 flex flex-row gap-1 z-10 items-center justify-center hover:cursor-pointer"
-                href={link.href}
-                onClick={async () => {
-                  if (link.onClick) {
-                    await link.onClick();
-                  }
-                }}
-                prefetch={false}
-              >
-                {link.icon}
-                {link.name}
-              </Link>
-            ))}
-          </div>
-          <div className="absolute top-6 right-0 grid grid-cols-3 w-1/2 px-24 lg:px-36">
-            {navbarMenuItemsRight.map((link) => (
-              <Link
-                key={link.name}
-                className="hover:text-orange-500 flex flex-row gap-1 z-10 items-center justify-center"
-                href={link.href}
-                onClick={async () => {
-                  if (link.onClick) await link.onClick();
-                }}
-                prefetch={false}
-              >
-                {link.icon}
-                {link.name}
-              </Link>
-            ))}
-            {signedInIcons}
-          </div>
-        </div>
-        {/* DESKTOP HANDSIGN */}
-        <Image
-          className="hidden md:block z-10 relative top-[-120px] left-[50%] translate-x-[-50%] select-none"
-          src={imageset.handsign}
-          width={127}
-          height={112}
-          alt="handsign"
-          loading="lazy"
+    <>
+      {userData && (
+        <Tutorial
+          rightSideBarOpen={rightSideBarOpen}
+          setRightSideBarOpen={setRightSideBarOpen}
+          rightSideBarRef={rightSideBarRef}
         />
-        <div
-          className={`relative top-[100px] h-[15px] w-full shrink-0 bg-fill bg-repeat-x md:hidden`}
-          style={{ backgroundImage: `url(${IMG_LAYOUT_MOBILE_TOP})` }}
-        ></div>
-        <div className="relative top-[100px] md:top-[-122px] flex flex-row z-10 h-full">
-          {/* LEFT SIDEBANNER DESKTOP */}
-          <div className="hidden md:block relative w-[200px] lg:w-[250px] shrink-0">
-            <div className="relative">
+      )}
+      <div className="w-full absolute top-0 bottom-0 md:relative">
+        <div className="fixed right-1 bottom-1 md:right-5 md:bottom-5 z-50 bg-slate-500 rounded-full">
+          <SendTicketBtn>
+            <MessageCircleWarning className="h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-red-800 md:shadow-black border-2 hidden md:block" />
+          </SendTicketBtn>
+        </div>
+        {/* WALLPAPER BACKGROUND */}
+        <Image
+          className="fixed top-0 left-0 w-full h-full object-cover z-[-1] select-none"
+          src={imageset.wallpaper}
+          width={1600}
+          height={800}
+          alt="wallpaper"
+          loading="eager"
+          priority
+          unoptimized
+        />
+        <div className="max-w-[1280px] ml-auto mr-auto w-full absolute top-0 bottom-0 md:relative">
+          {/* LOGO */}
+          <Link href="/">
+            <Image
+              className="hidden md:block z-2 relative top-3 left-[50%] translate-x-[-50%] select-none"
+              src={IMG_LOGO_FULL}
+              width={384}
+              height={138}
+              alt="logo"
+              loading="lazy"
+            />
+            <Image
+              className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
+              src={IMG_LOGO_SHORT}
+              width={250}
+              height={63}
+              alt="logo"
+              loading="lazy"
+            />
+          </Link>
+          {/* DESKTOP NAVBAR */}
+          <div className="hidden md:block z-1 relative top-[-10px] left-[50%] translate-x-[-50%] text-orange-100 font-bold text-lg lg:text-2xl">
+            <Image
+              className="select-none"
+              src={imageset.navbar}
+              width={1280}
+              height={133}
+              alt="navbar"
+              loading="lazy"
+            />
+            <div className="absolute top-6 grid grid-cols-3 w-1/2 px-24 lg:px-36">
+              {navbarMenuItemsLeft.map((link) => (
+                <Link
+                  key={link.name}
+                  className="hover:text-orange-500 flex flex-row gap-1 z-10 items-center justify-center hover:cursor-pointer"
+                  href={link.href}
+                  onClick={async () => {
+                    if (link.onClick) {
+                      await link.onClick();
+                    }
+                  }}
+                  prefetch={false}
+                >
+                  {link.icon}
+                  {link.name}
+                </Link>
+              ))}
+            </div>
+            <div className="absolute top-6 right-0 grid grid-cols-3 w-1/2 px-24 lg:px-36">
+              {navbarMenuItemsRight.map((link) => (
+                <Link
+                  key={link.name}
+                  className="hover:text-orange-500 flex flex-row gap-1 z-10 items-center justify-center"
+                  href={link.href}
+                  onClick={async () => {
+                    if (link.onClick) await link.onClick();
+                  }}
+                  prefetch={false}
+                >
+                  {link.icon}
+                  {link.name}
+                </Link>
+              ))}
+              {signedInIcons}
+            </div>
+          </div>
+          {/* DESKTOP HANDSIGN */}
+          <Image
+            className="hidden md:block z-10 relative top-[-120px] left-[50%] translate-x-[-50%] select-none"
+            src={imageset.handsign}
+            width={127}
+            height={112}
+            alt="handsign"
+            loading="lazy"
+          />
+          <div
+            className={`relative top-[100px] h-[15px] w-full shrink-0 bg-fill bg-repeat-x md:hidden`}
+            style={{ backgroundImage: `url(${IMG_LAYOUT_MOBILE_TOP})` }}
+          ></div>
+          <div className="relative top-[100px] md:top-[-122px] flex flex-row z-10 h-full">
+            {/* LEFT SIDEBANNER DESKTOP */}
+            <div className="hidden md:block relative w-[200px] lg:w-[250px] shrink-0">
+              <div className="relative">
+                <Image
+                  className="left-0 absolute -z-10 select-none"
+                  src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
+                  width={250}
+                  height={235}
+                  style={{ width: "100%", height: "100%" }}
+                  alt="leftbanner"
+                  loading="lazy"
+                ></Image>
+                <div className="text-white z-10 pl-20 pr-4 pt-4">{leftSideBar}</div>
+              </div>
               <Image
-                className="left-0 absolute -z-10 select-none"
-                src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
+                className="left-0 relative select-none"
+                src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
                 width={250}
-                height={235}
-                style={{ width: "100%", height: "100%" }}
+                height={68}
                 alt="leftbanner"
                 loading="lazy"
               ></Image>
-              <div className="text-white z-10 pl-20 pr-4 pt-4">{leftSideBar}</div>
+              <StrongestUsersBanner />
             </div>
-            <Image
-              className="left-0 relative select-none"
-              src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
-              width={250}
-              height={68}
-              alt="leftbanner"
-              loading="lazy"
-            ></Image>
-            <StrongestUsersBanner />
-          </div>
-          {/* MAIN CONTENT */}
-          <div className="w-full flex-1 min-w-0 flex flex-col ">
-            <div className="w-full flex flex-row min-h-screen md:min-h-0">
-              <div
-                className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
-                style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
-              ></div>
-              <div className="w-full bg-background grow flex flex-col overflow-x-scroll min-h-[200px]">
-                <div className="p-3 pb-28 md:pb-3">{props.children}</div>
-              </div>
-              <div
-                className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
-                style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
-              ></div>
-            </div>
-            <div className="h-20 max-h-28 flex flex-col fixed bottom-0  w-full md:relative">
-              <div className="absolute top-0 left-[-20px] right-0 md:right-[-20px] -z-30">
-                <div className="h-5 bg-linear-to-b from-rose-950 to-rose-800"></div>
-                <div className="h-8 bg-rose-800"></div>
-                <div className="h-7 bg-linear-to-b from-rose-800 to-rose-950"></div>
-              </div>
-              <Image
-                className="left-[-120px] top-[-195px] absolute select-none -z-20 hidden md:block"
-                src={IMG_LAYOUT_SCROLLBOTTOM_DECOR}
-                width={143}
-                height={272}
-                alt="leftbottomdecor"
-                loading="lazy"
-              ></Image>
-              <Image
-                className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20 hidden md:block"
-                src={IMG_LAYOUT_SCROLLBOTTOM_DECOR}
-                width={143}
-                height={272}
-                alt="rightbottomdecor"
-                loading="lazy"
-              ></Image>
-              <div className="absolute top-4 left-0 right-0 hidden md:block">
-                <Footer />
-              </div>
-              {userData ? (
-                <div className="absolute top-0 left-0 right-0 bottom-0 md:hidden grid grid-cols-7 items-center justify-center">
-                  <div></div>
-                  <Link
-                    href="/profile"
-                    className="flex justify-center -top-2 relative"
-                    prefetch={true}
-                  >
-                    <CircleUserRound className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
-                  </Link>
-                  <Link
-                    href="/inbox"
-                    className="flex justify-center -top-2 relative"
-                    prefetch={true}
-                  >
-                    <Inbox className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
-                  </Link>
-                  {location ? (
-                    <>
-                      <Link
-                        href="/village"
-                        className="flex justify-center -top-8 relative"
-                        prefetch={true}
-                      >
-                        <div className="p-4 bg-linear-to-b from-black/5 to-black/50 rounded-full">
-                          <House className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
-                        </div>
-                      </Link>
-                      <Link
-                        href="/travel"
-                        className="flex justify-center -top-2 relative"
-                        prefetch={true}
-                      >
-                        <Compass className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
-                      </Link>
-                    </>
-                  ) : (
-                    <>
-                      <Link
-                        href="/travel"
-                        className="flex justify-center -top-8 relative"
-                        prefetch={true}
-                      >
-                        <div className="p-4 bg-linear-to-b from-black/5 to-black/50 rounded-full">
-                          <Compass className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
-                        </div>
-                      </Link>
-                      <Link
-                        href="/items"
-                        className="flex justify-center -top-2 relative"
-                        prefetch={true}
-                      >
-                        <Milk className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
-                      </Link>
-                    </>
-                  )}
-
-                  <Link
-                    href="/profile/edit"
-                    className="flex justify-center -top-2 relative"
-                    prefetch={true}
-                  >
-                    <Cog className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
-                  </Link>
-                  <div className="flex justify-center -top-2 relative">
-                    <SendTicketBtn>
-                      <CircleHelp className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
-                    </SendTicketBtn>
-                  </div>
+            {/* MAIN CONTENT */}
+            <div className="w-full flex-1 min-w-0 flex flex-col ">
+              <div className="w-full flex flex-row min-h-screen md:min-h-0">
+                <div
+                  className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
+                  style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
+                ></div>
+                <div className="w-full bg-background grow flex flex-col overflow-x-scroll min-h-[200px]">
+                  <div className="p-3 pb-28 md:pb-3">{props.children}</div>
                 </div>
-              ) : (
-                <div className="absolute top-4 left-0 right-0 block md:hidden">
+                <div
+                  className={`w-12 shrink-0 bg-fill bg-repeat-y hidden lg:block`}
+                  style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
+                ></div>
+              </div>
+              <div className="h-20 max-h-28 flex flex-col fixed bottom-0  w-full md:relative">
+                <div className="absolute top-0 left-[-20px] right-0 md:right-[-20px] -z-30">
+                  <div className="h-5 bg-linear-to-b from-rose-950 to-rose-800"></div>
+                  <div className="h-8 bg-rose-800"></div>
+                  <div className="h-7 bg-linear-to-b from-rose-800 to-rose-950"></div>
+                </div>
+                <Image
+                  className="left-[-120px] top-[-195px] absolute select-none -z-20 hidden md:block"
+                  src={IMG_LAYOUT_SCROLLBOTTOM_DECOR}
+                  width={143}
+                  height={272}
+                  alt="leftbottomdecor"
+                  loading="lazy"
+                ></Image>
+                <Image
+                  className="right-[-120px] top-[-195px] absolute select-none scale-x-[-1] -z-20 hidden md:block"
+                  src={IMG_LAYOUT_SCROLLBOTTOM_DECOR}
+                  width={143}
+                  height={272}
+                  alt="rightbottomdecor"
+                  loading="lazy"
+                ></Image>
+                <div className="absolute top-4 left-0 right-0 hidden md:block">
                   <Footer />
                 </div>
-              )}
+                {userData ? (
+                  <div className="absolute top-0 left-0 right-0 bottom-0 md:hidden grid grid-cols-7 items-center justify-center">
+                    <div></div>
+                    <Link
+                      href="/profile"
+                      className="flex justify-center -top-2 relative"
+                      prefetch={true}
+                    >
+                      <CircleUserRound className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                    </Link>
+                    <Link
+                      href="/inbox"
+                      className="flex justify-center -top-2 relative"
+                      prefetch={true}
+                    >
+                      <Inbox className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                    </Link>
+                    {location ? (
+                      <>
+                        <Link
+                          href="/village"
+                          className="flex justify-center -top-8 relative"
+                          prefetch={true}
+                        >
+                          <div className="p-4 bg-linear-to-b from-black/5 to-black/50 rounded-full">
+                            <House className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
+                          </div>
+                        </Link>
+                        <Link
+                          href="/travel"
+                          className="flex justify-center -top-2 relative"
+                          prefetch={true}
+                        >
+                          <Compass className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/travel"
+                          className="flex justify-center -top-8 relative"
+                          prefetch={true}
+                        >
+                          <div className="p-4 bg-linear-to-b from-black/5 to-black/50 rounded-full">
+                            <Compass className="h-16 w-16 bg-yellow-500 hover:bg-yellow-700 transition-colors text-white rounded-full p-2 border-2 " />
+                          </div>
+                        </Link>
+                        <Link
+                          href="/items"
+                          className="flex justify-center -top-2 relative"
+                          prefetch={true}
+                        >
+                          <Milk className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                        </Link>
+                      </>
+                    )}
+
+                    <Link
+                      href="/profile/edit"
+                      className="flex justify-center -top-2 relative"
+                      prefetch={true}
+                    >
+                      <Cog className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                    </Link>
+                    <div className="flex justify-center -top-2 relative">
+                      <SendTicketBtn>
+                        <CircleHelp className="h-16 w-16  hover:bg-slate-500 transition-colors text-orange-100 bg-opacity-50 rounded-full p-2  " />
+                      </SendTicketBtn>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="absolute top-4 left-0 right-0 block md:hidden">
+                    <Footer />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-          {/* RIGHT SIDEBANNER DESKTOP */}
-          <div className="hidden md:block relative w-[200px] lg:w-[250px] shrink-0">
-            <div className="relative">
+            {/* RIGHT SIDEBANNER DESKTOP */}
+            <div className="hidden md:block relative w-[200px] lg:w-[250px] shrink-0">
+              <div className="relative">
+                <Image
+                  className="right-0 absolute -z-10 scale-x-[-1] select-none"
+                  src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
+                  width={250}
+                  height={235}
+                  style={{ width: "100%", height: "100%" }}
+                  alt="rightbanner"
+                  loading="lazy"
+                ></Image>
+                <div className="text-white p-2 pl-4 pr-20">{rightSideBar}</div>
+              </div>
               <Image
-                className="right-0 absolute -z-10 scale-x-[-1] select-none"
-                src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
+                className="left-0 relative select-none scale-x-[-1]"
+                src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
                 width={250}
-                height={235}
-                style={{ width: "100%", height: "100%" }}
-                alt="rightbanner"
+                height={68}
+                alt="leftbanner"
                 loading="lazy"
               ></Image>
-              <div className="text-white p-2 pl-4 pr-20">{rightSideBar}</div>
             </div>
-            <Image
-              className="left-0 relative select-none scale-x-[-1]"
-              src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
-              width={250}
-              height={68}
-              alt="leftbanner"
-              loading="lazy"
-            ></Image>
           </div>
-        </div>
-        {/* LEFT SIDEBAR MOBILE */}
-        <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
-          <SheetTrigger className="absolute top-4 left-4" aria-label="homeBtn">
-            <House className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
-          </SheetTrigger>
-          <SheetContent side="left">
-            <SheetHeader className="text-left">
-              <SheetTitle>
-                <SideBannerTitle>Main Menu</SideBannerTitle>
-              </SheetTitle>
-              <Suspense fallback={<Loader explanation="Loading..." />}>
-                <div className="mt-1 grid gap-3 grid-cols-2">
-                  {navbarMenuItems.map((system, i) => {
-                    return (
-                      <Link
-                        key={i}
-                        href={system.href}
-                        onClick={() => setLeftSideBarOpen(false)}
-                        className={system.className ? system.className : ""}
-                      >
-                        <Button
-                          decoration="gold"
-                          className={`w-full hover:bg-orange-200`}
+          {/* LEFT SIDEBAR MOBILE */}
+          <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
+            <SheetTrigger className="absolute top-4 left-4" aria-label="homeBtn">
+              <House className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
+            </SheetTrigger>
+            <SheetContent side="left">
+              <SheetHeader className="text-left">
+                <SheetTitle>
+                  <SideBannerTitle>Main Menu</SideBannerTitle>
+                </SheetTitle>
+                <Suspense fallback={<Loader explanation="Loading..." />}>
+                  <div className="mt-1 grid gap-3 grid-cols-2">
+                    {navbarMenuItems.map((system, i) => {
+                      return (
+                        <Link
+                          key={i}
+                          href={system.href}
+                          onClick={() => setLeftSideBarOpen(false)}
+                          className={system.className ? system.className : ""}
                         >
-                          <div className="grow">{system.name}</div>
-                          <div>{system.icon && system.icon}</div>
-                        </Button>
-                      </Link>
-                    );
-                  })}
-                  <div className="flex flex-row items-center justify-center">
-                    {signedInIcons}
+                          <Button
+                            decoration="gold"
+                            className={`w-full hover:bg-orange-200`}
+                          >
+                            <div className="grow">{system.name}</div>
+                            <div>{system.icon && system.icon}</div>
+                          </Button>
+                        </Link>
+                      );
+                    })}
+                    <div className="flex flex-row items-center justify-center">
+                      {signedInIcons}
+                    </div>
                   </div>
-                </div>
-                <div className="relative pt-4">{leftSideBar}</div>
+                  <div className="relative pt-4">{leftSideBar}</div>
+                </Suspense>
+              </SheetHeader>
+            </SheetContent>
+          </Sheet>
+
+          {/* RIGHT SIDEBAR MOBILE */}
+          <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
+            <SheetTrigger
+              className="absolute top-4 right-4"
+              aria-label="gameBtn"
+              id="tutorial-gameBtn"
+            >
+              <Earth className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
+            </SheetTrigger>
+            <SheetContent>
+              <VisuallyHidden.Root>
+                <SheetTitle>Test</SheetTitle>
+              </VisuallyHidden.Root>
+              <Suspense fallback={<Loader explanation="Loading..." />}>
+                <SheetHeader>
+                  <div ref={rightSideBarRef}>{rightSideBar}</div>
+                </SheetHeader>
               </Suspense>
-            </SheetHeader>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
 
-        {/* RIGHT SIDEBAR MOBILE */}
-        <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
-          <SheetTrigger className="absolute top-4 right-4" aria-label="gameBtn">
-            <Earth className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
-          </SheetTrigger>
-          <SheetContent onClick={() => setRightSideBarOpen(false)}>
-            <VisuallyHidden.Root>
-              <SheetTitle>Test</SheetTitle>
-            </VisuallyHidden.Root>
-            <Suspense fallback={<Loader explanation="Loading..." />}>
-              <SheetHeader>{rightSideBar}</SheetHeader>
-            </Suspense>
-          </SheetContent>
-        </Sheet>
-
-        {/* MOBILE NOTIFICATIONS */}
-        <div className="absolute top-[75px] right-0 left-0 flex flex-row justify-end md:hidden p-1 gap-2">
-          {shownNotifications?.map((notification, i) => (
-            <Link key={i} href={notification.href}>
-              <div
-                className={`flex flex-row text-xs items-center rounded-lg border-2 border-slate-800 py-[1px] px-3 hover:opacity-70 ${
-                  notification.color ? `bg-${notification.color}-600` : "bg-slate-500"
-                }`}
-              >
-                {notification.color === "red" && (
-                  <ShieldAlert className="mr-1 h-5 w-5" />
-                )}
-                {notification.color === "blue" && <Info className="mr-1 h-5 w-5" />}
-                {notification.color === "green" && (
-                  <ShieldCheck className="mr-1 h-5 w-5" />
-                )}
-                {notification.name}
-              </div>
-            </Link>
-          ))}
-        </div>
-        {/* <div className="p-3 pt-24 min-h-[1200px] bg-background bg-opacity-50">
+          {/* MOBILE NOTIFICATIONS */}
+          <div className="absolute top-[75px] right-0 left-0 flex flex-row justify-end md:hidden p-1 gap-2">
+            {shownNotifications?.map((notification, i) => (
+              <Link key={i} href={notification.href}>
+                <div
+                  className={`flex flex-row text-xs items-center rounded-lg border-2 border-slate-800 py-[1px] px-3 hover:opacity-70 ${
+                    notification.color ? `bg-${notification.color}-600` : "bg-slate-500"
+                  }`}
+                >
+                  {notification.color === "red" && (
+                    <ShieldAlert className="mr-1 h-5 w-5" />
+                  )}
+                  {notification.color === "blue" && <Info className="mr-1 h-5 w-5" />}
+                  {notification.color === "green" && (
+                    <ShieldCheck className="mr-1 h-5 w-5" />
+                  )}
+                  {notification.name}
+                </div>
+              </Link>
+            ))}
+          </div>
+          {/* <div className="p-3 pt-24 min-h-[1200px] bg-background bg-opacity-50">
           {props.children}
         </div> */}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -829,6 +846,7 @@ const RightSideBar: React.FC<{
               key={i}
               href={system.href}
               className={system.className ? system.className : ""}
+              id={system.id}
             >
               <Button
                 decoration="gold"
@@ -848,6 +866,7 @@ const RightSideBar: React.FC<{
             <Link
               href={inBattle && location.requireAwake ? "/combat" : "/village"}
               className="text-center flex flex-row justify-center"
+              id={location.id}
             >
               {location.icon}
             </Link>

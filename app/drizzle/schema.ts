@@ -1460,6 +1460,7 @@ export const userData = mysqlTable(
     aiCalls: int("openaiCalls").default(0).notNull(),
     tavernMessages: int("tavernMessages").default(0).notNull(),
     audioOn: boolean("audioOn").default(true).notNull(),
+    tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
   },
   (table) => {
     return {

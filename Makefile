@@ -88,6 +88,11 @@ bundleanalysis: # Build Next.js app with bundle analysis
 	@echo "${GREEN}bundleanalysis${RESET}"
 	cd app && bun run build-stats
 
+.PHONY: mcp-servers
+mcp-servers: # Start MCP servers
+	@echo "${GREEN}Starting MCP servers${RESET}"
+	npx @agentdeskai/browser-tools-server@1.2.0
+
 .PHONY: openhands
 openhands: # Open OpenHands on http://127.0.0.1:3004
 	@echo "${GREEN}Launch Open Hands${RESET}"
