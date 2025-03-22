@@ -32,7 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default function Home() {
+export default function HomePage() {
   const { userData, sectorVillage, access, ownVillage, updateUser } =
     useRequireInVillage("/home");
   const [activeTab, setActiveTab] = useState<"upgrades" | "downgrades">("upgrades");
