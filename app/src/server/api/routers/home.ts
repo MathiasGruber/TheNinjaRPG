@@ -7,7 +7,7 @@ import { fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { fetchSectorVillage } from "@/routers/village";
-import { HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
+import { HomeTypes, HomeTypeDetails, type HomeType } from "@/drizzle/constants";
 import type { UserStatus } from "@/drizzle/constants";
 
 export const homeRouter = createTRPCRouter({
