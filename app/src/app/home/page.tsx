@@ -29,7 +29,6 @@ import {
   MinusCircle,
   ShoppingBag
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -205,7 +204,7 @@ export default function Home() {
                         You already have the best home available!
                       </div>
                     ) : (
-                      <ScrollArea className="h-64">
+                      <div className="h-64 overflow-y-auto pr-1">
                         <div className="space-y-2 p-1">
                           {upgrades.map((upgrade) => (
                             <Card key={upgrade.type} className="mb-2">
@@ -231,7 +230,7 @@ export default function Home() {
                             </Card>
                           ))}
                         </div>
-                      </ScrollArea>
+                      </div>
                     )}
                   </TabsContent>
                   
@@ -241,7 +240,7 @@ export default function Home() {
                         You already have the lowest tier home!
                       </div>
                     ) : (
-                      <ScrollArea className="h-64">
+                      <div className="h-64 overflow-y-auto pr-1">
                         <div className="space-y-2 p-1">
                           {downgrades.map((downgrade) => (
                             <Card key={downgrade.type} className="mb-2">
@@ -267,7 +266,7 @@ export default function Home() {
                             </Card>
                           ))}
                         </div>
-                      </ScrollArea>
+                      </div>
                     )}
                   </TabsContent>
                 </Tabs>
@@ -303,7 +302,7 @@ export default function Home() {
                       You don't have any items stored in your home.
                     </div>
                   ) : (
-                    <ScrollArea className="h-64">
+                    <div className="h-64 overflow-y-auto pr-1">
                       <div className="space-y-2 p-1">
                         {storedItems.map((itemId) => {
                           const itemDetails = userItems?.find(item => item.id === itemId);
@@ -329,7 +328,7 @@ export default function Home() {
                           );
                         })}
                       </div>
-                    </ScrollArea>
+                    </div>
                   )}
                 </TabsContent>
                 
@@ -339,7 +338,7 @@ export default function Home() {
                       You don't have any items in your inventory.
                     </div>
                   ) : (
-                    <ScrollArea className="h-64">
+                    <div className="h-64 overflow-y-auto pr-1">
                       <div className="space-y-2 p-1">
                         {userItems
                           .filter(item => item.equipped === "NONE")
@@ -363,7 +362,7 @@ export default function Home() {
                             </Card>
                           ))}
                       </div>
-                    </ScrollArea>
+                    </div>
                   )}
                 </TabsContent>
               </Tabs>
