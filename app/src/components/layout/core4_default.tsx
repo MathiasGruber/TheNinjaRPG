@@ -864,7 +864,7 @@ const RightSideBar: React.FC<{
           <SideBannerTitle break>Location Menu</SideBannerTitle>
           <div className={inBattle && location.requireAwake ? "opacity-30" : ""}>
             <Link
-              href={inBattle && location.requireAwake ? "/combat" : "/village"}
+              href={inBattle && location.requireAwake ? "/combat" : location.href}
               className="text-center flex flex-row justify-center"
               id={location.id}
             >

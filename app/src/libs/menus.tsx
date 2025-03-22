@@ -148,23 +148,28 @@ export const useGameMenu = (userData: UserWithRelations) => {
 
     // Is in village
     if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw || isSafezone) {
+      // Check if user is standing on a village structure
+      const structure = sector.structures?.find(
+        (s) => s.longitude === userData.longitude && s.latitude === userData.latitude,
+      );
+
       location = {
         id: "tutorial-village",
-        href: "/village",
-        name: "Village",
+        href: structure?.route || "/village",
+        name: structure?.name || "Village",
         requireAwake: true,
         icon: (
           <div>
             <Image
-              src={sector.villageGraphic}
-              alt={sector.name}
+              src={structure?.image || sector.villageGraphic}
+              alt={structure?.name || sector.name}
               width={200}
               height={200}
               priority={true}
             />
             <span className="font-bold">
-              {sector.mapName || sector.name}{" "}
-              {sector.type === "VILLAGE" ? "Village" : ""}
+              {structure?.name || sector.mapName || sector.name}{" "}
+              {!structure && sector.type === "VILLAGE" ? "Village" : ""}
             </span>
           </div>
         ),

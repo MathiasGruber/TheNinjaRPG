@@ -249,14 +249,12 @@ const Sector: React.FC<SectorProps> = (props) => {
           );
           setPosition({ x: tile.col, y: tile.row });
           setMoves((prev) => prev + 1);
-          if (data.location !== userData?.location) {
-            await updateUser({
-              location: data.location,
-              updatedAt: new Date(),
-              longitude: tile.col,
-              latitude: tile.row,
-            });
-          }
+          await updateUser({
+            location: data.location,
+            updatedAt: new Date(),
+            longitude: tile.col,
+            latitude: tile.row,
+          });
           await sleep(50);
         }
       }
