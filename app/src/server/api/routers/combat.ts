@@ -1028,12 +1028,12 @@ export const initiateBattle = async (
         clan: true,
         items: {
           with: { item: true },
-          where: (items, { item }) => and(
+          where: (items) => and(
             gt(items.quantity, 0), 
             ne(items.equipped, "NONE"),
             // For ranked battles, exclude armor and accessories
             battleType === "RANKED" 
-              ? notInArray(item.itemType, ["ARMOR", "ACCESSORY"])
+              ? notInArray(items.item.itemType, ["ARMOR", "ACCESSORY"])
               : undefined
           ),
           orderBy: (table, { desc }) => [desc(table.quantity)],
@@ -1194,7 +1194,7 @@ export const initiateBattle = async (
         village: true,
         items: {
           with: { item: true },
-          where: (items, { item }) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
+          where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
         },
         jutsus: {
           with: { jutsu: true },
