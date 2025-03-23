@@ -16,7 +16,7 @@ import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { CircleUserRound, CircleHelp, Compass, Cog, Milk } from "lucide-react";
 import { Bell, Info, ShieldAlert, ShieldCheck, Eclipse } from "lucide-react";
 import { Earth, House, MessageCircleWarning, Inbox } from "lucide-react";
-import { Volume2, VolumeX } from "lucide-react";
+import { Volume2, VolumeX, Link2 } from "lucide-react";
 import { useGameMenu, getMainNavbarLinks } from "@/libs/menus";
 import { useUserData } from "@/utils/UserContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -136,7 +136,16 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   const leftSideBar = (
     <div>
       <SignedIn>
-        <SideBannerTitle>{userData?.username || "Loading user..."}</SideBannerTitle>
+        {userData && (
+          <SideBannerTitle>
+            <Link
+              href={`/userid/${userData.userId}`}
+              className="inline-block hover:text-orange-500 flex flex-row"
+            >
+              {userData.username} <Link2 className="inline-block h-5 w-5" />
+            </Link>
+          </SideBannerTitle>
+        )}
         <MenuBoxProfile />
       </SignedIn>
       <SignedOut>

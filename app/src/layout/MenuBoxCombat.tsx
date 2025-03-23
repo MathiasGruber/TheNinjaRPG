@@ -5,7 +5,7 @@ import AvatarImage from "@/layout/Avatar";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ElementImage from "@/layout/ElementImage";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dna } from "lucide-react";
+import { Dna, Link2 } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { useAtomValue } from "jotai";
 import { userBattleAtom, combatActionIdAtom } from "@/utils/UserContext";
@@ -30,7 +30,14 @@ const MenuBoxCombat: React.FC = () => {
 
   return (
     <>
-      <SideBannerTitle>Enemy: {battleUser.username}</SideBannerTitle>
+      <SideBannerTitle>
+        <Link
+          href={`/userid/${battleUser.userId}`}
+          className="inline-block hover:text-orange-500 flex flex-row"
+        >
+          Enemy: {battleUser.username} <Link2 className="inline-block h-5 w-5" />
+        </Link>
+      </SideBannerTitle>
       <div className="grid grid-cols-2 md:grid-cols-1 items-center justify-center">
         <Link href="/profile">
           <AvatarImage
