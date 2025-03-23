@@ -162,6 +162,9 @@ export default function Arena() {
               Queue for ranked PvP battles! You will be matched with players of similar LP.
               All battles are fought with level 100 characters with max stats.
             </p>
+            <p className="text-sm text-muted-foreground">
+              Players in queue: {queueData?.queueCount ?? 0}
+            </p>
             {queueData?.inQueue && (
               <p className="text-yellow-500">
                 You are currently in queue. Waiting for opponent... 
