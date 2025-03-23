@@ -1472,6 +1472,8 @@ export const userData = mysqlTable(
       "LARGE_ESTATE",
     ]).default("NONE").notNull(),
     homeStoredItems: json("homeStoredItems").default("[]").notNull(),
+    audioOn: boolean("audioOn").default(true).notNull(),
+    tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
   },
   (table) => {
     return {

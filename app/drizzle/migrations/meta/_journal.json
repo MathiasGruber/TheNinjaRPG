@@ -1422,6 +1422,20 @@
       "when": 1741880923688,
       "tag": "0202_broad_nitro",
       "breakpoints": false
+    },
+    {
+      "idx": 203,
+      "version": "5",
+      "when": 1742290575690,
+      "tag": "0203_outgoing_black_tarantula",
+      "breakpoints": false
+    },
+    {
+      "idx": 204,
+      "version": "5",
+      "when": 1742368738655,
+      "tag": "0204_shiny_thunderbolt_ross",
+      "breakpoints": false
     }
   ]
 }

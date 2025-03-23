@@ -148,71 +148,73 @@ const MenuBoxProfile: React.FC = () => {
   return (
     <>
       <div className="flex-col items-center justify-center ">
-        <Link href="/profile">
-          <AvatarImage
-            href={userData?.avatar}
-            userId={userData?.userId}
-            alt={userData?.username}
-            refetchUserData={true}
-            size={100}
-            hover_effect={true}
-            priority
-          />
-        </Link>
+        <div className="grid grid-cols-2 md:grid-cols-1 items-center justify-center">
+          <Link href="/profile">
+            <AvatarImage
+              href={userData?.avatar}
+              userId={userData?.userId}
+              alt={userData?.username}
+              refetchUserData={true}
+              size={100}
+              hover_effect={true}
+              priority
+            />
+          </Link>
 
-        <div className="pt-5">
-          <StatusBar
-            title="HP"
-            tooltip="Health"
-            color="bg-red-500"
-            showText={true}
-            lastRegenAt={userData?.regenAt}
-            regen={battleUser ? 0 : userData?.regeneration}
-            status={battleUser ? "AWAKE" : userData?.status}
-            current={battleUser?.curHealth || userData?.curHealth}
-            total={battleUser?.maxHealth || userData?.maxHealth}
-            timeDiff={timeDiff}
-          />
-          <StatusBar
-            title="CP"
-            tooltip="Chakra"
-            color="bg-blue-500"
-            showText={true}
-            lastRegenAt={userData?.regenAt}
-            regen={battleUser ? 0 : userData?.regeneration}
-            status={battleUser ? "AWAKE" : userData?.status}
-            current={battleUser?.curChakra || userData?.curChakra}
-            total={battleUser?.maxChakra || userData?.maxChakra}
-            timeDiff={timeDiff}
-          />
-          <StatusBar
-            title="SP"
-            tooltip="Stamina"
-            color="bg-green-500"
-            showText={true}
-            lastRegenAt={userData?.regenAt}
-            regen={battleUser ? 0 : userData?.regeneration}
-            status={battleUser ? "AWAKE" : userData?.status}
-            current={battleUser?.curStamina || userData?.curStamina}
-            total={battleUser?.maxStamina || userData?.maxStamina}
-            timeDiff={timeDiff}
-          />
-          {expRequired && expCurrent && expCurrent >= expRequired ? (
-            <LevelUpBtn />
-          ) : (
+          <div className="pt-5">
             <StatusBar
-              title="XP"
-              tooltip="Experience required for next level"
-              color="bg-yellow-500"
+              title="HP"
+              tooltip="Health"
+              color="bg-red-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={0}
-              status={userData?.status}
-              current={expCurrent}
-              total={expRequired}
+              regen={battleUser ? 0 : userData?.regeneration}
+              status={battleUser ? "AWAKE" : userData?.status}
+              current={battleUser?.curHealth || userData?.curHealth}
+              total={battleUser?.maxHealth || userData?.maxHealth}
               timeDiff={timeDiff}
             />
-          )}
+            <StatusBar
+              title="CP"
+              tooltip="Chakra"
+              color="bg-blue-500"
+              showText={true}
+              lastRegenAt={userData?.regenAt}
+              regen={battleUser ? 0 : userData?.regeneration}
+              status={battleUser ? "AWAKE" : userData?.status}
+              current={battleUser?.curChakra || userData?.curChakra}
+              total={battleUser?.maxChakra || userData?.maxChakra}
+              timeDiff={timeDiff}
+            />
+            <StatusBar
+              title="SP"
+              tooltip="Stamina"
+              color="bg-green-500"
+              showText={true}
+              lastRegenAt={userData?.regenAt}
+              regen={battleUser ? 0 : userData?.regeneration}
+              status={battleUser ? "AWAKE" : userData?.status}
+              current={battleUser?.curStamina || userData?.curStamina}
+              total={battleUser?.maxStamina || userData?.maxStamina}
+              timeDiff={timeDiff}
+            />
+            {expRequired && expCurrent && expCurrent >= expRequired ? (
+              <LevelUpBtn />
+            ) : (
+              <StatusBar
+                title="XP"
+                tooltip="Experience required for next level"
+                color="bg-yellow-500"
+                showText={true}
+                lastRegenAt={userData?.regenAt}
+                regen={0}
+                status={userData?.status}
+                current={expCurrent}
+                total={expRequired}
+                timeDiff={timeDiff}
+              />
+            )}
+          </div>
         </div>
 
         <div className="mt-4">
@@ -225,6 +227,18 @@ const MenuBoxProfile: React.FC = () => {
             <b>Time: </b> {gameTime}
           </p>
         </div>
+        {/* ACTIVE EFFECTS */}
+        {battle?.usersEffects && userData && (
+          <>
+            <hr className="my-2" />
+            <ul className="italic">
+              <VisualizeEffects
+                effects={battle.usersEffects}
+                userId={userData.userId}
+              />
+            </ul>
+          </>
+        )}
         <hr className="my-2" />
         <div className="flex flex-col gap-1">
           <TooltipProvider delayDuration={50}>
@@ -310,18 +324,6 @@ const MenuBoxProfile: React.FC = () => {
             </TooltipProvider>
           )}
         </div>
-        {/* ACTIVE EFFECTS */}
-        {battle?.usersEffects && userData && (
-          <>
-            <hr className="my-2" />
-            <ul className="italic">
-              <VisualizeEffects
-                effects={battle.usersEffects}
-                userId={userData.userId}
-              />
-            </ul>
-          </>
-        )}
       </div>
       <hr className="my-2" />
       <div className="px-2 pt-2 flex align-center justify-center">

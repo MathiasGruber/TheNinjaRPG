@@ -17,6 +17,7 @@ export interface ContentBoxProps {
   initialBreak?: boolean;
   noRightAlign?: boolean;
   alreadyHasH1?: boolean;
+  id?: string;
   onBack?: () => void;
 }
 
@@ -39,7 +40,7 @@ const ContentBox: React.FC<ContentBoxProps> = (props) => {
   return (
     <>
       {props.initialBreak && <div className="h-4"></div>}
-      <div className="sm:container">
+      <div className="sm:container" id={props.id}>
         <div
           className={`flex  ${
             props.topRightCorntentBreakpoint

@@ -30,6 +30,7 @@ const Logbook: React.FC = () => {
 
   return (
     <ContentBox
+      id="tutorial-logbook"
       title="LogBook"
       subtitle="Character Activites"
       initialBreak={true}

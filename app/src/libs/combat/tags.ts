@@ -770,37 +770,37 @@ export const updateStatUsage = (
       ) {
         switch (statType) {
           case "Taijutsu":
-            user.usedStats.push("taijutsuOffence");
+            user.usedStats.taijutsuOffence += 1;
             break;
           case "Bukijutsu":
-            user.usedStats.push("bukijutsuOffence");
+            user.usedStats.bukijutsuOffence += 1;
             break;
           case "Ninjutsu":
-            user.usedStats.push("ninjutsuOffence");
+            user.usedStats.ninjutsuOffence += 1;
             break;
           case "Genjutsu":
-            user.usedStats.push("genjutsuOffence");
+            user.usedStats.genjutsuOffence += 1;
             break;
           case "Highest":
-            user.usedStats.push(user.highestOffence);
+            user.usedStats[user.highestOffence] += 1;
             break;
         }
       } else {
         switch (statType) {
           case "Taijutsu":
-            user.usedStats.push("taijutsuDefence");
+            user.usedStats.taijutsuDefence += 1;
             break;
           case "Bukijutsu":
-            user.usedStats.push("bukijutsuDefence");
+            user.usedStats.bukijutsuDefence += 1;
             break;
           case "Ninjutsu":
-            user.usedStats.push("ninjutsuDefence");
+            user.usedStats.ninjutsuDefence += 1;
             break;
           case "Genjutsu":
-            user.usedStats.push("genjutsuDefence");
+            user.usedStats.genjutsuDefence += 1;
             break;
           case "Highest":
-            user.usedStats.push(user.highestDefence);
+            user.usedStats[user.highestDefence] += 1;
             break;
         }
       }
@@ -810,10 +810,10 @@ export const updateStatUsage = (
     effect.generalTypes?.forEach((general) => {
       if (general === "Highest") {
         user.highestGenerals.forEach((gen) => {
-          user.usedGenerals.push(gen);
+          user.usedGenerals[gen] += 1;
         });
       } else {
-        user.usedGenerals.push(general.toLowerCase() as Lowercase<typeof general>);
+        user.usedGenerals[general.toLowerCase() as Lowercase<typeof general>] += 1;
       }
     });
   }

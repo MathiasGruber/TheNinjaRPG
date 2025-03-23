@@ -123,10 +123,8 @@ export default function Tavern() {
                 <UserRoundX className="h-6 w-6 hover:text-orange-500" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent>
-              <div className="max-w-[320px] min-w-[320px]">
-                <UserBlacklistControl />
-              </div>
+            <PopoverContent className="w-[300px] p-0 overflow-hidden">
+              <UserBlacklistControl />
             </PopoverContent>
           </Popover>
         </div>

@@ -285,33 +285,6 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                 }
               />
             )}
-            {props.system && !props.comment?.isReported && (
-              <ReportUser
-                user={props.user}
-                content={props.comment}
-                system={props.system}
-                button={<Flag className="h-6 w-6 hover:text-orange-500" />}
-              />
-            )}
-            {props.system && props.comment?.isReported && (
-              <Flag className="h-6 w-6 fill-orange-500" />
-            )}
-            {userData &&
-              canDeleteComment(userData, props.user.userId) &&
-              props.deleteComment && (
-                <Confirm
-                  title="Confirm Deletion"
-                  button={<Trash2 className="h-6 w-6 hover:text-orange-500" />}
-                  onAccept={(e) => {
-                    e.preventDefault();
-                    if (props.deleteComment) {
-                      props.deleteComment({ id: props.comment.id });
-                    }
-                  }}
-                >
-                  You are about to delete a comment. Are you sure?
-                </Confirm>
-              )}
           </div>
         )
       }
@@ -331,9 +304,40 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
       ) : (
         <>
           <div className="mb-6">{props.children}</div>
-          <p className="absolute bottom-0 right-2 italic text-xs text-gray-600">
-            @{props.comment.createdAt.toLocaleString()}
-          </p>
+          <div className="absolute bottom-0 right-2 flex flex-row items-end gap-1">
+            <p className="italic text-xs text-gray-600 pr-2">
+              @{props.comment.createdAt.toLocaleString()}
+            </p>
+            {props.user && props.system && !props.comment?.isReported && (
+              <ReportUser
+                user={props.user}
+                content={props.comment}
+                system={props.system}
+                button={<Flag className="h-6 w-6 hover:text-orange-500" />}
+              />
+            )}
+            {props.system && props.comment?.isReported && (
+              <Flag className="h-6 w-6 fill-orange-500" />
+            )}
+            {props.user &&
+              userData &&
+              canDeleteComment(userData, props.user.userId) &&
+              props.deleteComment && (
+                <Confirm
+                  title="Confirm Deletion"
+                  button={<Trash2 className="h-6 w-6 hover:text-orange-500" />}
+                  onAccept={(e) => {
+                    e.preventDefault();
+                    if (props.deleteComment) {
+                      props.deleteComment({ id: props.comment.id });
+                    }
+                  }}
+                >
+                  You are about to delete a comment. Are you sure?
+                </Confirm>
+              )}
+          </div>
+
           <TooltipProvider>
             <div className="flex flex-row flex-wrap gap-2">{reactions}</div>
           </TooltipProvider>

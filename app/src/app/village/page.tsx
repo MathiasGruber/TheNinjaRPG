@@ -201,7 +201,11 @@ export default function VillageOverview() {
             .filter((s) => s.hasPage !== 0)
             .filter((s) => ownSector || s.allyAccess)
             .map((structure, i) => (
-              <div key={i} className="p-2">
+              <div
+                key={i}
+                className="p-2"
+                id={`tutorial-${structure.route.replace("/", "")}`}
+              >
                 <Building
                   structure={structure}
                   village={villageData}
@@ -313,6 +317,7 @@ const Building: React.FC<BuildingProps> = (props) => {
             width={200}
             height={200}
             priority={true}
+            id={`tutorial${structure.route.replace("/", "-")}`}
           />
         </Link>
         {TextBlock}
