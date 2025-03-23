@@ -464,14 +464,6 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             <p>
               Lvl. {profile.level} {capitalizeFirstLetter(profile.rank)}
             </p>
-            <p>
-              PvP Rank:{" "}
-              {profile.rankedLp !== undefined ? (
-                <span className="font-bold">{profile.rankedLp}</span>
-              ) : (
-                "Not ranked"
-              )}
-            </p>
             <p>Village: {profile.village?.name}</p>
             <p>Status: {profile.status}</p>
             <p>Account Status: {accountStatus}</p>
@@ -501,12 +493,6 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             <p>Experience for lvl: ---</p>
             <p>PVE Fights: {`${profile.pveFights} (+${todayPveCount})`}</p>
             <p>Yapper Rank: {profile.tavernMessages}</p>
-            <br />
-            <b>Ranked Battles</b>
-            <p>Battles: {profile.rankedBattles}</p>
-            <p>Wins: {profile.rankedWins}</p>
-            <p>Win Rate: {profile.rankedBattles > 0 ? ((profile.rankedWins / profile.rankedBattles) * 100).toFixed(1) : "0"}%</p>
-            <p>Current Streak: {profile.rankedStreak}</p>
             <br />
             <b>Special</b>
             <p>Reputation points: {profile.reputationPoints}</p>
