@@ -1461,6 +1461,17 @@ export const userData = mysqlTable(
     aiCalls: int("openaiCalls").default(0).notNull(),
     rankedLp: int("rankedLp").default(150).notNull(),
     tavernMessages: int("tavernMessages").default(0).notNull(),
+    homeType: mysqlEnum("homeType", [
+      "NONE",
+      "ONE_BED_APARTMENT",
+      "STUDIO_APARTMENT",
+      "TWO_BED_HOUSE",
+      "TOWN_HOUSE",
+      "SMALL_MANSION",
+      "SMALL_ESTATE",
+      "LARGE_ESTATE",
+    ]).default("NONE").notNull(),
+    homeStoredItems: json("homeStoredItems").default("[]").notNull(),
   },
   (table) => {
     return {
