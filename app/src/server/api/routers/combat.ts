@@ -741,7 +741,10 @@ export const combatRouter = createTRPCRouter({
         },
       });
 
-      const queueCount = await ctx.drizzle.query.rankedPvpQueue.count();
+      const queueCount = await ctx.drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(rankedPvpQueue)
+        .then(result => result[0]?.count ?? 0);
 
       return { 
         inQueue: !!queueEntry,
