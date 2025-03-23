@@ -740,9 +740,13 @@ export const combatRouter = createTRPCRouter({
           createdAt: true,
         },
       });
+
+      const queueCount = await ctx.drizzle.query.rankedPvpQueue.count();
+
       return { 
         inQueue: !!queueEntry,
         createdAt: queueEntry?.createdAt,
+        queueCount,
       };
     }),
   queueForRankedPvp: protectedProcedure
