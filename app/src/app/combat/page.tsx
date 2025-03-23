@@ -13,13 +13,20 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { useSetAtom, useAtom } from "jotai";
 import { userBattleAtom, combatActionIdAtom } from "@/utils/UserContext";
 import type { BattleState } from "@/libs/combat/types";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const Combat = dynamic(() => import("@/layout/Combat"));
 
 export default function CombatPage() {
+  // Add media query hook
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
   // State
   const [actionId, setActionId] = useAtom(combatActionIdAtom);
   const [battleState, setBattleState] = useState<BattleState | undefined>(undefined);
+  const [lastViewedVersion, setLastViewedVersion] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<string>("actions");
 
   // Data from the DB
   const setBattleAtom = useSetAtom(userBattleAtom);
@@ -35,6 +42,18 @@ export default function CombatPage() {
   const battle = battleState?.battle;
   const versionId = battle?.version;
   const user = battle?.usersState.find((u) => u.userId === userId);
+
+  // Calculate number of unread actions
+  const unreadActions = battle?.version
+    ? Math.max(0, battle.version - lastViewedVersion)
+    : 0;
+
+  // Update last viewed version when switching to history tab
+  useEffect(() => {
+    if (activeTab === "history" && battle?.version) {
+      setLastViewedVersion(battle.version);
+    }
+  }, [activeTab, battle?.version]);
 
   // Redirect to profile if not in battle
   useEffect(() => {
@@ -114,30 +133,87 @@ export default function CombatPage() {
           <p className="p-3">You are not in any battle</p>
         )}
       </ContentBox>
-      {battle && userData?.status === "BATTLE" && (
-        <ActionSelector
-          items={actions}
-          currentRound={battle.round}
-          showBgColor={true}
-          showLabels={true}
-          selectedId={actionId}
-          onClick={(id) => {
-            if (id === actionId) {
-              setActionId(undefined);
-            } else {
-              setActionId(id);
-            }
-          }}
-        />
-      )}
+
       {battle && (
-        <CombatHistory
-          battleId={battle.id}
-          battleVersion={battle.version}
-          battleRound={battle.round}
-          results={results}
-        />
+        <>
+          {isDesktop ? (
+            // Desktop view stacked
+            <>
+              {userData?.status === "BATTLE" && (
+                <ActionSelector
+                  items={actions}
+                  currentRound={battle.round}
+                  showBgColor={true}
+                  showLabels={true}
+                  selectedId={actionId}
+                  onClick={(id) => {
+                    if (id === actionId) {
+                      setActionId(undefined);
+                    } else {
+                      setActionId(id);
+                    }
+                  }}
+                />
+              )}
+              <CombatHistory
+                battleId={battle.id}
+                battleVersion={battle.version}
+                battleRound={battle.round}
+                results={results}
+              />
+            </>
+          ) : (
+            // Mobile view with tabs
+            <Tabs
+              defaultValue="actions"
+              className="w-full"
+              value={activeTab}
+              onValueChange={setActiveTab}
+            >
+              <TabsList className="w-full my-2">
+                <TabsTrigger value="actions" className="flex-1">
+                  Actions
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex-1 relative">
+                  History
+                  {unreadActions > 0 && activeTab !== "history" && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[1.25rem] h-5 flex items-center justify-center">
+                      {unreadActions}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="actions">
+                {userData?.status === "BATTLE" && (
+                  <ActionSelector
+                    items={actions}
+                    currentRound={battle.round}
+                    showBgColor={true}
+                    showLabels={true}
+                    selectedId={actionId}
+                    onClick={(id) => {
+                      if (id === actionId) {
+                        setActionId(undefined);
+                      } else {
+                        setActionId(id);
+                      }
+                    }}
+                  />
+                )}
+              </TabsContent>
+              <TabsContent value="history">
+                <CombatHistory
+                  battleId={battle.id}
+                  battleVersion={battle.version}
+                  battleRound={battle.round}
+                  results={results}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
+        </>
       )}
+
       <div className="flex flex-row">
         {battle && !results && actionId && (
           <div className="pt-2 text-xs">

@@ -31,7 +31,7 @@ const MenuBoxCombat: React.FC = () => {
   return (
     <>
       <SideBannerTitle>Enemy: {battleUser.username}</SideBannerTitle>
-      <div className="flex-col items-center justify-center ">
+      <div className="grid grid-cols-2 md:grid-cols-1 items-center justify-center">
         <Link href="/profile">
           <AvatarImage
             href={battleUser.avatar}

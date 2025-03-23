@@ -7,7 +7,7 @@ import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/app/_trpc/client";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-
+import { usePathname } from "next/navigation";
 export interface NavBarDropdownLink {
   id?: string;
   href: string;
@@ -59,6 +59,7 @@ export const getMainNavbarLinks = () => {
 };
 
 export const useGameMenu = (userData: UserWithRelations) => {
+  const pathname = usePathname();
   const systems: NavBarDropdownLink[] = [
     {
       id: "tutorial-tavern",
@@ -149,10 +150,14 @@ export const useGameMenu = (userData: UserWithRelations) => {
     // Is in village
     if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw || isSafezone) {
       // Check if user is standing on a village structure
-      const structure = sector.structures?.find(
-        (s) => s.longitude === userData.longitude && s.latitude === userData.latitude,
-      );
-
+      const structure =
+        pathname === "/travel"
+          ? sector.structures?.find(
+              (s) =>
+                s.longitude === userData.longitude && s.latitude === userData.latitude,
+            )
+          : undefined;
+      // Set the location
       location = {
         id: "tutorial-village",
         href: structure?.route || "/village",

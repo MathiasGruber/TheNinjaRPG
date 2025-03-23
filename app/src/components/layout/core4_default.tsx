@@ -63,7 +63,8 @@ import {
 } from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-
+import { usePathname } from "next/navigation";
+import { cn } from "src/libs/shadui";
 export interface LayoutProps {
   children: React.ReactNode;
 }
@@ -91,6 +92,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
   // State
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const pathname = usePathname();
 
   // Derived data for layout
   const navbarMenuItems = getMainNavbarLinks();
@@ -299,6 +301,33 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         }}
       />
     </div>
+  );
+
+  /**
+   * SIDEBAR: Left side main menu
+   */
+  const leftSideBarMainMenu = (
+    <>
+      <SideBannerTitle>Main Menu</SideBannerTitle>
+      <div className="mt-1 grid gap-3 grid-cols-2">
+        {navbarMenuItems.map((system, i) => {
+          return (
+            <Link
+              key={i}
+              href={system.href}
+              onClick={() => setLeftSideBarOpen(false)}
+              className={system.className ? system.className : ""}
+            >
+              <Button decoration="gold" className={`w-full hover:bg-orange-200`}>
+                <div className="grow">{system.name}</div>
+                <div>{system.icon && system.icon}</div>
+              </Button>
+            </Link>
+          );
+        })}
+        <div className="flex flex-row items-center justify-center">{signedInIcons}</div>
+      </div>
+    </>
   );
 
   return (
@@ -575,38 +604,32 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           {/* LEFT SIDEBAR MOBILE */}
           <Sheet open={leftSideBarOpen} onOpenChange={setLeftSideBarOpen}>
             <SheetTrigger className="absolute top-4 left-4" aria-label="homeBtn">
-              <House className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
+              <House
+                className={cn(
+                  "block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2",
+                  pathname === "/combat"
+                    ? "animate-[wiggle_1s_ease-in-out_infinite]"
+                    : "",
+                )}
+              />
             </SheetTrigger>
             <SheetContent side="left">
               <SheetHeader className="text-left">
-                <SheetTitle>
-                  <SideBannerTitle>Main Menu</SideBannerTitle>
-                </SheetTitle>
+                <VisuallyHidden.Root>
+                  <SheetTitle>Test</SheetTitle>
+                </VisuallyHidden.Root>
                 <Suspense fallback={<Loader explanation="Loading..." />}>
-                  <div className="mt-1 grid gap-3 grid-cols-2">
-                    {navbarMenuItems.map((system, i) => {
-                      return (
-                        <Link
-                          key={i}
-                          href={system.href}
-                          onClick={() => setLeftSideBarOpen(false)}
-                          className={system.className ? system.className : ""}
-                        >
-                          <Button
-                            decoration="gold"
-                            className={`w-full hover:bg-orange-200`}
-                          >
-                            <div className="grow">{system.name}</div>
-                            <div>{system.icon && system.icon}</div>
-                          </Button>
-                        </Link>
-                      );
-                    })}
-                    <div className="flex flex-row items-center justify-center">
-                      {signedInIcons}
-                    </div>
-                  </div>
-                  <div className="relative pt-4">{leftSideBar}</div>
+                  {pathname === "/combat" ? (
+                    <>
+                      <div className="relative pt-4">{leftSideBar}</div>
+                      {leftSideBarMainMenu}
+                    </>
+                  ) : (
+                    <>
+                      {leftSideBarMainMenu}
+                      <div className="relative pt-4">{leftSideBar}</div>
+                    </>
+                  )}
                 </Suspense>
               </SheetHeader>
             </SheetContent>
@@ -615,11 +638,18 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           {/* RIGHT SIDEBAR MOBILE */}
           <Sheet open={rightSideBarOpen} onOpenChange={setRightSideBarOpen}>
             <SheetTrigger
-              className="absolute top-4 right-4"
+              className={"absolute top-4 right-4"}
               aria-label="gameBtn"
               id="tutorial-gameBtn"
             >
-              <Earth className="block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2" />
+              <Earth
+                className={cn(
+                  "block md:hidden h-16 w-16 bg-yellow-500 hover:bg-yellow-300 transition-colors text-orange-100 rounded-full p-2 shadow-md shadow-black border-2",
+                  pathname === "/combat"
+                    ? "animate-[wiggle_1s_ease-in-out_infinite]"
+                    : "",
+                )}
+              />
             </SheetTrigger>
             <SheetContent>
               <VisuallyHidden.Root>
@@ -637,24 +667,27 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
           {/* MOBILE NOTIFICATIONS */}
           <div className="absolute top-[75px] right-0 left-0 flex flex-row justify-end md:hidden p-1 gap-2">
-            {shownNotifications?.map((notification, i) => (
-              <Link key={i} href={notification.href}>
-                <div
-                  className={`flex flex-row text-xs items-center rounded-lg border-2 border-slate-800 py-[1px] px-3 hover:opacity-70 ${
-                    notification.color ? `bg-${notification.color}-600` : "bg-slate-500"
-                  }`}
-                >
-                  {notification.color === "red" && (
-                    <ShieldAlert className="mr-1 h-5 w-5" />
-                  )}
-                  {notification.color === "blue" && <Info className="mr-1 h-5 w-5" />}
-                  {notification.color === "green" && (
-                    <ShieldCheck className="mr-1 h-5 w-5" />
-                  )}
-                  {notification.name}
-                </div>
-              </Link>
-            ))}
+            {pathname !== "/combat" &&
+              shownNotifications?.map((notification, i) => (
+                <Link key={i} href={notification.href}>
+                  <div
+                    className={`flex flex-row text-xs items-center rounded-lg border-2 border-slate-800 py-[1px] px-3 hover:opacity-70 ${
+                      notification.color
+                        ? `bg-${notification.color}-600`
+                        : "bg-slate-500"
+                    }`}
+                  >
+                    {notification.color === "red" && (
+                      <ShieldAlert className="mr-1 h-5 w-5" />
+                    )}
+                    {notification.color === "blue" && <Info className="mr-1 h-5 w-5" />}
+                    {notification.color === "green" && (
+                      <ShieldCheck className="mr-1 h-5 w-5" />
+                    )}
+                    {notification.name}
+                  </div>
+                </Link>
+              ))}
           </div>
           {/* <div className="p-3 pt-24 min-h-[1200px] bg-background bg-opacity-50">
           {props.children}
