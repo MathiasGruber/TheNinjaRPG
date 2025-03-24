@@ -397,6 +397,24 @@ export const updateUser = async (
       }
     }
 
+    // Update ranked battle statistics if it's a ranked battle
+    if (curBattle.battleType === "RANKED") {
+      await client
+        .update(userData)
+        .set({
+          rankedBattles: sql`${userData.rankedBattles} + 1`,
+          ...(result.didWin > 0
+            ? {
+                rankedWins: sql`${userData.rankedWins} + 1`,
+                rankedStreak: sql`${userData.rankedStreak} + 1`,
+              }
+            : {
+                rankedStreak: 0,
+              }),
+        })
+        .where(eq(userData.userId, userId));
+    }
+
     // Update user & user items
     await Promise.all([
       // Delete items
