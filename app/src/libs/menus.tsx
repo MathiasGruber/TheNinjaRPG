@@ -1,15 +1,14 @@
 import { type ReactNode } from "react";
 import Image from "next/image";
 import { Atom, Bug, User, Globe2, BookOpenText, Users } from "lucide-react";
-import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-react";
+import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt, Trophy } from "lucide-react";
 import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/app/_trpc/client";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import { usePathname } from "next/navigation";
+
 export interface NavBarDropdownLink {
-  id?: string;
   href: string;
   name: string;
   requireAwake?: boolean;
@@ -25,31 +24,26 @@ export interface NavBarDropdownLink {
 export const getMainNavbarLinks = () => {
   const links: NavBarDropdownLink[] = [
     {
-      id: "tutorial-news",
       href: "/news",
       name: "News",
       icon: <Newspaper className="h-6 w-6" />,
     },
     {
-      id: "tutorial-manual",
       href: "/manual",
       name: "Info",
       icon: <Scale className="h-6 w-6" />,
     },
     {
-      id: "tutorial-forum",
       href: "/forum",
       name: "Forum",
       icon: <MessagesSquare className="h-6 w-6" />,
     },
     {
-      id: "tutorial-bugs",
       href: "/help",
       name: "Bugs",
       icon: <Bug className="h-6 w-6" />,
     },
     {
-      id: "tutorial-art",
       href: "/conceptart",
       name: "Art",
       icon: <Paintbrush className="h-6 w-6" />,
@@ -59,58 +53,55 @@ export const getMainNavbarLinks = () => {
 };
 
 export const useGameMenu = (userData: UserWithRelations) => {
-  const pathname = usePathname();
   const systems: NavBarDropdownLink[] = [
     {
-      id: "tutorial-tavern",
       href: "/tavern",
       name: "Tavern",
       icon: <Users key="tavern" className="h-6 w-6" />,
     },
     {
-      id: "tutorial-inbox",
       href: "/inbox",
       name: "Inbox",
       icon: <Inbox key="inbox" className="h-6 w-6" />,
     },
     {
-      id: "tutorial-users",
       href: "/users",
       name: "Users",
       icon: <BookOpenText key="users" className="h-6 w-6" />,
     },
     {
-      id: "tutorial-reports",
       href: "/reports",
       name: "Reports",
       icon: <Flag key="reports" className="h-6 w-6" />,
     },
     {
       href: "/travel",
-      id: "tutorial-travel",
       name: "Travel",
       requireAwake: true,
       icon: <Globe2 key="travel" className="h-6 w-6" />,
     },
     {
       href: "/jutsus",
-      id: "tutorial-jutsus",
       name: "Jutsus",
       requireAwake: false,
       icon: <Atom key="jutsus" className="h-6 w-6" />,
     },
     {
       href: "/items",
-      id: "tutorial-items",
       name: "Items",
       requireAwake: false,
       icon: <User key="items" className="h-6 w-6" />,
     },
     {
-      id: "tutorial-points",
       href: "/points",
       name: "Points",
       icon: <Receipt key="travel" className="h-6 w-6" />,
+    },
+    {
+      href: "/ranked",
+      name: "Ranked",
+      requireAwake: true,
+      icon: <Trophy key="ranked" className="h-6 w-6" />,
     },
   ];
 
@@ -149,32 +140,22 @@ export const useGameMenu = (userData: UserWithRelations) => {
 
     // Is in village
     if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw || isSafezone) {
-      // Check if user is standing on a village structure
-      const structure =
-        pathname === "/travel"
-          ? sector.structures?.find(
-              (s) =>
-                s.longitude === userData.longitude && s.latitude === userData.latitude,
-            )
-          : undefined;
-      // Set the location
       location = {
-        id: "tutorial-village",
-        href: structure?.route || "/village",
-        name: structure?.name || "Village",
+        href: "/village",
+        name: "Village",
         requireAwake: true,
         icon: (
           <div>
             <Image
-              src={structure?.image || sector.villageGraphic}
-              alt={structure?.name || sector.name}
+              src={sector.villageGraphic}
+              alt={sector.name}
               width={200}
               height={200}
               priority={true}
             />
             <span className="font-bold">
-              {structure?.name || sector.mapName || sector.name}{" "}
-              {!structure && sector.type === "VILLAGE" ? "Village" : ""}
+              {sector.mapName || sector.name}{" "}
+              {sector.type === "VILLAGE" ? "Village" : ""}
             </span>
           </div>
         ),
