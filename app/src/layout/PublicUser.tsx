@@ -156,8 +156,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
       rankedLp: profile?.rankedLp ?? 0
     },
     { 
-      enabled: !!profile?.rankedLp,
-      defaultData: { rank: "Not ranked" }
+      enabled: !!profile?.rankedLp
     }
   );
 
@@ -476,7 +475,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               Lvl. {profile.level} {capitalizeFirstLetter(profile.rank)}
             </p>
             <p>
-              PvP Rank: {isPendingPvpRank ? "Loading..." : pvpRank?.rank}
+              PvP Rank: {isPendingPvpRank ? "Loading..." : (pvpRank?.rank ?? "Not ranked")}
             </p>
             <p>Village: {profile.village?.name}</p>
             <p>Status: {profile.status}</p>
