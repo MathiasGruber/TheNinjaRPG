@@ -34,7 +34,7 @@ import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
-import { JUTSU_MAX_RESIDUAL_EQUIPPED } from "@/drizzle/constants";
+import { JUTSU_MAX_RESIDUAL_EQUIPPED, JUTSU_MAX_SHIELD_EQUIPPED } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { jutsuFilteringSchema } from "@/validators/jutsu";
 import { QuestTracker } from "@/validators/objectives";
@@ -539,6 +539,11 @@ export const jutsuRouter = createTRPCRouter({
           uj.equipped &&
           uj.jutsu.effects.some((e) => "residualModifier" in e && e.residualModifier),
       );
+      const shieldJutsus = userjutsus.filter(
+        (uj) =>
+          uj.equipped &&
+          uj.jutsu.effects.some((e) => "shield" in e && e.shield),
+      );
 
       if (!info) return errorResponse("Jutsu not found");
       if (!canTrainJutsu(info, user)) return errorResponse("Jutsu not for you");
@@ -596,7 +601,7 @@ export const jutsuRouter = createTRPCRouter({
           jutsuId: input.jutsuId,
           finishTraining: new Date(Date.now() + trainTime),
           equipped:
-            curEquip < maxEquip && residualJutsus.length <= JUTSU_MAX_RESIDUAL_EQUIPPED
+            curEquip < maxEquip && residualJutsus.length <= JUTSU_MAX_RESIDUAL_EQUIPPED && shieldJutsus.length <= JUTSU_MAX_SHIELD_EQUIPPED
               ? 1
               : 0,
         });
@@ -714,6 +719,14 @@ export const jutsuRouter = createTRPCRouter({
       ) {
         return errorResponse(
           `You cannot equip more than ${JUTSU_MAX_RESIDUAL_EQUIPPED} residual jutsu. Please unequip first.`,
+        );
+      }
+      if (
+        shieldJutsus.length >= JUTSU_MAX_SHIELD_EQUIPPED &&
+        newEquippedState === 1
+      ) {
+        return errorResponse(
+          `You cannot equip more than ${JUTSU_MAX_SHEILD_EQUIPPED} shield jutsu. Please unequip first.`,
         );
       }
       if (!userjutsuObj) return errorResponse("Jutsu not found");
