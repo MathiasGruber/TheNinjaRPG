@@ -465,7 +465,12 @@ export const profileRouter = createTRPCRouter({
         });
       }
     }
-    return { userData: user, notifications: notifications, serverTime: Date.now() };
+    return {
+      userData: user,
+      notifications: notifications,
+      serverTime: Date.now(),
+      userAgent: ctx.userAgent,
+    };
   }),
   // Get an AI
   getAi: protectedProcedure
