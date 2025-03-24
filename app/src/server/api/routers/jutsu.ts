@@ -539,10 +539,11 @@ export const jutsuRouter = createTRPCRouter({
           uj.equipped &&
           uj.jutsu.effects.some((e) => "residualModifier" in e && e.residualModifier),
       );
+
       const shieldJutsus = userjutsus.filter(
         (uj) =>
           uj.equipped &&
-          uj.jutsu.effects.some((e) => "shield" in e && e.shield),
+          uj.jutsu.effects.some((e) => e.type === "shield"),
       );
 
       if (!info) return errorResponse("Jutsu not found");
@@ -712,6 +713,12 @@ export const jutsuRouter = createTRPCRouter({
           uj.jutsu.effects.some((e) => "residualModifier" in e && e.residualModifier),
       );
 
+      const shieldJutsus = userjutsus.filter(
+        (uj) =>
+          uj.equipped &&
+          uj.jutsu.effects.some((e) => e.type === "shield"),
+      );
+
       // Guards
       if (
         residualJutsus.length >= JUTSU_MAX_RESIDUAL_EQUIPPED &&
@@ -726,7 +733,7 @@ export const jutsuRouter = createTRPCRouter({
         newEquippedState === 1
       ) {
         return errorResponse(
-          `You cannot equip more than ${JUTSU_MAX_SHEILD_EQUIPPED} shield jutsu. Please unequip first.`,
+          `You cannot equip more than ${JUTSU_MAX_SHIELD_EQUIPPED} shield jutsu. Please unequip first.`,
         );
       }
       if (!userjutsuObj) return errorResponse("Jutsu not found");
