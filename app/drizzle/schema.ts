@@ -1463,6 +1463,9 @@ export const userData = mysqlTable(
     tavernMessages: int("tavernMessages").default(0).notNull(),
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
+    rankedBattles: int("rankedBattles").notNull().default(0),
+    rankedWins: int("rankedWins").notNull().default(0),
+    rankedStreak: int("rankedStreak").notNull().default(0),
   },
   (table) => {
     return {
