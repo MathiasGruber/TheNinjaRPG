@@ -1003,7 +1003,7 @@ export const processUsersForBattle = (info: {
       user.taijutsuDefence = 450000;
       user.bukijutsuOffence = 450000;
       user.bukijutsuDefence = 450000;
-      
+      user.medicalExperience = 400000;
     }
 
     // Add highest offence name to user
