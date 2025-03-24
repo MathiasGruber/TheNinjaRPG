@@ -347,6 +347,7 @@ export const UserRequestTypes = [
   "CLAN",
   "MARRIAGE",
   "KAGE",
+  "WAR_ALLY",
 ] as const;
 export type UserRequestType = (typeof UserRequestTypes)[number];
 
@@ -564,6 +565,21 @@ export const FED_EVENT_ITEMS_DEFAULT = 10;
 
 // Missions config
 export const MISSIONS_PER_DAY = 9;
+
+// War config
+export const WAR_TOKEN_REDUCTION_INTERVAL_HOURS = 24; // How often tokens should be reduced
+export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS = 1.3; // 30% increase after 3 days
+export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS = 1.5; // 50% increase after 7 days
+export const WAR_EXHAUSTION_DURATION_DAYS = 3; // War exhaustion duration
+export const WAR_STRUCTURE_UPGRADE_BLOCK_DAYS = 7; // Structure upgrade block duration
+export const WAR_VICTORY_TOKEN_BONUS = 100000; // Victory bonus tokens
+export const WAR_STATES = [
+  "ACTIVE",
+  "ATTACKER_VICTORY",
+  "DEFENDER_VICTORY",
+  "DRAW",
+] as const;
+export type WarState = (typeof WAR_STATES)[number];
 
 // Clans config
 export const CLAN_MPVP_MAX_USERS_PER_SIDE = 3;
