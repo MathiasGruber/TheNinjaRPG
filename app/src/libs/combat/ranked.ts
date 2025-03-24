@@ -10,9 +10,9 @@ export interface RankedPvpQueue {
 }
 
 // K-factor adjustments based on LP
-const K_FACTOR_BASE = 32;
-const K_FACTOR_LOW = 48; // For players < 300 LP
-const K_FACTOR_MID = 40; // For players 300-600 LP
+const K_FACTOR_BASE = 24;
+const K_FACTOR_LOW = 32; // For players < 300 LP
+const K_FACTOR_MID = 28; // For players 300-600 LP
 const K_FACTOR_HIGH = 24; // For players > 900 LP
 
 // Win streak bonus
@@ -88,7 +88,7 @@ export function calculateLPChange(
   }
 
   // Add win streak bonus
-  if (didWin && player.pvpStreak > 0) {
+  if (didWin && player.rankedStreak > 0) {
     lpChange += STREAK_BONUS * Math.min(5, player.pvpStreak);
   }
 
