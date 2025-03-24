@@ -93,6 +93,12 @@ export default function Profile() {
             <p>PvP Streak: {userData.pvpStreak}</p>
             <p>PvP Activity: {userData.pvpActivity}</p>
             <p>Medical Exp: {userData.medicalExperience}</p>
+            <br />
+            <b>Ranked Battles</b>
+            <p>Battles: {userData.rankedBattles}</p>
+            <p>Wins: {userData.rankedWins}</p>
+            <p>Win Rate: {userData.rankedBattles > 0 ? ((userData.rankedWins / userData.rankedBattles) * 100).toFixed(1) : "0"}%</p>
+            <p>Current Streak: {userData.rankedStreak}</p>
           </div>
           <div>
             <b>Reputation</b>
