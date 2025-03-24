@@ -1,7 +1,9 @@
+
+
 import { type ReactNode } from "react";
 import Image from "next/image";
 import { Atom, Bug, User, Globe2, BookOpenText, Users } from "lucide-react";
-import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt, Trophy } from "lucide-react";
+import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt, Swords } from "lucide-react";
 import { Inbox, Flag } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/app/_trpc/client";
@@ -101,7 +103,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
       href: "/ranked",
       name: "Ranked",
       requireAwake: true,
-      icon: <Trophy key="ranked" className="h-6 w-6" />,
+      icon: <Swords key="ranked" className="h-6 w-6" />,
     },
   ];
 
