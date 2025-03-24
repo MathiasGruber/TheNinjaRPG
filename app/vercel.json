@@ -59,6 +59,10 @@
     {
       "path": "/api/hourly-kage-prestige",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/daily-war",
+      "schedule": "0/2 0 * * *"
     }
   ],
   "functions": {
