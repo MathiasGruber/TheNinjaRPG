@@ -1459,10 +1459,8 @@ export const userData = mysqlTable(
     aiProfileId: varchar("aiProfileId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
     aiCalls: int("openaiCalls").default(0).notNull(),
-    rankedLp: int("rankedLp").notNull().default(150),
-    rankedBattles: int("rankedBattles").notNull().default(0),
-    rankedWins: int("rankedWins").notNull().default(0),
-    rankedStreak: int("rankedStreak").notNull().default(0),
+    rankedLp: int("rankedLp").default(150).notNull(),
+    tavernMessages: int("tavernMessages").default(0).notNull(),
   },
   (table) => {
     return {
