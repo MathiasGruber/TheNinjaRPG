@@ -1330,9 +1330,28 @@ export const initiateBattle = async (
                   ...(latitude ? [eq(userData.latitude, latitude)] : [])
                 ),
               ]
-            : [])
-        )
-      )
+            : []),
+        ),
+      ),
+    ...(battleType === "TOURNAMENT"
+      ? [
+          client
+            .update(tournamentMatch)
+            .set({ battleId })
+            .where(
+              or(
+                and(
+                  inArray(tournamentMatch.userId1, userIds),
+                  inArray(tournamentMatch.userId2, targetIds),
+                ),
+                and(
+                  inArray(tournamentMatch.userId2, userIds),
+                  inArray(tournamentMatch.userId1, targetIds),
+                ),
+              ),
+            ),
+        ]
+      : []),
   ]);
 
   // Check if success
