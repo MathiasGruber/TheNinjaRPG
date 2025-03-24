@@ -120,57 +120,6 @@ export const profileRouter = createTRPCRouter({
         message: `Battle descriptions ${input.showBattleDescription ? "enabled" : "disabled"}`,
       };
     }),
-  // Toggle audio setting
-  toggleAudio: protectedProcedure
-    .output(
-      baseServerResponse.extend({
-        data: z.object({ audioOn: z.boolean() }).optional(),
-      }),
-    )
-    .mutation(async ({ ctx }) => {
-      // Get current user data
-      const user = await ctx.drizzle.query.userData.findFirst({
-        where: eq(userData.userId, ctx.userId),
-        columns: { audioOn: true },
-      });
-      // Guard
-      if (!user) return errorResponse("User not found");
-      // Derived
-      const newAudioState = !user.audioOn;
-      // Update the database
-      await ctx.drizzle
-        .update(userData)
-        .set({ audioOn: newAudioState })
-        .where(eq(userData.userId, ctx.userId));
-      // Return success response
-      return {
-        success: true,
-        message: `Audio ${newAudioState ? "enabled" : "disabled"}`,
-        data: { audioOn: newAudioState },
-      };
-    }),
-  // Update tutorial step
-  updateTutorialStep: protectedProcedure
-    .input(z.object({ step: z.number() }))
-    .output(
-      baseServerResponse.extend({
-        data: z.object({ tutorialStep: z.number() }).optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      // Update the database
-      await ctx.drizzle
-        .update(userData)
-        .set({ tutorialStep: input.step })
-        .where(eq(userData.userId, ctx.userId));
-
-      // Return success response
-      return {
-        success: true,
-        message: `Tutorial step updated to ${input.step}`,
-        data: { tutorialStep: input.step },
-      };
-    }),
   // Update user preferences
   updatePreferences: protectedProcedure
     .input(updateUserPreferencesSchema)
@@ -465,12 +414,7 @@ export const profileRouter = createTRPCRouter({
         });
       }
     }
-    return {
-      userData: user,
-      notifications: notifications,
-      serverTime: Date.now(),
-      userAgent: ctx.userAgent,
-    };
+    return { userData: user, notifications: notifications, serverTime: Date.now() };
   }),
   // Get an AI
   getAi: protectedProcedure
@@ -989,9 +933,6 @@ export const profileRouter = createTRPCRouter({
             villageId: true,
             tavernMessages: true,
             rankedLp: true,
-            rankedBattles: true,
-            rankedWins: true,
-            rankedStreak: true,
           },
           with: {
             village: true,
@@ -1637,6 +1578,10 @@ export const fetchPublicUsers = async (
         return [desc(userData.rankedLp)];
     }
   };
+
+  // Set limit to 10 for specific categories
+  const effectiveLimit = ["Strongest", "Outlaws", "Ranked"].includes(input.orderBy) ? 10 : input.limit;
+
   const [users, user] = await Promise.all([
     client.query.userData.findMany({
       where: and(
@@ -1706,7 +1651,7 @@ export const fetchPublicUsers = async (
           : {}),
       },
       offset: skip,
-      limit: input.limit,
+      limit: effectiveLimit,
       orderBy: getOrder(),
     }),
     ...(userId
