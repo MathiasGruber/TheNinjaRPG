@@ -989,6 +989,9 @@ export const profileRouter = createTRPCRouter({
             villageId: true,
             tavernMessages: true,
             rankedLp: true,
+            rankedBattles: true,
+            rankedWins: true,
+            rankedStreak: true,
           },
           with: {
             village: true,
