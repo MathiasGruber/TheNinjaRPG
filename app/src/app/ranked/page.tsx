@@ -1,22 +1,43 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/trpc/react";
+import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
-import { ContentBox } from "@/components/layout/ContentBox";
-import { Loader } from "@/components/layout/Loader";
-import { BanInfo } from "@/components/layout/BanInfo";
-import { useRequireInVillage } from "@/hooks/useRequireInVillage";
-import { showMutationToast } from "@/utils/toast";
-import { QueueTimer } from "@/components/layout/QueueTimer";
+import ContentBox from "@/layout/ContentBox";
+import Loader from "@/layout/Loader";
+import BanInfo from "@/layout/BanInfo";
+import { useRequireInVillage } from "@/utils/UserContext";
+import { showMutationToast } from "@/libs/toast";
+
+const QueueTimer = ({ createdAt }: { createdAt: Date }) => {
+  const [queueTime, setQueueTime] = useState("0:00");
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      const diff = now.getTime() - new Date(createdAt).getTime();
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setQueueTime(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer(); // Initial update
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [createdAt]);
+
+  return (
+    <span className="font-mono">{queueTime}</span>
+  );
+};
 
 export default function Ranked() {
   // Router for forwarding
   const router = useRouter();
 
   // Ensure user is in village
-  const { userData, access } = useRequireInVillage("/ranked");
+  const { userData, access } = useRequireInVillage("/battlearena");
 
   // Ranked PvP queue state and mutations
   const { data: queueData } = api.combat.getRankedPvpQueue.useQuery(undefined, {
