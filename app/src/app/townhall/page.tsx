@@ -49,7 +49,7 @@ import {
 
 export default function TownHall() {
   const { data: userData } = useRequiredUserData();
-  const availableTabs = ["Alliance", "Kage", "Elders"] as const;
+  const availableTabs = ["Alliance", "Kage", "Elders", "Wars"] as const;
   const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -72,6 +72,8 @@ export default function TownHall() {
     return <KageHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Elders") {
     return <ElderHall user={userData} navTabs={NavBarBlock} />;
+  } else if (tab === "Wars") {
+    return <WarRoom user={userData} navTabs={NavBarBlock} />;
   }
 }
 
@@ -910,5 +912,296 @@ const VillageBlock: React.FC<{ village: Village; user: UserWithRelations }> = ({
         height={100}
       />
     </div>
+  );
+};
+
+/**
+ * Wars Component
+ */
+const WarRoom: React.FC<{
+  user: NonNullable<UserWithRelations>;
+  navTabs: React.ReactNode;
+}> = ({ user, navTabs }) => {
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Queries
+  const { data: activeWars, isPending: isLoadingWars } = api.war.getActiveWars.useQuery(
+    { villageId: user.villageId ?? "" },
+    { staleTime: 10000, enabled: !!user.villageId },
+  );
+
+  const { data: villages } = api.village.getAlliances.useQuery(undefined, {
+    staleTime: 10000,
+  });
+
+  const { data: requests } = api.war.getAllyOffers.useQuery(
+    { villageId: user.villageId ?? "" },
+    { staleTime: 10000, enabled: !!user.villageId },
+  );
+
+  // Mutations
+  const { mutate: declareWar } = api.war.declareWar.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.war.getActiveWars.invalidate();
+      }
+    },
+  });
+
+  const { mutate: hireFaction, isPending: isHiring } = api.war.hireFaction.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.war.getActiveWars.invalidate();
+        await utils.war.getAllyOffers.invalidate();
+      }
+    },
+  });
+
+  const { mutate: surrender } = api.war.surrender.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.war.getActiveWars.invalidate();
+      }
+    },
+  });
+
+  const { mutate: createAllyOffer, isPending: isCreatingOffer } =
+    api.war.createAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
+  const { mutate: rejectAllyOffer, isPending: isRejectingOffer } =
+    api.war.rejectAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
+  const { mutate: cancelAllyOffer, isPending: isCancellingOffer } =
+    api.war.cancelAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
+  // Derived
+  const isKage = user.userId === user.village?.kageId;
+  const otherVillages = villages?.villages.filter(
+    (v) => v.id !== user.villageId && ["OUTLAW", "VILLAGE"].includes(v.type),
+  );
+
+  // Checks
+  if (!user.villageId) return <Loader explanation="Join a village first" />;
+  if (isLoadingWars) return <Loader explanation="Loading wars" />;
+
+  return (
+    <>
+      <ContentBox
+        title="Wars"
+        subtitle="Manage Village Wars"
+        back_href="/village"
+        topRightContent={navTabs}
+      >
+        <p>
+          The Wars is where the Kage makes critical decisions about village warfare.
+          Here, you can declare war on other villages, hire factions to join your cause,
+          and manage ongoing conflicts. Remember that declaring war costs 15,000 Village
+          Tokens, and each day at war reduces your tokens by 1,000 (increasing by 30%
+          after 3 days and 50% after 7 days).
+        </p>
+        {isKage && (
+          <div className="mt-4">
+            <h3 className="font-bold text-lg mb-2">Declare War</h3>
+            <div className="grid grid-cols-3 gap-4">
+              {otherVillages?.map((village) => (
+                <div
+                  key={village.id}
+                  className="border p-4 rounded-lg text-center relative"
+                >
+                  <Image
+                    src={village.villageLogo}
+                    alt={village.name}
+                    width={100}
+                    height={100}
+                    className="mx-auto mb-2"
+                  />
+                  <p className="font-bold">{village.name}</p>
+                  <Button
+                    className="mt-2 w-full"
+                    onClick={() => declareWar({ targetVillageId: village.id })}
+                  >
+                    <Swords className="h-5 w-5 mr-2" />
+                    Declare War
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </ContentBox>
+
+      {activeWars && activeWars.length > 0 && (
+        <ContentBox
+          title="Active Wars"
+          subtitle="Current Conflicts"
+          initialBreak={true}
+        >
+          <div className="grid grid-cols-1 gap-4">
+            {activeWars?.map((war) => {
+              const attackerVillage = villages?.villages.find(
+                (v) => v.id === war.attackerVillageId,
+              );
+              const defenderVillage = villages?.villages.find(
+                (v) => v.id === war.defenderVillageId,
+              );
+              const warStats =
+                villages?.villages?.map((v) => ({
+                  villageId: v.id,
+                  townHallHp: 5000,
+                })) ?? [];
+              const warFactions =
+                villages?.villages?.map((v) => ({
+                  villageId: v.id,
+                  warId: war.id,
+                  tokensPaid: 10000,
+                })) ?? [];
+
+              return (
+                <div key={war.id} className="border p-4 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold text-lg">
+                        {war.attackerVillageId === user.villageId
+                          ? "Attacking"
+                          : "Defending Against"}{" "}
+                        {war.attackerVillageId === user.villageId
+                          ? defenderVillage?.name
+                          : attackerVillage?.name}
+                      </h4>
+                      <p className="text-sm">
+                        Started: {war.startedAt.toLocaleDateString()}
+                      </p>
+                    </div>
+                    {isKage && (
+                      <Button
+                        variant="destructive"
+                        onClick={() => surrender({ warId: war.id })}
+                      >
+                        <DoorClosed className="h-5 w-5 mr-2" />
+                        Surrender
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="mt-4">
+                    <h5 className="font-bold mb-2">War Stats</h5>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="font-bold">Our Town Hall</p>
+                        <p>
+                          HP:{" "}
+                          {
+                            warStats.find((s) => s.villageId === user.villageId)
+                              ?.townHallHp
+                          }
+                          /5000
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-bold">Enemy Town Hall</p>
+                        <p>
+                          HP:{" "}
+                          {
+                            warStats.find((s) => s.villageId !== user.villageId)
+                              ?.townHallHp
+                          }
+                          /5000
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isKage && (
+                    <div className="mt-4">
+                      <h5 className="font-bold mb-2">Hire Factions</h5>
+                      <div className="grid grid-cols-3 gap-4">
+                        {villages?.villages
+                          .filter(
+                            (v) =>
+                              v.id !== war.attackerVillageId &&
+                              v.id !== war.defenderVillageId &&
+                              !warFactions.some((f) => f.villageId === v.id),
+                          )
+                          .map((village) => (
+                            <div
+                              key={village.id}
+                              className="border p-4 rounded-lg text-center"
+                            >
+                              <Image
+                                src={village.villageLogo}
+                                alt={village.name}
+                                width={50}
+                                height={50}
+                                className="mx-auto mb-2"
+                              />
+                              <p className="font-bold">{village.name}</p>
+                              <Button
+                                className="mt-2 w-full"
+                                onClick={() =>
+                                  createAllyOffer({
+                                    warId: war.id,
+                                    villageId: village.id,
+                                    tokenAmount: 10000,
+                                  })
+                                }
+                              >
+                                <Handshake className="h-5 w-5 mr-2" />
+                                Hire (10,000)
+                              </Button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </ContentBox>
+      )}
+
+      {requests && requests.length > 0 && (
+        <ContentBox
+          title="War Ally Offers"
+          subtitle="Sent to or from you"
+          initialBreak={true}
+          padding={false}
+        >
+          <UserRequestSystem
+            isLoading={isHiring || isRejectingOffer || isCancellingOffer}
+            requests={requests}
+            userId={user.userId}
+            onAccept={({ id }) => hireFaction({ id })}
+            onReject={({ id }) => rejectAllyOffer({ id })}
+            onCancel={({ id }) => cancelAllyOffer({ id })}
+          />
+        </ContentBox>
+      )}
+    </>
   );
 };
