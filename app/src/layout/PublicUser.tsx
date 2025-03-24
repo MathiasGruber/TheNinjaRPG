@@ -150,6 +150,14 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     {},
   );
 
+  const { data: pvpRank, isPending: isPendingPvpRank } = api.rankedpvp.getPvpRank.useQuery(
+    { userId: userId },
+    { 
+      enabled: !!profile?.rankedLp,
+      defaultData: { rank: "Not ranked" }
+    }
+  );
+
   // Forms
   const form = useForm<z.infer<typeof awardSchema>>({
     resolver: zodResolver(awardSchema),
@@ -465,7 +473,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               Lvl. {profile.level} {capitalizeFirstLetter(profile.rank)}
             </p>
             <p>
-              PvP Rank: {profile.rankedLp !== undefined ? profile.rankedLp : "Not ranked"}
+              PvP Rank: {isPendingPvpRank ? "Loading..." : pvpRank?.rank}
             </p>
             <p>Village: {profile.village?.name}</p>
             <p>Status: {profile.status}</p>
