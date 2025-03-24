@@ -151,7 +151,10 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   );
 
   const { data: pvpRank, isPending: isPendingPvpRank } = api.rankedpvp.getPvpRank.useQuery(
-    { userId: userId },
+    { 
+      userId: userId,
+      rankedLp: profile?.rankedLp ?? 0
+    },
     { 
       enabled: !!profile?.rankedLp,
       defaultData: { rank: "Not ranked" }
