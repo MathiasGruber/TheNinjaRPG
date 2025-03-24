@@ -475,7 +475,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               Lvl. {profile.level} {capitalizeFirstLetter(profile.rank)}
             </p>
             <p>
-              PvP Rank: {isPendingPvpRank ? "Loading..." : (pvpRank?.rank ?? "Not ranked")}
+              PvP Rank: {isPendingPvpRank ? "Loading..." : (pvpRank ?? "Not ranked")}
             </p>
             <p>Village: {profile.village?.name}</p>
             <p>Status: {profile.status}</p>
