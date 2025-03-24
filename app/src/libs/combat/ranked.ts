@@ -54,6 +54,11 @@ export function calculateLPChange(
   opponent: BattleUserState,
   didWin: boolean,
 ): number {
+  // If it's a draw (both players have 0 health), return 0
+  if (player.curHealth <= 0 && opponent.curHealth <= 0) {
+    return 0;
+  }
+
   const playerLP = player.rankedLp ?? 0;
   const opponentLP = opponent.rankedLp ?? 0;
   const playerRank = getRankIndex(playerLP);
