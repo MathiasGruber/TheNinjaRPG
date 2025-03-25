@@ -2594,8 +2594,6 @@ export const userPollVoteRelations = relations(userPollVote, ({ one }) => ({
   }),
 }));
 
-export type UserPollVote = InferSelectModel<typeof userPollVote>;
-
 export const rankedPvpQueue = mysqlTable(
   "RankedPvpQueue",
   {
