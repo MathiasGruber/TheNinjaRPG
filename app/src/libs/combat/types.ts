@@ -734,6 +734,12 @@ export const UnknownTag = z.object({
   description: msg("An unknown tag - please report & change!"),
 });
 
+export const GroundTag = z.object({
+  ...BaseAttributes,
+  type: z.literal("ground").default("ground"),
+  description: msg("ground dot"),
+});
+
 export const IncreaseMarriageSlots = z.object({
   ...BaseAttributes,
   rank: z.enum(LetterRanks).default("D"),
@@ -766,6 +772,7 @@ export const AllTags = z.union([
   ElementalSealTag.default({}),
   FleePreventTag.default({}),
   FleeTag.default({}),
+  GroundTag.default({}),
   HealPreventTag.default({}),
   HealTag.default({}),
   IncreaseDamageGivenTag.default({}),
