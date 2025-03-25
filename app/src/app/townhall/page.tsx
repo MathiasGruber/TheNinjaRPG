@@ -40,6 +40,7 @@ import type { Village, VillageAlliance } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { AllianceState } from "@/drizzle/constants";
 import { Input } from "@/components/ui/input";
+import { canJoinWar } from "@/libs/war";
 import {
   Form,
   FormControl,
@@ -858,7 +859,7 @@ const AllianceBlock: React.FC<{
         >
           <p>You are about to declare {otherVillage.name} an enemy. Are you sure?</p>
           <p>
-            The cost of declaring a village as enemy is {WAR_FUNDS_COST} village tokens
+            The cost of declaring a village as enemy is {WAR_FUNDS_COST} village tokens.
           </p>
           {newEnemies.length > 0 && (
             <p>
@@ -1008,7 +1009,8 @@ const WarRoom: React.FC<{
   // Derived
   const isKage = user.userId === user.village?.kageId;
   const villages = villageData?.villages;
-  const relationships = villageData?.relationships;
+  const userVillage = villages?.find((v) => v.id === user.villageId);
+  const relationships = villageData?.relationships || [];
   const otherVillages = villages?.filter(
     (v) =>
       v.id !== user.villageId &&
@@ -1068,7 +1070,7 @@ const WarRoom: React.FC<{
         )}
       </ContentBox>
 
-      {activeWars && activeWars.length > 0 && (
+      {userVillage && activeWars && activeWars.length > 0 && (
         <ContentBox
           title="Active Wars"
           subtitle="Current Conflicts"
@@ -1083,17 +1085,8 @@ const WarRoom: React.FC<{
                 (s) => s.route === "/townhall",
               );
               const canJoin = villages?.filter((v) => {
-                const relationship = findRelationship(
-                  relationships || [],
-                  user.villageId,
-                  v.id,
-                );
-                const check1 = v.id !== war.attackerVillageId;
-                const check2 = v.id !== war.defenderVillageId;
-                const check3 = !war.factions.some((f) => f.villageId === v.id);
-                const check4 = ["VILLAGE", "HIDEOUT", "TOWN"].includes(v.type);
-                const check5 = !relationship || relationship?.status === "ALLY";
-                return check1 && check2 && check3 && check4 && check5;
+                const { check } = canJoinWar(war, relationships, v, userVillage);
+                return check;
               });
               if (!attackerTownHall || !defenderTownHall) return null;
 
@@ -1141,6 +1134,7 @@ const WarRoom: React.FC<{
                         }
                         textPosition="bottom"
                         showBar={true}
+                        showNumbers={true}
                       />
                     </div>
 
@@ -1160,6 +1154,7 @@ const WarRoom: React.FC<{
                         }
                         textPosition="bottom"
                         showBar={true}
+                        showNumbers={true}
                       />
                     </div>
                   </div>
