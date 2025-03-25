@@ -2,13 +2,14 @@ import { currentUser } from "@clerk/nextjs/server";
 import { createUploadthing } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 import { eq, sql, gt, and, isNotNull } from "drizzle-orm";
-import { historicalAvatar, userData } from "@/drizzle/schema";
+import { historicalAvatar, userData, userUpload } from "@/drizzle/schema";
 import { drizzleDB } from "@/server/db";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { createThumbnail } from "@/libs/replicate";
 import type { FileRouter } from "uploadthing/next";
 import type { FederalStatuses } from "@/drizzle/constants";
 import { canChangeContent } from "@/utils/permissions";
+import { nanoid } from "nanoid";
 
 const f = createUploadthing({
   errorFormatter: (err) => {
@@ -50,25 +51,35 @@ export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "64KB" } })
     .middleware(async () => await avatarMiddleware())
     .onUploadComplete(({ file }) => {
-      return { fileUrl: file.url };
+      return { fileUrl: file.ufsUrl };
+    }),
+  tavernUploader: f({ image: { maxFileSize: "64KB" } })
+    .middleware(async () => await avatarMiddleware())
+    .onUploadComplete(async ({ metadata, file }) => {
+      await drizzleDB.insert(userUpload).values({
+        id: nanoid(),
+        userId: metadata.userId,
+        imageUrl: file.ufsUrl,
+      });
+      return { fileUrl: file.ufsUrl };
     }),
   anbuUploader: f({ image: { maxFileSize: "512KB" } })
     .middleware(async () => await avatarMiddleware())
     .onUploadComplete(async ({ file }) => {
       await uploadHistoricalAvatar(file, "anbu-image", true);
-      return { fileUrl: file.url };
+      return { fileUrl: file.ufsUrl };
     }),
   clanUploader: f({ image: { maxFileSize: "512KB" } })
     .middleware(async () => await avatarMiddleware())
     .onUploadComplete(async ({ file }) => {
       await uploadHistoricalAvatar(file, "clan-image", true);
-      return { fileUrl: file.url };
+      return { fileUrl: file.ufsUrl };
     }),
   tournamentUploader: f({ image: { maxFileSize: "512KB" } })
     .middleware(async () => await avatarMiddleware())
     .onUploadComplete(async ({ file }) => {
       await uploadHistoricalAvatar(file, "tournament-image", true);
-      return { fileUrl: file.url };
+      return { fileUrl: file.ufsUrl };
     }),
   avatarNormalUploader: f({ image: { maxFileSize: "512KB" } })
     .middleware(async () => await avatarMiddleware("NORMAL"))
@@ -88,7 +99,7 @@ export const ourFileRouter = {
   backgroundImageUploader: f({ image: { maxFileSize: "8MB" } })
     .middleware(adminMiddleware) // Use the adminMiddleware here
     .onUploadComplete(async ({ metadata, file }) => {
-      console.log(`Background image uploaded by ${metadata.userId}: ${file.url}`);
+      console.log(`Background image uploaded by ${metadata.userId}: ${file.ufsUrl}`);
     }),
 } satisfies FileRouter;
 
