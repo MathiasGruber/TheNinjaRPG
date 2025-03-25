@@ -589,11 +589,7 @@ export const fetchPublicAllianceInformation = async (client: DrizzleClient) => {
     fetchAlliances(client),
     fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
   ]);
-  return {
-    villages: villages.filter((v) => v.allianceSystem),
-    relationships,
-    requests,
-  };
+  return { villages, relationships, requests };
 };
 
 /**
