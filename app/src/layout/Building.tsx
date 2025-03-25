@@ -28,11 +28,12 @@ interface BuildingProps {
   showBar?: boolean;
   textPosition: "bottom" | "right";
   showUpgrade?: boolean;
+  showNumbers?: boolean;
 }
 
 const Building: React.FC<BuildingProps> = (props) => {
   // Destructure
-  const { structure, village, showBar, textPosition, showUpgrade } = props;
+  const { structure, village, showBar, textPosition, showUpgrade, showNumbers } = props;
 
   // State
   const { data: userData } = useRequiredUserData();
@@ -70,7 +71,7 @@ const Building: React.FC<BuildingProps> = (props) => {
             title=""
             tooltip="Health"
             color="bg-red-500"
-            showText={false}
+            showText={showNumbers}
             current={structure.curSp}
             total={structure.maxSp}
           />

@@ -302,7 +302,12 @@ export const villageRouter = createTRPCRouter({
       return { success: true, message: "You have swapped villages" };
     }),
   getAlliances: publicProcedure.query(async ({ ctx }) => {
-    return await fetchPublicAllianceInformation(ctx.drizzle);
+    const [villages, relationships, requests] = await Promise.all([
+      fetchVillages(ctx.drizzle),
+      fetchAlliances(ctx.drizzle),
+      fetchRequests(ctx.drizzle, ["ALLIANCE", "SURRENDER"], 3600 * 48),
+    ]);
+    return { villages, relationships, requests };
   }),
   createRequest: protectedProcedure
     .input(z.object({ targetId: z.string(), type: z.enum(UserRequestTypes) }))
@@ -575,21 +580,6 @@ export const fetchAllienceInfo = async (client: DrizzleClient, userId: string) =
     fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
   ]);
   return { user, villages, relationships, requests };
-};
-
-/**
- * Fetches the information related to villages, alliances, and requests.
- *
- * @param client - The DrizzleClient instance used for making queries.
- * @returns An object containing the fetched villages, alliances, and requests.
- */
-export const fetchPublicAllianceInformation = async (client: DrizzleClient) => {
-  const [villages, relationships, requests] = await Promise.all([
-    fetchVillages(client),
-    fetchAlliances(client),
-    fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
-  ]);
-  return { villages, relationships, requests };
 };
 
 /**
