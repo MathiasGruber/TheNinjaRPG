@@ -1436,6 +1436,13 @@
       "when": 1742368738655,
       "tag": "0204_shiny_thunderbolt_ross",
       "breakpoints": false
+    },
+    {
+      "idx": 205,
+      "version": "5",
+      "when": 1742909004971,
+      "tag": "0205_nervous_ricochet",
+      "breakpoints": false
     }
   ]
 }
