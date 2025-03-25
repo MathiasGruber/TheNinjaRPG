@@ -797,8 +797,8 @@ export const combatRouter = createTRPCRouter({
       for (const opponent of potentialOpponents) {
         // Calculate additional range based on queue time for both players
         const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
-        const opponentAdditionalRange = opponentQueueTimeMinutes >= 30 ? 10000 : 
-          opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
+        const opponentAdditionalRange = opponentQueueTimeMinutes >= 15 ? 10000 : 
+          opponentQueueTimeMinutes >= 2 ? 25 + Math.floor((opponentQueueTimeMinutes - 2) / 2) * 25 : 0;
         const opponentTotalRange = baseRange + opponentAdditionalRange;
 
         // Check if either player is within range of the other
