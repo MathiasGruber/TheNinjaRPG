@@ -27,3 +27,5 @@ CREATE TABLE `RankedJutsuLoadout` (
 ALTER TABLE `UserData` 
 ADD COLUMN `rankedJutsuLoadout` varchar(191),
 ADD INDEX `UserData_rankedJutsuLoadout_idx` (`rankedJutsuLoadout`);
+ALTER TABLE `UserJutsu` ADD COLUMN `rankedEquipped` tinyint NOT NULL DEFAULT 0;
+CREATE INDEX `Jutsu_rankedEquipped_idx` ON `UserJutsu` (`rankedEquipped`); 
