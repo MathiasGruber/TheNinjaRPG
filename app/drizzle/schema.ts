@@ -2575,6 +2575,8 @@ export const userPollVote = mysqlTable(
   },
 );
 
+export type UserPollVote = InferSelectModel<typeof userPollVote>;
+
 export const userPollVoteRelations = relations(userPollVote, ({ one }) => ({
   user: one(userData, {
     fields: [userPollVote.userId],
@@ -2590,4 +2592,32 @@ export const userPollVoteRelations = relations(userPollVote, ({ one }) => ({
   }),
 }));
 
-export type UserPollVote = InferSelectModel<typeof userPollVote>;
+// User upload schema
+export const userUpload = mysqlTable(
+  "UserUpload",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    imageUrl: varchar("imageUrl", { length: 255 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("UserUpload_userId_idx").on(table.userId),
+    };
+  },
+);
+
+export const userUploadRelations = relations(userUpload, ({ one }) => ({
+  user: one(userData, {
+    fields: [userUpload.userId],
+    references: [userData.userId],
+  }),
+}));
+
+export type UserUpload = InferSelectModel<typeof userUpload>;
