@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, and, or, gte } from "drizzle-orm";
-import { war, village, warAlly } from "@/drizzle/schema";
+import { war, village, warAlly, villageStructure } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchVillages } from "@/routers/village";
 import { nanoid } from "nanoid";
@@ -413,8 +413,20 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
       eq(war.status, "ACTIVE"),
     ),
     with: {
-      attackerVillage: true,
-      defenderVillage: true,
+      attackerVillage: {
+        with: {
+          structures: {
+            where: eq(villageStructure.route, "/townhall"),
+          },
+        },
+      },
+      defenderVillage: {
+        with: {
+          structures: {
+            where: eq(villageStructure.route, "/townhall"),
+          },
+        },
+      },
       factions: {
         with: {
           village: true,
