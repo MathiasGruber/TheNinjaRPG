@@ -13,6 +13,7 @@ import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import Building from "@/layout/Building";
 import { Handshake, LandPlot, DoorOpen } from "lucide-react";
 import { CircleArrowUp, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,7 @@ export default function TownHall() {
 
   const NavBarBlock = (
     <NavTabs
-      id="townhallSelection"
+      id="townhallSelection-2"
       current={tab}
       options={availableTabs}
       setValue={setTab}
@@ -672,7 +673,9 @@ const AllianceHall: React.FC<{
 
   if (isPending || !data) return <Loader explanation="Loading alliances" />;
 
-  const villages = data.villages.filter((v) => ["OUTLAW", "VILLAGE"].includes(v.type));
+  const villages = data.villages.filter(
+    (v) => ["OUTLAW", "VILLAGE"].includes(v.type) && v.allianceSystem,
+  );
   const relationships = data.relationships;
   const requests = data.requests;
 
@@ -931,14 +934,13 @@ const WarRoom: React.FC<{
     { staleTime: 10000, enabled: !!user.villageId },
   );
 
-  const { data: villages } = api.village.getAlliances.useQuery(undefined, {
+  const { data: villageData } = api.village.getAlliances.useQuery(undefined, {
     staleTime: 10000,
   });
 
-  const { data: requests } = api.war.getAllyOffers.useQuery(
-    { villageId: user.villageId ?? "" },
-    { staleTime: 10000, enabled: !!user.villageId },
-  );
+  const { data: requests } = api.war.getAllyOffers.useQuery(undefined, {
+    staleTime: 10000,
+  });
 
   // Mutations
   const { mutate: declareWar } = api.war.declareWar.useMutation({
@@ -950,15 +952,16 @@ const WarRoom: React.FC<{
     },
   });
 
-  const { mutate: hireFaction, isPending: isHiring } = api.war.hireFaction.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.war.getActiveWars.invalidate();
-        await utils.war.getAllyOffers.invalidate();
-      }
-    },
-  });
+  const { mutate: acceptAllyOffer, isPending: isHiring } =
+    api.war.acceptAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getActiveWars.invalidate();
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
 
   const { mutate: surrender } = api.war.surrender.useMutation({
     onSuccess: async (data) => {
@@ -989,7 +992,7 @@ const WarRoom: React.FC<{
       },
     });
 
-  const { mutate: cancelAllyOffer, isPending: isCancellingOffer } =
+  const { mutate: cancelAllyOffer, isPending: isCancelling } =
     api.war.cancelAllyOffer.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -1001,8 +1004,15 @@ const WarRoom: React.FC<{
 
   // Derived
   const isKage = user.userId === user.village?.kageId;
-  const otherVillages = villages?.villages.filter(
-    (v) => v.id !== user.villageId && ["OUTLAW", "VILLAGE"].includes(v.type),
+  const villages = villageData?.villages;
+  const relationships = villageData?.relationships;
+  const otherVillages = villages?.filter(
+    (v) =>
+      v.id !== user.villageId &&
+      ["OUTLAW", "VILLAGE"].includes(v.type) &&
+      !activeWars?.some(
+        (war) => war.attackerVillageId === v.id || war.defenderVillageId === v.id,
+      ),
   );
 
   // Checks
@@ -1034,7 +1044,7 @@ const WarRoom: React.FC<{
                   className="border p-4 rounded-lg text-center relative"
                 >
                   <Image
-                    src={village.villageLogo}
+                    src={village.villageGraphic}
                     alt={village.name}
                     width={100}
                     height={100}
@@ -1063,35 +1073,38 @@ const WarRoom: React.FC<{
         >
           <div className="grid grid-cols-1 gap-4">
             {activeWars?.map((war) => {
-              const attackerVillage = villages?.villages.find(
-                (v) => v.id === war.attackerVillageId,
+              const attackerTownHall = war.attackerVillage?.structures?.find(
+                (s) => s.route === "/townhall",
               );
-              const defenderVillage = villages?.villages.find(
-                (v) => v.id === war.defenderVillageId,
+              const defenderTownHall = war.defenderVillage?.structures?.find(
+                (s) => s.route === "/townhall",
               );
-              const warStats =
-                villages?.villages?.map((v) => ({
-                  villageId: v.id,
-                  townHallHp: 5000,
-                })) ?? [];
-              const warFactions =
-                villages?.villages?.map((v) => ({
-                  villageId: v.id,
-                  warId: war.id,
-                  tokensPaid: 10000,
-                })) ?? [];
+              const canJoin = villages?.filter((v) => {
+                const relationship = findRelationship(
+                  relationships || [],
+                  user.villageId,
+                  v.id,
+                );
+                const check1 = v.id !== war.attackerVillageId;
+                const check2 = v.id !== war.defenderVillageId;
+                const check3 = !war.factions.some((f) => f.villageId === v.id);
+                const check4 = ["VILLAGE", "HIDEOUT", "TOWN"].includes(v.type);
+                const check5 = !relationship || relationship?.status === "ALLY";
+                return check1 && check2 && check3 && check4 && check5;
+              });
+              if (!attackerTownHall || !defenderTownHall) return null;
 
               return (
                 <div key={war.id} className="border p-4 rounded-lg">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center mb-4">
                     <div>
                       <h4 className="font-bold text-lg">
                         {war.attackerVillageId === user.villageId
                           ? "Attacking"
                           : "Defending Against"}{" "}
                         {war.attackerVillageId === user.villageId
-                          ? defenderVillage?.name
-                          : attackerVillage?.name}
+                          ? war.defenderVillage?.name
+                          : war.attackerVillage?.name}
                       </h4>
                       <p className="text-sm">
                         Started: {war.startedAt.toLocaleDateString()}
@@ -1108,73 +1121,106 @@ const WarRoom: React.FC<{
                     )}
                   </div>
 
-                  <div className="mt-4">
-                    <h5 className="font-bold mb-2">War Stats</h5>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="font-bold">Our Town Hall</p>
-                        <p>
-                          HP:{" "}
-                          {
-                            warStats.find((s) => s.villageId === user.villageId)
-                              ?.townHallHp
-                          }
-                          /5000
-                        </p>
-                      </div>
-                      <div>
-                        <p className="font-bold">Enemy Town Hall</p>
-                        <p>
-                          HP:{" "}
-                          {
-                            warStats.find((s) => s.villageId !== user.villageId)
-                              ?.townHallHp
-                          }
-                          /5000
-                        </p>
-                      </div>
+                  <div className="grid grid-cols-2 gap-8 items-center justify-center">
+                    {/* Our Town Hall */}
+                    <div className="text-center">
+                      <h5 className="font-bold mb-2">Our Town Hall</h5>
+                      <Building
+                        structure={
+                          war.attackerVillageId === user.villageId
+                            ? attackerTownHall
+                            : defenderTownHall
+                        }
+                        village={
+                          war.attackerVillageId === user.villageId
+                            ? war.attackerVillage
+                            : war.defenderVillage
+                        }
+                        textPosition="bottom"
+                        showBar={true}
+                      />
+                    </div>
+
+                    {/* Enemy Town Hall */}
+                    <div className="text-center">
+                      <h5 className="font-bold mb-2">Enemy Town Hall</h5>
+                      <Building
+                        structure={
+                          war.attackerVillageId === user.villageId
+                            ? defenderTownHall
+                            : attackerTownHall
+                        }
+                        village={
+                          war.attackerVillageId === user.villageId
+                            ? war.defenderVillage
+                            : war.attackerVillage
+                        }
+                        textPosition="bottom"
+                        showBar={true}
+                      />
                     </div>
                   </div>
 
                   {isKage && (
                     <div className="mt-4">
-                      <h5 className="font-bold mb-2">Hire Factions</h5>
-                      <div className="grid grid-cols-3 gap-4">
-                        {villages?.villages
-                          .filter(
-                            (v) =>
-                              v.id !== war.attackerVillageId &&
-                              v.id !== war.defenderVillageId &&
-                              !warFactions.some((f) => f.villageId === v.id),
-                          )
-                          .map((village) => (
-                            <div
-                              key={village.id}
-                              className="border p-4 rounded-lg text-center"
-                            >
+                      <h5 className="font-bold mb-2">
+                        Hire Factions / Ask Allies to Join
+                      </h5>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                        {canJoin?.map((village) => (
+                          <div
+                            key={village.id}
+                            className="border rounded-lg p-2 hover:bg-slate-100 transition-colors"
+                          >
+                            <div className="flex items-center space-x-2">
                               <Image
-                                src={village.villageLogo}
+                                src={village.villageGraphic}
                                 alt={village.name}
-                                width={50}
-                                height={50}
-                                className="mx-auto mb-2"
+                                width={40}
+                                height={40}
+                                className="rounded-full"
                               />
-                              <p className="font-bold">{village.name}</p>
-                              <Button
-                                className="mt-2 w-full"
-                                onClick={() =>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm truncate">
+                                  {village.name}
+                                </p>
+                                <p className="text-sm">
+                                  {village.type === "VILLAGE" ? "Ally" : "Faction"}
+                                </p>
+                              </div>
+                              <Confirm
+                                title="Hire Faction"
+                                button={
+                                  <Button
+                                    size="sm"
+                                    className="shrink-0"
+                                    onClick={(e) => e.preventDefault()}
+                                  >
+                                    <Handshake className="h-4 w-4" />
+                                  </Button>
+                                }
+                                onAccept={() =>
                                   createAllyOffer({
                                     warId: war.id,
-                                    villageId: village.id,
-                                    tokenAmount: 10000,
+                                    tokenOffer: 10000,
+                                    targetVillageId: village.id,
                                   })
                                 }
                               >
-                                <Handshake className="h-5 w-5 mr-2" />
-                                Hire (10,000)
-                              </Button>
+                                <p>
+                                  Are you sure you want to hire {village.name} for
+                                  10,000 tokens?
+                                </p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  They will join your side in the war against{" "}
+                                  {war.attackerVillageId === user.villageId
+                                    ? war.defenderVillage?.name
+                                    : war.attackerVillage?.name}
+                                </p>
+                              </Confirm>
                             </div>
-                          ))}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1193,12 +1239,12 @@ const WarRoom: React.FC<{
           padding={false}
         >
           <UserRequestSystem
-            isLoading={isHiring || isRejectingOffer || isCancellingOffer}
+            isLoading={isHiring || isRejectingOffer || isCancelling}
             requests={requests}
             userId={user.userId}
-            onAccept={({ id }) => hireFaction({ id })}
+            onAccept={({ id }) => acceptAllyOffer({ offerId: id, warId: id })}
             onReject={({ id }) => rejectAllyOffer({ id })}
-            onCancel={({ id }) => cancelAllyOffer({ id })}
+            onCancel={({ id }) => cancelAllyOffer({ offerId: id })}
           />
         </ContentBox>
       )}
