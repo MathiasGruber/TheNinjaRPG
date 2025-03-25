@@ -7,7 +7,49 @@ import {
   WAR_STRUCTURE_UPGRADE_BLOCK_DAYS,
   WAR_VICTORY_TOKEN_BONUS,
 } from "@/drizzle/constants";
-import type { War, WarAlly, Village } from "@/drizzle/schema";
+import { findRelationship } from "@/utils/alliance";
+import type { War, WarAlly, Village, VillageAlliance } from "@/drizzle/schema";
+
+/**
+ * Checks if a village can join a war
+ * @param war - The war to check
+ * @param relationships - The relationships between villages
+ * @param joiningVillage - The village to join the war
+ * @param warringVillage - The village to war against
+ * @returns Whether the village can join the war and a message
+ */
+export const canJoinWar = (
+  war: War & { factions: WarAlly[] },
+  relationships: VillageAlliance[],
+  joiningVillage: Village,
+  warringVillage: Village,
+) => {
+  // Derived
+  const joiningVillageId = joiningVillage.id;
+  const warringVillageId = warringVillage.id;
+  const relationship = findRelationship(
+    relationships,
+    joiningVillageId,
+    warringVillageId,
+  );
+  const status = relationship?.status || "NEUTRAL";
+  // Checks
+  const check1 = joiningVillageId !== war.attackerVillageId;
+  const check2 = warringVillageId !== war.defenderVillageId;
+  const check3 = !war.factions.some((f) => f.villageId === joiningVillageId);
+  const check4 = ["VILLAGE", "HIDEOUT", "TOWN"].includes(joiningVillage.type);
+  const check5 = ["NEUTRAL", "ALLY"].includes(status);
+  const check = check1 && check2 && check3 && check4 && check5;
+  // Derived message for each check failing
+  let message = "";
+  if (!check1) message = "Cannot join war, already an attacker";
+  if (!check2) message = "Cannot join war, already a defender";
+  if (!check3) message = "Cannot join war, faction already in war";
+  if (!check4) message = "Cannot join war, not a village/hideout/town";
+  if (!check5) message = "Cannot join war with your enemy";
+  // Return
+  return { check, message };
+};
 
 /**
  * Handles the end of a war

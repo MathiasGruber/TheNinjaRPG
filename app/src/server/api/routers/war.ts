@@ -4,10 +4,10 @@ import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, and, or, gte } from "drizzle-orm";
 import { war, village, warAlly, villageStructure } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
-import { fetchVillages } from "@/routers/village";
+import { fetchVillages, fetchAlliances } from "@/routers/village";
 import { nanoid } from "nanoid";
 import type { DrizzleClient } from "@/server/db";
-import { handleWarEnd } from "@/libs/war";
+import { handleWarEnd, canJoinWar } from "@/libs/war";
 import { sql } from "drizzle-orm";
 import {
   insertRequest,
@@ -154,21 +154,19 @@ export const warRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [{ user }, activeWar, villages] = await Promise.all([
+      const [{ user }, activeWar, villages, relationships] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
         }),
         fetchActiveWar(ctx.drizzle, input.warId),
         fetchVillages(ctx.drizzle),
+        fetchAlliances(ctx.drizzle),
       ]);
       // Derived
       const targetVillage = villages.find((v) => v.id === input.targetVillageId);
       // Guard
-      if (!user?.villageId) {
-        return errorResponse("You must be in a village to create faction offers");
-      }
-      if (!user?.village) {
+      if (!user?.village || !user?.villageId) {
         return errorResponse("You must be in a village to create faction offers");
       }
       if (user.userId !== user.village.kageId) {
@@ -197,11 +195,21 @@ export const warRouter = createTRPCRouter({
       ) {
         return errorResponse("Cannot create offer for a village already in the war");
       }
+      // Final checks
+      const { check, message } = canJoinWar(
+        activeWar,
+        relationships,
+        user.village,
+        targetVillage,
+      );
+      if (!check) {
+        return errorResponse(message);
+      }
       // Insert request
       await insertRequest(
         ctx.drizzle,
         user.userId,
-        targetVillage.kageId,
+        `${targetVillage.kageId}-${activeWar.id}`,
         "WAR_ALLY",
         input.tokenOffer,
       );
@@ -243,9 +251,16 @@ export const warRouter = createTRPCRouter({
     }),
 
   // Get faction offers for a war
-  getAllyOffers: protectedProcedure.query(async ({ ctx }) => {
-    return await fetchRequests(ctx.drizzle, ["WAR_ALLY"], 3600 * 12, ctx.userId);
-  }),
+  getAllyOffers: protectedProcedure
+    .input(z.object({ warId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return await fetchRequests(
+        ctx.drizzle,
+        ["WAR_ALLY"],
+        3600 * 12,
+        `${ctx.userId}-${input.warId}`,
+      );
+    }),
 
   // Delist a faction offer
   cancelAllyOffer: protectedProcedure
@@ -283,28 +298,41 @@ export const warRouter = createTRPCRouter({
 
   // Accept a faction offer
   acceptAllyOffer: protectedProcedure
-    .input(z.object({ offerId: z.string(), warId: z.string() }))
+    .input(z.object({ offerId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Derived
+      const [kageId, warId] = input.offerId.split("-");
+      if (!kageId || !warId) {
+        return errorResponse("Invalid offer ID, could not identify kage & war");
+      }
       // Query
-      const [{ user }, activeWars, offer] = await Promise.all([
+      const [{ user }, activeWars, request, relationships] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
         }),
         fetchActiveWars(ctx.drizzle),
         fetchRequest(ctx.drizzle, input.offerId, "WAR_ALLY"),
+        fetchAlliances(ctx.drizzle),
       ]);
       // Derived
       const activeWar = activeWars.find(
         (w) =>
-          (w.attackerVillageId === offer.senderId ||
-            w.defenderVillageId === offer.senderId) &&
-          w.id === input.warId,
+          (w.attackerVillageId === request.senderId ||
+            w.defenderVillageId === request.senderId) &&
+          w.id === warId,
       );
+      const senderVillage =
+        activeWar?.attackerVillage?.kageId === request.senderId
+          ? activeWar?.attackerVillage
+          : activeWar?.defenderVillage;
       // Guard
-      if (!offer) {
+      if (!request) {
         return errorResponse("Offer not found");
+      }
+      if (!senderVillage) {
+        return errorResponse("Sender village not found");
       }
       if (!user?.village) {
         return errorResponse("You must be in a village to accept offers");
@@ -315,32 +343,39 @@ export const warRouter = createTRPCRouter({
       if (!activeWar) {
         return errorResponse("No active war found for the one listing the offer");
       }
-      if (offer.receiverId !== user.villageId) {
+      if (request.receiverId !== user.villageId) {
         return errorResponse("This offer is not for your village");
       }
-      if (offer.senderId === user.userId) {
+      if (request.senderId === user.userId) {
         return errorResponse("Cannot accept your own offer");
       }
       if (activeWar.factions.some((f) => f.villageId === user.villageId)) {
         return errorResponse("Already joined this war");
       }
-
+      // Final checks
+      const { check, message } = canJoinWar(
+        activeWar,
+        relationships,
+        user.village,
+        senderVillage,
+      );
+      if (!check) return errorResponse(message);
       // Create ally and delete offer
       await Promise.all([
         ctx.drizzle.insert(warAlly).values({
           id: nanoid(),
           warId: activeWar.id,
           villageId: user.villageId,
-          tokensPaid: offer.value || 0,
+          tokensPaid: request.value || 0,
         }),
         ctx.drizzle
           .update(village)
-          .set({ tokens: sql`tokens + ${offer.value}` })
+          .set({ tokens: sql`tokens + ${request.value}` })
           .where(eq(village.id, user.villageId)),
         ctx.drizzle
           .update(village)
-          .set({ tokens: sql`tokens - ${offer.value}` })
-          .where(eq(village.kageId, offer.senderId)),
+          .set({ tokens: sql`tokens - ${request.value}` })
+          .where(eq(village.kageId, request.senderId)),
       ]);
 
       return { success: true, message: "Offer accepted and alliance formed" };
