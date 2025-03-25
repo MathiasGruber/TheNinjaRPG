@@ -50,6 +50,7 @@ export default function Profile() {
   return (
     <>
       <ContentBox
+        id="tutorial-profile"
         title="Profile"
         subtitle="An overview of basic information"
         topRightContent={
