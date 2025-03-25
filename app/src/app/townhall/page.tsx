@@ -28,7 +28,7 @@ import { canChallengeKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { KAGE_CHALLENGE_SECS, KAGE_CHALLENGE_MINS } from "@/drizzle/constants";
-import { canAlly, canWar } from "@/utils/alliance";
+import { canAlly, canEnemy } from "@/utils/alliance";
 import { KAGE_RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_COST } from "@/drizzle/constants";
 import { KAGE_MIN_DAYS_IN_VILLAGE } from "@/drizzle/constants";
@@ -789,14 +789,15 @@ const AllianceBlock: React.FC<{
     },
   );
 
-  const { mutate: attack, isPending: isAttacking } = api.village.startWar.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.village.getAlliances.invalidate();
-      }
-    },
-  });
+  const { mutate: attack, isPending: isAttacking } =
+    api.village.declareEnemy.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.village.getAlliances.invalidate();
+        }
+      },
+    });
 
   // Check alliances
   const relationship = findRelationship(relationships, villageCol.id, villageRow.id);
@@ -818,11 +819,11 @@ const AllianceBlock: React.FC<{
   // Permissions
   const isKage = [villageRow.kageId, villageCol.kageId].includes(user?.userId ?? "");
   const ally = canAlly(relationships, villages, villageRow.id, villageCol.id);
-  const war = canWar(relationships, villages, villageRow.id, villageCol.id);
+  const enemy = canEnemy(relationships, villages, villageRow.id, villageCol.id);
 
   // Consequences of war
-  const newEnemies = villages.filter((v) => war.newEnemies.includes(v.id));
-  const newNeutrals = villages.filter((v) => war.newNeutrals.includes(v.id));
+  const newEnemies = villages.filter((v) => enemy.newEnemies.includes(v.id));
+  const newNeutrals = villages.filter((v) => enemy.newNeutrals.includes(v.id));
 
   // Derived
   const doHighlight = [villageRow.id, villageCol.id].includes(user?.villageId ?? "");
@@ -842,9 +843,9 @@ const AllianceBlock: React.FC<{
           <DoorOpen className=" h-6 w-6 hover:text-orange-500" />
         </Button>
       )}
-      {!isOutlaw && isKage && !sameVillage && war.success && (
+      {!isOutlaw && isKage && !sameVillage && enemy.success && (
         <Confirm
-          title="Confirm War Declaration"
+          title="Confirm Enemy Declaration"
           button={
             <Button className="absolute top-1 right-1 px-1" variant="ghost">
               <Swords className=" h-6 w-6 hover:text-orange-500" />
@@ -855,8 +856,10 @@ const AllianceBlock: React.FC<{
             attack({ villageId: otherVillage.id });
           }}
         >
-          <p>You are about to declare war on {otherVillage.name}. Are you sure?</p>
-          <p>The cost of initiating a war is {WAR_FUNDS_COST} village tokens</p>
+          <p>You are about to declare {otherVillage.name} an enemy. Are you sure?</p>
+          <p>
+            The cost of declaring a village as enemy is {WAR_FUNDS_COST} village tokens
+          </p>
           {newEnemies.length > 0 && (
             <p>
               <span className="font-bold">Additional Enemies: </span>
