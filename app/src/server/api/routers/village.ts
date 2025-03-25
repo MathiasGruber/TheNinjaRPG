@@ -17,7 +17,7 @@ import { canAccessStructure } from "@/utils/village";
 import { structureBoost } from "@/utils/village";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
-import { canAlly, canWar, canSurrender } from "@/utils/alliance";
+import { canAlly, canEnemy, canSurrender } from "@/utils/alliance";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { KAGE_WAR_DECLARE_COST } from "@/drizzle/constants";
@@ -466,7 +466,7 @@ export const villageRouter = createTRPCRouter({
       // Return
       return { success: true, message: "You have left the alliance" };
     }),
-  startWar: protectedProcedure
+  declareEnemy: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -492,8 +492,8 @@ export const villageRouter = createTRPCRouter({
       if (!userVillage.allianceSystem) return errorResponse("User Alliance disabled");
       if (!target.allianceSystem) return errorResponse("Target Alliance disabled");
 
-      // Check if war is possible
-      const check = canWar(relationships, villages, villageId, targetId);
+      // Check if declaring enemy is possible
+      const check = canEnemy(relationships, villages, villageId, targetId);
       if (!check.success) return check;
 
       // Mutate
@@ -524,7 +524,7 @@ export const villageRouter = createTRPCRouter({
           .where(eq(userData.userId, user.userId)),
       ]);
       // Return
-      return { success: true, message: "You have declared war" };
+      return { success: true, message: "You have declared yourself an enemy" };
     }),
 });
 
