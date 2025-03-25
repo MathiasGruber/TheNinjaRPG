@@ -27,10 +27,3 @@ CREATE TABLE `RankedJutsuLoadout` (
 ALTER TABLE `UserData` 
 ADD COLUMN `rankedJutsuLoadout` varchar(191),
 ADD INDEX `UserData_rankedJutsuLoadout_idx` (`rankedJutsuLoadout`);
-
--- Add foreign key constraints
-ALTER TABLE `RankedJutsuLoadout`
-ADD CONSTRAINT `RankedJutsuLoadout_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `UserData`(`userId`) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE `UserData`
-ADD CONSTRAINT `UserData_rankedJutsuLoadout_fkey` FOREIGN KEY (`rankedJutsuLoadout`) REFERENCES `RankedJutsuLoadout`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
