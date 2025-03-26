@@ -446,6 +446,24 @@ export const jutsuRouter = createTRPCRouter({
         );
       });
     }),
+
+  getRankedUserJutsus: protectedProcedure
+    .input(jutsuFilteringSchema)
+    .query(async ({ ctx, input }) => {
+      const userData = await fetchUser(ctx);
+      const userJutsus = await ctx.drizzle.query.rankedUserJutsu.findMany({
+        where: eq(rankedUserJutsu.userId, userData.id),
+        with: {
+          jutsu: true,
+        },
+      });
+      return userJutsus.filter((result) => {
+        if (!result.jutsu) return false;
+        if (!result.jutsu.bloodlineId) return true;
+        return result.jutsu.bloodlineId === userData.bloodlineId;
+      });
+    }),
+
   // Get jutsus of public user
   getPublicUserJutsus: protectedProcedure
     .input(z.object({ userId: z.string() }))
@@ -465,6 +483,7 @@ export const jutsuRouter = createTRPCRouter({
       // Return
       return results;
     }),
+
   // Adjust jutsu level of public user
   adjustJutsuLevel: protectedProcedure
     .input(z.object({ userId: z.string(), jutsuId: z.string(), level: z.number() }))
@@ -508,6 +527,7 @@ export const jutsuRouter = createTRPCRouter({
       ]);
       return { success: true, message: `Jutsu level adjusted to ${input.level}` };
     }),
+
   // Start training a given jutsu
   startTraining: protectedProcedure
     .input(z.object({ jutsuId: z.string() }))
