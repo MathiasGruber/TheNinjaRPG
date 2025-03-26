@@ -1720,7 +1720,7 @@ export type UserJutsu = InferSelectModel<typeof userJutsu>;
 
 export const userJutsuRelations = relations(userJutsu, ({ one }) => ({
   jutsu: one(jutsu, {
-    fields: [UserJutsu.jutsuId],
+    fields: [userJutsu.jutsuId],
     references: [jutsu.id],
   }),
   user: one(userData, {
