@@ -1033,22 +1033,22 @@ export const jutsuLoadout = mysqlTable(
   },
 );
 
-// export const rankedJutsuLoadout = mysqlTable(
-//   "RankedJutsuLoadout",
-//   {
-//     id: varchar("id", { length: 191 }).primaryKey().notNull(),
-//     userId: varchar("userId", { length: 191 }).notNull(),
-//     jutsuIds: json("content").$type<string[]>().notNull(),
-//     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
-//       .default(sql`(CURRENT_TIMESTAMP(3))`)
-//       .notNull(),
-//   },
-//   (table) => {
-//     return {
-//       userIdIdx: index("RankedJutsuLoadout_userId_idx").on(table.userId),
-//     };
-//   },
-// );
+export const rankedJutsuLoadout = mysqlTable(
+  "RankedJutsuLoadout",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    jutsuIds: json("content").$type<string[]>().notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIdx: index("RankedJutsuLoadout_userId_idx").on(table.userId),
+    };
+  },
+);
 
 export const notification = mysqlTable(
   "Notification",
@@ -1346,7 +1346,7 @@ export const userData = mysqlTable(
     anbuId: varchar("anbuId", { length: 191 }),
     clanId: varchar("clanId", { length: 191 }),
     jutsuLoadout: varchar("jutsuLoadout", { length: 191 }),
-    //rankedJutsuLoadout: varchar("rankedJutsuLoadout", { length: 191 }),
+    rankedJutsuLoadout: varchar("rankedJutsuLoadout", { length: 191 }),
     nRecruited: int("nRecruited").default(0).notNull(),
     lastIp: varchar("lastIp", { length: 191 }),
     username: varchar("username", { length: 191 }).notNull(),
@@ -1494,7 +1494,7 @@ export const userData = mysqlTable(
       clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
       anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
       jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
-      //rankedJutsuLoadoutIdx: index("UserData_rankedJutsuLoadout_idx").on(table.rankedJutsuLoadout),
+      rankedJutsuLoadoutIdx: index("UserData_rankedJutsuLoadout_idx").on(table.rankedJutsuLoadout),
       levelIdx: index("UserData_level_idx").on(table.level),
       usernameKey: uniqueIndex("UserData_username_key").on(table.username),
       bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
@@ -1565,6 +1565,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
+  rankedJutsus: many(rankedUserJutsu),
   badges: many(userBadge),
   recruitedUsers: many(userData, { relationName: "recruiter" }),
   recruiter: one(userData, {
@@ -1590,10 +1591,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.jutsuLoadout],
     references: [jutsuLoadout.id],
   }),
-  // rankedLoadout: one(rankedJutsuLoadout, {
-  //   fields: [userData.rankedJutsuLoadout],
-  //   references: [rankedJutsuLoadout.id],
-  // }),
+  rankedLoadout: one(rankedJutsuLoadout, {
+    fields: [userData.rankedJutsuLoadout],
+    references: [rankedJutsuLoadout.id],
+  }),
   creatorBlacklist: many(userBlackList, { relationName: "creatorBlacklist" }),
   mpvpBattles: many(mpvpBattleUser),
   associations: many(userAssociation),
@@ -1718,45 +1719,16 @@ export const userJutsu = mysqlTable(
 );
 export type UserJutsu = InferSelectModel<typeof userJutsu>;
 
-// export const rankedUserJutsu = mysqlTable(
-//   "RankedUserJutsu",
-//   {
-//     id: varchar("id", { length: 191 }).primaryKey().notNull(),
-//     userId: varchar("userId", { length: 191 }).notNull(),
-//     jutsuId: varchar("jutsuId", { length: 191 }).notNull(),
-//     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
-//       .default(sql`(CURRENT_TIMESTAMP(3))`)
-//       .notNull(),
-//     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
-//       .default(sql`(CURRENT_TIMESTAMP(3))`)
-//       .notNull(),
-//     level: int("level").default(1).notNull(),
-//     equipped: tinyint("equipped").default(0).notNull(),
-//     finishTraining: datetime("finishTraining", { mode: "date", fsp: 3 }),
-//   },
-//   (table) => {
-//     return {
-//       userIdJutsuIdKey: uniqueIndex("RankedUserJutsu_userId_jutsuId_key").on(
-//         table.userId,
-//         table.jutsuId,
-//       ),
-//       jutsuIdIdx: index("RankedUserJutsu_jutsuId_idx").on(table.jutsuId),
-//       equippedIdx: index("RankedUserJutsu_equipped_idx").on(table.equipped),
-//     };
-//   },
-// );
-// export type RankedUserJutsu = InferSelectModel<typeof rankedUserJutsu>;
-
-// export const rankedUserJutsuRelations = relations(rankedUserJutsu, ({ one }) => ({
-//   jutsu: one(jutsu, {
-//     fields: [rankedUserJutsu.jutsuId],
-//     references: [jutsu.id],
-//   }),
-//   user: one(userData, {
-//     fields: [rankedUserJutsu.userId],
-//     references: [userData.userId],
-//   }),
-// }));
+export const userJutsuRelations = relations(userJutsu, ({ one }) => ({
+  jutsu: one(jutsu, {
+    fields: [UserJutsu.jutsuId],
+    references: [jutsu.id],
+  }),
+  user: one(userData, {
+    fields: [userJutsu.userId],
+    references: [userData.userId],
+  }),
+}));
 
 export const userReport = mysqlTable(
   "UserReport",
