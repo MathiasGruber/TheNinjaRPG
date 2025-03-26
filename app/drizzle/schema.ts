@@ -1033,22 +1033,22 @@ export const jutsuLoadout = mysqlTable(
   },
 );
 
-export const rankedJutsuLoadout = mysqlTable(
-  "RankedJutsuLoadout",
-  {
-    id: varchar("id", { length: 191 }).primaryKey().notNull(),
-    userId: varchar("userId", { length: 191 }).notNull(),
-    jutsuIds: json("content").$type<string[]>().notNull(),
-    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
-      .default(sql`(CURRENT_TIMESTAMP(3))`)
-      .notNull(),
-  },
-  (table) => {
-    return {
-      userIdIdx: index("RankedJutsuLoadout_userId_idx").on(table.userId),
-    };
-  },
-);
+// export const rankedJutsuLoadout = mysqlTable(
+//   "RankedJutsuLoadout",
+//   {
+//     id: varchar("id", { length: 191 }).primaryKey().notNull(),
+//     userId: varchar("userId", { length: 191 }).notNull(),
+//     jutsuIds: json("content").$type<string[]>().notNull(),
+//     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+//       .default(sql`(CURRENT_TIMESTAMP(3))`)
+//       .notNull(),
+//   },
+//   (table) => {
+//     return {
+//       userIdIdx: index("RankedJutsuLoadout_userId_idx").on(table.userId),
+//     };
+//   },
+// );
 
 export const notification = mysqlTable(
   "Notification",
