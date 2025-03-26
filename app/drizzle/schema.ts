@@ -1346,7 +1346,7 @@ export const userData = mysqlTable(
     anbuId: varchar("anbuId", { length: 191 }),
     clanId: varchar("clanId", { length: 191 }),
     jutsuLoadout: varchar("jutsuLoadout", { length: 191 }),
-    rankedJutsuLoadout: varchar("rankedJutsuLoadout", { length: 191 }),
+    //rankedJutsuLoadout: varchar("rankedJutsuLoadout", { length: 191 }),
     nRecruited: int("nRecruited").default(0).notNull(),
     lastIp: varchar("lastIp", { length: 191 }),
     username: varchar("username", { length: 191 }).notNull(),
