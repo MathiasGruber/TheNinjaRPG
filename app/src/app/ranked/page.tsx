@@ -11,11 +11,9 @@ import { useRequireInVillage } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
-import { OctagonX } from "lucide-react";
 import { ActionSelector } from "@/layout/CombatActions";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
-import LoadoutSelector from "@/layout/LoadoutSelector";
-import type { Jutsu, UserJutsu } from "@/drizzle/schema";
+import type { Jutsu } from "@/drizzle/schema";
 
 const QueueTimer = ({ createdAt }: { createdAt: Date }) => {
   const [queueTime, setQueueTime] = useState("0:00");
@@ -51,7 +49,7 @@ export default function Ranked() {
   // Two-level filtering for jutsu
   const state = useFiltering();
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [jutsu, setJutsu] = useState<(Jutsu & { highlight: boolean }) | undefined>(undefined);
+  const [selectedJutsu, setSelectedJutsu] = useState<Jutsu | undefined>(undefined);
 
   // Ranked PvP queue state and mutations
   const { data: queueData } = api.combat.getRankedPvpQueue.useQuery(undefined, {
@@ -106,7 +104,7 @@ export default function Ranked() {
     },
     onSettled: () => {
       setIsOpen(false);
-      setJutsu(undefined);
+      setSelectedJutsu(undefined);
     },
   });
 
@@ -145,6 +143,12 @@ export default function Ranked() {
   const userJutsuMap = new Map(userJutsus?.map(userJutsu => [userJutsu.jutsuId, userJutsu]));
   const processedJutsu = flatJutsu.map(jutsu => ({
     ...jutsu,
+    id: jutsu.id,
+    name: jutsu.name,
+    image: jutsu.image,
+    type: "jutsu" as const,
+    effects: jutsu.effects,
+    rarity: jutsu.jutsuRank,
     highlight: userJutsuMap.get(jutsu.id)?.rankedEquipped || false,
   }));
 
@@ -202,9 +206,11 @@ export default function Ranked() {
         </div>
       </ContentBox>
 
-      <ContentBox title="Ranked Jutsu" subtitle="Select jutsu for ranked battles">
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center">
+      <ContentBox
+        title="Jutsu Selection"
+        subtitle="Select your jutsu for ranked battles"
+        topRightContent={
+          <div className="flex gap-2">
             <JutsuFiltering state={state} />
             <Button
               variant="destructive"
@@ -214,54 +220,32 @@ export default function Ranked() {
               Unequip All
             </Button>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {processedJutsu.map((jutsu) => (
-              <ItemWithEffects
-                key={jutsu.id}
-                item={jutsu}
-                onClick={() => {
-                  setJutsu(jutsu);
-                  setIsOpen(true);
-                }}
-              />
-            ))}
-          </div>
-
-          {isLoadingJutsu && <Loader explanation="Loading jutsu" />}
-        </div>
+        }
+      >
+        <ActionSelector
+          items={processedJutsu}
+          showBgColor={false}
+          showLabels={true}
+          onClick={(id) => {
+            const jutsu = flatJutsu.find((j) => j.id === id);
+            if (jutsu) {
+              setSelectedJutsu(jutsu);
+              setIsOpen(true);
+            }
+          }}
+        />
+        {isLoadingJutsu && <Loader explanation="Loading jutsu" />}
       </ContentBox>
 
-      {jutsu && (
+      {isOpen && selectedJutsu && (
         <Modal
-          title={jutsu.name}
-          isOpen={isOpen}
-          onClose={() => {
-            setIsOpen(false);
-            setJutsu(undefined);
-          }}
+          title={selectedJutsu.name}
+          setIsOpen={setIsOpen}
+          isValid={false}
+          proceed_label={userJutsuMap.get(selectedJutsu.id)?.rankedEquipped ? "Unequip" : "Equip"}
+          onAccept={() => equip({ jutsuId: selectedJutsu.id })}
         >
-          <div className="flex flex-col gap-4">
-            <ItemWithEffects item={jutsu} />
-            <div className="flex justify-between">
-              <Button
-                variant={jutsu.highlight ? "destructive" : "default"}
-                onClick={() => equip({ jutsuId: jutsu.id })}
-                disabled={isToggling}
-              >
-                {jutsu.highlight ? "Unequip" : "Equip"}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setIsOpen(false);
-                  setJutsu(undefined);
-                }}
-              >
-                Close
-              </Button>
-            </div>
-          </div>
+          <ItemWithEffects item={selectedJutsu} showStatistic="jutsu" />
         </Modal>
       )}
     </>
