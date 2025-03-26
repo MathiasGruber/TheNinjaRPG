@@ -102,7 +102,7 @@ export default function Ranked() {
   const { mutate: equip, isPending: isToggling } = api.jutsu.toggleRankedEquip.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
-      await utils.jutsu.getUserJutsus.invalidate();
+      await utils.jutsu.getRankedUserJutsus.invalidate();
     },
     onSettled: () => {
       setIsOpen(false);
@@ -113,7 +113,7 @@ export default function Ranked() {
   const { mutate: unequipAllRanked, isPending: isUnequipping } = api.jutsu.unequipAllRanked.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
-      await utils.jutsu.getUserJutsus.invalidate();
+      await utils.jutsu.getRankedUserJutsus.invalidate();
     },
   });
 
