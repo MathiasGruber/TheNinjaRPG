@@ -890,7 +890,6 @@ export const jutsuRouter = createTRPCRouter({
           userId: ctx.userId,
           jutsuId: input.jutsuId,
           level: 1,
-          experience: 0,
           equipped: 1, // Always equip when adding
         });
         return {
