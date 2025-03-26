@@ -450,7 +450,7 @@ export const jutsuRouter = createTRPCRouter({
   getRankedUserJutsus: protectedProcedure
     .input(jutsuFilteringSchema)
     .query(async ({ ctx, input }) => {
-      const userData = await fetchUser(ctx);
+      const userData = await fetchUser(ctx.drizzle, ctx.userId);
       const userJutsus = await ctx.drizzle.query.rankedUserJutsu.findMany({
         where: eq(rankedUserJutsu.userId, userData.id),
         with: {
