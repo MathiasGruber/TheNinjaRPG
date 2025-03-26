@@ -34,7 +34,7 @@ import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
-import { JUTSU_MAX_RESIDUAL_EQUIPPED, JUTSU_MAX_SHIELD_EQUIPPED } from "@/drizzle/constants";
+import { JUTSU_MAX_RESIDUAL_EQUIPPED, JUTSU_MAX_SHIELD_EQUIPPED, JUTSU_MAX_GROUND_EQUIPPED, JUTSU_MAX_MOVEPREVENT_EQUIPPED } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { jutsuFilteringSchema } from "@/validators/jutsu";
 import { QuestTracker } from "@/validators/objectives";
@@ -707,6 +707,8 @@ export const jutsuRouter = createTRPCRouter({
       const newEquippedState = isEquipped ? 0 : 1;
       const loadout = loadouts.find((l) => l.id === user.jutsuLoadout);
       const isLoaded = userjutsuObj && loadout?.jutsuIds.includes(userjutsuObj.jutsuId);
+      
+      // Get counts of different jutsu types
       const residualJutsus = userjutsus.filter(
         (uj) =>
           uj.equipped &&
@@ -717,6 +719,26 @@ export const jutsuRouter = createTRPCRouter({
         (uj) =>
           uj.equipped &&
           uj.jutsu.effects.some((e) => e.type === "shield"),
+      );
+
+      const groundDotJutsus = userjutsus.filter(
+        (uj) =>
+          uj.equipped &&
+          uj.jutsu.effects.some((e) => e.type === "ground"),
+      );
+
+      const movepreventJutsus = userjutsus.filter(
+        (uj) =>
+          uj.equipped &&
+          uj.jutsu.effects.some((e) => e.type === "moveprevent"),
+      );
+
+      const curJutsuIsGround = userjutsuObj?.jutsu.effects.some(
+        (e) => e.type === "ground",
+      );
+
+      const curJutsuIsMovePrevent = userjutsuObj?.jutsu.effects.some(
+        (e) => e.type === "moveprevent",
       );
 
       // Guards
@@ -734,6 +756,22 @@ export const jutsuRouter = createTRPCRouter({
       ) {
         return errorResponse(
           `You cannot equip more than ${JUTSU_MAX_SHIELD_EQUIPPED} shield jutsu. Please unequip first.`,
+        );
+      }
+      if (
+        groundDotJutsus.length >= JUTSU_MAX_GROUND_EQUIPPED &&
+        newEquippedState === 1
+      ) {
+        return errorResponse(
+          `You cannot equip more than ${JUTSU_MAX_GROUND_EQUIPPED} ground dot jutsu. Please unequip first.`,
+        );
+      }
+      if (
+        movepreventJutsus.length >= JUTSU_MAX_MOVEPREVENT_EQUIPPED &&
+        newEquippedState === 1
+      ) {
+        return errorResponse(
+          `You cannot equip more than ${JUTSU_MAX_MOVEPREVENT_EQUIPPED} move prevent jutsu. Please unequip first.`,
         );
       }
       if (!userjutsuObj) return errorResponse("Jutsu not found");
@@ -806,6 +844,49 @@ export const jutsuRouter = createTRPCRouter({
         .where(eq(jutsuLoadout.id, loadout.id));
 
       return { success: true, message: `Order updated` };
+    }),
+
+  toggleRankedEquip: protectedProcedure
+    .input(z.object({ jutsuId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [userjutsus, data] = await Promise.all([
+        fetchUserJutsus(ctx.drizzle, ctx.userId),
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+      ]);
+      const { user } = data;
+      if (!user) return errorResponse("User not found");
+
+      const userjutsuObj = userjutsus.find((j) => j.jutsuId === input.jutsuId);
+      const isEquipped = userjutsuObj?.rankedEquipped || false;
+      const newEquippedState = isEquipped ? 0 : 1;
+
+      // Guards
+      if (!userjutsuObj) return errorResponse("Jutsu not found");
+
+      await ctx.drizzle
+        .update(userJutsu)
+        .set({ rankedEquipped: newEquippedState })
+        .where(eq(userJutsu.jutsuId, input.jutsuId));
+
+      return {
+        success: true,
+        message: `Jutsu ${isEquipped ? "unequipped" : "equipped"} for ranked battles`,
+      };
+    }),
+
+  unequipAllRanked: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      await ctx.drizzle
+        .update(userJutsu)
+        .set({ rankedEquipped: 0 })
+        .where(eq(userJutsu.userId, ctx.userId));
+
+      return { success: true, message: "All jutsu unequipped from ranked loadout" };
     }),
 });
 
