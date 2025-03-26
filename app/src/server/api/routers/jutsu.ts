@@ -868,7 +868,7 @@ export const jutsuRouter = createTRPCRouter({
       const isEquipped = userjutsuObj?.rankedEquipped || false;
       const newEquippedState = isEquipped ? 0 : 1;
 
-      // Guards
+      // Only allow equipping jutsu that the user already has
       if (!userjutsuObj) return errorResponse("Jutsu not found");
 
       await ctx.drizzle
