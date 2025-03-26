@@ -1565,6 +1565,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
+  rankedJutsus: many(rankedUserJutsu),
   badges: many(userBadge),
   recruitedUsers: many(userData, { relationName: "recruiter" }),
   recruiter: one(userData, {
@@ -1718,9 +1719,38 @@ export const userJutsu = mysqlTable(
 );
 export type UserJutsu = InferSelectModel<typeof userJutsu>;
 
-export const userJutsuRelations = relations(userJutsu, ({ one }) => ({
+export const rankedUserJutsu = mysqlTable(
+  "RankedUserJutsu",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    jutsuId: varchar("jutsuId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+    level: int("level").default(1).notNull(),
+    equipped: tinyint("equipped").default(0).notNull(),
+    finishTraining: datetime("finishTraining", { mode: "date", fsp: 3 }),
+  },
+  (table) => {
+    return {
+      userIdJutsuIdKey: uniqueIndex("RankedUserJutsu_userId_jutsuId_key").on(
+        table.userId,
+        table.jutsuId,
+      ),
+      jutsuIdIdx: index("RankedUserJutsu_jutsuId_idx").on(table.jutsuId),
+      equippedIdx: index("RankedUserJutsu_equipped_idx").on(table.equipped),
+    };
+  },
+);
+export type RankedUserJutsu = InferSelectModel<typeof rankedUserJutsu>;
+
+export const rankedUserJutsuRelations = relations(rankedUserJutsu, ({ one }) => ({
   jutsu: one(jutsu, {
-    fields: [userJutsu.jutsuId],
+    fields: [rankedUserJutsu.jutsuId],
     references: [jutsu.id],
   }),
   user: one(userData, {
