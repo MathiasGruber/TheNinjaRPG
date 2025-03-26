@@ -744,7 +744,8 @@ export const jutsuRouter = createTRPCRouter({
       // Guards
       if (
         residualJutsus.length >= JUTSU_MAX_RESIDUAL_EQUIPPED &&
-        newEquippedState === 1
+        newEquippedState === 1 &&
+        userjutsuObj?.jutsu.effects.some((e) => "residualModifier" in e && e.residualModifier)
       ) {
         return errorResponse(
           `You cannot equip more than ${JUTSU_MAX_RESIDUAL_EQUIPPED} residual jutsu. Please unequip first.`,
@@ -752,7 +753,8 @@ export const jutsuRouter = createTRPCRouter({
       }
       if (
         shieldJutsus.length >= JUTSU_MAX_SHIELD_EQUIPPED &&
-        newEquippedState === 1
+        newEquippedState === 1 &&
+        userjutsuObj?.jutsu.effects.some((e) => e.type === "shield")
       ) {
         return errorResponse(
           `You cannot equip more than ${JUTSU_MAX_SHIELD_EQUIPPED} shield jutsu. Please unequip first.`,
@@ -760,7 +762,8 @@ export const jutsuRouter = createTRPCRouter({
       }
       if (
         groundDotJutsus.length >= JUTSU_MAX_GROUND_EQUIPPED &&
-        newEquippedState === 1
+        newEquippedState === 1 &&
+        curJutsuIsGround
       ) {
         return errorResponse(
           `You cannot equip more than ${JUTSU_MAX_GROUND_EQUIPPED} ground dot jutsu. Please unequip first.`,
@@ -768,7 +771,8 @@ export const jutsuRouter = createTRPCRouter({
       }
       if (
         movepreventJutsus.length >= JUTSU_MAX_MOVEPREVENT_EQUIPPED &&
-        newEquippedState === 1
+        newEquippedState === 1 &&
+        curJutsuIsMovePrevent
       ) {
         return errorResponse(
           `You cannot equip more than ${JUTSU_MAX_MOVEPREVENT_EQUIPPED} move prevent jutsu. Please unequip first.`,
@@ -887,6 +891,23 @@ export const jutsuRouter = createTRPCRouter({
         .where(eq(userJutsu.userId, ctx.userId));
 
       return { success: true, message: "All jutsu unequipped from ranked loadout" };
+    }),
+
+  massUnequipAll: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Check if user has permission to edit users
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (!user || !canEditPublicUser(user)) {
+        return errorResponse("You do not have permission to perform this action");
+      }
+
+      // Unequip all jutsu from all users
+      await ctx.drizzle
+        .update(userJutsu)
+        .set({ equipped: 0, rankedEquipped: 0 });
+
+      return { success: true, message: "All jutsu have been unequipped from all users" };
     }),
 });
 
