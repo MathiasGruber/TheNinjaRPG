@@ -8,6 +8,7 @@ import {
   actionLog,
   jutsuLoadout,
   bloodline,
+  rankedUserJutsu,
 } from "@/drizzle/schema";
 import { fetchUser, fetchUpdatedUser } from "./profile";
 import { canTrainJutsu } from "@/libs/train";
@@ -854,8 +855,22 @@ export const jutsuRouter = createTRPCRouter({
     .input(z.object({ jutsuId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const [userjutsus, data] = await Promise.all([
-        fetchUserJutsus(ctx.drizzle, ctx.userId),
+      // First verify the jutsu exists
+      const jutsuExists = await ctx.drizzle
+        .select()
+        .from(jutsu)
+        .where(eq(jutsu.id, input.jutsuId))
+        .limit(1);
+
+      if (!jutsuExists.length) {
+        return errorResponse("This jutsu does not exist in the game");
+      }
+
+      const [rankedJutsus, data] = await Promise.all([
+        ctx.drizzle
+          .select()
+          .from(rankedUserJutsu)
+          .where(eq(rankedUserJutsu.userId, ctx.userId)),
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
@@ -864,17 +879,31 @@ export const jutsuRouter = createTRPCRouter({
       const { user } = data;
       if (!user) return errorResponse("User not found");
 
-      const userjutsuObj = userjutsus.find((j) => j.jutsuId === input.jutsuId);
-      const isEquipped = userjutsuObj?.rankedEquipped || false;
+      const rankedJutsuObj = rankedJutsus.find((j) => j.jutsuId === input.jutsuId);
+      const isEquipped = rankedJutsuObj?.equipped || false;
       const newEquippedState = isEquipped ? 0 : 1;
 
-      // Only allow equipping jutsu that the user already has
-      if (!userjutsuObj) return errorResponse("Jutsu not found");
+      // If the jutsu doesn't exist in ranked jutsu list, create it and equip it
+      if (!rankedJutsuObj) {
+        await ctx.drizzle.insert(rankedUserJutsu).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          jutsuId: input.jutsuId,
+          level: 1,
+          experience: 0,
+          equipped: 1, // Always equip when adding
+        });
+        return {
+          success: true,
+          message: `Jutsu added and equipped for ranked battles`,
+        };
+      }
 
+      // If it exists, toggle the equipped state
       await ctx.drizzle
-        .update(userJutsu)
-        .set({ rankedEquipped: newEquippedState })
-        .where(eq(userJutsu.jutsuId, input.jutsuId));
+        .update(rankedUserJutsu)
+        .set({ equipped: newEquippedState })
+        .where(eq(rankedUserJutsu.jutsuId, input.jutsuId));
 
       return {
         success: true,
@@ -886,9 +915,9 @@ export const jutsuRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
       await ctx.drizzle
-        .update(userJutsu)
+        .update(rankedUserJutsu)
         .set({ rankedEquipped: 0 })
-        .where(eq(userJutsu.userId, ctx.userId));
+        .where(eq(rankedUserJutsu.userId, ctx.userId));
 
       return { success: true, message: "All jutsu unequipped from ranked loadout" };
     }),
