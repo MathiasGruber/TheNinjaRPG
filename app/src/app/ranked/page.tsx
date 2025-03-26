@@ -136,7 +136,7 @@ export default function Ranked() {
   }, [queueData?.inQueue, checkMatches]);
 
   // Process jutsu data
-  const flatJutsu = allJutsu?.pages.flatMap((page) => page.jutsu) ?? [];
+  const flatJutsu = allJutsu?.pages.flatMap((page) => page.data) ?? [];
   const userJutsuMap = new Map(
     userJutsus?.map((uj) => [uj.jutsuId, uj]) ?? []
   );
