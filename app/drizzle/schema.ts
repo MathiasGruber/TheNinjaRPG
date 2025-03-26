@@ -1754,7 +1754,7 @@ export const rankedUserJutsuRelations = relations(rankedUserJutsu, ({ one }) => 
     references: [jutsu.id],
   }),
   user: one(userData, {
-    fields: [userJutsu.userId],
+    fields: [rankedUserJutsu.userId],
     references: [userData.userId],
   }),
 }));
