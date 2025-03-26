@@ -15,7 +15,9 @@ import {
   fetchRequest,
   fetchRequests,
 } from "@/routers/sparring";
+import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
+import type { RouterOutputs } from "@/app/_trpc/client";
 
 export const warRouter = createTRPCRouter({
   // Get war status including structure HP
@@ -61,18 +63,24 @@ export const warRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [{ user }, activeWars, villages] = await Promise.all([
+      const [{ user }, activeWars, villages, relationships] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
         }),
         fetchActiveWars(ctx.drizzle),
         fetchVillages(ctx.drizzle),
+        fetchAlliances(ctx.drizzle),
       ]);
       // Derived
       const now = new Date();
       const attackerVillage = villages.find((v) => v.id === user?.village?.id);
       const defenderVillage = villages.find((v) => v.id === input.targetVillageId);
+      const relationship = findRelationship(
+        relationships,
+        attackerVillage?.id || "",
+        defenderVillage?.id || "",
+      );
       // Guard
       if (!user?.village) {
         return errorResponse("You must be in a village to declare war");
@@ -88,6 +96,15 @@ export const warRouter = createTRPCRouter({
       }
       if (!attackerVillage || !defenderVillage) {
         return errorResponse("Village not found");
+      }
+      if (relationship?.status !== "ENEMY") {
+        return errorResponse("You can only declare war on enemy villages");
+      }
+      if (defenderVillage.type !== "VILLAGE") {
+        return errorResponse("You cannot declare war on a non-village");
+      }
+      if (!defenderVillage.allianceSystem) {
+        return errorResponse("Target village is not part of the alliance system");
       }
       if (
         attackerVillage.warExhaustionEndedAt &&
@@ -491,3 +508,7 @@ export const fetchActiveWar = async (client: DrizzleClient, warId: string) => {
     },
   });
 };
+
+export type GetActiveWarsReturnType = NonNullable<
+  RouterOutputs["war"]["getActiveWars"]
+>;
