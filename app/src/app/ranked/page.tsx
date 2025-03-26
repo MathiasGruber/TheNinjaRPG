@@ -69,7 +69,7 @@ export default function Ranked() {
     }
   );
 
-  const { data: userJutsus, isFetching: isLoadingUserJutsu } = api.jutsu.getUserJutsus.useQuery(
+  const { data: userJutsus, isFetching: isLoadingUserJutsu } = api.jutsu.getRankedUserJutsus.useQuery(
     getFilter(state),
     { enabled: !!userData }
   );
