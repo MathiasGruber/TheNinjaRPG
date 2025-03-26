@@ -327,7 +327,7 @@ export type TrainingSpeed = (typeof TrainingSpeeds)[number];
 
 export const JUTSU_MAX_RESIDUAL_EQUIPPED = 4;
 export const JUTSU_MAX_SHIELD_EQUIPPED = 2;
-export const JUTSU_MAX_GROUND_EQUIPPED = 2;
+export const JUTSU_MAX_GROUND_EQUIPPED = 1;
 export const JUTSU_MAX_MOVEPREVENT_EQUIPPED = 1;
 
 export const UserAssociations = ["MARRIAGE", "DIVORCED"] as const;
