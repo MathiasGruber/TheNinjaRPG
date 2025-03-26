@@ -49,6 +49,7 @@ import {
   Trash2,
   Plus,
   PersonStanding,
+  MessageCircle,
 } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
@@ -81,6 +82,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Jutsu } from "@/drizzle/schema";
+import { NewConversationPrompt } from "@/app/inbox/page";
 
 interface PublicUserComponentProps {
   userId: string;
@@ -332,6 +334,21 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               <CopyCheck
                 className="h-6 w-6 cursor-pointer hover:text-orange-500"
                 onClick={() => cloneUser.mutate({ userId: profile.userId })}
+              />
+            )}
+            {userData && !userData.isBanned && !userData.isSilenced && (
+              <NewConversationPrompt
+                newButton={
+                  <MessageCircle className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                }
+                preSelectedUser={{
+                  userId: profile.userId,
+                  username: profile.username,
+                  rank: profile.rank,
+                  level: profile.level,
+                  avatar: profile.avatar,
+                  federalStatus: profile.federalStatus,
+                }}
               />
             )}
             {availableRoles &&
