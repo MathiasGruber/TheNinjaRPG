@@ -144,16 +144,9 @@ export default function Ranked() {
   const processedJutsu = flatJutsu
     .map((jutsu) => {
       const userJutsu = userJutsuMap.get(jutsu.id);
-      let warning = "";
-      if (userData) {
-        if (!checkJutsuRank(jutsu.jutsuRank, userData.rank)) {
-          warning = "You do not have the required rank to use this jutsu.";
-        }
-      }
       return {
         ...jutsu,
         highlight: userJutsu?.equipped ?? false,
-        warning: warning,
       };
     })
     .filter(jutsu => {
