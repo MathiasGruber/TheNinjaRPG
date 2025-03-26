@@ -136,12 +136,31 @@ export default function Ranked() {
   }, [queueData?.inQueue, checkMatches]);
 
   // Process jutsu data
-  const flatJutsu = allJutsu?.pages.map((page) => page.data).flat() || [];
-  const userJutsuMap = new Map(userJutsus?.map(userJutsu => [userJutsu.jutsuId, userJutsu]));
-  const processedJutsu = flatJutsu.map(jutsu => ({
-    ...jutsu,
-    highlight: Boolean(userJutsuMap.get(jutsu.id)?.rankedEquipped),
-  }));
+  const flatJutsu = allJutsu?.pages.flatMap((page) => page.jutsu) ?? [];
+  const userJutsuMap = new Map(
+    userJutsus?.map((uj) => [uj.jutsuId, uj]) ?? []
+  );
+
+  const processedJutsu = flatJutsu
+    .map((jutsu) => {
+      const userJutsu = userJutsuMap.get(jutsu.id);
+      let warning = "";
+      if (userData) {
+        if (!checkJutsuRank(jutsu.jutsuRank, userData.rank)) {
+          warning = "You do not have the required rank to use this jutsu.";
+        }
+      }
+      return {
+        ...jutsu,
+        highlight: userJutsu?.equipped ?? false,
+        warning: warning,
+      };
+    })
+    .filter(jutsu => {
+      // Filter out jutsu types not allowed in ranked battles
+      const restrictedTypes = ["SPECIAL", "BLOODLINE", "LOYALTY", "CLAN", "EVENT", "AI"];
+      return !restrictedTypes.includes(jutsu.jutsuType);
+    });
 
   // Sort if we have a loadout
   if (userData?.loadout?.jutsuIds && processedJutsu) {
