@@ -1565,7 +1565,6 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
-  rankedJutsus: many(rankedUserJutsu),
   badges: many(userBadge),
   recruitedUsers: many(userData, { relationName: "recruiter" }),
   recruiter: one(userData, {
