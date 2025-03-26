@@ -276,7 +276,7 @@ export default function EditProfile() {
             <SwapVillage />
           </Accordion>
         )}
-        {canEditPublicUser(userData.role) && (
+        {canEditPublicUser({ ...userData, role: userData.role }) && (
           <Accordion
             title="Admin Controls"
             selectedTitle={activeElement}
