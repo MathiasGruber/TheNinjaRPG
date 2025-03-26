@@ -425,6 +425,11 @@ const KageChallenge: React.FC<{
       staleTime: 10000,
     });
 
+  const { data: activeWars } = api.war.getActiveWars.useQuery(
+    { villageId: user.villageId ?? "" },
+    { staleTime: 10000, enabled: !!user.villageId },
+  );
+
   // Derived
   const isKage = user.userId === user.village?.kageId;
   const openForChallenges = user.village?.openForChallenges;
@@ -434,6 +439,7 @@ const KageChallenge: React.FC<{
   const expiredRequest = pendingRequests?.find(
     (r) => secondsPassed(r.createdAt) > KAGE_CHALLENGE_SECS,
   );
+  const isAtWar = activeWars && activeWars.length > 0;
 
   // Mutations
   const { mutate: create, isPending: isSendingChallenge } =
@@ -516,112 +522,127 @@ const KageChallenge: React.FC<{
       initialBreak={true}
       padding={false}
     >
-      <p className="p-3">
-        <Button
-          className="w-full"
-          disabled={!isKage}
-          loading={isToggling}
-          onClick={() => toggleChallenges({ villageId: user.villageId ?? "" })}
-        >
-          {openForChallenges ? (
-            <LockOpen className="h-6 w-6 mr-2" />
-          ) : (
-            <Lock className="h-6 w-6 mr-2" />
+      {isAtWar ? (
+        <p className="p-3 text-red-500 font-bold text-center">
+          Kage challenges are disabled while the village is at war
+        </p>
+      ) : (
+        <>
+          <p className="p-3">
+            <Button
+              className="w-full"
+              disabled={!isKage}
+              loading={isToggling}
+              onClick={() => toggleChallenges({ villageId: user.villageId ?? "" })}
+            >
+              {openForChallenges ? (
+                <LockOpen className="h-6 w-6 mr-2" />
+              ) : (
+                <Lock className="h-6 w-6 mr-2" />
+              )}
+              {openForChallenges ? "Accepting Challenges" : "Not Accepting Challenges"}
+            </Button>
+          </p>
+          {requests && requests.length > 0 && openForChallenges && (
+            <UserRequestSystem
+              isLoading={
+                isAccepting ||
+                isRejecting ||
+                isCancelling ||
+                isSendingChallenge ||
+                isPendingRequests
+              }
+              requests={requests}
+              userId={user.userId}
+              onAccept={accept}
+              onReject={reject}
+              onCancel={cancel}
+            />
           )}
-          {openForChallenges ? "Accepting Challenges" : "Not Accepting Challenges"}
-        </Button>
-      </p>
-      {requests && requests.length > 0 && openForChallenges && (
-        <UserRequestSystem
-          isLoading={
-            isAccepting ||
-            isRejecting ||
-            isCancelling ||
-            isSendingChallenge ||
-            isPendingRequests
-          }
-          requests={requests}
-          userId={user.userId}
-          onAccept={accept}
-          onReject={reject}
-          onCancel={cancel}
-        />
-      )}
-      {requests && requests.length === 0 && isKage && openForChallenges && (
-        <p className="p-3">No current challenge requests</p>
-      )}
-      {activeRequest && (
-        <div className="p-3 flex flex-col items-center">
-          <p>If not accepted by kage, challenge will execute as Ai vs AI in:</p>
-          <Countdown
-            targetDate={secondsFromDate(KAGE_CHALLENGE_SECS, activeRequest.createdAt)}
-          />
-        </div>
-      )}
-      {!isKage && openForChallenges && !activeRequest && (
-        <div className="p-3">
-          {canChallengeKage(user) && !nPendingRequests && (
-            <>
-              <Button
-                id="challenge"
-                className="my-2 w-full"
-                onClick={() => {
-                  if (user.village) {
-                    create({
-                      kageId: user.village.kageId,
-                      villageId: user.village.id,
-                    });
-                  }
-                }}
-              >
-                <Swords className="h-6 w-6 mr-2" />
-                Send Kage Challenge Request
-              </Button>
-              <p>
-                <span className="font-bold">Note 1: </span>
-                <span>Kage has {KAGE_CHALLENGE_MINS}mins to accept the challenge</span>
-              </p>
-              <p>
-                <span className="font-bold">Note 2: </span>
-                <span>If challenge is not accepted, it is executed as AI vs AI</span>
-              </p>
-              <p>
-                <span className="font-bold">Note 3: </span>
+          {requests && requests.length === 0 && isKage && openForChallenges && (
+            <p className="p-3">No current challenge requests</p>
+          )}
+          {activeRequest && (
+            <div className="p-3 flex flex-col items-center">
+              <p>If not accepted by kage, challenge will execute as Ai vs AI in:</p>
+              <Countdown
+                targetDate={secondsFromDate(
+                  KAGE_CHALLENGE_SECS,
+                  activeRequest.createdAt,
+                )}
+              />
+            </div>
+          )}
+          {!isKage && openForChallenges && !activeRequest && (
+            <div className="p-3">
+              {canChallengeKage(user) && !nPendingRequests && (
+                <>
+                  <Button
+                    id="challenge"
+                    className="my-2 w-full"
+                    onClick={() => {
+                      if (user.village) {
+                        create({
+                          kageId: user.village.kageId,
+                          villageId: user.village.id,
+                        });
+                      }
+                    }}
+                  >
+                    <Swords className="h-6 w-6 mr-2" />
+                    Send Kage Challenge Request
+                  </Button>
+                  <p>
+                    <span className="font-bold">Note 1: </span>
+                    <span>
+                      Kage has {KAGE_CHALLENGE_MINS}mins to accept the challenge
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-bold">Note 2: </span>
+                    <span>
+                      If challenge is not accepted, it is executed as AI vs AI
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-bold">Note 3: </span>
+                    <span>
+                      Losing the challenge costs {KAGE_PRESTIGE_COST} village prestige
+                    </span>
+                  </p>
+                  {user.rank === "ELDER" && (
+                    <p>
+                      <span className="font-bold">Note 4: </span>
+                      <span>You will lose the rank of Elder in the village</span>
+                    </p>
+                  )}
+                </>
+              )}
+              <p className="pt-3">
+                <span className="font-bold">Challenge Requirements: </span>
                 <span>
-                  Losing the challenge costs {KAGE_PRESTIGE_COST} village prestige
+                  {KAGE_PRESTIGE_REQUIREMENT} village prestige,{" "}
+                  {capitalizeFirstLetter(KAGE_RANK_REQUIREMENT)} rank and{" "}
+                  {KAGE_MIN_DAYS_IN_VILLAGE} days in village.
                 </span>
               </p>
-              {user.rank === "ELDER" && (
-                <p>
-                  <span className="font-bold">Note 4: </span>
-                  <span>You will lose the rank of Elder in the village</span>
-                </p>
-              )}
-            </>
+            </div>
           )}
-          <p className="pt-3">
-            <span className="font-bold">Challenge Requirements: </span>
-            <span>
-              {KAGE_PRESTIGE_REQUIREMENT} village prestige,{" "}
-              {capitalizeFirstLetter(KAGE_RANK_REQUIREMENT)} rank and{" "}
-              {KAGE_MIN_DAYS_IN_VILLAGE} days in village.
-            </span>
-          </p>
-        </div>
-      )}
-      {!isKage && canChangeContent(user.role) && (
-        <div className="p-3">
-          <Button
-            id="challenge"
-            variant="destructive"
-            className="my-2 w-full"
-            onClick={() => take()}
-            loading={isTaking}
-          >
-            <ShieldPlus className="h-6 w-6 mr-2" />
-            Take kage as Staff
-          </Button>
-        </div>
+          {!isKage && canChangeContent(user.role) && (
+            <div className="p-3">
+              <Button
+                id="challenge"
+                variant="destructive"
+                className="my-2 w-full"
+                onClick={() => take()}
+                loading={isTaking}
+              >
+                <ShieldPlus className="h-6 w-6 mr-2" />
+                Take kage as Staff
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </ContentBox>
   );
@@ -1193,7 +1214,7 @@ const War: React.FC<{
       {isKage && (
         <div className="mt-4">
           <h5 className="font-bold mb-2">Hire Factions / Ask Allies to Join</h5>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {canJoin?.map((village) => (
               <div
                 key={village.id}
@@ -1256,7 +1277,7 @@ const War: React.FC<{
           padding={false}
         >
           <UserRequestSystem
-            isLoading={isHiring || isRejectingOffer || isCancelling}
+            isLoading={isHiring || isRejectingOffer || isCancelling || isCreatingOffer}
             requests={requests}
             userId={user.userId}
             onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
