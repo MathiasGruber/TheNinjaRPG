@@ -14,6 +14,8 @@ import Modal from "@/layout/Modal";
 import { ActionSelector } from "@/layout/CombatActions";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import type { Jutsu } from "@/drizzle/schema";
+import { OctagonX } from "lucide-react";
+import LoadoutSelector from "@/layout/LoadoutSelector";
 
 const QueueTimer = ({ createdAt }: { createdAt: Date }) => {
   const [queueTime, setQueueTime] = useState("0:00");
@@ -108,7 +110,7 @@ export default function Ranked() {
     },
   });
 
-  const { mutate: unequipAll, isPending: isUnequipping } = api.jutsu.unequipAllRanked.useMutation({
+  const { mutate: unequipAllRanked, isPending: isUnequipping } = api.jutsu.unequipAllRanked.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
       await utils.jutsu.getUserJutsus.invalidate();
@@ -133,24 +135,30 @@ export default function Ranked() {
     }
   }, [queueData?.inQueue, checkMatches]);
 
-  // Guards
-  if (!access) return <Loader explanation="Accessing Ranked PvP" />;
-  if (!userData) return <Loader explanation="Loading user" />;
-  if (userData?.isBanned) return <BanInfo />;
-
   // Process jutsu data
   const flatJutsu = allJutsu?.pages.map((page) => page.data).flat() || [];
   const userJutsuMap = new Map(userJutsus?.map(userJutsu => [userJutsu.jutsuId, userJutsu]));
   const processedJutsu = flatJutsu.map(jutsu => ({
     ...jutsu,
-    id: jutsu.id,
-    name: jutsu.name,
-    image: jutsu.image,
-    type: "jutsu" as const,
-    effects: jutsu.effects,
-    rarity: jutsu.jutsuRank,
     highlight: userJutsuMap.get(jutsu.id)?.rankedEquipped || false,
   }));
+
+  // Sort if we have a loadout
+  if (userData?.loadout?.jutsuIds && processedJutsu) {
+    processedJutsu.sort((a, b) => {
+      const aIndex = userData?.loadout?.jutsuIds.indexOf(a.jutsuId) ?? -1;
+      const bIndex = userData?.loadout?.jutsuIds.indexOf(b.jutsuId) ?? -1;
+      if (aIndex === -1 && bIndex === -1) return 0;
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
+  }
+
+  // Guards
+  if (!access) return <Loader explanation="Accessing Ranked PvP" />;
+  if (!userData) return <Loader explanation="Loading user" />;
+  if (userData?.isBanned) return <BanInfo />;
 
   return (
     <>
@@ -207,34 +215,34 @@ export default function Ranked() {
       </ContentBox>
 
       <ContentBox
-        title="Jutsu Selection"
+        title="Ranked PvP"
         subtitle="Select your jutsu for ranked battles"
+        bottomRightContent={
+          <Button onClick={() => unequipAllRanked()}>
+            <OctagonX className="h-6 w-6 mr-2" />
+            Unequip All
+          </Button>
+        }
         topRightContent={
-          <div className="flex gap-2">
-            <JutsuFiltering state={state} />
-            <Button
-              variant="destructive"
-              onClick={() => unequipAll()}
-              disabled={isUnequipping}
-            >
-              Unequip All
-            </Button>
-          </div>
+          !isOpen && (
+            <div className="flex flex-row items-center gap-2">
+              <LoadoutSelector />
+              <JutsuFiltering state={state} />
+            </div>
+          )
         }
       >
+        {isLoadingJutsu && <Loader explanation="Loading Jutsu" />}
         <ActionSelector
           items={processedJutsu}
           showBgColor={false}
           showLabels={true}
           onClick={(id) => {
-            const jutsu = flatJutsu.find((j) => j.id === id);
-            if (jutsu) {
-              setSelectedJutsu(jutsu);
-              setIsOpen(true);
-            }
+            setSelectedJutsu(processedJutsu?.find((jutsu) => jutsu.id === id));
+            setIsOpen(true);
           }}
+          emptyText="No jutsu available. Go to the training grounds in your village to learn some."
         />
-        {isLoadingJutsu && <Loader explanation="Loading jutsu" />}
       </ContentBox>
 
       {isOpen && selectedJutsu && (
