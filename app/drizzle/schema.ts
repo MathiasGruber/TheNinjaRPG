@@ -1494,7 +1494,7 @@ export const userData = mysqlTable(
       clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
       anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
       jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
-      rankedJutsuLoadoutIdx: index("UserData_rankedJutsuLoadout_idx").on(table.rankedJutsuLoadout),
+      //rankedJutsuLoadoutIdx: index("UserData_rankedJutsuLoadout_idx").on(table.rankedJutsuLoadout),
       levelIdx: index("UserData_level_idx").on(table.level),
       usernameKey: uniqueIndex("UserData_username_key").on(table.username),
       bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
@@ -1590,10 +1590,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.jutsuLoadout],
     references: [jutsuLoadout.id],
   }),
-  rankedLoadout: one(rankedJutsuLoadout, {
-    fields: [userData.rankedJutsuLoadout],
-    references: [rankedJutsuLoadout.id],
-  }),
+  // rankedLoadout: one(rankedJutsuLoadout, {
+  //   fields: [userData.rankedJutsuLoadout],
+  //   references: [rankedJutsuLoadout.id],
+  // }),
   creatorBlacklist: many(userBlackList, { relationName: "creatorBlacklist" }),
   mpvpBattles: many(mpvpBattleUser),
   associations: many(userAssociation),
@@ -1718,45 +1718,45 @@ export const userJutsu = mysqlTable(
 );
 export type UserJutsu = InferSelectModel<typeof userJutsu>;
 
-export const rankedUserJutsu = mysqlTable(
-  "RankedUserJutsu",
-  {
-    id: varchar("id", { length: 191 }).primaryKey().notNull(),
-    userId: varchar("userId", { length: 191 }).notNull(),
-    jutsuId: varchar("jutsuId", { length: 191 }).notNull(),
-    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
-      .default(sql`(CURRENT_TIMESTAMP(3))`)
-      .notNull(),
-    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
-      .default(sql`(CURRENT_TIMESTAMP(3))`)
-      .notNull(),
-    level: int("level").default(1).notNull(),
-    equipped: tinyint("equipped").default(0).notNull(),
-    finishTraining: datetime("finishTraining", { mode: "date", fsp: 3 }),
-  },
-  (table) => {
-    return {
-      userIdJutsuIdKey: uniqueIndex("RankedUserJutsu_userId_jutsuId_key").on(
-        table.userId,
-        table.jutsuId,
-      ),
-      jutsuIdIdx: index("RankedUserJutsu_jutsuId_idx").on(table.jutsuId),
-      equippedIdx: index("RankedUserJutsu_equipped_idx").on(table.equipped),
-    };
-  },
-);
-export type RankedUserJutsu = InferSelectModel<typeof rankedUserJutsu>;
+// export const rankedUserJutsu = mysqlTable(
+//   "RankedUserJutsu",
+//   {
+//     id: varchar("id", { length: 191 }).primaryKey().notNull(),
+//     userId: varchar("userId", { length: 191 }).notNull(),
+//     jutsuId: varchar("jutsuId", { length: 191 }).notNull(),
+//     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+//       .default(sql`(CURRENT_TIMESTAMP(3))`)
+//       .notNull(),
+//     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+//       .default(sql`(CURRENT_TIMESTAMP(3))`)
+//       .notNull(),
+//     level: int("level").default(1).notNull(),
+//     equipped: tinyint("equipped").default(0).notNull(),
+//     finishTraining: datetime("finishTraining", { mode: "date", fsp: 3 }),
+//   },
+//   (table) => {
+//     return {
+//       userIdJutsuIdKey: uniqueIndex("RankedUserJutsu_userId_jutsuId_key").on(
+//         table.userId,
+//         table.jutsuId,
+//       ),
+//       jutsuIdIdx: index("RankedUserJutsu_jutsuId_idx").on(table.jutsuId),
+//       equippedIdx: index("RankedUserJutsu_equipped_idx").on(table.equipped),
+//     };
+//   },
+// );
+// export type RankedUserJutsu = InferSelectModel<typeof rankedUserJutsu>;
 
-export const rankedUserJutsuRelations = relations(rankedUserJutsu, ({ one }) => ({
-  jutsu: one(jutsu, {
-    fields: [rankedUserJutsu.jutsuId],
-    references: [jutsu.id],
-  }),
-  user: one(userData, {
-    fields: [rankedUserJutsu.userId],
-    references: [userData.userId],
-  }),
-}));
+// export const rankedUserJutsuRelations = relations(rankedUserJutsu, ({ one }) => ({
+//   jutsu: one(jutsu, {
+//     fields: [rankedUserJutsu.jutsuId],
+//     references: [jutsu.id],
+//   }),
+//   user: one(userData, {
+//     fields: [rankedUserJutsu.userId],
+//     references: [userData.userId],
+//   }),
+// }));
 
 export const userReport = mysqlTable(
   "UserReport",
