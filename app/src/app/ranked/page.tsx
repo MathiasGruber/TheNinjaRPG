@@ -146,7 +146,7 @@ export default function Ranked() {
       const userJutsu = userJutsuMap.get(jutsu.id);
       return {
         ...jutsu,
-        highlight: Boolean(userJutsu?.rankedEquipped),
+        highlight: userJutsu?.equipped ? true : false,
       };
     })
     .filter(jutsu => {
@@ -262,7 +262,7 @@ export default function Ranked() {
           title={selectedJutsu.name}
           setIsOpen={setIsOpen}
           isValid={false}
-          proceed_label={userJutsuMap.get(selectedJutsu.id)?.rankedEquipped ? "Unequip" : "Equip"}
+          proceed_label={userJutsuMap.get(selectedJutsu.id)?.equipped ? "Unequip" : "Equip"}
           onAccept={() => equip({ jutsuId: selectedJutsu.id })}
         >
           <ItemWithEffects item={selectedJutsu} showStatistic="jutsu" />
