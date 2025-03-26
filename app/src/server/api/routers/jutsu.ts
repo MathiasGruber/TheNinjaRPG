@@ -450,17 +450,15 @@ export const jutsuRouter = createTRPCRouter({
   getRankedUserJutsus: protectedProcedure
     .input(jutsuFilteringSchema)
     .query(async ({ ctx, input }) => {
-      const userData = await fetchUser(ctx.drizzle, ctx.userId);
-      const userJutsus = await ctx.drizzle.query.rankedUserJutsu.findMany({
-        where: eq(rankedUserJutsu.userId, userData.id),
-        with: {
-          jutsu: true,
-        },
-      });
-      return userJutsus.filter((result) => {
-        if (!result.jutsu) return false;
-        if (!result.jutsu.bloodlineId) return true;
-        return result.jutsu.bloodlineId === userData.bloodlineId;
+      const [user, results] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchRankedUserJutsus(ctx.drizzle, ctx.userId, input),
+      ]);
+      return results.filter((userjutsu) => {
+        return (
+          userjutsu.jutsu?.bloodlineId === "" ||
+          user?.bloodlineId === userjutsu.jutsu?.bloodlineId
+        );
       });
     }),
 
@@ -998,6 +996,35 @@ export const fetchUserJutsus = async (
 
   return userjutsus.map((result) => ({
     ...result.UserJutsu,
+    jutsu: {
+      ...result.Jutsu,
+      bloodline: result.Bloodline,
+    },
+  }));
+};
+
+export const fetchRankedUserJutsus = async (
+  client: DrizzleClient,
+  userId: string,
+  input?: JutsuFilteringSchema,
+) => {
+  // Grab all rankedUserJutsus with Jutsu data
+  const userjutsus = await client
+    .select()
+    .from(rankedUserJutsu)
+    .innerJoin(jutsu, eq(rankedUserJutsu.jutsuId, jutsu.id))
+    .leftJoin(bloodline, eq(jutsu.bloodlineId, bloodline.id))
+    .where(
+      and(
+        eq(rankedUserJutsu.userId, userId),
+        ne(jutsu.jutsuType, "AI"),
+        ...jutsuDatabaseFilter(input),
+      ),
+    )
+    .orderBy(desc(rankedUserJutsu.level));
+
+  return userjutsus.map((result) => ({
+    ...result.RankedUserJutsu,
     jutsu: {
       ...result.Jutsu,
       bloodline: result.Bloodline,
