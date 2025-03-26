@@ -915,7 +915,7 @@ export const jutsuRouter = createTRPCRouter({
     .mutation(async ({ ctx }) => {
       await ctx.drizzle
         .update(rankedUserJutsu)
-        .set({ rankedEquipped: 0 })
+        .set({ equipped: 0 })
         .where(eq(rankedUserJutsu.userId, ctx.userId));
 
       return { success: true, message: "All jutsu unequipped from ranked loadout" };
