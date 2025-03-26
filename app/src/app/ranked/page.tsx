@@ -146,8 +146,8 @@ export default function Ranked() {
   // Sort if we have a loadout
   if (userData?.loadout?.jutsuIds && processedJutsu) {
     processedJutsu.sort((a, b) => {
-      const aIndex = userData?.loadout?.jutsuIds.indexOf(a.jutsuId) ?? -1;
-      const bIndex = userData?.loadout?.jutsuIds.indexOf(b.jutsuId) ?? -1;
+      const aIndex = userData?.loadout?.jutsuIds.indexOf(a.id) ?? -1;
+      const bIndex = userData?.loadout?.jutsuIds.indexOf(b.id) ?? -1;
       if (aIndex === -1 && bIndex === -1) return 0;
       if (aIndex === -1) return 1;
       if (bIndex === -1) return -1;
