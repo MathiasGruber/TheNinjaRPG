@@ -140,7 +140,7 @@ export default function Ranked() {
   const userJutsuMap = new Map(userJutsus?.map(userJutsu => [userJutsu.jutsuId, userJutsu]));
   const processedJutsu = flatJutsu.map(jutsu => ({
     ...jutsu,
-    highlight: userJutsuMap.get(jutsu.id)?.rankedEquipped || false,
+    highlight: Boolean(userJutsuMap.get(jutsu.id)?.rankedEquipped),
   }));
 
   // Sort if we have a loadout
