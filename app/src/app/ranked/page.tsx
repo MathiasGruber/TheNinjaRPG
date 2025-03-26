@@ -146,7 +146,7 @@ export default function Ranked() {
       const userJutsu = userJutsuMap.get(jutsu.id);
       return {
         ...jutsu,
-        highlight: userJutsu?.equipped ?? false,
+        highlight: Boolean(userJutsu?.rankedEquipped),
       };
     })
     .filter(jutsu => {
