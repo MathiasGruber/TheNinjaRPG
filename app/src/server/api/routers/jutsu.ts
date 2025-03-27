@@ -1016,7 +1016,7 @@ export const jutsuRouter = createTRPCRouter({
       await ctx.drizzle
         .update(rankedUserJutsu)
         .set({ equipped: 0 });
-        return { success: true, message: "All ranked jutsu have been unequipped from all users" };
+      return { success: true, message: "All ranked jutsu have been unequipped from all users" };
     }),
 });
 
