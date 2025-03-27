@@ -110,6 +110,17 @@ export default function Ranked() {
     },
   });
 
+  const handleEquip = (jutsu: Jutsu) => {
+    if (equippedCount >= MAX_RANKED_JUTSU && !userJutsuMap.get(jutsu.id)?.equipped) {
+      showMutationToast({
+        success: false,
+        message: `You can only select up to ${MAX_RANKED_JUTSU} jutsu for ranked battles`,
+      });
+      return;
+    }
+    equip({ jutsuId: jutsu.id });
+  };
+
   const { mutate: unequipAllRanked, isPending: isUnequipping } = api.jutsu.unequipAllRanked.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
@@ -155,6 +166,10 @@ export default function Ranked() {
       return !restrictedTypes.includes(jutsu.jutsuType);
     });
 
+  // Count equipped jutsu
+  const equippedCount = userJutsus?.filter(uj => uj.equipped).length ?? 0;
+  const MAX_RANKED_JUTSU = 15;
+
   // Sort if we have a loadout
   if (userData?.loadout?.jutsuIds && processedJutsu) {
     processedJutsu.sort((a, b) => {
@@ -186,6 +201,9 @@ export default function Ranked() {
           </p>
           <p className="text-sm text-muted-foreground">
             Players in queue: {queueData?.queueCount ?? 0}
+          </p>
+          <p className="text-sm font-medium">
+            Selected Jutsu: {equippedCount}/{MAX_RANKED_JUTSU}
           </p>
           {queueData?.inQueue && (
             <p className="text-yellow-500">
@@ -263,7 +281,7 @@ export default function Ranked() {
           setIsOpen={setIsOpen}
           isValid={false}
           proceed_label={userJutsuMap.get(selectedJutsu.id)?.equipped ? "Unequip" : "Equip"}
-          onAccept={() => equip({ jutsuId: selectedJutsu.id })}
+          onAccept={() => handleEquip(selectedJutsu)}
         >
           <ItemWithEffects item={selectedJutsu} showStatistic="jutsu" />
         </Modal>
