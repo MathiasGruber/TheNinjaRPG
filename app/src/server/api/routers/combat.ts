@@ -1038,11 +1038,19 @@ export const initiateBattle = async (
           where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
           orderBy: (table, { desc }) => [desc(table.quantity)],
         },
-        jutsus: {
-          with: { jutsu: true },
-          where: (jutsus) => eq(jutsus.equipped, 1),
-          orderBy: (table, { desc }) => [desc(table.level)],
-        },
+        ...(battleType === "RANKED" ? {
+          rankedJutsus: {
+            with: { jutsu: true },
+            where: (jutsus) => eq(jutsus.equipped, 1),
+            orderBy: (table, { desc }) => [desc(table.level)],
+          }
+        } : {
+          jutsus: {
+            with: { jutsu: true },
+            where: (jutsus) => eq(jutsus.equipped, 1),
+            orderBy: (table, { desc }) => [desc(table.level)],
+          }
+        }),
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
