@@ -60,14 +60,24 @@ export default function Ranked() {
   });
 
   // Get all jutsu and user jutsu data
-  const { data: allJutsu, isFetching: isLoadingJutsu } = api.jutsu.getAll.useInfiniteQuery(
+  const { 
+    data: allJutsu, 
+    isFetching: isLoadingJutsu, 
+    fetchNextPage, 
+    hasNextPage 
+  } = api.jutsu.getAll.useInfiniteQuery(
     { limit: 100, hideAi: true, ...getFilter(state) },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      placeholderData: (previousData) => previousData,
       enabled: !!userData,
     }
   );
+
+  useEffect(() => {
+    if (hasNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, fetchNextPage]);
 
   const { data: userJutsus, isFetching: isLoadingUserJutsu } = api.jutsu.getRankedUserJutsus.useQuery(
     getFilter(state),
