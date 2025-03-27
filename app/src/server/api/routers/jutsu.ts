@@ -880,74 +880,6 @@ export const jutsuRouter = createTRPCRouter({
         ),
       });
 
-      // If not equipped, check limits before equipping
-      if (!userJutsu?.equipped) {
-        // Get all equipped jutsu
-        const equippedJutsu = await ctx.drizzle
-          .select()
-          .from(rankedUserJutsu)
-          .innerJoin(jutsu, eq(rankedUserJutsu.jutsuId, jutsu.id))
-          .where(
-            and(
-              eq(rankedUserJutsu.userId, ctx.userId),
-              eq(rankedUserJutsu.equipped, 1),
-            ),
-          );
-
-        // Get the jutsu being equipped
-        const jutsuToEquip = await ctx.drizzle.query.jutsu.findFirst({
-          where: eq(jutsu.id, input.jutsuId),
-        });
-
-        if (!jutsuToEquip) {
-          return {
-            success: false,
-            message: "Jutsu not found",
-          };
-        }
-
-        // Count jutsu by effect type
-        const shieldJutsus = equippedJutsu.filter(({ Jutsu }) =>
-          Jutsu.effects.some((e) => e.type === "shield")
-        );
-        const groundJutsus = equippedJutsu.filter(({ Jutsu }) =>
-          Jutsu.effects.some((e) => e.type === "ground")
-        );
-        const movepreventJutsus = equippedJutsu.filter(({ Jutsu }) =>
-          Jutsu.effects.some((e) => e.type === "moveprevent")
-        );
-
-        // Define type limits for ranked battles
-        const RANKED_TYPE_LIMITS = {
-          SHIELD: 2,
-          GROUND: 1,
-          MOVEPREVENT: 1,
-        };
-
-        // Check if we're at the limit for this jutsu's effects
-        if (jutsuToEquip.effects.some((e) => e.type === "shield") && 
-            shieldJutsus.length >= RANKED_TYPE_LIMITS.SHIELD) {
-          return {
-            success: false,
-            message: `You can only equip ${RANKED_TYPE_LIMITS.SHIELD} shield jutsu in ranked battles`,
-          };
-        }
-        if (jutsuToEquip.effects.some((e) => e.type === "ground") && 
-            groundJutsus.length >= RANKED_TYPE_LIMITS.GROUND) {
-          return {
-            success: false,
-            message: `You can only equip ${RANKED_TYPE_LIMITS.GROUND} ground jutsu in ranked battles`,
-          };
-        }
-        if (jutsuToEquip.effects.some((e) => e.type === "moveprevent") && 
-            movepreventJutsus.length >= RANKED_TYPE_LIMITS.MOVEPREVENT) {
-          return {
-            success: false,
-            message: `You can only equip ${RANKED_TYPE_LIMITS.MOVEPREVENT} move prevent jutsu in ranked battles`,
-          };
-        }
-      }
-
       // If equipped, just unequip
       if (userJutsu?.equipped) {
         await ctx.drizzle
@@ -965,16 +897,94 @@ export const jutsuRouter = createTRPCRouter({
         };
       }
 
+      // If not equipped, check limits before equipping
+      // Get all equipped jutsu
+      const equippedJutsu = await ctx.drizzle
+        .select()
+        .from(rankedUserJutsu)
+        .innerJoin(jutsu, eq(rankedUserJutsu.jutsuId, jutsu.id))
+        .where(
+          and(
+            eq(rankedUserJutsu.userId, ctx.userId),
+            eq(rankedUserJutsu.equipped, 1),
+          ),
+        );
+
+      // Get the jutsu being equipped
+      const jutsuToEquip = await ctx.drizzle.query.jutsu.findFirst({
+        where: eq(jutsu.id, input.jutsuId),
+      });
+
+      if (!jutsuToEquip) {
+        return {
+          success: false,
+          message: "Jutsu not found",
+        };
+      }
+
+      // Count jutsu by effect type
+      const shieldJutsus = equippedJutsu.filter(({ Jutsu }) =>
+        Jutsu.effects.some((e) => e.type === "shield")
+      );
+      const groundJutsus = equippedJutsu.filter(({ Jutsu }) =>
+        Jutsu.effects.some((e) => e.type === "ground")
+      );
+      const movepreventJutsus = equippedJutsu.filter(({ Jutsu }) =>
+        Jutsu.effects.some((e) => e.type === "moveprevent")
+      );
+
+      // Define type limits for ranked battles
+      const RANKED_TYPE_LIMITS = {
+        SHIELD: 2,
+        GROUND: 1,
+        MOVEPREVENT: 1,
+      };
+
+      // Check if we're at the limit for this jutsu's effects
+      if (jutsuToEquip.effects.some((e) => e.type === "shield") && 
+          shieldJutsus.length >= RANKED_TYPE_LIMITS.SHIELD) {
+        return {
+          success: false,
+          message: `You can only equip ${RANKED_TYPE_LIMITS.SHIELD} shield jutsu in ranked battles`,
+        };
+      }
+      if (jutsuToEquip.effects.some((e) => e.type === "ground") && 
+          groundJutsus.length >= RANKED_TYPE_LIMITS.GROUND) {
+        return {
+          success: false,
+          message: `You can only equip ${RANKED_TYPE_LIMITS.GROUND} ground jutsu in ranked battles`,
+        };
+      }
+      if (jutsuToEquip.effects.some((e) => e.type === "moveprevent") && 
+          movepreventJutsus.length >= RANKED_TYPE_LIMITS.MOVEPREVENT) {
+        return {
+          success: false,
+          message: `You can only equip ${RANKED_TYPE_LIMITS.MOVEPREVENT} move prevent jutsu in ranked battles`,
+        };
+      }
+
       // If not equipped, equip it
-      await ctx.drizzle
-        .insert(rankedUserJutsu)
-        .values({
-          id: nanoid(),
-          userId: ctx.userId,
-          jutsuId: input.jutsuId,
-          equipped: 1,
-          level: 1,
-        });
+      if (userJutsu) {
+        await ctx.drizzle
+          .update(rankedUserJutsu)
+          .set({ equipped: 1 })
+          .where(
+            and(
+              eq(rankedUserJutsu.userId, ctx.userId),
+              eq(rankedUserJutsu.jutsuId, input.jutsuId),
+            ),
+          );
+      } else {
+        await ctx.drizzle
+          .insert(rankedUserJutsu)
+          .values({
+            id: nanoid(),
+            userId: ctx.userId,
+            jutsuId: input.jutsuId,
+            equipped: 1,
+            level: 1,
+          });
+      }
 
       return {
         success: true,
