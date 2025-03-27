@@ -74,6 +74,16 @@ export default function Ranked() {
     { enabled: !!userData }
   );
 
+  // Get total count of equipped jutsu without any filters
+  const { data: totalEquipped } = api.jutsu.getRankedUserJutsus.useQuery(
+    {}, // No filters to get total count
+    { enabled: !!userData }
+  );
+
+  // Check if user has reached the jutsu limit
+  const equippedCount = totalEquipped?.filter(uj => uj.equipped).length ?? 0;
+  const hasReachedLimit = equippedCount >= 15;
+
   // Mutations for queue management
   const { mutate: queue, isPending: isQueuing } = api.combat.queueForRankedPvp.useMutation({
     onSuccess: (result) => {
@@ -111,10 +121,10 @@ export default function Ranked() {
   });
 
   const handleEquip = (jutsu: Jutsu) => {
-    if (equippedCount >= MAX_RANKED_JUTSU && !userJutsuMap.get(jutsu.id)?.equipped) {
+    if (hasReachedLimit && !userJutsuMap.get(jutsu.id)?.equipped) {
       showMutationToast({
         success: false,
-        message: `You can only select up to ${MAX_RANKED_JUTSU} jutsu for ranked battles`,
+        message: `You can only select up to 15 jutsu for ranked battles`,
       });
       return;
     }
@@ -166,10 +176,6 @@ export default function Ranked() {
       return !restrictedTypes.includes(jutsu.jutsuType);
     });
 
-  // Count equipped jutsu
-  const equippedCount = userJutsus?.filter(uj => uj.equipped).length ?? 0;
-  const MAX_RANKED_JUTSU = 15;
-
   // Sort if we have a loadout
   if (userData?.loadout?.jutsuIds && processedJutsu) {
     processedJutsu.sort((a, b) => {
@@ -217,7 +223,7 @@ export default function Ranked() {
             Players in queue: {queueData?.queueCount ?? 0}
           </p>
           <p className="text-sm font-medium">
-            Selected Jutsu: {equippedCount}/{MAX_RANKED_JUTSU}
+            Selected Jutsu: {equippedCount}/15
           </p>
           {queueData?.inQueue && (
             <p className="text-yellow-500">
@@ -240,6 +246,15 @@ export default function Ranked() {
                   });
                   return;
                 }
+            
+                if (equippedCount > 15) {
+                  showMutationToast({
+                    success: false,
+                    message: `You have selected ${equippedCount} jutsu. You can only have 15 equipped for ranked battles.`,
+                  });
+                  return;
+                }
+            
                 queue();
               }}
               disabled={isQueuing}
