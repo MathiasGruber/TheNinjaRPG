@@ -75,7 +75,7 @@ export default function Ranked() {
 
   useEffect(() => {
     if (hasNextPage) {
-      fetchNextPage();
+      void fetchNextPage();
     }
   }, [hasNextPage, fetchNextPage]);
 
