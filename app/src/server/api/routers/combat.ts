@@ -28,7 +28,7 @@ import {
 } from "@/libs/combat/database";
 import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
-import { userData, questHistory, quest, gameSetting, rankedPvpQueue, rankedUserJutsu } from "@/drizzle/schema";
+import { userData, questHistory, quest, gameSetting, rankedPvpQueue } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
@@ -1038,19 +1038,11 @@ export const initiateBattle = async (
           where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
           orderBy: (table, { desc }) => [desc(table.quantity)],
         },
-        ...(battleType === "RANKED" ? {
-          rankedJutsus: {
-            with: { jutsu: true },
-            where: (jutsus: typeof rankedUserJutsu) => eq(jutsus.equipped, 1),
-            orderBy: (table: typeof rankedUserJutsu) => [desc(table.level)],
-          }
-        } : {
-          jutsus: {
-            with: { jutsu: true },
-            where: (jutsus) => eq(jutsus.equipped, 1),
-            orderBy: (table, { desc }) => [desc(table.level)],
-          }
-        }),
+        jutsus: {
+          with: { jutsu: true },
+          where: (jutsus) => eq(jutsus.equipped, 1),
+          orderBy: (table, { desc }) => [desc(table.level)],
+        },
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
