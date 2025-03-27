@@ -161,10 +161,13 @@ export default function Ranked() {
   const userJutsuMap = new Map(
     userJutsus?.map((uj) => [uj.jutsuId, uj]) ?? []
   );
+  const totalEquippedMap = new Map(
+    totalEquipped?.map((uj) => [uj.jutsuId, uj]) ?? []
+  );
 
   const processedJutsu = flatJutsu
     .map((jutsu) => {
-      const userJutsu = userJutsuMap.get(jutsu.id);
+      const userJutsu = totalEquippedMap.get(jutsu.id);
       return {
         ...jutsu,
         highlight: userJutsu?.equipped ? true : false,
@@ -179,8 +182,8 @@ export default function Ranked() {
   // Sort if we have a loadout
   if (userData?.loadout?.jutsuIds && processedJutsu) {
     processedJutsu.sort((a, b) => {
-      const aEquipped = userJutsuMap.get(a.id)?.equipped ?? false;
-      const bEquipped = userJutsuMap.get(b.id)?.equipped ?? false;
+      const aEquipped = totalEquippedMap.get(a.id)?.equipped ?? false;
+      const bEquipped = totalEquippedMap.get(b.id)?.equipped ?? false;
       
       // First sort by equipped status
       if (aEquipped !== bEquipped) {
