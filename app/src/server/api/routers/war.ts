@@ -100,8 +100,14 @@ export const warRouter = createTRPCRouter({
       if (relationship?.status !== "ENEMY") {
         return errorResponse("You can only declare war on enemy villages");
       }
+      if (attackerVillage.type !== "VILLAGE") {
+        return errorResponse("You cannot declare war on a non-village");
+      }
       if (defenderVillage.type !== "VILLAGE") {
         return errorResponse("You cannot declare war on a non-village");
+      }
+      if (!attackerVillage.allianceSystem) {
+        return errorResponse("Your village is not part of the alliance system");
       }
       if (!defenderVillage.allianceSystem) {
         return errorResponse("Target village is not part of the alliance system");
@@ -216,8 +222,8 @@ export const warRouter = createTRPCRouter({
       const { check, message } = canJoinWar(
         activeWar,
         relationships,
-        user.village,
         targetVillage,
+        user.village,
       );
       if (!check) {
         return errorResponse(message);
@@ -226,9 +232,10 @@ export const warRouter = createTRPCRouter({
       await insertRequest(
         ctx.drizzle,
         user.userId,
-        `${targetVillage.kageId}-${activeWar.id}`,
+        targetVillage.kageId,
         "WAR_ALLY",
         input.tokenOffer,
+        activeWar.id,
       );
 
       // Return
@@ -268,16 +275,9 @@ export const warRouter = createTRPCRouter({
     }),
 
   // Get faction offers for a war
-  getAllyOffers: protectedProcedure
-    .input(z.object({ warId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return await fetchRequests(
-        ctx.drizzle,
-        ["WAR_ALLY"],
-        3600 * 12,
-        `${ctx.userId}-${input.warId}`,
-      );
-    }),
+  getAllyOffers: protectedProcedure.query(async ({ ctx }) => {
+    return await fetchRequests(ctx.drizzle, ["WAR_ALLY"], 3600 * 12, ctx.userId);
+  }),
 
   // Delist a faction offer
   cancelAllyOffer: protectedProcedure
@@ -303,7 +303,7 @@ export const warRouter = createTRPCRouter({
       if (user.userId !== user.village.kageId) {
         return errorResponse("Only the Kage can delist offers");
       }
-      if (offer.senderId !== user.villageId) {
+      if (offer.senderId !== user.userId) {
         return errorResponse("Not your offer to delist");
       }
 
@@ -318,11 +318,6 @@ export const warRouter = createTRPCRouter({
     .input(z.object({ offerId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      // Derived
-      const [kageId, warId] = input.offerId.split("-");
-      if (!kageId || !warId) {
-        return errorResponse("Invalid offer ID, could not identify kage & war");
-      }
       // Query
       const [{ user }, activeWars, request, relationships] = await Promise.all([
         fetchUpdatedUser({
@@ -334,10 +329,11 @@ export const warRouter = createTRPCRouter({
         fetchAlliances(ctx.drizzle),
       ]);
       // Derived
+      const warId = request.relatedId;
       const activeWar = activeWars.find(
         (w) =>
-          (w.attackerVillageId === request.senderId ||
-            w.defenderVillageId === request.senderId) &&
+          (w.attackerVillage?.kageId === request.senderId ||
+            w.defenderVillage?.kageId === request.senderId) &&
           w.id === warId,
       );
       const senderVillage =
@@ -351,8 +347,11 @@ export const warRouter = createTRPCRouter({
       if (!senderVillage) {
         return errorResponse("Sender village not found");
       }
+      if (!user?.villageId) {
+        return errorResponse("You must be in a village or faction to accept offers");
+      }
       if (!user?.village) {
-        return errorResponse("You must be in a village to accept offers");
+        return errorResponse("You must be in a village or faction to accept offers");
       }
       if (user.userId !== user.village.kageId) {
         return errorResponse("Only the leader can accept offers");
@@ -360,7 +359,7 @@ export const warRouter = createTRPCRouter({
       if (!activeWar) {
         return errorResponse("No active war found for the one listing the offer");
       }
-      if (request.receiverId !== user.villageId) {
+      if (request.receiverId !== user.userId) {
         return errorResponse("This offer is not for your village");
       }
       if (request.senderId === user.userId) {
@@ -393,6 +392,7 @@ export const warRouter = createTRPCRouter({
           .update(village)
           .set({ tokens: sql`tokens - ${request.value}` })
           .where(eq(village.kageId, request.senderId)),
+        updateRequestState(ctx.drizzle, input.offerId, "ACCEPTED", "WAR_ALLY"),
       ]);
 
       return { success: true, message: "Offer accepted and alliance formed" };
@@ -452,18 +452,8 @@ export const warRouter = createTRPCRouter({
  * @returns The active wars
  */
 export const fetchActiveWars = async (client: DrizzleClient, villageId?: string) => {
-  return await client.query.war.findMany({
-    where: and(
-      ...(villageId
-        ? [
-            or(
-              eq(war.attackerVillageId, villageId),
-              eq(war.defenderVillageId, villageId),
-            ),
-          ]
-        : []),
-      eq(war.status, "ACTIVE"),
-    ),
+  const activeWars = await client.query.war.findMany({
+    where: eq(war.status, "ACTIVE"),
     with: {
       attackerVillage: {
         with: {
@@ -485,6 +475,16 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
         },
       },
     },
+  });
+  return activeWars.filter((war) => {
+    if (villageId) {
+      return (
+        war.attackerVillageId === villageId ||
+        war.defenderVillageId === villageId ||
+        war.factions.find((f) => f.villageId === villageId)
+      );
+    }
+    return true;
   });
 };
 

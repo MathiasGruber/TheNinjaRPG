@@ -209,6 +209,7 @@ export const insertRequest = async (
   receiverId: string,
   type: UserRequestType,
   value?: number,
+  relatedId?: string,
 ) => {
   await client.insert(userRequest).values({
     id: nanoid(),
@@ -217,5 +218,6 @@ export const insertRequest = async (
     status: "PENDING",
     type,
     value: value || null,
+    relatedId: relatedId || null,
   });
 };
