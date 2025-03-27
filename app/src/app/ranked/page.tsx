@@ -180,30 +180,28 @@ export default function Ranked() {
     });
 
   // Sort if we have a loadout
-  if (userData?.loadout?.jutsuIds && processedJutsu) {
+  if (processedJutsu) {
     processedJutsu.sort((a, b) => {
-      const aEquipped = totalEquippedMap.get(a.id)?.equipped ?? false;
-      const bEquipped = totalEquippedMap.get(b.id)?.equipped ?? false;
-      
-      // First sort by equipped status
+      const aEquipped = !!totalEquippedMap.get(a.id)?.equipped;
+      const bEquipped = !!totalEquippedMap.get(b.id)?.equipped;
+  
+      // 1. Always sort equipped jutsu to the top
       if (aEquipped !== bEquipped) {
         return aEquipped ? -1 : 1;
       }
-      
-      // If both are equipped, sort by their order in the loadout
-      if (aEquipped && bEquipped) {
-        const aIndex = userData?.loadout?.jutsuIds.indexOf(a.id) ?? -1;
-        const bIndex = userData?.loadout?.jutsuIds.indexOf(b.id) ?? -1;
-        if (aIndex === -1 && bIndex === -1) return 0;
-        if (aIndex === -1) return 1;
-        if (bIndex === -1) return -1;
+  
+      // 2. If both are equipped AND we have a loadout, sort by loadout order
+      if (aEquipped && bEquipped && userData?.loadout?.jutsuIds) {
+        const aIndex = userData.loadout.jutsuIds.indexOf(a.id);
+        const bIndex = userData.loadout.jutsuIds.indexOf(b.id);
         return aIndex - bIndex;
       }
-      
-      // If neither is equipped, maintain original order
-      return 0;
+  
+      // 3. Optional: fallback to alphabetical
+      return a.name.localeCompare(b.name);
     });
   }
+  
 
   // Guards
   if (!access) return <Loader explanation="Accessing Ranked PvP" />;
