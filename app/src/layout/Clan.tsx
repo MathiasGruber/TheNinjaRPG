@@ -112,6 +112,7 @@ export const ClansOverview: React.FC = () => {
         )}
       </div>
     ),
+    villageType: clan.village.type,
   }));
 
   // Table
@@ -122,6 +123,11 @@ export const ClansOverview: React.FC = () => {
     { key: "memberCount", header: "# Members", type: "string" },
     { key: "pvpActivity", header: "PVP Activity", type: "string" },
   ];
+
+  // If we're outlaw, then show village information
+  if (userData?.isOutlaw) {
+    columns.push({ key: "villageType", header: "FactionStage", type: "capitalized" });
+  }
 
   // Loaders
   if (!userData) return <Loader explanation="Loading user data" />;
