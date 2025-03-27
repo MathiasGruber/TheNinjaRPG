@@ -1005,9 +1005,18 @@ export const jutsuRouter = createTRPCRouter({
       // Unequip all jutsu from all users
       await ctx.drizzle
         .update(userJutsu)
-        .set({ equipped: 0, rankedEquipped: 0 });
+        .set({ equipped: 0});
 
       return { success: true, message: "All jutsu have been unequipped from all users" };
+    }),
+
+  massUnequipAllRanked: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      await ctx.drizzle
+        .update(rankedUserJutsu)
+        .set({ equipped: 0 });
+        return { success: true, message: "All ranked jutsu have been unequipped from all users" };
     }),
 });
 
