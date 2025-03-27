@@ -1661,11 +1661,19 @@ const ChangeGender: React.FC = () => {
 };
 
 const AdminControls: React.FC = () => {
-  const { mutate: massUnequipAll, isPending } = api.jutsu.massUnequipAll.useMutation({
+  const { mutate: massUnequipAll, isPending: isUnequippingRegular } = api.jutsu.massUnequipAll.useMutation({
     onSuccess: (result) => {
       showMutationToast(result);
     },
   });
+
+  const { mutate: massUnequipAllRanked, isPending: isUnequippingRanked } = api.jutsu.massUnequipAllRanked.useMutation({
+    onSuccess: (result) => {
+      showMutationToast(result);
+    },
+  });
+
+  const isPending = isUnequippingRegular || isUnequippingRanked;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -1676,13 +1684,22 @@ const AdminControls: React.FC = () => {
             This will unequip all jutsu from all users. Use with caution.
           </p>
         </div>
-        <Button 
-          variant="destructive" 
-          onClick={() => massUnequipAll()}
-          disabled={isPending}
-        >
-          {isPending ? "Processing..." : "Unequip All Jutsu"}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="destructive" 
+            onClick={() => massUnequipAll()}
+            disabled={isPending}
+          >
+            {isUnequippingRegular ? "Processing..." : "Unequip All Regular"}
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={() => massUnequipAllRanked()}
+            disabled={isPending}
+          >
+            {isUnequippingRanked ? "Processing..." : "Unequip All Ranked"}
+          </Button>
+        </div>
       </div>
     </div>
   );
