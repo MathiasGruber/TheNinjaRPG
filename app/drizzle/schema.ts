@@ -2314,6 +2314,7 @@ export const userRequest = mysqlTable(
     status: mysqlEnum("status", consts.UserRequestStates).notNull(),
     type: mysqlEnum("type", consts.UserRequestTypes).notNull(),
     value: int("value").default(0),
+    relatedId: varchar("relatedId", { length: 191 }),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
