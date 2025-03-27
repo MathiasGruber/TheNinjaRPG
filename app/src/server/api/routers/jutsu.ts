@@ -890,7 +890,7 @@ export const jutsuRouter = createTRPCRouter({
           .where(
             and(
               eq(rankedUserJutsu.userId, ctx.userId),
-              eq(rankedUserJutsu.equipped, true),
+              eq(rankedUserJutsu.equipped, 1),
             ),
           );
 
