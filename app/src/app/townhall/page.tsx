@@ -52,7 +52,9 @@ import type { GetActiveWarsReturnType } from "@/server/api/routers/war";
 
 export default function TownHall() {
   const { data: userData } = useRequiredUserData();
-  const availableTabs = ["Alliance", "Kage", "Elders", "Wars"] as const;
+  const availableTabs = userData?.isOutlaw
+    ? ["Alliance", "Wars"]
+    : ["Alliance", "Kage", "Elders", "Wars"];
   const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -67,16 +69,18 @@ export default function TownHall() {
     />
   );
 
-  if (userData.isOutlaw) {
-    return <AllianceHall user={userData} />;
-  } else if (tab === "Alliance" || !tab) {
+  if (tab === "Alliance" || !tab) {
     return <AllianceHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Kage") {
     return <KageHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Elders") {
     return <ElderHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Wars") {
-    return <WarRoom user={userData} navTabs={NavBarBlock} />;
+    return userData.isOutlaw ? (
+      <FactionRoom user={userData} navTabs={NavBarBlock} />
+    ) : (
+      <WarRoom user={userData} navTabs={NavBarBlock} />
+    );
   }
 }
 
@@ -564,7 +568,7 @@ const KageChallenge: React.FC<{
           )}
           {activeRequest && (
             <div className="p-3 flex flex-col items-center">
-              <p>If not accepted by kage, challenge will execute as Ai vs AI in:</p>
+              <p>If not accepted by kage, challenge will execute as Ai vs Ai in:</p>
               <Countdown
                 targetDate={secondsFromDate(
                   KAGE_CHALLENGE_SECS,
@@ -653,7 +657,7 @@ const KageChallenge: React.FC<{
  */
 const AllianceHall: React.FC<{
   user: NonNullable<UserWithRelations>;
-  navTabs?: React.ReactNode;
+  navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
   // Queries
   const { data, isPending } = api.village.getAlliances.useQuery(undefined, {
@@ -1000,6 +1004,7 @@ const WarRoom: React.FC<{
         subtitle="Manage Village Wars"
         back_href="/village"
         topRightContent={navTabs}
+        initialBreak={true}
       >
         <p>
           The Wars is where the Kage makes critical decisions about village warfare.
@@ -1078,11 +1083,39 @@ const War: React.FC<{
   // tRPC utility
   const utils = api.useUtils();
 
+  // Form for token offer
+  const offerSchema = z.object({
+    amount: z.coerce
+      .number()
+      .int()
+      .positive()
+      .min(1000)
+      .max(userVillage?.tokens ?? 0),
+  });
+
+  const offerForm = useForm<z.infer<typeof offerSchema>>({
+    resolver: zodResolver(offerSchema),
+    defaultValues: { amount: 1000 },
+    mode: "onChange",
+  });
+
+  const onOfferSubmit = (villageId: string) => {
+    return offerForm.handleSubmit((data) => {
+      createAllyOffer({
+        warId: war.id ?? "",
+        tokenOffer: data.amount,
+        targetVillageId: villageId,
+      });
+    });
+  };
+
   // Query
-  const { data: requests } = api.war.getAllyOffers.useQuery(
-    { warId: war.id ?? "" },
-    { staleTime: 30000 },
-  );
+  const { data: requests } = api.war.getAllyOffers.useQuery(undefined, {
+    staleTime: 30000,
+  });
+
+  // Derived for this war
+  const warRequests = requests?.filter((r) => r.relatedId === war.id);
 
   // Mutations
   const { mutate: acceptAllyOffer, isPending: isHiring } =
@@ -1122,6 +1155,7 @@ const War: React.FC<{
         showMutationToast(data);
         if (data.success) {
           await utils.war.getAllyOffers.invalidate();
+          offerForm.reset();
         }
       },
     });
@@ -1213,7 +1247,10 @@ const War: React.FC<{
 
       {isKage && (
         <div className="mt-4">
-          <h5 className="font-bold mb-2">Hire Factions / Ask Allies to Join</h5>
+          <h5 className="font-bold mb-2">Send War Alliance Offers</h5>
+          <p className="text-sm text-muted-foreground mb-4">
+            Send offers to factions or allied villages to join your war effort.
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {canJoin?.map((village) => (
               <div
@@ -1235,7 +1272,7 @@ const War: React.FC<{
                     </p>
                   </div>
                   <Confirm
-                    title="Hire Faction"
+                    title={`Send Offer to ${village.name}`}
                     button={
                       <Button
                         size="sm"
@@ -1245,22 +1282,39 @@ const War: React.FC<{
                         <Handshake className="h-4 w-4" />
                       </Button>
                     }
-                    onAccept={() =>
-                      createAllyOffer({
-                        warId: war.id,
-                        tokenOffer: 10000,
-                        targetVillageId: village.id,
-                      })
-                    }
+                    onAccept={onOfferSubmit(village.id)}
                   >
-                    <p>
-                      Are you sure you want to hire {village.name} for 10,000 tokens?
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      They will join your side in the war against{" "}
+                    <Form {...offerForm}>
+                      <form className="space-y-4">
+                        <FormField
+                          control={offerForm.control}
+                          name="amount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder={`Token offer (min 1,000, max ${userVillage?.tokens?.toLocaleString()})`}
+                                  {...field}
+                                  onChange={(e) => {
+                                    const value = parseInt(e.target.value);
+                                    field.onChange(value);
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      </form>
+                    </Form>
+                    <p className="text-sm text-muted-foreground mt-4">
+                      This will send an offer to {village.name} to join your side in the
+                      war against{" "}
                       {war.attackerVillageId === user.villageId
                         ? war.defenderVillage?.name
                         : war.attackerVillage?.name}
+                      . They can choose to accept or reject this offer.
                     </p>
                   </Confirm>
                 </div>
@@ -1269,7 +1323,7 @@ const War: React.FC<{
           </div>
         </div>
       )}
-      {requests && requests.length > 0 && (
+      {!user.isOutlaw && warRequests && warRequests.length > 0 && (
         <ContentBox
           title="War Ally Offers"
           subtitle="Sent to or from you"
@@ -1278,7 +1332,7 @@ const War: React.FC<{
         >
           <UserRequestSystem
             isLoading={isHiring || isRejectingOffer || isCancelling || isCreatingOffer}
-            requests={requests}
+            requests={warRequests}
             userId={user.userId}
             onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
             onReject={({ id }) => rejectAllyOffer({ id })}
@@ -1287,5 +1341,117 @@ const War: React.FC<{
         </ContentBox>
       )}
     </div>
+  );
+};
+
+/**
+ * Faction Room Component for Outlaws
+ */
+const FactionRoom: React.FC<{
+  user: NonNullable<UserWithRelations>;
+  navTabs: React.ReactNode;
+}> = ({ user, navTabs }) => {
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Queries
+  const { data: activeWars, isPending: isLoadingWars } = api.war.getActiveWars.useQuery(
+    { villageId: user.villageId ?? "" },
+    { staleTime: 10000, enabled: !!user.villageId },
+  );
+
+  const { data: requests } = api.war.getAllyOffers.useQuery(undefined, {
+    staleTime: 30000,
+  });
+
+  // Mutations
+  const { mutate: acceptAllyOffer, isPending: isHiring } =
+    api.war.acceptAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getActiveWars.invalidate();
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
+  const { mutate: rejectAllyOffer, isPending: isRejectingOffer } =
+    api.war.rejectAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
+  const { mutate: cancelAllyOffer, isPending: isCancelling } =
+    api.war.cancelAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
+  // Derived
+  const isLeader = user.userId === user.village?.kageId;
+
+  // Checks
+  if (!user.villageId) return <Loader explanation="Join a faction first" />;
+  if (isLoadingWars) return <Loader explanation="Loading wars" />;
+
+  return (
+    <>
+      <ContentBox
+        title="Faction Wars"
+        subtitle="Manage Faction Wars"
+        back_href="/village"
+        initialBreak={true}
+        topRightContent={navTabs}
+      >
+        <p>
+          As a faction, you can be hired by villages to join their wars as mercenaries.
+          Each war contract comes with a payment in village tokens, which will be
+          transferred to your faction upon accepting the offer. Choose your contracts
+          wisely, as your reputation and relationships with villages will be affected by
+          your choices.
+        </p>
+      </ContentBox>
+
+      {activeWars && activeWars.length > 0 && (
+        <ContentBox
+          title="Active Wars"
+          subtitle="Current Conflicts"
+          initialBreak={true}
+        >
+          <div className="grid grid-cols-1 gap-4">
+            {activeWars?.map((war) => (
+              <War key={war.id} war={war} user={user} isKage={isLeader} />
+            ))}
+          </div>
+        </ContentBox>
+      )}
+
+      {isLeader && requests && requests.length > 0 && (
+        <ContentBox
+          title="War Contract Offers"
+          subtitle="Pending war participation requests"
+          initialBreak={true}
+          padding={false}
+        >
+          <UserRequestSystem
+            isLoading={isHiring || isRejectingOffer || isCancelling}
+            requests={requests}
+            userId={user.userId}
+            onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
+            onReject={({ id }) => rejectAllyOffer({ id })}
+            onCancel={({ id }) => cancelAllyOffer({ offerId: id })}
+          />
+        </ContentBox>
+      )}
+    </>
   );
 };
