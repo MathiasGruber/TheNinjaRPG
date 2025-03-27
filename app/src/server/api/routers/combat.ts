@@ -28,7 +28,7 @@ import {
 } from "@/libs/combat/database";
 import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
-import { userData, questHistory, quest, gameSetting, rankedPvpQueue } from "@/drizzle/schema";
+import { userData, questHistory, quest, gameSetting, rankedPvpQueue, rankedUserJutsu } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
