@@ -952,7 +952,7 @@ export const jutsuRouter = createTRPCRouter({
       if (userJutsu?.equipped) {
         await ctx.drizzle
           .update(rankedUserJutsu)
-          .set({ equipped: false })
+          .set({ equipped: 0 })
           .where(
             and(
               eq(rankedUserJutsu.userId, ctx.userId),
