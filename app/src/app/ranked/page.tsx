@@ -173,12 +173,26 @@ export default function Ranked() {
   // Sort if we have a loadout
   if (userData?.loadout?.jutsuIds && processedJutsu) {
     processedJutsu.sort((a, b) => {
-      const aIndex = userData?.loadout?.jutsuIds.indexOf(a.id) ?? -1;
-      const bIndex = userData?.loadout?.jutsuIds.indexOf(b.id) ?? -1;
-      if (aIndex === -1 && bIndex === -1) return 0;
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
+      const aEquipped = userJutsuMap.get(a.id)?.equipped ?? false;
+      const bEquipped = userJutsuMap.get(b.id)?.equipped ?? false;
+      
+      // First sort by equipped status
+      if (aEquipped !== bEquipped) {
+        return aEquipped ? -1 : 1;
+      }
+      
+      // If both are equipped, sort by their order in the loadout
+      if (aEquipped && bEquipped) {
+        const aIndex = userData?.loadout?.jutsuIds.indexOf(a.id) ?? -1;
+        const bIndex = userData?.loadout?.jutsuIds.indexOf(b.id) ?? -1;
+        if (aIndex === -1 && bIndex === -1) return 0;
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+      }
+      
+      // If neither is equipped, maintain original order
+      return 0;
     });
   }
 
