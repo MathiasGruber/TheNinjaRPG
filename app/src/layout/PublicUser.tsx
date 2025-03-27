@@ -478,7 +478,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               PvP Rank: {isPendingPvpRank ? "Loading..." : (pvpRank ?? "Not ranked")}
             </p>
             <p>Village: {profile.village?.name}</p>
-            <p>Status: {profile.status}</p>
+            <p>Status: {profile.status === "QUEUED" ? "ASLEEP" : profile.status}</p>
             <p>Account Status: {accountStatus}</p>
             <p>Gender: {profile.gender}</p>
             <br />
