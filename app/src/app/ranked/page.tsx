@@ -167,7 +167,7 @@ export default function Ranked() {
 
   const processedJutsu = flatJutsu
     .map((jutsu) => {
-      const equipped = totalEquippedMap.get(jutsu.id)?.equipped ?? false;
+      const equipped = !!totalEquippedMap.get(jutsu.id)?.equipped;
       return {
         ...jutsu,
         highlight: equipped,
