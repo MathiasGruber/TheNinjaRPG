@@ -342,6 +342,8 @@ export const battleJutsuExp = (battleType: BattleType, experienceGain: number, u
       return experienceGain * 0.0;
     case "TRAINING":
       return 10;
+    case "RANKED":
+      return 0;
   }
   return 0;
 };
