@@ -2507,7 +2507,7 @@ export const warRelations = relations(war, ({ one, many }) => ({
     references: [village.id],
     relationName: "defenderVillage",
   }),
-  factions: many(warAlly),
+  warAllies: many(warAlly),
 }));
 
 export const warAlly = mysqlTable(
@@ -2516,6 +2516,7 @@ export const warAlly = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     warId: varchar("warId", { length: 191 }).notNull(),
     villageId: varchar("villageId", { length: 191 }).notNull(),
+    supportVillageId: varchar("supportVillageId", { length: 191 }).notNull(),
     tokensPaid: int("tokensPaid").notNull(),
     joinedAt: datetime("joinedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)

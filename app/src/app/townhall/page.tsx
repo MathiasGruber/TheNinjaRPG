@@ -1115,7 +1115,9 @@ const War: React.FC<{
   });
 
   // Derived for this war
-  const warRequests = requests?.filter((r) => r.relatedId === war.id);
+  const warRequests = requests?.filter(
+    (r) => r.relatedId === war.id && r.status !== "ACCEPTED",
+  );
 
   // Mutations
   const { mutate: acceptAllyOffer, isPending: isHiring } =
@@ -1222,6 +1224,42 @@ const War: React.FC<{
             showBar={true}
             showNumbers={true}
           />
+          {/* Show our supporting factions */}
+          <div className="mt-4">
+            <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {war.warAllies
+                .filter((warAlly) =>
+                  war.attackerVillageId === user.villageId
+                    ? warAlly.supportVillageId === war.attackerVillageId
+                    : warAlly.supportVillageId === war.defenderVillageId,
+                )
+                .map((faction) => (
+                  <div
+                    key={faction.villageId}
+                    className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
+                  >
+                    <Image
+                      src={faction.village.villageGraphic}
+                      alt={faction.village.name}
+                      width={20}
+                      height={20}
+                      className="rounded-full"
+                    />
+                    <span className="text-sm">{faction.village.name}</span>
+                  </div>
+                ))}
+              {war.warAllies.filter((warAlly) =>
+                war.attackerVillageId === user.villageId
+                  ? warAlly.supportVillageId === war.attackerVillageId
+                  : warAlly.supportVillageId === war.defenderVillageId,
+              ).length === 0 && (
+                <div className="text-sm text-muted-foreground italic">
+                  No supporting forces
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Enemy Town Hall */}
@@ -1242,6 +1280,42 @@ const War: React.FC<{
             showBar={true}
             showNumbers={true}
           />
+          {/* Show enemy supporting factions */}
+          <div className="mt-4">
+            <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {war.warAllies
+                .filter((warAlly) =>
+                  war.attackerVillageId === user.villageId
+                    ? warAlly.supportVillageId === war.defenderVillageId
+                    : warAlly.supportVillageId === war.attackerVillageId,
+                )
+                .map((warAlly) => (
+                  <div
+                    key={warAlly.villageId}
+                    className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
+                  >
+                    <Image
+                      src={warAlly.village.villageGraphic}
+                      alt={warAlly.village.name}
+                      width={20}
+                      height={20}
+                      className="rounded-full"
+                    />
+                    <span className="text-sm">{warAlly.village.name}</span>
+                  </div>
+                ))}
+              {war.warAllies.filter((warAlly) =>
+                war.attackerVillageId === user.villageId
+                  ? warAlly.supportVillageId === war.defenderVillageId
+                  : warAlly.supportVillageId === war.attackerVillageId,
+              ).length === 0 && (
+                <div className="text-sm text-muted-foreground italic">
+                  No supporting forces
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
