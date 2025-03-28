@@ -220,3 +220,19 @@ export const canSurrender = (
   if (relation?.status === "ALLY") return errorResponse("Cannot surrender to ally");
   return { success: true, message: "OK" };
 };
+
+/**
+ * Calculate the consequences of declaring a village as enemy
+ */
+export const calculateEnemyConsequences = (
+  relationships: VillageAlliance[],
+  villages: Village[],
+  sourceVillageId: string,
+  targetVillageId: string,
+) => {
+  const enemy = canEnemy(relationships, villages, sourceVillageId, targetVillageId);
+  const ally = canAlly(relationships, villages, sourceVillageId, targetVillageId);
+  const newEnemies = villages.filter((v) => enemy.newEnemies.includes(v.id));
+  const newNeutrals = villages.filter((v) => enemy.newNeutrals.includes(v.id));
+  return { newEnemies, newNeutrals, enemy, ally };
+};
