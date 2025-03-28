@@ -37,7 +37,7 @@ export const warRouter = createTRPCRouter({
               structures: true,
             },
           },
-          factions: {
+          warAllies: {
             with: {
               village: true,
             },
@@ -365,7 +365,7 @@ export const warRouter = createTRPCRouter({
       if (request.senderId === user.userId) {
         return errorResponse("Cannot accept your own offer");
       }
-      if (activeWar.factions.some((f) => f.villageId === user.villageId)) {
+      if (activeWar.warAllies.some((f) => f.villageId === user.villageId)) {
         return errorResponse("Already joined this war");
       }
       // Final checks
@@ -382,6 +382,7 @@ export const warRouter = createTRPCRouter({
           id: nanoid(),
           warId: activeWar.id,
           villageId: user.villageId,
+          supportVillageId: senderVillage.id,
           tokensPaid: request.value || 0,
         }),
         ctx.drizzle
@@ -469,7 +470,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
           },
         },
       },
-      factions: {
+      warAllies: {
         with: {
           village: true,
         },
@@ -481,7 +482,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
       return (
         war.attackerVillageId === villageId ||
         war.defenderVillageId === villageId ||
-        war.factions.find((f) => f.villageId === villageId)
+        war.warAllies.find((f) => f.villageId === villageId)
       );
     }
     return true;
@@ -500,7 +501,7 @@ export const fetchActiveWar = async (client: DrizzleClient, warId: string) => {
     with: {
       attackerVillage: true,
       defenderVillage: true,
-      factions: {
+      warAllies: {
         with: {
           village: true,
         },
