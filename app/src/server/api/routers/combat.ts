@@ -1045,7 +1045,7 @@ export const initiateBattle = async (
         },
         rankedUserJutsus: {
           with: { jutsu: true },
-          where: (jutsus) => eq(jutsus.equipped, 1),
+          where: (rankedUserJutsus) => eq(rankedUserJutsus.equipped, 1),
           orderBy: (table, { desc }) => [desc(table.level)],
         },
         userQuests: {
