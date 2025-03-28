@@ -7,7 +7,7 @@ import {
   hasUserMiddleware,
 } from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
-import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte, lt } from "drizzle-orm";
+import { eq, or, and, sql, gt, ne, isNotNull, isNull, inArray, gte } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { desc } from "drizzle-orm";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "@/libs/combat/constants";
@@ -854,7 +854,7 @@ export const combatRouter = createTRPCRouter({
 
         // Try to match players
         for (const player of queuedPlayers) {
-          if (!player || !player.userId || !player.rankedLp) {
+          if (!player?.userId || !player?.rankedLp) {
             console.log("Invalid player data:", player);
             continue;
           }
