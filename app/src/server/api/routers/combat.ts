@@ -854,112 +854,119 @@ export const combatRouter = createTRPCRouter({
 
         // Try to match players
         for (const player of queuedPlayers) {
-          if (!player?.userId || !player?.rankedLp) {
-            console.log("Invalid player data:", player);
-            continue;
-          }
-          
-          // Skip if player already matched
-          const stillQueued = await ctx.drizzle
-            .select()
-            .from(rankedPvpQueue)
-            .where(eq(rankedPvpQueue.userId, player.userId))
-            .limit(1);
-          if (!stillQueued[0]) continue;
-
-          // Calculate base range and additional range based on queue time
-          const baseRange = 100;
-          const queueTimeMinutes = (new Date().getTime() - player.createdAt.getTime()) / (1000 * 60);
-          const additionalRange = queueTimeMinutes >= 30 ? 10000 : 
-            queueTimeMinutes >= 5 ? 25 + Math.floor((queueTimeMinutes - 5) / 2) * 25 : 0;
-          const totalRange = baseRange + additionalRange;
-
-          // Find potential opponents considering expanded range
-          const potentialOpponents = queuedPlayers.filter(
-            (opponent) => {
-              if (opponent.userId === player.userId) return false;
-              
-              // Calculate opponent's range
-              const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
-              const opponentAdditionalRange = opponentQueueTimeMinutes >= 30 ? 10000 : 
-                opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
-              const opponentBaseRange = 100;
-              const opponentTotalRange = opponentBaseRange + opponentAdditionalRange;
-
-              // Check if either player is within range of the other
-              const lpDiff = Math.abs(opponent.rankedLp - player.rankedLp);
-              // Allow matching any 1000+ LP players together
-              if (player.rankedLp >= 1000 && opponent.rankedLp >= 1000) {
-                return true;
-              }
-              // Prevent matching players below 300 LP with players above 900 LP
-              if ((player.rankedLp < 300 && opponent.rankedLp > 900) || 
-                  (opponent.rankedLp < 300 && player.rankedLp > 900)) {
-                return false;
-              }
-              return lpDiff <= totalRange || lpDiff <= opponentTotalRange;
-            }
-          );
-
-          console.log(`Potential opponents for ${player.userId} (LP: ${player.rankedLp}, Range: ${totalRange}):`, 
-            potentialOpponents.map(p => ({ userId: p.userId, lp: p.rankedLp }))
-          );
-
-          if (potentialOpponents.length > 0) {
-            // Get the opponent who has been waiting the longest
-            const opponent = potentialOpponents[0];
-            if (!opponent) continue;
-
-            // Double check both players are still in queue
-            const [playerStillQueued, opponentStillQueued] = await Promise.all([
-              ctx.drizzle
-                .select()
-                .from(rankedPvpQueue)
-                .where(eq(rankedPvpQueue.userId, player.userId))
-                .limit(1),
-              ctx.drizzle
-                .select()
-                .from(rankedPvpQueue)
-                .where(eq(rankedPvpQueue.userId, opponent.userId))
-                .limit(1),
-            ]);
-
-            if (!playerStillQueued[0] || !opponentStillQueued[0]) {
-              console.log("One or both players no longer in queue");
+          try {
+            if (!player?.userId || !player?.rankedLp) {
+              console.log("Invalid player data:", player);
               continue;
             }
+            
+            // Skip if player already matched
+            const stillQueued = await ctx.drizzle
+              .select()
+              .from(rankedPvpQueue)
+              .where(eq(rankedPvpQueue.userId, player.userId))
+              .limit(1);
+            if (!stillQueued[0]) continue;
 
-            console.log(`Attempting to match ${player.userId} with ${opponent.userId}`);
+            // Calculate base range and additional range based on queue time
+            const baseRange = 100;
+            const queueTimeMinutes = (new Date().getTime() - player.createdAt.getTime()) / (1000 * 60);
+            const additionalRange = queueTimeMinutes >= 15 ? 10000 : 
+              queueTimeMinutes >= 2 ? 25 + Math.floor((queueTimeMinutes - 2) / 2) * 25 : 0;
+            const totalRange = baseRange + additionalRange;
 
-            const result = await initiateRankedBattle(ctx.drizzle, player.userId, opponent.userId);
+            // Find potential opponents considering expanded range
+            const potentialOpponents = queuedPlayers.filter(
+              (opponent) => {
+                if (opponent.userId === player.userId) return false;
+                
+                // Calculate opponent's range
+                const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
+                const opponentAdditionalRange = opponentQueueTimeMinutes >= 15 ? 10000 : 
+                  opponentQueueTimeMinutes >= 2 ? 25 + Math.floor((opponentQueueTimeMinutes - 2) / 2) * 25 : 0;
+                const opponentTotalRange = baseRange + opponentAdditionalRange;
 
-            if (result.success && result.battleId) {
-              console.log(`Match found! Battle ID: ${result.battleId}`);
-              // Notify both players about the match
-              const pusher = getServerPusher();
-              await Promise.all([
-                pusher.trigger(player.userId, "event", { 
-                  type: "battle", 
-                  battleId: result.battleId 
-                }),
-                pusher.trigger(opponent.userId, "event", { 
-                  type: "battle", 
-                  battleId: result.battleId 
-                }),
+                // Check if either player is within range of the other
+                const lpDiff = Math.abs(opponent.rankedLp - player.rankedLp);
+                // Allow matching any 1000+ LP players together
+                if (player.rankedLp >= 1000 && opponent.rankedLp >= 1000) {
+                  return true;
+                }
+                // Prevent matching players below 300 LP with players above 900 LP
+                if ((player.rankedLp < 300 && opponent.rankedLp > 900) || 
+                    (opponent.rankedLp < 300 && player.rankedLp > 900)) {
+                  return false;
+                }
+                return lpDiff <= totalRange || lpDiff <= opponentTotalRange;
+              }
+            );
+
+            console.log(`Potential opponents for ${player.userId} (LP: ${player.rankedLp}, Range: ${totalRange}):`, 
+              potentialOpponents.map(p => ({ userId: p.userId, lp: p.rankedLp }))
+            );
+
+            if (potentialOpponents.length > 0) {
+              // Get the opponent who has been waiting the longest
+              const opponent = potentialOpponents[0];
+              if (!opponent) continue;
+
+              // Double check both players are still in queue
+              const [playerStillQueued, opponentStillQueued] = await Promise.all([
+                ctx.drizzle
+                  .select()
+                  .from(rankedPvpQueue)
+                  .where(eq(rankedPvpQueue.userId, player.userId))
+                  .limit(1),
+                ctx.drizzle
+                  .select()
+                  .from(rankedPvpQueue)
+                  .where(eq(rankedPvpQueue.userId, opponent.userId))
+                  .limit(1),
               ]);
 
-              return result;
+              if (!playerStillQueued[0] || !opponentStillQueued[0]) {
+                console.log("One or both players no longer in queue");
+                continue;
+              }
+
+              console.log(`Attempting to match ${player.userId} with ${opponent.userId}`);
+
+              const result = await initiateRankedBattle(ctx.drizzle, player.userId, opponent.userId);
+
+              if (result.success && result.battleId) {
+                console.log(`Match found! Battle ID: ${result.battleId}`);
+                // Notify both players about the match
+                const pusher = getServerPusher();
+                await Promise.all([
+                  pusher.trigger(player.userId, "event", { 
+                    type: "battle", 
+                    battleId: result.battleId 
+                  }),
+                  pusher.trigger(opponent.userId, "event", { 
+                    type: "battle", 
+                    battleId: result.battleId 
+                  }),
+                ]);
+
+                return result;
+              } else {
+                console.log("Failed to initiate battle:", result);
+              }
             } else {
-              console.log("Failed to initiate battle:", result);
+              console.log(`No potential opponents found for ${player.userId} (Range: ${totalRange})`);
             }
-          } else {
-            console.log(`No potential opponents found for ${player.userId} (Range: ${totalRange})`);
+          } catch (playerError) {
+            console.error(`Error processing player ${player.userId}:`, playerError);
+            continue;
           }
         }
 
         return { success: true, message: "Checked for matches" };
       } catch (e) {
-        console.log("Error in checkRankedPvpMatches:", e);
+        console.error("Error in checkRankedPvpMatches:", e);
+        if (e instanceof Error) {
+          console.error("Error stack:", e.stack);
+        }
         return errorResponse("An error occurred while checking for matches");
       }
     }),
