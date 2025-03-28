@@ -28,7 +28,7 @@ import {
 } from "@/libs/combat/database";
 import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
-import { userData, questHistory, quest, gameSetting, rankedPvpQueue } from "@/drizzle/schema";
+import { userData, questHistory, quest, gameSetting, rankedPvpQueue, rankedUserJutsu } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
@@ -839,9 +839,10 @@ export const combatRouter = createTRPCRouter({
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx }) => {
       // Get all queued players
-      const queuedPlayers = await ctx.drizzle.query.rankedPvpQueue.findMany({
-        orderBy: desc(rankedPvpQueue.createdAt),
-      });
+      const queuedPlayers = await ctx.drizzle
+        .select()
+        .from(rankedPvpQueue)
+        .orderBy(desc(rankedPvpQueue.createdAt));
 
       console.log("Queued players:", queuedPlayers.map(p => ({ userId: p.userId, lp: p.rankedLp })));
 
@@ -850,10 +851,12 @@ export const combatRouter = createTRPCRouter({
         if (!player) continue;
         
         // Skip if player already matched
-        const stillQueued = await ctx.drizzle.query.rankedPvpQueue.findFirst({
-          where: eq(rankedPvpQueue.userId, player.userId),
-        });
-        if (!stillQueued) continue;
+        const stillQueued = await ctx.drizzle
+          .select()
+          .from(rankedPvpQueue)
+          .where(eq(rankedPvpQueue.userId, player.userId))
+          .limit(1);
+        if (!stillQueued[0]) continue;
 
         // Calculate base range and additional range based on queue time
         const baseRange = 100;
@@ -900,15 +903,19 @@ export const combatRouter = createTRPCRouter({
 
           // Double check both players are still in queue
           const [playerStillQueued, opponentStillQueued] = await Promise.all([
-            ctx.drizzle.query.rankedPvpQueue.findFirst({
-              where: eq(rankedPvpQueue.userId, player.userId),
-            }),
-            ctx.drizzle.query.rankedPvpQueue.findFirst({
-              where: eq(rankedPvpQueue.userId, opponent.userId),
-            }),
+            ctx.drizzle
+              .select()
+              .from(rankedPvpQueue)
+              .where(eq(rankedPvpQueue.userId, player.userId))
+              .limit(1),
+            ctx.drizzle
+              .select()
+              .from(rankedPvpQueue)
+              .where(eq(rankedPvpQueue.userId, opponent.userId))
+              .limit(1),
           ]);
 
-          if (!playerStillQueued || !opponentStillQueued) {
+          if (!playerStillQueued[0] || !opponentStillQueued[0]) {
             console.log("One or both players no longer in queue");
             continue;
           }
@@ -1038,11 +1045,19 @@ export const initiateBattle = async (
           where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
           orderBy: (table, { desc }) => [desc(table.quantity)],
         },
-        jutsus: {
-          with: { jutsu: true },
-          where: (jutsus) => eq(jutsus.equipped, 1),
-          orderBy: (table, { desc }) => [desc(table.level)],
-        },
+        ...(battleType === "RANKED" ? {
+          rankedUserJutsus: {
+            with: { jutsu: true },
+            where: (jutsus: typeof rankedUserJutsu) => eq(jutsus.equipped, 1),
+            orderBy: (table: typeof rankedUserJutsu) => [desc(table.level)],
+          }
+        } : {
+          jutsus: {
+            with: { jutsu: true },
+            where: (jutsus) => eq(jutsus.equipped, 1),
+            orderBy: (table, { desc }) => [desc(table.level)],
+          }
+        }),
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
