@@ -8,7 +8,7 @@ import { MAX_STATS_CAP, MAX_GENS_CAP, USER_CAPS } from "@/drizzle/constants";
 import type { StatType, GeneralType, PoolType, ElementName } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames, GenNames } from "@/libs/combat/constants";
-import type { Jutsu, Item, VillageAlliance, Clan } from "@/drizzle/schema";
+import type { Jutsu, Item, VillageAlliance, Clan, War } from "@/drizzle/schema";
 import type { UserJutsu, UserItem, UserData, AiProfile } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { BattleType } from "@/drizzle/constants";
@@ -31,6 +31,7 @@ export type BattleUserState = UserWithRelations & {
   round: number;
   loadout?: { jutsuIds: string[] } | null;
   relations: VillageAlliance[];
+  wars: War[];
   highestOffence: (typeof StatNames)[number];
   highestDefence: (typeof StatNames)[number];
   highestGenerals: (typeof GenNames)[number][];
