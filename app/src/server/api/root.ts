@@ -38,6 +38,7 @@ import { marriageRouter } from "./routers/marriage";
 import { staffRouter } from "./routers/staff";
 import { backgroundSchemaRouter } from "./routers/backgroundSchema";
 import { linkPromotionRouter } from "./routers/linkpromotion";
+import { warRouter } from "./routers/war";
 
 /**
  * This is the primary router for your server.
@@ -84,6 +85,7 @@ export const appRouter = createTRPCRouter({
   backgroundSchema: backgroundSchemaRouter,
   staff: staffRouter,
   linkPromotion: linkPromotionRouter,
+  war: warRouter,
 });
 
 // export type definition of API
