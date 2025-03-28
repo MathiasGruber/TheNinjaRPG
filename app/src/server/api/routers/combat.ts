@@ -755,69 +755,77 @@ export const combatRouter = createTRPCRouter({
   queueForRankedPvp: protectedProcedure
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx }) => {
-      // Check if user is already in queue
-      const existingQueue = await ctx.drizzle.query.rankedPvpQueue.findFirst({
-        where: eq(rankedPvpQueue.userId, ctx.userId),
-      });
-      if (existingQueue) {
-        return errorResponse("Already in queue");
-      }
-
-      // Get user's current LP
-      const user = await ctx.drizzle.query.userData.findFirst({
-        where: eq(userData.userId, ctx.userId),
-        columns: { rankedLp: true },
-      });
-      if (!user) {
-        return errorResponse("User not found");
-      }
-
-      // Add to queue
-      await ctx.drizzle.insert(rankedPvpQueue).values({
-        id: nanoid(),
-        userId: ctx.userId,
-        rankedLp: user.rankedLp,
-        createdAt: new Date(),
-      });
-
-      // Update user status
-      await ctx.drizzle
-        .update(userData)
-        .set({ status: "QUEUED" })
-        .where(eq(userData.userId, ctx.userId));
-
-      // Try to find a match
-      const baseRange = 100;
-      const potentialOpponents = await ctx.drizzle.query.rankedPvpQueue.findMany({
-        where: ne(rankedPvpQueue.userId, ctx.userId),
-        orderBy: desc(rankedPvpQueue.createdAt),
-      });
-
-      // Find opponent considering queue time
-      for (const opponent of potentialOpponents) {
-        // Calculate additional range based on queue time for both players
-        const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
-        const opponentAdditionalRange = opponentQueueTimeMinutes >= 15 ? 10000 : 
-          opponentQueueTimeMinutes >= 2 ? 25 + Math.floor((opponentQueueTimeMinutes - 2) / 2) * 25 : 0;
-        const opponentTotalRange = baseRange + opponentAdditionalRange;
-
-        // Check if either player is within range of the other
-        const lpDiff = Math.abs(user.rankedLp - opponent.rankedLp);
-        // Allow matching any 1000+ LP players together
-        if (user.rankedLp >= 1000 && opponent.rankedLp >= 1000) {
-          return await initiateRankedBattle(ctx.drizzle, ctx.userId, opponent.userId);
+      try {
+        // Check if user is already in queue
+        const existingQueue = await ctx.drizzle.query.rankedPvpQueue.findFirst({
+          where: eq(rankedPvpQueue.userId, ctx.userId),
+        });
+        if (existingQueue) {
+          return errorResponse("Already in queue");
         }
-        // Prevent matching players below 300 LP with players above 900 LP
-        if ((user.rankedLp < 300 && opponent.rankedLp > 900) || 
-            (opponent.rankedLp < 300 && user.rankedLp > 900)) {
-          continue;
-        }
-        if (lpDiff <= opponentTotalRange) {
-          return await initiateRankedBattle(ctx.drizzle, ctx.userId, opponent.userId);
-        }
-      }
 
-      return { success: true, message: "Queued for ranked PvP" };
+        // Get user's current LP
+        const user = await ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId),
+          columns: { rankedLp: true },
+        });
+        if (!user) {
+          return errorResponse("User not found");
+        }
+
+        // Add to queue
+        await ctx.drizzle.insert(rankedPvpQueue).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          rankedLp: user.rankedLp,
+          createdAt: new Date(),
+        });
+
+        // Update user status
+        await ctx.drizzle
+          .update(userData)
+          .set({ status: "QUEUED" })
+          .where(eq(userData.userId, ctx.userId));
+
+        // Try to find a match
+        const baseRange = 100;
+        const potentialOpponents = await ctx.drizzle.query.rankedPvpQueue.findMany({
+          where: ne(rankedPvpQueue.userId, ctx.userId),
+          orderBy: desc(rankedPvpQueue.createdAt),
+        });
+
+        // Find opponent considering queue time
+        for (const opponent of potentialOpponents) {
+          // Calculate additional range based on queue time for both players
+          const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
+          const opponentAdditionalRange = opponentQueueTimeMinutes >= 15 ? 10000 : 
+            opponentQueueTimeMinutes >= 2 ? 25 + Math.floor((opponentQueueTimeMinutes - 2) / 2) * 25 : 0;
+          const opponentTotalRange = baseRange + opponentAdditionalRange;
+
+          // Check if either player is within range of the other
+          const lpDiff = Math.abs(user.rankedLp - opponent.rankedLp);
+          // Allow matching any 1000+ LP players together
+          if (user.rankedLp >= 1000 && opponent.rankedLp >= 1000) {
+            return await initiateRankedBattle(ctx.drizzle, ctx.userId, opponent.userId);
+          }
+          // Prevent matching players below 300 LP with players above 900 LP
+          if ((user.rankedLp < 300 && opponent.rankedLp > 900) || 
+              (opponent.rankedLp < 300 && user.rankedLp > 900)) {
+            continue;
+          }
+          if (lpDiff <= opponentTotalRange) {
+            return await initiateRankedBattle(ctx.drizzle, ctx.userId, opponent.userId);
+          }
+        }
+
+        return { success: true, message: "Queued for ranked PvP" };
+      } catch (e) {
+        console.error("Error in queueForRankedPvp:", e);
+        if (e instanceof Error) {
+          console.error("Error stack:", e.stack);
+        }
+        return errorResponse("An error occurred while queuing for ranked PvP");
+      }
     }),
   leaveRankedPvpQueue: protectedProcedure
     .output(baseServerResponse)
