@@ -19,7 +19,7 @@ import type { War, WarAlly, Village, VillageAlliance } from "@/drizzle/schema";
  * @returns Whether the village can join the war and a message
  */
 export const canJoinWar = (
-  war: War & { factions: WarAlly[] },
+  war: War & { warAllies: WarAlly[] },
   relationships: VillageAlliance[],
   joiningVillage: Village,
   warringVillage: Village,
@@ -36,7 +36,7 @@ export const canJoinWar = (
   // Checks
   const check1 = joiningVillageId !== war.attackerVillageId;
   const check2 = warringVillageId !== war.defenderVillageId;
-  const check3 = !war.factions.some((f) => f.villageId === joiningVillageId);
+  const check3 = !war.warAllies.some((f) => f.villageId === joiningVillageId);
   const check4 = ["VILLAGE", "HIDEOUT", "TOWN"].includes(joiningVillage.type);
   const check5 = ["NEUTRAL", "ALLY"].includes(status);
   const check = check1 && check2 && check3 && check4 && check5;
@@ -58,7 +58,7 @@ export const canJoinWar = (
  */
 export const handleWarEnd = async (
   activeWar: War & {
-    factions: WarAlly[];
+    warAllies: WarAlly[];
     attackerVillage: Village;
     defenderVillage: Village;
   },
@@ -92,12 +92,12 @@ export const handleWarEnd = async (
 
   // Calculate winning tokens
   let winningPoints = isDraw ? 0 : WAR_VICTORY_TOKEN_BONUS;
-  let winningFactions: string[] = [];
-  if (!isDraw && winnerVillageId && activeWar.factions.length > 0) {
-    winningFactions = activeWar.factions
+  let winningAllies: string[] = [];
+  if (!isDraw && winnerVillageId && activeWar.warAllies.length > 0) {
+    winningAllies = activeWar.warAllies
       .filter((f) => f.villageId === winnerVillageId)
       .map((f) => f.villageId);
-    winningPoints = WAR_VICTORY_TOKEN_BONUS / winningFactions.length;
+    winningPoints = WAR_VICTORY_TOKEN_BONUS / winningAllies.length;
   }
 
   // Run updates
@@ -145,7 +145,7 @@ export const handleWarEnd = async (
             .set({
               tokens: sql`tokens + ${winningPoints}`,
             })
-            .where(inArray(village.id, [...winningFactions, winnerVillageId])),
+            .where(inArray(village.id, [...winningAllies, winnerVillageId])),
           drizzleDB
             .update(village)
             .set({
