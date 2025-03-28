@@ -28,10 +28,13 @@ import { canChallengeKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { KAGE_CHALLENGE_SECS, KAGE_CHALLENGE_MINS } from "@/drizzle/constants";
-import { canAlly, canEnemy } from "@/utils/alliance";
 import { KAGE_RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_COST } from "@/drizzle/constants";
 import { KAGE_MIN_DAYS_IN_VILLAGE } from "@/drizzle/constants";
+import { WAR_DECLARATION_COST, WAR_DAILY_TOKEN_REDUCTION } from "@/drizzle/constants";
+import { WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS } from "@/drizzle/constants";
+import { WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS } from "@/drizzle/constants";
+import { WAR_ALLY_OFFER_MIN } from "@/drizzle/constants";
 import { getSearchValidator } from "@/validators/register";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,6 +44,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { AllianceState } from "@/drizzle/constants";
 import { Input } from "@/components/ui/input";
 import { canJoinWar } from "@/libs/war";
+import { calculateEnemyConsequences } from "@/utils/alliance";
 import {
   Form,
   FormControl,
@@ -845,12 +849,12 @@ const AllianceBlock: React.FC<{
 
   // Permissions
   const isKage = [villageRow.kageId, villageCol.kageId].includes(user?.userId ?? "");
-  const ally = canAlly(relationships, villages, villageRow.id, villageCol.id);
-  const enemy = canEnemy(relationships, villages, villageRow.id, villageCol.id);
-
-  // Consequences of war
-  const newEnemies = villages.filter((v) => enemy.newEnemies.includes(v.id));
-  const newNeutrals = villages.filter((v) => enemy.newNeutrals.includes(v.id));
+  const { ally, enemy, newEnemies, newNeutrals } = calculateEnemyConsequences(
+    relationships,
+    villages,
+    villageRow.id,
+    villageCol.id,
+  );
 
   // Derived
   const doHighlight = [villageRow.id, villageCol.id].includes(user?.villageId ?? "");
@@ -958,10 +962,19 @@ const WarRoom: React.FC<{
   // tRPC utility
   const utils = api.useUtils();
 
+  // State
+  const [warType, setWarType] = useState<"Active" | "Ended">("Active");
+
   // Queries
-  const { data: activeWars, isPending: isLoadingWars } = api.war.getActiveWars.useQuery(
+  const { data: activeWars, isPending: isLoadingActive } =
+    api.war.getActiveWars.useQuery(
+      { villageId: user.villageId ?? "" },
+      { staleTime: 10000, enabled: !!user.villageId && warType === "Active" },
+    );
+
+  const { data: endedWars, isPending: isLoadingEnded } = api.war.getEndedWars.useQuery(
     { villageId: user.villageId ?? "" },
-    { staleTime: 10000, enabled: !!user.villageId },
+    { staleTime: 10000, enabled: !!user.villageId && warType === "Ended" },
   );
 
   const { data: villageData } = api.village.getAlliances.useQuery(undefined, {
@@ -974,6 +987,24 @@ const WarRoom: React.FC<{
       showMutationToast(data);
       if (data.success) {
         await utils.war.getActiveWars.invalidate();
+      }
+    },
+  });
+
+  const { mutate: leaveAlliance } = api.village.leaveAlliance.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.village.getAlliances.invalidate();
+      }
+    },
+  });
+
+  const { mutate: declareEnemy } = api.village.declareEnemy.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.village.getAlliances.invalidate();
       }
     },
   });
@@ -995,7 +1026,15 @@ const WarRoom: React.FC<{
 
   // Checks
   if (!user.villageId) return <Loader explanation="Join a village first" />;
-  if (isLoadingWars) return <Loader explanation="Loading wars" />;
+
+  const WarTypeNavTabs = (
+    <NavTabs
+      id="warTypeSelection"
+      current={warType}
+      options={["Active", "Ended"]}
+      setValue={setWarType}
+    />
+  );
 
   return (
     <>
@@ -1009,59 +1048,205 @@ const WarRoom: React.FC<{
         <p>
           The Wars is where the Kage makes critical decisions about village warfare.
           Here, you can declare war on other villages, hire factions to join your cause,
-          and manage ongoing conflicts. Remember that declaring war costs 15,000 Village
-          Tokens, and each day at war reduces your tokens by 1,000 (increasing by 30%
-          after 3 days and 50% after 7 days).
+          and manage ongoing conflicts. Remember that declaring war costs{" "}
+          {WAR_DECLARATION_COST.toLocaleString()} Village Tokens, and each day at war
+          reduces your tokens by {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()}{" "}
+          (increasing by{" "}
+          {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}% after 3
+          days and {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}
+          % after 7 days).
         </p>
         {isKage && (
           <div className="mt-4">
             <h3 className="font-bold text-lg mb-2">Declare War</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {otherVillages?.map((village) => (
-                <div
-                  key={village.id}
-                  className="border p-4 rounded-lg text-center relative"
-                >
-                  <Image
-                    src={village.villageGraphic}
-                    alt={village.name}
-                    width={100}
-                    height={100}
-                    className="mx-auto mb-2"
-                  />
-                  <p className="font-bold">{village.name}</p>
-                  <Button
-                    className="mt-2 w-full"
-                    onClick={() => declareWar({ targetVillageId: village.id })}
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {otherVillages?.map((village) => {
+                const relationship = findRelationship(
+                  relationships ?? [],
+                  user.villageId ?? "",
+                  village.id,
+                );
+                const status = relationship?.status ?? "NEUTRAL";
+                let textColor = "text-slate-600";
+                if (status === "ALLY") textColor = "text-green-600";
+                if (status === "ENEMY") textColor = "text-red-600";
+
+                return (
+                  <div
+                    key={village.id}
+                    className="border p-4 rounded-lg text-center relative"
                   >
-                    <Swords className="h-5 w-5 mr-2" />
-                    Declare War
-                  </Button>
-                </div>
-              ))}
+                    <p className="font-bold">{village.name}</p>
+                    <Image
+                      src={village.villageGraphic}
+                      alt={village.name}
+                      width={100}
+                      height={100}
+                      className="mx-auto mb-2 aspect-square"
+                    />
+
+                    <p className={`text-sm mb-2 font-semibold ${textColor}`}>
+                      {capitalizeFirstLetter(status)}
+                    </p>
+
+                    {status === "ALLY" && relationship && (
+                      <Confirm
+                        title="Break Alliance"
+                        button={
+                          <Button className="w-full">
+                            <DoorOpen className="h-5 w-5 mr-2" />
+                            Break Alliance
+                          </Button>
+                        }
+                        onAccept={(e) => {
+                          e.preventDefault();
+                          leaveAlliance({ allianceId: relationship.id });
+                        }}
+                      >
+                        <p>
+                          You are about to break your alliance with {village.name}. Are
+                          you sure?
+                        </p>
+                      </Confirm>
+                    )}
+
+                    {status === "NEUTRAL" && (
+                      <Confirm
+                        title="Declare Enemy"
+                        button={
+                          <Button className="w-full">
+                            <Swords className="h-5 w-5 mr-2" />
+                            Declare Enemy
+                          </Button>
+                        }
+                        onAccept={(e) => {
+                          e.preventDefault();
+                          declareEnemy({ villageId: village.id });
+                        }}
+                      >
+                        <p>
+                          You are about to declare {village.name} an enemy. Are you
+                          sure?
+                        </p>
+                        <p>
+                          The cost of declaring a village as enemy is {WAR_FUNDS_COST}{" "}
+                          village tokens.
+                        </p>
+                        {(() => {
+                          const { newEnemies, newNeutrals } =
+                            calculateEnemyConsequences(
+                              relationships,
+                              villages ?? [],
+                              user.villageId ?? "",
+                              village.id,
+                            );
+                          return (
+                            <>
+                              {newEnemies && newEnemies.length > 0 && (
+                                <p>
+                                  <span className="font-bold">
+                                    Additional Enemies:{" "}
+                                  </span>
+                                  <span className="font-normal">
+                                    {newEnemies.map((v) => v.name).join(", ")} will
+                                    become enemies
+                                  </span>
+                                </p>
+                              )}
+                              {newNeutrals && newNeutrals.length > 0 && (
+                                <p>
+                                  <span className="font-bold">Broken Alliances: </span>
+                                  <span className="font-normal">
+                                    {newNeutrals.map((v) => v.name).join(", ")} will
+                                    become neutral
+                                  </span>
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </Confirm>
+                    )}
+
+                    {status === "ENEMY" && (
+                      <Confirm
+                        title="Declare War"
+                        button={
+                          <Button className="w-full">
+                            <Swords className="h-5 w-5 mr-2" />
+                            Declare War
+                          </Button>
+                        }
+                        onAccept={(e) => {
+                          e.preventDefault();
+                          declareWar({ targetVillageId: village.id });
+                        }}
+                      >
+                        <p>
+                          You are about to declare war on {village.name}. Are you sure?
+                        </p>
+                        <p>
+                          The cost of declaring war is{" "}
+                          {WAR_DECLARATION_COST.toLocaleString()} Village Tokens, and
+                          each day at war reduces your tokens by{" "}
+                          {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
+                          {Math.floor(
+                            (WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100,
+                          )}
+                          % after 3 days and{" "}
+                          {Math.floor(
+                            (WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100,
+                          )}
+                          % after 7 days).
+                        </p>
+                      </Confirm>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
       </ContentBox>
 
-      {userVillage && activeWars && activeWars.length > 0 && (
+      {userVillage && (
         <ContentBox
-          title="Active Wars"
-          subtitle="Current Conflicts"
+          title={`${warType} Wars`}
+          subtitle={warType === "Active" ? "Current Conflicts" : "Past Conflicts"}
           initialBreak={true}
+          topRightContent={WarTypeNavTabs}
         >
           <div className="grid grid-cols-1 gap-4">
-            {activeWars?.map((war) => (
-              <War
-                key={war.id}
-                war={war}
-                user={user}
-                villages={villages}
-                relationships={relationships}
-                userVillage={userVillage}
-                isKage={isKage}
-              />
-            ))}
+            {warType === "Active" &&
+              activeWars?.map((war) => (
+                <War
+                  key={war.id}
+                  war={war}
+                  user={user}
+                  villages={villages}
+                  relationships={relationships}
+                  userVillage={userVillage}
+                  isKage={isKage}
+                />
+              ))}
+            {warType === "Active" && activeWars && activeWars.length === 0 && (
+              <p>No active wars</p>
+            )}
+            {warType === "Ended" &&
+              endedWars?.map((war) => (
+                <War
+                  key={war.id}
+                  war={war}
+                  user={user}
+                  villages={villages}
+                  relationships={relationships}
+                  userVillage={userVillage}
+                  isKage={isKage}
+                />
+              ))}
+            {warType === "Ended" && endedWars && endedWars.length === 0 && (
+              <p>No ended wars</p>
+            )}
           </div>
         </ContentBox>
       )}
@@ -1089,7 +1274,7 @@ const War: React.FC<{
       .number()
       .int()
       .positive()
-      .min(1000)
+      .min(WAR_ALLY_OFFER_MIN)
       .max(userVillage?.tokens ?? 0),
   });
 
@@ -1167,6 +1352,7 @@ const War: React.FC<{
       showMutationToast(data);
       if (data.success) {
         await utils.war.getActiveWars.invalidate();
+        await utils.war.getEndedWars.invalidate();
       }
     },
   });
@@ -1197,7 +1383,7 @@ const War: React.FC<{
           </h4>
           <p className="text-sm">Started: {war.startedAt.toLocaleDateString()}</p>
         </div>
-        {isKage && (
+        {isKage && war.status === "ACTIVE" && (
           <Button variant="destructive" onClick={() => surrender({ warId: war.id })}>
             <DoorClosed className="h-5 w-5 mr-2" />
             Surrender
@@ -1319,17 +1505,17 @@ const War: React.FC<{
         </div>
       </div>
 
-      {isKage && (
+      {isKage && war.status === "ACTIVE" && (
         <div className="mt-4">
           <h5 className="font-bold mb-2">Send War Alliance Offers</h5>
           <p className="text-sm text-muted-foreground mb-4">
             Send offers to factions or allied villages to join your war effort.
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {canJoin?.map((village) => (
               <div
                 key={village.id}
-                className="border rounded-lg p-2 hover:bg-slate-100 transition-colors"
+                className="border rounded-lg py-1 px-2 hover:bg-popover transition-colors"
               >
                 <div className="flex items-center space-x-2">
                   <Image
@@ -1368,7 +1554,7 @@ const War: React.FC<{
                               <FormControl>
                                 <Input
                                   type="number"
-                                  placeholder={`Token offer (min 1,000, max ${userVillage?.tokens?.toLocaleString()})`}
+                                  placeholder={`Token offer (min ${WAR_ALLY_OFFER_MIN}, max ${userVillage?.tokens?.toLocaleString()})`}
                                   {...field}
                                   onChange={(e) => {
                                     const value = parseInt(e.target.value);
@@ -1397,23 +1583,28 @@ const War: React.FC<{
           </div>
         </div>
       )}
-      {!user.isOutlaw && warRequests && warRequests.length > 0 && (
-        <ContentBox
-          title="War Ally Offers"
-          subtitle="Sent to or from you"
-          initialBreak={true}
-          padding={false}
-        >
-          <UserRequestSystem
-            isLoading={isHiring || isRejectingOffer || isCancelling || isCreatingOffer}
-            requests={warRequests}
-            userId={user.userId}
-            onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
-            onReject={({ id }) => rejectAllyOffer({ id })}
-            onCancel={({ id }) => cancelAllyOffer({ offerId: id })}
-          />
-        </ContentBox>
-      )}
+      {!user.isOutlaw &&
+        war.status === "ACTIVE" &&
+        warRequests &&
+        warRequests.length > 0 && (
+          <ContentBox
+            title="War Ally Offers"
+            subtitle="Sent to or from you"
+            initialBreak={true}
+            padding={false}
+          >
+            <UserRequestSystem
+              isLoading={
+                isHiring || isRejectingOffer || isCancelling || isCreatingOffer
+              }
+              requests={warRequests}
+              userId={user.userId}
+              onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
+              onReject={({ id }) => rejectAllyOffer({ id })}
+              onCancel={({ id }) => cancelAllyOffer({ offerId: id })}
+            />
+          </ContentBox>
+        )}
     </div>
   );
 };
@@ -1428,10 +1619,19 @@ const FactionRoom: React.FC<{
   // tRPC utility
   const utils = api.useUtils();
 
+  // State
+  const [warType, setWarType] = useState<"Active" | "Ended">("Active");
+
   // Queries
-  const { data: activeWars, isPending: isLoadingWars } = api.war.getActiveWars.useQuery(
+  const { data: activeWars, isPending: isLoadingActive } =
+    api.war.getActiveWars.useQuery(
+      { villageId: user.villageId ?? "" },
+      { staleTime: 10000, enabled: !!user.villageId && warType === "Active" },
+    );
+
+  const { data: endedWars, isPending: isLoadingEnded } = api.war.getEndedWars.useQuery(
     { villageId: user.villageId ?? "" },
-    { staleTime: 10000, enabled: !!user.villageId },
+    { staleTime: 10000, enabled: !!user.villageId && warType === "Ended" },
   );
 
   const { data: requests } = api.war.getAllyOffers.useQuery(undefined, {
@@ -1445,6 +1645,7 @@ const FactionRoom: React.FC<{
         showMutationToast(data);
         if (data.success) {
           await utils.war.getActiveWars.invalidate();
+          await utils.war.getEndedWars.invalidate();
           await utils.war.getAllyOffers.invalidate();
         }
       },
@@ -1475,7 +1676,19 @@ const FactionRoom: React.FC<{
 
   // Checks
   if (!user.villageId) return <Loader explanation="Join a faction first" />;
-  if (isLoadingWars) return <Loader explanation="Loading wars" />;
+  if (isLoadingActive && warType === "Active")
+    return <Loader explanation="Loading active wars" />;
+  if (isLoadingEnded && warType === "Ended")
+    return <Loader explanation="Loading ended wars" />;
+
+  const WarTypeNavTabs = (
+    <NavTabs
+      id="warTypeSelection"
+      current={warType}
+      options={["Active", "Ended"]}
+      setValue={setWarType}
+    />
+  );
 
   return (
     <>
@@ -1495,21 +1708,28 @@ const FactionRoom: React.FC<{
         </p>
       </ContentBox>
 
-      {activeWars && activeWars.length > 0 && (
+      {((warType === "Active" && activeWars && activeWars.length > 0) ||
+        (warType === "Ended" && endedWars && endedWars.length > 0)) && (
         <ContentBox
-          title="Active Wars"
-          subtitle="Current Conflicts"
+          title={`${warType} Wars`}
+          subtitle={warType === "Active" ? "Current Conflicts" : "Past Conflicts"}
           initialBreak={true}
+          topRightContent={WarTypeNavTabs}
         >
           <div className="grid grid-cols-1 gap-4">
-            {activeWars?.map((war) => (
-              <War key={war.id} war={war} user={user} isKage={isLeader} />
-            ))}
+            {warType === "Active" &&
+              activeWars?.map((war) => (
+                <War key={war.id} war={war} user={user} isKage={isLeader} />
+              ))}
+            {warType === "Ended" &&
+              endedWars?.map((war) => (
+                <War key={war.id} war={war} user={user} isKage={isLeader} />
+              ))}
           </div>
         </ContentBox>
       )}
 
-      {isLeader && requests && requests.length > 0 && (
+      {isLeader && warType === "Active" && requests && requests.length > 0 && (
         <ContentBox
           title="War Contract Offers"
           subtitle="Pending war participation requests"
