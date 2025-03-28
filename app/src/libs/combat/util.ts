@@ -32,7 +32,7 @@ import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
-import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
+import type { Item, UserItem, AiProfile, War } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 
 /**
@@ -531,7 +531,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           experience *= streakBonus;
           experience = Math.min(experience, 100);
         }
-      } else if (["CLAN_CHALLENGE", "KAGE_AI", "KAGE_PVP", "TRAINING", "VILLAGE_PROTECTOR"].includes(battleType)) {
+      } else if (
+        [
+          "CLAN_CHALLENGE",
+          "KAGE_AI",
+          "KAGE_PVP",
+          "TRAINING",
+          "VILLAGE_PROTECTOR",
+        ].includes(battleType)
+      ) {
         experience = 0;
       } else if (battleType === "ARENA") {
         experience = Math.min(experience, 20);
@@ -686,8 +694,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         result.money = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.
         // If not, then distribute equally among all stats & generals
-        const statsTotal = Object.values(user.usedStats).reduce((sum, value) => sum + value, 0);
-        const gensTotal = Object.values(user.usedGenerals).reduce((sum, value) => sum + value, 0);
+        const statsTotal = Object.values(user.usedStats).reduce(
+          (sum, value) => sum + value,
+          0,
+        );
+        const gensTotal = Object.values(user.usedGenerals).reduce(
+          (sum, value) => sum + value,
+          0,
+        );
         let total = statsTotal + gensTotal;
         if (total === 0) {
           user.usedStats = {
@@ -699,7 +713,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             genjutsuDefence: 1,
             taijutsuDefence: 1,
             bukijutsuDefence: 1,
-          }
+          };
           user.usedGenerals = {
             strength: 1,
             intelligence: 1,
@@ -713,12 +727,28 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         const gens_cap = USER_CAPS[user.rank].GENS_CAP;
 
         Object.entries(user.usedStats).forEach(([stat, value]) => {
-          assignedExp += distributeExpToStat(user, stat as keyof typeof user.usedStats, value, stats_cap, total, experience, result);
+          assignedExp += distributeExpToStat(
+            user,
+            stat as keyof typeof user.usedStats,
+            value,
+            stats_cap,
+            total,
+            experience,
+            result,
+          );
         });
         Object.entries(user.usedGenerals).forEach(([stat, value]) => {
-          assignedExp += distributeExpToStat(user, stat as keyof typeof user.usedGenerals, value, gens_cap, total, experience, result);
+          assignedExp += distributeExpToStat(
+            user,
+            stat as keyof typeof user.usedGenerals,
+            value,
+            gens_cap,
+            total,
+            experience,
+            result,
+          );
         });
-        
+
         // Experience
         result.experience = Math.floor(assignedExp * 100) / 100;
       }
@@ -936,6 +966,7 @@ export const processUsersForBattle = (info: {
   users: BattleUserState[];
   settings: GameSetting[];
   relations: VillageAlliance[];
+  wars: War[];
   villages: Village[];
   defaultProfile: AiProfile;
   battleType: BattleType;
@@ -943,7 +974,7 @@ export const processUsersForBattle = (info: {
   leftSideUserIds?: string[];
 }) => {
   // Destructure
-  const { users, settings, relations, battleType, hide, leftSideUserIds } = info;
+  const { users, settings, relations, battleType, hide, leftSideUserIds, wars } = info;
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
@@ -1114,7 +1145,7 @@ export const processUsersForBattle = (info: {
       genjutsuDefence: 0,
       taijutsuDefence: 0,
       bukijutsuDefence: 0,
-    }
+    };
     user.usedActions = [];
 
     // If in own village, add defence bonus
@@ -1273,6 +1304,13 @@ export const processUsersForBattle = (info: {
     // Add relevant relations to usersState
     user.relations = relations.filter(
       (r) => r.villageIdA === user.villageId || r.villageIdB === user.villageId,
+    );
+
+    // Add relevant wars to usersState
+    user.wars = wars.filter(
+      (w) =>
+        w.attackerVillageId === user.villageId ||
+        w.defenderVillageId === user.villageId,
     );
 
     // Check if we are in ally village or not
