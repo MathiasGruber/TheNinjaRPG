@@ -19,7 +19,7 @@ export async function GET() {
       with: {
         attackerVillage: true,
         defenderVillage: true,
-        factions: true,
+        warAllies: true,
       },
     });
 
