@@ -1048,8 +1048,8 @@ export const initiateBattle = async (
         ...(battleType === "RANKED" ? {
           rankedUserJutsus: {
             with: { jutsu: true },
-            where: (jutsus: typeof rankedUserJutsu) => eq(jutsus.equipped, 1),
-            orderBy: (table: typeof rankedUserJutsu) => [desc(table.level)],
+            where: (jutsus) => eq(jutsus.equipped, 1),
+            orderBy: (table, { desc }) => [desc(table.level)],
           }
         } : {
           jutsus: {
