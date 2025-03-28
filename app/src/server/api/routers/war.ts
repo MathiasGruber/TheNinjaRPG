@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
-import { eq, and, or, gte } from "drizzle-orm";
+import { eq, and, gte, ne, desc } from "drizzle-orm";
 import { war, village, warAlly, villageStructure } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchVillages, fetchAlliances } from "@/routers/village";
@@ -55,6 +55,13 @@ export const warRouter = createTRPCRouter({
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
       return fetchActiveWars(ctx.drizzle, input.villageId);
+    }),
+
+  // Get ended wars for a village
+  getEndedWars: protectedProcedure
+    .input(z.object({ villageId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return fetchEndedWars(ctx.drizzle, input.villageId);
     }),
 
   // Declare war on another village
@@ -197,6 +204,9 @@ export const warRouter = createTRPCRouter({
       }
       if (!activeWar) {
         return errorResponse("War not found");
+      }
+      if (activeWar.status !== "ACTIVE") {
+        return errorResponse("War is not active");
       }
       if (
         ![activeWar.attackerVillageId, activeWar.defenderVillageId].includes(
@@ -359,6 +369,9 @@ export const warRouter = createTRPCRouter({
       if (!activeWar) {
         return errorResponse("No active war found for the one listing the offer");
       }
+      if (activeWar.status !== "ACTIVE") {
+        return errorResponse("War is not active");
+      }
       if (request.receiverId !== user.userId) {
         return errorResponse("This offer is not for your village");
       }
@@ -427,6 +440,9 @@ export const warRouter = createTRPCRouter({
       }
       if (!activeWar) {
         return errorResponse("Active war was not found");
+      }
+      if (activeWar.status !== "ACTIVE") {
+        return errorResponse("War is not active");
       }
       if (
         ![activeWar.attackerVillageId, activeWar.defenderVillageId].includes(
@@ -507,6 +523,50 @@ export const fetchActiveWar = async (client: DrizzleClient, warId: string) => {
         },
       },
     },
+  });
+};
+
+/**
+ * Fetch ended wars for a village
+ * @param client - The database client
+ * @param villageId - The ID of the village
+ * @returns The ended wars
+ */
+export const fetchEndedWars = async (client: DrizzleClient, villageId?: string) => {
+  const endedWars = await client.query.war.findMany({
+    where: ne(war.status, "ACTIVE"),
+    with: {
+      attackerVillage: {
+        with: {
+          structures: {
+            where: eq(villageStructure.route, "/townhall"),
+          },
+        },
+      },
+      defenderVillage: {
+        with: {
+          structures: {
+            where: eq(villageStructure.route, "/townhall"),
+          },
+        },
+      },
+      warAllies: {
+        with: {
+          village: true,
+        },
+      },
+    },
+    orderBy: [desc(war.endedAt)],
+  });
+  return endedWars.filter((war) => {
+    if (villageId) {
+      return (
+        war.attackerVillageId === villageId ||
+        war.defenderVillageId === villageId ||
+        war.warAllies.find((f) => f.villageId === villageId)
+      );
+    }
+    return true;
   });
 };
 
