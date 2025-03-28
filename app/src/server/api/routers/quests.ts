@@ -350,7 +350,10 @@ export const questsRouter = createTRPCRouter({
         if (questData.questRank !== "A") {
           return errorResponse(`Only A rank missions/crimes are allowed`);
         }
-        if (!user.isOutlaw && !canAccessStructure(user, "/missionhall", sectorVillage)) {
+        if (
+          !user.isOutlaw &&
+          !canAccessStructure(user, "/missionhall", sectorVillage)
+        ) {
           return errorResponse("Must be in your allied village to start quest");
         }
         const current = user?.userQuests?.find(
@@ -408,6 +411,52 @@ export const questsRouter = createTRPCRouter({
           .where(eq(userData.userId, ctx.userId)),
       ]);
       return { success: true, message: `Quest abandoned` };
+    }),
+  deleteAchievement: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Queries - run in parallel
+      const updatedUser = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      const user = updatedUser?.user;
+      // Derived
+      const deleteTypes = ["achievement"];
+      const userQuestEntry = user?.userQuests?.find(
+        (q) => q.questId === input.id && deleteTypes.includes(q.quest.questType),
+      );
+      const badges = userQuestEntry?.quest.content?.reward?.reward_badges;
+      // Guard
+      if (!user) return errorResponse("User does not exist");
+      if (!userQuestEntry) {
+        return errorResponse(`No achievement history entry found with id: ${input.id}`);
+      }
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .delete(questHistory)
+          .where(
+            and(
+              eq(questHistory.questId, input.id),
+              eq(questHistory.userId, ctx.userId),
+            ),
+          ),
+        ...(badges && badges.length > 0
+          ? [
+              ctx.drizzle
+                .delete(userBadge)
+                .where(
+                  and(
+                    eq(userBadge.userId, ctx.userId),
+                    inArray(userBadge.badgeId, badges),
+                  ),
+                ),
+            ]
+          : []),
+      ]);
+      return { success: true, message: `Achievement deleted` };
     }),
   getQuestHistory: protectedProcedure
     .input(
