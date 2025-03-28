@@ -44,5 +44,21 @@ CREATE TABLE "rankedUserJutsu" (
 -- Create an index on userId for faster lookups
 CREATE INDEX "rankedUserJutsu_userId_idx" ON "rankedUserJutsu"("userId");
 
+ALTER TABLE UserJutsu ADD COLUMN rankedEquipped tinyint NOT NULL DEFAULT 0;
+CREATE INDEX Jutsu_rankedEquipped_idx ON UserJutsu (rankedEquipped);
+
 -- Create a unique constraint to prevent duplicate jutsu entries for the same user
 CREATE UNIQUE INDEX "rankedUserJutsu_userId_jutsuId_unique" ON "rankedUserJutsu"("userId", "jutsuId");
+CREATE TABLE RankedUserJutsu (
+  id varchar(191) PRIMARY KEY NOT NULL,
+  userId varchar(191) NOT NULL,
+  jutsuId varchar(191) NOT NULL,
+  createdAt datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
+  updatedAt datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
+  level int NOT NULL DEFAULT 1,
+  equipped tinyint NOT NULL DEFAULT 0,
+  finishTraining datetime(3),
+  UNIQUE KEY RankedUserJutsu_userId_jutsuId_key (userId, jutsuId),
+  INDEX RankedUserJutsu_jutsuId_idx (jutsuId),
+  INDEX RankedUserJutsu_equipped_idx (equipped)
+)
