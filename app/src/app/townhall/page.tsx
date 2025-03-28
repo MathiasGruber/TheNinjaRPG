@@ -1393,23 +1393,25 @@ const War: React.FC<{
 
       <div className="grid grid-cols-2 gap-8 items-center justify-center">
         {/* Our Town Hall */}
-        <div className="text-center">
+        <div className="flex flex-col items-center justify-center">
           <h5 className="font-bold mb-2">Our Town Hall</h5>
-          <Building
-            structure={
-              war.attackerVillageId === user.villageId
-                ? attackerTownHall
-                : defenderTownHall
-            }
-            village={
-              war.attackerVillageId === user.villageId
-                ? war.attackerVillage
-                : war.defenderVillage
-            }
-            textPosition="bottom"
-            showBar={true}
-            showNumbers={true}
-          />
+          <div className="w-full md:w-3/4 lg:w-1/2">
+            <Building
+              structure={
+                war.attackerVillageId === user.villageId
+                  ? attackerTownHall
+                  : defenderTownHall
+              }
+              village={
+                war.attackerVillageId === user.villageId
+                  ? war.attackerVillage
+                  : war.defenderVillage
+              }
+              textPosition="bottom"
+              showBar={true}
+              showNumbers={true}
+            />
+          </div>
           {/* Show our supporting factions */}
           <div className="mt-4">
             <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
@@ -1449,23 +1451,25 @@ const War: React.FC<{
         </div>
 
         {/* Enemy Town Hall */}
-        <div className="text-center">
+        <div className="flex flex-col items-center justify-center">
           <h5 className="font-bold mb-2">Enemy Town Hall</h5>
-          <Building
-            structure={
-              war.attackerVillageId === user.villageId
-                ? defenderTownHall
-                : attackerTownHall
-            }
-            village={
-              war.attackerVillageId === user.villageId
-                ? war.defenderVillage
-                : war.attackerVillage
-            }
-            textPosition="bottom"
-            showBar={true}
-            showNumbers={true}
-          />
+          <div className="w-full md:w-3/4 lg:w-1/2">
+            <Building
+              structure={
+                war.attackerVillageId === user.villageId
+                  ? defenderTownHall
+                  : attackerTownHall
+              }
+              village={
+                war.attackerVillageId === user.villageId
+                  ? war.defenderVillage
+                  : war.attackerVillage
+              }
+              textPosition="bottom"
+              showBar={true}
+              showNumbers={true}
+            />
+          </div>
           {/* Show enemy supporting factions */}
           <div className="mt-4">
             <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
