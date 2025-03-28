@@ -1382,6 +1382,25 @@ const War: React.FC<{
               : war.attackerVillage?.name}
           </h4>
           <p className="text-sm">Started: {war.startedAt.toLocaleDateString()}</p>
+          {war.status !== "ACTIVE" && war.endedAt && (
+            <>
+              <p className="text-sm">Ended: {war.endedAt.toLocaleDateString()}</p>
+              <p
+                className={`font-bold ${war.status === "DRAW" ? "text-yellow-500" : war.status === "ATTACKER_VICTORY" ? (war.attackerVillageId === user.villageId ? "text-green-500" : "text-red-500") : war.defenderVillageId === user.villageId ? "text-green-500" : "text-red-500"}`}
+              >
+                Outcome:{" "}
+                {war.status === "DRAW"
+                  ? "War ended in a Draw"
+                  : war.status === "ATTACKER_VICTORY"
+                    ? war.attackerVillageId === user.villageId
+                      ? "Victory"
+                      : "Defeat"
+                    : war.defenderVillageId === user.villageId
+                      ? "Victory"
+                      : "Defeat"}
+              </p>
+            </>
+          )}
         </div>
         {isKage && war.status === "ACTIVE" && (
           <Button variant="destructive" onClick={() => surrender({ warId: war.id })}>

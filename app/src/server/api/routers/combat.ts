@@ -29,7 +29,7 @@ import {
 import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
 import { userData, questHistory, quest, gameSetting } from "@/drizzle/schema";
-import { battle, battleAction, battleHistory } from "@/drizzle/schema";
+import { battle, battleAction, battleHistory, war } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
@@ -722,12 +722,14 @@ export const initiateBattle = async (
   const [
     activeSchema,
     defaultProfile,
+    activeWars,
     assets,
     settings,
     villages,
     relations,
     achievements,
     users,
+    previousBattleResults,
   ] = await Promise.all([
     // Conditionally Fetch background schema
     client.query.backgroundSchema.findFirst({
@@ -735,6 +737,8 @@ export const initiateBattle = async (
     }),
     // Fetch default AI profile
     fetchAiProfileById(client, "Default"),
+    // Fetch active wars
+    client.select().from(war).where(eq(war.status, "ACTIVE")),
     // Fetch game assets
     fetchGameAssets(client),
     // Fetch game settings
@@ -776,6 +780,28 @@ export const initiateBattle = async (
       },
       where: or(inArray(userData.userId, userIds), inArray(userData.userId, targetIds)),
     }),
+    ...(PvpBattleTypes.includes(battleType)
+      ? [
+          client
+            .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .from(battleHistory)
+            .where(
+              and(
+                or(
+                  and(
+                    inArray(battleHistory.attackedId, userIds),
+                    inArray(battleHistory.defenderId, targetIds),
+                  ),
+                  and(
+                    inArray(battleHistory.attackedId, userIds),
+                    inArray(battleHistory.defenderId, targetIds),
+                  ),
+                ),
+                gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
+              ),
+            ),
+        ]
+      : []),
   ]);
 
   const background = getBackground(info.asset, activeSchema?.schema);
@@ -856,26 +882,8 @@ export const initiateBattle = async (
 
   // Get previous battles between these two users within last 60min
   let rewardScaling = (scaleGains * users.length) / 2;
-  if (PvpBattleTypes.includes(battleType)) {
-    const results = await client
-      .select({ count: sql<number>`count(*)`.mapWith(Number) })
-      .from(battleHistory)
-      .where(
-        and(
-          or(
-            and(
-              inArray(battleHistory.attackedId, userIds),
-              inArray(battleHistory.defenderId, targetIds),
-            ),
-            and(
-              inArray(battleHistory.attackedId, userIds),
-              inArray(battleHistory.defenderId, targetIds),
-            ),
-          ),
-          gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
-        ),
-      );
-    const previousBattles = results?.[0]?.count || 0;
+  if (PvpBattleTypes.includes(battleType) && previousBattleResults) {
+    const previousBattles = previousBattleResults?.[0]?.count || 0;
     if (previousBattles > 0) {
       rewardScaling = rewardScaling / (previousBattles + 1);
     }
@@ -886,6 +894,7 @@ export const initiateBattle = async (
     users: users as BattleUserState[],
     settings: settings,
     relations: relations,
+    wars: activeWars,
     villages: villages,
     defaultProfile: defaultProfile,
     battleType: battleType,
@@ -931,6 +940,7 @@ export const initiateBattle = async (
         users: summons as BattleUserState[],
         settings: settings,
         relations: relations,
+        wars: activeWars,
         villages: villages,
         defaultProfile: defaultProfile,
         battleType: battleType,

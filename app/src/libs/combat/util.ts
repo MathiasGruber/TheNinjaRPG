@@ -33,7 +33,7 @@ import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
-import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
+import type { Item, UserItem, AiProfile, War } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 
 /**
@@ -981,6 +981,7 @@ export const processUsersForBattle = (info: {
   users: BattleUserState[];
   settings: GameSetting[];
   relations: VillageAlliance[];
+  wars: War[];
   villages: Village[];
   defaultProfile: AiProfile;
   battleType: BattleType;
@@ -988,7 +989,7 @@ export const processUsersForBattle = (info: {
   leftSideUserIds?: string[];
 }) => {
   // Destructure
-  const { users, settings, relations, battleType, hide, leftSideUserIds } = info;
+  const { users, settings, relations, battleType, hide, leftSideUserIds, wars } = info;
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
@@ -1315,6 +1316,13 @@ export const processUsersForBattle = (info: {
     // Add relevant relations to usersState
     user.relations = relations.filter(
       (r) => r.villageIdA === user.villageId || r.villageIdB === user.villageId,
+    );
+
+    // Add relevant wars to usersState
+    user.wars = wars.filter(
+      (w) =>
+        w.attackerVillageId === user.villageId ||
+        w.defenderVillageId === user.villageId,
     );
 
     // Check if we are in ally village or not
