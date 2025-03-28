@@ -573,6 +573,9 @@ export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS = 1.5; // 50% increase 
 export const WAR_EXHAUSTION_DURATION_DAYS = 3; // War exhaustion duration
 export const WAR_STRUCTURE_UPGRADE_BLOCK_DAYS = 7; // Structure upgrade block duration
 export const WAR_VICTORY_TOKEN_BONUS = 100000; // Victory bonus tokens
+export const WAR_DECLARATION_COST = 15000; // Cost in village tokens to declare war
+export const WAR_DAILY_TOKEN_REDUCTION = 1000; // Daily token reduction during war
+export const WAR_ALLY_OFFER_MIN = 1000; // Minimum token offer for allies
 export const WAR_STATES = [
   "ACTIVE",
   "ATTACKER_VICTORY",
