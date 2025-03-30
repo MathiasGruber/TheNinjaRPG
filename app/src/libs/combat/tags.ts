@@ -1,7 +1,7 @@
 import { scaleUserStats } from "@/libs/profile";
 import { nanoid } from "nanoid";
 import { isPositiveUserEffect, isNegativeUserEffect } from "./types";
-import { HealTag } from "@/libs/combat/types";
+import { HealTag, IncreaseStatOffenseTag } from "@/libs/combat/types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
@@ -414,7 +414,9 @@ export const increaseStatsOffense = (
   // Create a new effect with offensive stats only
   const offensiveEffect = {
     ...effect,
-    statTypes: ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const,
+    ...IncreaseStatOffenseTag.default({}).parse({
+      statTypes: ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"],
+    }),
   };
   // Modify the effect to only apply to offensive stats
   const originalAdjustStats = adjustStats(offensiveEffect, target);
