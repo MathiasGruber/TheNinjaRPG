@@ -244,6 +244,12 @@ export const getAffected = (effect: UserEffect, type?: "offence" | "defence") =>
   if ("elements" in effect && effect.elements && effect.elements.length > 0) {
     result += ` and elements ${effect.elements.join(", ")}`;
   }
+
+  // Add targeting information
+  if ("targetType" in effect && effect.targetType !== "both") {
+    result += ` (${effect.targetType} only)`;
+  }
+
   return result;
 };
 
@@ -251,100 +257,110 @@ export const getAffected = (effect: UserEffect, type?: "offence" | "defence") =>
 export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   const { power, adverb, qualifier } = getPower(effect);
   const affected = getAffected(effect);
+  const targetType = effect.targetType || "both";
+
   if ("statTypes" in effect || "generalTypes" in effect) {
     if (!effect.isNew && !effect.castThisRound) {
       effect.statTypes?.forEach((stat) => {
         if (stat === "Highest") {
           if (effect.calculation === "static") {
-            switch (target.highestOffence) {
-              case "ninjutsuOffence":
-                target.ninjutsuOffence += power;
-                break;
-              case "genjutsuOffence":
-                target.genjutsuOffence += power;
-                break;
-              case "taijutsuOffence":
-                target.taijutsuOffence += power;
-                break;
-              case "bukijutsuOffence":
-                target.bukijutsuOffence += power;
-                break;
+            if (targetType === "offence" || targetType === "both") {
+              switch (target.highestOffence) {
+                case "ninjutsuOffence":
+                  target.ninjutsuOffence += power;
+                  break;
+                case "genjutsuOffence":
+                  target.genjutsuOffence += power;
+                  break;
+                case "taijutsuOffence":
+                  target.taijutsuOffence += power;
+                  break;
+                case "bukijutsuOffence":
+                  target.bukijutsuOffence += power;
+                  break;
+              }
             }
-            switch (target.highestDefence) {
-              case "ninjutsuDefence":
-                target.ninjutsuDefence += power;
-                break;
-              case "genjutsuDefence":
-                target.genjutsuDefence += power;
-                break;
-              case "taijutsuDefence":
-                target.taijutsuDefence += power;
-                break;
-              case "bukijutsuDefence":
-                target.bukijutsuDefence += power;
-                break;
+            if (targetType === "defence" || targetType === "both") {
+              switch (target.highestDefence) {
+                case "ninjutsuDefence":
+                  target.ninjutsuDefence += power;
+                  break;
+                case "genjutsuDefence":
+                  target.genjutsuDefence += power;
+                  break;
+                case "taijutsuDefence":
+                  target.taijutsuDefence += power;
+                  break;
+                case "bukijutsuDefence":
+                  target.bukijutsuDefence += power;
+                  break;
+              }
             }
           } else if (effect.calculation === "percentage") {
-            switch (target.highestOffence) {
-              case "ninjutsuOffence":
-                target.ninjutsuOffence *= (100 + power) / 100;
-                break;
-              case "genjutsuOffence":
-                target.genjutsuOffence *= (100 + power) / 100;
-                break;
-              case "taijutsuOffence":
-                target.taijutsuOffence *= (100 + power) / 100;
-                break;
-              case "bukijutsuOffence":
-                target.bukijutsuOffence *= (100 + power) / 100;
-                break;
+            if (targetType === "offence" || targetType === "both") {
+              switch (target.highestOffence) {
+                case "ninjutsuOffence":
+                  target.ninjutsuOffence *= (100 + power) / 100;
+                  break;
+                case "genjutsuOffence":
+                  target.genjutsuOffence *= (100 + power) / 100;
+                  break;
+                case "taijutsuOffence":
+                  target.taijutsuOffence *= (100 + power) / 100;
+                  break;
+                case "bukijutsuOffence":
+                  target.bukijutsuOffence *= (100 + power) / 100;
+                  break;
+              }
             }
-            switch (target.highestDefence) {
-              case "ninjutsuDefence":
-                target.ninjutsuDefence *= (100 + power) / 100;
-                break;
-              case "genjutsuDefence":
-                target.genjutsuDefence *= (100 + power) / 100;
-                break;
-              case "taijutsuDefence":
-                target.taijutsuDefence *= (100 + power) / 100;
-                break;
-              case "bukijutsuDefence":
-                target.bukijutsuDefence *= (100 + power) / 100;
-                break;
+            if (targetType === "defence" || targetType === "both") {
+              switch (target.highestDefence) {
+                case "ninjutsuDefence":
+                  target.ninjutsuDefence *= (100 + power) / 100;
+                  break;
+                case "genjutsuDefence":
+                  target.genjutsuDefence *= (100 + power) / 100;
+                  break;
+                case "taijutsuDefence":
+                  target.taijutsuDefence *= (100 + power) / 100;
+                  break;
+                case "bukijutsuDefence":
+                  target.bukijutsuDefence *= (100 + power) / 100;
+                  break;
+              }
             }
           }
         } else if (stat === "Ninjutsu") {
           if (effect.calculation === "static") {
-            target.ninjutsuOffence += power;
-            target.ninjutsuDefence += power;
+            if (targetType === "offence" || targetType === "both") target.ninjutsuOffence += power;
+            if (targetType === "defence" || targetType === "both") target.ninjutsuDefence += power;
           } else if (effect.calculation === "percentage") {
-            target.ninjutsuOffence *= (100 + power) / 100;
-            target.ninjutsuDefence *= (100 + power) / 100;
+            if (targetType === "offence" || targetType === "both") target.ninjutsuOffence *= (100 + power) / 100;
+            if (targetType === "defence" || targetType === "both") target.ninjutsuDefence *= (100 + power) / 100;
           }
         } else if (stat === "Genjutsu") {
           if (effect.calculation === "static") {
-            target.genjutsuOffence += power;
-            target.genjutsuDefence += power;
+            if (targetType === "offence" || targetType === "both") target.genjutsuOffence += power;
+            if (targetType === "defence" || targetType === "both") target.genjutsuDefence += power;
           } else if (effect.calculation === "percentage") {
-            target.genjutsuOffence *= (100 + power) / 100;
-            target.genjutsuDefence *= (100 + power) / 100;
+            if (targetType === "offence" || targetType === "both") target.genjutsuOffence *= (100 + power) / 100;
+            if (targetType === "defence" || targetType === "both") target.genjutsuDefence *= (100 + power) / 100;
           }
         } else if (stat === "Taijutsu") {
           if (effect.calculation === "static") {
-            target.taijutsuOffence += power;
-            target.taijutsuDefence += power;
+            if (targetType === "offence" || targetType === "both") target.taijutsuOffence += power;
+            if (targetType === "defence" || targetType === "both") target.taijutsuDefence += power;
           } else if (effect.calculation === "percentage") {
-            target.taijutsuOffence *= (100 + power) / 100;
-            target.taijutsuDefence *= (100 + power) / 100;
+            if (targetType === "offence" || targetType === "both") target.taijutsuOffence *= (100 + power) / 100;
+            if (targetType === "defence" || targetType === "both") target.taijutsuDefence *= (100 + power) / 100;
           }
         } else if (stat === "Bukijutsu") {
           if (effect.calculation === "static") {
-            target.bukijutsuOffence += power;
-            target.bukijutsuDefence += power;
+            if (targetType === "offence" || targetType === "both") target.bukijutsuOffence += power;
+            if (targetType === "defence" || targetType === "both") target.bukijutsuDefence += power;
           } else if (effect.calculation === "percentage") {
-            target.bukijutsuOffence *= (100 + power) / 100;
-            target.bukijutsuDefence *= (100 + power) / 100;
+            if (targetType === "offence" || targetType === "both") target.bukijutsuOffence *= (100 + power) / 100;
+            if (targetType === "defence" || targetType === "both") target.bukijutsuDefence *= (100 + power) / 100;
           }
         }
       });
