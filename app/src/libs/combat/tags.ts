@@ -411,10 +411,13 @@ export const increaseStatsOffense = (
   if (preventTag && preventTag.createdRound < effect.createdRound) {
     if (!pass) return preventResponse(effect, target, "cannot be buffed");
   }
-  // Override statTypes to only include offensive stats
-  effect.statTypes = ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"];
+  // Create a new effect with offensive stats only
+  const offensiveEffect = {
+    ...effect,
+    statTypes: ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const,
+  };
   // Modify the effect to only apply to offensive stats
-  const originalAdjustStats = adjustStats(effect, target);
+  const originalAdjustStats = adjustStats(offensiveEffect, target);
   if (originalAdjustStats) {
     originalAdjustStats.txt = originalAdjustStats.txt.replace("stats", "offensive stats");
   }
