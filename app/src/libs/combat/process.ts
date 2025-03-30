@@ -7,7 +7,7 @@ import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
 import { absorb, reflect, recoil, lifesteal, drain, shield, poison } from "./tags";
-import { increaseStats, decreaseStats, copy, mirror } from "./tags";
+import { increaseStats, increaseStatsOffense, decreaseStats, copy, mirror } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
 import { increaseHealGiven, decreaseHealGiven } from "./tags";
