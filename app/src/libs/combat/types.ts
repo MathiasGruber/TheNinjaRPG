@@ -362,6 +362,15 @@ export const IncreaseStatTag = z.object({
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
 
+export const IncreaseStatOffenseTag = z.object({
+  ...BaseAttributes,
+  ...IncludeStats,
+  ...PowerAttributes,
+  type: z.literal("increasestatoffense").default("increasestatoffense"),
+  description: msg("Increase offensive stats of target"),
+  calculation: z.enum(["static", "percentage"]).default("percentage"),
+});
+
 export const DecreaseStatTag = z.object({
   ...BaseAttributes,
   ...IncludeStats,
@@ -727,6 +736,7 @@ export const WeaknessTag = z.object({
   dmgModifier: z.coerce.number().min(1).max(50).default(1).optional(),
 });
 export type WeaknessTagType = z.infer<typeof WeaknessTag>;
+export type IncreaseStatOffenseTagType = z.infer<typeof IncreaseStatOffenseTag>;
 
 export const UnknownTag = z.object({
   ...BaseAttributes,
@@ -774,6 +784,7 @@ export const AllTags = z.union([
   IncreaseMarriageSlots.default({}),
   IncreasePoolCostTag.default({}),
   IncreaseStatTag.default({}),
+  IncreaseStatOffenseTag.default({}),
   LifeStealTag.default({}),
   MirrorTag.default({}),
   MovePreventTag.default({}),

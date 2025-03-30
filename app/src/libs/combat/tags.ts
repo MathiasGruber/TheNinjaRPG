@@ -402,6 +402,25 @@ export const increaseStats = (
   return adjustStats(effect, target);
 };
 
+export const increaseStatsOffense = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
+  // Override statTypes to only include offensive stats
+  effect.statTypes = ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"];
+  // Modify the effect to only apply to offensive stats
+  const originalAdjustStats = adjustStats(effect, target);
+  if (originalAdjustStats) {
+    originalAdjustStats.txt = originalAdjustStats.txt.replace("stats", "offensive stats");
+  }
+  return originalAdjustStats;
+};
+
 export const decreaseStats = (
   effect: UserEffect,
   usersEffects: UserEffect[],

@@ -621,6 +621,8 @@ export const applySingleEffect = (
           info = absorb(effect, usersEffects, consequences, curTarget);
         } else if (effect.type === "increasestat") {
           info = increaseStats(effect, newUsersEffects, curTarget);
+        } else if (effect.type === "increasestatoffense") {
+          info = increaseStatsOffense(effect, newUsersEffects, curTarget);
         } else if (effect.type === "decreasestat") {
           info = decreaseStats(effect, newUsersEffects, curTarget);
         } else if (effect.type === "increasedamagetaken") {
