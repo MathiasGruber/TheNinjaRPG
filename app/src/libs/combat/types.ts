@@ -358,8 +358,9 @@ export const IncreaseStatTag = z.object({
   ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("increasestat").default("increasestat"),
-  description: msg("Increase stats of target"),
+  description: msg("Increase target's stats (offense, defense, or both)"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
+  targetType: z.enum(["offence", "defence", "both"]).default("both"),
 });
 
 export const DecreaseStatTag = z.object({
@@ -367,8 +368,9 @@ export const DecreaseStatTag = z.object({
   ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("decreasestat").default("decreasestat"),
-  description: msg("Decrease stats of target"),
+  description: msg("Decrease target's stats (offense, defense, or both)"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
+  targetType: z.enum(["offence", "defence", "both"]).default("both"),
 });
 
 export const BarrierTag = z.object({
