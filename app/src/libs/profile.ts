@@ -164,6 +164,9 @@ export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
       case "ELDER":
         return "Outlaw Council";
     }
+  } 
+  else if (user.rank === "ELITE JONIN"){
+    return "Elite Jonin";
   }
   return capitalizeFirstLetter(user.rank);
 };
