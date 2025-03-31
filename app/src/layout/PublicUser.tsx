@@ -788,7 +788,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             <TabsContent value="nindo">
               <ContentBox
                 title="Nindo"
-                subtitle={`${profile.username}&apos;s Ninja Way`}
+                subtitle={`${profile.username}'s Ninja Way`}
                 initialBreak={true}
                 topRightContent={
                   <div className="flex flex-row gap-1">
