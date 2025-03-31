@@ -200,12 +200,12 @@ const ElderHall: React.FC<{
           />
           {targetUser && (
             <div>
-              {targetUser.rank !== "JONIN" && (
+              {(targetUser.rank !== "JONIN" && targetUser.rank !== "ELITE JONIN") && (
                 <p className="text-red-500 font-bold text-center pt-2">
-                  User must be Jonin!
+                  User must be at least Jonin!
                 </p>
               )}
-              {targetUser.rank === "JONIN" && (
+              {(targetUser.rank === "JONIN" || targetUser.rank === "ELITE JONIN") && (
                 <Button
                   id="challenge"
                   className="mt-2 w-full"
