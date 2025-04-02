@@ -116,6 +116,8 @@ export type CombatResult = {
   friendsLeft: number;
   targetsLeft: number;
   villageTokens: number;
+  townhallChangeHP: number;
+  townhallInfo: Record<string, number>;
   clanPoints: number;
   notifications: string[];
 };

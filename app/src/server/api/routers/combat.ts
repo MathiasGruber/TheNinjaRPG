@@ -25,6 +25,7 @@ import {
   updateKage,
   updateClanLeaders,
   updateTournament,
+  updateWars,
 } from "@/libs/combat/database";
 import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
@@ -139,7 +140,10 @@ export const combatRouter = createTRPCRouter({
 
           // Update user
           if (result) {
-            await updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId);
+            await Promise.all([
+              updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId),
+              updateWars(ctx.drizzle, userBattle, result, ctx.userId),
+            ]);
           }
 
           // Hide private state of non-session user
@@ -452,6 +456,7 @@ export const combatRouter = createTRPCRouter({
               updateKage(db, newBattle, result, suid),
               updateClanLeaders(db, newBattle, result, suid),
               updateVillageAnbuClan(db, newBattle, result, suid),
+              updateWars(db, newBattle, result, suid),
               updateTournament(db, newBattle, result, suid),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
