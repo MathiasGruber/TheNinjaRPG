@@ -7,7 +7,7 @@ import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchVillages, fetchAlliances } from "@/routers/village";
 import { nanoid } from "nanoid";
 import type { DrizzleClient } from "@/server/db";
-import { handleWarEnd, canJoinWar } from "@/libs/war";
+import { handleWarEnd, canJoinWar, resetWartimeTownhalls } from "@/libs/war";
 import { sql } from "drizzle-orm";
 import {
   insertRequest,
@@ -17,44 +17,15 @@ import {
 } from "@/routers/sparring";
 import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
+import type { War, WarAlly, Village, VillageStructure } from "@/drizzle/schema";
 import type { RouterOutputs } from "@/app/_trpc/client";
 
 export const warRouter = createTRPCRouter({
-  // Get war status including structure HP
-  getWarStatus: protectedProcedure
-    .input(z.object({ warId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const warWithVillageAndStructures = await ctx.drizzle.query.war.findFirst({
-        where: eq(war.id, input.warId),
-        with: {
-          attackerVillage: {
-            with: {
-              structures: true,
-            },
-          },
-          defenderVillage: {
-            with: {
-              structures: true,
-            },
-          },
-          warAllies: {
-            with: {
-              village: true,
-            },
-          },
-        },
-      });
-      if (!warWithVillageAndStructures) {
-        return errorResponse("War not found");
-      }
-      return warWithVillageAndStructures;
-    }),
-
   // Get active wars for a village
   getActiveWars: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
-      return fetchActiveWars(ctx.drizzle, input.villageId);
+      return await fetchActiveWars(ctx.drizzle, input.villageId);
     }),
 
   // Get ended wars for a village
@@ -469,7 +440,8 @@ export const warRouter = createTRPCRouter({
  * @returns The active wars
  */
 export const fetchActiveWars = async (client: DrizzleClient, villageId?: string) => {
-  const activeWars = await client.query.war.findMany({
+  // Fetch from database the active ones
+  const rawWars = await client.query.war.findMany({
     where: eq(war.status, "ACTIVE"),
     with: {
       attackerVillage: {
@@ -493,7 +465,31 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
       },
     },
   });
-  return activeWars.filter((war) => {
+  // Process the wars and end the ones that need to be ended
+  const processedWars = await Promise.all(
+    rawWars.map((war) => {
+      // If townhall is destroyed, set tokens to 0 (without updating database), which will trigger war end
+      const attackerTownhall = war.attackerVillage.structures.find(
+        (s) => s.route === "/townhall",
+      );
+      const defenderTownhall = war.defenderVillage.structures.find(
+        (s) => s.route === "/townhall",
+      );
+      if (attackerTownhall && attackerTownhall.curSp <= 0) {
+        war.attackerVillage.tokens = 0;
+      }
+      if (defenderTownhall && defenderTownhall.curSp <= 0) {
+        war.defenderVillage.tokens = 0;
+      }
+      // Update war
+      if (war.attackerVillage.tokens <= 0 || war.defenderVillage.tokens <= 0) {
+        return handleWarEnd(war);
+      }
+      return war;
+    }),
+  );
+  // Final active wars
+  const activeWars = processedWars.filter((war) => {
     if (villageId) {
       return (
         war.attackerVillageId === villageId ||
@@ -501,8 +497,18 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
         war.warAllies.find((f) => f.villageId === villageId)
       );
     }
-    return true;
+    return war.status === "ACTIVE";
   });
+  // Reset wartime townhalls
+  await resetWartimeTownhalls(activeWars);
+  // Return active wars
+  return activeWars;
+};
+
+export type FetchActiveWarsReturnType = War & {
+  warAllies: (WarAlly & { village: Village })[];
+  attackerVillage: Village & { structures: VillageStructure[] };
+  defenderVillage: Village & { structures: VillageStructure[] };
 };
 
 /**
@@ -515,8 +521,20 @@ export const fetchActiveWar = async (client: DrizzleClient, warId: string) => {
   return await client.query.war.findFirst({
     where: and(eq(war.id, warId), eq(war.status, "ACTIVE")),
     with: {
-      attackerVillage: true,
-      defenderVillage: true,
+      attackerVillage: {
+        with: {
+          structures: {
+            where: eq(villageStructure.route, "/townhall"),
+          },
+        },
+      },
+      defenderVillage: {
+        with: {
+          structures: {
+            where: eq(villageStructure.route, "/townhall"),
+          },
+        },
+      },
       warAllies: {
         with: {
           village: true,
