@@ -567,6 +567,16 @@ export const FED_EVENT_ITEMS_DEFAULT = 10;
 export const MISSIONS_PER_DAY = 9;
 
 // War config
+export const WAR_TOWNHALL_HP_REMOVE = 20;
+export const WAR_TOWNHALL_HP_RECOVER = 10;
+export const WAR_TOWNHALL_HP_ANBU_REMOVE = 40;
+export const WAR_TOWNHALL_HP_ANBU_RECOVER = 20;
+export const WAR_TOWNHALL_HP_ELDER_REMOVE = 50;
+export const WAR_TOWNHALL_HP_ELDER_RECOVER = 40;
+export const WAR_TOWNHALL_HP_KAGE_REMOVE = 80;
+export const WAR_TOWNHALL_HP_KAGE_RECOVER = 70;
+export const WAR_TOWNHALL_HP_KAGEDEATH_REMOVE = 100;
+
 export const WAR_TOKEN_REDUCTION_INTERVAL_HOURS = 24; // How often tokens should be reduced
 export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS = 1.3; // 30% increase after 3 days
 export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS = 1.5; // 50% increase after 7 days

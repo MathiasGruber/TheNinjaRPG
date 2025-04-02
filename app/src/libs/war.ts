@@ -1,25 +1,50 @@
 import { drizzleDB } from "@/server/db";
 import { war, village, villageStructure, userRequest } from "@/drizzle/schema";
+import { userData, notification } from "@/drizzle/schema";
 import { eq, and, or } from "drizzle-orm";
-import { sql, inArray } from "drizzle-orm";
+import { sql, inArray, notInArray } from "drizzle-orm";
 import {
   WAR_EXHAUSTION_DURATION_DAYS,
   WAR_STRUCTURE_UPGRADE_BLOCK_DAYS,
   WAR_VICTORY_TOKEN_BONUS,
 } from "@/drizzle/constants";
+import type { WarState } from "@/drizzle/constants";
+import { TERR_BOT_ID } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
-import type { War, WarAlly, Village, VillageAlliance } from "@/drizzle/schema";
+import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
+import type { Village, VillageAlliance } from "@/drizzle/schema";
+
+/**
+ * Resets the wartime townhalls
+ * @param activeWars - The active wars
+ */
+export const resetWartimeTownhalls = async (
+  activeWars: FetchActiveWarsReturnType[],
+) => {
+  const villagesInWars = activeWars.flatMap((war) => [
+    war.attackerVillageId,
+    war.defenderVillageId,
+  ]);
+  await drizzleDB
+    .update(villageStructure)
+    .set({ curSp: sql`maxSp` })
+    .where(
+      villagesInWars.length > 0
+        ? notInArray(villageStructure.villageId, villagesInWars)
+        : undefined,
+    );
+};
 
 /**
  * Checks if a village can join a war
- * @param war - The war to check
+ * @param activeWar - The war to check
  * @param relationships - The relationships between villages
  * @param joiningVillage - The village to join the war
  * @param warringVillage - The village to war against
  * @returns Whether the village can join the war and a message
  */
 export const canJoinWar = (
-  war: War & { warAllies: WarAlly[] },
+  activeWar: FetchActiveWarsReturnType,
   relationships: VillageAlliance[],
   joiningVillage: Village,
   warringVillage: Village,
@@ -34,9 +59,9 @@ export const canJoinWar = (
   );
   const status = relationship?.status || "NEUTRAL";
   // Checks
-  const check1 = joiningVillageId !== war.attackerVillageId;
-  const check2 = warringVillageId !== war.defenderVillageId;
-  const check3 = !war.warAllies.some((f) => f.villageId === joiningVillageId);
+  const check1 = joiningVillageId !== activeWar.attackerVillageId;
+  const check2 = warringVillageId !== activeWar.defenderVillageId;
+  const check3 = !activeWar.warAllies.some((f) => f.villageId === joiningVillageId);
   const check4 = ["VILLAGE", "HIDEOUT", "TOWN"].includes(joiningVillage.type);
   const check5 = ["NEUTRAL", "ALLY"].includes(status);
   const check = check1 && check2 && check3 && check4 && check5;
@@ -56,13 +81,7 @@ export const canJoinWar = (
  * @param war - The war to handle
  * @returns
  */
-export const handleWarEnd = async (
-  activeWar: War & {
-    warAllies: WarAlly[];
-    attackerVillage: Village;
-    defenderVillage: Village;
-  },
-) => {
+export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
   // Timer calculations
   const endedAt = new Date();
   const warExhaustionEnd = new Date(
@@ -84,7 +103,7 @@ export const handleWarEnd = async (
     winnerVillageId === activeWar.attackerVillage.id
       ? activeWar.defenderVillage.id
       : activeWar.attackerVillage.id;
-  const status = isDraw
+  const status: WarState = isDraw
     ? "DRAW"
     : winnerVillageId === activeWar.attackerVillage.id
       ? "ATTACKER_VICTORY"
@@ -100,9 +119,26 @@ export const handleWarEnd = async (
     winningPoints = WAR_VICTORY_TOKEN_BONUS / winningAllies.length;
   }
 
+  let notificationContent = `War between ${activeWar.attackerVillage.name} and ${activeWar.defenderVillage.name} has ended. `;
+  if (isDraw) {
+    notificationContent += `The result was a draw.`;
+  } else if (status === "ATTACKER_VICTORY") {
+    notificationContent += `${activeWar.attackerVillage.name} won the war and received ${winningPoints} tokens. `;
+  } else {
+    notificationContent += `${activeWar.defenderVillage.name} won the war and received ${winningPoints} tokens. `;
+  }
+
   // Run updates
   await Promise.all([
     drizzleDB.update(war).set({ status, endedAt }).where(eq(war.id, activeWar.id)),
+    drizzleDB.insert(notification).values({
+      userId: TERR_BOT_ID,
+      content: notificationContent,
+    }),
+    drizzleDB
+      .update(userData)
+      .set({ unreadNotifications: sql`unreadNotifications + 1` })
+      .where(inArray(userData.villageId, [loserVillageId, winnerVillageId])),
     drizzleDB
       .delete(userRequest)
       .where(
@@ -162,4 +198,7 @@ export const handleWarEnd = async (
             .where(eq(villageStructure.villageId, loserVillageId)),
         ]),
   ]);
+
+  // Return updated war
+  return { ...activeWar, status, endedAt } as FetchActiveWarsReturnType;
 };

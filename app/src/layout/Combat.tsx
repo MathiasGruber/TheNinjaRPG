@@ -661,6 +661,22 @@ const Combat: React.FC<CombatProps> = (props) => {
               {result.strength > 0 && <p>Strength: {result.strength.toFixed(2)}</p>}
               {result.willpower > 0 && <p>Willpower: {result.willpower.toFixed(2)}</p>}
               {result.speed > 0 && <p>Speed: {result.speed.toFixed(2)}</p>}
+              {Object.entries(result.townhallInfo).map(([villageName, change]) => {
+                const key = `${villageName}-${change}`;
+                if (change > 0) {
+                  return (
+                    <p key={key} className="text-green-500">
+                      {villageName} Townhall HP: +{change.toFixed(2)}
+                    </p>
+                  );
+                } else if (change < 0) {
+                  return (
+                    <p key={key} className="text-red-500">
+                      {villageName} Townhall HP: {change.toFixed(2)}
+                    </p>
+                  );
+                }
+              })}
             </div>
             <div className="p-5 flex flex-row justify-center gap-2">
               <Link

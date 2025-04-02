@@ -9,6 +9,7 @@ import {
   userItem,
   userJutsu,
   mpvpBattleQueue,
+  villageStructure,
 } from "@/drizzle/schema";
 import { kageDefendedChallenges, village, clan, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
@@ -266,6 +267,36 @@ export const updateClanLeaders = async (
           or(eq(village.type, "HIDEOUT"), eq(village.type, "TOWN")),
         ),
       ),
+  ]);
+};
+
+export const updateWars = async (
+  client: DrizzleClient,
+  curBattle: CompleteBattle,
+  result: CombatResult | null,
+  userId: string,
+) => {
+  // Fetch
+  const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
+  // Guard
+  if (!result) return;
+  if (!user) return;
+  if (!user.villageId) return;
+  // Mutate
+  await Promise.all([
+    ...(result.townhallChangeHP !== 0
+      ? [
+          client
+            .update(villageStructure)
+            .set({ curSp: sql`LEAST(maxSp, curSp + ${result.townhallChangeHP})` })
+            .where(
+              and(
+                eq(villageStructure.villageId, user.villageId),
+                eq(villageStructure.route, "/townhall"),
+              ),
+            ),
+        ]
+      : []),
   ]);
 };
 

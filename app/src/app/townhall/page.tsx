@@ -52,7 +52,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import type { GetActiveWarsReturnType } from "@/server/api/routers/war";
+import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 
 export default function TownHall() {
   const { data: userData } = useRequiredUserData();
@@ -1258,7 +1258,7 @@ const WarRoom: React.FC<{
  * War Component
  */
 const War: React.FC<{
-  war: GetActiveWarsReturnType[number];
+  war: FetchActiveWarsReturnType;
   user: NonNullable<UserWithRelations>;
   villages?: Village[];
   relationships?: VillageAlliance[];
@@ -1414,7 +1414,7 @@ const War: React.FC<{
         {/* Our Town Hall */}
         <div className="flex flex-col items-center justify-center">
           <h5 className="font-bold mb-2">Our Town Hall</h5>
-          <div className="w-full md:w-3/4 lg:w-1/2">
+          <div className="w-full md:w-3/5 lg:w-3/4">
             <Building
               structure={
                 war.attackerVillageId === user.villageId
@@ -1427,8 +1427,8 @@ const War: React.FC<{
                   : war.defenderVillage
               }
               textPosition="bottom"
-              showBar={true}
-              showNumbers={true}
+              showBar={war.status === "ACTIVE"}
+              showNumbers={war.status === "ACTIVE"}
             />
           </div>
           {/* Show our supporting factions */}
@@ -1441,19 +1441,19 @@ const War: React.FC<{
                     ? warAlly.supportVillageId === war.attackerVillageId
                     : warAlly.supportVillageId === war.defenderVillageId,
                 )
-                .map((faction) => (
+                .map((warAlly) => (
                   <div
-                    key={faction.villageId}
+                    key={warAlly.villageId}
                     className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
                   >
                     <Image
-                      src={faction.village.villageGraphic}
-                      alt={faction.village.name}
+                      src={warAlly.village.villageGraphic}
+                      alt={warAlly.village.name}
                       width={20}
                       height={20}
                       className="rounded-full"
                     />
-                    <span className="text-sm">{faction.village.name}</span>
+                    <span className="text-sm">{warAlly.village.name}</span>
                   </div>
                 ))}
               {war.warAllies.filter((warAlly) =>
@@ -1472,7 +1472,7 @@ const War: React.FC<{
         {/* Enemy Town Hall */}
         <div className="flex flex-col items-center justify-center">
           <h5 className="font-bold mb-2">Enemy Town Hall</h5>
-          <div className="w-full md:w-3/4 lg:w-1/2">
+          <div className="w-full md:w-3/5 lg:w-3/4">
             <Building
               structure={
                 war.attackerVillageId === user.villageId
@@ -1485,8 +1485,8 @@ const War: React.FC<{
                   : war.attackerVillage
               }
               textPosition="bottom"
-              showBar={true}
-              showNumbers={true}
+              showBar={war.status === "ACTIVE"}
+              showNumbers={war.status === "ACTIVE"}
             />
           </div>
           {/* Show enemy supporting factions */}

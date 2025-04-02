@@ -1,5 +1,5 @@
 import { drizzleDB } from "@/server/db";
-import { war, village } from "@/drizzle/schema";
+import { war, village, villageStructure } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import {
   WAR_TOKEN_REDUCTION_INTERVAL_HOURS,
@@ -17,9 +17,25 @@ export async function GET() {
     const activeWars = await drizzleDB.query.war.findMany({
       where: eq(war.status, "ACTIVE"),
       with: {
-        attackerVillage: true,
-        defenderVillage: true,
-        warAllies: true,
+        attackerVillage: {
+          with: {
+            structures: {
+              where: eq(villageStructure.route, "/townhall"),
+            },
+          },
+        },
+        defenderVillage: {
+          with: {
+            structures: {
+              where: eq(villageStructure.route, "/townhall"),
+            },
+          },
+        },
+        warAllies: {
+          with: {
+            village: true,
+          },
+        },
       },
     });
 
@@ -91,7 +107,6 @@ export async function GET() {
           .update(village)
           .set({ tokens: activeWar.attackerVillage.tokens })
           .where(eq(village.id, activeWar.attackerVillage.id)),
-
         drizzleDB
           .update(village)
           .set({ tokens: activeWar.defenderVillage.tokens })

@@ -24,7 +24,18 @@ import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
-import { SHARED_COOLDOWN_TAGS } from "@/drizzle/constants";
+import {
+  SHARED_COOLDOWN_TAGS,
+  WAR_TOWNHALL_HP_REMOVE,
+  WAR_TOWNHALL_HP_RECOVER,
+  WAR_TOWNHALL_HP_ANBU_REMOVE,
+  WAR_TOWNHALL_HP_ANBU_RECOVER,
+  WAR_TOWNHALL_HP_ELDER_REMOVE,
+  WAR_TOWNHALL_HP_ELDER_RECOVER,
+  WAR_TOWNHALL_HP_KAGE_REMOVE,
+  WAR_TOWNHALL_HP_KAGE_RECOVER,
+  WAR_TOWNHALL_HP_KAGEDEATH_REMOVE,
+} from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -645,6 +656,74 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         });
       }
 
+      // Determine war kills bonus
+      const townhallInfo: Record<string, number> = {};
+      let townhallChangeHP = 0;
+      if (user.wars.length > 0 && battleType === "COMBAT") {
+        targetUsers
+          .filter((t) => t.village?.name)
+          .filter((t) => t.villageId !== vilId)
+          .filter((t) =>
+            user.wars.find(
+              (w) =>
+                w.defenderVillageId === t.villageId ||
+                w.attackerVillageId === t.villageId,
+            ),
+          )
+          .forEach((target) => {
+            // eslint-disable-next-line
+            const userVillageName = user.village?.name!;
+            // eslint-disable-next-line
+            const targetVillageName = target.village?.name!;
+            if (targetVillageName && !(targetVillageName in townhallInfo)) {
+              townhallInfo[targetVillageName] = 0;
+            }
+            if (userVillageName && !(userVillageName in townhallInfo)) {
+              townhallInfo[userVillageName] = 0;
+            }
+            if (didWin) {
+              if (user.village?.kageId === user.userId) {
+                townhallChangeHP += WAR_TOWNHALL_HP_KAGE_RECOVER;
+                townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_KAGE_RECOVER;
+                townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+              } else if (user.rank === "ELDER") {
+                townhallChangeHP += WAR_TOWNHALL_HP_ELDER_RECOVER;
+                townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ELDER_RECOVER;
+                townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+              } else if (user.anbuId) {
+                townhallChangeHP += WAR_TOWNHALL_HP_ANBU_RECOVER;
+                townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ANBU_RECOVER;
+                townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+              } else {
+                townhallChangeHP += WAR_TOWNHALL_HP_RECOVER;
+                townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_RECOVER;
+                townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_REMOVE;
+              }
+              if (target.village?.kageId === target.userId) {
+                townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+              }
+            } else {
+              if (target.village?.kageId === target.userId) {
+                townhallChangeHP -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+                townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+              } else if (target.rank === "ELDER") {
+                townhallChangeHP -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+              } else if (target.anbuId) {
+                townhallChangeHP -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+                townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+              } else {
+                townhallChangeHP -= WAR_TOWNHALL_HP_REMOVE;
+                townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_REMOVE;
+              }
+              if (user.village?.kageId === user.userId) {
+                townhallChangeHP -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+                townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+              }
+            }
+          });
+      }
+
       // ANBU boost to tokens
       if (user.anbuId) deltaTokens *= 2;
 
@@ -699,6 +778,8 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
         villageTokens: deltaTokens,
+        townhallChangeHP: townhallChangeHP,
+        townhallInfo: townhallInfo,
         clanPoints: clanPoints * battle.rewardScaling,
         notifications: [],
       };
