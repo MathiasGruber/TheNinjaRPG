@@ -17,7 +17,7 @@ import { canAccessStructure } from "@/utils/village";
 import { structureBoost } from "@/utils/village";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
-import { canAlly, canWar, canSurrender } from "@/utils/alliance";
+import { canAlly, canEnemy, canSurrender } from "@/utils/alliance";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { KAGE_WAR_DECLARE_COST } from "@/drizzle/constants";
@@ -75,6 +75,24 @@ export const villageRouter = createTRPCRouter({
       // Return
       return { villageData, defendedChallenges };
     }),
+  // Get sector ownership
+  getSectorOwnerships: publicProcedure.query(async ({ ctx }) => {
+    const [sectors, colors] = await Promise.all([
+      ctx.drizzle.query.sector.findMany({
+        columns: {
+          sector: true,
+          villageId: true,
+        },
+      }),
+      ctx.drizzle.query.village.findMany({
+        columns: {
+          id: true,
+          hexColor: true,
+        },
+      }),
+    ]);
+    return { sectors, colors };
+  }),
   // Buying food in ramen shop
   buyFood: protectedProcedure
     .input(z.object({ ramen: z.enum(ramenOptions), villageId: z.string().nullish() }))
@@ -302,7 +320,12 @@ export const villageRouter = createTRPCRouter({
       return { success: true, message: "You have swapped villages" };
     }),
   getAlliances: publicProcedure.query(async ({ ctx }) => {
-    return await fetchPublicAllianceInformation(ctx.drizzle);
+    const [villages, relationships, requests] = await Promise.all([
+      fetchVillages(ctx.drizzle),
+      fetchAlliances(ctx.drizzle),
+      fetchRequests(ctx.drizzle, ["ALLIANCE", "SURRENDER"], 3600 * 48),
+    ]);
+    return { villages, relationships, requests };
   }),
   createRequest: protectedProcedure
     .input(z.object({ targetId: z.string(), type: z.enum(UserRequestTypes) }))
@@ -466,7 +489,7 @@ export const villageRouter = createTRPCRouter({
       // Return
       return { success: true, message: "You have left the alliance" };
     }),
-  startWar: protectedProcedure
+  declareEnemy: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -492,8 +515,8 @@ export const villageRouter = createTRPCRouter({
       if (!userVillage.allianceSystem) return errorResponse("User Alliance disabled");
       if (!target.allianceSystem) return errorResponse("Target Alliance disabled");
 
-      // Check if war is possible
-      const check = canWar(relationships, villages, villageId, targetId);
+      // Check if declaring enemy is possible
+      const check = canEnemy(relationships, villages, villageId, targetId);
       if (!check.success) return check;
 
       // Mutate
@@ -524,7 +547,7 @@ export const villageRouter = createTRPCRouter({
           .where(eq(userData.userId, user.userId)),
       ]);
       // Return
-      return { success: true, message: "You have declared war" };
+      return { success: true, message: "You have declared yourself an enemy" };
     }),
 });
 
@@ -575,25 +598,6 @@ export const fetchAllienceInfo = async (client: DrizzleClient, userId: string) =
     fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
   ]);
   return { user, villages, relationships, requests };
-};
-
-/**
- * Fetches the information related to villages, alliances, and requests.
- *
- * @param client - The DrizzleClient instance used for making queries.
- * @returns An object containing the fetched villages, alliances, and requests.
- */
-export const fetchPublicAllianceInformation = async (client: DrizzleClient) => {
-  const [villages, relationships, requests] = await Promise.all([
-    fetchVillages(client),
-    fetchAlliances(client),
-    fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
-  ]);
-  return {
-    villages: villages.filter((v) => v.allianceSystem),
-    relationships,
-    requests,
-  };
 };
 
 /**

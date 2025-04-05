@@ -148,9 +148,7 @@ const ChallengeInfo: React.FC<{ request: UserRequest }> = ({ request }) => {
       <p className="font-bold">{capitalizeFirstLetter(request.type)}</p>
       <p>{request.createdAt.toDateString()}</p>
       <p>{request.createdAt.toLocaleTimeString()}</p>
-      {/* <p>
-        Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
-      </p> */}
+      {request.type === "WAR_ALLY" && <p>Token Amount: {request.value}</p>}
     </div>
   );
 };

@@ -256,6 +256,7 @@ export const BattleTypes = [
   "KAGE_PVP",
   "CLAN_CHALLENGE",
   "CLAN_BATTLE",
+  "SHRINE_WAR",
   "TOURNAMENT",
   "QUEST",
   "VILLAGE_PROTECTOR",
@@ -334,6 +335,7 @@ export const UserRequestTypes = [
   "CLAN",
   "MARRIAGE",
   "KAGE",
+  "WAR_ALLY",
 ] as const;
 export type UserRequestType = (typeof UserRequestTypes)[number];
 
@@ -551,6 +553,43 @@ export const FED_EVENT_ITEMS_DEFAULT = 10;
 
 // Missions config
 export const MISSIONS_PER_DAY = 9;
+
+// War config
+export const WAR_TOWNHALL_HP_REMOVE = 20;
+export const WAR_TOWNHALL_HP_RECOVER = 10;
+export const WAR_TOWNHALL_HP_ANBU_REMOVE = 40;
+export const WAR_TOWNHALL_HP_ANBU_RECOVER = 20;
+export const WAR_TOWNHALL_HP_ELDER_REMOVE = 50;
+export const WAR_TOWNHALL_HP_ELDER_RECOVER = 40;
+export const WAR_TOWNHALL_HP_KAGE_REMOVE = 80;
+export const WAR_TOWNHALL_HP_KAGE_RECOVER = 70;
+export const WAR_TOWNHALL_HP_KAGEDEATH_REMOVE = 100;
+export const WAR_WINNING_BOOST_DAYS = 3;
+export const WAR_WINNING_BOOST_REGEN_PERC = 40;
+export const WAR_WINNING_BOOST_TRAINING_PERC = 20;
+export const WAR_TOKEN_REDUCTION_INTERVAL_HOURS = 24; // How often tokens should be reduced
+export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS = 1.3; // 30% increase after 3 days
+export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS = 1.5; // 50% increase after 7 days
+export const WAR_EXHAUSTION_DURATION_DAYS = 3; // War exhaustion duration
+export const WAR_STRUCTURE_UPGRADE_BLOCK_DAYS = 7; // Structure upgrade block duration
+export const WAR_VICTORY_TOKEN_BONUS = 100000; // Victory bonus tokens
+export const WAR_DECLARATION_COST = 15000; // Cost in village tokens to declare war
+export const WAR_DAILY_TOKEN_REDUCTION = 1000; // Daily token reduction during war
+export const WAR_ALLY_OFFER_MIN = 1000; // Minimum token offer for allies
+export const WAR_SHRINE_HP = 3000; // Shrine hp
+export const WAR_SECTORWAR_AI_SHRINE_REDUCE = 3; // KIlling AI shrine hp decrease
+export const WAR_SECTORWAR_AI_SHRINE_RECOVER = 3; // Shrine hp recover per day
+export const WAR_SECTORWAR_PVP_SHRINE_REDUCE = 5; // Killing a player in a sector war shrine hp decrease
+export const WAR_SECTORWAR_PVP_SHRINE_RECOVER = 7; // Shrine hp remove per day
+export const WAR_SHRINE_IMAGE =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJgLihSncU9cpECTimBdjaqbNn7vQsxGR1wLk4";
+export const WAR_STATES = [
+  "ACTIVE",
+  "ATTACKER_VICTORY",
+  "DEFENDER_VICTORY",
+  "DRAW",
+] as const;
+export type WarState = (typeof WAR_STATES)[number];
 
 // Clans config
 export const CLAN_MPVP_MAX_USERS_PER_SIDE = 3;

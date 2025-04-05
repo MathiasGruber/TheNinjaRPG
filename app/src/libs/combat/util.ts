@@ -11,7 +11,7 @@ import { KAGE_CHALLENGE_WIN_PRESTIGE } from "@/drizzle/constants";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { toOffenceStat, toDefenceStat } from "@/libs/stats";
 import { structureBoost } from "@/utils/village";
-import { deduceActiveUserRegen } from "@/libs/profile";
+import { calcActiveUserRegen } from "@/libs/profile";
 import { DecreaseDamageTakenTag } from "@/libs/combat/types";
 import { StatTypes, GeneralTypes } from "@/drizzle/constants";
 import { CLAN_BATTLE_REWARD_POINTS } from "@/drizzle/constants";
@@ -24,6 +24,21 @@ import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
+import {
+  WAR_TOWNHALL_HP_REMOVE,
+  WAR_TOWNHALL_HP_RECOVER,
+  WAR_TOWNHALL_HP_ANBU_REMOVE,
+  WAR_TOWNHALL_HP_ANBU_RECOVER,
+  WAR_TOWNHALL_HP_ELDER_REMOVE,
+  WAR_TOWNHALL_HP_ELDER_RECOVER,
+  WAR_TOWNHALL_HP_KAGE_REMOVE,
+  WAR_TOWNHALL_HP_KAGE_RECOVER,
+  WAR_TOWNHALL_HP_KAGEDEATH_REMOVE,
+  WAR_SECTORWAR_AI_SHRINE_REDUCE,
+  WAR_SECTORWAR_AI_SHRINE_RECOVER,
+  WAR_SECTORWAR_PVP_SHRINE_REDUCE,
+  WAR_SECTORWAR_PVP_SHRINE_RECOVER,
+} from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -32,7 +47,7 @@ import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
-import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
+import type { Item, UserItem, AiProfile, War } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 
 /**
@@ -531,7 +546,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           experience *= streakBonus;
           experience = Math.min(experience, 100);
         }
-      } else if (["CLAN_CHALLENGE", "KAGE_AI", "KAGE_PVP", "TRAINING", "VILLAGE_PROTECTOR"].includes(battleType)) {
+      } else if (
+        [
+          "CLAN_CHALLENGE",
+          "KAGE_AI",
+          "KAGE_PVP",
+          "TRAINING",
+          "VILLAGE_PROTECTOR",
+        ].includes(battleType)
+      ) {
         experience = 0;
       } else if (battleType === "ARENA") {
         experience = Math.min(experience, 20);
@@ -622,6 +645,111 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         });
       }
 
+      // Determine war kills bonus
+      const townhallInfo: Record<string, number> = {};
+      const shrineInfo: Record<number, number> = {};
+      let townhallChangeHP = 0;
+      let shrineChangeHp = 0;
+      if (user.wars.length > 0) {
+        targets
+          .filter((t) => !t.isSummon)
+          .filter((t) => t.village?.name)
+          .filter((t) => t.villageId !== vilId)
+          .forEach((target) => {
+            // eslint-disable-next-line
+            const userVillageName = user.village?.name!;
+            // eslint-disable-next-line
+            const targetVillageName = target.village?.name!;
+            if (targetVillageName && !(targetVillageName in townhallInfo)) {
+              townhallInfo[targetVillageName] = 0;
+            }
+            if (userVillageName && !(userVillageName in townhallInfo)) {
+              townhallInfo[userVillageName] = 0;
+            }
+            // Get the war
+            const war = user.wars.find(
+              (w) =>
+                w.attackerVillageId === target.villageId ||
+                w.defenderVillageId === target.villageId,
+            );
+            if (!war) return;
+            // Village wars
+            if (war.type === "VILLAGE_WAR" && battleType === "COMBAT") {
+              if (didWin) {
+                if (user.village?.kageId === user.userId) {
+                  townhallChangeHP += WAR_TOWNHALL_HP_KAGE_RECOVER;
+                  townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_KAGE_RECOVER;
+                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+                } else if (user.rank === "ELDER") {
+                  townhallChangeHP += WAR_TOWNHALL_HP_ELDER_RECOVER;
+                  townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ELDER_RECOVER;
+                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                } else if (user.anbuId) {
+                  townhallChangeHP += WAR_TOWNHALL_HP_ANBU_RECOVER;
+                  townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ANBU_RECOVER;
+                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+                } else {
+                  townhallChangeHP += WAR_TOWNHALL_HP_RECOVER;
+                  townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_RECOVER;
+                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_REMOVE;
+                }
+                if (target.village?.kageId === target.userId) {
+                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+                }
+              } else {
+                if (target.village?.kageId === target.userId) {
+                  townhallChangeHP -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+                } else if (target.rank === "ELDER") {
+                  townhallChangeHP -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                } else if (target.anbuId) {
+                  townhallChangeHP -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+                } else {
+                  townhallChangeHP -= WAR_TOWNHALL_HP_REMOVE;
+                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_REMOVE;
+                }
+                if (user.village?.kageId === user.userId) {
+                  townhallChangeHP -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+                }
+              }
+            }
+            // Sector wars
+            if (war.type === "SECTOR_WAR") {
+              const sector = war.sectorNumber;
+              if (!(sector in shrineInfo)) {
+                shrineInfo[sector] = 0;
+              }
+              if (battleType === "SHRINE_WAR") {
+                if (
+                  (didWin && war.attackerVillageId === vilId) ||
+                  (!didWin && war.defenderVillageId === vilId)
+                ) {
+                  shrineChangeHp -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
+                  shrineInfo[sector]! -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
+                } else {
+                  shrineChangeHp += WAR_SECTORWAR_AI_SHRINE_RECOVER;
+                  shrineInfo[sector]! += WAR_SECTORWAR_AI_SHRINE_RECOVER;
+                }
+              }
+              if (battleType === "COMBAT") {
+                if (
+                  (didWin && war.attackerVillageId === vilId) ||
+                  (!didWin && war.defenderVillageId === vilId)
+                ) {
+                  shrineChangeHp -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                  shrineInfo[sector]! -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                } else {
+                  shrineChangeHp += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
+                  shrineInfo[sector]! += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
+                }
+              }
+            }
+          });
+      }
+
       // ANBU boost to tokens
       if (user.anbuId) deltaTokens *= 2;
 
@@ -676,6 +804,10 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         friendsLeft: friendsLeft.length,
         targetsLeft: targetsLeft.length,
         villageTokens: deltaTokens,
+        townhallChangeHP: townhallChangeHP,
+        shrineChangeHp: shrineChangeHp,
+        shrineInfo: shrineInfo,
+        townhallInfo: townhallInfo,
         clanPoints: clanPoints * battle.rewardScaling,
         notifications: [],
       };
@@ -686,8 +818,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         result.money = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.
         // If not, then distribute equally among all stats & generals
-        const statsTotal = Object.values(user.usedStats).reduce((sum, value) => sum + value, 0);
-        const gensTotal = Object.values(user.usedGenerals).reduce((sum, value) => sum + value, 0);
+        const statsTotal = Object.values(user.usedStats).reduce(
+          (sum, value) => sum + value,
+          0,
+        );
+        const gensTotal = Object.values(user.usedGenerals).reduce(
+          (sum, value) => sum + value,
+          0,
+        );
         let total = statsTotal + gensTotal;
         if (total === 0) {
           user.usedStats = {
@@ -699,7 +837,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             genjutsuDefence: 1,
             taijutsuDefence: 1,
             bukijutsuDefence: 1,
-          }
+          };
           user.usedGenerals = {
             strength: 1,
             intelligence: 1,
@@ -713,12 +851,28 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         const gens_cap = USER_CAPS[user.rank].GENS_CAP;
 
         Object.entries(user.usedStats).forEach(([stat, value]) => {
-          assignedExp += distributeExpToStat(user, stat as keyof typeof user.usedStats, value, stats_cap, total, experience, result);
+          assignedExp += distributeExpToStat(
+            user,
+            stat as keyof typeof user.usedStats,
+            value,
+            stats_cap,
+            total,
+            experience,
+            result,
+          );
         });
         Object.entries(user.usedGenerals).forEach(([stat, value]) => {
-          assignedExp += distributeExpToStat(user, stat as keyof typeof user.usedGenerals, value, gens_cap, total, experience, result);
+          assignedExp += distributeExpToStat(
+            user,
+            stat as keyof typeof user.usedGenerals,
+            value,
+            gens_cap,
+            total,
+            experience,
+            result,
+          );
         });
-        
+
         // Experience
         result.experience = Math.floor(assignedExp * 100) / 100;
       }
@@ -936,6 +1090,7 @@ export const processUsersForBattle = (info: {
   users: BattleUserState[];
   settings: GameSetting[];
   relations: VillageAlliance[];
+  wars: War[];
   villages: Village[];
   defaultProfile: AiProfile;
   battleType: BattleType;
@@ -943,7 +1098,7 @@ export const processUsersForBattle = (info: {
   leftSideUserIds?: string[];
 }) => {
   // Destructure
-  const { users, settings, relations, battleType, hide, leftSideUserIds } = info;
+  const { users, settings, relations, battleType, hide, leftSideUserIds, wars } = info;
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
@@ -968,7 +1123,7 @@ export const processUsersForBattle = (info: {
 
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle
-    const regen = deduceActiveUserRegen(user, settings);
+    const regen = calcActiveUserRegen(user, settings);
     const restored = (regen * secondsPassed(user.regenAt)) / 60;
     user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
@@ -1114,7 +1269,7 @@ export const processUsersForBattle = (info: {
       genjutsuDefence: 0,
       taijutsuDefence: 0,
       bukijutsuDefence: 0,
-    }
+    };
     user.usedActions = [];
 
     // If in own village, add defence bonus
@@ -1273,6 +1428,13 @@ export const processUsersForBattle = (info: {
     // Add relevant relations to usersState
     user.relations = relations.filter(
       (r) => r.villageIdA === user.villageId || r.villageIdB === user.villageId,
+    );
+
+    // Add relevant wars to usersState
+    user.wars = wars.filter(
+      (w) =>
+        w.attackerVillageId === user.villageId ||
+        w.defenderVillageId === user.villageId,
     );
 
     // Check if we are in ally village or not
