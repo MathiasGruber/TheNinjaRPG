@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import {
   Vector3,
   LineBasicMaterial,
@@ -41,6 +42,7 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
 import type { SectorUser, SectorPoint, GlobalTile } from "./types";
 import type { SectorVillage } from "@/routers/travel";
+import type { VillageStructure } from "@/drizzle/schema";
 
 export const drawQuest = (info: {
   group_quest: Group;
@@ -428,12 +430,13 @@ export const createMultipleUserSprite = (
  * Draw village on map
  */
 export const drawVillage = (
-  village: NonNullable<SectorVillage>,
+  village: SectorVillage,
+  structures: VillageStructure[],
   grid: Grid<TerrainHex>,
 ) => {
   const group = new Group();
   // Village wall
-  if (village.type === "VILLAGE" || village.type === "TOWN") {
+  if (village?.type === "VILLAGE" || village?.type === "TOWN") {
     const wall_tower_texture = loadTexture(IMG_SECTOR_WALL_STONE_TOWER);
     const wall_tower_material = new SpriteMaterial({ map: wall_tower_texture });
     let prevPos: TerrainHex | null = null;
@@ -471,7 +474,7 @@ export const drawVillage = (
   }
   group.children.sort((a, b) => b.position.y - a.position.y);
   // Village structures
-  village.structures
+  structures
     .filter((s) => s.hasPage !== 0)
     .map((structure) => {
       const pos = grid.getHex({ col: structure.longitude, row: structure.latitude });
@@ -738,4 +741,53 @@ export const intersectTiles = (info: {
     }
   });
   return newHighlights;
+};
+
+/**
+ * Create a generic structure, useful for e.g. showing structure on the map
+ * @param name - The name of the structure
+ * @param route - The route of the structure
+ * @param image - The image of the structure
+ * @param latitude - The latitude of the structure
+ * @param longitude - The longitude of the structure
+ * @returns The structure
+ */
+export const createGenericStructure = (info: {
+  name: string;
+  route: string;
+  image: string;
+  latitude: number;
+  longitude: number;
+}): VillageStructure => {
+  return {
+    id: nanoid(),
+    name: info.name,
+    route: info.route,
+    image: info.image,
+    villageId: "unknown",
+    longitude: info.longitude,
+    latitude: info.latitude,
+    hasPage: 1,
+    curSp: 100,
+    maxSp: 100,
+    allyAccess: 1,
+    baseCost: 0,
+    level: 1,
+    maxLevel: 1,
+    lastUpgradedAt: new Date(),
+    anbuSquadsPerLvl: 0,
+    arenaRewardPerLvl: 0,
+    bankInterestPerLvl: 0,
+    blackDiscountPerLvl: 0,
+    clansPerLvl: 0,
+    hospitalSpeedupPerLvl: 0,
+    itemDiscountPerLvl: 0,
+    patrolsPerLvl: 0,
+    ramenDiscountPerLvl: 0,
+    regenIncreasePerLvl: 0,
+    sleepRegenPerLvl: 0,
+    structureDiscountPerLvl: 0,
+    trainBoostPerLvl: 0,
+    villageDefencePerLvl: 0,
+  };
 };

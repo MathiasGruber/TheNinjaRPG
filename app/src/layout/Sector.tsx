@@ -35,6 +35,7 @@ import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { SECTOR_LENGTH_TO_WIDTH } from "@/libs/travel/constants";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import { WAR_SHRINE_IMAGE } from "@/drizzle/constants";
 import {
   IMG_SECTOR_INFO,
   IMG_SECTOR_ATTACK,
@@ -47,6 +48,7 @@ import type { Grid } from "honeycomb-grid";
 import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { VillageStructure } from "@/drizzle/schema";
+import { createGenericStructure } from "@/libs/travel/sector";
 
 interface SectorProps {
   sector: number;
@@ -100,6 +102,19 @@ const Sector: React.FC<SectorProps> = (props) => {
   );
   const villageData = data?.village;
   const fetchedUsers = data?.users;
+  const structures = villageData?.structures || [];
+
+  // If we're in an active sector war, then we add a shrine to the center of the sector
+  if (data?.warData) {
+    const shrine = createGenericStructure({
+      name: "Sector Shrine",
+      route: "/shrine",
+      image: WAR_SHRINE_IMAGE,
+      longitude: 10,
+      latitude: 10,
+    });
+    structures.push(shrine);
+  }
 
   // Router for forwarding
   const router = useRouter();
@@ -405,8 +420,8 @@ const Sector: React.FC<SectorProps> = (props) => {
       userRef.current = userData;
 
       // Check if user is on a structure
-      if (villageData?.structures) {
-        const structure = villageData.structures.find(
+      if (structures) {
+        const structure = structures.find(
           (s) => s.longitude === userData.longitude && s.latitude === userData.latitude,
         );
         setCurrentStructure(structure || null);
@@ -470,10 +485,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       grid.current = honeycombGrid;
 
       // Draw any village in this sector
-      if (villageData) {
-        const village = drawVillage(villageData, grid.current);
-        group_assets.add(village);
-      }
+      group_assets.add(drawVillage(villageData, structures, grid.current));
 
       // Store current highlights and create a path calculator object
       pathFinder.current = new PathCalculator(grid.current);

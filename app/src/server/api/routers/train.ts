@@ -110,10 +110,12 @@ export const trainRouter = createTRPCRouter({
       }
       // Derived training gain
       const trainSetting = getGameSettingBoost("trainingGainMultiplier", settings);
+      const warSetting = getGameSettingBoost(`war-${user.villageId}-train`, settings);
       const gameFactor = trainSetting?.value ?? 1;
+      const warFactor = (100 + (warSetting?.value ?? 0)) / 100;
       const boost = structureBoost("trainBoostPerLvl", user.village?.structures);
       const clanBoost = user?.clan?.trainingBoost ?? 0;
-      const factor = gameFactor * (1 + boost / 100 + clanBoost / 100);
+      const factor = gameFactor * (1 + boost / 100 + clanBoost / 100) * warFactor;
       const seconds = (Date.now() - user.trainingStartedAt.getTime()) / 1000;
       const minutes = seconds / 60;
       const energySpent = Math.min(
