@@ -670,6 +670,36 @@ export const combatRouter = createTRPCRouter({
       }
       return errorResponse("Failed to update battle state after multiple attempts");
     }),
+  startShrineWar: protectedProcedure
+    .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
+    .input(z.object({ sector: z.number().int() }))
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      // Get information
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+
+      // Check that user was found
+      if (!user) return errorResponse("User not found");
+      if (user.isBanned) return errorResponse("Cannot attack shrine while banned");
+      if (user.sector !== input.sector)
+        return errorResponse("Not in the correct sector");
+
+      // Return battle
+      return await initiateBattle(
+        {
+          sector: input.sector,
+          userIds: [user.userId],
+          targetIds: ["MJMzOE67Cx2YP3NX8SAbh"],
+          client: ctx.drizzle,
+          asset: "arena",
+        },
+        "SHRINE_WAR",
+      );
+    }),
 });
 
 /***********************************************

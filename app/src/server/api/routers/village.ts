@@ -75,6 +75,24 @@ export const villageRouter = createTRPCRouter({
       // Return
       return { villageData, defendedChallenges };
     }),
+  // Get sector ownership
+  getSectorOwnerships: publicProcedure.query(async ({ ctx }) => {
+    const [sectors, colors] = await Promise.all([
+      ctx.drizzle.query.sector.findMany({
+        columns: {
+          sector: true,
+          villageId: true,
+        },
+      }),
+      ctx.drizzle.query.village.findMany({
+        columns: {
+          id: true,
+          hexColor: true,
+        },
+      }),
+    ]);
+    return { sectors, colors };
+  }),
   // Buying food in ramen shop
   buyFood: protectedProcedure
     .input(z.object({ ramen: z.enum(ramenOptions), villageId: z.string().nullish() }))

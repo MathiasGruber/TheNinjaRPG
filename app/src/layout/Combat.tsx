@@ -677,6 +677,22 @@ const Combat: React.FC<CombatProps> = (props) => {
                   );
                 }
               })}
+              {Object.entries(result.shrineInfo).map(([sectorId, change]) => {
+                const key = `sector-${sectorId}-${change}`;
+                if (change > 0) {
+                  return (
+                    <p key={key} className="text-green-500">
+                      Shrine HP in sector {sectorId}: +{change.toFixed(2)}
+                    </p>
+                  );
+                } else if (change < 0) {
+                  return (
+                    <p key={key} className="text-red-500">
+                      Shrine HP in sector {sectorId}: {change.toFixed(2)}
+                    </p>
+                  );
+                }
+              })}
             </div>
             <div className="p-5 flex flex-row justify-center gap-2">
               <Link
