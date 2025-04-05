@@ -25,6 +25,7 @@ import { cleanUp, setupScene } from "@/libs/travel/util";
 import { groundMats, oceanMats, dessertMats, iceMats } from "@/libs/travel/biome";
 import { TrackballControls } from "@/libs/threejs/TrackBallControls";
 import { useUserData } from "@/utils/UserContext";
+import { api } from "@/app/_trpc/client";
 import type { Village } from "../../drizzle/schema";
 import type { GlobalTile } from "@/libs/travel/types";
 import type { GlobalMapData } from "@/libs/travel/types";
@@ -37,6 +38,8 @@ interface MapProps {
   highlightedSector?: number;
   intersection: boolean;
   hexasphere: GlobalMapData;
+  showOwnership?: boolean;
+  actionExplanation?: string;
   onTileClick?: (sector: number | null, tile: GlobalTile | null) => void;
   onTileHover?: (sector: number | null, tile: GlobalTile | null) => void;
 }
@@ -47,7 +50,14 @@ const Map: React.FC<MapProps> = (props) => {
   const [hoverSector, setHoverSector] = useState<number | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const mouse = new Vector2();
-  const { hexasphere, highlightedSector } = props;
+  const { hexasphere, highlightedSector, showOwnership } = props;
+  const actionExplanation =
+    props.actionExplanation || "Double click tile to move there";
+
+  // Get sector ownerships if needed
+  const { data: ownershipData } = api.village.getSectorOwnerships.useQuery(undefined, {
+    enabled: showOwnership,
+  });
 
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
@@ -142,6 +152,8 @@ const Map: React.FC<MapProps> = (props) => {
           geometry.setAttribute("position", new BufferAttribute(vertices, 3));
           const consistentRandom = prng();
           let material = null;
+
+          // If no ownership or not showing ownership, use biome colors
           if (t.t === 0) {
             material = oceanMats[Math.floor(consistentRandom * oceanMats.length)];
           } else if (t.t === 1) {
@@ -151,6 +163,18 @@ const Map: React.FC<MapProps> = (props) => {
           } else {
             material = iceMats[Math.floor(consistentRandom * iceMats.length)];
           }
+
+          // If showing ownership and we have the data, color by owner
+          if (showOwnership && ownershipData?.sectors && ownershipData?.colors) {
+            const ownership = ownershipData.sectors.find((s) => s.sector === i);
+            const villageColor = ownershipData.colors.find(
+              (v) => v.id === ownership?.villageId,
+            );
+            if (villageColor) {
+              material = new MeshBasicMaterial({ color: villageColor.hexColor });
+            }
+          }
+
           const mesh = new Mesh(geometry, material?.clone());
           mesh.matrixAutoUpdate = false;
           mesh.userData.id = i;
@@ -224,7 +248,7 @@ const Map: React.FC<MapProps> = (props) => {
       const questTweenColor = { r: 0.8, g: 0.6, b: 0.0 };
       const highlightTweenColor = { r: 0.0, g: 0.6, b: 0.8 };
       const sectorsToHighlight: { sector: number; color: typeof userTweenColor }[] = [];
-      if (props.userLocation && userData) {
+      if (props.userLocation && userData && !showOwnership) {
         sectorsToHighlight.push({ sector: userData.sector, color: userTweenColor });
         if (highlightedSector) {
           sectorsToHighlight.push({
@@ -425,7 +449,13 @@ const Map: React.FC<MapProps> = (props) => {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.highlights, props.intersection, highlightedSector]);
+  }, [
+    props.highlights,
+    props.intersection,
+    highlightedSector,
+    showOwnership,
+    ownershipData,
+  ]);
 
   return (
     <>
@@ -457,7 +487,7 @@ const Map: React.FC<MapProps> = (props) => {
           {hoverSector && (
             <>
               <li>- Highlighting sector {hoverSector}</li>
-              <li>- Double click tile to move there</li>
+              <li>- {actionExplanation}</li>
             </>
           )}
         </ul>

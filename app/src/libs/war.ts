@@ -1,19 +1,22 @@
 import { drizzleDB } from "@/server/db";
 import { war, village, villageStructure, userRequest } from "@/drizzle/schema";
-import { userData, notification } from "@/drizzle/schema";
+import { userData, notification, gameSetting, sector } from "@/drizzle/schema";
 import { eq, and, or } from "drizzle-orm";
 import { sql, inArray, notInArray } from "drizzle-orm";
 import {
   WAR_EXHAUSTION_DURATION_DAYS,
   WAR_STRUCTURE_UPGRADE_BLOCK_DAYS,
   WAR_VICTORY_TOKEN_BONUS,
+  WAR_WINNING_BOOST_DAYS,
+  WAR_WINNING_BOOST_REGEN_PERC,
+  WAR_WINNING_BOOST_TRAINING_PERC,
 } from "@/drizzle/constants";
 import type { WarState } from "@/drizzle/constants";
 import { TERR_BOT_ID } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import type { Village, VillageAlliance } from "@/drizzle/schema";
-
+import { secondsFromNow } from "@/utils/time";
 /**
  * Resets the wartime townhalls
  * @param activeWars - The active wars
@@ -90,6 +93,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
   const structureUpgradeBlock = new Date(
     endedAt.getTime() + WAR_STRUCTURE_UPGRADE_BLOCK_DAYS * 24 * 60 * 60 * 1000,
   );
+  const boostEndAt = secondsFromNow(WAR_WINNING_BOOST_DAYS * 24 * 60 * 60);
 
   // Get IDs of villages & factions that lost (less than 0 tokens) and won (more than 0 tokens)
   // Note both villages could be losing if they both got their points deducted simultaneously
@@ -119,17 +123,22 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
     winningPoints = WAR_VICTORY_TOKEN_BONUS / winningAllies.length;
   }
 
-  let notificationContent = `War between ${activeWar.attackerVillage.name} and ${activeWar.defenderVillage.name} has ended. `;
-  if (isDraw) {
-    notificationContent += `The result was a draw.`;
-  } else if (status === "ATTACKER_VICTORY") {
-    notificationContent += `${activeWar.attackerVillage.name} won the war and received ${winningPoints} tokens. `;
-  } else {
-    notificationContent += `${activeWar.defenderVillage.name} won the war and received ${winningPoints} tokens. `;
+  let notificationContent = "";
+  if (activeWar.type === "VILLAGE_WAR") {
+    notificationContent = `War between ${activeWar.attackerVillage.name} and ${activeWar.defenderVillage.name} has ended. `;
+    if (isDraw) {
+      notificationContent += `The result was a draw.`;
+    } else if (status === "ATTACKER_VICTORY") {
+      notificationContent += `${activeWar.attackerVillage.name} won the war and received ${winningPoints} tokens. `;
+    } else {
+      notificationContent += `${activeWar.defenderVillage.name} won the war and received ${winningPoints} tokens. `;
+    }
+  } else if (activeWar.type === "SECTOR_WAR" && status === "ATTACKER_VICTORY") {
+    notificationContent = `Sector ${activeWar.sectorNumber} has been claimed by ${activeWar.attackerVillage.name}. `;
   }
-
   // Run updates
   await Promise.all([
+    // General updates
     drizzleDB.update(war).set({ status, endedAt }).where(eq(war.id, activeWar.id)),
     drizzleDB.insert(notification).values({
       userId: TERR_BOT_ID,
@@ -156,47 +165,73 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
           ),
         ),
       ),
-    ...(isDraw
+    // Handle sector wars
+    ...(activeWar.type === "SECTOR_WAR"
       ? [
           drizzleDB
-            .update(village)
-            .set({
-              warExhaustionEndedAt: warExhaustionEnd,
-              lastWarEndedAt: endedAt,
-            })
-            .where(inArray(village.id, [loserVillageId, winnerVillageId])),
-          drizzleDB
-            .update(villageStructure)
-            .set({
-              level: sql`GREATEST(level - 1, 1)`,
-              lastUpgradedAt: structureUpgradeBlock,
-            })
-            .where(
-              inArray(villageStructure.villageId, [loserVillageId, winnerVillageId]),
-            ),
+            .update(sector)
+            .set({ villageId: winnerVillageId })
+            .where(eq(sector.id, activeWar.sectorNumber)),
         ]
-      : [
-          drizzleDB
-            .update(village)
-            .set({
-              tokens: sql`tokens + ${winningPoints}`,
-            })
-            .where(inArray(village.id, [...winningAllies, winnerVillageId])),
-          drizzleDB
-            .update(village)
-            .set({
-              warExhaustionEndedAt: warExhaustionEnd,
-              lastWarEndedAt: endedAt,
-            })
-            .where(eq(village.id, loserVillageId)),
-          drizzleDB
-            .update(villageStructure)
-            .set({
-              level: sql`GREATEST(level - 1, 1)`,
-              lastUpgradedAt: structureUpgradeBlock,
-            })
-            .where(eq(villageStructure.villageId, loserVillageId)),
-        ]),
+      : []),
+    // Handle village wars
+    ...(activeWar.type === "VILLAGE_WAR"
+      ? isDraw
+        ? [
+            drizzleDB
+              .update(village)
+              .set({
+                warExhaustionEndedAt: warExhaustionEnd,
+                lastWarEndedAt: endedAt,
+              })
+              .where(inArray(village.id, [loserVillageId, winnerVillageId])),
+            drizzleDB
+              .update(villageStructure)
+              .set({
+                level: sql`GREATEST(level - 1, 1)`,
+                lastUpgradedAt: structureUpgradeBlock,
+              })
+              .where(
+                inArray(villageStructure.villageId, [loserVillageId, winnerVillageId]),
+              ),
+          ]
+        : [
+            drizzleDB
+              .update(village)
+              .set({
+                tokens: sql`tokens + ${winningPoints}`,
+              })
+              .where(inArray(village.id, [...winningAllies, winnerVillageId])),
+            drizzleDB
+              .update(gameSetting)
+              .set({
+                value: WAR_WINNING_BOOST_REGEN_PERC,
+                time: boostEndAt,
+              })
+              .where(eq(gameSetting.name, `war-${winnerVillageId}-regen`)),
+            drizzleDB
+              .update(gameSetting)
+              .set({
+                value: WAR_WINNING_BOOST_TRAINING_PERC,
+                time: boostEndAt,
+              })
+              .where(eq(gameSetting.name, `war-${winnerVillageId}-train`)),
+            drizzleDB
+              .update(village)
+              .set({
+                warExhaustionEndedAt: warExhaustionEnd,
+                lastWarEndedAt: endedAt,
+              })
+              .where(eq(village.id, loserVillageId)),
+            drizzleDB
+              .update(villageStructure)
+              .set({
+                level: sql`GREATEST(level - 1, 1)`,
+                lastUpgradedAt: structureUpgradeBlock,
+              })
+              .where(eq(villageStructure.villageId, loserVillageId)),
+          ]
+      : []),
   ]);
 
   // Return updated war

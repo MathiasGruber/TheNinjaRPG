@@ -2,11 +2,12 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, and, gte, ne, desc } from "drizzle-orm";
-import { war, village, warAlly, villageStructure } from "@/drizzle/schema";
+import { war, village, warAlly, villageStructure, sector } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchVillages, fetchAlliances } from "@/routers/village";
 import { nanoid } from "nanoid";
 import type { DrizzleClient } from "@/server/db";
+import { WAR_DECLARATION_COST, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { handleWarEnd, canJoinWar, resetWartimeTownhalls } from "@/libs/war";
 import { sql } from "drizzle-orm";
 import {
@@ -35,8 +36,117 @@ export const warRouter = createTRPCRouter({
       return fetchEndedWars(ctx.drizzle, input.villageId);
     }),
 
+  declareSectorWar: protectedProcedure
+    .input(z.object({ sectorId: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [{ user }, activeWars, villages, relationships, targetSector] =
+        await Promise.all([
+          fetchUpdatedUser({
+            client: ctx.drizzle,
+            userId: ctx.userId,
+          }),
+          fetchActiveWars(ctx.drizzle),
+          fetchVillages(ctx.drizzle),
+          fetchAlliances(ctx.drizzle),
+          ctx.drizzle.query.sector.findFirst({
+            where: eq(sector.id, input.sectorId),
+          }),
+        ]);
+      // Derived
+      const now = new Date();
+      const attackerVillage = villages.find((v) => v.id === user?.village?.id);
+      const defenderVillage = villages.find((v) => v.id === targetSector?.villageId);
+      const defenderVillageId = defenderVillage?.id || VILLAGE_SYNDICATE_ID;
+      const relationship = findRelationship(
+        relationships,
+        attackerVillage?.id || "",
+        defenderVillageId,
+      );
+      // Guard
+      if (!user?.village) {
+        return errorResponse("You must be in a village to declare war");
+      }
+      if (!user?.villageId) {
+        return errorResponse("You must be in a village to declare war");
+      }
+      if (user.userId !== user.village.kageId) {
+        return errorResponse("Only the leader can declare sector wars");
+      }
+      if (user.village.tokens < WAR_DECLARATION_COST) {
+        return errorResponse("Your village needs 15,000 tokens to declare war");
+      }
+      if (!attackerVillage) {
+        return errorResponse("Village not found");
+      }
+      if (relationship && relationship?.status !== "ENEMY") {
+        return errorResponse("You can only declare war on enemy villages");
+      }
+      if (
+        attackerVillage.warExhaustionEndedAt &&
+        attackerVillage.warExhaustionEndedAt > now
+      ) {
+        return errorResponse("Your village is under war exhaustion");
+      }
+      if (attackerVillage.id === defenderVillageId) {
+        return errorResponse("You cannot declare sector war on your own sector");
+      }
+      if (
+        activeWars.find(
+          (w) =>
+            (w.attackerVillageId === user?.village?.id &&
+              w.defenderVillageId === defenderVillageId) ||
+            (w.attackerVillageId === defenderVillageId &&
+              w.defenderVillageId === user?.village?.id),
+        )
+      ) {
+        return errorResponse(
+          "You are already at war for a sector or against a village.",
+        );
+      }
+      // Create war and deduct tokens
+      const warId = nanoid();
+      const [updateResult] = await Promise.all([
+        ctx.drizzle
+          .update(village)
+          .set({ tokens: attackerVillage.tokens - WAR_DECLARATION_COST })
+          .where(
+            and(
+              eq(village.id, user.villageId),
+              gte(village.tokens, WAR_DECLARATION_COST),
+            ),
+          ),
+        ctx.drizzle.insert(war).values({
+          id: warId,
+          attackerVillageId: user.villageId,
+          defenderVillageId: defenderVillageId,
+          status: "ACTIVE",
+          type: "SECTOR_WAR",
+          sectorNumber: input.sectorId,
+          dailyTokenReduction: 1000,
+        }),
+        ...(!targetSector
+          ? [
+              ctx.drizzle.insert(sector).values({
+                sector: input.sectorId,
+                villageId: defenderVillageId,
+              }),
+            ]
+          : []),
+      ]);
+      if (updateResult.rowsAffected === 0) {
+        await ctx.drizzle.delete(war).where(eq(war.id, warId));
+        return errorResponse("Not enough tokens to declare sector war");
+      }
+      return {
+        success: true,
+        message: "Sector war declared successfully",
+      };
+    }),
+
   // Declare war on another village
-  declareWar: protectedProcedure
+  declareVillageWar: protectedProcedure
     .input(z.object({ targetVillageId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -69,7 +179,7 @@ export const warRouter = createTRPCRouter({
       if (user.userId !== user.village.kageId) {
         return errorResponse("Only the Kage can declare war");
       }
-      if (user.village.tokens < 15000) {
+      if (user.village.tokens < WAR_DECLARATION_COST) {
         return errorResponse("Your village needs 15,000 tokens to declare war");
       }
       if (!attackerVillage || !defenderVillage) {
@@ -122,8 +232,13 @@ export const warRouter = createTRPCRouter({
       const [updateResult] = await Promise.all([
         ctx.drizzle
           .update(village)
-          .set({ tokens: attackerVillage.tokens - 15000 })
-          .where(and(eq(village.id, user.villageId), gte(village.tokens, 15000))),
+          .set({ tokens: attackerVillage.tokens - WAR_DECLARATION_COST })
+          .where(
+            and(
+              eq(village.id, user.villageId),
+              gte(village.tokens, WAR_DECLARATION_COST),
+            ),
+          ),
         ctx.drizzle.insert(war).values({
           id: warId,
           attackerVillageId: user.villageId,
@@ -178,6 +293,9 @@ export const warRouter = createTRPCRouter({
       }
       if (activeWar.status !== "ACTIVE") {
         return errorResponse("War is not active");
+      }
+      if (activeWar.type !== "VILLAGE_WAR") {
+        return errorResponse("War is not a village war");
       }
       if (
         ![activeWar.attackerVillageId, activeWar.defenderVillageId].includes(
@@ -343,6 +461,9 @@ export const warRouter = createTRPCRouter({
       if (activeWar.status !== "ACTIVE") {
         return errorResponse("War is not active");
       }
+      if (activeWar.type !== "VILLAGE_WAR") {
+        return errorResponse("War is not a village war");
+      }
       if (request.receiverId !== user.userId) {
         return errorResponse("This offer is not for your village");
       }
@@ -415,6 +536,9 @@ export const warRouter = createTRPCRouter({
       if (activeWar.status !== "ACTIVE") {
         return errorResponse("War is not active");
       }
+      if (activeWar.type !== "VILLAGE_WAR") {
+        return errorResponse("War is not a village war");
+      }
       if (
         ![activeWar.attackerVillageId, activeWar.defenderVillageId].includes(
           user.villageId,
@@ -441,7 +565,7 @@ export const warRouter = createTRPCRouter({
  */
 export const fetchActiveWars = async (client: DrizzleClient, villageId?: string) => {
   // Fetch from database the active ones
-  const rawWars = await client.query.war.findMany({
+  let activeWars = await client.query.war.findMany({
     where: eq(war.status, "ACTIVE"),
     with: {
       attackerVillage: {
@@ -466,20 +590,28 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
     },
   });
   // Process the wars and end the ones that need to be ended
-  const processedWars = await Promise.all(
-    rawWars.map((war) => {
+  activeWars = await Promise.all(
+    activeWars.map((war) => {
       // If townhall is destroyed, set tokens to 0 (without updating database), which will trigger war end
-      const attackerTownhall = war.attackerVillage.structures.find(
-        (s) => s.route === "/townhall",
-      );
-      const defenderTownhall = war.defenderVillage.structures.find(
-        (s) => s.route === "/townhall",
-      );
-      if (attackerTownhall && attackerTownhall.curSp <= 0) {
-        war.attackerVillage.tokens = 0;
+      if (war.type === "VILLAGE_WAR") {
+        const attackerTownhall = war.attackerVillage.structures.find(
+          (s) => s.route === "/townhall",
+        );
+        const defenderTownhall = war.defenderVillage?.structures.find(
+          (s) => s.route === "/townhall",
+        );
+        if (attackerTownhall && attackerTownhall.curSp <= 0) {
+          war.attackerVillage.tokens = 0;
+        }
+        if (defenderTownhall && defenderTownhall.curSp <= 0) {
+          war.defenderVillage.tokens = 0;
+        }
       }
-      if (defenderTownhall && defenderTownhall.curSp <= 0) {
-        war.defenderVillage.tokens = 0;
+      // If shrine is destroyed, set tokens to 0 (without updating database), which will trigger war end
+      if (war.type === "SECTOR_WAR") {
+        if (war.shrineHp <= 0) {
+          war.defenderVillage.tokens = 0;
+        }
       }
       // Update war
       if (war.attackerVillage.tokens <= 0 || war.defenderVillage.tokens <= 0) {
@@ -489,7 +621,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
     }),
   );
   // Final active wars
-  const activeWars = processedWars.filter((war) => {
+  activeWars = activeWars.filter((war) => {
     if (villageId) {
       return (
         war.attackerVillageId === villageId ||
@@ -499,8 +631,11 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
     }
     return war.status === "ACTIVE";
   });
-  // Reset wartime townhalls
-  await resetWartimeTownhalls(activeWars);
+  // Reset wartime townhalls if we're fetching all of them
+  if (!villageId) {
+    await resetWartimeTownhalls(activeWars);
+  }
+
   // Return active wars
   return activeWars;
 };
