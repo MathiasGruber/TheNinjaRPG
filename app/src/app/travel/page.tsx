@@ -13,7 +13,14 @@ import Countdown from "@/layout/Countdown";
 import Confirm from "@/layout/Confirm";
 import LoadoutSelector from "@/layout/LoadoutSelector";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UserRoundSearch, Globe2, Eye, EyeOff, GitMerge } from "lucide-react";
+import {
+  UserRoundSearch,
+  Globe2,
+  Eye,
+  EyeOff,
+  GitMerge,
+  MapPinned,
+} from "lucide-react";
 import { HousePlus } from "lucide-react";
 import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/app/_trpc/client";
@@ -43,8 +50,13 @@ const Sector = dynamic(() => import("@/layout/Sector"), { ssr: false });
 export default function Travel() {
   // What is shown on this page
   const [showActive, setShowActive] = useLocalStorage<boolean>("showActiveOnMap", true);
+  const [showOwnership, setShowOwnership] = useLocalStorage<boolean>(
+    "showOwnership",
+    false,
+  );
   const [showModal, setShowModal] = useState<boolean>(false);
   const [showSorrounding, setShowSorrounding] = useState<boolean>(false);
+
   const [activeTab, setActiveTab] = useState<string>("");
 
   // Globe data
@@ -266,38 +278,46 @@ export default function Travel() {
               </>
             )}
             {activeTab === globalLink && (
-              <Popover>
-                <PopoverTrigger>
-                  <Globe2 className={`h-7 w-7 mr-2 hover:text-orange-500`} />
-                </PopoverTrigger>
-                <PopoverContent>
-                  <p className="py-2">
-                    Select sector you wish to highlight on the global map.
-                  </p>
-                  <div className="flex flex-row items-center gap-2">
-                    {highlightedSector ? <p>Currently selected sector:</p> : undefined}
-                    <Form {...sectorForm}>
-                      <FormField
-                        control={sectorForm.control}
-                        name="sector"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                className="w-full"
-                                placeholder="Sector Highlight"
-                                type="number"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </Form>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <>
+                <Popover>
+                  <PopoverTrigger>
+                    <Globe2 className={`h-7 w-7 mr-2 hover:text-orange-500`} />
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    <p className="py-2">
+                      Select sector you wish to highlight on the global map.
+                    </p>
+                    <div className="flex flex-row items-center gap-2">
+                      {highlightedSector ? (
+                        <p>Currently selected sector:</p>
+                      ) : undefined}
+                      <Form {...sectorForm}>
+                        <FormField
+                          control={sectorForm.control}
+                          name="sector"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  className="w-full"
+                                  placeholder="Sector Highlight"
+                                  type="number"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </Form>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <MapPinned
+                  className={`h-7 w-7 mr-2 ${showOwnership ? "fill-orange-500" : ""}`}
+                  onClick={() => setShowOwnership(!showOwnership)}
+                />
+              </>
             )}
             {joinVillageBtn && (
               <Confirm
@@ -347,6 +367,7 @@ export default function Travel() {
             highlights={villages}
             userLocation={true}
             highlightedSector={highlightedSector}
+            showOwnership={showOwnership}
             onTileClick={(sector) => {
               setTargetSector(sector);
               setShowModal(true);

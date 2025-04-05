@@ -1813,6 +1813,31 @@ export const automatedModeration = mysqlTable(
   },
 );
 
+export const sector = mysqlTable(
+  "Sector",
+  {
+    id: int("id").autoincrement().primaryKey().notNull(),
+    sector: smallint("sector").notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      sectorKey: uniqueIndex("Sector_sector_key").on(table.sector),
+    };
+  },
+);
+
+export const sectorRelations = relations(sector, ({ one, many }) => ({
+  village: one(village, {
+    fields: [sector.villageId],
+    references: [village.id],
+  }),
+  wars: many(war, { relationName: "sectorWars" }),
+}));
+
 export const supportReview = mysqlTable("SupportReview", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   apiRoute: varchar("apiRoute", { length: 191 }).notNull(),
@@ -2488,7 +2513,8 @@ export const war = mysqlTable("War", {
   endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
   status: mysqlEnum("status", consts.WAR_STATES).notNull(),
   type: mysqlEnum("type", ["VILLAGE_WAR", "SECTOR_WAR"]).notNull(),
-  sectorId: varchar("sectorId", { length: 191 }),
+  sectorNumber: smallint("sectorNumber").default(0).notNull(),
+  shrineHp: smallint("shrineHp").default(consts.WAR_SHRINE_HP).notNull(),
   dailyTokenReduction: int("dailyTokenReduction").default(1000).notNull(),
   lastTokenReductionAt: datetime("lastTokenReductionAt", { mode: "date", fsp: 3 })
     .default(sql`(CURRENT_TIMESTAMP(3))`)
@@ -2508,6 +2534,11 @@ export const warRelations = relations(war, ({ one, many }) => ({
     relationName: "defenderVillage",
   }),
   warAllies: many(warAlly),
+  sector: one(sector, {
+    fields: [war.sectorNumber],
+    references: [sector.id],
+    relationName: "sectorWars",
+  }),
 }));
 
 export const warAlly = mysqlTable(

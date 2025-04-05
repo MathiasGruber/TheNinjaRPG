@@ -71,7 +71,7 @@ import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { capUserStats } from "@/libs/profile";
-import { deduceActiveUserRegen } from "@/libs/profile";
+import { calcActiveUserRegen } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { RYO_CAP } from "@/drizzle/constants";
 import { USER_CAPS } from "@/drizzle/constants";
@@ -365,6 +365,46 @@ export const profileRouter = createTRPCRouter({
     }
     // User specific
     if (user) {
+      // War-time regen boost
+      const warRegenName = `war-${user.village?.id}-regen`;
+      const warRegenSetting = settings.find((s) => s.name === warRegenName);
+      const warRegenBoost = getGameSettingBoost(warRegenName, settings);
+      if (warRegenBoost) {
+        notifications.push({
+          href: "/profile",
+          name: `+${warRegenBoost.value}% regen | ${warRegenBoost.daysLeft} days`,
+          color: "green",
+        });
+      }
+      if (!warRegenSetting) {
+        await ctx.drizzle.insert(gameSetting).values({
+          id: nanoid(),
+          name: warRegenName,
+          value: 0,
+          time: new Date(),
+        });
+      }
+
+      // War-time training boost
+      const warTrainingName = `war-${user.village?.id}-train`;
+      const warTrainingSetting = settings.find((s) => s.name === warTrainingName);
+      const warTrainingBoost = getGameSettingBoost(warTrainingName, settings);
+      if (warTrainingBoost) {
+        notifications.push({
+          href: "/profile",
+          name: `+${warTrainingBoost.value}% gains | ${warTrainingBoost.daysLeft} days`,
+          color: "green",
+        });
+      }
+      if (!warTrainingSetting) {
+        await ctx.drizzle.insert(gameSetting).values({
+          id: nanoid(),
+          name: warTrainingName,
+          value: 0,
+          time: new Date(),
+        });
+      }
+
       // Get number of un-resolved user reports
       if (canModerateRoles.includes(user.role)) {
         const reportCounts = await ctx.drizzle
@@ -1524,7 +1564,7 @@ export const fetchUpdatedUser = async (props: {
 
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
-    user.regeneration = deduceActiveUserRegen(user, settings);
+    user.regeneration = calcActiveUserRegen(user, settings);
   }
 
   // Handle village prestige situations

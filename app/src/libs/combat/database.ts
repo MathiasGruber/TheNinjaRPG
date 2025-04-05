@@ -10,6 +10,8 @@ import {
   userJutsu,
   mpvpBattleQueue,
   villageStructure,
+  warKill,
+  war,
 } from "@/drizzle/schema";
 import { kageDefendedChallenges, village, clan, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
@@ -276,28 +278,75 @@ export const updateWars = async (
   result: CombatResult | null,
   userId: string,
 ) => {
-  // Fetch
+  // Fetch user
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
+  // Fetch target with whom the user is in a war
+  const warResults = curBattle.usersState
+    .filter((t) => t.userId !== userId)
+    .filter((t) => !t.isSummon)
+    .filter((t) => t.villageId)
+    .filter((t) =>
+      user?.wars.find((w) =>
+        [w.attackerVillageId, w.defenderVillageId].includes(t.villageId!),
+      ),
+    )
+    .map((target) => {
+      // Find the war
+      const war = user?.wars.find(
+        (w) =>
+          w.attackerVillageId === target.villageId ||
+          w.defenderVillageId === target.villageId,
+      );
+      return { target, war: war! };
+    });
   // Guard
   if (!result) return;
   if (!user) return;
   if (!user.villageId) return;
   // Mutate
-  await Promise.all([
-    ...(result.townhallChangeHP !== 0
-      ? [
-          client
-            .update(villageStructure)
-            .set({ curSp: sql`LEAST(maxSp, curSp + ${result.townhallChangeHP})` })
-            .where(
-              and(
-                eq(villageStructure.villageId, user.villageId),
-                eq(villageStructure.route, "/townhall"),
-              ),
-            ),
-        ]
-      : []),
-  ]);
+  await Promise.all(
+    warResults
+      .map((warResult) => [
+        // Insert war kill for tracking purposes
+        ...(result.didWin
+          ? [
+              client.insert(warKill).values({
+                id: nanoid(),
+                warId: warResult.war.id,
+                killerId: user.userId,
+                victimId: warResult.target.userId,
+                killerVillageId: user.villageId!,
+                victimVillageId: warResult.target.villageId!,
+                killedAt: new Date(),
+              }),
+            ]
+          : []),
+        // Update shrine if we're in a sector war
+        ...(result.shrineChangeHp !== 0 && warResult.war.type === "SECTOR_WAR"
+          ? [
+              client
+                .update(war)
+                .set({ shrineHp: sql`shrineHp + ${result.shrineChangeHp}` })
+                .where(eq(war.id, warResult.war.id)),
+            ]
+          : []),
+        // Update townhall if we're in a village war
+        ...(result.townhallChangeHP !== 0 && warResult.war.type === "VILLAGE_WAR"
+          ? [
+              client
+                .update(villageStructure)
+                .set({ curSp: sql`LEAST(maxSp, curSp + ${result.townhallChangeHP})` })
+                .where(
+                  and(
+                    eq(villageStructure.villageId, user.villageId!),
+                    eq(villageStructure.route, "/townhall"),
+                  ),
+                ),
+            ]
+          : []),
+      ])
+      .flat(),
+  );
 };
 
 export const updateTournament = async (
