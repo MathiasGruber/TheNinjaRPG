@@ -1,5 +1,5 @@
 import { drizzleDB } from "@/server/db";
-import { war, village, villageStructure } from "@/drizzle/schema";
+import { war, village } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import {
   WAR_TOKEN_REDUCTION_INTERVAL_HOURS,
@@ -7,6 +7,7 @@ import {
   WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS,
 } from "@/drizzle/constants";
 import { handleWarEnd } from "@/libs/war";
+import { fetchActiveWars } from "@/server/api/routers/war";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -14,30 +15,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const now = new Date();
-    const activeWars = await drizzleDB.query.war.findMany({
-      where: eq(war.status, "ACTIVE"),
-      with: {
-        attackerVillage: {
-          with: {
-            structures: {
-              where: eq(villageStructure.route, "/townhall"),
-            },
-          },
-        },
-        defenderVillage: {
-          with: {
-            structures: {
-              where: eq(villageStructure.route, "/townhall"),
-            },
-          },
-        },
-        warAllies: {
-          with: {
-            village: true,
-          },
-        },
-      },
-    });
+
+    let activeWars = await fetchActiveWars(drizzleDB);
+    activeWars = activeWars.filter((war) => war.type === "VILLAGE_WAR");
 
     if (!activeWars || activeWars.length === 0) {
       return new Response("No active wars found", { status: 200 });

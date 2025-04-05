@@ -117,7 +117,9 @@ export type CombatResult = {
   targetsLeft: number;
   villageTokens: number;
   townhallChangeHP: number;
+  shrineChangeHp: number;
   townhallInfo: Record<string, number>;
+  shrineInfo: Record<number, number>;
   clanPoints: number;
   notifications: string[];
 };
