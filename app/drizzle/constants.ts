@@ -923,6 +923,8 @@ export const IMG_SECTOR_WALL_STONE_TOWER =
   "https://utfs.io/f/aab037bb-7ac7-48f7-9994-548d87eb55f1-lga892.webp";
 export const IMG_MAP_HEXASPHERE =
   "https://tnr-storage-cdn.b-cdn.net/eb805d73-5216-4d5c-b3e9-c39cc2340922-ixejn7.json";
+export const IMG_MAP_WAR_ICON =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJgipq89cU9cpECTimBdjaqbNn7vQsxGR1wLk4";
 export const IMG_TRAIN_INTELLIGENCE =
   "https://utfs.io/f/815a53ea-23d2-4767-9219-a36ed3d4c619-d73vsv.png";
 export const IMG_TRAIN_WILLPOWER =
