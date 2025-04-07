@@ -682,6 +682,43 @@ export const performBattleAction = (props: {
     if (actionPerformed) actionPerformed.lastUsedRound = battle.round;
   }
 
+  // Apply shared cooldown for specific tag types if the action was a jutsu
+  if (action.type === "jutsu") {
+    const sharedCooldownTags: string[] = [
+      "stun",
+      "summon",
+      "shield",
+      "drain",
+      "poison",
+      "clear",
+      "cleanse",
+    ];
+    const usedJutsuTags = new Set(
+      action.effects
+        .map((e) => e.type)
+        .filter((type) => sharedCooldownTags.includes(type)),
+    );
+
+    if (usedJutsuTags.size > 0) {
+      user.jutsus.forEach((userJutsu) => {
+        // Don't apply to the jutsu just used
+        if (userJutsu.jutsu.id === action.id) return;
+
+        // Check if this jutsu has any of the matched tags
+        const hasSharedTag = userJutsu.jutsu.effects.some((effect) =>
+          usedJutsuTags.has(effect.type),
+        );
+
+        if (hasSharedTag) {
+          // Place this jutsu on cooldown starting this round
+          // Note: The duration will depend on this jutsu's own cooldown value.
+          // If a fixed 3-round cooldown is needed, this logic might need adjustment.
+          userJutsu.lastUsedRound = battle.round;
+        }
+      });
+    }
+  }
+
   // Apply relevant effects, and get back new state + active effects
   const { newBattle, actionEffects } = applyEffects(battle, actorId, action);
   return { newBattle, actionEffects };
