@@ -17,12 +17,18 @@ import {
   Vector2,
   Vector3,
 } from "three";
+import { IMG_MAP_WAR_ICON, IMG_MAP_QUEST_ICON } from "@/drizzle/constants";
 import WebGlError from "@/layout/WebGLError";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
-import { createTexture } from "@/libs/threejs/util";
+import { createTexture, loadTexture } from "@/libs/threejs/util";
 import { cleanUp, setupScene } from "@/libs/travel/util";
-import { groundMats, oceanMats, dessertMats, iceMats } from "@/libs/travel/biome";
+import {
+  groundColors,
+  oceanColors,
+  dessertColors,
+  iceColors,
+} from "@/libs/travel/biome";
 import { TrackballControls } from "@/libs/threejs/TrackBallControls";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
@@ -58,6 +64,16 @@ const Map: React.FC<MapProps> = (props) => {
   const { data: ownershipData } = api.village.getSectorOwnerships.useQuery(undefined, {
     enabled: showOwnership,
   });
+
+  // Create a ref to store active war sectors
+  const activeSectorWars = useRef<number[]>([]);
+
+  // Update active war sectors when ownership data changes
+  useEffect(() => {
+    if (ownershipData?.wars) {
+      activeSectorWars.current = ownershipData.wars.map((war) => war.sectorNumber);
+    }
+  }, [ownershipData]);
 
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
@@ -151,17 +167,17 @@ const Map: React.FC<MapProps> = (props) => {
           );
           geometry.setAttribute("position", new BufferAttribute(vertices, 3));
           const consistentRandom = prng();
-          let material = null;
+          let color = null;
 
           // If no ownership or not showing ownership, use biome colors
           if (t.t === 0) {
-            material = oceanMats[Math.floor(consistentRandom * oceanMats.length)];
+            color = oceanColors[Math.floor(consistentRandom * oceanColors.length)];
           } else if (t.t === 1) {
-            material = groundMats[Math.floor(consistentRandom * groundMats.length)];
+            color = groundColors[Math.floor(consistentRandom * groundColors.length)];
           } else if (t.t === 2) {
-            material = dessertMats[Math.floor(consistentRandom * dessertMats.length)];
+            color = dessertColors[Math.floor(consistentRandom * dessertColors.length)];
           } else {
-            material = iceMats[Math.floor(consistentRandom * iceMats.length)];
+            color = iceColors[Math.floor(consistentRandom * iceColors.length)];
           }
 
           // If showing ownership and we have the data, color by owner
@@ -171,9 +187,10 @@ const Map: React.FC<MapProps> = (props) => {
               (v) => v.id === ownership?.villageId,
             );
             if (villageColor) {
-              material = new MeshBasicMaterial({ color: villageColor.hexColor });
+              color = villageColor.hexColor;
             }
           }
+          const material = new MeshBasicMaterial({ color });
 
           const mesh = new Mesh(geometry, material?.clone());
           mesh.matrixAutoUpdate = false;
@@ -247,13 +264,35 @@ const Map: React.FC<MapProps> = (props) => {
       const userTweenColor = { r: 1.0, g: 0.0, b: 0.0 };
       const questTweenColor = { r: 0.8, g: 0.6, b: 0.0 };
       const highlightTweenColor = { r: 0.0, g: 0.6, b: 0.8 };
-      const sectorsToHighlight: { sector: number; color: typeof userTweenColor }[] = [];
+      const warTweenColor = { r: 1.0, g: 0.0, b: 0.0 }; // Red color for war zones
+      const sectorsToHighlight: {
+        sector: number;
+        color: typeof userTweenColor;
+        type: "quest" | "war" | "user" | "highlight";
+      }[] = [];
+
+      // Add war sectors to highlight
+      if (activeSectorWars.current.length > 0) {
+        activeSectorWars.current.forEach((warSector) => {
+          sectorsToHighlight.push({
+            sector: warSector,
+            color: warTweenColor,
+            type: "war",
+          });
+        });
+      }
+
       if (props.userLocation && userData && !showOwnership) {
-        sectorsToHighlight.push({ sector: userData.sector, color: userTweenColor });
+        sectorsToHighlight.push({
+          sector: userData.sector,
+          color: userTweenColor,
+          type: "user",
+        });
         if (highlightedSector) {
           sectorsToHighlight.push({
             sector: highlightedSector,
             color: highlightTweenColor,
+            type: "highlight",
           });
         }
         userData.userQuests.forEach((userquest) => {
@@ -262,6 +301,7 @@ const Map: React.FC<MapProps> = (props) => {
               sectorsToHighlight.push({
                 sector: objective.sector,
                 color: questTweenColor,
+                type: "quest",
               });
             }
           });
@@ -278,6 +318,11 @@ const Map: React.FC<MapProps> = (props) => {
           .start();
         new TWEEN.Tween(highlightTweenColor)
           .to({ r: 0.0, g: 0.0, b: 0.0 }, 1000)
+          .repeat(Infinity)
+          .easing(TWEEN.Easing.Cubic.InOut)
+          .start();
+        new TWEEN.Tween(warTweenColor)
+          .to({ r: 0.4, g: 0.0, b: 0.0 }, 1000)
           .repeat(Infinity)
           .easing(TWEEN.Easing.Cubic.InOut)
           .start();
@@ -299,25 +344,45 @@ const Map: React.FC<MapProps> = (props) => {
           const geometry = new BufferGeometry().setFromPoints(points);
           const line = new LineSegments(geometry, lineMaterial);
           group_highlights.add(line);
-          // Object
-          const highlightMaterial = new MeshBasicMaterial({
-            color: new Color(highlight.color.r, highlight.color.g, highlight.color.b),
-          });
-          const highlightGeom = new TorusKnotGeometry(10, 3, 70, 8);
-          const highlightMesh = new Mesh(highlightGeom, highlightMaterial);
-          highlightMesh.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
-          highlightMesh.scale.set(0.05, 0.05, 0.05);
-          highlightMesh.name = `highlight_sphere`;
-          group_highlights.add(highlightMesh);
-          // Edges
-          const edges = new EdgesGeometry(highlightGeom);
-          const lines = new LineSegments(
-            edges,
-            new LineBasicMaterial({ color: lineColor, linewidth: lineWidth }),
-          );
-          Object.assign(lines.position, highlightMesh.position);
-          Object.assign(lines.scale, highlightMesh.scale);
-          group_highlights.add(lines);
+
+          if (["war", "quest"].includes(highlight.type)) {
+            // Create war icon sprite
+            const texture = loadTexture(
+              highlight.type === "war" ? IMG_MAP_WAR_ICON : IMG_MAP_QUEST_ICON,
+            );
+            texture.generateMipmaps = false;
+            texture.minFilter = LinearFilter;
+            texture.needsUpdate = true;
+            const warIconMaterial = new SpriteMaterial({
+              map: texture,
+              depthWrite: false,
+              depthTest: false,
+            });
+            const warIconSprite = new Sprite(warIconMaterial);
+            warIconSprite.scale.set(1, 1, 1); // Adjust scale as needed
+            warIconSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
+            group_highlights.add(warIconSprite);
+          } else {
+            // Object
+            const highlightMaterial = new MeshBasicMaterial({
+              color: new Color(highlight.color.r, highlight.color.g, highlight.color.b),
+            });
+            const highlightGeom = new TorusKnotGeometry(10, 3, 70, 8);
+            const highlightMesh = new Mesh(highlightGeom, highlightMaterial);
+            highlightMesh.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
+            highlightMesh.scale.set(0.05, 0.05, 0.05);
+            highlightMesh.name = `highlight_sphere`;
+            group_highlights.add(highlightMesh);
+            // Edges
+            const edges = new EdgesGeometry(highlightGeom);
+            const lines = new LineSegments(
+              edges,
+              new LineBasicMaterial({ color: lineColor, linewidth: lineWidth }),
+            );
+            Object.assign(lines.position, highlightMesh.position);
+            Object.assign(lines.scale, highlightMesh.scale);
+            group_highlights.add(lines);
+          }
         }
       });
 

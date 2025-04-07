@@ -171,7 +171,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
           drizzleDB
             .update(sector)
             .set({ villageId: winnerVillageId })
-            .where(eq(sector.id, activeWar.sectorNumber)),
+            .where(eq(sector.sector, activeWar.sectorNumber)),
         ]
       : []),
     // Handle village wars
