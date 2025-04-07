@@ -5,8 +5,8 @@ import { getTableColumns } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
 import { village, villageStructure, userData, notification } from "@/drizzle/schema";
-import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
-import { eq, sql, gte, and, or, inArray } from "drizzle-orm";
+import { villageAlliance, kageDefendedChallenges, war, sector } from "@/drizzle/schema";
+import { eq, sql, gte, and, or, inArray, ne } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { fetchUpdatedUser } from "@/routers/profile";
@@ -77,12 +77,13 @@ export const villageRouter = createTRPCRouter({
     }),
   // Get sector ownership
   getSectorOwnerships: publicProcedure.query(async ({ ctx }) => {
-    const [sectors, colors] = await Promise.all([
+    const [sectors, colors, sectorWars] = await Promise.all([
       ctx.drizzle.query.sector.findMany({
         columns: {
           sector: true,
           villageId: true,
         },
+        where: ne(sector.villageId, VILLAGE_SYNDICATE_ID),
       }),
       ctx.drizzle.query.village.findMany({
         columns: {
@@ -90,8 +91,12 @@ export const villageRouter = createTRPCRouter({
           hexColor: true,
         },
       }),
+      ctx.drizzle.query.war.findMany({
+        columns: { sectorNumber: true },
+        where: and(eq(war.status, "ACTIVE"), eq(war.type, "SECTOR_WAR")),
+      }),
     ]);
-    return { sectors, colors };
+    return { sectors, colors, wars: sectorWars };
   }),
   // Buying food in ramen shop
   buyFood: protectedProcedure
