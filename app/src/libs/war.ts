@@ -1,7 +1,7 @@
 import { drizzleDB } from "@/server/db";
 import { war, village, villageStructure, userRequest } from "@/drizzle/schema";
 import { userData, notification, gameSetting, sector } from "@/drizzle/schema";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, ne } from "drizzle-orm";
 import { sql, inArray, notInArray } from "drizzle-orm";
 import {
   WAR_EXHAUSTION_DURATION_DAYS,
@@ -172,6 +172,15 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
             .update(sector)
             .set({ villageId: winnerVillageId })
             .where(eq(sector.sector, activeWar.sectorNumber)),
+          drizzleDB
+            .update(war)
+            .set({ status: "DEFENDER_VICTORY", endedAt })
+            .where(
+              and(
+                ne(war.id, activeWar.id),
+                eq(war.sectorNumber, activeWar.sectorNumber),
+              ),
+            ),
         ]
       : []),
     // Handle village wars

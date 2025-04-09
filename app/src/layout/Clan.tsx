@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form";
 import { DoorOpen, ArrowBigUpDash, ArrowBigDownDash } from "lucide-react";
 import { SendHorizontal, Swords, DoorClosed, PiggyBank } from "lucide-react";
-import { FilePenLine, List, CirclePlay, ScanEye } from "lucide-react";
+import { FilePenLine, List, CirclePlay, ScanEye, Palette } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Medal, HeartCrack, Star } from "lucide-react";
 import ActionLogs from "@/layout/ActionLog";
@@ -27,7 +27,9 @@ import { UploadButton } from "@/utils/uploadthing";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ClanSearchSelect from "@/layout/ClanSearchSelect";
 import Countdown from "@/layout/Countdown";
+import { ColorPicker } from "@/components/ui/color-picker";
 import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import RichInput from "@/layout/RichInput";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import Tournament from "@/layout/Tournament";
@@ -52,16 +54,19 @@ import { HIDEOUT_COST, FACTION_MIN_POINTS_FOR_TOWN } from "@/drizzle/constants";
 import {
   FACTION_MIN_MEMBERS_FOR_TOWN,
   HIDEOUT_TOWN_UPGRADE,
+  CLAN_COLOR_CHANGE_REP_COST,
 } from "@/drizzle/constants";
 import { checkCoLeader } from "@/validators/clan";
-import { clanRenameSchema } from "@/validators/clan";
+import { factionEditSchema } from "@/validators/clan";
+import { factionColorEditSchema } from "@/validators/clan";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { secondsFromDate } from "@/utils/time";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { cn } from "src/libs/shadui";
 import type { UserRank } from "@/drizzle/schema";
-import type { ClanRenameSchema } from "@/validators/clan";
+import type { FactionEditSchema } from "@/validators/clan";
+import type { FactionColorEditSchema } from "@/validators/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { MutateContentSchema } from "@/validators/comments";
 import type { UserNindo } from "@/drizzle/schema";
@@ -709,6 +714,15 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     },
   });
 
+  const { mutate: editColor } = api.clan.editClanColor.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.clan.get.invalidate();
+      }
+    },
+  });
+
   const { mutate: leave } = api.clan.leaveClan.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -817,12 +831,19 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   });
 
   // Rename Form
-  const renameForm = useForm<ClanRenameSchema>({
-    resolver: zodResolver(clanRenameSchema),
+  const editForm = useForm<FactionEditSchema>({
+    resolver: zodResolver(factionEditSchema),
     defaultValues: { name: clanData.name, image: clanData.image, clanId },
   });
-  const onEdit = renameForm.handleSubmit((data) => edit(data));
-  const currentImage = useWatch({ control: renameForm.control, name: "image" });
+  const onEdit = editForm.handleSubmit((data) => edit(data));
+  const currentImage = useWatch({ control: editForm.control, name: "image" });
+
+  // Color Form
+  const colorForm = useForm<FactionColorEditSchema>({
+    resolver: zodResolver(factionColorEditSchema),
+    defaultValues: { color: userData?.village?.hexColor ?? "#000000", clanId },
+  });
+  const onColorEdit = colorForm.handleSubmit((data) => editColor(data));
 
   // Loader
   if (!clanData) return <Loader explanation="Loading clan data" />;
@@ -851,6 +872,45 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
       back_href={back_href}
       topRightContent={
         <div className="flex flex-row gap-1">
+          {isLeader && hadHideout && (
+            <Confirm2
+              title={`Edit ${groupLabel} Color`}
+              proceed_label="Submit"
+              button={
+                <Button id="rename-clan">
+                  <Palette className="h-5 w-5" />
+                </Button>
+              }
+              onAccept={onColorEdit}
+            >
+              <p>Here you can change the color of the {groupLabel}</p>
+              <Form {...colorForm}>
+                <form className="space-y-4" onSubmit={onColorEdit}>
+                  <FormField
+                    control={colorForm.control}
+                    name="color"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Faction Color</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center gap-2">
+                            <ColorPicker
+                              value={field.value}
+                              onChange={field.onChange}
+                            />
+                            <div className="text-xs text-muted-foreground">
+                              Cost: {CLAN_COLOR_CHANGE_REP_COST} reputation points
+                            </div>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+            </Confirm2>
+          )}
           {isLeader && (
             <Confirm
               title={`Edit ${groupLabel}`}
@@ -860,10 +920,10 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   <FilePenLine className="h-5 w-5" />
                 </Button>
               }
-              isValid={renameForm.formState.isValid}
+              isValid={editForm.formState.isValid}
               onAccept={onEdit}
             >
-              <Form {...renameForm}>
+              <Form {...editForm}>
                 <form className="space-y-2 grid grid-cols-2" onSubmit={onEdit}>
                   <div>
                     <FormLabel>{groupLabel} Image</FormLabel>
@@ -879,7 +939,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                       onClientUploadComplete={(res) => {
                         const url = res?.[0]?.serverData?.fileUrl;
                         if (url) {
-                          renameForm.setValue("image", url, {
+                          editForm.setValue("image", url, {
                             shouldDirty: true,
                           });
                         }
@@ -890,7 +950,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                     />
                   </div>
                   <FormField
-                    control={renameForm.control}
+                    control={editForm.control}
                     name="name"
                     render={({ field }) => (
                       <FormItem>
