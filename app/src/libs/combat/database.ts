@@ -331,7 +331,8 @@ export const updateWars = async (
             ]
           : []),
         // Update townhall if we're in a village war
-        ...(result.townhallChangeHP !== 0 && warResult.war.type === "VILLAGE_WAR"
+        ...(result.townhallChangeHP !== 0 &&
+        ["VILLAGE_WAR", "FACTION_RAID"].includes(warResult.war.type)
           ? [
               client
                 .update(villageStructure)
