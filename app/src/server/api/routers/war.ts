@@ -2,9 +2,9 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, and, gte, ne, desc } from "drizzle-orm";
-import { war, village, warAlly, villageStructure, sector } from "@/drizzle/schema";
+import { war, village, warAlly, sector } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
-import { fetchVillages, fetchAlliances } from "@/routers/village";
+import { fetchVillages, fetchAlliances, fetchStructures } from "@/routers/village";
 import { nanoid } from "nanoid";
 import type { DrizzleClient } from "@/server/db";
 import {
@@ -132,9 +132,13 @@ export const warRouter = createTRPCRouter({
         attackerVillage?.id || "",
         defenderVillageId,
       );
+      const sectorVillage = villages.find((v) => v.sector === input.sectorId);
       // Guard
       if (!user?.village) {
         return errorResponse("You must be in a village to declare war");
+      }
+      if (sectorVillage) {
+        return errorResponse("This sector is already occupied");
       }
       if (!user?.villageId) {
         return errorResponse("You must be in a village to declare war");
@@ -216,20 +220,19 @@ export const warRouter = createTRPCRouter({
     }),
 
   // Declare war on another village
-  declareVillageWar: protectedProcedure
-    .input(z.object({ targetVillageId: z.string() }))
+  declareVillageWarOrRaid: protectedProcedure
+    .input(z.object({ targetVillageId: z.string(), targetStructureRoute: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [{ user }, activeWars, villages, relationships] = await Promise.all([
-        fetchUpdatedUser({
-          client: ctx.drizzle,
-          userId: ctx.userId,
-        }),
-        fetchActiveWars(ctx.drizzle),
-        fetchVillages(ctx.drizzle),
-        fetchAlliances(ctx.drizzle),
-      ]);
+      const [{ user }, activeWars, villages, relationships, structures] =
+        await Promise.all([
+          fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+          fetchActiveWars(ctx.drizzle),
+          fetchVillages(ctx.drizzle),
+          fetchAlliances(ctx.drizzle),
+          fetchStructures(ctx.drizzle, input.targetVillageId),
+        ]);
       // Derived
       const now = new Date();
       const attackerVillage = villages.find((v) => v.id === user?.village?.id);
@@ -239,6 +242,10 @@ export const warRouter = createTRPCRouter({
         attackerVillage?.id || "",
         defenderVillage?.id || "",
       );
+      const isRaid = user?.isOutlaw;
+      const warType = isRaid ? "FACTION_RAID" : "VILLAGE_WAR";
+      const relationshipStatus = isRaid ? "ENEMY" : relationship?.status;
+      const structure = structures.find((s) => s.route === input.targetStructureRoute);
       // Guard
       if (!user?.village) {
         return errorResponse("You must be in a village to declare war");
@@ -246,8 +253,11 @@ export const warRouter = createTRPCRouter({
       if (!user?.villageId) {
         return errorResponse("You must be in a village to declare war");
       }
+      if (!structure) {
+        return errorResponse("Structure not found");
+      }
       if (user.userId !== user.village.kageId) {
-        return errorResponse("Only the Kage can declare war");
+        return errorResponse("Only the leader can declare war");
       }
       if (user.village.tokens < WAR_DECLARATION_COST) {
         return errorResponse("Your village needs 15,000 tokens to declare war");
@@ -255,19 +265,19 @@ export const warRouter = createTRPCRouter({
       if (!attackerVillage || !defenderVillage) {
         return errorResponse("Village not found");
       }
-      if (relationship?.status !== "ENEMY") {
+      if (relationshipStatus !== "ENEMY") {
         return errorResponse("You can only declare war on enemy villages");
       }
-      if (attackerVillage.type !== "VILLAGE") {
-        return errorResponse("You cannot declare war on a non-village");
+      if (!["VILLAGE", "TOWN", "HIDEOUT"].includes(attackerVillage.type)) {
+        return errorResponse("You cannot declare war on this type of village");
       }
-      if (defenderVillage.type !== "VILLAGE") {
-        return errorResponse("You cannot declare war on a non-village");
+      if (!["VILLAGE", "TOWN", "HIDEOUT"].includes(defenderVillage.type)) {
+        return errorResponse("You cannot declare war on this type of village");
       }
-      if (!attackerVillage.allianceSystem) {
+      if (!attackerVillage.allianceSystem && warType === "VILLAGE_WAR") {
         return errorResponse("Your village is not part of the alliance system");
       }
-      if (!defenderVillage.allianceSystem) {
+      if (!defenderVillage.allianceSystem && warType === "VILLAGE_WAR") {
         return errorResponse("Target village is not part of the alliance system");
       }
       if (
@@ -314,8 +324,9 @@ export const warRouter = createTRPCRouter({
           attackerVillageId: user.villageId,
           defenderVillageId: input.targetVillageId,
           status: "ACTIVE",
-          type: "VILLAGE_WAR",
+          type: warType,
           dailyTokenReduction: 1000,
+          targetStructureRoute: structure.route,
         }),
       ]);
       if (updateResult.rowsAffected === 0) {
@@ -606,8 +617,8 @@ export const warRouter = createTRPCRouter({
       if (activeWar.status !== "ACTIVE") {
         return errorResponse("War is not active");
       }
-      if (activeWar.type !== "VILLAGE_WAR") {
-        return errorResponse("War is not a village war");
+      if (!["FACTION_RAID", "VILLAGE_WAR"].includes(activeWar.type)) {
+        return errorResponse("Cannot surrender this type of war");
       }
       if (
         ![activeWar.attackerVillageId, activeWar.defenderVillageId].includes(
@@ -655,7 +666,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
   activeWars = await Promise.all(
     activeWars.map((war) => {
       // If townhall is destroyed, set tokens to 0 (without updating database), which will trigger war end
-      if (war.type === "VILLAGE_WAR") {
+      if (["VILLAGE_WAR", "FACTION_RAID"].includes(war.type)) {
         const attackerTownhall = war.attackerVillage.structures.find(
           (s) => s.route === war.targetStructureRoute,
         );

@@ -36,6 +36,7 @@ import { KAGE_MIN_DAYS_IN_VILLAGE } from "@/drizzle/constants";
 import { WAR_DECLARATION_COST, WAR_DAILY_TOKEN_REDUCTION } from "@/drizzle/constants";
 import { WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS } from "@/drizzle/constants";
 import { WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS } from "@/drizzle/constants";
+import { WAR_VICTORY_TOKEN_BONUS } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { WAR_ALLY_OFFER_MIN } from "@/drizzle/constants";
 import { WAR_SHRINE_IMAGE, WAR_SHRINE_HP } from "@/drizzle/constants";
@@ -60,9 +61,15 @@ import {
 import { Dialog } from "@/components/ui/dialog";
 import { fetchMap } from "@/libs/travel/globe";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { GlobalMapData } from "@/libs/travel/types";
 import StatusBar from "@/layout/StatusBar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Map = dynamic(() => import("@/layout/Map"), { ssr: false });
 
@@ -1032,7 +1039,9 @@ const WarRoom: React.FC<{
           <div className="grid grid-cols-1 gap-4">
             {warType === "Active" &&
               activeWars?.map((war) =>
-                war.type === "VILLAGE_WAR" ? (
+                war.type === "SECTOR_WAR" ? (
+                  <SectorWar key={war.id} war={war} user={user} isKage={isKage} />
+                ) : (
                   <VillageWar
                     key={war.id}
                     war={war}
@@ -1042,8 +1051,6 @@ const WarRoom: React.FC<{
                     userVillage={userVillage}
                     isKage={isKage}
                   />
-                ) : (
-                  <SectorWar key={war.id} war={war} user={user} isKage={isKage} />
                 ),
               )}
             {warType === "Active" && activeWars && activeWars.length === 0 && (
@@ -1051,7 +1058,9 @@ const WarRoom: React.FC<{
             )}
             {warType === "Ended" &&
               endedWars?.map((war) =>
-                war.type === "VILLAGE_WAR" ? (
+                war.type === "SECTOR_WAR" ? (
+                  <SectorWar key={war.id} war={war} user={user} isKage={isKage} />
+                ) : (
                   <VillageWar
                     key={war.id}
                     war={war}
@@ -1061,8 +1070,6 @@ const WarRoom: React.FC<{
                     userVillage={userVillage}
                     isKage={isKage}
                   />
-                ) : (
-                  <SectorWar key={war.id} war={war} user={user} isKage={isKage} />
                 ),
               )}
             {warType === "Ended" && endedWars && endedWars.length === 0 && (
@@ -1088,10 +1095,34 @@ const WarMap: React.FC<{
   const [globe, setGlobe] = useState<GlobalMapData | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [targetSector, setTargetSector] = useState<number | null>(null);
+  const [structureRoute, setStructureRoute] = useState("/townhall");
 
   // Query data
   const { data: userData } = useRequiredUserData();
   const utils = api.useUtils();
+
+  // Derived
+  const canWar = ["VILLAGE", "TOWN", "HIDEOUT"].includes(userData?.village?.type ?? "");
+  const canDeclareWar = isKage && canWar;
+  const sectorVillage = villages?.find(
+    (v) => v.sector === targetSector && v.type === "VILLAGE",
+  );
+  const sectorClaimed = villages?.find((v) => v.sector === targetSector);
+  const relationship = findRelationship(
+    relationships ?? [],
+    user.villageId ?? "",
+    sectorVillage?.id ?? "",
+  );
+  const status = relationship?.status || (user.isOutlaw ? "ENEMY" : "NEUTRAL");
+  let textColor = "text-slate-600";
+  if (status === "ALLY") textColor = "text-green-600";
+  if (status === "ENEMY") textColor = "text-red-600";
+
+  // Queries
+  const { data: structures } = api.village.getVillageStructures.useQuery(
+    { villageId: sectorVillage?.id ?? "" },
+    { enabled: !!sectorVillage?.id },
+  );
 
   // Mutations
   const { mutate: declareSectorWar, isPending: isDeclaringSectorWar } =
@@ -1109,8 +1140,8 @@ const WarMap: React.FC<{
     });
 
   // Mutations
-  const { mutate: declareVillageWar, isPending: isDeclaringVillageWar } =
-    api.war.declareVillageWar.useMutation({
+  const { mutate: declareVillageWarOrRaid, isPending: isDeclaringVillageWar } =
+    api.war.declareVillageWarOrRaid.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
@@ -1154,32 +1185,24 @@ const WarMap: React.FC<{
     isDeclaringVillageWar ||
     isDeclaringEnemy ||
     isLeavingAlliance;
-  const canWar = ["VILLAGE", "TOWN", "HIDEOUT"].includes(userData?.village?.type ?? "");
-  const canDeclareWar = isKage && canWar;
-  const sectorVillage = villages?.find(
-    (v) => v.sector === targetSector && v.type === "VILLAGE",
-  );
-  const relationship = findRelationship(
-    relationships ?? [],
-    user.villageId ?? "",
-    sectorVillage?.id ?? "",
-  );
-  const status = relationship?.status || (user.isOutlaw ? "ENEMY" : "NEUTRAL");
-  let textColor = "text-slate-600";
-  if (status === "ALLY") textColor = "text-green-600";
-  if (status === "ENEMY") textColor = "text-red-600";
 
   // What to show in the modal
   let modalTitle = "Declare War";
-  let proceedLabel = "Declare War";
+  let proceedLabel: string | undefined = "Declare War";
   if (sectorVillage) {
-    if (status === "ALLY") {
+    if (user.isOutlaw) {
+      proceedLabel = "Start Raid";
+      modalTitle = "Raid Village";
+    } else if (status === "ALLY") {
       proceedLabel = "Break Alliance";
       modalTitle = "Break Alliance";
     } else if (status === "NEUTRAL") {
       proceedLabel = "Declare Enemy";
       modalTitle = "Declare Enemy";
     }
+  } else if (sectorClaimed) {
+    proceedLabel = undefined;
+    modalTitle = "Sector Occupied";
   }
 
   // Depending on which tile the user clicked, we're either declaring a sector war, village war, or faction raid
@@ -1211,7 +1234,6 @@ const WarMap: React.FC<{
             title={modalTitle}
             setIsOpen={setShowModal}
             proceed_label={!isLoading ? proceedLabel : undefined}
-            isValid={false}
             onAccept={() => {
               if (sectorVillage) {
                 if (status === "ALLY" && relationship) {
@@ -1219,7 +1241,10 @@ const WarMap: React.FC<{
                 } else if (status === "NEUTRAL") {
                   declareEnemy({ villageId: sectorVillage.id });
                 } else if (status === "ENEMY") {
-                  declareVillageWar({ targetVillageId: sectorVillage.id });
+                  declareVillageWarOrRaid({
+                    targetVillageId: sectorVillage.id,
+                    targetStructureRoute: structureRoute,
+                  });
                 }
               } else {
                 declareSectorWar({ sectorId: targetSector });
@@ -1227,7 +1252,45 @@ const WarMap: React.FC<{
             }}
           >
             {isLoading && <Loader explanation="Execution Action" />}
-            {!isLoading && !sectorVillage && (
+            {!isLoading && sectorVillage && user.isOutlaw && (
+              <div>
+                <div>
+                  You have the option of initiating a raid in this sector, targeting a
+                  giving structure. The cost of starting a raid is{" "}
+                  {WAR_DECLARATION_COST.toLocaleString()} tokens, and each day at war
+                  reduces your tokens by {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()}{" "}
+                  (increasing by{" "}
+                  {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}%
+                  after 3 days and{" "}
+                  {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
+                  after 7 days). If you win, the structure level will be reduced by 1
+                  and you will received {WAR_VICTORY_TOKEN_BONUS.toLocaleString()}{" "}
+                  tokens.
+                </div>
+                <div className="space-y-2">
+                  <p className="font-semibold">Select Target Structure:</p>
+                  <Select value={structureRoute} onValueChange={setStructureRoute}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a structure to raid" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {structures?.map((structure) => (
+                        <SelectItem
+                          key={structure.id}
+                          value={structure.route || structure.id}
+                        >
+                          {structure.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            {!isLoading && !sectorVillage && sectorClaimed && !user.isOutlaw && (
+              <div>This sector is already occupied and cannot be claimed.</div>
+            )}
+            {!isLoading && !sectorVillage && !sectorClaimed && (
               <div>
                 <p>You are about to declare war on sector {targetSector}.</p>
                 <p className="py-2">
@@ -1246,7 +1309,7 @@ const WarMap: React.FC<{
                 <p>Do you confirm?</p>
               </div>
             )}
-            {!isLoading && sectorVillage && (
+            {!isLoading && sectorVillage && !user.isOutlaw && (
               <div className="border p-4 rounded-lg text-center relative">
                 <p className="font-bold">{sectorVillage.name}</p>
                 <Image
@@ -1624,41 +1687,43 @@ const VillageWar: React.FC<{
             />
           </div>
           {/* Show our supporting factions */}
-          <div className="mt-4">
-            <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {war.warAllies
-                .filter((warAlly) =>
+          {war.type === "VILLAGE_WAR" && (
+            <div className="mt-4">
+              <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {war.warAllies
+                  .filter((warAlly) =>
+                    war.attackerVillageId === user.villageId
+                      ? warAlly.supportVillageId === war.attackerVillageId
+                      : warAlly.supportVillageId === war.defenderVillageId,
+                  )
+                  .map((warAlly) => (
+                    <div
+                      key={warAlly.villageId}
+                      className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
+                    >
+                      <Image
+                        src={warAlly.village.villageGraphic}
+                        alt={warAlly.village.name}
+                        width={20}
+                        height={20}
+                        className="rounded-full"
+                      />
+                      <span className="text-sm">{warAlly.village.name}</span>
+                    </div>
+                  ))}
+                {war.warAllies.filter((warAlly) =>
                   war.attackerVillageId === user.villageId
                     ? warAlly.supportVillageId === war.attackerVillageId
                     : warAlly.supportVillageId === war.defenderVillageId,
-                )
-                .map((warAlly) => (
-                  <div
-                    key={warAlly.villageId}
-                    className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
-                  >
-                    <Image
-                      src={warAlly.village.villageGraphic}
-                      alt={warAlly.village.name}
-                      width={20}
-                      height={20}
-                      className="rounded-full"
-                    />
-                    <span className="text-sm">{warAlly.village.name}</span>
+                ).length === 0 && (
+                  <div className="text-sm text-muted-foreground italic">
+                    No supporting forces
                   </div>
-                ))}
-              {war.warAllies.filter((warAlly) =>
-                war.attackerVillageId === user.villageId
-                  ? warAlly.supportVillageId === war.attackerVillageId
-                  : warAlly.supportVillageId === war.defenderVillageId,
-              ).length === 0 && (
-                <div className="text-sm text-muted-foreground italic">
-                  No supporting forces
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Enemy Town Hall */}
@@ -1682,45 +1747,47 @@ const VillageWar: React.FC<{
             />
           </div>
           {/* Show enemy supporting factions */}
-          <div className="mt-4">
-            <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {war.warAllies
-                .filter((warAlly) =>
+          {war.type === "VILLAGE_WAR" && (
+            <div className="mt-4">
+              <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {war.warAllies
+                  .filter((warAlly) =>
+                    war.attackerVillageId === user.villageId
+                      ? warAlly.supportVillageId === war.defenderVillageId
+                      : warAlly.supportVillageId === war.attackerVillageId,
+                  )
+                  .map((warAlly) => (
+                    <div
+                      key={warAlly.villageId}
+                      className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
+                    >
+                      <Image
+                        src={warAlly.village.villageGraphic}
+                        alt={warAlly.village.name}
+                        width={20}
+                        height={20}
+                        className="rounded-full"
+                      />
+                      <span className="text-sm">{warAlly.village.name}</span>
+                    </div>
+                  ))}
+                {war.warAllies.filter((warAlly) =>
                   war.attackerVillageId === user.villageId
                     ? warAlly.supportVillageId === war.defenderVillageId
                     : warAlly.supportVillageId === war.attackerVillageId,
-                )
-                .map((warAlly) => (
-                  <div
-                    key={warAlly.villageId}
-                    className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
-                  >
-                    <Image
-                      src={warAlly.village.villageGraphic}
-                      alt={warAlly.village.name}
-                      width={20}
-                      height={20}
-                      className="rounded-full"
-                    />
-                    <span className="text-sm">{warAlly.village.name}</span>
+                ).length === 0 && (
+                  <div className="text-sm text-muted-foreground italic">
+                    No supporting forces
                   </div>
-                ))}
-              {war.warAllies.filter((warAlly) =>
-                war.attackerVillageId === user.villageId
-                  ? warAlly.supportVillageId === war.defenderVillageId
-                  : warAlly.supportVillageId === war.attackerVillageId,
-              ).length === 0 && (
-                <div className="text-sm text-muted-foreground italic">
-                  No supporting forces
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {isKage && war.status === "ACTIVE" && (
+      {isKage && war.status === "ACTIVE" && war.type === "VILLAGE_WAR" && (
         <div className="mt-4">
           <h5 className="font-bold mb-2">Send War Alliance Offers</h5>
           <p className="text-sm text-muted-foreground mb-4">
@@ -1943,10 +2010,10 @@ const FactionRoom: React.FC<{
         <div className="grid grid-cols-1 gap-4">
           {warType === "Active" &&
             activeWars?.map((war) =>
-              war.type === "VILLAGE_WAR" ? (
-                <VillageWar key={war.id} war={war} user={user} isKage={isLeader} />
-              ) : (
+              war.type === "SECTOR_WAR" ? (
                 <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
+              ) : (
+                <VillageWar key={war.id} war={war} user={user} isKage={isLeader} />
               ),
             )}
           {warType === "Active" && activeWars?.length === 0 && (
@@ -1954,10 +2021,10 @@ const FactionRoom: React.FC<{
           )}
           {warType === "Ended" &&
             endedWars?.map((war) =>
-              war.type === "VILLAGE_WAR" ? (
-                <VillageWar key={war.id} war={war} user={user} isKage={isLeader} />
-              ) : (
+              war.type === "SECTOR_WAR" ? (
                 <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
+              ) : (
+                <VillageWar key={war.id} war={war} user={user} isKage={isLeader} />
               ),
             )}
           {warType === "Ended" && endedWars?.length === 0 && (

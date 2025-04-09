@@ -666,13 +666,13 @@ const Combat: React.FC<CombatProps> = (props) => {
                 if (change > 0) {
                   return (
                     <p key={key} className="text-green-500">
-                      {villageName} Townhall HP: +{change.toFixed(2)}
+                      {villageName} Structure HP: +{change.toFixed(2)}
                     </p>
                   );
                 } else if (change < 0) {
                   return (
                     <p key={key} className="text-red-500">
-                      {villageName} Townhall HP: {change.toFixed(2)}
+                      {villageName} Structure HP: {change.toFixed(2)}
                     </p>
                   );
                 }
