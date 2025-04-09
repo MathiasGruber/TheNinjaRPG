@@ -19,16 +19,14 @@ export const clanCreateSchema = z.object({
     .max(88)
     .refine(
       (name) =>
-        !bannedNames.some(
-          (banned) => banned.toLowerCase() === name.toLowerCase()
-        ),
-      { message: "This clan name is not allowed." }
+        !bannedNames.some((banned) => banned.toLowerCase() === name.toLowerCase()),
+      { message: "This clan name is not allowed." },
     ),
 });
 
 export type ClanCreateSchema = z.infer<typeof clanCreateSchema>;
 
-export const clanRenameSchema = z.object({
+export const factionEditSchema = z.object({
   clanId: z.string(),
   name: z
     .string()
@@ -37,15 +35,22 @@ export const clanRenameSchema = z.object({
     .max(88)
     .refine(
       (name) =>
-        !bannedNames.some(
-          (banned) => banned.toLowerCase() === name.toLowerCase()
-        ),
-      { message: "This clan name is not allowed." }
+        !bannedNames.some((banned) => banned.toLowerCase() === name.toLowerCase()),
+      { message: "This clan name is not allowed." },
     ),
   image: z.string(),
 });
 
-export type ClanRenameSchema = z.infer<typeof clanRenameSchema>;
+export type FactionEditSchema = z.infer<typeof factionEditSchema>;
+
+export const factionColorEditSchema = z.object({
+  clanId: z.string(),
+  color: z.string().regex(/^#[0-9A-F]{6}$/i, {
+    message: "Must be a valid hex color code",
+  }),
+});
+
+export type FactionColorEditSchema = z.infer<typeof factionColorEditSchema>;
 
 /**
  * Checks if a user is a clan leader.
