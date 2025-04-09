@@ -70,7 +70,9 @@ const Modal2: React.FC<Modal2Props> = (props) => {
               e.preventDefault();
               e.stopPropagation();
               if (props.onAccept) props.onAccept(e);
-              handleDialogClose();
+              if (props.isValid === undefined || props.isValid) {
+                props.setIsOpen(false);
+              }
             }}
             className={`rounded-lg z-30 ${confirmBtnClassName}`}
           >
