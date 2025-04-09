@@ -7,6 +7,7 @@ import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import BanInfo from "@/layout/BanInfo";
 import Confirm from "@/layout/Confirm";
+import Modal2 from "@/layout/Modal2";
 import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
 import NavTabs from "@/layout/NavTabs";
@@ -56,11 +57,11 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { Dialog } from "@/components/ui/dialog";
 import { fetchMap } from "@/libs/travel/globe";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { GlobalMapData } from "@/libs/travel/types";
-import Modal from "@/layout/Modal";
 import StatusBar from "@/layout/StatusBar";
 
 const Map = dynamic(() => import("@/layout/Map"), { ssr: false });
@@ -975,13 +976,12 @@ const WarRoom: React.FC<{
   const [warType, setWarType] = useState<"Active" | "Ended">("Active");
 
   // Queries
-  const { data: activeWars, isPending: isLoadingActive } =
-    api.war.getActiveWars.useQuery(
-      { villageId: user.villageId ?? "" },
-      { staleTime: 10000, enabled: !!user.villageId && warType === "Active" },
-    );
+  const { data: activeWars } = api.war.getActiveWars.useQuery(
+    { villageId: user.villageId ?? "" },
+    { staleTime: 10000, enabled: !!user.villageId && warType === "Active" },
+  );
 
-  const { data: endedWars, isPending: isLoadingEnded } = api.war.getEndedWars.useQuery(
+  const { data: endedWars } = api.war.getEndedWars.useQuery(
     { villageId: user.villageId ?? "" },
     { staleTime: 10000, enabled: !!user.villageId && warType === "Ended" },
   );
@@ -1344,7 +1344,8 @@ const SectorWars: React.FC = () => {
 
   // Derived
   const isKage = userData?.userId === userData?.village?.kageId;
-  const canDeclareWar = isKage && userData?.village?.type === "VILLAGE";
+  const canWar = ["VILLAGE", "TOWN", "HIDEOUT"].includes(userData?.village?.type ?? "");
+  const canDeclareWar = isKage && canWar;
 
   return (
     <div className="relative">
@@ -1365,36 +1366,38 @@ const SectorWars: React.FC = () => {
         />
       )}
       {showModal && globe && userData && targetSector && (
-        <Modal
-          title="Declare Sector War"
-          setIsOpen={setShowModal}
-          proceed_label={!isDeclaringWar ? "Declare War" : undefined}
-          isValid={false}
-          onAccept={() => {
-            declareSectorWar({ sectorId: targetSector });
-          }}
-        >
-          {isDeclaringWar && <Loader explanation="Declaring War" />}
-          {!isDeclaringWar && (
-            <div>
-              <p>You are about to declare war on sector {targetSector}.</p>
-              <p className="py-2">
-                This will initiate a war between your village and any village in sector{" "}
-                {targetSector}.
-              </p>
-              <p className="py-2">
-                The cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()}{" "}
-                Village Tokens, and each day at war reduces your tokens by{" "}
-                {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
-                {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}%
-                after 3 days and{" "}
-                {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
-                after 7 days).
-              </p>
-              <p>Do you confirm?</p>
-            </div>
-          )}
-        </Modal>
+        <Dialog open={showModal} onOpenChange={setShowModal}>
+          <Modal2
+            title="Declare Sector War"
+            setIsOpen={setShowModal}
+            proceed_label={!isDeclaringWar ? "Declare War" : undefined}
+            isValid={false}
+            onAccept={() => {
+              declareSectorWar({ sectorId: targetSector });
+            }}
+          >
+            {isDeclaringWar && <Loader explanation="Declaring War" />}
+            {!isDeclaringWar && (
+              <div>
+                <p>You are about to declare war on sector {targetSector}.</p>
+                <p className="py-2">
+                  This will initiate a war between your village and any village in
+                  sector {targetSector}.
+                </p>
+                <p className="py-2">
+                  The cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()}{" "}
+                  Village Tokens, and each day at war reduces your tokens by{" "}
+                  {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
+                  {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}%
+                  after 3 days and{" "}
+                  {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
+                  after 7 days).
+                </p>
+                <p>Do you confirm?</p>
+              </div>
+            )}
+          </Modal2>
+        </Dialog>
       )}
     </div>
   );
@@ -1417,7 +1420,10 @@ const SectorWar: React.FC<{
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.war.getActiveWars.invalidate();
+          await Promise.all([
+            utils.war.getActiveWars.invalidate(),
+            utils.village.getSectorOwnerships.invalidate(),
+          ]);
         }
       },
     });
@@ -1478,7 +1484,8 @@ const SectorWar: React.FC<{
                 <strong>Note:</strong> This shrine has been destroyed, and your leaders
                 can chose to build a new shrine to claim this sector. The cost of
                 building a new shrine is{" "}
-                {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} tokens.
+                {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} tokens. Currently we
+                have {user.village?.tokens?.toLocaleString()} tokens.
               </p>
             )}
           </div>
@@ -1980,33 +1987,44 @@ const FactionRoom: React.FC<{
       >
         <p>
           As a faction, you can be hired by villages to join their wars as mercenaries.
-          Each war contract comes with a payment in village tokens, which will be
-          transferred to your faction upon accepting the offer. Choose your contracts
-          wisely, as your reputation and relationships with villages will be affected by
-          your choices.
+          Each war contract comes with a payment in tokens, which will be transferred to
+          your faction upon accepting the offer. In addition factions can participage in
+          sectors wars to claim additional territory.
         </p>
+        <SectorWars />
       </ContentBox>
 
-      {((warType === "Active" && activeWars && activeWars.length > 0) ||
-        (warType === "Ended" && endedWars && endedWars.length > 0)) && (
-        <ContentBox
-          title={`${warType} Wars`}
-          subtitle={warType === "Active" ? "Current Conflicts" : "Past Conflicts"}
-          initialBreak={true}
-          topRightContent={WarTypeNavTabs}
-        >
-          <div className="grid grid-cols-1 gap-4">
-            {warType === "Active" &&
-              activeWars?.map((war) => (
+      <ContentBox
+        title={`${warType} Wars`}
+        subtitle={warType === "Active" ? "Current Conflicts" : "Past Conflicts"}
+        initialBreak={true}
+        topRightContent={WarTypeNavTabs}
+      >
+        <div className="grid grid-cols-1 gap-4">
+          {warType === "Active" &&
+            activeWars?.map((war) =>
+              war.type === "VILLAGE_WAR" ? (
                 <VillageWar key={war.id} war={war} user={user} isKage={isLeader} />
-              ))}
-            {warType === "Ended" &&
-              endedWars?.map((war) => (
+              ) : (
+                <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
+              ),
+            )}
+          {warType === "Active" && activeWars?.length === 0 && (
+            <p className="text-muted-foreground">No active wars</p>
+          )}
+          {warType === "Ended" &&
+            endedWars?.map((war) =>
+              war.type === "VILLAGE_WAR" ? (
                 <VillageWar key={war.id} war={war} user={user} isKage={isLeader} />
-              ))}
-          </div>
-        </ContentBox>
-      )}
+              ) : (
+                <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
+              ),
+            )}
+          {warType === "Ended" && endedWars?.length === 0 && (
+            <p className="text-muted-foreground">No ended wars</p>
+          )}
+        </div>
+      </ContentBox>
 
       {isLeader && warType === "Active" && requests && requests.length > 0 && (
         <ContentBox
