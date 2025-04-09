@@ -2512,12 +2512,15 @@ export const war = mysqlTable("War", {
     .notNull(),
   endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
   status: mysqlEnum("status", consts.WAR_STATES).notNull(),
-  type: mysqlEnum("type", ["VILLAGE_WAR", "SECTOR_WAR"]).notNull(),
+  type: mysqlEnum("type", consts.WAR_TYPES).notNull(),
   sectorNumber: smallint("sectorNumber").default(0).notNull(),
   shrineHp: smallint("shrineHp").default(consts.WAR_SHRINE_HP).notNull(),
   dailyTokenReduction: int("dailyTokenReduction").default(1000).notNull(),
   lastTokenReductionAt: datetime("lastTokenReductionAt", { mode: "date", fsp: 3 })
     .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  targetStructureRoute: varchar("targetStructureRoute", { length: 191 })
+    .default("/townhall")
     .notNull(),
 });
 export type War = InferSelectModel<typeof war>;
