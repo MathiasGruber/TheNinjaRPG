@@ -639,18 +639,10 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
     where: eq(war.status, "ACTIVE"),
     with: {
       attackerVillage: {
-        with: {
-          structures: {
-            where: eq(villageStructure.route, "/townhall"),
-          },
-        },
+        with: { structures: true },
       },
       defenderVillage: {
-        with: {
-          structures: {
-            where: eq(villageStructure.route, "/townhall"),
-          },
-        },
+        with: { structures: true },
       },
       warAllies: {
         with: {
@@ -665,10 +657,10 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
       // If townhall is destroyed, set tokens to 0 (without updating database), which will trigger war end
       if (war.type === "VILLAGE_WAR") {
         const attackerTownhall = war.attackerVillage.structures.find(
-          (s) => s.route === "/townhall",
+          (s) => s.route === war.targetStructureRoute,
         );
         const defenderTownhall = war.defenderVillage?.structures.find(
-          (s) => s.route === "/townhall",
+          (s) => s.route === war.targetStructureRoute,
         );
         if (attackerTownhall && attackerTownhall.curSp <= 0) {
           war.attackerVillage.tokens = 0;
@@ -721,18 +713,10 @@ export const fetchActiveWar = async (client: DrizzleClient, warId: string) => {
     where: and(eq(war.id, warId), eq(war.status, "ACTIVE")),
     with: {
       attackerVillage: {
-        with: {
-          structures: {
-            where: eq(villageStructure.route, "/townhall"),
-          },
-        },
+        with: { structures: true },
       },
       defenderVillage: {
-        with: {
-          structures: {
-            where: eq(villageStructure.route, "/townhall"),
-          },
-        },
+        with: { structures: true },
       },
       warAllies: {
         with: {
@@ -754,18 +738,10 @@ export const fetchEndedWars = async (client: DrizzleClient, villageId?: string) 
     where: ne(war.status, "ACTIVE"),
     with: {
       attackerVillage: {
-        with: {
-          structures: {
-            where: eq(villageStructure.route, "/townhall"),
-          },
-        },
+        with: { structures: true },
       },
       defenderVillage: {
-        with: {
-          structures: {
-            where: eq(villageStructure.route, "/townhall"),
-          },
-        },
+        with: { structures: true },
       },
       warAllies: {
         with: {
