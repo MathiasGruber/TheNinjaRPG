@@ -1550,10 +1550,10 @@ const VillageWar: React.FC<{
   });
 
   const attackerTownHall = war.attackerVillage?.structures?.find(
-    (s) => s.route === "/townhall",
+    (s) => s.route === war.targetStructureRoute,
   );
   const defenderTownHall = war.defenderVillage?.structures?.find(
-    (s) => s.route === "/townhall",
+    (s) => s.route === war.targetStructureRoute,
   );
   const canJoin = villages?.filter((v) => {
     const { check } = canJoinWar(war, relationships ?? [], v, userVillage!);
