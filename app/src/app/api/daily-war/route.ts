@@ -8,11 +8,20 @@ import {
 } from "@/drizzle/constants";
 import { handleWarEnd } from "@/libs/war";
 import { fetchActiveWars } from "@/server/api/routers/war";
+import { updateGameSetting } from "@/libs/gamesettings";
+import { lockWithDailyTimer, handleEndpointError } from "@/libs/gamesettings";
+import { cookies } from "next/headers";
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
+const ENDPOINT_NAME = "daily-war";
 
 export async function GET() {
+  // disable cache for this server action (https://github.com/vercel/next.js/discussions/50045)
+  await cookies();
+
+  // Check timer
+  const timerCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME);
+  if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
+
   try {
     const now = new Date();
 
@@ -101,8 +110,9 @@ export async function GET() {
       ]);
     }
     return new Response("War daily update completed", { status: 200 });
-  } catch (error) {
-    console.error("War daily update failed:", error);
-    return new Response("War daily update failed", { status: 500 });
+  } catch (cause) {
+    // Rollback
+    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    return handleEndpointError(cause);
   }
 }
