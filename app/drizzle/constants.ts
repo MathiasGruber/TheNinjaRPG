@@ -603,6 +603,8 @@ export const WAR_STATES = [
   "DEFENDER_VICTORY",
   "DRAW",
 ] as const;
+export const WAR_TYPES = ["VILLAGE_WAR", "SECTOR_WAR", "FACTION_RAID"] as const;
+export type WarType = (typeof WAR_TYPES)[number];
 export type WarState = (typeof WAR_STATES)[number];
 
 // Clans config
