@@ -77,6 +77,10 @@ export default function Travel() {
   const { data: villageData } = api.village.getAll.useQuery(undefined, {
     enabled: !!userData,
   });
+  const { data: sectorData } = api.travel.getSectorData.useQuery(
+    { sector: userData?.sector || -1 },
+    { enabled: !!userData },
+  );
   const villages = villageData?.filter((v) => {
     if (userData?.isOutlaw) {
       return true;
@@ -195,7 +199,13 @@ export default function Travel() {
       targetPosition &&
       currentPosition.x === targetPosition.x &&
       currentPosition.y === targetPosition.y;
-    if (atTarget && onEdge && targetSector && targetSector !== currentSector) {
+    if (
+      atTarget &&
+      onEdge &&
+      targetSector &&
+      targetSector !== currentSector &&
+      !isStartingTravel
+    ) {
       startGlobalMove({ sector: targetSector });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -245,16 +255,16 @@ export default function Travel() {
   const canCreateHideout =
     isOutlaw && !sectorVillage && clanLeader && !hadHideout && loadedVillages;
   const joinVillageBtn = userData.isOutlaw && canJoin && sectorVillage?.joinable;
+  const subtitle =
+    currentSector && userData && activeTab === sectorLink
+      ? `Sector ${currentSector} ${sectorData?.sectorData ? `(${sectorData.sectorData.village.name})` : ""}`
+      : "The world of Seichi";
 
   return (
     <>
       <ContentBox
         title="Travel"
-        subtitle={
-          currentSector && userData && activeTab === sectorLink
-            ? `Sector ${currentSector}`
-            : "The world of Seichi"
-        }
+        subtitle={subtitle}
         padding={false}
         topRightContent={
           <div className="flex flex-row items-center cursor-pointer">

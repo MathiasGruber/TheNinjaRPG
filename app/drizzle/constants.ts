@@ -586,6 +586,7 @@ export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS = 1.5; // 50% increase 
 export const WAR_EXHAUSTION_DURATION_DAYS = 3; // War exhaustion duration
 export const WAR_STRUCTURE_UPGRADE_BLOCK_DAYS = 7; // Structure upgrade block duration
 export const WAR_VICTORY_TOKEN_BONUS = 100000; // Victory bonus tokens
+export const WAR_PURCHASE_SHRINE_TOKEN_COST = 100000; // Cost in village tokens to purchase a shrine
 export const WAR_DECLARATION_COST = 15000; // Cost in village tokens to declare war
 export const WAR_DAILY_TOKEN_REDUCTION = 1000; // Daily token reduction during war
 export const WAR_ALLY_OFFER_MIN = 1000; // Minimum token offer for allies
@@ -619,6 +620,7 @@ export const CLAN_MAX_REGEN_BOOST = 15;
 export const CLAN_TRAINING_BOOST_COST = 300;
 export const CLAN_RYO_BOOST_COST = 100;
 export const CLAN_REGEN_BOOST_COST = 300;
+export const CLAN_COLOR_CHANGE_REP_COST = 50;
 
 // Hideout and town costs
 export const HIDEOUT_COST = 50_000_000; // Ryo
@@ -925,6 +927,8 @@ export const IMG_MAP_HEXASPHERE =
   "https://tnr-storage-cdn.b-cdn.net/eb805d73-5216-4d5c-b3e9-c39cc2340922-ixejn7.json";
 export const IMG_MAP_WAR_ICON =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJgipq89cU9cpECTimBdjaqbNn7vQsxGR1wLk4";
+export const IMG_MAP_QUEST_ICON =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRsb4NN0udmODoNtpa0FMcwI4k2Eq7nJhyvjl";
 export const IMG_TRAIN_INTELLIGENCE =
   "https://utfs.io/f/815a53ea-23d2-4767-9219-a36ed3d4c619-d73vsv.png";
 export const IMG_TRAIN_WILLPOWER =

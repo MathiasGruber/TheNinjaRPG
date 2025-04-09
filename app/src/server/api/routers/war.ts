@@ -7,7 +7,11 @@ import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchVillages, fetchAlliances } from "@/routers/village";
 import { nanoid } from "nanoid";
 import type { DrizzleClient } from "@/server/db";
-import { WAR_DECLARATION_COST, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import {
+  WAR_DECLARATION_COST,
+  VILLAGE_SYNDICATE_ID,
+  WAR_PURCHASE_SHRINE_TOKEN_COST,
+} from "@/drizzle/constants";
 import { handleWarEnd, canJoinWar, resetWartimeTownhalls } from "@/libs/war";
 import { sql } from "drizzle-orm";
 import {
@@ -36,6 +40,70 @@ export const warRouter = createTRPCRouter({
       return fetchEndedWars(ctx.drizzle, input.villageId);
     }),
 
+  buildShrine: protectedProcedure
+    .input(z.object({ warId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [{ user }, activeWar] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchActiveWar(ctx.drizzle, input.warId),
+      ]);
+
+      // Guard
+      if (!user?.village) {
+        return errorResponse("You must be in a village to build a shrine");
+      }
+      if (!user?.villageId) {
+        return errorResponse("You must be in a village to build a shrine");
+      }
+      if (user.userId !== user.village.kageId) {
+        return errorResponse("Only the Kage can build shrines");
+      }
+      if (!activeWar) {
+        return errorResponse("War not found");
+      }
+      if (activeWar.status !== "ACTIVE") {
+        return errorResponse("War is not active");
+      }
+      if (activeWar.type !== "SECTOR_WAR") {
+        return errorResponse("War is not a sector war");
+      }
+      if (activeWar.shrineHp > 0) {
+        return errorResponse("Shrine is still standing");
+      }
+      if (user.village.tokens < WAR_PURCHASE_SHRINE_TOKEN_COST) {
+        return errorResponse(
+          `Your village needs ${WAR_PURCHASE_SHRINE_TOKEN_COST} tokens to build a shrine`,
+        );
+      }
+      if (activeWar.attackerVillageId !== user.villageId) {
+        return errorResponse("Only the attacking village can build shrines");
+      }
+
+      // First deduct the price
+      const result = await ctx.drizzle
+        .update(village)
+        .set({ tokens: user.village.tokens - WAR_PURCHASE_SHRINE_TOKEN_COST })
+        .where(
+          and(
+            eq(village.id, user.villageId),
+            gte(village.tokens, WAR_PURCHASE_SHRINE_TOKEN_COST),
+          ),
+        );
+      if (result.rowsAffected === 0) {
+        return errorResponse("Not enough tokens to build a shrine");
+      }
+
+      // I'll implement the rest of the endpoint
+      activeWar.defenderVillage.tokens = 0;
+      await handleWarEnd(activeWar);
+      return { success: true, message: "Shrine built successfully" };
+    }),
+
   declareSectorWar: protectedProcedure
     .input(z.object({ sectorId: z.number() }))
     .output(baseServerResponse)
@@ -51,7 +119,7 @@ export const warRouter = createTRPCRouter({
           fetchVillages(ctx.drizzle),
           fetchAlliances(ctx.drizzle),
           ctx.drizzle.query.sector.findFirst({
-            where: eq(sector.id, input.sectorId),
+            where: eq(sector.sector, input.sectorId),
           }),
         ]);
       // Derived
@@ -98,11 +166,13 @@ export const warRouter = createTRPCRouter({
             (w.attackerVillageId === user?.village?.id &&
               w.defenderVillageId === defenderVillageId) ||
             (w.attackerVillageId === defenderVillageId &&
-              w.defenderVillageId === user?.village?.id),
+              w.defenderVillageId === user?.village?.id) ||
+            (w.attackerVillageId === user?.village?.id &&
+              w.sectorNumber === input.sectorId),
         )
       ) {
         return errorResponse(
-          "You are already at war for a sector or against a village.",
+          "You are already at war for this sector or against the owner village.",
         );
       }
       // Create war and deduct tokens
@@ -604,12 +674,6 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
           war.attackerVillage.tokens = 0;
         }
         if (defenderTownhall && defenderTownhall.curSp <= 0) {
-          war.defenderVillage.tokens = 0;
-        }
-      }
-      // If shrine is destroyed, set tokens to 0 (without updating database), which will trigger war end
-      if (war.type === "SECTOR_WAR") {
-        if (war.shrineHp <= 0) {
           war.defenderVillage.tokens = 0;
         }
       }

@@ -256,10 +256,19 @@ export const travelRouter = createTRPCRouter({
         }),
         ctx.drizzle.query.sector.findFirst({
           columns: { sector: true, villageId: true },
+          with: { village: { columns: { name: true, id: true } } },
           where: eq(sector.sector, user.sector),
         }),
-        ctx.drizzle.query.war.findFirst({
+        ctx.drizzle.query.war.findMany({
           where: and(eq(war.sectorNumber, user.sector), eq(war.status, "ACTIVE")),
+          with: {
+            attackerVillage: {
+              columns: { name: true, id: true, villageGraphic: true },
+            },
+            defenderVillage: {
+              columns: { name: true, id: true, villageGraphic: true },
+            },
+          },
         }),
       ]);
       return { users, village: villageData, sectorData, warData };

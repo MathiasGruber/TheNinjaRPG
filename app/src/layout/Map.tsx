@@ -352,7 +352,6 @@ const Map: React.FC<MapProps> = (props) => {
             );
             texture.generateMipmaps = false;
             texture.minFilter = LinearFilter;
-            texture.needsUpdate = true;
             const warIconMaterial = new SpriteMaterial({
               map: texture,
               depthWrite: false,
