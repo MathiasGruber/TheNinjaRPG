@@ -339,7 +339,7 @@ export const updateWars = async (
                 .where(
                   and(
                     eq(villageStructure.villageId, user.villageId!),
-                    eq(villageStructure.route, "/townhall"),
+                    eq(villageStructure.route, warResult.war.targetStructureRoute),
                   ),
                 ),
             ]
