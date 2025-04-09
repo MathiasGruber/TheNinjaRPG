@@ -37,6 +37,8 @@ import { WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS } from "@/drizzle/constants
 import { WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { WAR_ALLY_OFFER_MIN } from "@/drizzle/constants";
+import { WAR_SHRINE_IMAGE, WAR_SHRINE_HP } from "@/drizzle/constants";
+import { WAR_PURCHASE_SHRINE_TOKEN_COST } from "@/drizzle/constants";
 import { getSearchValidator } from "@/validators/register";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,7 +62,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { GlobalMapData } from "@/libs/travel/types";
 import Modal from "@/layout/Modal";
 import StatusBar from "@/layout/StatusBar";
-import { WAR_SHRINE_IMAGE, WAR_SHRINE_HP } from "@/drizzle/constants";
 
 const Map = dynamic(() => import("@/layout/Map"), { ssr: false });
 
@@ -76,7 +77,7 @@ export default function TownHall() {
 
   const NavBarBlock = (
     <NavTabs
-      id="townhallSelection-2"
+      id={`townhallSelection-${userData.villageId}`}
       current={tab}
       options={availableTabs}
       setValue={setTab}
@@ -1060,7 +1061,7 @@ const WarRoom: React.FC<{
                     isKage={isKage}
                   />
                 ) : (
-                  <SectorWar key={war.id} war={war} />
+                  <SectorWar key={war.id} war={war} user={user} isKage={isKage} />
                 ),
               )}
             {warType === "Active" && activeWars && activeWars.length === 0 && (
@@ -1079,7 +1080,7 @@ const WarRoom: React.FC<{
                     isKage={isKage}
                   />
                 ) : (
-                  <SectorWar key={war.id} war={war} />
+                  <SectorWar key={war.id} war={war} user={user} isKage={isKage} />
                 ),
               )}
             {warType === "Ended" && endedWars && endedWars.length === 0 && (
@@ -1194,7 +1195,7 @@ const VillageWars: React.FC<{
                       title="Break Alliance"
                       button={
                         <Button className="w-full">
-                          <DoorOpen className="h-5 w-5 mr-2" />
+                          <DoorOpen className="w-5 h-5 mr-2" />
                           Break Alliance
                         </Button>
                       }
@@ -1327,7 +1328,10 @@ const SectorWars: React.FC = () => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.war.getActiveWars.invalidate();
+          await Promise.all([
+            utils.war.getActiveWars.invalidate(),
+            utils.village.getSectorOwnerships.invalidate(),
+          ]);
           setShowModal(false);
         }
       },
@@ -1395,11 +1399,37 @@ const SectorWars: React.FC = () => {
     </div>
   );
 };
+
 const SectorWar: React.FC<{
   war: FetchActiveWarsReturnType;
-}> = ({ war }) => {
+  user: NonNullable<UserWithRelations>;
+  isKage: boolean;
+}> = ({ war, user, isKage }) => {
   // Only show active sector wars
   if (war.status !== "ACTIVE") return null;
+
+  // tRPC utility
+  const utils = api.useUtils();
+
+  // Mutations
+  const { mutate: buildShrine, isPending: isBuilding } =
+    api.war.buildShrine.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getActiveWars.invalidate();
+        }
+      },
+    });
+
+  // Derived
+  const canBuildShrine =
+    isKage &&
+    user.village?.tokens &&
+    war.attackerVillageId === user.villageId &&
+    war.shrineHp <= 0 &&
+    user.village?.tokens >= WAR_PURCHASE_SHRINE_TOKEN_COST;
+
   // Render
   return (
     <div className="flex flex-col gap-4">
@@ -1409,34 +1439,71 @@ const SectorWar: React.FC<{
           alt="War Shrine"
           width={200}
           height={200}
-          className="rounded-lg"
+          className={war.shrineHp <= 0 ? "opacity-50 grayscale" : ""}
         />
         <div className="w-full max-w-md space-y-2">
           <div>
             <p className="text-sm font-medium">Shrine - Sector {war.sectorNumber}</p>
-            <StatusBar
-              title="HP"
-              tooltip="Shrine Health"
-              color="bg-red-500"
-              showText={true}
-              status="AWAKE"
-              current={war.shrineHp}
-              total={WAR_SHRINE_HP}
-            />
+            {war.shrineHp > 0 && (
+              <StatusBar
+                title="HP"
+                tooltip="Shrine Health"
+                color="bg-red-500"
+                showText={true}
+                status="AWAKE"
+                current={war.shrineHp}
+                total={WAR_SHRINE_HP}
+              />
+            )}
           </div>
           <div className="mt-2 rounded-md bg-popover p-3 text-sm text-popover-foreground">
-            {war.defenderVillageId === VILLAGE_SYNDICATE_ID ? (
-              <p>
-                <strong>Note:</strong> To attack this shrine, you must travel to sector{" "}
-                {war.sectorNumber} and engage in combat with the shrine directly.
-              </p>
+            {war.shrineHp > 0 ? (
+              <>
+                {war.defenderVillageId === VILLAGE_SYNDICATE_ID ? (
+                  <p>
+                    <strong>Note:</strong> To attack this shrine, you must travel to
+                    sector {war.sectorNumber} and engage in combat with the shrine
+                    directly.
+                  </p>
+                ) : (
+                  <p>
+                    <strong>Note:</strong> To damage this shrine, attack players from
+                    the defending village. Each victory will reduce the shrine&apos;s
+                    HP.
+                  </p>
+                )}
+              </>
             ) : (
               <p>
-                <strong>Note:</strong> To damage this shrine, attack players from the
-                defending village. Each victory will reduce the shrine&apos;s HP.
+                <strong>Note:</strong> This shrine has been destroyed, and your leaders
+                can chose to build a new shrine to claim this sector. The cost of
+                building a new shrine is{" "}
+                {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} tokens.
               </p>
             )}
           </div>
+          {canBuildShrine && (
+            <Confirm
+              title="Build Shrine"
+              button={
+                <Button className="w-full" loading={isBuilding}>
+                  <LandPlot className="h-5 w-5 mr-2" />
+                  Build Shrine ({WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()}{" "}
+                  tokens)
+                </Button>
+              }
+              onAccept={(e) => {
+                e.preventDefault();
+                buildShrine({ warId: war.id });
+              }}
+            >
+              <p>
+                You are about to build a shrine in sector {war.sectorNumber}. This will
+                cost {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} village tokens.
+                Are you sure?
+              </p>
+            </Confirm>
+          )}
         </div>
       </div>
     </div>

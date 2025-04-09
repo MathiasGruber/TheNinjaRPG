@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, or, gte, like, isNull, inArray } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm";
-import { villageStructure, conversation } from "@/drizzle/schema";
+import { villageStructure, conversation, sector } from "@/drizzle/schema";
 import { clan, mpvpBattleQueue, mpvpBattleUser, actionLog } from "@/drizzle/schema";
 import { userData, userRequest, historicalAvatar, village } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -35,6 +35,7 @@ import { FACTION_MIN_POINTS_FOR_TOWN } from "@/drizzle/constants";
 import { FACTION_MIN_MEMBERS_FOR_TOWN } from "@/drizzle/constants";
 import { IMG_VILLAGE_FACTION } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { CLAN_COLOR_CHANGE_REP_COST } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData } from "@/drizzle/schema";
@@ -112,6 +113,10 @@ export const clanRouter = createTRPCRouter({
           id: nanoid(),
           title: fetchedClan.name,
           createdById: fetchedClan.leaderId,
+        }),
+        ctx.drizzle.insert(sector).values({
+          sector: input.sector,
+          villageId: hideoutId,
         }),
         ctx.drizzle.insert(village).values({
           id: hideoutId,
@@ -537,6 +542,74 @@ export const clanRouter = createTRPCRouter({
         .where(eq(clan.id, fetchedClan.id));
       // Create
       return { success: true, message: `${groupLabel} updated` };
+    }),
+  editClanColor: protectedProcedure
+    .input(z.object({ clanId: z.string(), color: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      const groupLabel = user?.isOutlaw ? "faction" : "clan";
+
+      // Guards
+      if (!fetchedClan) return errorResponse(`${groupLabel} not found`);
+      if (!user) return errorResponse("User not found");
+      if (fetchedClan.leaderId !== user.userId)
+        return errorResponse(`Not ${groupLabel} leader`);
+      if (!user.isOutlaw) return errorResponse(`Only factions can set colors`);
+      if (user.clanId !== fetchedClan.id) return errorResponse(`Wrong ${groupLabel}`);
+      if (!fetchedClan.hasHideout)
+        return errorResponse(`${groupLabel} needs a hideout to change colors`);
+      if (user.reputationPoints < CLAN_COLOR_CHANGE_REP_COST)
+        return errorResponse(`Not enough reputation points`);
+      if (!/^#[0-9A-F]{6}$/i.test(input.color)) {
+        return errorResponse(
+          "Invalid color format. Must be a valid hex color (e.g. #FF0000)",
+        );
+      }
+
+      // Mutate - deduct reputation points from the user
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          reputationPoints: sql`${userData.reputationPoints} - ${CLAN_COLOR_CHANGE_REP_COST}`,
+        })
+        .where(
+          and(
+            eq(userData.userId, user.userId),
+            gte(userData.reputationPoints, CLAN_COLOR_CHANGE_REP_COST),
+          ),
+        );
+
+      if (result.rowsAffected === 0) {
+        return errorResponse("Failed to deduct reputation points");
+      }
+
+      // Create a log entry for the color change
+      await Promise.all([
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "clan",
+          changes: [`Changed ${groupLabel.toLowerCase()} color to ${input.color}`],
+          relatedId: fetchedClan.id,
+          relatedMsg: `${user.username} changed the ${groupLabel.toLowerCase()} color`,
+          relatedImage: fetchedClan.image,
+        }),
+        ctx.drizzle
+          .update(village)
+          .set({ hexColor: input.color })
+          .where(eq(village.id, fetchedClan.villageId)),
+      ]);
+
+      // Create
+      return {
+        success: true,
+        message: `${groupLabel} color updated`,
+      };
     }),
   promoteMember: protectedProcedure
     .input(z.object({ clanId: z.string(), memberId: z.string() }))

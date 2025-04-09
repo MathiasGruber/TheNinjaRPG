@@ -47,7 +47,7 @@ import { canAccessStructure } from "@/utils/village";
 import { fetchSectorVillage } from "@/routers/village";
 import { fetchAiProfileById } from "@/routers/ai";
 import { getBattleGrid } from "@/libs/combat/util";
-import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
+import { BATTLE_ARENA_DAILY_LIMIT, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { BattleTypes } from "@/drizzle/constants";
 import { PvpBattleTypes } from "@/drizzle/constants";
 import { backgroundSchema } from "@/drizzle/schema";
@@ -670,23 +670,37 @@ export const combatRouter = createTRPCRouter({
       }
       return errorResponse("Failed to update battle state after multiple attempts");
     }),
-  startShrineWar: protectedProcedure
+  startShrineBattle: protectedProcedure
     .use(ratelimitMiddleware)
     .use(hasUserMiddleware)
     .input(z.object({ sector: z.number().int() }))
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Get information
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
+      const [{ user }, warData] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        ctx.drizzle.query.war.findMany({
+          where: and(
+            eq(war.sectorNumber, input.sector),
+            eq(war.status, "ACTIVE"),
+            eq(war.defenderVillageId, VILLAGE_SYNDICATE_ID),
+          ),
+        }),
+      ]);
+
+      // Get the war the user is involved with
+      const userWar = warData.find((w) => w.attackerVillageId === user?.villageId);
 
       // Check that user was found
       if (!user) return errorResponse("User not found");
       if (user.isBanned) return errorResponse("Cannot attack shrine while banned");
       if (user.sector !== input.sector)
         return errorResponse("Not in the correct sector");
+      if (!userWar)
+        return errorResponse("You are not in an AI shrine war in this sector");
 
       // Return battle
       return await initiateBattle(

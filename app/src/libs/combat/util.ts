@@ -754,10 +754,10 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                   (didWin && war.attackerVillageId === vilId) ||
                   (!didWin && war.defenderVillageId === vilId)
                 ) {
-                  shrineChangeHp -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                  if (didWin) shrineChangeHp -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
                   shrineInfo[sector]! -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
                 } else {
-                  shrineChangeHp += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
+                  if (didWin) shrineChangeHp += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
                   shrineInfo[sector]! += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
                 }
               }

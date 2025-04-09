@@ -41,6 +41,7 @@ import {
   IMG_SECTOR_ATTACK,
   IMG_SECTOR_ROB,
   IMG_ICON_MOVE,
+  VILLAGE_SYNDICATE_ID,
 } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "@/drizzle/schema";
@@ -111,7 +112,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       route: "/shrine",
       image: WAR_SHRINE_IMAGE,
       longitude: 10,
-      latitude: 10,
+      latitude: 7,
     });
     structures.push(shrine);
   }
