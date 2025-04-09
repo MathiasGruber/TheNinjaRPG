@@ -688,8 +688,11 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                 w.defenderVillageId === target.villageId,
             );
             if (!war) return;
-            // Village wars
-            if (war.type === "VILLAGE_WAR" && battleType === "COMBAT") {
+            // Village wars & raids
+            if (
+              ["VILLAGE_WAR", "FACTION_RAID"].includes(war.type) &&
+              battleType === "COMBAT"
+            ) {
               if (didWin) {
                 if (user.village?.kageId === user.userId) {
                   townhallChangeHP += WAR_TOWNHALL_HP_KAGE_RECOVER;

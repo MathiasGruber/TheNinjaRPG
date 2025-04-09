@@ -332,6 +332,11 @@ export const villageRouter = createTRPCRouter({
     ]);
     return { villages, relationships, requests };
   }),
+  getVillageStructures: publicProcedure
+    .input(z.object({ villageId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return await fetchStructures(ctx.drizzle, input.villageId);
+    }),
   createRequest: protectedProcedure
     .input(z.object({ targetId: z.string(), type: z.enum(UserRequestTypes) }))
     .output(baseServerResponse)

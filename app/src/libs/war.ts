@@ -124,7 +124,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
   }
 
   let notificationContent = "";
-  if (activeWar.type === "VILLAGE_WAR") {
+  if (["VILLAGE_WAR", "FACTION_RAID"].includes(activeWar.type)) {
     notificationContent = `War between ${activeWar.attackerVillage.name} and ${activeWar.defenderVillage.name} has ended. `;
     if (isDraw) {
       notificationContent += `The result was a draw.`;
@@ -184,7 +184,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
         ]
       : []),
     // Handle village wars
-    ...(activeWar.type === "VILLAGE_WAR"
+    ...(["VILLAGE_WAR", "FACTION_RAID"].includes(activeWar.type)
       ? isDraw
         ? [
             drizzleDB
@@ -201,7 +201,13 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
                 lastUpgradedAt: structureUpgradeBlock,
               })
               .where(
-                inArray(villageStructure.villageId, [loserVillageId, winnerVillageId]),
+                and(
+                  inArray(villageStructure.villageId, [
+                    loserVillageId,
+                    winnerVillageId,
+                  ]),
+                  eq(villageStructure.route, activeWar.targetStructureRoute),
+                ),
               ),
           ]
         : [
@@ -238,7 +244,12 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
                 level: sql`GREATEST(level - 1, 1)`,
                 lastUpgradedAt: structureUpgradeBlock,
               })
-              .where(eq(villageStructure.villageId, loserVillageId)),
+              .where(
+                and(
+                  eq(villageStructure.villageId, loserVillageId),
+                  eq(villageStructure.route, activeWar.targetStructureRoute),
+                ),
+              ),
           ]
       : []),
   ]);
