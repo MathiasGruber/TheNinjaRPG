@@ -44,7 +44,7 @@ const Modal2: React.FC<Modal2Props> = (props) => {
       document.removeEventListener("keydown", onDocumentKeyDown);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [props.onAccept]);
 
   const handleDialogClose = () => {
     if (props.onClose) props.onClose();
