@@ -112,7 +112,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       route: "/shrine",
       image: WAR_SHRINE_IMAGE,
       longitude: 10,
-      latitude: 7,
+      latitude: 5,
     });
     structures.push(shrine);
   }
