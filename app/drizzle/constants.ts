@@ -22,6 +22,18 @@ export const CoreVillages = [
 export const LetterRanks = ["D", "C", "B", "A", "S", "H"] as const;
 export type LetterRank = (typeof LetterRanks)[number];
 
+// List of tags that share cooldowns
+export const SHARED_COOLDOWN_TAGS = [
+  "stun",
+  "summon",
+  "shield",
+  "drain",
+  "poison",
+  "clear",
+  "cleanse",
+  "pierce",
+] as const;
+
 export const LOG_TYPES = [
   "ai",
   "user",
