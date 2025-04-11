@@ -11,7 +11,7 @@ export function useForwardedRef<T>(ref: React.ForwardedRef<T>) {
     } else {
       ref.current = innerRef.current;
     }
-  });
+  }, [ref]);
 
   return innerRef;
 }
