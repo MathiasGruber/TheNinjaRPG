@@ -1,3 +1,7 @@
+/**
+ * This is a modal that is used to display a modal.
+ * This component will be deprecated in favor of the Modal2 component.
+ */
 import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";

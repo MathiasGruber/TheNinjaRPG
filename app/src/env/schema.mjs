@@ -7,17 +7,17 @@ import { z } from "zod";
  */
 export const serverSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
-  PUSHER_APP_ID: z.string(),
-  PUSHER_APP_SECRET: z.string(),
-  DATABASE_URL: z.string().url(),
+  PUSHER_APP_ID: z.string().optional(),
+  PUSHER_APP_SECRET: z.string().optional(),
+  DATABASE_URL: z.string().url().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]),
   DISCORD_CONTENT_UPDATES: z.string().url().optional(),
   DISCORD_NEWS_UPDATES: z.string().url().optional(),
   DISCORD_TICKETS: z.string().url().optional(),
   REPLICATE_API_TOKEN: z.string().optional(),
   SENDGRID_API_KEY: z.string().optional(),
-  CAPTCHA_SALT: z.string(),
-  CLERK_SECRET_KEY: z.string(),
+  CAPTCHA_SALT: z.string().optional(),
+  CLERK_SECRET_KEY: z.string().optional(),
 });
 
 /**

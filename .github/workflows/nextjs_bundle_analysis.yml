@@ -5,6 +5,7 @@ name: "Next.js Bundle Analysis"
 
 on:
   pull_request:
+    types: [review_requested, ready_for_review]
   push:
     branches:
       - main # change this if your default branch is named differently
