@@ -772,15 +772,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const maxTargetLevel = Math.max(...targets.map((t) => t.level), 0);
       const levelDifference = user.level - maxTargetLevel;
       if (levelDifference > STREAK_LEVEL_DIFF) {
-        shrineChangeHp /= Math.abs(shrineChangeHp);
-        townhallChangeHP /= Math.abs(townhallChangeHP);
+        if (shrineChangeHp !== 0) shrineChangeHp /= Math.abs(shrineChangeHp);
+        if (townhallChangeHP !== 0) townhallChangeHP /= Math.abs(townhallChangeHP);
         Object.keys(shrineInfo).forEach((sector) => {
-          shrineInfo[sector as unknown as number]! /= Math.abs(
-            shrineInfo[sector as unknown as number]!,
-          );
+          const abs = Math.abs(shrineInfo[sector as unknown as number]!);
+          if (abs !== 0) shrineInfo[sector as unknown as number]! /= abs;
         });
         Object.keys(townhallInfo).forEach((name) => {
-          townhallInfo[name]! /= Math.abs(townhallInfo[name]!);
+          const abs = Math.abs(townhallInfo[name]!);
+          if (abs !== 0) townhallInfo[name]! /= abs;
         });
       }
 
