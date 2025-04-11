@@ -768,6 +768,22 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           });
       }
 
+      // Adjust shrine & townhall datamage based on level different
+      const maxTargetLevel = Math.max(...targets.map((t) => t.level), 0);
+      const levelDifference = user.level - maxTargetLevel;
+      if (levelDifference > STREAK_LEVEL_DIFF) {
+        shrineChangeHp /= Math.abs(shrineChangeHp);
+        townhallChangeHP /= Math.abs(townhallChangeHP);
+        Object.keys(shrineInfo).forEach((sector) => {
+          shrineInfo[sector as unknown as number]! /= Math.abs(
+            shrineInfo[sector as unknown as number]!,
+          );
+        });
+        Object.keys(townhallInfo).forEach((name) => {
+          townhallInfo[name]! /= Math.abs(townhallInfo[name]!);
+        });
+      }
+
       // ANBU boost to tokens
       if (user.anbuId) deltaTokens *= 2;
 
