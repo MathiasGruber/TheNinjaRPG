@@ -41,6 +41,7 @@ import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { WAR_ALLY_OFFER_MIN } from "@/drizzle/constants";
 import { WAR_SHRINE_IMAGE, WAR_SHRINE_HP } from "@/drizzle/constants";
 import { WAR_PURCHASE_SHRINE_TOKEN_COST } from "@/drizzle/constants";
+import { MAP_RESERVED_SECTORS } from "@/drizzle/constants";
 import { getSearchValidator } from "@/validators/register";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1105,7 +1106,8 @@ const WarMap: React.FC<{
   const canWar = ["VILLAGE", "TOWN", "HIDEOUT"].includes(userData?.village?.type ?? "");
   const canDeclareWar = isKage && canWar;
   const sectorVillage = villages?.find(
-    (v) => v.sector === targetSector && v.type === "VILLAGE",
+    (v) =>
+      v.sector === targetSector && v.type === "VILLAGE" && v.allianceSystem === true,
   );
   const sectorClaimed = villages?.find((v) => v.sector === targetSector);
   const relationship = findRelationship(
@@ -1117,6 +1119,7 @@ const WarMap: React.FC<{
   let textColor = "text-slate-600";
   if (status === "ALLY") textColor = "text-green-600";
   if (status === "ENEMY") textColor = "text-red-600";
+  const isReserved = MAP_RESERVED_SECTORS.includes(targetSector ?? 0);
 
   // Queries
   const { data: structures } = api.village.getVillageStructures.useQuery(
@@ -1203,6 +1206,9 @@ const WarMap: React.FC<{
   } else if (sectorClaimed) {
     proceedLabel = undefined;
     modalTitle = "Sector Occupied";
+  } else if (isReserved) {
+    proceedLabel = undefined;
+    modalTitle = "Sector Reserved";
   }
 
   // Depending on which tile the user clicked, we're either declaring a sector war, village war, or faction raid
@@ -1287,10 +1293,13 @@ const WarMap: React.FC<{
                 </div>
               </div>
             )}
-            {!isLoading && !sectorVillage && sectorClaimed && !user.isOutlaw && (
+            {!isLoading && !sectorVillage && sectorClaimed && (
               <div>This sector is already occupied and cannot be claimed.</div>
             )}
-            {!isLoading && !sectorVillage && !sectorClaimed && (
+            {!isLoading && !sectorVillage && !sectorClaimed && isReserved && (
+              <div>This sector is reserved and cannot be claimed.</div>
+            )}
+            {!isLoading && !sectorVillage && !sectorClaimed && !isReserved && (
               <div>
                 <p>You are about to declare war on sector {targetSector}.</p>
                 <p className="py-2">

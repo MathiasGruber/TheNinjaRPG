@@ -11,6 +11,12 @@ export const ACTIVE_VOTING_SITES = [
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
 
+export const MAP_RESERVED_SECTORS = [
+  332, 336, 341, 335, 340, 334, 330, 331, 332, 337, 342, 12, 18, 109, 113, 308, 305,
+  307, 304, 275, 279, 201, 284, 283, 259, 95, 75, 289, 253, 260, 72, 272, 271, 203, 264,
+  270, 254, 83, 93,
+];
+
 export const CoreVillages = [
   "Shine",
   "Tsukimori",
@@ -625,8 +631,8 @@ export const CLAN_REGEN_BOOST_COST = 300;
 export const CLAN_COLOR_CHANGE_REP_COST = 50;
 
 // Hideout and town costs
-export const HIDEOUT_COST = 50_000_000; // Ryo
-export const HIDEOUT_TOWN_UPGRADE = 2_000; // Reps
+export const HIDEOUT_COST = 1; // TODO: 50_000_000; // Ryo
+export const HIDEOUT_TOWN_UPGRADE = 1; // TODO: 2_000; // Reps
 export const TOWN_REESTABLISH_COST = 30_000_000; // Ryo
 export const TOWN_MONTHLY_MAINTENANCE = 30_000; // Faction points
 export const FACTION_MIN_POINTS_FOR_TOWN = 1_000_000;
