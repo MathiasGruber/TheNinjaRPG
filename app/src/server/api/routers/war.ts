@@ -11,6 +11,7 @@ import {
   WAR_DECLARATION_COST,
   VILLAGE_SYNDICATE_ID,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
+  MAP_RESERVED_SECTORS,
 } from "@/drizzle/constants";
 import { handleWarEnd, canJoinWar, resetWartimeTownhalls } from "@/libs/war";
 import { sql } from "drizzle-orm";
@@ -74,6 +75,9 @@ export const warRouter = createTRPCRouter({
       }
       if (activeWar.shrineHp > 0) {
         return errorResponse("Shrine is still standing");
+      }
+      if (MAP_RESERVED_SECTORS.includes(activeWar.sectorNumber)) {
+        return errorResponse("Shrine cannot be built on reserved sectors");
       }
       if (user.village.tokens < WAR_PURCHASE_SHRINE_TOKEN_COST) {
         return errorResponse(
@@ -154,6 +158,9 @@ export const warRouter = createTRPCRouter({
       }
       if (relationship && relationship?.status !== "ENEMY") {
         return errorResponse("You can only declare war on enemy villages");
+      }
+      if (MAP_RESERVED_SECTORS.includes(input.sectorId)) {
+        return errorResponse("This sector is reserved and cannot be claimed");
       }
       if (
         attackerVillage.warExhaustionEndedAt &&

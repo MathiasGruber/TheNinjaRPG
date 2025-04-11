@@ -18,6 +18,7 @@ import {
   Vector3,
 } from "three";
 import { IMG_MAP_WAR_ICON, IMG_MAP_QUEST_ICON } from "@/drizzle/constants";
+import { MAP_RESERVED_SECTORS } from "@/drizzle/constants";
 import WebGlError from "@/layout/WebGLError";
 import alea from "alea";
 import * as TWEEN from "@tweenjs/tween.js";
@@ -186,6 +187,9 @@ const Map: React.FC<MapProps> = (props) => {
             const villageColor = ownershipData.colors.find(
               (v) => v.id === ownership?.villageId,
             );
+            if (MAP_RESERVED_SECTORS.includes(i)) {
+              color = "#b3afae";
+            }
             if (villageColor) {
               color = villageColor.hexColor;
             }
