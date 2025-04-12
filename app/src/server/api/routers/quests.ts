@@ -350,7 +350,10 @@ export const questsRouter = createTRPCRouter({
         if (questData.questRank !== "A") {
           return errorResponse(`Only A rank missions/crimes are allowed`);
         }
-        if (!user.isOutlaw && !canAccessStructure(user, "/missionhall", sectorVillage)) {
+        if (
+          !user.isOutlaw &&
+          !canAccessStructure(user, "/missionhall", sectorVillage)
+        ) {
           return errorResponse("Must be in your allied village to start quest");
         }
         const current = user?.userQuests?.find(
