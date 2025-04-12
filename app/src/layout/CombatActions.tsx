@@ -213,7 +213,7 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
         )}
         {cooldownPerc > 0 && (
           <div
-            className="absolute top-0 right-0 left-0 bottom-0 opacity-80 hover:cursor-none"
+            className="absolute top-0 right-0 left-0 bottom-0 opacity-80 hover:cursor-not-allowed"
             style={{
               background: `conic-gradient(#ededed ${cooldownPerc}%, rgba(0, 0, 0, 0.1) 0deg)`,
             }}

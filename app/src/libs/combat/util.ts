@@ -24,6 +24,7 @@ import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
+import { SHARED_COOLDOWN_TAGS } from "@/drizzle/constants";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -34,6 +35,15 @@ import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
 import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
+
+/**
+ * Check if a jutsu has any of the shared cooldown tags
+ */
+export const hasSharedCooldownTag = (effects: ZodAllTags[]): boolean => {
+  return effects.some((effect) =>
+    SHARED_COOLDOWN_TAGS.some((tag) => effect.type.toLowerCase() === tag.toLowerCase()),
+  );
+};
 
 /**
  * Retrieves the battle grid.
@@ -531,7 +541,15 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           experience *= streakBonus;
           experience = Math.min(experience, 100);
         }
-      } else if (["CLAN_CHALLENGE", "KAGE_AI", "KAGE_PVP", "TRAINING", "VILLAGE_PROTECTOR"].includes(battleType)) {
+      } else if (
+        [
+          "CLAN_CHALLENGE",
+          "KAGE_AI",
+          "KAGE_PVP",
+          "TRAINING",
+          "VILLAGE_PROTECTOR",
+        ].includes(battleType)
+      ) {
         experience = 0;
       } else if (battleType === "ARENA") {
         experience = Math.min(experience, 20);
@@ -686,8 +704,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         result.money = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.
         // If not, then distribute equally among all stats & generals
-        const statsTotal = Object.values(user.usedStats).reduce((sum, value) => sum + value, 0);
-        const gensTotal = Object.values(user.usedGenerals).reduce((sum, value) => sum + value, 0);
+        const statsTotal = Object.values(user.usedStats).reduce(
+          (sum, value) => sum + value,
+          0,
+        );
+        const gensTotal = Object.values(user.usedGenerals).reduce(
+          (sum, value) => sum + value,
+          0,
+        );
         let total = statsTotal + gensTotal;
         if (total === 0) {
           user.usedStats = {
@@ -699,7 +723,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             genjutsuDefence: 1,
             taijutsuDefence: 1,
             bukijutsuDefence: 1,
-          }
+          };
           user.usedGenerals = {
             strength: 1,
             intelligence: 1,
@@ -713,12 +737,28 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         const gens_cap = USER_CAPS[user.rank].GENS_CAP;
 
         Object.entries(user.usedStats).forEach(([stat, value]) => {
-          assignedExp += distributeExpToStat(user, stat as keyof typeof user.usedStats, value, stats_cap, total, experience, result);
+          assignedExp += distributeExpToStat(
+            user,
+            stat as keyof typeof user.usedStats,
+            value,
+            stats_cap,
+            total,
+            experience,
+            result,
+          );
         });
         Object.entries(user.usedGenerals).forEach(([stat, value]) => {
-          assignedExp += distributeExpToStat(user, stat as keyof typeof user.usedGenerals, value, gens_cap, total, experience, result);
+          assignedExp += distributeExpToStat(
+            user,
+            stat as keyof typeof user.usedGenerals,
+            value,
+            gens_cap,
+            total,
+            experience,
+            result,
+          );
         });
-        
+
         // Experience
         result.experience = Math.floor(assignedExp * 100) / 100;
       }
@@ -1114,7 +1154,7 @@ export const processUsersForBattle = (info: {
       genjutsuDefence: 0,
       taijutsuDefence: 0,
       bukijutsuDefence: 0,
-    }
+    };
     user.usedActions = [];
 
     // If in own village, add defence bonus
@@ -1211,10 +1251,7 @@ export const processUsersForBattle = (info: {
       });
 
     // Add basic actions to user for tracking cooldowns
-    user.basicActions = Object.values(getBasicActions(user)).map((action) => ({
-      id: action.id,
-      lastUsedRound: -action.cooldown,
-    }));
+    user.basicActions = Object.values(getBasicActions(user));
 
     // Sort if we have a loadout
     if (user?.loadout?.jutsuIds) {
