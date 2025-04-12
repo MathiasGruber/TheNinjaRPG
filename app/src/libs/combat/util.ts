@@ -1021,6 +1021,31 @@ export const processUsersForBattle = (info: {
       user.curStamina = user.maxStamina;
     }
 
+    if (battleType === "RANKED") {
+      user.level = 100;
+      user.experience = 4399880;
+      user.bloodlineId = "";
+      user.maxHealth = 5050;
+      user.curHealth = 5050;
+      user.maxChakra = 5050;
+      user.curChakra = 5050;
+      user.maxStamina = 5050;
+      user.curStamina = 5050;
+      user.strength = 200000;
+      user.intelligence = 200000;
+      user.willpower = 200000;
+      user.speed = 200000;
+      user.ninjutsuOffence = 450000;
+      user.ninjutsuDefence = 450000;
+      user.genjutsuOffence = 450000;
+      user.genjutsuDefence = 450000;
+      user.taijutsuOffence = 450000;
+      user.taijutsuDefence = 450000;
+      user.bukijutsuOffence = 450000;
+      user.bukijutsuDefence = 450000;
+      user.medicalExperience = 400000;
+    }
+
     // Add highest offence name to user
     const offences = {
       ninjutsuOffence: user.ninjutsuOffence,
@@ -1160,7 +1185,7 @@ export const processUsersForBattle = (info: {
     // If in own village, add defence bonus
     const ownSector = user.sector === user.village?.sector;
     const inVillage = calcIsInVillage({ x: user.longitude, y: user.latitude });
-    if (ownSector && inVillage && battleType !== "ARENA") {
+    if (ownSector && inVillage && battleType !== "ARENA" && battleType !== "RANKED") {
       const boost = structureBoost("villageDefencePerLvl", user.village?.structures);
       const effect = DecreaseDamageTakenTag.parse({
         target: "SELF",
@@ -1184,7 +1209,7 @@ export const processUsersForBattle = (info: {
     }
 
     // Add bloodline efects
-    if (user.bloodline?.effects) {
+    if (user.bloodline?.effects && battleType !== "RANKED") {
       user.bloodline.effects.forEach((effect) => {
         const realized = realizeTag({
           tag: effect as UserEffect,
@@ -1275,7 +1300,7 @@ export const processUsersForBattle = (info: {
         effects
           .filter((e) => e.type === "summon")
           .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
-        if (itemType === "ARMOR" || itemType === "ACCESSORY") {
+        if ((itemType === "ARMOR" || itemType === "ACCESSORY") && battleType !== "RANKED") {
           if (useritem.item.effects && useritem.equipped !== "NONE") {
             effects.forEach((effect) => {
               const realized = realizeTag({
@@ -1294,7 +1319,9 @@ export const processUsersForBattle = (info: {
           }
         } else {
           useritem.lastUsedRound = -useritem.item.cooldown;
-          items.push(useritem);
+          if (itemType !== "ARMOR" && itemType !== "ACCESSORY") {
+            items.push(useritem);
+          }
         }
       });
     user.items = items;
