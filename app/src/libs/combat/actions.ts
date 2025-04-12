@@ -15,6 +15,7 @@ import { updateStatUsage } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
 import { PathCalculator } from "@/libs/hexgrid";
 import { calcCombatHealPercentage } from "@/libs/hospital/hospital";
+import { hasSharedCooldownTag } from "@/libs/combat/util";
 import {
   IMG_BASIC_HEAL,
   IMG_BASIC_ATTACK,
@@ -667,6 +668,7 @@ export const performBattleAction = (props: {
 
   // Update the action state, so as keep state for technique cooldowns
   if (action.cooldown && action.cooldown > 0) {
+    // Update the last used round for the action
     let actionPerformed;
     switch (action.type) {
       case "jutsu":
@@ -680,6 +682,31 @@ export const performBattleAction = (props: {
         break;
     }
     if (actionPerformed) actionPerformed.lastUsedRound = battle.round;
+
+    // If this action has shared cooldown, update the rounds for all related actions
+    if (hasSharedCooldownTag(action.effects)) {
+      const sharedActions = [
+        ...user.jutsus.filter((jutsu) => hasSharedCooldownTag(jutsu.jutsu.effects)),
+        ...user.items.filter((item) => hasSharedCooldownTag(item.item.effects)),
+        ...user.basicActions.filter((basic) => hasSharedCooldownTag(basic.effects)),
+      ];
+      sharedActions
+        .filter((a) => a.id !== action.id)
+        .forEach((a) => {
+          let cooldown = 0;
+          if ("jutsu" in a && a.jutsu) {
+            cooldown = a.jutsu.cooldown;
+          } else if ("item" in a && a.item) {
+            cooldown = a.item.cooldown;
+          } else if ("cooldown" in a) {
+            cooldown = a.cooldown;
+          }
+          const newLastUsedRound = battle.round + 3 - cooldown;
+          if (newLastUsedRound > (a.lastUsedRound || -1)) {
+            a.lastUsedRound = newLastUsedRound;
+          }
+        });
+    }
   }
 
   // Apply relevant effects, and get back new state + active effects
