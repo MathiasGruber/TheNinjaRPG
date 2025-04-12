@@ -77,6 +77,7 @@ const LogbookAchievements: React.FC = () => {
     <div className="">
       {userData?.userQuests
         .filter((uq) => ["tier", "achievement"].includes(uq.quest.questType))
+        .filter((uq) => uq.completed === 0)
         ?.map((uq, i) => {
           const tracker = userData?.questData?.find((q) => q.id === uq.questId);
           return (
