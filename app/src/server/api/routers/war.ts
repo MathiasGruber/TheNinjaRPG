@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, and, gte, ne, desc } from "drizzle-orm";
-import { war, village, warAlly, warKill, sector } from "@/drizzle/schema";
+import { war, village, warAlly, warKill, sector, userData } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchVillages, fetchAlliances, fetchStructures } from "@/routers/village";
 import { nanoid } from "nanoid";
@@ -657,6 +657,56 @@ export const warRouter = createTRPCRouter({
         },
         orderBy: [desc(warKill.killedAt)],
       });
+    }),
+
+  getWarKillStats: protectedProcedure
+    .input(
+      z.object({
+        warId: z.string(),
+        aggregateBy: z.enum(["townhallHpChange", "shrineHpChange", "totalKills"]),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // If total kills
+      if (input.aggregateBy === "totalKills") {
+        return await ctx.drizzle
+          .select({
+            killerId: warKill.killerId,
+            killerUsername: userData.username,
+            villageId: userData.villageId,
+            villageName: village.name,
+            killerAvatar: userData.avatar,
+            count: sql<number>`count(*)`,
+          })
+          .from(warKill)
+          .leftJoin(userData, eq(warKill.killerId, userData.userId))
+          .leftJoin(village, eq(userData.villageId, village.id))
+          .where(eq(warKill.warId, input.warId))
+          .groupBy(warKill.killerId)
+          .orderBy(desc(sql<number>`count(*)`));
+      }
+
+      // Other aggregate fields
+      const aggregateField =
+        input.aggregateBy === "townhallHpChange"
+          ? warKill.townhallHpChange
+          : warKill.shrineHpChange;
+
+      return await ctx.drizzle
+        .select({
+          killerId: warKill.killerId,
+          killerUsername: userData.username,
+          villageId: userData.villageId,
+          villageName: village.name,
+          killerAvatar: userData.avatar,
+          count: sql<number>`sum(${aggregateField})`,
+        })
+        .from(warKill)
+        .leftJoin(userData, eq(warKill.killerId, userData.userId))
+        .leftJoin(village, eq(userData.villageId, village.id))
+        .where(eq(warKill.warId, input.warId))
+        .groupBy(warKill.killerId)
+        .orderBy(desc(sql<number>`sum(${aggregateField})`));
     }),
 });
 
