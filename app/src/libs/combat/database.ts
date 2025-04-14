@@ -317,6 +317,9 @@ export const updateWars = async (
                 victimId: warResult.target.userId,
                 killerVillageId: user.villageId!,
                 victimVillageId: warResult.target.villageId!,
+                sector: user.sector,
+                shrineHpChange: result.shrineChangeHp,
+                townhallHpChange: result.townhallChangeHP,
                 killedAt: new Date(),
               }),
             ]

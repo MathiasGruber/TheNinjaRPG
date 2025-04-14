@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, and, gte, ne, desc } from "drizzle-orm";
-import { war, village, warAlly, sector } from "@/drizzle/schema";
+import { war, village, warAlly, warKill, sector } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchVillages, fetchAlliances, fetchStructures } from "@/routers/village";
 import { nanoid } from "nanoid";
@@ -642,6 +642,21 @@ export const warRouter = createTRPCRouter({
       }
       await handleWarEnd(activeWar);
       return { success: true, message: "War surrendered and therefore lost" };
+    }),
+
+  getWarKills: protectedProcedure
+    .input(z.object({ warId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.drizzle.query.warKill.findMany({
+        where: eq(warKill.warId, input.warId),
+        with: {
+          killer: { columns: { userId: true, avatar: true, username: true } },
+          victim: { columns: { userId: true, avatar: true, username: true } },
+          killerVillage: { columns: { id: true, name: true } },
+          victimVillage: { columns: { id: true, name: true } },
+        },
+        orderBy: [desc(warKill.killedAt)],
+      });
     }),
 });
 
