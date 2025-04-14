@@ -2585,6 +2585,9 @@ export const warKill = mysqlTable(
     victimId: varchar("victimId", { length: 191 }).notNull(),
     killerVillageId: varchar("killerVillageId", { length: 191 }).notNull(),
     victimVillageId: varchar("victimVillageId", { length: 191 }).notNull(),
+    sector: smallint("sector").default(1337).notNull(),
+    shrineHpChange: smallint("shrineHpChange").default(1337).notNull(),
+    townhallHpChange: smallint("townhallHpChange").default(1337).notNull(),
     killedAt: datetime("killedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
