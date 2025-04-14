@@ -586,6 +586,7 @@ export const WAR_TOWNHALL_HP_KAGEDEATH_REMOVE = 50;
 export const WAR_WINNING_BOOST_DAYS = 3;
 export const WAR_WINNING_BOOST_REGEN_PERC = 40;
 export const WAR_WINNING_BOOST_TRAINING_PERC = 20;
+export const WAR_DAILY_STRUCTURE_HP_DRAIN = 100; // Structure hp drain per day
 export const WAR_TOKEN_REDUCTION_INTERVAL_HOURS = 24; // How often tokens should be reduced
 export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS = 1.3; // 30% increase after 3 days
 export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS = 1.5; // 50% increase after 7 days
