@@ -251,7 +251,7 @@ export const getBasicActions = (
         HealTag.parse({
           power: calcCombatHealPercentage(user),
           powerPerLevel: 0.0,
-          calculation: "percentage",
+          calculation: "static",
           rounds: 0,
           appearAnimation: ID_ANIMATION_HEAL,
         }),
