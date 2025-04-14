@@ -277,10 +277,10 @@ export const villageRouter = createTRPCRouter({
 
       // Guards
       if (!village) return errorResponse("Village does not exist");
-      if (isKage(user)) return errorResponse("You are the kage");
+      if (isKage(user)) return errorResponse("You are the kage or leader");
       if (user.villageId === village.id) return errorResponse("Already in village");
       if (user.anbuId) return errorResponse("Leave ANBU squad first");
-      if (user.clanId) return errorResponse("Leave Clan first");
+      if (user.clanId) return errorResponse("Leave Clan or Faction first");
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.isBanned) return errorResponse("Cannot leave while banned");
       if (!canSwapVillage(user.role)) return errorResponse("No permission to do this");

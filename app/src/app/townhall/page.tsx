@@ -521,7 +521,10 @@ const KageChallenge: React.FC<{
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.village.get.invalidate();
+        await Promise.all([
+          utils.village.get.invalidate(),
+          utils.profile.getUser.invalidate(),
+        ]);
       }
     },
   });
@@ -2225,21 +2228,26 @@ const FactionRoom: React.FC<{
         </div>
       </ContentBox>
 
-      {isLeader && warType === "Active" && requests && requests.length > 0 && (
+      {isLeader && warType === "Active" && (
         <ContentBox
           title="War Contract Offers"
           subtitle="Pending war participation requests"
           initialBreak={true}
           padding={false}
         >
-          <UserRequestSystem
-            isLoading={isHiring || isRejectingOffer || isCancelling}
-            requests={requests}
-            userId={user.userId}
-            onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
-            onReject={({ id }) => rejectAllyOffer({ id })}
-            onCancel={({ id }) => cancelAllyOffer({ offerId: id })}
-          />
+          {requests && requests.length > 0 && (
+            <UserRequestSystem
+              isLoading={isHiring || isRejectingOffer || isCancelling}
+              requests={requests}
+              userId={user.userId}
+              onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
+              onReject={({ id }) => rejectAllyOffer({ id })}
+              onCancel={({ id }) => cancelAllyOffer({ offerId: id })}
+            />
+          )}
+          {requests && requests.length === 0 && (
+            <p className="p-4">No pending war participation requests</p>
+          )}
         </ContentBox>
       )}
     </>
