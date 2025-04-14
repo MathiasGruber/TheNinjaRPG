@@ -1059,23 +1059,23 @@ export const heal = (
   }
   // Calculate healing
   const { power } = getPower(effect);
-  const baseHeal = 10;
+  const baseHeal = 1;
   const parsedEffect = HealTag.parse(effect);
   const poolsAffects = parsedEffect.poolsAffected || ["Health"];
   const heal_hp = poolsAffects.includes("Health")
     ? effect.calculation === "static"
-      ? baseHeal * power * applyTimes
-      : power * applyTimes
+      ? baseHeal * power * applyTimes * 10
+      : power * applyTimes * 10
     : 0;
   const heal_sp = poolsAffects.includes("Stamina")
     ? effect.calculation === "static"
-      ? baseHeal * power * applyTimes
-      : power * applyTimes
+      ? baseHeal * power * applyTimes * 10
+      : power * applyTimes * 10
     : 0;
   const heal_cp = poolsAffects.includes("Chakra")
     ? effect.calculation === "static"
-      ? baseHeal * power * applyTimes
-      : power * applyTimes
+      ? baseHeal * power * applyTimes * 10
+      : power * applyTimes * 10
     : 0;
   // If rounds=0 apply immidiately, otherwise only on following rounds
   if (
