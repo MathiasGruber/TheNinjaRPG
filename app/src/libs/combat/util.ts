@@ -767,6 +767,8 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             }
           });
       }
+      shrineChangeHp *= battle.rewardScaling;
+      townhallChangeHP *= battle.rewardScaling;
 
       // Adjust shrine & townhall datamage based on level different
       const maxTargetLevel = Math.max(...targets.map((t) => t.level), 0);
