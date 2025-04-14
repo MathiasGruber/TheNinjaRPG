@@ -97,13 +97,13 @@ export const calcUserHealFactor = (healer: Healer) => {
 export const calcCombatHealPercentage = (healer?: Healer) => {
   switch (calcMedninRank(healer)) {
     case "NONE":
-      return 300;
+      return 30;
     case "NOVICE":
-      return 300;
+      return 30;
     case "APPRENTICE":
-      return 400;
+      return 40;
     case "MASTER":
-      return 500;
+      return 50;
   }
 };
 
