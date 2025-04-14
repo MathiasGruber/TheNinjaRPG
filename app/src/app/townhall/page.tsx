@@ -16,12 +16,13 @@ import PublicUserComponent from "@/layout/PublicUser";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import Building from "@/layout/Building";
-import { Handshake, LandPlot, DoorOpen } from "lucide-react";
+import Table from "@/layout/Table";
+import { Handshake, LandPlot, DoorOpen, Swords } from "lucide-react";
 import { CircleArrowUp, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { secondsPassed, secondsFromDate } from "@/utils/time";
-import { DoorClosed, ShieldPlus, Swords } from "lucide-react";
+import { DoorClosed, ShieldPlus } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -71,6 +72,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ColumnDefinitionType } from "@/layout/Table";
+import type { ArrayElement } from "@/utils/typeutils";
 
 const Map = dynamic(() => import("@/layout/Map"), { ssr: false });
 
@@ -233,7 +236,7 @@ const ElderHall: React.FC<{
           />
           {targetUser && (
             <div>
-              {(targetUser.rank !== "JONIN" && targetUser.rank !== "ELITE JONIN") && (
+              {targetUser.rank !== "JONIN" && targetUser.rank !== "ELITE JONIN" && (
                 <p className="text-red-500 font-bold text-center pt-2">
                   User must be at least Jonin!
                 </p>
@@ -656,21 +659,21 @@ const KageChallenge: React.FC<{
               </p>
             </div>
           )}
-          {!isKage && canChangeContent(user.role) && (
-            <div className="p-3">
-              <Button
-                id="challenge"
-                variant="destructive"
-                className="my-2 w-full"
-                onClick={() => take()}
-                loading={isTaking}
-              >
-                <ShieldPlus className="h-6 w-6 mr-2" />
-                Take kage as Staff
-              </Button>
-            </div>
-          )}
         </>
+      )}
+      {!isKage && canChangeContent(user.role) && (
+        <div className="p-3">
+          <Button
+            id="challenge"
+            variant="destructive"
+            className="my-2 w-full"
+            onClick={() => take()}
+            loading={isTaking}
+          >
+            <ShieldPlus className="h-6 w-6 mr-2" />
+            Take kage as Staff
+          </Button>
+        </div>
       )}
     </ContentBox>
   );
@@ -1529,6 +1532,51 @@ const VillageWar: React.FC<{
   userVillage?: Village;
   isKage: boolean;
 }> = ({ war, user, villages, relationships, userVillage, isKage }) => {
+  // Add state for dialog
+  const [showKills, setShowKills] = useState(false);
+
+  // Add query for war kills
+  const { data: warKills } = api.war.getWarKills.useQuery(
+    { warId: war.id },
+    { enabled: showKills },
+  );
+
+  // Transform war kills data for table
+  const tableData = useMemo(() => {
+    if (!warKills) return [];
+    return warKills.map((kill) => ({
+      ...kill,
+      killerAvatar: kill.killer.avatar,
+      victimAvatar: kill.victim.avatar,
+      killerInfo: (
+        <div>
+          <p className="font-bold">{kill.killer.username}</p>
+          <p>{kill.killerVillage.name}</p>
+        </div>
+      ),
+      victimInfo: (
+        <div>
+          <p className="font-bold">{kill.victim.username}</p>
+          <p>{kill.victimVillage.name}</p>
+        </div>
+      ),
+    }));
+  }, [warKills]);
+
+  type WarKill = ArrayElement<typeof tableData>;
+
+  // Define table columns
+  const killColumns: ColumnDefinitionType<WarKill, keyof WarKill>[] = [
+    { key: "killerAvatar", header: "", type: "avatar" },
+    { key: "killerInfo", header: "Killer", type: "jsx" },
+    { key: "victimAvatar", header: "", type: "avatar" },
+    { key: "victimInfo", header: "Victim", type: "jsx" },
+    { key: "sector", header: "Sector", type: "string" },
+    { key: "shrineHpChange", header: "Shrine HP", type: "string" },
+    { key: "townhallHpChange", header: "Townhall HP", type: "string" },
+    { key: "killedAt", header: "Time", type: "date" },
+  ];
+
   // tRPC utility
   const utils = api.useUtils();
 
@@ -1666,13 +1714,40 @@ const VillageWar: React.FC<{
             </>
           )}
         </div>
-        {isKage && war.status === "ACTIVE" && (
-          <Button variant="destructive" onClick={() => surrender({ warId: war.id })}>
-            <DoorClosed className="h-5 w-5 mr-2" />
-            Surrender
+        <div className="flex gap-2">
+          <Button size="icon" onClick={() => setShowKills(true)}>
+            <Swords className="h-4 w-4" />
           </Button>
-        )}
+          {isKage && war.status === "ACTIVE" && (
+            <Button variant="destructive" onClick={() => surrender({ warId: war.id })}>
+              <DoorClosed className="h-5 w-5 mr-2" />
+              Surrender
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Add dialog for war kills */}
+      <Dialog open={showKills} onOpenChange={setShowKills}>
+        <Modal2
+          title={`War Kills - ${war.attackerVillage.name} vs ${war.defenderVillage.name}`}
+          setIsOpen={setShowKills}
+          className="max-w-screen"
+        >
+          <div className="min-h-[200px]">
+            {warKills && warKills.length > 0 ? (
+              <Table
+                data={tableData}
+                columns={killColumns}
+                linkColumn="killerId"
+                linkPrefix="/userid/"
+              />
+            ) : (
+              <p className="text-center text-muted-foreground">No kills recorded yet</p>
+            )}
+          </div>
+        </Modal2>
+      </Dialog>
 
       <div className="grid grid-cols-2 gap-8 items-center justify-center">
         {/* Our Town Hall */}

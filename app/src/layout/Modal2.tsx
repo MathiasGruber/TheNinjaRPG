@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { cn } from "@/libs/shadui";
 
 interface Modal2Props {
   title: string;
@@ -53,7 +54,7 @@ const Modal2: React.FC<Modal2Props> = (props) => {
 
   return (
     <DialogContent
-      className={props.className || ""}
+      className={cn(props.className || "", "overflow-y-scroll max-h-screen")}
       onEscapeKeyDown={handleDialogClose}
       onInteractOutside={handleDialogClose}
     >
