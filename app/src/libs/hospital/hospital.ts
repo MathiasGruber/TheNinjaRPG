@@ -76,16 +76,16 @@ export const calcMedninRank = (healer?: Healer): MEDNIN_RANK => {
  * @returns The calculated healing factor.
  */
 export const calcUserHealFactor = (healer: Healer) => {
-  const base = 0.5;
+  const base = 30;
   switch (calcMedninRank(healer)) {
     case "NONE":
-      return 0;
+      return base;
     case "NOVICE":
-      return base - 0.05;
+      return base;
     case "APPRENTICE":
-      return base - 0.1;
+      return base + 10;
     case "MASTER":
-      return base - 0.25;
+      return base + 20;
   }
 };
 
