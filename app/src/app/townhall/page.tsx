@@ -17,7 +17,7 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import Building from "@/layout/Building";
 import Table from "@/layout/Table";
-import { Handshake, LandPlot, DoorOpen, Swords } from "lucide-react";
+import { Handshake, LandPlot, DoorOpen, Swords, Trophy } from "lucide-react";
 import { CircleArrowUp, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
@@ -72,8 +72,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ColumnDefinitionType } from "@/layout/Table";
+import type { ColumnDefinitionType } from "@/layout/Table";
 import type { ArrayElement } from "@/utils/typeutils";
+import Confirm2 from "@/layout/Confirm2";
 
 const Map = dynamic(() => import("@/layout/Map"), { ssr: false });
 
@@ -1534,11 +1535,21 @@ const VillageWar: React.FC<{
 }> = ({ war, user, villages, relationships, userVillage, isKage }) => {
   // Add state for dialog
   const [showKills, setShowKills] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [selectedStat, setSelectedStat] = useState<
+    "townhallHpChange" | "shrineHpChange" | "totalKills"
+  >("totalKills");
 
   // Add query for war kills
   const { data: warKills } = api.war.getWarKills.useQuery(
     { warId: war.id },
     { enabled: showKills },
+  );
+
+  // Add query for war kill stats
+  const { data: warKillStats } = api.war.getWarKillStats.useQuery(
+    { warId: war.id, aggregateBy: selectedStat },
+    { enabled: showStats },
   );
 
   // Transform war kills data for table
@@ -1563,7 +1574,24 @@ const VillageWar: React.FC<{
     }));
   }, [warKills]);
 
+  // Transform war stats data for table
+  const statsTableData = useMemo(() => {
+    if (!warKillStats) return [];
+    return warKillStats.map((stat, index) => ({
+      ...stat,
+      rank: index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "",
+      playerInfo: (
+        <div>
+          <p className="font-bold">{stat.killerUsername}</p>
+          {stat.villageName && <p>{stat.villageName}</p>}
+        </div>
+      ),
+      statValue: Math.abs(Number(stat.count)).toLocaleString(),
+    }));
+  }, [warKillStats]);
+
   type WarKill = ArrayElement<typeof tableData>;
+  type WarStat = ArrayElement<typeof statsTableData>;
 
   // Define table columns
   const killColumns: ColumnDefinitionType<WarKill, keyof WarKill>[] = [
@@ -1575,6 +1603,23 @@ const VillageWar: React.FC<{
     { key: "shrineHpChange", header: "Shrine HP", type: "string" },
     { key: "townhallHpChange", header: "Townhall HP", type: "string" },
     { key: "killedAt", header: "Time", type: "date" },
+  ];
+
+  // Define stats table columns
+  const statsColumns: ColumnDefinitionType<WarStat, keyof WarStat>[] = [
+    { key: "rank", header: "", type: "string" },
+    { key: "killerAvatar", header: "", type: "avatar" },
+    { key: "playerInfo", header: "Player", type: "jsx" },
+    {
+      key: "statValue",
+      header:
+        selectedStat === "totalKills"
+          ? "Kills"
+          : selectedStat === "townhallHpChange"
+            ? "Townhall Damage"
+            : "Shrine Damage",
+      type: "string",
+    },
   ];
 
   // tRPC utility
@@ -1715,14 +1760,30 @@ const VillageWar: React.FC<{
           )}
         </div>
         <div className="flex gap-2">
-          <Button size="icon" onClick={() => setShowKills(true)}>
-            <Swords className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={() => setShowKills(true)}>
+            <Swords className="h-5 w-5" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => setShowStats(true)}>
+            <Trophy className="h-5 w-5" />
           </Button>
           {isKage && war.status === "ACTIVE" && (
-            <Button variant="destructive" onClick={() => surrender({ warId: war.id })}>
-              <DoorClosed className="h-5 w-5 mr-2" />
-              Surrender
-            </Button>
+            <Confirm2
+              title="Confirm Surrender"
+              button={
+                <Button variant="destructive" size="icon">
+                  <DoorClosed className="h-5 w-5" />
+                </Button>
+              }
+              onAccept={(e) => {
+                e.preventDefault();
+                surrender({ warId: war.id });
+              }}
+            >
+              <p>
+                Are you sure you want to surrender this war? This will result in an
+                immediate loss to your village.
+              </p>
+            </Confirm2>
           )}
         </div>
       </div>
@@ -1732,7 +1793,7 @@ const VillageWar: React.FC<{
         <Modal2
           title={`War Kills - ${war.attackerVillage.name} vs ${war.defenderVillage.name}`}
           setIsOpen={setShowKills}
-          className="max-w-screen"
+          className="max-w-[99%]"
         >
           <div className="min-h-[200px]">
             {warKills && warKills.length > 0 ? (
@@ -1745,6 +1806,53 @@ const VillageWar: React.FC<{
             ) : (
               <p className="text-center text-muted-foreground">No kills recorded yet</p>
             )}
+          </div>
+        </Modal2>
+      </Dialog>
+
+      {/* Add dialog for war kill stats */}
+      <Dialog open={showStats} onOpenChange={setShowStats}>
+        <Modal2
+          title={`War Statistics - ${war.attackerVillage.name} vs ${war.defenderVillage.name}`}
+          setIsOpen={setShowStats}
+          className="max-w-[99%]"
+        >
+          <div className="space-y-4">
+            <div className="flex justify-center gap-2">
+              <Button
+                variant={selectedStat === "totalKills" ? "default" : "outline"}
+                onClick={() => setSelectedStat("totalKills")}
+              >
+                Total Kills
+              </Button>
+              <Button
+                variant={selectedStat === "townhallHpChange" ? "default" : "outline"}
+                onClick={() => setSelectedStat("townhallHpChange")}
+              >
+                Townhall Damage
+              </Button>
+              <Button
+                variant={selectedStat === "shrineHpChange" ? "default" : "outline"}
+                onClick={() => setSelectedStat("shrineHpChange")}
+              >
+                Shrine Damage
+              </Button>
+            </div>
+
+            <div className="min-h-[200px]">
+              {warKillStats && warKillStats.length > 0 ? (
+                <Table
+                  data={statsTableData}
+                  columns={statsColumns}
+                  linkColumn="killerId"
+                  linkPrefix="/userid/"
+                />
+              ) : (
+                <p className="text-center text-muted-foreground">
+                  No statistics recorded yet
+                </p>
+              )}
+            </div>
           </div>
         </Modal2>
       </Dialog>
