@@ -1,10 +1,11 @@
 import { drizzleDB } from "@/server/db";
-import { war, village } from "@/drizzle/schema";
-import { eq } from "drizzle-orm";
+import { war, village, villageStructure } from "@/drizzle/schema";
+import { eq, sql, inArray, and } from "drizzle-orm";
 import {
   WAR_TOKEN_REDUCTION_INTERVAL_HOURS,
   WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS,
   WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS,
+  WAR_DAILY_STRUCTURE_HP_DRAIN,
 } from "@/drizzle/constants";
 import { handleWarEnd } from "@/libs/war";
 import { fetchActiveWars } from "@/server/api/routers/war";
@@ -107,6 +108,22 @@ export async function GET() {
             lastTokenReductionAt: now,
           })
           .where(eq(war.id, activeWar.id)),
+        ...(activeWar.type === "VILLAGE_WAR"
+          ? [
+              drizzleDB
+                .update(villageStructure)
+                .set({ curSp: sql`curSp - ${WAR_DAILY_STRUCTURE_HP_DRAIN}` })
+                .where(
+                  and(
+                    inArray(villageStructure.villageId, [
+                      activeWar.attackerVillageId,
+                      activeWar.defenderVillageId,
+                    ]),
+                    eq(villageStructure.route, activeWar.targetStructureRoute),
+                  ),
+                ),
+            ]
+          : []),
       ]);
     }
     return new Response("War daily update completed", { status: 200 });
