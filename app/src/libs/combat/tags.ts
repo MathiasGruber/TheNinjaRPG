@@ -934,7 +934,6 @@ export const damageUser = (
   // const weaknessTags =
   // Fetch types to show to the user
   const types = [
-    effect.type, // Add the effect type first
     ...("statTypes" in effect && effect.statTypes ? effect.statTypes : []),
     ...("generalTypes" in effect && effect.generalTypes ? effect.generalTypes : []),
     ...("elements" in effect && effect.elements ? effect.elements : []),
@@ -1060,15 +1059,24 @@ export const heal = (
   }
   // Calculate healing
   const { power } = getPower(effect);
+  const baseHeal = 10;
   const parsedEffect = HealTag.parse(effect);
   const poolsAffects = parsedEffect.poolsAffected || ["Health"];
-  const baseHeal = 10;
-  const healAmount = effect.calculation === "static"
-    ? baseHeal * power * applyTimes
-    : baseHeal * power * applyTimes;
-  const heal_hp = poolsAffects.includes("Health") ? healAmount : 0;
-  const heal_sp = poolsAffects.includes("Stamina") ? healAmount : 0;
-  const heal_cp = poolsAffects.includes("Chakra") ? healAmount : 0;
+  const heal_hp = poolsAffects.includes("Health")
+    ? effect.calculation === "static"
+      ? baseHeal * power * applyTimes
+      : power * applyTimes
+    : 0;
+  const heal_sp = poolsAffects.includes("Stamina")
+    ? effect.calculation === "static"
+      ? baseHeal * power * applyTimes
+      : power * applyTimes
+    : 0;
+  const heal_cp = poolsAffects.includes("Chakra")
+    ? effect.calculation === "static"
+      ? baseHeal * power * applyTimes
+      : power * applyTimes
+    : 0;
   // If rounds=0 apply immidiately, otherwise only on following rounds
   if (
     (effect.castThisRound && effect.rounds === 0) ||
@@ -1179,10 +1187,6 @@ export const recoil = (
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.userId === effect.targetId && consequence.damage) {
-        // Skip if the damage is from a pierce effect
-        if (consequence.types?.includes("pierce")) {
-          return;
-        }
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
@@ -1899,8 +1903,6 @@ export const getStatTypeFromStat = (stat: (typeof StatNames)[number]) => {
  * matched in the RHS, whereas a ratio of 1 means everything is matched by a value in RHS
  */
 const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
-  // Force reflect for pierce damage, bypassing tag matching
-  if (dmgEffect.type === "pierce") return 1;
   // We need to get the list of dmgEffect stats/gens/elements and effect stats/gens/elements
   const getTags = (e: UserEffect) => {
     const tags: string[] = [];
