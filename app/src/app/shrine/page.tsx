@@ -184,7 +184,7 @@ const WarCard = ({
           />
           <div className="w-full max-w-md space-y-4">
             <div>
-              <p className="text-sm font-medium">Shrine - Sector {war.sectorNumber}</p>
+              <p className="text-sm font-medium">Shrine - Sector {war.sector}</p>
               <p className="text-sm text-muted-foreground">
                 {war.attackerVillageId === villageId
                   ? "Your village is attacking"
