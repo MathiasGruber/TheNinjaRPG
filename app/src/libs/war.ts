@@ -21,7 +21,7 @@ import { secondsFromNow } from "@/utils/time";
  * Resets the wartime townhalls
  * @param activeWars - The active wars
  */
-export const resetWartimeTownhalls = async (
+export const resetStructuresWhenNotInWar = async (
   activeWars: FetchActiveWarsReturnType[],
 ) => {
   const villagesInWars = activeWars.flatMap((war) => [
