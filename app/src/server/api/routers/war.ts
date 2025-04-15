@@ -3,10 +3,11 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, and, gte, ne, desc } from "drizzle-orm";
 import { war, village, warAlly, warKill, sector, userData } from "@/drizzle/schema";
-import { fetchUpdatedUser } from "@/routers/profile";
+import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchVillages, fetchAlliances, fetchStructures } from "@/routers/village";
 import { nanoid } from "nanoid";
 import type { DrizzleClient } from "@/server/db";
+import { canAdministrateWars } from "@/utils/permissions";
 import {
   WAR_DECLARATION_COST,
   VILLAGE_SYNDICATE_ID,
@@ -39,6 +40,28 @@ export const warRouter = createTRPCRouter({
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
       return fetchEndedWars(ctx.drizzle, input.villageId);
+    }),
+
+  adminEndWar: protectedProcedure
+    .input(z.object({ warId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!user) {
+        return errorResponse("User not found");
+      }
+      if (!canAdministrateWars(user.role)) {
+        return errorResponse("You are not authorized to end wars");
+      }
+      // End war
+      await Promise.all([
+        ctx.drizzle.delete(war).where(eq(war.id, input.warId)),
+        ctx.drizzle.delete(warKill).where(eq(warKill.warId, input.warId)),
+        ctx.drizzle.delete(warAlly).where(eq(warAlly.warId, input.warId)),
+      ]);
+      return { success: true, message: "War ended successfully" };
     }),
 
   buildShrine: protectedProcedure

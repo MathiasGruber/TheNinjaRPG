@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { CircleArrowUp } from "lucide-react";
 import { Info } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -19,6 +20,7 @@ import { calcStructureUpgrade } from "@/utils/village";
 import { CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
 import { calcBankInterest } from "@/utils/village";
 import { cn } from "src/libs/shadui";
+import { canAdministrateWars } from "@/utils/permissions";
 import type { Village } from "@/drizzle/schema";
 import type { VillageStructure } from "@/drizzle/schema";
 
@@ -59,15 +61,19 @@ const Building: React.FC<BuildingProps> = (props) => {
             clanId={userData.clanId}
           />
         )}
+        {userData && canAdministrateWars(userData.role) && (
+          <RestoreStructureButton structureId={structure.id} />
+        )}
       </div>
     </div>
   );
   // Render
   return (
-    <div className={`flex flex-col items-center justify-center text-center`}>
+    <div className={`flex flex-col items-center justify-center text-center relative`}>
       {showBar && (
         <div className="w-2/3">
           <StatusBar
+            key={structure.curSp}
             title=""
             tooltip="Health"
             color="bg-red-500"
@@ -98,6 +104,39 @@ const Building: React.FC<BuildingProps> = (props) => {
 };
 
 export default Building;
+
+const RestoreStructureButton = ({ structureId }: { structureId: string }) => {
+  const utils = api.useUtils();
+
+  const { mutate: restorePoints, isPending } =
+    api.village.restoreStructurePoints.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.village.get.invalidate();
+        }
+      },
+    });
+
+  return (
+    <Confirm2
+      title="Restore Structure Points"
+      proceed_label="Restore"
+      onAccept={() => restorePoints({ structureId })}
+      button={
+        <RefreshCw
+          className={cn(
+            "h-4 w-4 hover:text-orange-500 hover:cursor-pointer",
+            isPending && "animate-spin",
+          )}
+        />
+      }
+    >
+      <p>Are you sure you want to restore this structure to full health?</p>
+      <p>This will set the structure points to maximum.</p>
+    </Confirm2>
+  );
+};
 
 const UpgradeButton = ({
   structure,
@@ -133,7 +172,7 @@ const UpgradeButton = ({
   return (
     <div>
       {canAfford && canLevel && (
-        <Confirm
+        <Confirm2
           title="Upgrade Structure"
           proceed_label="Upgrade"
           onAccept={() =>
@@ -158,7 +197,7 @@ const UpgradeButton = ({
             level).
           </p>
           <p>You currently have {currentFunds} village tokens.</p>
-        </Confirm>
+        </Confirm2>
       )}
     </div>
   );

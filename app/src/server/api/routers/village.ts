@@ -9,7 +9,7 @@ import { villageAlliance, kageDefendedChallenges, war, sector } from "@/drizzle/
 import { eq, sql, gte, and, or, inArray, ne } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
-import { fetchUpdatedUser } from "@/routers/profile";
+import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchRequests } from "@/routers/sparring";
 import { insertRequest, updateRequestState } from "@/routers/sparring";
 import { createConvo } from "@/routers/comments";
@@ -25,6 +25,7 @@ import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/drizzle/constants";
 import { deleteRequests } from "@/routers/sensei";
 import { hasRequiredRank } from "@/libs/train";
+import { canAdministrateWars } from "@/utils/permissions";
 import { canSwapVillage } from "@/utils/permissions";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
@@ -46,6 +47,24 @@ export const villageRouter = createTRPCRouter({
   getAll: publicProcedure.query(async ({ ctx }) => {
     return await fetchVillages(ctx.drizzle);
   }),
+  // Restore village structure points
+  restoreStructurePoints: protectedProcedure
+    .input(z.object({ structureId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canAdministrateWars(user.role)) {
+        return errorResponse("You are not authorized to restore structure points");
+      }
+      // Restore
+      await ctx.drizzle
+        .update(villageStructure)
+        .set({ curSp: sql`${villageStructure.maxSp}` })
+        .where(eq(villageStructure.id, input.structureId));
+      return { success: true, message: "Structure points restored successfully" };
+    }),
   // Get a specific village & its structures∂
   get: publicProcedure
     .input(z.object({ id: z.string() }))
