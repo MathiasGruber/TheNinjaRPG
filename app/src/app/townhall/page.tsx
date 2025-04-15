@@ -17,7 +17,7 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import Building from "@/layout/Building";
 import Table from "@/layout/Table";
-import { Handshake, LandPlot, DoorOpen, Swords, Trophy } from "lucide-react";
+import { Handshake, LandPlot, DoorOpen, Swords, Trophy, Trash2 } from "lucide-react";
 import { CircleArrowUp, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
@@ -27,6 +27,7 @@ import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { canChangeContent } from "@/utils/permissions";
+import { canAdministrateWars } from "@/utils/permissions";
 import { canChallengeKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
@@ -1711,6 +1712,18 @@ const VillageWar: React.FC<{
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
+        await Promise.all([
+          utils.war.getActiveWars.invalidate(),
+          utils.war.getEndedWars.invalidate(),
+        ]);
+      }
+    },
+  });
+
+  const { mutate: adminEndWar } = api.war.adminEndWar.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
         await utils.war.getActiveWars.invalidate();
         await utils.war.getEndedWars.invalidate();
       }
@@ -1785,6 +1798,26 @@ const VillageWar: React.FC<{
               <p>
                 Are you sure you want to surrender this war? This will result in an
                 immediate loss to your village.
+              </p>
+            </Confirm2>
+          )}
+          {canAdministrateWars(user.role) && (
+            <Confirm2
+              title="End War"
+              button={
+                <Button variant="destructive" size="icon">
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              }
+              onAccept={(e) => {
+                e.preventDefault();
+                adminEndWar({ warId: war.id });
+              }}
+            >
+              <p>
+                As an admin you can end the war at any time. This will end the war and
+                remove all information about the war. No losses will be incurred for
+                either side.
               </p>
             </Confirm2>
           )}
