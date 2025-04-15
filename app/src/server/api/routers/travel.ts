@@ -260,7 +260,7 @@ export const travelRouter = createTRPCRouter({
           where: eq(sector.sector, user.sector),
         }),
         ctx.drizzle.query.war.findMany({
-          where: and(eq(war.sectorNumber, user.sector), eq(war.status, "ACTIVE")),
+          where: and(eq(war.sector, user.sector), eq(war.status, "ACTIVE")),
           with: {
             attackerVillage: {
               columns: { name: true, id: true, villageGraphic: true },

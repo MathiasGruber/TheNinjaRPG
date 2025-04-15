@@ -684,7 +684,7 @@ export const combatRouter = createTRPCRouter({
         }),
         ctx.drizzle.query.war.findMany({
           where: and(
-            eq(war.sectorNumber, input.sector),
+            eq(war.sector, input.sector),
             eq(war.status, "ACTIVE"),
             eq(war.defenderVillageId, VILLAGE_SYNDICATE_ID),
           ),

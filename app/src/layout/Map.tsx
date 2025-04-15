@@ -72,7 +72,7 @@ const Map: React.FC<MapProps> = (props) => {
   // Update active war sectors when ownership data changes
   useEffect(() => {
     if (ownershipData?.wars) {
-      activeSectorWars.current = ownershipData.wars.map((war) => war.sectorNumber);
+      activeSectorWars.current = ownershipData.wars.map((war) => war.sector);
     }
   }, [ownershipData]);
 

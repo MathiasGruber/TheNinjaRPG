@@ -99,7 +99,7 @@ export const warRouter = createTRPCRouter({
       if (activeWar.shrineHp > 0) {
         return errorResponse("Shrine is still standing");
       }
-      if (MAP_RESERVED_SECTORS.includes(activeWar.sectorNumber)) {
+      if (MAP_RESERVED_SECTORS.includes(activeWar.sector)) {
         return errorResponse("Shrine cannot be built on reserved sectors");
       }
       if (user.village.tokens < WAR_PURCHASE_SHRINE_TOKEN_COST) {
@@ -201,8 +201,7 @@ export const warRouter = createTRPCRouter({
               w.defenderVillageId === defenderVillageId) ||
             (w.attackerVillageId === defenderVillageId &&
               w.defenderVillageId === user?.village?.id) ||
-            (w.attackerVillageId === user?.village?.id &&
-              w.sectorNumber === input.sectorId),
+            (w.attackerVillageId === user?.village?.id && w.sector === input.sectorId),
         )
       ) {
         return errorResponse(
@@ -227,7 +226,7 @@ export const warRouter = createTRPCRouter({
           defenderVillageId: defenderVillageId,
           status: "ACTIVE",
           type: "SECTOR_WAR",
-          sectorNumber: input.sectorId,
+          sector: input.sectorId,
           dailyTokenReduction: 1000,
         }),
         ...(!targetSector

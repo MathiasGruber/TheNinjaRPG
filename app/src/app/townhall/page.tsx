@@ -1458,7 +1458,7 @@ const SectorWar: React.FC<{
         />
         <div className="w-full max-w-md space-y-2">
           <div>
-            <p className="text-sm font-medium">Shrine - Sector {war.sectorNumber}</p>
+            <p className="text-sm font-medium">Shrine - Sector {war.sector}</p>
             {war.shrineHp > 0 && (
               <StatusBar
                 title="HP"
@@ -1477,8 +1477,7 @@ const SectorWar: React.FC<{
                 {war.defenderVillageId === VILLAGE_SYNDICATE_ID ? (
                   <p>
                     <strong>Note:</strong> To attack this shrine, you must travel to
-                    sector {war.sectorNumber} and engage in combat with the shrine
-                    directly.
+                    sector {war.sector} and engage in combat with the shrine directly.
                   </p>
                 ) : (
                   <p>
@@ -1514,9 +1513,9 @@ const SectorWar: React.FC<{
               }}
             >
               <p>
-                You are about to build a shrine in sector {war.sectorNumber}. This will
-                cost {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} village tokens.
-                Are you sure?
+                You are about to build a shrine in sector {war.sector}. This will cost{" "}
+                {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} village tokens. Are
+                you sure?
               </p>
             </Confirm>
           )}

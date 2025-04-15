@@ -111,7 +111,7 @@ export const villageRouter = createTRPCRouter({
         },
       }),
       ctx.drizzle.query.war.findMany({
-        columns: { sectorNumber: true },
+        columns: { sector: true },
         where: and(eq(war.status, "ACTIVE"), eq(war.type, "SECTOR_WAR")),
       }),
     ]);
