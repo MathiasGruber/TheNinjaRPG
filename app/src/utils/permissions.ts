@@ -41,6 +41,10 @@ export const canChangeDefaultAiProfile = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };
 
+export const canAdministrateWars = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
+
 export const canChangeUserRole = (role: UserRole) => {
   if (role === "CODING-ADMIN") {
     return UserRoles;
