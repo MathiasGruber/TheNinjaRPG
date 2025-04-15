@@ -2513,7 +2513,7 @@ export const war = mysqlTable("War", {
   endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
   status: mysqlEnum("status", consts.WAR_STATES).notNull(),
   type: mysqlEnum("type", consts.WAR_TYPES).notNull(),
-  sectorNumber: smallint("sectorNumber").default(0).notNull(),
+  sector: smallint("sector").default(0).notNull(),
   shrineHp: smallint("shrineHp").default(consts.WAR_SHRINE_HP).notNull(),
   dailyTokenReduction: int("dailyTokenReduction").default(1000).notNull(),
   lastTokenReductionAt: datetime("lastTokenReductionAt", { mode: "date", fsp: 3 })
@@ -2538,8 +2538,8 @@ export const warRelations = relations(war, ({ one, many }) => ({
   }),
   warAllies: many(warAlly),
   sector: one(sector, {
-    fields: [war.sectorNumber],
-    references: [sector.id],
+    fields: [war.sector],
+    references: [sector.sector],
     relationName: "sectorWars",
   }),
 }));

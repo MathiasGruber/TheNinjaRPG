@@ -736,7 +736,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             }
             // Sector wars
             if (war.type === "SECTOR_WAR") {
-              const sector = war.sectorNumber;
+              const sector = war.sector;
               if (!(sector in shrineInfo)) {
                 shrineInfo[sector] = 0;
               }

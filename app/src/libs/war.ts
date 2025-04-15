@@ -84,7 +84,7 @@ export const canJoinWar = (
 };
 
 /**
- * Handles the end of a war
+ * Handles the end of a war. Assumes the village with tokens <= 0 is the loser.
  * @param war - The war to handle
  * @returns
  */
@@ -98,6 +98,11 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
     endedAt.getTime() + WAR_STRUCTURE_UPGRADE_BLOCK_DAYS * 24 * 60 * 60 * 1000,
   );
   const boostEndAt = secondsFromNow(WAR_WINNING_BOOST_DAYS * 24 * 60 * 60);
+
+  // If both villages have >= 0 tokens, just return without ending
+  if (activeWar.attackerVillage.tokens >= 0 && activeWar.defenderVillage.tokens >= 0) {
+    return activeWar;
+  }
 
   // Get IDs of villages & factions that lost (less than 0 tokens) and won (more than 0 tokens)
   // Note both villages could be losing if they both got their points deducted simultaneously
@@ -138,7 +143,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
       notificationContent += `${activeWar.defenderVillage.name} won the war and received ${winningPoints} tokens. `;
     }
   } else if (activeWar.type === "SECTOR_WAR" && status === "ATTACKER_VICTORY") {
-    notificationContent = `Sector ${activeWar.sectorNumber} has been claimed by ${activeWar.attackerVillage.name}. `;
+    notificationContent = `Sector ${activeWar.sector} has been claimed by ${activeWar.attackerVillage.name}. `;
   }
   // Run updates
   await Promise.all([
@@ -175,16 +180,11 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
           drizzleDB
             .update(sector)
             .set({ villageId: winnerVillageId })
-            .where(eq(sector.sector, activeWar.sectorNumber)),
+            .where(eq(sector.sector, activeWar.sector)),
           drizzleDB
             .update(war)
             .set({ status: "DEFENDER_VICTORY", endedAt })
-            .where(
-              and(
-                ne(war.id, activeWar.id),
-                eq(war.sectorNumber, activeWar.sectorNumber),
-              ),
-            ),
+            .where(and(ne(war.id, activeWar.id), eq(war.sector, activeWar.sector))),
         ]
       : []),
     // Handle village wars
