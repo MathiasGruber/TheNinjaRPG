@@ -14,7 +14,7 @@ import {
   WAR_PURCHASE_SHRINE_TOKEN_COST,
   MAP_RESERVED_SECTORS,
 } from "@/drizzle/constants";
-import { handleWarEnd, canJoinWar, resetWartimeTownhalls } from "@/libs/war";
+import { handleWarEnd, canJoinWar, resetStructuresWhenNotInWar } from "@/libs/war";
 import { sql } from "drizzle-orm";
 import {
   insertRequest,
@@ -125,7 +125,7 @@ export const warRouter = createTRPCRouter({
         return errorResponse("Not enough tokens to build a shrine");
       }
 
-      // I'll implement the rest of the endpoint
+      // Handle war end
       activeWar.defenderVillage.tokens = 0;
       await handleWarEnd(activeWar);
       return { success: true, message: "Shrine built successfully" };
@@ -794,7 +794,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
   });
   // Reset wartime townhalls if we're fetching all of them
   if (!villageId) {
-    await resetWartimeTownhalls(activeWars);
+    await resetStructuresWhenNotInWar(activeWars);
   }
 
   // Return active wars
