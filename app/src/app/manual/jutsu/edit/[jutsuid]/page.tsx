@@ -19,6 +19,7 @@ import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { getTagSchema } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";
 import type { Jutsu } from "@/drizzle/schema";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function JutsuEdit(props: { params: Promise<{ jutsuid: string }> }) {
   const params = use(props.params);
@@ -62,6 +63,12 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
   // Form handling
   const { loading, jutsu, effects, form, formData, setEffects, handleJutsuSubmit } =
     useJutsuEditForm(props.jutsu, props.refetch);
+
+  // Query all jutsus for parent selection
+  const { data: allJutsus } = api.jutsu.getAll.useQuery(
+    { cursor: 0, limit: 2000 },
+    { enabled: !!jutsu }
+  );
 
   // Icon for adding tag
   const AddTagIcon = (
@@ -132,16 +139,39 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
       >
         {!jutsu && <p>Could not find this jutsu</p>}
         {!loading && jutsu && (
-          <EditContent
-            schema={JutsuValidator._def.schema._def.schema}
-            form={form}
-            formData={formData}
-            showSubmit={true}
-            buttonTxt="Save to Database"
-            type="jutsu"
-            allowImageUpload={true}
-            onAccept={handleJutsuSubmit}
-          />
+          <>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">Parent Jutsu</label>
+              <Select
+                value={form.getValues("parentJutsuId") || ""}
+                onValueChange={(value) => form.setValue("parentJutsuId", value || null)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a parent jutsu (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {allJutsus?.data
+                    .filter((j) => j.id !== jutsu.id) // Exclude current jutsu
+                    .map((j) => (
+                      <SelectItem key={j.id} value={j.id}>
+                        {j.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <EditContent
+              schema={JutsuValidator._def.schema._def.schema}
+              form={form}
+              formData={formData}
+              showSubmit={true}
+              buttonTxt="Save to Database"
+              type="jutsu"
+              allowImageUpload={true}
+              onAccept={handleJutsuSubmit}
+            />
+          </>
         )}
       </ContentBox>
 
