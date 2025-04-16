@@ -976,6 +976,7 @@ interface ItemValidatorType
 interface JutsuValidatorType
   extends Omit<Jutsu, "id" | "createdAt" | "updatedAt" | "hidden"> {
   effects: ZodAllTags[];
+  parentJutsuId?: string | null;
 }
 
 /**
