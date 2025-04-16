@@ -66,7 +66,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
 
   // Query all jutsus for parent selection
   const { data: allJutsus } = api.jutsu.getAll.useQuery(
-    { cursor: 0, limit: 1000 },
+    { cursor: 0, limit: 2000 },
     { enabled: !!jutsu }
   );
 
@@ -143,14 +143,14 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">Parent Jutsu</label>
               <Select
-                value={form.getValues("parentJutsuId")}
-                onValueChange={(value) => form.setValue("parentJutsuId", value)}
+                value={form.getValues("parentJutsuId") || "none"}
+                onValueChange={(value) => form.setValue("parentJutsuId", value === "none" ? "" : value)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a parent jutsu (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {allJutsus?.data
                     .filter((j) => j.id !== jutsu.id) // Exclude current jutsu
                     .map((j) => (
