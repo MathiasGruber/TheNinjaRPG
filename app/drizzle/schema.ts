@@ -994,7 +994,7 @@ export const jutsu = mysqlTable(
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     hidden: boolean("hidden").default(false).notNull(),
-    parentJutsuId: varchar("parentJutsuId", { length: 191 }),
+    parentJutsuId: varchar("parentJutsuId", { length: 191 }).optional(),
   },
   (table) => {
     return {
