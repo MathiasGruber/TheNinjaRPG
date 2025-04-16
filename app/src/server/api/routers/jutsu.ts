@@ -832,10 +832,7 @@ export const jutsuRouter = createTRPCRouter({
       });
 
       if (!originalJutsu) {
-        return {
-          success: false,
-          message: "Original jutsu not found",
-        } satisfies typeof baseServerResponse;
+        return errorResponse("Original jutsu not found");
       }
 
       // Create a new jutsu with the same properties as the original
