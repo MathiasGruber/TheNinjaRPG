@@ -37,12 +37,17 @@ import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 
 /**
- * Check if a jutsu has any of the shared cooldown tags
+ * Check if a single tag is a shared cooldown tag
  */
-export const hasSharedCooldownTag = (effects: ZodAllTags[]): boolean => {
-  return effects.some((effect) =>
-    SHARED_COOLDOWN_TAGS.some((tag) => effect.type.toLowerCase() === tag.toLowerCase()),
-  );
+export const tagHasSharedCooldown = (effect: ZodAllTags) => {
+  return SHARED_COOLDOWN_TAGS.some((tag) => effect.type === tag);
+};
+
+/**
+ * Check if an action has any of the shared cooldown tags
+ */
+export const actionHasSharedCooldown = (action: { effects: ZodAllTags[] }): boolean => {
+  return action.effects.some((effect) => tagHasSharedCooldown(effect));
 };
 
 /**
