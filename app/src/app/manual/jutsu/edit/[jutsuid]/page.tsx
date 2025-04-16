@@ -143,8 +143,8 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">Parent Jutsu</label>
               <Select
-                value={form.getValues("parentJutsuId") || ""}
-                onValueChange={(value) => form.setValue("parentJutsuId", value || null)}
+                value={form.getValues("parentJutsuId")}
+                onValueChange={(value) => form.setValue("parentJutsuId", value)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a parent jutsu (optional)" />
