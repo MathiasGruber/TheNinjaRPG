@@ -401,9 +401,28 @@ export const jutsuRouter = createTRPCRouter({
           createdAt: entry.createdAt,
           ...input.data,
         });
-        // Update
+
+        // Find all child jutsu
+        const childJutsus = await ctx.drizzle.query.jutsu.findMany({
+          where: eq(jutsu.parentJutsuId, input.id),
+        });
+
+        // Prepare update data for child jutsu
+        const { name, description, battleDescription, image, ...sharedData } = input.data;
+
+        // Update parent jutsu and all child jutsu
         await Promise.all([
+          // Update parent jutsu
           ctx.drizzle.update(jutsu).set(input.data).where(eq(jutsu.id, input.id)),
+          
+          // Update all child jutsu
+          ...childJutsus.map(childJutsu => 
+            ctx.drizzle.update(jutsu)
+              .set(sharedData)
+              .where(eq(jutsu.id, childJutsu.id))
+          ),
+
+          // Log the action
           ctx.drizzle.insert(actionLog).values({
             id: nanoid(),
             userId: ctx.userId,
@@ -413,6 +432,8 @@ export const jutsuRouter = createTRPCRouter({
             relatedMsg: `Update: ${entry.name}`,
             relatedImage: entry.image,
           }),
+
+          // Handle hidden status
           ...(input.data.hidden
             ? [
                 ctx.drizzle
@@ -422,6 +443,7 @@ export const jutsuRouter = createTRPCRouter({
               ]
             : []),
         ]);
+
         if (process.env.NODE_ENV !== "development") {
           await callDiscordContent(user.username, entry.name, diff, entry.image);
         }
@@ -786,6 +808,82 @@ export const jutsuRouter = createTRPCRouter({
         .where(eq(jutsuLoadout.id, loadout.id));
 
       return { success: true, message: `Order updated` };
+    }),
+
+  reskin: protectedProcedure
+    .input(
+      z.object({
+        originalJutsuId: z.string(),
+        name: z.string().min(1).max(100),
+        description: z.string().min(1).max(1000),
+        battleDescription: z.string().min(1).max(1000),
+        image: z.string().url(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { originalJutsuId, name, description, battleDescription, image } = input;
+
+      // Get the original jutsu
+      const originalJutsu = await ctx.drizzle.query.userJutsu.findFirst({
+        where: (userJutsu, { eq }) => eq(userJutsu.id, originalJutsuId),
+        with: {
+          jutsu: true,
+        },
+      });
+
+      if (!originalJutsu) {
+        return {
+          success: false,
+          message: "Original jutsu not found",
+        } satisfies baseServerResponse;
+      }
+
+      // Create a new jutsu with the same properties as the original
+      const newJutsu = await ctx.drizzle.insert(jutsu).values({
+        name,
+        description,
+        battleDescription,
+        image,
+        effects: originalJutsu.jutsu.effects,
+        target: originalJutsu.jutsu.target,
+        range: originalJutsu.jutsu.range,
+        cooldown: originalJutsu.jutsu.cooldown,
+        bloodlineId: originalJutsu.jutsu.bloodlineId,
+        requiredLevel: originalJutsu.jutsu.requiredLevel,
+        requiredRank: originalJutsu.jutsu.requiredRank,
+        jutsuType: "SPECIAL",
+        jutsuWeapon: originalJutsu.jutsu.jutsuWeapon,
+        statClassification: originalJutsu.jutsu.statClassification,
+        jutsuRank: originalJutsu.jutsu.jutsuRank,
+        actionCostPerc: originalJutsu.jutsu.actionCostPerc,
+        staminaCost: originalJutsu.jutsu.staminaCost,
+        chakraCost: originalJutsu.jutsu.chakraCost,
+        staminaCostReducePerLvl: originalJutsu.jutsu.staminaCostReducePerLvl,
+        chakraCostReducePerLvl: originalJutsu.jutsu.chakraCostReducePerLvl,
+        healthCostReducePerLvl: originalJutsu.jutsu.healthCostReducePerLvl,
+        healthCost: originalJutsu.jutsu.healthCost,
+        villageId: originalJutsu.jutsu.villageId,
+        method: originalJutsu.jutsu.method,
+        hidden: originalJutsu.jutsu.hidden,
+        parentJutsuId: originalJutsu.jutsu.id,
+      });
+
+      // Create a new user jutsu for the reskin
+      const newUserJutsu = await ctx.drizzle.insert(userJutsu).values({
+        userId: ctx.session.user.id,
+        jutsuId: newJutsu.insertId,
+        level: originalJutsu.level,
+        equipped: originalJutsu.equipped,
+      });
+
+      return {
+        success: true,
+        message: "Jutsu reskin created successfully",
+        data: {
+          jutsuId: newJutsu.insertId,
+          userJutsuId: newUserJutsu.insertId,
+        },
+      }
     }),
 });
 
