@@ -994,6 +994,7 @@ export const jutsu = mysqlTable(
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     hidden: boolean("hidden").default(false).notNull(),
+    parentJutsuId: varchar("parentJutsuId", { length: 191 }),
   },
   (table) => {
     return {
@@ -1001,6 +1002,7 @@ export const jutsu = mysqlTable(
       imageKey: uniqueIndex("Jutsu_image_key").on(table.image),
       bloodlineIdIdx: index("Jutsu_bloodlineId_idx").on(table.bloodlineId),
       villageIdIdx: index("Jutsu_villageId_idx").on(table.villageId),
+      parentJutsuIdIdx: index("Jutsu_parentJutsuId_idx").on(table.parentJutsuId),
     };
   },
 );
@@ -1009,6 +1011,10 @@ export const jutsuRelations = relations(jutsu, ({ one }) => ({
   bloodline: one(bloodline, {
     fields: [jutsu.bloodlineId],
     references: [bloodline.id],
+  }),
+  parentJutsu: one(jutsu, {
+    fields: [jutsu.parentJutsuId],
+    references: [jutsu.id],
   }),
 }));
 
