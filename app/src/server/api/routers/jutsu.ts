@@ -868,10 +868,11 @@ export const jutsuRouter = createTRPCRouter({
 
       // Create a new user jutsu for the reskin
       const newUserJutsu = await ctx.drizzle.insert(userJutsu).values({
+        id: nanoid(),
         userId: ctx.session.user.id,
         jutsuId: newJutsu.insertId,
         level: originalJutsu.level,
-        equipped: originalJutsu.equipped,
+        equipped: 0,
       });
 
       return {
