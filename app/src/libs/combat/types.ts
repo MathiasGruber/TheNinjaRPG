@@ -1112,6 +1112,7 @@ export const JutsuValidator = z
     cooldown: z.coerce.number().int().min(0).max(300),
     bloodlineId: z.string().nullable(),
     villageId: z.string().nullable(),
+    parentJutsuId: z.string().nullable().optional(),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
   .superRefine(SuperRefineBase)
