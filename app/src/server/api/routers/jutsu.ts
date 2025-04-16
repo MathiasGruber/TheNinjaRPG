@@ -835,7 +835,7 @@ export const jutsuRouter = createTRPCRouter({
         return {
           success: false,
           message: "Original jutsu not found",
-        } satisfies baseServerResponse;
+        } satisfies typeof baseServerResponse;
       }
 
       // Create a new jutsu with the same properties as the original
