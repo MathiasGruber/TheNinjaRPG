@@ -66,7 +66,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
 
   // Query all jutsus for parent selection
   const { data: allJutsus } = api.jutsu.getAll.useQuery(
-    { cursor: 0, limit: 2000 },
+    { cursor: 0, limit: 1000 },
     { enabled: !!jutsu }
   );
 
