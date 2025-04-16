@@ -15,7 +15,9 @@ import { updateStatUsage } from "@/libs/combat/tags";
 import { getPossibleActionTiles } from "@/libs/hexgrid";
 import { PathCalculator } from "@/libs/hexgrid";
 import { calcCombatHealPercentage } from "@/libs/hospital/hospital";
-import { hasSharedCooldownTag } from "@/libs/combat/util";
+import { actionHasSharedCooldown } from "@/libs/combat/util";
+import { tagHasSharedCooldown } from "@/libs/combat/util";
+import { SHARED_COOLDOWN_TAGS } from "@/drizzle/constants";
 import {
   IMG_BASIC_HEAL,
   IMG_BASIC_ATTACK,
@@ -251,7 +253,7 @@ export const getBasicActions = (
         HealTag.parse({
           power: calcCombatHealPercentage(user),
           powerPerLevel: 0.0,
-          calculation: "percentage",
+          calculation: "static",
           rounds: 0,
           appearAnimation: ID_ANIMATION_HEAL,
         }),
@@ -684,11 +686,28 @@ export const performBattleAction = (props: {
     if (actionPerformed) actionPerformed.lastUsedRound = battle.round;
 
     // If this action has shared cooldown, update the rounds for all related actions
-    if (hasSharedCooldownTag(action.effects)) {
+    if (actionHasSharedCooldown(action)) {
+      // Get all shared cooldown tags from the current action
+      const actionSharedTags = action.effects
+        .filter((effect) => tagHasSharedCooldown(effect))
+        .map((effect) => effect.type);
+
       const sharedActions = [
-        ...user.jutsus.filter((jutsu) => hasSharedCooldownTag(jutsu.jutsu.effects)),
-        ...user.items.filter((item) => hasSharedCooldownTag(item.item.effects)),
-        ...user.basicActions.filter((basic) => hasSharedCooldownTag(basic.effects)),
+        ...user.jutsus.filter((jutsu) =>
+          jutsu.jutsu.effects
+            .filter((effect) => tagHasSharedCooldown(effect))
+            .some((effect) => actionSharedTags.includes(effect.type)),
+        ),
+        ...user.items.filter((item) =>
+          item.item.effects
+            .filter((effect) => tagHasSharedCooldown(effect))
+            .some((effect) => actionSharedTags.includes(effect.type)),
+        ),
+        ...user.basicActions.filter((basic) =>
+          basic.effects
+            .filter((effect) => tagHasSharedCooldown(effect))
+            .some((effect) => actionSharedTags.includes(effect.type)),
+        ),
       ];
       sharedActions
         .filter((a) => a.id !== action.id)

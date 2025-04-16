@@ -1,4 +1,4 @@
-import React from "react"; 
+import React from "react";
 import Loader from "./Loader";
 import ElementImage from "@/layout/ElementImage";
 import { api } from "@/app/_trpc/client";
@@ -8,6 +8,7 @@ import { cn } from "src/libs/shadui";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { CombatResult } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
+import { ElementNames, type ElementName } from "@/drizzle/constants";
 
 interface CombatHistoryProps {
   battleId: string;
@@ -86,15 +87,23 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
                   : ""}
                 {effects?.map((effect, i) => {
                   const color =
-                    effect.color === "red" ? "text-red-500" :
-                    effect.color === "blue" ? "text-blue-500" :
-                    effect.color === "green" ? "text-green-500" :
-                    effect.color === "yellow" ? "text-yellow-500" :
-                    effect.color === "purple" ? "text-purple-500" :
-                    effect.color === "orange" ? "text-orange-500" :
-                    effect.color === "pink" ? "text-pink-500" :
-                    effect.color === "gray" ? "text-gray-500" :
-                    "text-black";
+                    effect.color === "red"
+                      ? "text-red-500"
+                      : effect.color === "blue"
+                        ? "text-blue-500"
+                        : effect.color === "green"
+                          ? "text-green-500"
+                          : effect.color === "yellow"
+                            ? "text-yellow-500"
+                            : effect.color === "purple"
+                              ? "text-purple-500"
+                              : effect.color === "orange"
+                                ? "text-orange-500"
+                                : effect.color === "pink"
+                                  ? "text-pink-500"
+                                  : effect.color === "gray"
+                                    ? "text-gray-500"
+                                    : "text-black";
                   const text = insertComponentsIntoText(effect.txt, {
                     Highest: (
                       <span key={`${round}-${i}-H`} className="text-stone-500">

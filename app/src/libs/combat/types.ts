@@ -180,7 +180,7 @@ export type Consequence = {
   absorb_cp?: number;
   drain?: number;
   poison?: number;
-  types?: (GeneralType | StatType | ElementName | PoolType)[];
+  types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
 
 /**
@@ -527,10 +527,10 @@ export const DrainTag = z.object({
   ...PowerAttributes,
   ...PoolAttributes,
   type: z.literal("drain").default("drain"),
-  description: msg("Drain target's Chakra and Stamina over time"),
+  description: msg("Drain target's pools over time"),
   calculation: z.enum(["percentage"]).default("percentage"),
   rounds: z.coerce.number().int().min(1).max(10).default(3),
-  poolsAffected: z.array(z.enum(PoolTypes)).default(["Chakra", "Stamina"]),
+  poolsAffected: z.array(z.enum(PoolTypes)).default(["Chakra", "Stamina", "Health"]),
 });
 export type DrainTagType = z.infer<typeof DrainTag>;
 
@@ -955,7 +955,7 @@ export type UserEffect = BattleEffect & {
 export type ActionEffect = {
   txt: string;
   color: "red" | "green" | "blue" | "yellow" | "purple" | "orange" | "pink" | "gray";
-  types?: (GeneralType | StatType | ElementName | PoolType)[];
+  types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
 
 /**

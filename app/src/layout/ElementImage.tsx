@@ -39,9 +39,10 @@ import {
 
 import { GeneralTypes, StatTypes, PoolTypes, ElementNames } from "@/drizzle/constants";
 import type { GeneralType, StatType, PoolType, ElementName } from "@/drizzle/constants";
+import type { ZodAllTags } from "@/libs/combat/types";
 
 interface ElementImageProps {
-  element: GeneralType | StatType | ElementName | PoolType | "All";
+  element: GeneralType | StatType | ElementName | PoolType | "All" | ZodAllTags["type"];
   hoverText?: string;
   className?: string;
 }
