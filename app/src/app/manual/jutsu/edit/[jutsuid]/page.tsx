@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, use } from "react";
+import { useEffect, use, useState } from "react";
 import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
-import { FilePlus, FileMinus } from "lucide-react";
+import { FilePlus, FileMinus, Search } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { DamageTag } from "@/libs/combat/types";
@@ -19,7 +19,9 @@ import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { getTagSchema } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";
 import type { Jutsu } from "@/drizzle/schema";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
 export default function JutsuEdit(props: { params: Promise<{ jutsuid: string }> }) {
   const params = use(props.params);
@@ -68,6 +70,18 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
   const { data: allJutsus } = api.jutsu.getAll.useQuery(
     { cursor: 0, limit: 1000 },
     { enabled: !!jutsu }
+  );
+
+  // State for search
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // Filter jutsus based on search
+  const filteredJutsus = allJutsus?.data.filter(
+    (j) => 
+      j.id !== jutsu.id && // Exclude current jutsu
+      (j.name.toLowerCase().includes(search.toLowerCase()) ||
+       j.description.toLowerCase().includes(search.toLowerCase()))
   );
 
   // Icon for adding tag
@@ -142,24 +156,54 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
           <>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">Parent Jutsu</label>
-              <Select
-                value={form.getValues("parentJutsuId") || "none"}
-                onValueChange={(value) => form.setValue("parentJutsuId", value === "none" ? "" : value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a parent jutsu (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {allJutsus?.data
-                    .filter((j) => j.id !== jutsu.id) // Exclude current jutsu
-                    .map((j) => (
-                      <SelectItem key={j.id} value={j.id}>
-                        {j.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between"
+                  >
+                    {form.getValues("parentJutsuId")
+                      ? allJutsus?.data.find((j) => j.id === form.getValues("parentJutsuId"))?.name
+                      : "Select a parent jutsu..."}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search jutsu..."
+                      value={search}
+                      onValueChange={setSearch}
+                    />
+                    <CommandEmpty>No jutsu found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="none"
+                        onSelect={() => {
+                          form.setValue("parentJutsuId", "");
+                          setOpen(false);
+                        }}
+                      >
+                        None
+                      </CommandItem>
+                      {filteredJutsus?.map((j) => (
+                        <CommandItem
+                          key={j.id}
+                          value={j.id}
+                          onSelect={() => {
+                            form.setValue("parentJutsuId", j.id);
+                            setOpen(false);
+                          }}
+                        >
+                          {j.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <EditContent
               schema={JutsuValidator._def.schema._def.schema}
