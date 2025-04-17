@@ -78,8 +78,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
       name: search || undefined 
     },
     { 
-      enabled: !!jutsu && search.length > 0,
-      keepPreviousData: true
+      enabled: !!jutsu && search.length > 0
     }
   );
 
