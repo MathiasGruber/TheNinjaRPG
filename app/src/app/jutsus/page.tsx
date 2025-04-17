@@ -191,8 +191,13 @@ export default function MyJutsu() {
     });
 
   const { mutate: reskin, isPending: isReskinning } = api.jutsu.reskin.useMutation({
-    onSuccess: async () => {
-      await utils.jutsu.getUserJutsus.invalidate();
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.jutsu.getUserJutsus.invalidate();
+        setIsOpen(false);
+        setUserJutsu(undefined);
+      }
     },
   });
 
@@ -520,12 +525,13 @@ export default function MyJutsu() {
                 name: reskinName || "",
                 description: reskinDescription || "",
                 battleDescription: reskinBattleDescription || "",
-                image: reskinImage || "",
+                image: reskinImage || userjutsu.image,
               });
             }
           }}
         >
           <div className="space-y-4">
+            <p className="text-sm text-gray-400">Are you sure you want to create a reskin of this jutsu? This will create a new jutsu with the same effects but with your custom name, description, and image.</p>
             <div>
               <Input 
                 placeholder="New jutsu name" 
