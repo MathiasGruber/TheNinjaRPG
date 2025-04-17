@@ -93,7 +93,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
 
     const observer = new IntersectionObserver((entries) => {
       if (entries.length > 0 && entries[0]?.isIntersecting && hasNextPage) {
-        fetchNextPage();
+        void fetchNextPage();
       }
     });
 
