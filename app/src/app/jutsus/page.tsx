@@ -54,6 +54,7 @@ export default function MyJutsu() {
   const now = new Date();
   const { data: userData, updateUser } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isReskinOpen, setIsReskinOpen] = useState<boolean>(false);
   const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
@@ -195,7 +196,7 @@ export default function MyJutsu() {
       showMutationToast(data);
       if (data.success) {
         await utils.jutsu.getUserJutsus.invalidate();
-        setIsOpen(false);
+        setIsReskinOpen(false);
         setUserJutsu(undefined);
       }
     },
@@ -516,7 +517,7 @@ export default function MyJutsu() {
         <Modal
           title="Reskin Jutsu"
           proceed_label="Create Reskin"
-          setIsOpen={setIsOpen}
+          setIsOpen={setIsReskinOpen}
           isValid={!!reskinName && !!reskinDescription && !!reskinBattleDescription && !!reskinImage}
           onAccept={() => {
             if (!isReskinning && userjutsu) {
