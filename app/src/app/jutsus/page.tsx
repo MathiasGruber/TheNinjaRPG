@@ -509,20 +509,20 @@ export default function MyJutsu() {
           {isPending && <Loader explanation={`Processing ${userjutsu.name}`} />}
         </Modal>
       )}
-      {modalType === "reskin" && (
+      {modalType === "reskin" && userjutsu && (
         <Modal
           title="Reskin Jutsu"
           proceed_label="Create Reskin"
           setIsOpen={setIsOpen}
-          isValid={true}
+          isValid={!!reskinName && !!reskinDescription && !!reskinBattleDescription && !!reskinImage}
           onAccept={() => {
-            if (!isReskinning) {
+            if (!isReskinning && userjutsu) {
               reskin({
                 originalJutsuId: userjutsu.id,
-                name: reskinName,
-                description: reskinDescription,
-                battleDescription: reskinBattleDescription,
-                image: reskinImage,
+                name: reskinName || "",
+                description: reskinDescription || "",
+                battleDescription: reskinBattleDescription || "",
+                image: reskinImage || "",
               });
             }
           }}
