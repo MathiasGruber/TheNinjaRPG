@@ -840,9 +840,8 @@ export const jutsuRouter = createTRPCRouter({
         where: (userJutsu, { eq, and }) => 
           and(
             eq(userJutsu.userId, ctx.userId),
-            eq(userJutsu.jutsuId, originalJutsu.jutsuId),
-            eq(jutsu.jutsuType, "SPECIAL"),
-            eq(jutsu.parentJutsuId, originalJutsu.jutsu.id)
+            eq(jutsu.parentJutsuId, originalJutsu.jutsu.id),
+            eq(jutsu.jutsuType, "SPECIAL")
           ),
         with: {
           jutsu: true
