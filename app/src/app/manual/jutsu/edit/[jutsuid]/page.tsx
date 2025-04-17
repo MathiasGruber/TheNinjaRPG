@@ -75,7 +75,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
     { 
       cursor: 0, 
       limit: 20,
-      search: search || undefined 
+      name: search || undefined 
     },
     { 
       enabled: !!jutsu && search.length > 0,
