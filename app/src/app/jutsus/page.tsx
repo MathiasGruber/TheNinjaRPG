@@ -38,7 +38,7 @@ import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { canTransferJutsu } from "@/utils/permissions";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
-import { Form, FormControl, FormField, FormItem, FormMessage, Label } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadButton } from "@/utils/uploadthing";
@@ -262,6 +262,11 @@ export default function MyJutsu() {
   // Can afford removing
   const canUpgrade = userData.reputationPoints >= COST_EXTRA_JUTSU_SLOT;
 
+  const [reskinName, setReskinName] = useState("");
+  const [reskinDescription, setReskinDescription] = useState("");
+  const [reskinBattleDescription, setReskinBattleDescription] = useState("");
+  const [reskinImage, setReskinImage] = useState("");
+
   return (
     <ContentBox
       title="Jutsu Management"
@@ -312,12 +317,12 @@ export default function MyJutsu() {
         items={allJutsu}
         counts={userJutsuCounts}
         labelSingles={true}
+        showLabels={true}
+        showBgColor={false}
         onClick={(id) => {
           setUserJutsu(allJutsu?.find((jutsu) => jutsu.id === id));
           setIsOpen(true);
         }}
-        showBgColor={false}
-        showLabels={true}
         emptyText="You have not learned any jutsu. Go to the training grounds in your village to learn some."
       />
       {isOpen && userData && userjutsu && (
@@ -514,95 +519,63 @@ export default function MyJutsu() {
             if (!isReskinning) {
               reskin({
                 originalJutsuId: userjutsu.id,
-                name: reskinForm.getValues("name"),
-                description: reskinForm.getValues("description"),
-                battleDescription: reskinForm.getValues("battleDescription"),
-                image: reskinForm.getValues("image"),
+                name: reskinName,
+                description: reskinDescription,
+                battleDescription: reskinBattleDescription,
+                image: reskinImage,
               });
             }
           }}
         >
-          <Form {...reskinForm}>
-            <form className="space-y-4">
-              <FormField
-                control={reskinForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label>Name</Label>
-                    <FormControl>
-                      <Input placeholder="New jutsu name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <div className="space-y-4">
+            <div>
+              <Input 
+                placeholder="New jutsu name" 
+                value={reskinName}
+                onChange={(e) => setReskinName(e.target.value)}
               />
+            </div>
 
-              <FormField
-                control={reskinForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label>Description</Label>
-                    <FormControl>
-                      <Textarea placeholder="New jutsu description" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div>
+              <Textarea 
+                placeholder="New jutsu description" 
+                value={reskinDescription}
+                onChange={(e) => setReskinDescription(e.target.value)}
               />
+            </div>
 
-              <FormField
-                control={reskinForm.control}
-                name="battleDescription"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label>Battle Description</Label>
-                    <FormControl>
-                      <Textarea placeholder="New battle description" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div>
+              <Textarea 
+                placeholder="New battle description" 
+                value={reskinBattleDescription}
+                onChange={(e) => setReskinBattleDescription(e.target.value)}
               />
+            </div>
 
-              <FormField
-                control={reskinForm.control}
-                name="image"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label>Image</Label>
-                    <FormControl>
-                      <div className="flex flex-col gap-2">
-                        {field.value && (
-                          <div className="w-32 h-32 relative">
-                            <Image
-                              src={field.value}
-                              alt="Jutsu image"
-                              fill
-                              className="object-contain"
-                            />
-                          </div>
-                        )}
-                        <UploadButton
-                          endpoint="imageUploader"
-                          onClientUploadComplete={(res) => {
-                            if (res?.[0]?.url) {
-                              reskinForm.setValue("image", res[0].url);
-                            }
-                          }}
-                          onUploadError={(error: Error) => {
-                            showMutationToast({ success: false, message: error.message });
-                          }}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div className="flex flex-col gap-2">
+              {reskinImage && (
+                <div className="w-32 h-32 relative">
+                  <Image
+                    src={reskinImage}
+                    alt="Jutsu image"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              )}
+              <UploadButton
+                endpoint="imageUploader"
+                onClientUploadComplete={(res) => {
+                  if (res?.[0]?.url) {
+                    setReskinImage(res[0].url);
+                  }
+                }}
+                onUploadError={(error: Error) => {
+                  showMutationToast({ success: false, message: error.message });
+                }}
               />
-            </form>
-          </Form>
+            </div>
+          </div>
         </Modal>
       )}
     </ContentBox>
