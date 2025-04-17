@@ -408,7 +408,7 @@ export const jutsuRouter = createTRPCRouter({
         });
 
         // Prepare update data for child jutsu
-        const { name, description, battleDescription, image, ...sharedData } = input.data;
+        const { name, description, battleDescription, image, parentJutsuId, ...sharedData } = input.data;
 
         // Update parent jutsu and all child jutsu
         await Promise.all([
@@ -889,12 +889,18 @@ export const jutsuRouter = createTRPCRouter({
         userId: ctx.userId,
         jutsuId: newJutsu.insertId,
         level: originalJutsu.level,
-        equipped: 0,
+        equipped: 1,
         finishTraining: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         experience: originalJutsu.experience,
       });
+
+      // Unequip the original jutsu
+      await ctx.drizzle
+        .update(userJutsu)
+        .set({ equipped: 0 })
+        .where(eq(userJutsu.id, originalJutsu.id));
 
       return {
         success: true,
