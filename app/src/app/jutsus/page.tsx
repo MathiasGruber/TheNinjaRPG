@@ -1,581 +1,1159 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { Trash2, CircleFadingArrowUp, ArrowRightLeft, Palette } from "lucide-react";
-import ItemWithEffects from "@/layout/ItemWithEffects";
-import ContentBox from "@/layout/ContentBox";
-import Modal from "@/layout/Modal";
-import Loader from "@/layout/Loader";
-import LoadoutSelector from "@/layout/LoadoutSelector";
-import Confirm from "@/layout/Confirm";
-import { SquareChevronRight, SquareChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { OctagonX } from "lucide-react";
-import { ActionSelector } from "@/layout/CombatActions";
-import { calcJutsuEquipLimit } from "@/libs/train";
+import { z } from "zod";
+import { nanoid } from "nanoid";
+import { eq, inArray, sql, and, or, gte, ne, like, desc } from "drizzle-orm";
 import {
-  checkJutsuElements,
-  checkJutsuBloodline,
-  checkJutsuVillage,
-  checkJutsuRank,
-  checkJutsuItems,
-  hasRequiredRank,
-  hasRequiredLevel,
-} from "@/libs/train";
-import { useRequiredUserData } from "@/utils/UserContext";
-import { api } from "@/app/_trpc/client";
-import { getUserElements } from "@/validators/user";
-import { showMutationToast } from "@/libs/toast";
-import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
-import { COST_EXTRA_JUTSU_SLOT } from "@/drizzle/constants";
-import { MAX_EXTRA_JUTSU_SLOTS } from "@/drizzle/constants";
-import { 
-  JUTSU_TRANSFER_COST, 
-  JUTSU_TRANSFER_MAX_LEVEL, 
-  JUTSU_TRANSFER_MINIMUM_LEVEL 
+  jutsu,
+  userJutsu,
+  userData,
+  actionLog,
+  jutsuLoadout,
+  bloodline,
+} from "@/drizzle/schema";
+import { fetchUser, fetchUpdatedUser } from "./profile";
+import { canTrainJutsu } from "@/libs/train";
+import { getNewTrackers } from "@/libs/quest";
+import {
+  JUTSU_LEVEL_CAP,
+  JUTSU_TRANSFER_COST,
+  JUTSU_TRANSFER_DAYS,
+  JUTSU_TRANSFER_MAX_LEVEL,
+  JUTSU_TRANSFER_MINIMUM_LEVEL
 } from "@/drizzle/constants";
+import {
+  calcJutsuTrainTime,
+  calcJutsuTrainCost,
+  calcJutsuEquipLimit,
+} from "@/libs/train";
+import { DAY_S, secondsFromDate } from "@/utils/time";
 import { getFreeTransfers } from "@/libs/jutsu";
-import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
-import { canTransferJutsu } from "@/utils/permissions";
-import type { Jutsu, UserJutsu } from "@/drizzle/schema";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { UploadButton } from "@/utils/uploadthing";
-import Image from "next/image";
+import { JutsuValidator } from "@/libs/combat/types";
+import { canChangeContent, canEditPublicUser, canTransferJutsu  } from "@/utils/permissions";
+import { callDiscordContent } from "@/libs/discord";
+import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
+import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
+import { serverError, baseServerResponse } from "@/server/api/trpc";
+import { fedJutsuLoadouts } from "@/utils/paypal";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { JUTSU_MAX_RESIDUAL_EQUIPPED } from "@/drizzle/constants";
+import { calculateContentDiff } from "@/utils/diff";
+import { jutsuFilteringSchema } from "@/validators/jutsu";
+import { QuestTracker } from "@/validators/objectives";
+import type { JutsuFilteringSchema } from "@/validators/jutsu";
+import type { ZodAllTags } from "@/libs/combat/types";
+import type { DrizzleClient } from "@/server/db";
+import { TRPCError } from "@trpc/server";
 
-export default function MyJutsu() {
-  // tRPC utility
-  const utils = api.useUtils();
-
-  // Two-level filtering
-  const state = useFiltering();
-
-  // Settings
-  const now = new Date();
-  const { data: userData, updateUser } = useRequiredUserData();
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
-    undefined,
-  );
-  const [transferTarget, setTransferTarget] = useState<(Jutsu & UserJutsu) | undefined>(
-    undefined,
-  );
-  const transferCost = canTransferJutsu(userData?.role || "USER") ? 0 : JUTSU_TRANSFER_COST;
-  const [transferValue, setTransferValue] = useState<number>(1);
-  const [modalType, setModalType] = useState<string | null>(null);
-  const [reskinName, setReskinName] = useState("");
-  const [reskinDescription, setReskinDescription] = useState("");
-  const [reskinBattleDescription, setReskinBattleDescription] = useState("");
-  const [reskinImage, setReskinImage] = useState("");
-
-  // User Jutsus & items
-  const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
-    getFilter(state),
-    { enabled: !!userData },
-  );
-  const { data: userItems, isFetching: l2 } = api.item.getUserItems.useQuery(
-    undefined,
-    { enabled: !!userData },
-  );
-  const { data: recentTransfers } = api.jutsu.getRecentTransfers.useQuery(undefined, {
-    enabled: !!userData,
-  });
-
-  const userJutsuCounts = userJutsus?.map((userJutsu) => {
-    return {
-      id: userJutsu.id,
-      quantity:
-        userJutsu.finishTraining && userJutsu.finishTraining > now
-          ? userJutsu.level - 1
-          : userJutsu.level,
-    };
-  });
-
-  // Transfer costs
-  const [usedTransfers, setUsedTransfers] = useState(0);
-  const [freeTransfers, setFreeTransfers] = useState(0);
-
-  // Auto-update when recentTransfers change
-  useEffect(() => {
-    if (recentTransfers) {
-      setUsedTransfers(recentTransfers.length);
-    }
-    if (userData) {
-      setFreeTransfers(getFreeTransfers(userData.federalStatus || "NONE"));
-    }
-  }, [recentTransfers, userData]);
-
-  const onSettled = () => {
-    document.body.style.cursor = "default";
-    setIsOpen(false);
-    setUserJutsu(undefined);
-    setTransferTarget(undefined);
-  };
-
-  // Mutations
-  const { mutate: equip, isPending: isToggling } = api.jutsu.toggleEquip.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.jutsu.getUserJutsus.invalidate();
+export const jutsuRouter = createTRPCRouter({
+  getRecentTransfers: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.actionLog.findMany({
+      where: and(
+        eq(actionLog.userId, ctx.userId),
+        eq(actionLog.relatedMsg, "JutsuLevelTransfer"),
+        gte(
+          actionLog.createdAt,
+          secondsFromDate(-JUTSU_TRANSFER_DAYS * DAY_S, new Date()),
+        ),
+      ),
+    });
+  }),
+  transferLevel: protectedProcedure
+    .input(
+      z.object({
+        fromJutsuId: z.string(),
+        toJutsuId: z.string(),
+        transferLevels: z.number().min(1, "Must transfer at least 1 level"),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const transfer = input.transferLevels;
+      const [user, userJutsus, recentTransfers] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserJutsus(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.actionLog.findMany({
+          where: and(
+            eq(actionLog.userId, ctx.userId),
+            eq(actionLog.relatedMsg, "JutsuLevelTransfer"),
+            gte(
+              actionLog.createdAt,
+              secondsFromDate(-JUTSU_TRANSFER_DAYS * DAY_S, new Date()),
+            ),
+          ),
+        }),
+      ]);
+      const fromUserJutsu = userJutsus.find((j) => j.jutsuId === input.fromJutsuId);
+      const fromJutsu = fromUserJutsu?.jutsu;
+      const toUserJutsu = userJutsus.find((j) => j.jutsuId === input.toJutsuId);
+      const toJutsu = toUserJutsu?.jutsu;
+      // Guard
+      if (!fromJutsu) return errorResponse("Source jutsu not found");
+      if (!toJutsu) return errorResponse("Target jutsu not found");
+      if (fromJutsu.jutsuType !== toJutsu.jutsuType) {
+        return errorResponse("Jutsus must be of the same type");
       }
-      // Optimistically update loadout
-      if (data?.data && userData) {
-        const currentLoadout = userData?.loadout?.jutsuIds || [];
-        const jutsuId = data.data.jutsuId;
-        const newLoadout = data?.data.equipped
-          ? [...currentLoadout, jutsuId]
-          : currentLoadout.filter((id) => id !== jutsuId);
-        await updateUser({ loadout: { jutsuIds: newLoadout } });
+      if (fromJutsu.jutsuRank !== toJutsu.jutsuRank) {
+        return errorResponse("Jutsus must be of the same rank");
       }
-    },
-    onSettled,
-  });
+      if (fromUserJutsu.level < JUTSU_TRANSFER_MINIMUM_LEVEL) {
+        return errorResponse(
+          `Source jutsu must be at least ${JUTSU_TRANSFER_MINIMUM_LEVEL} to transfer levels`
+        );
+      }
+      if (fromUserJutsu.level > JUTSU_TRANSFER_MAX_LEVEL) {
+        return errorResponse(
+          `Cannot transfer levels above ${JUTSU_TRANSFER_MAX_LEVEL}`,
+        );
+      }
 
-  const { mutate: unequipAll, isPending: isUnequipping } =
-    api.jutsu.unequipAll.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.jutsu.getUserJutsus.invalidate();
+      // Guard: Check that source has enough levels and target won't exceed maximum
+      if (fromUserJutsu.level - transfer < 1) {
+        return errorResponse("Source jutsu does not have enough levels to transfer");
+      }
+      if (toUserJutsu.level + transfer > JUTSU_TRANSFER_MAX_LEVEL) {
+        return errorResponse("Target jutsu cannot exceed the maximum allowed level");
+      }
+      
+      // Check if user has free transfers
+      const transferCost = canTransferJutsu(user.role) ? 0 : JUTSU_TRANSFER_COST;
+      const freeTransfers = getFreeTransfers(user.federalStatus);
+      const usedTransfers = recentTransfers.length;
+      const needsReputation = usedTransfers >= freeTransfers;
+
+      // If needs reputation, check and deduct
+      if (needsReputation) {
+        if (user.reputationPoints < transferCost) {
+          return errorResponse("Not enough reputation points");
         }
-      },
-      onSettled,
-    });
-
-  const { mutate: forget, isPending: isForgetting } = api.jutsu.forget.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.jutsu.getUserJutsus.invalidate();
-      }
-    },
-    onSettled,
-  });
-
-  const { mutate: updateOrder } = api.jutsu.updateUserJutsuOrder.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.profile.getUser.invalidate();
-      }
-    },
-  });
-
-  const { mutate: buyJutsuSlot, isPending: isUpgrading } =
-    api.blackmarket.buyJutsuSlot.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.profile.getUser.invalidate();
+        const reputationUpdate = await ctx.drizzle
+          .update(userData)
+          .set({
+            reputationPoints: sql`${userData.reputationPoints} - ${transferCost}`,
+          })
+          .where(
+            and(
+              eq(userData.userId, ctx.userId),
+              gte(userData.reputationPoints, transferCost),
+            ),
+          );
+        if (reputationUpdate.rowsAffected !== 1) {
+          return errorResponse("Not enough reputation points");
         }
-      },
-    });
+      }
 
-  const { mutate: transferLevel, isPending: isTransferring } =
-    api.jutsu.transferLevel.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success && userData) {
-          await utils.jutsu.getUserJutsus.invalidate(); // Refresh Jutsu list
-          await utils.jutsu.getRecentTransfers.invalidate(); // 🔹 Refresh free transfers
-          await utils.profile.getUser.invalidate(); // Refresh user profile to update free transfer count
-          if (usedTransfers >= freeTransfers && transferCost > 0) {
-            await updateUser({
-              reputationPoints: userData.reputationPoints - transferCost,
-            });
-          }
+      // Perform the transfer
+      await Promise.all([
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ level: toUserJutsu.level + transfer })
+          .where(eq(userJutsu.id, toUserJutsu.id)),
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ level: fromUserJutsu.level - transfer })
+          .where(eq(userJutsu.id, fromUserJutsu.id)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "userjutsu",
+          changes: [
+            `Transferred ${transfer} level(s) from ${fromJutsu.name} (new level: ${fromUserJutsu.level - transfer}) to ${toJutsu.name} (new level: ${toUserJutsu.level + transfer})`,
+          ],
+          relatedId: ctx.userId,
+          relatedMsg: "JutsuLevelTransfer",
+          relatedImage: user.avatarLight,
+        }),
+      ]);
+
+      return {
+        success: true,
+        message: needsReputation
+          ? `Level transferred for ${transferCost} reputation points`
+          : "Level transferred for free",
+      };
+    }),
+
+  getAllNames: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.drizzle.query.jutsu.findMany({
+      columns: { id: true, name: true, image: true },
+    });
+  }),
+
+  get: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const result = await fetchJutsu(ctx.drizzle, input.id);
+      if (!result) {
+        throw serverError("NOT_FOUND", "Jutsu not found");
+      }
+      return result as Omit<typeof result, "effects"> & { effects: ZodAllTags[] };
+    }),
+
+  getAll: publicProcedure
+    .input(
+      jutsuFilteringSchema.extend({
+        cursor: z.number().nullish(),
+        limit: z.number().min(1).max(1000),
+        hideAi: z.boolean().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const currentCursor = input.cursor ?? 0;
+      const skip = currentCursor * input.limit;
+
+      // Build the base DB filter
+      const baseFilters = jutsuDatabaseFilter(input);
+
+      const results = await ctx.drizzle.query.jutsu.findMany({
+        where: and(
+          ...baseFilters,
+          ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
+        ),
+        orderBy: (table) => desc(table.updatedAt),
+        offset: skip,
+        with: {
+          bloodline: {
+            columns: {
+              name: true,
+            },
+          },
+        },
+        limit: input.limit,
+      });
+
+      // Post-filter to handle "must have these elements, stats, etc." all in the SAME effect
+      const filtered = results.filter((oneJutsu) => {
+        if (
+          input.stat ||
+          input.effect ||
+          input.element ||
+          input.appear ||
+          input.static ||
+          input.disappear
+        ) {
+          return oneJutsu.effects.some((e) => {
+            const asString = JSON.stringify(e);
+
+            // Merge statTypes + generalTypes if that's how your code works
+            const effectStats = [
+              ...("statTypes" in e && e.statTypes ? e.statTypes : []),
+              ...("generalTypes" in e && e.generalTypes ? e.generalTypes : []),
+            ];
+            const effectElements = [
+              ...("elements" in e && e.elements ? e.elements : []),
+            ] as string[];
+
+            // Return true if it matches the includes
+            return (
+              (!input.stat || input.stat.every((x) => effectStats.includes(x))) &&
+              (!input.effect || input.effect.some((x) => x === e.type)) &&
+              (!input.element ||
+                input.element.every((x) => effectElements.includes(x))) &&
+              (!input.appear || asString.includes(input.appear)) &&
+              (!input.static || asString.includes(input.static)) &&
+              (!input.disappear || asString.includes(input.disappear))
+            );
+          });
         }
-      },
-      onSettled,
-    });
+        // If no arrays, keep it
+        return true;
+      });
 
-  const { mutate: reskin, isPending: isReskinning } = api.jutsu.reskin.useMutation({
-    onSuccess: async () => {
-      await utils.jutsu.getUserJutsus.invalidate();
-    },
-  });
+      // Next cursor if more rows
+      const nextCursor = results.length < input.limit ? null : currentCursor + 1;
 
-  const isPending =
-    isToggling || isForgetting || isUpgrading || isUnequipping || isTransferring || isReskinning;
-  const isFetching = l1 || l2;
+      return {
+        data: filtered,
+        nextCursor: nextCursor,
+      };
+    }),
 
-  // Collapse UserItem and Item
-  const userElements = new Set(getUserElements(userData));
-  const allJutsu = userJutsus?.map((userjutsu) => {
-    let warning = "";
-    if (userData) {
-      if (!checkJutsuItems(userjutsu.jutsu, userItems)) {
-        warning = `No ${userjutsu.jutsu.jutsuWeapon.toLowerCase()} weapon equipped.`;
-      }
-      if (!checkJutsuElements(userjutsu.jutsu, userElements)) {
-        warning = "You do not have the required elements to use this jutsu.";
-      }
-      if (!hasRequiredRank(userData.rank, userjutsu.jutsu.requiredRank)) {
-        warning = "You do not have the required rank to use this jutsu.";
-      }
-      if (!hasRequiredLevel(userData.level, userjutsu.jutsu.requiredLevel)) {
-        warning = "You do not have the required level to use this jutsu.";
-      }
-      if (!checkJutsuRank(userjutsu.jutsu.jutsuRank, userData.rank)) {
-        warning = "You do not have the required rank to use this jutsu.";
-      }
-      if (!checkJutsuVillage(userjutsu.jutsu, userData)) {
-        warning = "You do not have the required village to use this jutsu.";
-      }
-      if (!checkJutsuBloodline(userjutsu.jutsu, userData)) {
-        warning = "You do not have the required bloodline to use this jutsu.";
+  getLoadouts: protectedProcedure.query(async ({ ctx }) => {
+    const [loadouts, user] = await Promise.all([
+      fetchLoadouts(ctx.drizzle, ctx.userId),
+      fetchUser(ctx.drizzle, ctx.userId),
+    ]);
+    const maxLoadouts = fedJutsuLoadouts(user);
+
+    // Create missing loadouts if needed
+    if (loadouts.length < maxLoadouts) {
+      for (let i = loadouts.length; i < maxLoadouts; i++) {
+        const loadout = {
+          id: nanoid(),
+          userId: ctx.userId,
+          jutsuIds: [],
+          createdAt: new Date(),
+        };
+        await ctx.drizzle.insert(jutsuLoadout).values(loadout);
+        loadouts.push(loadout);
       }
     }
-    return {
-      ...userjutsu.jutsu,
-      ...userjutsu,
-      highlight: userjutsu.equipped ? true : false,
-      warning: warning,
-    };
-  });
 
-  // Sort if we have a loadout
-  if (userData?.loadout?.jutsuIds && allJutsu) {
-    allJutsu.sort((a, b) => {
-      const aIndex = userData?.loadout?.jutsuIds.indexOf(a.jutsuId) ?? -1;
-      const bIndex = userData?.loadout?.jutsuIds.indexOf(b.jutsuId) ?? -1;
-      if (aIndex === -1 && bIndex === -1) return 0;
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
-    });
-  }
+    // If more than one loadout, and no user loadout, set it to the first
+    if (loadouts?.[0] && !user.jutsuLoadout) {
+      await ctx.drizzle
+        .update(userData)
+        .set({ jutsuLoadout: loadouts[0].id })
+        .where(eq(userData.userId, ctx.userId));
+    }
 
-  // Derived calculations
-  const curEquip = userJutsus?.filter((j) => j.equipped).length;
-  const maxEquip = userData && calcJutsuEquipLimit(userData);
-  const canEquip = curEquip !== undefined && maxEquip && curEquip < maxEquip;
-  const subtitle =
-    curEquip && maxEquip
-      ? `Equipped ${curEquip}/${maxEquip}`
-      : "Jutsus you want to use in combat";
+    return maxLoadouts < loadouts.length ? loadouts.slice(0, maxLoadouts) : loadouts;
+  }),
 
-  // Ryo from forgetting
-  const forgetRyo = 0;
+  selectJutsuLoadout: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [loadouts, user] = await Promise.all([
+        fetchLoadouts(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      const loadout = loadouts.find((l) => l.id === input.id);
+      const maxLoadouts = fedJutsuLoadouts(user);
 
-  // Loaders
-  if (!userData) return <Loader explanation="Loading userdata" />;
+      if (!loadout) return errorResponse("Loadout not found");
+      if (maxLoadouts <= 0) return errorResponse("Loadouts not available");
 
-  // Can afford removing
-  const canUpgrade = userData.reputationPoints >= COST_EXTRA_JUTSU_SLOT;
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ jutsuLoadout: loadout.id })
+          .where(eq(userData.userId, ctx.userId)),
+        ctx.drizzle
+          .update(userJutsu)
+          .set({
+            equipped:
+              loadout.jutsuIds.length > 0
+                ? sql`CASE WHEN ${inArray(userJutsu.jutsuId, loadout.jutsuIds)} THEN 1 ELSE 0 END`
+                : 0,
+          })
+          .where(eq(userJutsu.userId, ctx.userId)),
+      ]);
 
-  return (
-    <ContentBox
-      title="Jutsu Management"
-      subtitle={subtitle}
-      bottomRightContent={
-        <Button onClick={() => unequipAll()}>
-          <OctagonX className="h-6 w-6 mr-2" />
-          Unequip All
-        </Button>
+      return { success: true, message: `Loadout selected` };
+    }),
+
+  create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    if (canChangeContent(user.role)) {
+      const id = nanoid();
+      await ctx.drizzle.insert(jutsu).values({
+        id,
+        name: `New Jutsu - ${id}`,
+        description: "New jutsu description",
+        battleDescription: "%user uses %jutsu on %target",
+        effects: [],
+        range: 1,
+        requiredRank: "STUDENT",
+        requiredLevel: 1,
+        target: "OTHER_USER",
+        jutsuType: "AI",
+        image: IMG_AVATAR_DEFAULT,
+      });
+      return { success: true, message: id };
+    } else {
+      return { success: false, message: `Not allowed to create jutsu` };
+    }
+  }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const entry = await fetchJutsu(ctx.drizzle, input.id);
+      if (entry && canChangeContent(user.role)) {
+        await ctx.drizzle.delete(jutsu).where(eq(jutsu.id, input.id));
+        await ctx.drizzle.delete(userJutsu).where(eq(userJutsu.jutsuId, input.id));
+        return { success: true, message: `Jutsu deleted` };
+      } else {
+        return { success: false, message: `Not allowed to delete jutsu` };
       }
-      topRightContent={
-        !isOpen && (
-          <div className="flex flex-row items-center gap-2">
-            <LoadoutSelector />
-            <JutsuFiltering state={state} />
-            {userData.extraJutsuSlots < MAX_EXTRA_JUTSU_SLOTS && (
-              <Confirm
-                title="Extra Jutsu Slot"
-                proceed_label={
-                  canUpgrade
-                    ? `Purchase for ${COST_EXTRA_JUTSU_SLOT} reps`
-                    : `Need ${userData.reputationPoints - COST_EXTRA_JUTSU_SLOT} more reps`
-                }
-                isValid={!isPending}
-                button={
-                  <Button animation="pulse">
-                    <CircleFadingArrowUp className="h-6 w-6" />
-                  </Button>
-                }
-                onAccept={(e) => {
-                  e.preventDefault();
-                  if (canUpgrade) buyJutsuSlot();
-                }}
-              >
-                <p>
-                  You are about to purchase an extra jutsu slot for{" "}
-                  {COST_EXTRA_JUTSU_SLOT} reputation points. You currently have{" "}
-                  {userData.reputationPoints} points. Are you sure?
-                </p>
-              </Confirm>
-            )}
-          </div>
+    }),
+
+  forget: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
+      const userjutsuObj = userjutsus.find((j) => j.id === input.id);
+      if (userjutsuObj) {
+        const res1 = await ctx.drizzle
+          .delete(userJutsu)
+          .where(eq(userJutsu.id, input.id));
+        if (res1.rowsAffected === 1) {
+          return { success: true, message: `Jutsu forgotten, 0 ryo restored` };
+        }
+      }
+      return { success: false, message: `Could not find jutsu to delete` };
+    }),
+
+  update: protectedProcedure
+    .input(z.object({ id: z.string(), data: JutsuValidator }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const entry = await fetchJutsu(ctx.drizzle, input.id);
+      if (entry && canChangeContent(user.role)) {
+        // Diff
+        const diff = calculateContentDiff(entry, {
+          id: entry.id,
+          updatedAt: entry.updatedAt,
+          createdAt: entry.createdAt,
+          ...input.data,
+        });
+
+        // Find all child jutsu
+        const childJutsus = await ctx.drizzle.query.jutsu.findMany({
+          where: eq(jutsu.parentJutsuId, input.id),
+        });
+
+        // Prepare update data for child jutsu
+        const { name, description, battleDescription, image, parentJutsuId, ...sharedData } = input.data;
+
+        // Update parent jutsu and all child jutsu
+        await Promise.all([
+          // Update parent jutsu
+          ctx.drizzle.update(jutsu).set(input.data).where(eq(jutsu.id, input.id)),
+          
+          // Update all child jutsu
+          ...childJutsus.map(childJutsu => 
+            ctx.drizzle.update(jutsu)
+              .set(sharedData)
+              .where(eq(jutsu.id, childJutsu.id))
+          ),
+
+          // Log the action
+          ctx.drizzle.insert(actionLog).values({
+            id: nanoid(),
+            userId: ctx.userId,
+            tableName: "jutsu",
+            changes: diff,
+            relatedId: entry.id,
+            relatedMsg: `Update: ${entry.name}`,
+            relatedImage: entry.image,
+          }),
+
+          // Handle hidden status
+          ...(input.data.hidden
+            ? [
+                ctx.drizzle
+                  .update(userJutsu)
+                  .set({ equipped: 0 })
+                  .where(eq(userJutsu.jutsuId, entry.id)),
+              ]
+            : []),
+        ]);
+
+        if (process.env.NODE_ENV !== "development") {
+          await callDiscordContent(user.username, entry.name, diff, entry.image);
+        }
+        return { success: true, message: `Data updated: ${diff.join(". ")}` };
+      } else {
+        return { success: false, message: `Not allowed to edit jutsu` };
+      }
+    }),
+
+  getUserJutsus: protectedProcedure
+    .input(jutsuFilteringSchema)
+    .query(async ({ ctx, input }) => {
+      const [user, results] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserJutsus(ctx.drizzle, ctx.userId, input),
+      ]);
+      return results.filter((userjutsu) => {
+        return (
+          userjutsu.jutsu?.bloodlineId === "" ||
+          user?.bloodlineId === userjutsu.jutsu?.bloodlineId
+        );
+      });
+    }),
+  // Get jutsus of public user
+  getPublicUserJutsus: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const [user, results] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserJutsus(ctx.drizzle, input.userId),
+      ]);
+      // Guard
+      if (!canEditPublicUser(user)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Not allowed to edit public user",
+        });
+      }
+      // Return
+      return results;
+    }),
+  // Adjust jutsu level of public user
+  adjustJutsuLevel: protectedProcedure
+    .input(z.object({ userId: z.string(), jutsuId: z.string(), level: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, userjutsus] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUserJutsus(ctx.drizzle, input.userId),
+      ]);
+      // Guard)
+      if (!canEditPublicUser(user)) {
+        return errorResponse("Not allowed to edit public user");
+      }
+      const userjutsu = userjutsus.find((j) => j.jutsuId === input.jutsuId);
+      if (!userjutsu) {
+        return errorResponse("Jutsu not found for user");
+      }
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ level: input.level })
+          .where(
+            and(
+              eq(userJutsu.userId, input.userId),
+              eq(userJutsu.jutsuId, input.jutsuId),
+            ),
+          ),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: [
+            `Jutsu ${userjutsu.jutsu.name} lvl ${userjutsu.level} -> ${input.level}`,
+          ],
+          relatedId: input.userId,
+          relatedMsg: `Update: ${userjutsu.jutsu.name} level ${userjutsu.level} -> ${input.level}`,
+          relatedImage: userjutsu.jutsu.image,
+        }),
+      ]);
+      return { success: true, message: `Jutsu level adjusted to ${input.level}` };
+    }),
+  // Start training a given jutsu
+  startTraining: protectedProcedure
+    .input(z.object({ jutsuId: z.string() }))
+    .output(
+      baseServerResponse.extend({
+        data: z
+          .object({ money: z.number(), questData: z.array(QuestTracker).nullable() })
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [data, info, userjutsus] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchJutsu(ctx.drizzle, input.jutsuId),
+        fetchUserJutsus(ctx.drizzle, ctx.userId),
+      ]);
+      const { user } = data;
+      if (!user) return errorResponse("User not found");
+
+      // Derived
+      const userjutsuObj = userjutsus.find((j) => j.jutsuId === input.jutsuId);
+      const filteredJutsus = userjutsus.filter((uj) => canTrainJutsu(uj.jutsu, user));
+      const curEquip = filteredJutsus?.filter((j) => j.equipped).length || 0;
+      const maxEquip = userData && calcJutsuEquipLimit(user);
+      const residualJutsus = userjutsus.filter(
+        (uj) =>
+          uj.equipped &&
+          uj.jutsu.effects.some((e) => "residualModifier" in e && e.residualModifier),
+      );
+
+      if (!info) return errorResponse("Jutsu not found");
+      if (!canTrainJutsu(info, user)) return errorResponse("Jutsu not for you");
+      if (user.status !== "AWAKE") return errorResponse("Must be awake");
+
+      const level = userjutsuObj ? userjutsuObj.level : 0;
+      if (level >= JUTSU_LEVEL_CAP) {
+        return errorResponse("Jutsu is already at max level");
+      }
+      if (info.hidden && !canChangeContent(user.role)) {
+        return errorResponse("Jutsu is hidden, cannot be trained");
+      }
+      if (userjutsus.find((j) => j.finishTraining && j.finishTraining > new Date())) {
+        return errorResponse("You are already training a jutsu");
+      }
+
+      // Time & cost
+      const trainTime = calcJutsuTrainTime(info, level, user);
+      const trainCost = calcJutsuTrainCost(info, level);
+
+      // Quests
+      let questData = user.questData;
+      if (!userjutsuObj) {
+        const { trackers } = getNewTrackers(user, [
+          { task: "jutsus_mastered", increment: 1 },
+        ]);
+        questData = trackers;
+      }
+
+      // Deduct money
+      const moneyUpdate = await ctx.drizzle
+        .update(userData)
+        .set({ money: sql`${userData.money} - ${trainCost}`, questData: questData })
+        .where(and(eq(userData.userId, ctx.userId), gte(userData.money, trainCost)));
+      if (moneyUpdate.rowsAffected !== 1) {
+        return errorResponse("You don't have enough money");
+      }
+
+      // Insert or update user jutsu
+      if (userjutsuObj) {
+        await ctx.drizzle
+          .update(userJutsu)
+          .set({
+            level: sql`${userJutsu.level} + 1`,
+            finishTraining: new Date(Date.now() + trainTime),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(eq(userJutsu.id, userjutsuObj.id), eq(userJutsu.userId, ctx.userId)),
+          );
+      } else {
+        await ctx.drizzle.insert(userJutsu).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          jutsuId: input.jutsuId,
+          finishTraining: new Date(Date.now() + trainTime),
+          equipped:
+            curEquip < maxEquip && residualJutsus.length <= JUTSU_MAX_RESIDUAL_EQUIPPED
+              ? 1
+              : 0,
+        });
+      }
+
+      return {
+        success: true,
+        message: `You started training: ${info.name}`,
+        data: { money: user.money - trainCost, questData },
+      };
+    }),
+
+  stopTraining: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      const userjutsus = await fetchUserJutsus(ctx.drizzle, ctx.userId);
+      const userjutsuObj = userjutsus.find(
+        (j) => j.finishTraining && j.finishTraining > new Date(),
+      );
+      if (!userjutsuObj) {
+        return { success: false, message: "Not training any jutsu" };
+      }
+      await ctx.drizzle
+        .update(userJutsu)
+        .set({
+          level: sql`${userJutsu.level} - 1`,
+          finishTraining: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(userJutsu.id, userjutsuObj.id), eq(userJutsu.userId, ctx.userId)),
+        );
+
+      return {
+        success: true,
+        message: `You stopped training: ${userjutsuObj.jutsu?.name}`,
+      };
+    }),
+
+  unequipAll: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      const [data, loadouts] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchLoadouts(ctx.drizzle, ctx.userId),
+      ]);
+      const { user } = data;
+      if (!user) return errorResponse("User not found");
+
+      const loadout = loadouts.find((l) => l.id === user.jutsuLoadout);
+
+      await Promise.all([
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ equipped: 0 })
+          .where(eq(userJutsu.userId, ctx.userId)),
+        loadout
+          ? ctx.drizzle
+              .update(jutsuLoadout)
+              .set({ jutsuIds: [] })
+              .where(eq(jutsuLoadout.id, loadout.id))
+          : null,
+      ]);
+
+      return { success: true, message: "All jutsu unequipped" };
+    }),
+
+  toggleEquip: protectedProcedure
+    .input(z.object({ userJutsuId: z.string() }))
+    .output(
+      baseServerResponse.extend({
+        data: z.object({ equipped: z.number(), jutsuId: z.string() }).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [userjutsus, data, loadouts] = await Promise.all([
+        fetchUserJutsus(ctx.drizzle, ctx.userId),
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchLoadouts(ctx.drizzle, ctx.userId),
+      ]);
+      const { user } = data;
+      if (!user) return errorResponse("User not found");
+
+      const filteredJutsus = userjutsus.filter((uj) => canTrainJutsu(uj.jutsu, user));
+      const userjutsuObj = filteredJutsus.find((j) => j.id === input.userJutsuId);
+      const isEquipped = userjutsuObj?.equipped || false;
+      const equippedJutsus = filteredJutsus.filter((j) => j.equipped);
+      const curEquip = equippedJutsus.length || 0;
+      const maxEquip = userData && calcJutsuEquipLimit(user);
+      const pierceEquipped = equippedJutsus.filter((j) =>
+        j.jutsu.effects.some((e) => e.type === "pierce"),
+      ).length;
+      const curJutsuIsPierce = userjutsuObj?.jutsu.effects.some(
+        (e) => e.type === "pierce",
+      );
+      const newEquippedState = isEquipped ? 0 : 1;
+      const loadout = loadouts.find((l) => l.id === user.jutsuLoadout);
+      const isLoaded = userjutsuObj && loadout?.jutsuIds.includes(userjutsuObj.jutsuId);
+      const residualJutsus = userjutsus.filter(
+        (uj) =>
+          uj.equipped &&
+          uj.jutsu.effects.some((e) => "residualModifier" in e && e.residualModifier),
+      );
+
+      // Guards
+      if (
+        residualJutsus.length >= JUTSU_MAX_RESIDUAL_EQUIPPED &&
+        newEquippedState === 1
+      ) {
+        return errorResponse(
+          `You cannot equip more than ${JUTSU_MAX_RESIDUAL_EQUIPPED} residual jutsu. Please unequip first.`,
+        );
+      }
+      if (!userjutsuObj) return errorResponse("Jutsu not found");
+      if (!isEquipped && curEquip >= maxEquip) {
+        return errorResponse("You cannot equip more jutsu");
+      }
+      if (!isEquipped && curJutsuIsPierce && pierceEquipped >= 2) {
+        return errorResponse("You cannot equip more than 2 piercing jutsu");
+      }
+
+      // Calculate loadout
+      if (loadout && isLoaded && newEquippedState === 0) {
+        loadout.jutsuIds = loadout.jutsuIds.filter((id) => id !== userjutsuObj.jutsuId);
+      } else if (loadout && !isLoaded && newEquippedState === 1) {
+        loadout.jutsuIds.push(userjutsuObj.jutsuId);
+      }
+
+      await Promise.all([
+        ctx.drizzle
+          .update(userJutsu)
+          .set({ equipped: newEquippedState })
+          .where(eq(userJutsu.id, input.userJutsuId)),
+        loadout
+          ? ctx.drizzle
+              .update(jutsuLoadout)
+              .set({ jutsuIds: loadout.jutsuIds })
+              .where(eq(jutsuLoadout.id, loadout.id))
+          : null,
+      ]);
+
+      return {
+        success: true,
+        message: `Jutsu ${isEquipped ? "unequipped" : "equipped"}`,
+        data: { equipped: newEquippedState, jutsuId: userjutsuObj.jutsuId },
+      };
+    }),
+
+  updateUserJutsuOrder: protectedProcedure
+    .input(
+      z.object({
+        jutsuId: z.string(),
+        loadoutId: z.string(),
+        moveForward: z.boolean(),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const loadouts = await fetchLoadouts(ctx.drizzle, ctx.userId);
+      const loadout = loadouts.find((l) => l.id === input.loadoutId);
+      if (!loadout) return errorResponse("Loadout not found");
+
+      const curIndex = loadout.jutsuIds.indexOf(input.jutsuId);
+      if (curIndex === -1) return errorResponse("Jutsu not found in loadout");
+      if (curIndex === 0 && !input.moveForward) {
+        return errorResponse("Already first");
+      }
+      if (curIndex === loadout.jutsuIds.length - 1 && input.moveForward) {
+        return errorResponse("Already last");
+      }
+
+      const withoutJutsu = loadout.jutsuIds.filter((id) => id !== input.jutsuId);
+      const newIndex = curIndex + (input.moveForward ? 1 : -1);
+      const newOrder = withoutJutsu.splice(0, newIndex);
+      newOrder.push(input.jutsuId);
+      newOrder.push(...loadout.jutsuIds.filter((id) => !newOrder.includes(id)));
+
+      await ctx.drizzle
+        .update(jutsuLoadout)
+        .set({ jutsuIds: newOrder })
+        .where(eq(jutsuLoadout.id, loadout.id));
+
+      return { success: true, message: `Order updated` };
+    }),
+
+  reskin: protectedProcedure
+    .input(
+      z.object({
+        originalJutsuId: z.string(),
+        name: z.string().min(1).max(100),
+        description: z.string().min(1).max(1000),
+        battleDescription: z.string().min(1).max(1000),
+        image: z.string().url(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { originalJutsuId, name, description, battleDescription, image } = input;
+
+      // Get the original jutsu
+      const originalJutsu = await ctx.drizzle.query.userJutsu.findFirst({
+        where: (userJutsu, { eq }) => eq(userJutsu.id, originalJutsuId),
+        with: {
+          jutsu: true,
+        },
+      });
+
+      if (!originalJutsu) {
+        return errorResponse("Original jutsu not found");
+      }
+
+      // Check if user already has a reskin of this jutsu
+      const existingReskin = await ctx.drizzle.query.userJutsu.findFirst({
+        where: (userJutsu, { eq, and }) => 
+          and(
+            eq(userJutsu.userId, ctx.userId),
+            eq(userJutsu.jutsu.parentJutsuId, originalJutsu.jutsu.id),
+            eq(userJutsu.jutsu.jutsuType, "SPECIAL")
+          ),
+        with: {
+          jutsu: true
+        }
+      });
+
+      if (existingReskin) {
+        return errorResponse("You already have a reskin of this jutsu");
+      }
+
+      // Create a new jutsu with the same properties as the original
+      const newJutsu = await ctx.drizzle.insert(jutsu).values({
+        id: nanoid(),
+        name,
+        description,
+        battleDescription,
+        image,
+        effects: originalJutsu.jutsu.effects,
+        target: originalJutsu.jutsu.target,
+        range: originalJutsu.jutsu.range,
+        cooldown: originalJutsu.jutsu.cooldown,
+        bloodlineId: originalJutsu.jutsu.bloodlineId,
+        requiredLevel: originalJutsu.jutsu.requiredLevel,
+        requiredRank: originalJutsu.jutsu.requiredRank,
+        jutsuType: "SPECIAL",
+        jutsuWeapon: originalJutsu.jutsu.jutsuWeapon,
+        statClassification: originalJutsu.jutsu.statClassification,
+        jutsuRank: originalJutsu.jutsu.jutsuRank,
+        actionCostPerc: originalJutsu.jutsu.actionCostPerc,
+        staminaCost: originalJutsu.jutsu.staminaCost,
+        chakraCost: originalJutsu.jutsu.chakraCost,
+        staminaCostReducePerLvl: originalJutsu.jutsu.staminaCostReducePerLvl,
+        chakraCostReducePerLvl: originalJutsu.jutsu.chakraCostReducePerLvl,
+        healthCostReducePerLvl: originalJutsu.jutsu.healthCostReducePerLvl,
+        healthCost: originalJutsu.jutsu.healthCost,
+        villageId: originalJutsu.jutsu.villageId,
+        method: originalJutsu.jutsu.method,
+        hidden: originalJutsu.jutsu.hidden,
+        parentJutsuId: originalJutsu.jutsu.id,
+      });
+
+      // Create a new user jutsu for the reskin
+      const newUserJutsu = await ctx.drizzle.insert(userJutsu).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        jutsuId: newJutsu.insertId,
+        level: originalJutsu.level,
+        equipped: 1,
+        finishTraining: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        experience: originalJutsu.experience,
+      });
+
+      // Unequip the original jutsu
+      await ctx.drizzle
+        .update(userJutsu)
+        .set({ equipped: 0 })
+        .where(eq(userJutsu.id, originalJutsu.id));
+
+      return {
+        success: true,
+        message: "Jutsu reskin created successfully",
+        data: {
+          jutsuId: newJutsu.insertId,
+          userJutsuId: newUserJutsu.insertId,
+        },
+      };
+    }),
+});
+
+/**
+ * COMMON QUERIES/HELPERS
+ */
+
+export const fetchLoadouts = async (client: DrizzleClient, userId: string) => {
+  return await client.query.jutsuLoadout.findMany({
+    where: eq(jutsuLoadout.userId, userId),
+    orderBy: (table) => desc(table.createdAt),
+  });
+};
+
+export const fetchJutsu = async (client: DrizzleClient, id: string) => {
+  return await client.query.jutsu.findFirst({
+    where: eq(jutsu.id, id),
+  });
+};
+
+export const fetchUserJutsus = async (
+  client: DrizzleClient,
+  userId: string,
+  input?: JutsuFilteringSchema,
+) => {
+  // Grab all userJutsus with Jutsu data
+  const userjutsus = await client
+    .select()
+    .from(userJutsu)
+    .innerJoin(jutsu, eq(userJutsu.jutsuId, jutsu.id))
+    .leftJoin(bloodline, eq(jutsu.bloodlineId, bloodline.id))
+    .where(
+      and(
+        eq(userJutsu.userId, userId),
+        ne(jutsu.jutsuType, "AI"),
+        ...jutsuDatabaseFilter(input),
+      ),
+    )
+    .orderBy(desc(userJutsu.level));
+
+  return userjutsus.map((result) => ({
+    ...result.UserJutsu,
+    jutsu: {
+      ...result.Jutsu,
+      bloodline: result.Bloodline,
+    },
+  }));
+};
+
+/**
+ * Build the DB filtering array, including new EXCLUSIONS.
+ */
+export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
+  return [
+    // -----------------------------
+    // Existing "include" conditions
+    // -----------------------------
+    ...(input?.name ? [like(jutsu.name, `%${input.name}%`)] : []),
+    ...(input?.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
+    ...(input?.jutsuType ? [inArray(jutsu.jutsuType, input.jutsuType)] : []),
+    ...(input?.requiredLevel ? [gte(jutsu.requiredLevel, input.requiredLevel)] : []),
+    ...(input?.rank ? [eq(jutsu.requiredRank, input.rank)] : []),
+    ...(input?.rarity ? [eq(jutsu.jutsuRank, input.rarity)] : []),
+    ...(input?.villageId ? [eq(jutsu.villageId, input.villageId)] : []),
+
+    ...(input?.appear
+      ? [
+          sql`JSON_SEARCH(${jutsu.effects}, 'one', ${input.appear}, NULL, '$[*].appearAnimation') IS NOT NULL`,
+        ]
+      : []),
+    ...(input?.static
+      ? [
+          sql`JSON_SEARCH(${jutsu.effects}, 'one', ${input.static}, NULL, '$[*].staticAnimation') IS NOT NULL`,
+        ]
+      : []),
+    ...(input?.disappear
+      ? [
+          sql`JSON_SEARCH(${jutsu.effects}, 'one', ${input.disappear}, NULL, '$[*].disappearAnimation') IS NOT NULL`,
+        ]
+      : []),
+    ...(input?.classification
+      ? [eq(jutsu.statClassification, input.classification)]
+      : []),
+
+    // "Include" elements, stats, effect
+    ...(input?.element?.length
+      ? [
+          and(
+            ...input.element.map(
+              (e) =>
+                sql`JSON_SEARCH(${jutsu.effects}, 'one', ${e}, NULL, '$[*].elements[*]') IS NOT NULL`,
+            ),
+          ),
+        ]
+      : []),
+    ...(input?.stat?.length
+      ? [
+          and(
+            ...input.stat.map(
+              (s) =>
+                sql`JSON_SEARCH(${jutsu.effects}, 'one', ${s}, NULL, '$[*].statTypes[*]') IS NOT NULL`,
+            ),
+          ),
+        ]
+      : []),
+    ...(input?.effect?.length
+      ? [
+          or(
+            ...input.effect.map(
+              (e) =>
+                sql`JSON_SEARCH(${jutsu.effects}, 'one', ${e}, NULL, '$[*].type') IS NOT NULL`,
+            ),
+          ),
+        ]
+      : []),
+
+    ...(input?.method ? [eq(jutsu.method, input.method)] : []),
+    ...(input?.target ? [eq(jutsu.target, input.target)] : []),
+
+    // If hidden not specified, show hidden=false
+    ...(input?.hidden !== undefined
+      ? [eq(jutsu.hidden, input.hidden)]
+      : [eq(jutsu.hidden, false)]),
+
+    // ---------------------------
+    // Exclude: Single-value cols
+    // ---------------------------
+    ...(input?.excludedJutsuTypes?.length
+      ? input.excludedJutsuTypes.map((excludedType) =>
+          ne(
+            jutsu.jutsuType,
+            excludedType as
+              | "NORMAL"
+              | "EVENT"
+              | "CLAN"
+              | "SPECIAL"
+              | "BLOODLINE"
+              | "FORBIDDEN"
+              | "LOYALTY"
+              | "AI",
+          ),
         )
-      }
-    >
-      {isFetching && <Loader explanation="Loading Jutsu" />}
-      <ActionSelector
-        items={allJutsu}
-        counts={userJutsuCounts}
-        labelSingles={true}
-        showLabels={true}
-        showBgColor={false}
-        onClick={(id) => {
-          setUserJutsu(allJutsu?.find((jutsu) => jutsu.id === id));
-          setIsOpen(true);
-        }}
-        emptyText="You have not learned any jutsu. Go to the training grounds in your village to learn some."
-      />
-      {isOpen && userData && userjutsu && (
-        <Modal
-          title="Edit Jutsu"
-          proceed_label={
-            !isToggling
-              ? userjutsu.equipped
-                ? "Unequip"
-                : canEquip
-                  ? "Equip"
-                  : "Unequip other first"
-              : undefined
-          }
-          setIsOpen={setIsOpen}
-          isValid={false}
-          onAccept={() => {
-            if (canEquip || userjutsu.equipped) {
-              equip({ userJutsuId: userjutsu.id });
-            } else {
-              setIsOpen(false);
-            }
-          }}
-          confirmClassName={
-            canEquip
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-red-600 text-white hover:bg-red-700"
-          }
-        >
-          <p>- You have {userData.money} ryo in your pocket</p>
-          <p className="pb-3">
-            - Need {JUTSU_XP_TO_LEVEL - userjutsu.experience} XP more to level
-          </p>
-          {!isPending && (
-            <>
-              <ItemWithEffects
-                item={userjutsu}
-                key={userjutsu.id}
-                showStatistic="jutsu"
-              />
-              <div className="flex flex-row gap-3 items-center">
-                {userData.loadout?.jutsuIds.includes(userjutsu.jutsuId) && (
-                  <>
-                    <SquareChevronLeft
-                      className="h-8 w-8 hover:text-orange-300 hover:cursor-pointer"
-                      onClick={() =>
-                        updateOrder({
-                          jutsuId: userjutsu.jutsuId,
-                          loadoutId: userData?.jutsuLoadout ?? "",
-                          moveForward: false,
-                        })
-                      }
-                    />
-                    <p>Order</p>
-                    <SquareChevronRight
-                      className="h-8 w-8 hover:text-orange-300 hover:cursor-pointer"
-                      onClick={() =>
-                        updateOrder({
-                          jutsuId: userjutsu.jutsuId,
-                          loadoutId: userData?.jutsuLoadout ?? "",
-                          moveForward: true,
-                        })
-                      }
-                    />
-                  </>
-                )}
+      : []),
+    ...(input?.excludedClassifications?.length
+      ? input.excludedClassifications.map((c) =>
+          ne(
+            jutsu.statClassification,
+            c as "Highest" | "Ninjutsu" | "Genjutsu" | "Taijutsu" | "Bukijutsu",
+          ),
+        )
+      : []),
+    ...(input?.excludedRarities?.length
+      ? input.excludedRarities.map((r) =>
+          ne(jutsu.jutsuRank, r as "D" | "C" | "B" | "A" | "S" | "H"),
+        )
+      : []),
+    ...(input?.excludedRanks?.length
+      ? input.excludedRanks.map((r) =>
+          ne(
+            jutsu.requiredRank,
+            r as
+              | "STUDENT"
+              | "GENIN"
+              | "CHUNIN"
+              | "JONIN"
+              | "ELITE JONIN"
+              | "ELDER"
+              | "NONE",
+          ),
+        )
+      : []),
+    ...(input?.excludedMethods?.length
+      ? input.excludedMethods.map((m) =>
+          ne(
+            jutsu.method,
+            m as
+              | "ALL"
+              | "SINGLE"
+              | "AOE_CIRCLE_SPAWN"
+              | "AOE_LINE_SHOOT"
+              | "AOE_WALL_SHOOT"
+              | "AOE_CIRCLE_SHOOT"
+              | "AOE_SPIRAL_SHOOT",
+          ),
+        )
+      : []),
+    ...(input?.excludedTargets?.length
+      ? input.excludedTargets.map((t) =>
+          ne(
+            jutsu.target,
+            t as
+              | "SELF"
+              | "OTHER_USER"
+              | "OPPONENT"
+              | "ALLY"
+              | "CHARACTER"
+              | "GROUND"
+              | "EMPTY_GROUND",
+          ),
+        )
+      : []),
 
-                <div className="grow"></div>
-                {userjutsu.level >= JUTSU_TRANSFER_MINIMUM_LEVEL && userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
-                  <Confirm
-                    title="Transfer Level"
-                    button={
-                      <Button id="transfer" variant="secondary">
-                        <ArrowRightLeft className="h-6 w-6 mr-2" />
-                        Transfer Level
-                      </Button>
-                    }
-                    proceed_label={
-                      transferTarget ? "Confirm Transfer" : "Select Target"
-                    }
-                    onClose={() => {
-                      setTransferTarget(undefined);
-                      setTransferValue(1);
-                    }}
-                    onAccept={(e) => {
-                      e.preventDefault();
-                      if (transferTarget) {
-                        transferLevel({
-                          fromJutsuId: userjutsu.jutsuId,
-                          toJutsuId: transferTarget.jutsuId,
-                          transferLevels: transferValue,
-                        });
-                      }
-                    }}
-                  >
-                    {transferTarget ? (
-                      <>
-                        <p>
-                          Transfer{" "}
-                          <input
-                            type="number"
-                            min={1}
-                            max={Math.min(
-                              userjutsu.level - 1,
-                              JUTSU_TRANSFER_MAX_LEVEL - transferTarget.level
-                            )}
-                            value={transferValue}
-                            onChange={(e) =>
-                              setTransferValue(parseInt(e.target.value) || 1)
-                            }
-                            style={{
-                              width: "50px",
-                              margin: "0 5px",
-                              backgroundColor: "white",
-                              color: "black",
-                              border: "1px solid #ccc",
-                              padding: "2px 4px",
-                            }}
-                          />{" "}
-                          level(s) from {userjutsu.name} to {transferTarget.name}?
-                        </p>
-                        <p>
-                          This will subtract {transferValue} level{transferValue > 1 ? "s" : ""} from {userjutsu.name} (new level: {userjutsu.level - transferValue}) and add {transferValue} level{transferValue > 1 ? "s" : ""} to {transferTarget.name} (new level: {transferTarget.level + transferValue}).
-                        </p>
-                        <p>
-                          Cost:{" "}
-                          {usedTransfers < freeTransfers
-                            ? `Free (${Math.max(0, freeTransfers - usedTransfers)} remaining)`
-                            : `${transferCost} reputation points`}
-                        </p>
-                      </>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <p>Select a jutsu to transfer the level to.</p>
-                        <ActionSelector
-                          items={allJutsu?.filter(
-                            (jutsu) =>
-                              jutsu.jutsuType === userjutsu.jutsuType &&
-                              jutsu.jutsuRank === userjutsu.jutsuRank &&
-                              jutsu.id !== userjutsu.id
-                          )}
-                          counts={userJutsuCounts}
-                          labelSingles={true}
-                          showBgColor={false}
-                          showLabels={true}
-                          onClick={(id) => {
-                            setTransferTarget(allJutsu?.find((jutsu) => jutsu.id === id));
-                          }}
-                        />
-                      </div>
-                    )}
-                  </Confirm>
-                )}
-                <Button
-                  id="reskin"
-                  variant="outline"
-                  onClick={() => {
-                    setIsOpen(true);
-                    setModalType("reskin");
-                  }}
-                  disabled={isPending}
-                >
-                  <Palette className="h-6 w-6 mr-2" />
-                  Reskin
-                </Button>
-                <Confirm
-                  title="Forget Jutsu"
-                  button={
-                    <Button id="return" variant="destructive">
-                      <Trash2 className="h-6 w-6 mr-2" />
-                      Forget [${forgetRyo} ryo]
-                    </Button>
-                  }
-                  onAccept={(e) => {
-                    e.preventDefault();
-                    forget({ id: userjutsu.id });
-                  }}
-                >
-                  <p>Confirm to forget this jutsu and get back {forgetRyo} ryo.</p>
-                </Confirm>
-              </div>
-            </>
-          )}
-          {isPending && <Loader explanation={`Processing ${userjutsu.name}`} />}
-        </Modal>
-      )}
-      {modalType === "reskin" && userjutsu && (
-        <Modal
-          title="Reskin Jutsu"
-          proceed_label="Create Reskin"
-          setIsOpen={setIsOpen}
-          isValid={!!reskinName && !!reskinDescription && !!reskinBattleDescription && !!reskinImage}
-          onAccept={() => {
-            if (!isReskinning && userjutsu) {
-              reskin({
-                originalJutsuId: userjutsu.id,
-                name: reskinName || "",
-                description: reskinDescription || "",
-                battleDescription: reskinBattleDescription || "",
-                image: reskinImage || "",
-              });
-            }
-          }}
-        >
-          <div className="space-y-4">
-            <div>
-              <Input 
-                placeholder="New jutsu name" 
-                value={reskinName}
-                onChange={(e) => setReskinName(e.target.value)}
-              />
-            </div>
+    // ---------------------------
+    // Exclude animations in JSON
+    // ---------------------------
+    ...(input?.excludedAppear?.length
+      ? input.excludedAppear.map(
+          (anim) =>
+            sql`JSON_SEARCH(${jutsu.effects}, 'one', ${anim}, NULL, '$[*].appearAnimation') IS NULL`,
+        )
+      : []),
+    ...(input?.excludedDisappear?.length
+      ? input.excludedDisappear.map(
+          (anim) =>
+            sql`JSON_SEARCH(${jutsu.effects}, 'one', ${anim}, NULL, '$[*].disappearAnimation') IS NULL`,
+        )
+      : []),
+    ...(input?.excludedStatic?.length
+      ? input.excludedStatic.map(
+          (anim) =>
+            sql`JSON_SEARCH(${jutsu.effects}, 'one', ${anim}, NULL, '$[*].staticAnimation') IS NULL`,
+        )
+      : []),
 
-            <div>
-              <Textarea 
-                placeholder="New jutsu description" 
-                value={reskinDescription}
-                onChange={(e) => setReskinDescription(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Textarea 
-                placeholder="New battle description" 
-                value={reskinBattleDescription}
-                onChange={(e) => setReskinBattleDescription(e.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              {reskinImage && (
-                <div className="w-32 h-32 relative">
-                  <Image
-                    src={reskinImage}
-                    alt="Jutsu image"
-                    fill
-                    className="object-contain"
-                  />
-                </div>
-              )}
-              <UploadButton
-                endpoint="imageUploader"
-                onClientUploadComplete={(res) => {
-                  if (res?.[0]?.url) {
-                    setReskinImage(res[0].url);
-                  }
-                }}
-                onUploadError={(error: Error) => {
-                  showMutationToast({ success: false, message: error.message });
-                }}
-              />
-            </div>
-          </div>
-        </Modal>
-      )}
-    </ContentBox>
-  );
-}
+    // --------------------------
+    // Exclude elements/effects/stats in JSON
+    // --------------------------
+    ...(input?.excludedElements?.length
+      ? input.excludedElements.map(
+          (excludedEl) =>
+            sql`JSON_SEARCH(${jutsu.effects}, 'one', ${excludedEl}, NULL, '$[*].elements[*]') IS NULL`,
+        )
+      : []),
+    ...(input?.excludedEffects?.length
+      ? input.excludedEffects.map(
+          (excludedEf) =>
+            sql`JSON_SEARCH(${jutsu.effects}, 'one', ${excludedEf}, NULL, '$[*].type') IS NULL`,
+        )
+      : []),
+    ...(input?.excludedStats?.length
+      ? input.excludedStats.map(
+          (excludedSt) =>
+            sql`JSON_SEARCH(${jutsu.effects}, 'one', ${excludedSt}, NULL, '$[*].statTypes[*]') IS NULL`,
+        )
+      : []),
+  ];
+};
