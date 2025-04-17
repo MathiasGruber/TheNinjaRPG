@@ -38,7 +38,6 @@ import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { canTransferJutsu } from "@/utils/permissions";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadButton } from "@/utils/uploadthing";
@@ -64,6 +63,10 @@ export default function MyJutsu() {
   const transferCost = canTransferJutsu(userData?.role || "USER") ? 0 : JUTSU_TRANSFER_COST;
   const [transferValue, setTransferValue] = useState<number>(1);
   const [modalType, setModalType] = useState<string | null>(null);
+  const [reskinName, setReskinName] = useState("");
+  const [reskinDescription, setReskinDescription] = useState("");
+  const [reskinBattleDescription, setReskinBattleDescription] = useState("");
+  const [reskinImage, setReskinImage] = useState("");
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
@@ -261,11 +264,6 @@ export default function MyJutsu() {
 
   // Can afford removing
   const canUpgrade = userData.reputationPoints >= COST_EXTRA_JUTSU_SLOT;
-
-  const [reskinName, setReskinName] = useState("");
-  const [reskinDescription, setReskinDescription] = useState("");
-  const [reskinBattleDescription, setReskinBattleDescription] = useState("");
-  const [reskinImage, setReskinImage] = useState("");
 
   return (
     <ContentBox
