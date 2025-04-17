@@ -854,8 +854,9 @@ export const jutsuRouter = createTRPCRouter({
       }
 
       // Create a new jutsu with the same properties as the original
+      const jutsuId = nanoid();
       const newJutsu = await ctx.drizzle.insert(jutsu).values({
-        id: nanoid(),
+        id: jutsuId,
         name,
         description,
         battleDescription,
@@ -888,7 +889,7 @@ export const jutsuRouter = createTRPCRouter({
       const newUserJutsu = await ctx.drizzle.insert(userJutsu).values({
         id: nanoid(),
         userId: ctx.userId,
-        jutsuId: newJutsu.insertId,
+        jutsuId: jutsuId,
         level: originalJutsu.level,
         equipped: 1,
         finishTraining: null,
