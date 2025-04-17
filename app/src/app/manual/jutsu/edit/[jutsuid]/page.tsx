@@ -22,7 +22,6 @@ import type { Jutsu } from "@/drizzle/schema";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { useInfinitePagination } from "@/hooks/useInfinitePagination";
 
 export default function JutsuEdit(props: { params: Promise<{ jutsuid: string }> }) {
   const params = use(props.params);
@@ -88,8 +87,22 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
     }
   );
 
-  // Use infinite pagination
-  useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
+  // Handle infinite scroll
+  useEffect(() => {
+    if (!lastElement || !hasNextPage) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasNextPage) {
+        fetchNextPage();
+      }
+    });
+
+    observer.observe(lastElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [lastElement, hasNextPage, fetchNextPage]);
 
   // Get the selected jutsu details
   const { data: selectedJutsu } = api.jutsu.get.useQuery(
@@ -202,7 +215,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
                       {searchResults?.pages
                         .flatMap((page) => page.data)
                         .filter((j) => j.id !== jutsu.id) // Exclude current jutsu
-                        .map((j) => (
+                        .map((j, index, array) => (
                           <CommandItem
                             key={j.id}
                             value={j.id}
@@ -210,6 +223,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
                               form.setValue("parentJutsuId", j.id);
                               setOpen(false);
                             }}
+                            ref={index === array.length - 1 ? setLastElement : undefined}
                           >
                             {j.name}
                           </CommandItem>
