@@ -836,20 +836,19 @@ export const jutsuRouter = createTRPCRouter({
       }
 
       // Check if user already has a reskin of this jutsu
-      const existingReskin = await ctx.drizzle.query.jutsu.findFirst({
-        where: (jutsu, { eq, and }) => 
+      const existingReskin = await ctx.drizzle.query.userJutsu.findFirst({
+        where: (userJutsu, { eq, and }) => 
           and(
-            eq(jutsu.parentJutsuId, originalJutsu.jutsu.id),
-            eq(jutsu.jutsuType, "SPECIAL")
+            eq(userJutsu.userId, ctx.userId),
+            eq(userJutsu.jutsu.parentJutsuId, originalJutsu.jutsu.id),
+            eq(userJutsu.jutsu.jutsuType, "SPECIAL")
           ),
         with: {
-          userJutsus: {
-            where: (userJutsu, { eq }) => eq(userJutsu.userId, ctx.userId)
-          }
+          jutsu: true
         }
       });
 
-      if (existingReskin?.userJutsus.length) {
+      if (existingReskin) {
         return errorResponse("You already have a reskin of this jutsu");
       }
 
