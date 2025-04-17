@@ -41,7 +41,7 @@ import type { Jutsu, UserJutsu } from "@/drizzle/schema";
 import { Form, FormControl, FormField, FormItem, FormMessage, Label } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { UploadButton } from "@/components/ui/upload-button";
+import { UploadButton } from "@/utils/uploadthing";
 import Image from "next/image";
 
 export default function MyJutsu() {
