@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Trash2, CircleFadingArrowUp, ArrowRightLeft } from "lucide-react";
+import { Trash2, CircleFadingArrowUp, ArrowRightLeft, Palette } from "lucide-react";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
@@ -38,8 +38,11 @@ import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { canTransferJutsu } from "@/utils/permissions";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
-
-
+import { Form, FormControl, FormField, FormItem, FormMessage, Label } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { UploadButton } from "@/components/ui/upload-button";
+import Image from "next/image";
 
 export default function MyJutsu() {
   // tRPC utility
@@ -60,6 +63,7 @@ export default function MyJutsu() {
   );
   const transferCost = canTransferJutsu(userData?.role || "USER") ? 0 : JUTSU_TRANSFER_COST;
   const [transferValue, setTransferValue] = useState<number>(1);
+  const [modalType, setModalType] = useState<string | null>(null);
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
@@ -183,8 +187,14 @@ export default function MyJutsu() {
       onSettled,
     });
 
+  const { mutate: reskin, isPending: isReskinning } = api.jutsu.reskin.useMutation({
+    onSuccess: () => {
+      refetch();
+    },
+  });
+
   const isPending =
-    isToggling || isForgetting || isUpgrading || isUnequipping || isTransferring;
+    isToggling || isForgetting || isUpgrading || isUnequipping || isTransferring || isReskinning;
   const isFetching = l1 || l2;
 
   // Collapse UserItem and Item
@@ -461,6 +471,18 @@ export default function MyJutsu() {
                     )}
                   </Confirm>
                 )}
+                <Button
+                  id="reskin"
+                  variant="outline"
+                  onClick={() => {
+                    setIsOpen(true);
+                    setModalType("reskin");
+                  }}
+                  disabled={isPending}
+                >
+                  <Palette className="h-6 w-6 mr-2" />
+                  Reskin
+                </Button>
                 <Confirm
                   title="Forget Jutsu"
                   button={
@@ -482,7 +504,107 @@ export default function MyJutsu() {
           {isPending && <Loader explanation={`Processing ${userjutsu.name}`} />}
         </Modal>
       )}
-      {isPending && <Loader explanation="Loading Jutsu" />}
+      {modalType === "reskin" && (
+        <Modal
+          title="Reskin Jutsu"
+          proceed_label="Create Reskin"
+          setIsOpen={setIsOpen}
+          isValid={true}
+          onAccept={() => {
+            if (!isReskinning) {
+              reskin({
+                originalJutsuId: userjutsu.id,
+                name: reskinForm.getValues("name"),
+                description: reskinForm.getValues("description"),
+                battleDescription: reskinForm.getValues("battleDescription"),
+                image: reskinForm.getValues("image"),
+              });
+            }
+          }}
+        >
+          <Form {...reskinForm}>
+            <form className="space-y-4">
+              <FormField
+                control={reskinForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <Label>Name</Label>
+                    <FormControl>
+                      <Input placeholder="New jutsu name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={reskinForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <Label>Description</Label>
+                    <FormControl>
+                      <Textarea placeholder="New jutsu description" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={reskinForm.control}
+                name="battleDescription"
+                render={({ field }) => (
+                  <FormItem>
+                    <Label>Battle Description</Label>
+                    <FormControl>
+                      <Textarea placeholder="New battle description" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={reskinForm.control}
+                name="image"
+                render={({ field }) => (
+                  <FormItem>
+                    <Label>Image</Label>
+                    <FormControl>
+                      <div className="flex flex-col gap-2">
+                        {field.value && (
+                          <div className="w-32 h-32 relative">
+                            <Image
+                              src={field.value}
+                              alt="Jutsu image"
+                              fill
+                              className="object-contain"
+                            />
+                          </div>
+                        )}
+                        <UploadButton
+                          endpoint="imageUploader"
+                          onClientUploadComplete={(res) => {
+                            if (res?.[0]?.url) {
+                              reskinForm.setValue("image", res[0].url);
+                            }
+                          }}
+                          onUploadError={(error: Error) => {
+                            showMutationToast({ success: false, message: error.message });
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+        </Modal>
+      )}
     </ContentBox>
   );
 }
