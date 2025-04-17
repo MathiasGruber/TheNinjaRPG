@@ -513,7 +513,7 @@ export default function MyJutsu() {
           {isPending && <Loader explanation={`Processing ${userjutsu.name}`} />}
         </Modal>
       )}
-      {modalType === "reskin" && userjutsu && (
+      {modalType === "reskin" && userjutsu && isReskinOpen && (
         <Modal
           title="Reskin Jutsu"
           proceed_label="Create Reskin"
