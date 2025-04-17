@@ -66,22 +66,27 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
   const { loading, jutsu, effects, form, formData, setEffects, handleJutsuSubmit } =
     useJutsuEditForm(props.jutsu, props.refetch);
 
-  // Query all jutsus for parent selection
-  const { data: allJutsus } = api.jutsu.getAll.useQuery(
-    { cursor: 0, limit: 1000 },
-    { enabled: !!jutsu }
-  );
-
   // State for search
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Filter jutsus based on search
-  const filteredJutsus = allJutsus?.data.filter(
-    (j) => 
-      j.id !== jutsu.id && // Exclude current jutsu
-      (j.name.toLowerCase().includes(search.toLowerCase()) ||
-       j.description.toLowerCase().includes(search.toLowerCase()))
+  // Query jutsus based on search
+  const { data: searchResults } = api.jutsu.getAll.useQuery(
+    { 
+      cursor: 0, 
+      limit: 20,
+      search: search || undefined 
+    },
+    { 
+      enabled: !!jutsu && search.length > 0,
+      keepPreviousData: true
+    }
+  );
+
+  // Get the selected jutsu details
+  const { data: selectedJutsu } = api.jutsu.get.useQuery(
+    { id: form.getValues("parentJutsuId") },
+    { enabled: !!form.getValues("parentJutsuId") }
   );
 
   // Icon for adding tag
@@ -164,9 +169,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
                     aria-expanded={open}
                     className="w-full justify-between"
                   >
-                    {form.getValues("parentJutsuId")
-                      ? allJutsus?.data.find((j) => j.id === form.getValues("parentJutsuId"))?.name
-                      : "Select a parent jutsu..."}
+                    {selectedJutsu?.name || "Select a parent jutsu..."}
                     <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -188,18 +191,20 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
                       >
                         None
                       </CommandItem>
-                      {filteredJutsus?.map((j) => (
-                        <CommandItem
-                          key={j.id}
-                          value={j.id}
-                          onSelect={() => {
-                            form.setValue("parentJutsuId", j.id);
-                            setOpen(false);
-                          }}
-                        >
-                          {j.name}
-                        </CommandItem>
-                      ))}
+                      {searchResults?.data
+                        .filter((j) => j.id !== jutsu.id) // Exclude current jutsu
+                        .map((j) => (
+                          <CommandItem
+                            key={j.id}
+                            value={j.id}
+                            onSelect={() => {
+                              form.setValue("parentJutsuId", j.id);
+                              setOpen(false);
+                            }}
+                          >
+                            {j.name}
+                          </CommandItem>
+                        ))}
                     </CommandGroup>
                   </Command>
                 </PopoverContent>
