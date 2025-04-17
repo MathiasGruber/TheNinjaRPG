@@ -188,8 +188,8 @@ export default function MyJutsu() {
     });
 
   const { mutate: reskin, isPending: isReskinning } = api.jutsu.reskin.useMutation({
-    onSuccess: () => {
-      refetch();
+    onSuccess: async () => {
+      await utils.jutsu.getUserJutsus.invalidate();
     },
   });
 
