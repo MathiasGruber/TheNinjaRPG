@@ -886,7 +886,7 @@ export const jutsuRouter = createTRPCRouter({
         bloodlineId: originalJutsu.jutsu.bloodlineId,
         requiredLevel: originalJutsu.jutsu.requiredLevel,
         requiredRank: originalJutsu.jutsu.requiredRank,
-        jutsuType: "SPECIAL",
+        jutsuType: "RESKIN",
         jutsuWeapon: originalJutsu.jutsu.jutsuWeapon,
         statClassification: originalJutsu.jutsu.statClassification,
         jutsuRank: originalJutsu.jutsu.jutsuRank,
