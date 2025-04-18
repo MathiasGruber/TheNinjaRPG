@@ -42,7 +42,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadButton } from "@/utils/uploadthing";
 import Image from "next/image";
-import { JUTSU_RESKIN_COST } from "@/drizzle/constants";
+import { COST_RESKIN_JUTSU } from "@/drizzle/constants";
 
 export default function MyJutsu() {
   // tRPC utility
@@ -541,7 +541,7 @@ export default function MyJutsu() {
         >
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Creating a reskin costs {JUTSU_RESKIN_COST} reputation points.
+              Creating a reskin costs {COST_RESKIN_JUTSU} reputation points.
             </p>
             <form
               onSubmit={(e) => {
@@ -621,7 +621,7 @@ export default function MyJutsu() {
         >
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to create this reskin? This will cost {JUTSU_RESKIN_COST} reputation points.
+              Are you sure you want to create this reskin? This will cost {COST_RESKIN_JUTSU} reputation points.
             </p>
             <div className="flex justify-end space-x-2">
               <Button
