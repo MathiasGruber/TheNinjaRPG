@@ -70,12 +70,10 @@ export default function MyJutsu() {
   const [reskinName, setReskinName] = useState("");
   const [reskinDescription, setReskinDescription] = useState("");
   const [reskinBattleDescription, setReskinBattleDescription] = useState("");
-  const [reskinImage, setReskinImage] = useState("");
   const [reskinData, setReskinData] = useState<{
     name: string;
     description: string;
     battleDescription: string;
-    image: string;
   } | null>(null);
 
   // User Jutsus & items
@@ -530,14 +528,13 @@ export default function MyJutsu() {
           title="Create Jutsu Reskin"
           proceed_label="Create Reskin"
           setIsOpen={setIsReskinOpen}
-          isValid={!!reskinName && !!reskinDescription && !!reskinBattleDescription && !!reskinImage}
+          isValid={!!reskinName && !!reskinDescription && !!reskinBattleDescription}
           onAccept={() => {
             if (!isReskinning && userjutsu) {
               const data = {
                 name: reskinName,
                 description: reskinDescription,
                 battleDescription: reskinBattleDescription,
-                image: reskinImage,
               };
               setReskinData(data);
               setIsReskinOpen(false);
@@ -556,7 +553,6 @@ export default function MyJutsu() {
                   name: reskinName,
                   description: reskinDescription,
                   battleDescription: reskinBattleDescription,
-                  image: reskinImage,
                 };
                 setReskinData(data);
                 setIsReskinOpen(false);
@@ -585,30 +581,6 @@ export default function MyJutsu() {
                   placeholder="New battle description" 
                   value={reskinBattleDescription}
                   onChange={(e) => setReskinBattleDescription(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                {reskinImage && (
-                  <div className="w-32 h-32 relative">
-                    <Image
-                      src={reskinImage}
-                      alt="Jutsu image"
-                      fill
-                      className="object-contain"
-                    />
-                  </div>
-                )}
-                <UploadButton
-                  endpoint="imageUploader"
-                  onClientUploadComplete={(res) => {
-                    if (res?.[0]?.url) {
-                      setReskinImage(res[0].url);
-                    }
-                  }}
-                  onUploadError={(error: Error) => {
-                    showMutationToast({ success: false, message: error.message });
-                  }}
                 />
               </div>
             </form>
