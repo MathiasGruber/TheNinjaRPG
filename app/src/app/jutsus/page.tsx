@@ -43,6 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { UploadButton } from "@/utils/uploadthing";
 import Image from "next/image";
 import { COST_RESKIN_JUTSU } from "@/drizzle/constants";
+import { canReskinJutsu } from "@/utils/permissions";
 
 export default function MyJutsu() {
   // tRPC utility
@@ -278,6 +279,9 @@ export default function MyJutsu() {
 
   // Can afford removing
   const canUpgrade = userData.reputationPoints >= COST_EXTRA_JUTSU_SLOT;
+
+  // Calculate reskin cost based on permissions
+  const reskinCost = canReskinJutsu(userData?.role) ? 0 : COST_RESKIN_JUTSU;
 
   return (
     <ContentBox
@@ -529,31 +533,25 @@ export default function MyJutsu() {
           isValid={!!reskinName && !!reskinDescription && !!reskinBattleDescription && !!reskinImage}
           onAccept={() => {
             if (!isReskinning && userjutsu) {
-              reskin({
-                originalJutsuId: userjutsu.id,
-                name: reskinName || "",
-                description: reskinDescription || "",
-                battleDescription: reskinBattleDescription || "",
-                image: reskinImage || userjutsu.image,
-              });
+              const data = {
+                name: reskinName,
+                description: reskinDescription,
+                battleDescription: reskinBattleDescription,
+                image: reskinImage,
+              };
+              setReskinData(data);
+              setIsReskinOpen(false);
+              setIsConfirmOpen(true);
             }
           }}
         >
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Creating a reskin costs {COST_RESKIN_JUTSU} reputation points.
+              Creating a reskin costs {reskinCost} reputation points.
             </p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                // Validate that all required fields are filled
-                if (!reskinName || !reskinDescription || !reskinBattleDescription || !reskinImage) {
-                  showMutationToast({
-                    success: false,
-                    message: "Please fill in all fields before creating a reskin"
-                  });
-                  return;
-                }
                 const data = {
                   name: reskinName,
                   description: reskinDescription,
@@ -613,9 +611,6 @@ export default function MyJutsu() {
                   }}
                 />
               </div>
-              <Button type="submit" className="w-full">
-                Create Reskin
-              </Button>
             </form>
           </div>
         </Modal>
@@ -627,7 +622,7 @@ export default function MyJutsu() {
         >
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to create this reskin? This will cost {COST_RESKIN_JUTSU} reputation points.
+              Are you sure you want to create this reskin? This will cost {reskinCost} reputation points.
             </p>
             <div className="flex justify-end space-x-2">
               <Button
