@@ -615,8 +615,7 @@ export default function MyJutsu() {
       )}
       {isConfirmOpen && reskinData && userjutsu && (
         <Modal
-          isOpen={isConfirmOpen}
-          onClose={() => setIsConfirmOpen(false)}
+          setIsOpen={setIsConfirmOpen}
           title="Confirm Jutsu Reskin"
         >
           <div className="space-y-4">
