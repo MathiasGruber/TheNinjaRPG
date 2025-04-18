@@ -746,6 +746,36 @@ export const jutsuRouter = createTRPCRouter({
         return errorResponse("You cannot equip more than 2 piercing jutsu");
       }
 
+      // Check for equipped jutsu with same parent ID
+      if (newEquippedState === 1 && userjutsuObj.jutsu.parentJutsuId) {
+        const hasEquippedSibling = equippedJutsus.some(
+          (j) => j.jutsu.parentJutsuId === userjutsuObj.jutsu.parentJutsuId
+        );
+        if (hasEquippedSibling) {
+          return errorResponse("Cannot equip multiple jutsu with the same parent");
+        }
+      }
+
+      // Check for equipped children
+      if (newEquippedState === 1) {
+        const hasEquippedChild = equippedJutsus.some(
+          (j) => j.jutsu.parentJutsuId === userjutsuObj.jutsu.id
+        );
+        if (hasEquippedChild) {
+          return errorResponse("Cannot equip jutsu while its children are equipped");
+        }
+      }
+
+      // Check for equipped parent
+      if (newEquippedState === 1 && userjutsuObj.jutsu.parentJutsuId) {
+        const hasEquippedParent = equippedJutsus.some(
+          (j) => j.jutsu.id === userjutsuObj.jutsu.parentJutsuId
+        );
+        if (hasEquippedParent) {
+          return errorResponse("Cannot equip jutsu while its parent is equipped");
+        }
+      }
+
       // Calculate loadout
       if (loadout && isLoaded && newEquippedState === 0) {
         loadout.jutsuIds = loadout.jutsuIds.filter((id) => id !== userjutsuObj.jutsuId);
