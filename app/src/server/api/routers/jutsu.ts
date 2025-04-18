@@ -878,7 +878,7 @@ export const jutsuRouter = createTRPCRouter({
         name,
         description,
         battleDescription,
-        image: originalJutsu.jutsu.image,
+        image: `${originalJutsu.jutsu.image}?t=${Date.now()}`,
         effects: originalJutsu.jutsu.effects,
         target: originalJutsu.jutsu.target,
         range: originalJutsu.jutsu.range,
