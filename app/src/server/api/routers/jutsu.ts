@@ -17,7 +17,8 @@ import {
   JUTSU_TRANSFER_COST,
   JUTSU_TRANSFER_DAYS,
   JUTSU_TRANSFER_MAX_LEVEL,
-  JUTSU_TRANSFER_MINIMUM_LEVEL
+  JUTSU_TRANSFER_MINIMUM_LEVEL,
+  COST_RESKIN_JUTSU
 } from "@/drizzle/constants";
 import {
   calcJutsuTrainTime,
@@ -865,6 +866,12 @@ export const jutsuRouter = createTRPCRouter({
         return errorResponse("Original jutsu not found");
       }
 
+      // Check if user has enough reputation
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.reputationPoints < COST_RESKIN_JUTSU) {
+        return errorResponse(`Not enough reputation points. Required: ${COST_RESKIN_JUTSU}`);
+      }
+
       // Create a new jutsu with the same properties as the original
       const jutsuId = nanoid();
       const newJutsu = await ctx.drizzle.insert(jutsu).values({
@@ -909,6 +916,14 @@ export const jutsuRouter = createTRPCRouter({
         updatedAt: new Date(),
         experience: originalJutsu.experience,
       });
+
+      // Deduct reputation points
+      await ctx.drizzle
+        .update(userData)
+        .set({
+          reputationPoints: sql`${userData.reputationPoints} - ${COST_RESKIN_JUTSU}`,
+        })
+        .where(eq(userData.userId, ctx.userId));
 
       return {
         success: true,
