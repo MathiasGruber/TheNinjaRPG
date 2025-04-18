@@ -241,6 +241,7 @@ export const JutsuTypes = [
   "CLAN",
   "EVENT",
   "AI",
+  "RESKIN",
 ] as const;
 export type JutsuType = (typeof JutsuTypes)[number];
 
