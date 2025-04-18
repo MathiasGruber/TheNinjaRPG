@@ -28,7 +28,7 @@ import {
 import { DAY_S, secondsFromDate } from "@/utils/time";
 import { getFreeTransfers } from "@/libs/jutsu";
 import { JutsuValidator } from "@/libs/combat/types";
-import { canChangeContent, canEditPublicUser, canTransferJutsu  } from "@/utils/permissions";
+import { canChangeContent, canEditPublicUser, canTransferJutsu, canReskinJutsu } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
@@ -868,7 +868,7 @@ export const jutsuRouter = createTRPCRouter({
 
       // Check if user has enough reputation
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (user.reputationPoints < COST_RESKIN_JUTSU) {
+      if (!canReskinJutsu(user.role) && user.reputationPoints < COST_RESKIN_JUTSU) {
         return errorResponse(`Not enough reputation points. Required: ${COST_RESKIN_JUTSU}`);
       }
 
@@ -917,13 +917,15 @@ export const jutsuRouter = createTRPCRouter({
         experience: originalJutsu.experience,
       });
 
-      // Deduct reputation points
-      await ctx.drizzle
-        .update(userData)
-        .set({
-          reputationPoints: sql`${userData.reputationPoints} - ${COST_RESKIN_JUTSU}`,
-        })
-        .where(eq(userData.userId, ctx.userId));
+      // Deduct Reputation Points
+      if (!canReskinJutsu(user.role)) {
+        await ctx.drizzle
+          .update(userData)
+          .set({
+            reputationPoints: sql`${userData.reputationPoints} - ${COST_RESKIN_JUTSU}`,
+          })
+          .where(eq(userData.userId, ctx.userId));
+      }
 
       return {
         success: true,
