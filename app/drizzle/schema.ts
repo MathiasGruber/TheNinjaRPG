@@ -995,6 +995,7 @@ export const jutsu = mysqlTable(
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     hidden: boolean("hidden").default(false).notNull(),
     parentJutsuId: varchar("parentJutsuId", { length: 191 }).default("").notNull(),
+    isReskin: boolean("isReskin").default(false).notNull(),
   },
   (table) => {
     return {
