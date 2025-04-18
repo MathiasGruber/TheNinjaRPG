@@ -891,18 +891,12 @@ export const jutsuRouter = createTRPCRouter({
         userId: ctx.userId,
         jutsuId: jutsuId,
         level: originalJutsu.level,
-        equipped: 1,
+        equipped: 0,
         finishTraining: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         experience: originalJutsu.experience,
       });
-
-      // Unequip the original jutsu
-      await ctx.drizzle
-        .update(userJutsu)
-        .set({ equipped: 0 })
-        .where(eq(userJutsu.id, originalJutsu.id));
 
       return {
         success: true,
