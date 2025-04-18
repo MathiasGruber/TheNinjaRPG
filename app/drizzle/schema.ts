@@ -9,7 +9,7 @@ import {
   date,
   mysqlEnum,
   json,
-  int,is
+  int,
   bigint,
   smallint,
   index,
