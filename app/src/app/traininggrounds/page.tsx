@@ -663,7 +663,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
     .filter((j) => canTrainJutsu(j, userData))
     .filter((j) => {
       const userJutsu = userJutsus?.find((uj) => uj.jutsuId === j.id);
-      return userJutsu || !["EVENT", "LOYALTY", "SPECIAL"].includes(j.jutsuType);
+      return userJutsu || !["EVENT", "LOYALTY", "SPECIAL", "RESKIN"].includes(j.jutsuType);
     })
     .map((j) => {
       const uj = userJutsus?.find((uj) => uj.jutsuId === j.id);
