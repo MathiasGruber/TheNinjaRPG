@@ -495,7 +495,7 @@ export default function MyJutsu() {
                     setIsReskinOpen(true);
                     setModalType("reskin");
                   }}
-                  disabled={isPending || userjutsu.jutsuType === "SPECIAL" || userjutsu.jutsuType === "BLOODLINE" || userjutsu.jutsuType === "RESKIN"}
+                  disabled={isPending || userjutsu.jutsuType === "SPECIAL" || userjutsu.jutsuType === "BLOODLINE" || userjutsu.jutsuType === "RESKIN" || userjutsu.jutsuType === "LOYALTY"}
                 >
                   <Palette className="h-6 w-6 mr-2" />
                   Reskin
