@@ -495,7 +495,7 @@ export default function MyJutsu() {
                     setIsReskinOpen(true);
                     setModalType("reskin");
                   }}
-                  disabled={isPending || userjutsu.jutsuType === "SPECIAL" || userjutsu.jutsuType === "BLOODLINE" || userjutsu.jutsuType === "RESKIN" || userjutsu.jutsuType === "LOYALTY"}
+                  disabled={isPending || userjutsu.jutsuType === "SPECIAL" || userjutsu.jutsuType === "BLOODLINE" || userjutsu.jutsuType === "RESKIN"}
                 >
                   <Palette className="h-6 w-6 mr-2" />
                   Reskin
@@ -544,6 +544,42 @@ export default function MyJutsu() {
             <p className="text-sm text-muted-foreground">
               Creating a reskin costs {reskinCost} reputation points.
             </p>
+            <div className="reskin-rules" style={{ maxWidth: "800px", margin: "0 auto", padding: "1rem", fontFamily: "sans-serif", lineHeight: "1.6" }}>
+              <h1>Jutsu Reskin Rules</h1>
+              <p>
+                Reskins are a way to personalize your jutsu's name, description, and in-combat flavor text. These are cosmetic only and must follow the rules below.
+              </p>
+
+              <h2>What You Can Change</h2>
+              <p>You are allowed to modify only the following:</p>
+              <ul>
+                <li><strong>Jutsu Name</strong></li>
+                <li><strong>Jutsu Description</strong> (what shows outside of combat)</li>
+                <li><strong>Battle Description</strong> (what appears in combat, e.g., "%user uses %jutsu on %target")</li>
+              </ul>
+
+              <h2>Tone & Content Restrictions</h2>
+              <ul>
+                <li>No hostile, mocking, or negative wording toward other players, clans, villages, bloodlines, or jutsu.</li>
+                <li>No profanity, slurs, or real-world political/religious references.</li>
+                <li>No inappropriate humor or immersion-breaking language.</li>
+                <li>No subtle digs or sarcasm aimed at others. If it could be taken negatively, it's not allowed.</li>
+              </ul>
+
+              <h2>Example</h2>
+              <div style={{ backgroundColor: "#f9f9f9", padding: "1rem", border: "1px solid #ccc", borderRadius: "8px" }}>
+                <p><strong>Original Name:</strong> Fireball Jutsu</p>
+                <p><strong>Reskin Name:</strong> Blazing Verdict</p>
+                <p><strong>Original Description:</strong> A sphere of fire launched at the target.</p>
+                <p><strong>Reskin Description:</strong> A judgment cast in searing flame, leaving no room for appeal.</p>
+                <p><strong>Original Battle Description:</strong> %user hurls a fireball at %target.</p>
+                <p><strong>Reskin Battle Description:</strong> %user delivers the Blazing Verdict to %target, flames roaring with finality.</p>
+              </div>
+
+              <p style={{ marginTop: "1rem", fontWeight: "bold" }}>
+                Violation of these rules may result in the modification or removal of the reskinned jutsu.
+              </p>
+            </div>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -594,6 +630,14 @@ export default function MyJutsu() {
             <p className="text-sm text-muted-foreground">
               Are you sure you want to create this reskin? This will cost {reskinCost} reputation points.
             </p>
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-800">
+                By clicking "Confirm", you acknowledge that your reskin follows all the rules outlined above, including:
+              </p>
+              <p className="mt-2 text-sm font-medium text-yellow-800">
+                Violations may result in the modification or removal of your reskin.
+              </p>
+            </div>
             <div className="flex justify-end space-x-2">
               <Button
                 variant="outline"
