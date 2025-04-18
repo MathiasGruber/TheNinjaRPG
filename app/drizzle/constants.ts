@@ -470,6 +470,7 @@ export const COST_SWAP_VILLAGE = 0;
 export const COST_RESET_STATS = 15;
 export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_EXTRA_JUTSU_SLOT = 50;
+export const COST_RESKIN_JUTSU = 60;
 export const COST_REROLL_ELEMENT = 20;
 export const MAX_EXTRA_JUTSU_SLOTS = 2;
 export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM"] as const;
