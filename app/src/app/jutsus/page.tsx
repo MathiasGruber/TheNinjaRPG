@@ -484,7 +484,7 @@ export default function MyJutsu() {
                   id="reskin"
                   variant="outline"
                   onClick={() => {
-                    setIsOpen(true);
+                    setIsReskinOpen(true);
                     setModalType("reskin");
                   }}
                   disabled={isPending}
