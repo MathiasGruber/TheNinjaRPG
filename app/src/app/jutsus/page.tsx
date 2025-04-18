@@ -547,7 +547,7 @@ export default function MyJutsu() {
             <div className="reskin-rules" style={{ maxWidth: "800px", margin: "0 auto", padding: "1rem", fontFamily: "sans-serif", lineHeight: "1.6" }}>
               <h1>Jutsu Reskin Rules</h1>
               <p>
-                Reskins are a way to personalize your jutsu's name, description, and in-combat flavor text. These are cosmetic only and must follow the rules below.
+                Reskins are a way to personalize your jutsu&apos;s name, description, and in-combat flavor text. These are cosmetic only and must follow the rules below.
               </p>
 
               <h2>What You Can Change</h2>
@@ -555,7 +555,7 @@ export default function MyJutsu() {
               <ul>
                 <li><strong>Jutsu Name</strong></li>
                 <li><strong>Jutsu Description</strong> (what shows outside of combat)</li>
-                <li><strong>Battle Description</strong> (what appears in combat, e.g., "%user uses %jutsu on %target")</li>
+                <li><strong>Battle Description</strong> (what appears in combat, e.g., &quot;%user uses %jutsu on %target&quot;)</li>
               </ul>
 
               <h2>Tone & Content Restrictions</h2>
@@ -563,7 +563,7 @@ export default function MyJutsu() {
                 <li>No hostile, mocking, or negative wording toward other players, clans, villages, bloodlines, or jutsu.</li>
                 <li>No profanity, slurs, or real-world political/religious references.</li>
                 <li>No inappropriate humor or immersion-breaking language.</li>
-                <li>No subtle digs or sarcasm aimed at others. If it could be taken negatively, it's not allowed.</li>
+                <li>No subtle digs or sarcasm aimed at others. If it could be taken negatively, it&apos;s not allowed.</li>
               </ul>
 
               <h2>Example</h2>
@@ -632,7 +632,7 @@ export default function MyJutsu() {
             </p>
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
               <p className="text-sm text-yellow-800">
-                By clicking "Confirm", you acknowledge that your reskin follows all the rules outlined above, including:
+                By clicking &quot;Confirm&quot;, you acknowledge that your reskin follows all the rules outlined above, including:
               </p>
               <p className="mt-2 text-sm font-medium text-yellow-800">
                 Violations may result in the modification or removal of your reskin.
