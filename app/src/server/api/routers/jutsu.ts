@@ -901,7 +901,6 @@ export const jutsuRouter = createTRPCRouter({
         method: originalJutsu.jutsu.method,
         hidden: originalJutsu.jutsu.hidden,
         parentJutsuId: originalJutsu.jutsu.id,
-        isReskin: true,
       });
 
       // Create a new user jutsu for the reskin
