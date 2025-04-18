@@ -87,7 +87,7 @@ export default function MyJutsu() {
     enabled: !!userData,
   });
 
-  const userJutsuCounts = userJutsus?.map((userJutsu) => {
+  const userJutsuCounts = userJutsus?.map((userJutsu: UserJutsu) => {
     return {
       id: userJutsu.id,
       quantity:
