@@ -848,11 +848,10 @@ export const jutsuRouter = createTRPCRouter({
         name: z.string().min(1).max(100),
         description: z.string().min(1).max(1000),
         battleDescription: z.string().min(1).max(1000),
-        image: z.string().url(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { originalJutsuId, name, description, battleDescription, image } = input;
+      const { originalJutsuId, name, description, battleDescription } = input;
 
       // Get the original jutsu
       const originalJutsu = await ctx.drizzle.query.userJutsu.findFirst({
@@ -879,7 +878,7 @@ export const jutsuRouter = createTRPCRouter({
         name,
         description,
         battleDescription,
-        image,
+        image: originalJutsu.jutsu.image,
         effects: originalJutsu.jutsu.effects,
         target: originalJutsu.jutsu.target,
         range: originalJutsu.jutsu.range,
@@ -902,6 +901,7 @@ export const jutsuRouter = createTRPCRouter({
         method: originalJutsu.jutsu.method,
         hidden: originalJutsu.jutsu.hidden,
         parentJutsuId: originalJutsu.jutsu.id,
+        isReskin: true,
       });
 
       // Create a new user jutsu for the reskin
