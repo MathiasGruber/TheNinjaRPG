@@ -835,24 +835,6 @@ export const jutsuRouter = createTRPCRouter({
         return errorResponse("Original jutsu not found");
       }
 
-      // Check if user already has a reskin of this jutsu
-      const existingReskin = await ctx.drizzle
-        .select()
-        .from(userJutsu)
-        .innerJoin(jutsu, eq(userJutsu.jutsuId, jutsu.id))
-        .where(
-          and(
-            eq(userJutsu.userId, ctx.userId),
-            eq(jutsu.parentJutsuId, originalJutsu.jutsu.id),
-            eq(jutsu.jutsuType, "SPECIAL")
-          )
-        )
-        .limit(1);
-
-      if (existingReskin.length > 0) {
-        return errorResponse("You already have a reskin of this jutsu");
-      }
-
       // Create a new jutsu with the same properties as the original
       const jutsuId = nanoid();
       const newJutsu = await ctx.drizzle.insert(jutsu).values({
