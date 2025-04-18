@@ -546,12 +546,19 @@ export default function MyJutsu() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const formData = new FormData(e.currentTarget);
+                // Validate that all required fields are filled
+                if (!reskinName || !reskinDescription || !reskinBattleDescription || !reskinImage) {
+                  showMutationToast({
+                    success: false,
+                    message: "Please fill in all fields before creating a reskin"
+                  });
+                  return;
+                }
                 const data = {
-                  name: formData.get("name") as string,
-                  description: formData.get("description") as string,
-                  battleDescription: formData.get("battleDescription") as string,
-                  image: formData.get("image") as string,
+                  name: reskinName,
+                  description: reskinDescription,
+                  battleDescription: reskinBattleDescription,
+                  image: reskinImage,
                 };
                 setReskinData(data);
                 setIsReskinOpen(false);
