@@ -42,6 +42,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadButton } from "@/utils/uploadthing";
 import Image from "next/image";
+import { JUTSU_RESKIN_COST } from "@/drizzle/constants";
 
 export default function MyJutsu() {
   // tRPC utility
@@ -55,6 +56,7 @@ export default function MyJutsu() {
   const { data: userData, updateUser } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isReskinOpen, setIsReskinOpen] = useState<boolean>(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
@@ -68,6 +70,12 @@ export default function MyJutsu() {
   const [reskinDescription, setReskinDescription] = useState("");
   const [reskinBattleDescription, setReskinBattleDescription] = useState("");
   const [reskinImage, setReskinImage] = useState("");
+  const [reskinData, setReskinData] = useState<{
+    name: string;
+    description: string;
+    battleDescription: string;
+    image: string;
+  } | null>(null);
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
@@ -515,7 +523,7 @@ export default function MyJutsu() {
       )}
       {modalType === "reskin" && userjutsu && isReskinOpen && (
         <Modal
-          title="Reskin Jutsu"
+          title="Create Jutsu Reskin"
           proceed_label="Create Reskin"
           setIsOpen={setIsReskinOpen}
           isValid={!!reskinName && !!reskinDescription && !!reskinBattleDescription && !!reskinImage}
@@ -532,53 +540,112 @@ export default function MyJutsu() {
           }}
         >
           <div className="space-y-4">
-            <p className="text-sm text-gray-400">Are you sure you want to create a reskin of this jutsu? This will create a new jutsu with the same effects but with your custom name, description, and image.</p>
-            <div>
-              <Input 
-                placeholder="New jutsu name" 
-                value={reskinName}
-                onChange={(e) => setReskinName(e.target.value)}
-              />
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Creating a reskin costs {JUTSU_RESKIN_COST} reputation points.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = {
+                  name: formData.get("name") as string,
+                  description: formData.get("description") as string,
+                  battleDescription: formData.get("battleDescription") as string,
+                  image: formData.get("image") as string,
+                };
+                setReskinData(data);
+                setIsReskinOpen(false);
+                setIsConfirmOpen(true);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <Input 
+                  placeholder="New jutsu name" 
+                  value={reskinName}
+                  onChange={(e) => setReskinName(e.target.value)}
+                />
+              </div>
 
-            <div>
-              <Textarea 
-                placeholder="New jutsu description" 
-                value={reskinDescription}
-                onChange={(e) => setReskinDescription(e.target.value)}
-              />
-            </div>
+              <div>
+                <Textarea 
+                  placeholder="New jutsu description" 
+                  value={reskinDescription}
+                  onChange={(e) => setReskinDescription(e.target.value)}
+                />
+              </div>
 
-            <div>
-              <Textarea 
-                placeholder="New battle description" 
-                value={reskinBattleDescription}
-                onChange={(e) => setReskinBattleDescription(e.target.value)}
-              />
-            </div>
+              <div>
+                <Textarea 
+                  placeholder="New battle description" 
+                  value={reskinBattleDescription}
+                  onChange={(e) => setReskinBattleDescription(e.target.value)}
+                />
+              </div>
 
-            <div className="flex flex-col gap-2">
-              {reskinImage && (
-                <div className="w-32 h-32 relative">
-                  <Image
-                    src={reskinImage}
-                    alt="Jutsu image"
-                    fill
-                    className="object-contain"
-                  />
-                </div>
-              )}
-              <UploadButton
-                endpoint="imageUploader"
-                onClientUploadComplete={(res) => {
-                  if (res?.[0]?.url) {
-                    setReskinImage(res[0].url);
+              <div className="flex flex-col gap-2">
+                {reskinImage && (
+                  <div className="w-32 h-32 relative">
+                    <Image
+                      src={reskinImage}
+                      alt="Jutsu image"
+                      fill
+                      className="object-contain"
+                    />
+                  </div>
+                )}
+                <UploadButton
+                  endpoint="imageUploader"
+                  onClientUploadComplete={(res) => {
+                    if (res?.[0]?.url) {
+                      setReskinImage(res[0].url);
+                    }
+                  }}
+                  onUploadError={(error: Error) => {
+                    showMutationToast({ success: false, message: error.message });
+                  }}
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Create Reskin
+              </Button>
+            </form>
+          </div>
+        </Modal>
+      )}
+      {isConfirmOpen && reskinData && userjutsu && (
+        <Modal
+          isOpen={isConfirmOpen}
+          onClose={() => setIsConfirmOpen(false)}
+          title="Confirm Jutsu Reskin"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to create this reskin? This will cost {JUTSU_RESKIN_COST} reputation points.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsConfirmOpen(false);
+                  setIsReskinOpen(true);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (reskinData && userjutsu) {
+                    reskin({
+                      originalJutsuId: userjutsu.id,
+                      ...reskinData,
+                    });
+                    setIsConfirmOpen(false);
                   }
                 }}
-                onUploadError={(error: Error) => {
-                  showMutationToast({ success: false, message: error.message });
-                }}
-              />
+              >
+                Confirm
+              </Button>
             </div>
           </div>
         </Modal>
