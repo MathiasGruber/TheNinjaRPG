@@ -1073,7 +1073,8 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
               | "BLOODLINE"
               | "FORBIDDEN"
               | "LOYALTY"
-              | "AI",
+              | "AI"
+              | "RESKIN",
           ),
         )
       : []),
