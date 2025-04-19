@@ -544,9 +544,12 @@ export default function MyJutsu() {
             <div className="reskin-rules" style={{ maxWidth: "800px", margin: "0 auto", padding: "1rem", fontFamily: "sans-serif", lineHeight: "1.6" }}>
               <p style={{ fontWeight: "bold", marginBottom: "1rem" }}>Jutsu Reskin Rules</p>
               <p>
-                Reskins are a way to personalize your jutsu&apos;s name, description, and in-combat flavor text. These are cosmetic only and must follow the rules below.
+              <strong>Creating a reskin costs {reskinCost} reputation points.</strong>
                 <br /><br />
-                <strong>Creating a reskin costs {reskinCost} reputation points.</strong>
+                <strong>Reskin Usage:</strong><br />
+                You have used {userData.reskinCount}/{userData.reskinTokenCount + RESKIN_LIMIT} available reskins.
+                <br /><br />
+                Reskins are a way to personalize your jutsu&apos;s name, description, and in-combat flavor text. These are cosmetic only and must follow the rules below.
                 <br /><br />
                 <strong>What You Can Change:</strong><br />
                 You are allowed to modify only the following:<br />
