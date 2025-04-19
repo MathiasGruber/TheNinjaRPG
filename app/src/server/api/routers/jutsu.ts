@@ -18,7 +18,8 @@ import {
   JUTSU_TRANSFER_DAYS,
   JUTSU_TRANSFER_MAX_LEVEL,
   JUTSU_TRANSFER_MINIMUM_LEVEL,
-  COST_RESKIN_JUTSU
+  COST_RESKIN_JUTSU,
+  RESKIN_LIMIT,
 } from "@/drizzle/constants";
 import {
   calcJutsuTrainTime,
@@ -866,8 +867,13 @@ export const jutsuRouter = createTRPCRouter({
         return errorResponse("Original jutsu not found");
       }
 
-      // Check if user has enough reputation
+      // Check if user has enough reskins
       const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.reskinCount >= user.reskinTokenCount + RESKIN_LIMIT) {
+        return errorResponse(`You have used all your reskins (${user.reskinCount}/${user.reskinTokenCount + RESKIN_LIMIT})`);
+      }
+
+      // Check if user has enough reputation points (if not staff)
       if (!canReskinJutsu(user.role) && user.reputationPoints < COST_RESKIN_JUTSU) {
         return errorResponse(`Not enough reputation points. Required: ${COST_RESKIN_JUTSU}`);
       }
