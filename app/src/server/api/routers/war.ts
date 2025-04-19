@@ -758,28 +758,30 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
   });
   // Process the wars and end the ones that need to be ended
   activeWars = await Promise.all(
-    activeWars.map((war) => {
-      // If townhall is destroyed, set tokens to 0 (without updating database), which will trigger war end
-      if (["VILLAGE_WAR", "FACTION_RAID"].includes(war.type)) {
-        const attackerTownhall = war.attackerVillage.structures.find(
-          (s) => s.route === war.targetStructureRoute,
-        );
-        const defenderTownhall = war.defenderVillage?.structures.find(
-          (s) => s.route === war.targetStructureRoute,
-        );
-        if (attackerTownhall && attackerTownhall.curSp <= 0) {
-          war.attackerVillage.tokens = 0;
+    activeWars
+      .filter((war) => war.attackerVillage && war.defenderVillage)
+      .map((war) => {
+        // If townhall is destroyed, set tokens to 0 (without updating database), which will trigger war end
+        if (["VILLAGE_WAR", "FACTION_RAID"].includes(war.type)) {
+          const attackerTownhall = war.attackerVillage.structures.find(
+            (s) => s.route === war.targetStructureRoute,
+          );
+          const defenderTownhall = war.defenderVillage?.structures.find(
+            (s) => s.route === war.targetStructureRoute,
+          );
+          if (attackerTownhall && attackerTownhall.curSp <= 0) {
+            war.attackerVillage.tokens = 0;
+          }
+          if (defenderTownhall && defenderTownhall.curSp <= 0) {
+            war.defenderVillage.tokens = 0;
+          }
         }
-        if (defenderTownhall && defenderTownhall.curSp <= 0) {
-          war.defenderVillage.tokens = 0;
+        // Update war
+        if (war.attackerVillage.tokens <= 0 || war.defenderVillage.tokens <= 0) {
+          return handleWarEnd(war);
         }
-      }
-      // Update war
-      if (war.attackerVillage.tokens <= 0 || war.defenderVillage.tokens <= 0) {
-        return handleWarEnd(war);
-      }
-      return war;
-    }),
+        return war;
+      }),
   );
   // Final active wars
   activeWars = activeWars.filter((war) => {
