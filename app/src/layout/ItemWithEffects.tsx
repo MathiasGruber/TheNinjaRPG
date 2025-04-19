@@ -28,6 +28,7 @@ export type GenericObject = {
   sector?: number;
   createdAt: Date;
   updatedAt: Date;
+  createdBy?: string;
   attacks?: string[];
   effects?: ZodAllTags[];
   village?: { name: string };
