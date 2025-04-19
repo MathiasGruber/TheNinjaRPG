@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -44,9 +46,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Dialog } from "@/components/ui/dialog";
-import { fetchMap } from "@/libs/travel/globe";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import type { GlobalMapData } from "@/libs/travel/types";
+import { useMap } from "@/hooks/map";
 import StatusBar from "@/layout/StatusBar";
 import {
   Select,
@@ -59,7 +61,7 @@ import type { ColumnDefinitionType } from "@/layout/Table";
 import type { ArrayElement } from "@/utils/typeutils";
 import Confirm2 from "@/layout/Confirm2";
 
-const Map = dynamic(() => import("@/layout/Map"), { ssr: false });
+const GlobalMap = dynamic(() => import("@/layout/Map"), { ssr: false });
 
 /**
  * Wars Component
@@ -267,9 +269,7 @@ export const WarMap: React.FC<{
     });
 
   // Set globe data
-  void useMemo(async () => {
-    setGlobe(await fetchMap());
-  }, []);
+  useMap(setGlobe);
 
   // Derived
   const isLoading =
@@ -304,7 +304,7 @@ export const WarMap: React.FC<{
   return (
     <div className="relative">
       {villages && globe && (
-        <Map
+        <GlobalMap
           intersection={true}
           highlights={villages}
           userLocation={true}
@@ -816,9 +816,12 @@ export const VillageWar: React.FC<{
   const defenderTownHall = war.defenderVillage?.structures?.find(
     (s) => s.route === war.targetStructureRoute,
   );
-  const canJoin = villages?.filter((v) => {
-    const { check } = canJoinWar(war, relationships ?? [], v, userVillage!);
-    return check;
+  const villagesThatCanJoin = villages?.filter((v) => {
+    if (userVillage) {
+      const { check } = canJoinWar(war, relationships ?? [], v, userVillage);
+      return check;
+    }
+    return false;
   });
   if (!attackerTownHall || !defenderTownHall) return null;
 
@@ -1103,7 +1106,7 @@ export const VillageWar: React.FC<{
             Send offers to factions or allied villages to join your war effort.
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {canJoin?.map((village) => (
+            {villagesThatCanJoin?.map((village) => (
               <div
                 key={village.id}
                 className="border rounded-lg py-1 px-2 hover:bg-popover transition-colors"

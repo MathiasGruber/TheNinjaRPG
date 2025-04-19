@@ -22,7 +22,6 @@ import {
   MapPinned,
 } from "lucide-react";
 import { HousePlus } from "lucide-react";
-import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/app/_trpc/client";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
@@ -38,6 +37,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { useMap } from "@/hooks/map";
 import { Input } from "@/components/ui/input";
 import { HIDEOUT_COST } from "@/drizzle/constants";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
@@ -102,9 +102,7 @@ export default function Travel() {
     : "";
   const globalLink = `Global (${currentSector})`;
 
-  void useMemo(async () => {
-    setGlobe(await fetchMap());
-  }, []);
+  useMap(setGlobe);
 
   // Selecting sector to highlight form
   const sectorSelect = z.object({

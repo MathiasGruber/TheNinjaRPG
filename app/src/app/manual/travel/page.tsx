@@ -1,21 +1,20 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import ContentBox from "@/layout/ContentBox";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
-import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/app/_trpc/client";
+import { useMap } from "@/hooks/map";
+import type { GlobalMapData } from "@/libs/travel/types";
 
-const Map = dynamic(() => import("@/layout/Map"), {
+const GlobalMap = dynamic(() => import("@/layout/Map"), {
   ssr: false,
 });
 
 export default function ManualTravel() {
-  const [map, setMap] = useState<Awaited<ReturnType<typeof fetchMap>> | null>(null);
-  void useMemo(async () => {
-    setMap(await fetchMap());
-  }, []);
+  const [globe, setGlobe] = useState<GlobalMapData | null>(null);
+  useMap(setGlobe);
   const { data: villages } = api.village.getAll.useQuery(undefined);
 
   return (
@@ -28,8 +27,8 @@ export default function ManualTravel() {
         {SECTOR_WIDTH} hexagonal grid. You should think of this grid as a small section
         of that sector, in which your character can move, explore and interact with
         other players.
-        {villages && map && (
-          <Map intersection={false} highlights={villages} hexasphere={map} />
+        {villages && globe && (
+          <GlobalMap intersection={false} highlights={villages} hexasphere={globe} />
         )}
       </ContentBox>
     </>
