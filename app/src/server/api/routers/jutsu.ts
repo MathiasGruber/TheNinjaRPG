@@ -924,12 +924,20 @@ export const jutsuRouter = createTRPCRouter({
         experience: originalJutsu.experience,
       });
 
-      // Deduct Reputation Points
+      // Deduct Reputation Points and increment reskin count
       if (!canReskinJutsu(user.role)) {
         await ctx.drizzle
           .update(userData)
           .set({
             reputationPoints: sql`${userData.reputationPoints} - ${COST_RESKIN_JUTSU}`,
+            reskinCount: sql`${userData.reskinCount} + 1`,
+          })
+          .where(eq(userData.userId, ctx.userId));
+      } else {
+        await ctx.drizzle
+          .update(userData)
+          .set({
+            reskinCount: sql`${userData.reskinCount} + 1`,
           })
           .where(eq(userData.userId, ctx.userId));
       }
