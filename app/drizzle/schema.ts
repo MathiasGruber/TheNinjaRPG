@@ -262,7 +262,9 @@ export const battleHistory = mysqlTable(
   },
   (table) => {
     return {
+      createdAtIdx: index("BattleHistory_createdAt_idx").on(table.createdAt),
       battleIdIdx: index("BattleHistory_battleId_idx").on(table.battleId),
+      battleTypeIdx: index("BattleHistory_battleType_idx").on(table.battleType),
       battleWinnerIdx: index("BattleHistory_attackedId_idx").on(table.attackedId),
       battleLoserIdx: index("BattleHistory_defenderId_idx").on(table.defenderId),
     };
