@@ -6,6 +6,7 @@ import { secondsPassed, secondsFromNow, getTimeOfLastReset } from "@/utils/time"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
+  aiProfile,
   actionLog,
   bankTransfers,
   battleHistory,
@@ -516,127 +517,60 @@ export const profileRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, ai] = await Promise.all([
+      const [user, aiData, jutsuData, itemData, nindoData] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, input.id),
-          with: { 
-            jutsus: true, 
-            items: true,
-            nindo: true,
-            aiProfile: true
-          },
+        }),
+        ctx.drizzle.query.userJutsu.findMany({
+          where: eq(userJutsu.userId, input.id),
+        }),
+        ctx.drizzle.query.userItem.findMany({ where: eq(userItem.userId, input.id) }),
+        ctx.drizzle.query.userNindo.findFirst({
+          where: eq(userNindo.userId, input.id),
         }),
       ]);
       // Guard
-      if (!ai) return errorResponse("AI not found");
-      if (!ai.isAi) return errorResponse("Not an AI");
+      if (!aiData) return errorResponse("AI not found");
+      if (!aiData.isAi) return errorResponse("Not an AI");
       if (!canChangeContent(user.role)) return errorResponse("Not allowed");
 
       // Create new AI with copied data
-      const newId = nanoid();
-      const newAi = {
-        userId: newId,
-        username: `${ai.username} (copy)`,
-        avatar: ai.avatar,
-        avatarLight: ai.avatarLight,
-        villageId: ai.villageId,
-        approvedTos: 1,
-        sector: 0,
-        isAi: true,
-        gender: ai.gender,
-        rank: ai.rank,
-        level: ai.level,
-        experience: ai.experience,
-        earnedExperience: ai.earnedExperience,
-        reputationPoints: ai.reputationPoints,
-        federalStatus: ai.federalStatus,
-        status: ai.status,
-        curHealth: ai.curHealth,
-        maxHealth: ai.maxHealth,
-        curChakra: ai.curChakra,
-        maxChakra: ai.maxChakra,
-        curStamina: ai.curStamina,
-        maxStamina: ai.maxStamina,
-        strength: ai.strength,
-        speed: ai.speed,
-        intelligence: ai.intelligence,
-        willpower: ai.willpower,
-        customTitle: ai.customTitle,
-        showBattleDescription: ai.showBattleDescription,
-        lastIp: ai.lastIp,
-        createdAt: ai.createdAt,
-        updatedAt: ai.updatedAt,
-        // Combat stats
-        ninjutsuOffence: ai.ninjutsuOffence,
-        taijutsuOffence: ai.taijutsuOffence,
-        genjutsuOffence: ai.genjutsuOffence,
-        bukijutsuOffence: ai.bukijutsuOffence,
-        ninjutsuDefence: ai.ninjutsuDefence,
-        taijutsuDefence: ai.taijutsuDefence,
-        genjutsuDefence: ai.genjutsuDefence,
-        bukijutsuDefence: ai.bukijutsuDefence,
-        // Additional fields
-        isBanned: ai.isBanned,
-        isSilenced: ai.isSilenced,
-        movedTooFastCount: ai.movedTooFastCount,
-        deletionAt: ai.deletionAt,
-        clanId: ai.clanId,
-        bloodlineId: ai.bloodlineId,
-        anbuId: ai.anbuId,
-        senseiId: ai.senseiId,
-        recruiterId: ai.recruiterId,
-        pveFights: ai.pveFights,
-        tavernMessages: ai.tavernMessages,
-        statsMultiplier: ai.statsMultiplier,
-        poolsMultiplier: ai.poolsMultiplier,
-        aiProfileId: ai.aiProfileId,
-        // New fields being added
-        primaryElement: ai.primaryElement,
-        secondaryElement: ai.secondaryElement,
-        isSummon: ai.isSummon,
-        inArena: ai.inArena,
-        isEvent: ai.isEvent,
-        preferredStat: ai.preferredStat,
-        preferredGeneral1: ai.preferredGeneral1,
-        preferredGeneral2: ai.preferredGeneral2,
-      };
+      aiData.userId = nanoid();
+      aiData.username = `${aiData.username} - copy`;
+      aiData.createdAt = new Date();
+      aiData.updatedAt = new Date();
+      // Run all inserts at once
+      await Promise.all([
+        ctx.drizzle.insert(userData).values(aiData),
+        ...(jutsuData.length > 0
+          ? [
+              ctx.drizzle.insert(userJutsu).values(
+                jutsuData.map((jutsu) => ({
+                  id: nanoid(),
+                  userId: aiData.userId,
+                  jutsuId: jutsu.jutsuId,
+                  level: jutsu.level,
+                })),
+              ),
+            ]
+          : []),
+        ...(itemData.length > 0
+          ? [
+              ctx.drizzle.insert(userItem).values(
+                itemData.map((item) => ({
+                  id: nanoid(),
+                  userId: aiData.userId,
+                  itemId: item.itemId,
+                  quantity: item.quantity,
+                })),
+              ),
+            ]
+          : []),
+        ...(nindoData ? [ctx.drizzle.insert(userNindo).values(nindoData)] : []),
+      ]);
 
-      // Insert new AI
-      await ctx.drizzle.insert(userData).values(newAi);
-
-      // Copy jutsus and items
-      if (ai.jutsus.length > 0) {
-        await ctx.drizzle.insert(userJutsu).values(
-          ai.jutsus.map((jutsu) => ({
-            id: nanoid(),
-            userId: newId,
-            jutsuId: jutsu.jutsuId,
-            level: jutsu.level,
-          })),
-        );
-      }
-      if (ai.items.length > 0) {
-        await ctx.drizzle.insert(userItem).values(
-          ai.items.map((item) => ({
-            id: nanoid(),
-            userId: newId,
-            itemId: item.itemId,
-            quantity: item.quantity,
-          })),
-        );
-      }
-
-      // Copy nindo if it exists
-      if (ai.nindo) {
-        await ctx.drizzle.insert(userNindo).values({
-          id: nanoid(),
-          userId: newId,
-          content: ai.nindo.content,
-        });
-      }
-
-      return { success: true, message: newId };
+      return { success: true, message: aiData.userId };
     }),
   // Delete a AI
   delete: protectedProcedure

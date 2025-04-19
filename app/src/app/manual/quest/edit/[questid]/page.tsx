@@ -19,8 +19,6 @@ import { SimpleObjective } from "@/validators/objectives";
 import { getObjectiveSchema } from "@/validators/objectives";
 import type { ZodQuestType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/use-toast";
 
 export default function ManualBloodlineEdit(props: {
   params: Promise<{ questid: string }>;
@@ -37,23 +35,6 @@ export default function ManualBloodlineEdit(props: {
     { enabled: !!questId },
   );
 
-  const { mutate: cloneQuest, isPending: isCloning } = api.quests.clone.useMutation({
-    onSuccess: (data) => {
-      toast({
-        title: "Success",
-        description: "Quest cloned successfully",
-      });
-      router.push(`/manual/quest/edit/${data.message}`);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   // Redirect to profile if not content or admin
   useEffect(() => {
     if (userData && !canChangeContent(userData.role)) {
@@ -67,14 +48,12 @@ export default function ManualBloodlineEdit(props: {
     return <Loader explanation="Loading data" />;
   }
 
-  return <SingleEditQuest quest={data} refetch={refetch} cloneQuest={cloneQuest} isCloning={isCloning} />;
+  return <SingleEditQuest quest={data} refetch={refetch} />;
 }
 
 interface SingleEditQuestProps {
   quest: Quest;
   refetch: () => void;
-  cloneQuest: (data: { id: string }) => void;
-  isCloning: boolean;
 }
 
 const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
@@ -173,13 +152,6 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
         {quest && (
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold">Edit Quest</h1>
-            <Button
-              variant="outline"
-              onClick={() => props.cloneQuest({ id: quest.id })}
-              disabled={props.isCloning}
-            >
-              {props.isCloning ? "Cloning..." : "Clone Quest"}
-            </Button>
           </div>
         )}
         {quest && (

@@ -152,11 +152,6 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     {},
   );
 
-  const { data: userQuests } = api.quests.getUserQuests.useQuery(
-    { userId: userId },
-    { enabled: !!userId }
-  );
-
   // Forms
   const form = useForm<z.infer<typeof awardSchema>>({
     resolver: zodResolver(awardSchema),
@@ -937,17 +932,18 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
   // Queries
   const { data: userQuests } = api.quests.getUserQuests.useQuery(
     { userId: userId },
-    { enabled: !!userId }
+    { enabled: !!userId },
   );
 
   // Get unique quest types
-  const questTypes = userQuests 
-    ? Array.from(new Set(userQuests.map(q => q.quest.questType).filter(Boolean)))
+  const questTypes = userQuests
+    ? Array.from(new Set(userQuests.map((q) => q.quest.questType).filter(Boolean)))
     : [];
 
   // Filter quests by type
-  const filteredQuests = userQuests?.filter(quest => 
-    selectedQuestType === "all" || quest.quest.questType === selectedQuestType
+  const filteredQuests = userQuests?.filter(
+    (quest) =>
+      selectedQuestType === "all" || quest.quest.questType === selectedQuestType,
   );
 
   // Mutations
@@ -1127,22 +1123,32 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
             {filteredQuests && filteredQuests.length > 0 ? (
               <div className="space-y-2">
                 {filteredQuests.map((userQuest) => (
-                  <div key={userQuest.id} className="flex items-center justify-between p-3 border-2 border-border rounded-lg bg-card">
+                  <div
+                    key={userQuest.id}
+                    className="flex items-center justify-between p-3 border-2 border-border rounded-lg bg-card"
+                  >
                     <div>
-                      <h4 className="font-semibold text-foreground">{userQuest.quest.name}</h4>
+                      <h4 className="font-semibold text-foreground">
+                        {userQuest.quest.name}
+                      </h4>
                       <p className="text-sm text-muted-foreground">
                         Started: {userQuest.startedAt.toLocaleString()}
-                        {userQuest.endAt && ` • Completed: ${userQuest.endAt.toLocaleString()}`}
+                        {userQuest.endAt &&
+                          ` • Completed: ${userQuest.endAt.toLocaleString()}`}
                       </p>
                       {userQuest.quest.questType && (
-                        <p className="text-sm text-muted-foreground">Type: {userQuest.quest.questType}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Type: {userQuest.quest.questType}
+                        </p>
                       )}
                     </div>
                     <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => {
-                        if (confirm("Are you sure you want to delete this quest record?")) {
+                        if (
+                          confirm("Are you sure you want to delete this quest record?")
+                        ) {
                           deleteUserQuest.mutate({
                             userId: userId,
                             questId: userQuest.quest.id,
@@ -1156,7 +1162,9 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
                 ))}
               </div>
             ) : (
-              <p className="text-center text-muted-foreground">No quests found for this user.</p>
+              <p className="text-center text-muted-foreground">
+                No quests found for this user.
+              </p>
             )}
           </div>
         </TabsContent>
