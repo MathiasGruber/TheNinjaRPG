@@ -1113,6 +1113,7 @@ export const JutsuValidator = z
     bloodlineId: z.string().nullable(),
     villageId: z.string().nullable(),
     parentJutsuId: z.string(),
+    createdBy: z.string(),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
   .superRefine(SuperRefineBase)
