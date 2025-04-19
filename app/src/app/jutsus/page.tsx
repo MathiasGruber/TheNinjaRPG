@@ -40,7 +40,7 @@ import { canTransferJutsu } from "@/utils/permissions";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { COST_RESKIN_JUTSU } from "@/drizzle/constants";
+import { COST_RESKIN_JUTSU, RESKIN_LIMIT } from "@/drizzle/constants";
 import { canReskinJutsu } from "@/utils/permissions";
 
 export default function MyJutsu() {
