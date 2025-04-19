@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { eq, sql, and, or, gte, like, isNull, inArray } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm";
 import { villageStructure, conversation, sector } from "@/drizzle/schema";
+import { war, warAlly, warKill } from "@/drizzle/schema";
 import { clan, mpvpBattleQueue, mpvpBattleUser, actionLog } from "@/drizzle/schema";
 import { userData, userRequest, historicalAvatar, village } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -1342,6 +1343,11 @@ export const removeFromClan = async (
           client
             .delete(villageStructure)
             .where(eq(villageStructure.villageId, clanData.villageId)),
+          client.delete(war).where(eq(war.attackerVillageId, clanData.villageId)),
+          client.delete(war).where(eq(war.defenderVillageId, clanData.villageId)),
+          client.delete(warAlly).where(eq(warAlly.villageId, clanData.villageId)),
+          client.delete(warKill).where(eq(warKill.killerVillageId, clanData.villageId)),
+          client.delete(warKill).where(eq(warKill.victimVillageId, clanData.villageId)),
         ]
       : []),
     ...(!otherUser
