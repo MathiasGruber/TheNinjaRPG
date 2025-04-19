@@ -241,7 +241,7 @@ export const JutsuTypes = [
   "CLAN",
   "EVENT",
   "AI",
-  "RESKIN",
+  "RESKIN"
 ] as const;
 export type JutsuType = (typeof JutsuTypes)[number];
 
@@ -471,7 +471,6 @@ export const COST_SWAP_VILLAGE = 0;
 export const COST_RESET_STATS = 15;
 export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_EXTRA_JUTSU_SLOT = 50;
-export const COST_RESKIN_JUTSU = 60;
 export const COST_REROLL_ELEMENT = 20;
 export const MAX_EXTRA_JUTSU_SLOTS = 2;
 export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM"] as const;
@@ -485,6 +484,10 @@ export const JUTSU_TRANSFER_FREE_AMOUNT = 2;
 export const JUTSU_TRANSFER_FREE_NORMAL = 3;
 export const JUTSU_TRANSFER_FREE_SILVER = 4;
 export const JUTSU_TRANSFER_FREE_GOLD = 5;
+
+// Jutsu reskin config
+export const RESKIN_LIMIT = 3;
+export const COST_RESKIN_JUTSU = 60;
 
 // Village config
 export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";
