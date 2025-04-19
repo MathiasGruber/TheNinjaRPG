@@ -409,6 +409,9 @@ export const jutsuRouter = createTRPCRouter({
           where: eq(jutsu.parentJutsuId, input.id),
         });
 
+        // Prepare update data for child jutsu
+        const { name, description, battleDescription, image, parentJutsuId, ...sharedData } = input.data;
+
         // Update parent jutsu and all child jutsu
         await Promise.all([
           // Update parent jutsu
