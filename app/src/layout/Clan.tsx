@@ -64,6 +64,7 @@ import { secondsFromDate } from "@/utils/time";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { cn } from "src/libs/shadui";
+import { FactionRoom } from "@/layout/WarSystem";
 import type { UserRank } from "@/drizzle/schema";
 import type { FactionEditSchema } from "@/validators/clan";
 import type { FactionColorEditSchema } from "@/validators/clan";
@@ -1452,6 +1453,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
             <TabsTrigger value="requests">Requests</TabsTrigger>
             <TabsTrigger value="tournaments">{groupLabel} Tournaments</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="war">War</TabsTrigger>
             {userData.isOutlaw && <TabsTrigger value="logs">Logs</TabsTrigger>}
           </TabsList>
           <TabsContent value="orders">
@@ -1481,6 +1483,9 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
           </TabsContent>
           <TabsContent value="members">
             <ClanMembers userId={userData.userId} clanId={clanData.id} />
+          </TabsContent>
+          <TabsContent value="war">
+            <FactionRoom user={userData} />
           </TabsContent>
           {userData.isOutlaw && (
             <TabsContent value="logs">
