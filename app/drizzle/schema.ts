@@ -996,8 +996,6 @@ export const jutsu = mysqlTable(
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     hidden: boolean("hidden").default(false).notNull(),
     parentJutsuId: varchar("parentJutsuId", { length: 191 }).default("").notNull(),
-    reskinCount: int("reskinCount").default(0).notNull(),
-    reskinTokenCount: int("reskinTokenCount").default(0).notNull(),
   },
   (table) => {
     return {
@@ -1470,6 +1468,8 @@ export const userData = mysqlTable(
     tavernMessages: int("tavernMessages").default(0).notNull(),
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
+    reskinCount: int("reskinCount").default(0).notNull(),
+    reskinTokenCount: int("reskinTokenCount").default(0).notNull(),
   },
   (table) => {
     return {
