@@ -541,9 +541,6 @@ export default function MyJutsu() {
           }}
         >
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Creating a reskin costs {reskinCost} reputation points.
-            </p>
             <div className="reskin-rules" style={{ maxWidth: "800px", margin: "0 auto", padding: "1rem", fontFamily: "sans-serif", lineHeight: "1.6" }}>
               <p style={{ fontWeight: "bold", marginBottom: "1rem" }}>Jutsu Reskin Rules</p>
               <p>
