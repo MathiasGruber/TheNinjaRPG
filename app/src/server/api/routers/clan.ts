@@ -1348,6 +1348,7 @@ export const removeFromClan = async (
           client.delete(warAlly).where(eq(warAlly.villageId, clanData.villageId)),
           client.delete(warKill).where(eq(warKill.killerVillageId, clanData.villageId)),
           client.delete(warKill).where(eq(warKill.victimVillageId, clanData.villageId)),
+          client.delete(sector).where(eq(sector.villageId, clanData.villageId)),
         ]
       : []),
     ...(!otherUser
