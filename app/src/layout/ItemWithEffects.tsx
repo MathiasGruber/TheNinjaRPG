@@ -159,6 +159,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       : item.updatedAt}
                   </div>
                 )}
+                {item.createdBy && (
+                  <div>
+                    <b>Created By: </b>
+                    {item.createdBy}
+                  </div>
+                )}
               </div>
             )}
             <div className="absolute right-1 flex flex-row">
