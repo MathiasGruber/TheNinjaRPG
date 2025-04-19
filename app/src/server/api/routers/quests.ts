@@ -536,36 +536,26 @@ export const questsRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (canChangeContent(user.role)) {
-        const originalQuest = await fetchQuest(ctx.drizzle, input.id);
-        if (!originalQuest) {
-          return { success: false, message: "Quest not found" };
-        }
-
-        const id = nanoid();
-        await ctx.drizzle.insert(quest).values({
-          id: id,
-          name: `${originalQuest.name} - copy`,
-          image: originalQuest.image,
-          description: originalQuest.description,
-          timeFrame: originalQuest.timeFrame,
-          questType: originalQuest.questType,
-          questRank: originalQuest.questRank,
-          requiredLevel: originalQuest.requiredLevel,
-          maxLevel: originalQuest.maxLevel,
-          requiredVillage: originalQuest.requiredVillage,
-          tierLevel: originalQuest.tierLevel,
-          hidden: originalQuest.hidden,
-          consecutiveObjectives: originalQuest.consecutiveObjectives,
-          expiresAt: originalQuest.expiresAt,
-          content: originalQuest.content,
-        });
-
-        return { success: true, message: id };
-      } else {
-        return { success: false, message: `Not allowed to clone quest` };
+      // Query
+      const [user, questData] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchQuest(ctx.drizzle, input.id),
+      ]);
+      // Guard
+      if (!questData) {
+        return errorResponse("Quest not found");
       }
+      if (!canChangeContent(user.role)) {
+        return errorResponse("Not allowed to clone quest");
+      }
+      // Clone quest
+      questData.id = nanoid();
+      questData.name = `${questData.name} - copy`;
+      questData.createdAt = new Date();
+      questData.updatedAt = new Date();
+      await ctx.drizzle.insert(quest).values(questData);
+
+      return { success: true, message: questData.id };
     }),
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -810,47 +800,35 @@ export const questsRouter = createTRPCRouter({
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       // Check if user has permission to view quests
-      const user = await ctx.drizzle.query.userData.findFirst({
-        where: eq(userData.userId, ctx.userId),
-      });
-
-      if (!user || !canEditPublicUser(user)) {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Safety
+      if (!canEditPublicUser(user)) {
         throw serverError("UNAUTHORIZED", "Not authorized to view user quests");
       }
-
       // Get all quests for the user
-      const userQuests = await ctx.drizzle.query.questHistory.findMany({
+      return await ctx.drizzle.query.questHistory.findMany({
         where: eq(questHistory.userId, input.userId),
-        with: {
-          quest: true,
-        },
+        with: { quest: true },
         orderBy: [asc(questHistory.startedAt)],
       });
-
-      return userQuests;
     }),
   deleteUserQuest: protectedProcedure
     .input(z.object({ userId: z.string(), questId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Check if user has permission to delete quests
-      const user = await ctx.drizzle.query.userData.findFirst({
-        where: eq(userData.userId, ctx.userId),
-      });
-
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (!user || !canEditPublicUser(user)) {
         return errorResponse("Not authorized to delete user quests");
       }
-
-      // Delete the quest history entry
+      // Mutate
       await ctx.drizzle
         .delete(questHistory)
         .where(
           and(
             eq(questHistory.userId, input.userId),
-            eq(questHistory.questId, input.questId)
-          )
+            eq(questHistory.questId, input.questId),
+          ),
         );
-
       return { success: true, message: "Quest deleted successfully" };
     }),
 });

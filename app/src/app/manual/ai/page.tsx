@@ -133,6 +133,7 @@ export default function ManualAI() {
               onDelete={(id: string) => remove({ id })}
               showEdit="ai"
               showStatistic="ai"
+              showCopy="ai"
             />
           </div>
         ))}
