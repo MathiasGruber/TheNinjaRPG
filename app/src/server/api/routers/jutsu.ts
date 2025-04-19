@@ -349,6 +349,7 @@ export const jutsuRouter = createTRPCRouter({
         target: "OTHER_USER",
         jutsuType: "AI",
         image: IMG_AVATAR_DEFAULT,
+        createdBy: user.username,
       });
       return { success: true, message: id };
     } else {
@@ -407,9 +408,6 @@ export const jutsuRouter = createTRPCRouter({
         const childJutsus = await ctx.drizzle.query.jutsu.findMany({
           where: eq(jutsu.parentJutsuId, input.id),
         });
-
-        // Prepare update data for child jutsu
-        const { name, description, battleDescription, image, parentJutsuId, ...sharedData } = input.data;
 
         // Update parent jutsu and all child jutsu
         await Promise.all([
@@ -901,6 +899,7 @@ export const jutsuRouter = createTRPCRouter({
         method: originalJutsu.jutsu.method,
         hidden: originalJutsu.jutsu.hidden,
         parentJutsuId: originalJutsu.jutsu.id,
+        createdBy: user.username,
       });
 
       // Create a new user jutsu for the reskin
