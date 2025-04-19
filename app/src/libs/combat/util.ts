@@ -583,6 +583,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const friendsAlive = friends.filter((u) => u.curHealth > 0).length;
       const targetsAlive = targets.filter((u) => u.curHealth > 0).length;
       const totalAlive = friendsAlive + targetsAlive;
+      const allOpponentsFled = targets.every((u) => u.fledBattle);
 
       // Figure outcome status from battle
       const outcome = user.fledBattle
@@ -624,7 +625,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       }
 
       // Check for clan points
-      if (didWin) {
+      if (didWin && !allOpponentsFled) {
         if (user.clanId) clanPoints += 1;
         if (battleType === "CLAN_BATTLE") clanPoints += CLAN_BATTLE_REWARD_POINTS;
       }
@@ -665,7 +666,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const shrineInfo: Record<number, number> = {};
       let townhallChangeHP = 0;
       let shrineChangeHp = 0;
-      if (user.wars.length > 0) {
+      if (user.wars.length > 0 && !allOpponentsFled) {
         targets
           .filter((t) => !t.isSummon)
           .filter((t) => t.village?.name)
