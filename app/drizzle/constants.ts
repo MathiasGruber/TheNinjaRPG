@@ -11,6 +11,12 @@ export const ACTIVE_VOTING_SITES = [
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
 
+export const MAP_RESERVED_SECTORS = [
+  332, 336, 341, 335, 340, 334, 330, 331, 332, 337, 342, 12, 18, 109, 113, 308, 305,
+  307, 304, 275, 279, 201, 284, 283, 259, 95, 75, 289, 253, 260, 72, 272, 271, 203, 264,
+  270, 254, 83, 93,
+];
+
 export const CoreVillages = [
   "Shine",
   "Tsukimori",
@@ -268,6 +274,7 @@ export const BattleTypes = [
   "KAGE_PVP",
   "CLAN_CHALLENGE",
   "CLAN_BATTLE",
+  "SHRINE_WAR",
   "TOURNAMENT",
   "QUEST",
   "VILLAGE_PROTECTOR",
@@ -347,6 +354,7 @@ export const UserRequestTypes = [
   "CLAN",
   "MARRIAGE",
   "KAGE",
+  "WAR_ALLY",
 ] as const;
 export type UserRequestType = (typeof UserRequestTypes)[number];
 
@@ -565,6 +573,47 @@ export const FED_EVENT_ITEMS_DEFAULT = 10;
 // Missions config
 export const MISSIONS_PER_DAY = 9;
 
+// War config
+export const WAR_TOWNHALL_HP_REMOVE = 5;
+export const WAR_TOWNHALL_HP_RECOVER = 2;
+export const WAR_TOWNHALL_HP_ANBU_REMOVE = 10;
+export const WAR_TOWNHALL_HP_ANBU_RECOVER = 5;
+export const WAR_TOWNHALL_HP_ELDER_REMOVE = 15;
+export const WAR_TOWNHALL_HP_ELDER_RECOVER = 10;
+export const WAR_TOWNHALL_HP_KAGE_REMOVE = 20;
+export const WAR_TOWNHALL_HP_KAGE_RECOVER = 15;
+export const WAR_TOWNHALL_HP_KAGEDEATH_REMOVE = 50;
+export const WAR_WINNING_BOOST_DAYS = 3;
+export const WAR_WINNING_BOOST_REGEN_PERC = 40;
+export const WAR_WINNING_BOOST_TRAINING_PERC = 20;
+export const WAR_DAILY_STRUCTURE_HP_DRAIN = 100; // Structure hp drain per day
+export const WAR_TOKEN_REDUCTION_INTERVAL_HOURS = 24; // How often tokens should be reduced
+export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS = 1.3; // 30% increase after 3 days
+export const WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS = 1.5; // 50% increase after 7 days
+export const WAR_EXHAUSTION_DURATION_DAYS = 3; // War exhaustion duration
+export const WAR_STRUCTURE_UPGRADE_BLOCK_DAYS = 7; // Structure upgrade block duration
+export const WAR_VICTORY_TOKEN_BONUS = 100000; // Victory bonus tokens
+export const WAR_PURCHASE_SHRINE_TOKEN_COST = 100000; // Cost in village tokens to purchase a shrine
+export const WAR_DECLARATION_COST = 15000; // Cost in village tokens to declare war
+export const WAR_DAILY_TOKEN_REDUCTION = 1000; // Daily token reduction during war
+export const WAR_ALLY_OFFER_MIN = 1000; // Minimum token offer for allies
+export const WAR_SHRINE_HP = 3000; // Shrine hp
+export const WAR_SECTORWAR_AI_SHRINE_REDUCE = 3; // KIlling AI shrine hp decrease
+export const WAR_SECTORWAR_AI_SHRINE_RECOVER = 3; // Shrine hp recover per day
+export const WAR_SECTORWAR_PVP_SHRINE_REDUCE = 5; // Killing a player in a sector war shrine hp decrease
+export const WAR_SECTORWAR_PVP_SHRINE_RECOVER = 7; // Shrine hp remove per day
+export const WAR_SHRINE_IMAGE =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJgLihSncU9cpECTimBdjaqbNn7vQsxGR1wLk4";
+export const WAR_STATES = [
+  "ACTIVE",
+  "ATTACKER_VICTORY",
+  "DEFENDER_VICTORY",
+  "DRAW",
+] as const;
+export const WAR_TYPES = ["VILLAGE_WAR", "SECTOR_WAR", "FACTION_RAID"] as const;
+export type WarType = (typeof WAR_TYPES)[number];
+export type WarState = (typeof WAR_STATES)[number];
+
 // Clans config
 export const CLAN_MPVP_MAX_USERS_PER_SIDE = 3;
 export const CLAN_CREATE_PRESTIGE_REQUIREMENT = 100;
@@ -580,10 +629,11 @@ export const CLAN_MAX_REGEN_BOOST = 15;
 export const CLAN_TRAINING_BOOST_COST = 300;
 export const CLAN_RYO_BOOST_COST = 100;
 export const CLAN_REGEN_BOOST_COST = 300;
+export const CLAN_COLOR_CHANGE_REP_COST = 50;
 
 // Hideout and town costs
-export const HIDEOUT_COST = 50_000_000; // Ryo
-export const HIDEOUT_TOWN_UPGRADE = 2_000; // Reps
+export const HIDEOUT_COST = 1; // TODO: 50_000_000; // Ryo
+export const HIDEOUT_TOWN_UPGRADE = 1; // TODO: 2_000; // Reps
 export const TOWN_REESTABLISH_COST = 30_000_000; // Ryo
 export const TOWN_MONTHLY_MAINTENANCE = 30_000; // Faction points
 export const FACTION_MIN_POINTS_FOR_TOWN = 1_000_000;
@@ -878,6 +928,10 @@ export const IMG_SECTOR_WALL_STONE_TOWER =
   "https://utfs.io/f/aab037bb-7ac7-48f7-9994-548d87eb55f1-lga892.webp";
 export const IMG_MAP_HEXASPHERE =
   "https://tnr-storage-cdn.b-cdn.net/eb805d73-5216-4d5c-b3e9-c39cc2340922-ixejn7.json";
+export const IMG_MAP_WAR_ICON =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJgipq89cU9cpECTimBdjaqbNn7vQsxGR1wLk4";
+export const IMG_MAP_QUEST_ICON =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRsb4NN0udmODoNtpa0FMcwI4k2Eq7nJhyvjl";
 export const IMG_TRAIN_INTELLIGENCE =
   "https://utfs.io/f/815a53ea-23d2-4767-9219-a36ed3d4c619-d73vsv.png";
 export const IMG_TRAIN_WILLPOWER =

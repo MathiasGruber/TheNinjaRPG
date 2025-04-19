@@ -333,7 +333,7 @@ export const getBasicActions = (
       chakraCost: 0,
       staminaCost: 0,
       actionCostPerc: 100,
-      effects: [FleeTag.parse({ power: 20, rounds: 0 })],
+      effects: [FleeTag.parse({ power: 100, rounds: 0 })],
     },
   };
 };

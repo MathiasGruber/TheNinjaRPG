@@ -13,9 +13,15 @@ import Countdown from "@/layout/Countdown";
 import Confirm from "@/layout/Confirm";
 import LoadoutSelector from "@/layout/LoadoutSelector";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UserRoundSearch, Globe2, Eye, EyeOff, GitMerge } from "lucide-react";
+import {
+  UserRoundSearch,
+  Globe2,
+  Eye,
+  EyeOff,
+  GitMerge,
+  MapPinned,
+} from "lucide-react";
 import { HousePlus } from "lucide-react";
-import { fetchMap } from "@/libs/travel/globe";
 import { api } from "@/app/_trpc/client";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
@@ -31,6 +37,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { useMap } from "@/hooks/map";
 import { Input } from "@/components/ui/input";
 import { HIDEOUT_COST } from "@/drizzle/constants";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
@@ -43,8 +50,13 @@ const Sector = dynamic(() => import("@/layout/Sector"), { ssr: false });
 export default function Travel() {
   // What is shown on this page
   const [showActive, setShowActive] = useLocalStorage<boolean>("showActiveOnMap", true);
+  const [showOwnership, setShowOwnership] = useLocalStorage<boolean>(
+    "showOwnership",
+    false,
+  );
   const [showModal, setShowModal] = useState<boolean>(false);
   const [showSorrounding, setShowSorrounding] = useState<boolean>(false);
+
   const [activeTab, setActiveTab] = useState<string>("");
 
   // Globe data
@@ -65,6 +77,10 @@ export default function Travel() {
   const { data: villageData } = api.village.getAll.useQuery(undefined, {
     enabled: !!userData,
   });
+  const { data: sectorData } = api.travel.getSectorData.useQuery(
+    { sector: userData?.sector || -1 },
+    { enabled: !!userData },
+  );
   const villages = villageData?.filter((v) => {
     if (userData?.isOutlaw) {
       return true;
@@ -86,9 +102,7 @@ export default function Travel() {
     : "";
   const globalLink = `Global (${currentSector})`;
 
-  void useMemo(async () => {
-    setGlobe(await fetchMap());
-  }, []);
+  useMap(setGlobe);
 
   // Selecting sector to highlight form
   const sectorSelect = z.object({
@@ -183,7 +197,13 @@ export default function Travel() {
       targetPosition &&
       currentPosition.x === targetPosition.x &&
       currentPosition.y === targetPosition.y;
-    if (atTarget && onEdge && targetSector && targetSector !== currentSector) {
+    if (
+      atTarget &&
+      onEdge &&
+      targetSector &&
+      targetSector !== currentSector &&
+      !isStartingTravel
+    ) {
       startGlobalMove({ sector: targetSector });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -233,16 +253,16 @@ export default function Travel() {
   const canCreateHideout =
     isOutlaw && !sectorVillage && clanLeader && !hadHideout && loadedVillages;
   const joinVillageBtn = userData.isOutlaw && canJoin && sectorVillage?.joinable;
+  const subtitle =
+    currentSector && userData && activeTab === sectorLink
+      ? `Sector ${currentSector} ${sectorData?.sectorData ? `(${sectorData.sectorData.village.name})` : ""}`
+      : "The world of Seichi";
 
   return (
     <>
       <ContentBox
         title="Travel"
-        subtitle={
-          currentSector && userData && activeTab === sectorLink
-            ? `Sector ${currentSector}`
-            : "The world of Seichi"
-        }
+        subtitle={subtitle}
         padding={false}
         topRightContent={
           <div className="flex flex-row items-center cursor-pointer">
@@ -266,38 +286,46 @@ export default function Travel() {
               </>
             )}
             {activeTab === globalLink && (
-              <Popover>
-                <PopoverTrigger>
-                  <Globe2 className={`h-7 w-7 mr-2 hover:text-orange-500`} />
-                </PopoverTrigger>
-                <PopoverContent>
-                  <p className="py-2">
-                    Select sector you wish to highlight on the global map.
-                  </p>
-                  <div className="flex flex-row items-center gap-2">
-                    {highlightedSector ? <p>Currently selected sector:</p> : undefined}
-                    <Form {...sectorForm}>
-                      <FormField
-                        control={sectorForm.control}
-                        name="sector"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                className="w-full"
-                                placeholder="Sector Highlight"
-                                type="number"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </Form>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <>
+                <Popover>
+                  <PopoverTrigger>
+                    <Globe2 className={`h-7 w-7 mr-2 hover:text-orange-500`} />
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    <p className="py-2">
+                      Select sector you wish to highlight on the global map.
+                    </p>
+                    <div className="flex flex-row items-center gap-2">
+                      {highlightedSector ? (
+                        <p>Currently selected sector:</p>
+                      ) : undefined}
+                      <Form {...sectorForm}>
+                        <FormField
+                          control={sectorForm.control}
+                          name="sector"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  className="w-full"
+                                  placeholder="Sector Highlight"
+                                  type="number"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </Form>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <MapPinned
+                  className={`h-7 w-7 mr-2 ${showOwnership ? "fill-orange-500" : ""}`}
+                  onClick={() => setShowOwnership(!showOwnership)}
+                />
+              </>
             )}
             {joinVillageBtn && (
               <Confirm
@@ -347,6 +375,7 @@ export default function Travel() {
             highlights={villages}
             userLocation={true}
             highlightedSector={highlightedSector}
+            showOwnership={showOwnership}
             onTileClick={(sector) => {
               setTargetSector(sector);
               setShowModal(true);
