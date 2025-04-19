@@ -21,7 +21,6 @@ import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
-import { KAGE_DEFAULT_PRESTIGE } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
@@ -199,10 +198,6 @@ export const updateKage = async (
               .update(village)
               .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
-            client
-              .update(userData)
-              .set({ villagePrestige: KAGE_DEFAULT_PRESTIGE })
-              .where(eq(userData.userId, user.userId)),
             client
               .update(userData)
               .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
