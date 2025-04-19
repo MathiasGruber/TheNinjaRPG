@@ -17,7 +17,9 @@ import {
   JUTSU_TRANSFER_COST,
   JUTSU_TRANSFER_DAYS,
   JUTSU_TRANSFER_MAX_LEVEL,
-  JUTSU_TRANSFER_MINIMUM_LEVEL
+  JUTSU_TRANSFER_MINIMUM_LEVEL,
+  COST_RESKIN_JUTSU,
+  RESKIN_LIMIT,
 } from "@/drizzle/constants";
 import {
   calcJutsuTrainTime,
@@ -27,7 +29,7 @@ import {
 import { DAY_S, secondsFromDate } from "@/utils/time";
 import { getFreeTransfers } from "@/libs/jutsu";
 import { JutsuValidator } from "@/libs/combat/types";
-import { canChangeContent, canEditPublicUser, canTransferJutsu  } from "@/utils/permissions";
+import { canChangeContent, canEditPublicUser, canTransferJutsu, canReskinJutsu } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
@@ -348,6 +350,7 @@ export const jutsuRouter = createTRPCRouter({
         target: "OTHER_USER",
         jutsuType: "AI",
         image: IMG_AVATAR_DEFAULT,
+        createdBy: user.username,
       });
       return { success: true, message: id };
     } else {
@@ -401,9 +404,28 @@ export const jutsuRouter = createTRPCRouter({
           createdAt: entry.createdAt,
           ...input.data,
         });
-        // Update
+
+        // Find all child jutsu
+        const childJutsus = await ctx.drizzle.query.jutsu.findMany({
+          where: eq(jutsu.parentJutsuId, input.id),
+        });
+
+        // Prepare update data for child jutsu
+        const { name, description, battleDescription, image, parentJutsuId, ...sharedData } = input.data;
+
+        // Update parent jutsu and all child jutsu
         await Promise.all([
+          // Update parent jutsu
           ctx.drizzle.update(jutsu).set(input.data).where(eq(jutsu.id, input.id)),
+          
+          // Update all child jutsu
+          ...childJutsus.map(childJutsu => 
+            ctx.drizzle.update(jutsu)
+              .set(sharedData)
+              .where(eq(jutsu.id, childJutsu.id))
+          ),
+
+          // Log the action
           ctx.drizzle.insert(actionLog).values({
             id: nanoid(),
             userId: ctx.userId,
@@ -413,6 +435,8 @@ export const jutsuRouter = createTRPCRouter({
             relatedMsg: `Update: ${entry.name}`,
             relatedImage: entry.image,
           }),
+
+          // Handle hidden status
           ...(input.data.hidden
             ? [
                 ctx.drizzle
@@ -422,6 +446,7 @@ export const jutsuRouter = createTRPCRouter({
               ]
             : []),
         ]);
+
         if (process.env.NODE_ENV !== "development") {
           await callDiscordContent(user.username, entry.name, diff, entry.image);
         }
@@ -724,6 +749,36 @@ export const jutsuRouter = createTRPCRouter({
         return errorResponse(`You cannot equip more than ${JUTSU_MAX_PIERCE_EQUIPPED} piercing jutsu`);
       }
 
+      // Check for equipped jutsu with same parent ID
+      if (newEquippedState === 1 && userjutsuObj.jutsu.parentJutsuId) {
+        const hasEquippedSibling = equippedJutsus.some(
+          (j) => j.jutsu.parentJutsuId === userjutsuObj.jutsu.parentJutsuId
+        );
+        if (hasEquippedSibling) {
+          return errorResponse("Cannot equip multiple jutsu with the same parent");
+        }
+      }
+
+      // Check for equipped children
+      if (newEquippedState === 1) {
+        const hasEquippedChild = equippedJutsus.some(
+          (j) => j.jutsu.parentJutsuId === userjutsuObj.jutsu.id
+        );
+        if (hasEquippedChild) {
+          return errorResponse("Cannot equip jutsu while its children are equipped");
+        }
+      }
+
+      // Check for equipped parent
+      if (newEquippedState === 1 && userjutsuObj.jutsu.parentJutsuId) {
+        const hasEquippedParent = equippedJutsus.some(
+          (j) => j.jutsu.id === userjutsuObj.jutsu.parentJutsuId
+        );
+        if (hasEquippedParent) {
+          return errorResponse("Cannot equip jutsu while its parent is equipped");
+        }
+      }
+
       // Calculate loadout
       if (loadout && isLoaded && newEquippedState === 0) {
         loadout.jutsuIds = loadout.jutsuIds.filter((id) => id !== userjutsuObj.jutsuId);
@@ -786,6 +841,115 @@ export const jutsuRouter = createTRPCRouter({
         .where(eq(jutsuLoadout.id, loadout.id));
 
       return { success: true, message: `Order updated` };
+    }),
+
+  reskin: protectedProcedure
+    .input(
+      z.object({
+        originalJutsuId: z.string(),
+        name: z.string().min(1).max(100),
+        description: z.string().min(1).max(1000),
+        battleDescription: z.string().min(1).max(1000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { originalJutsuId, name, description, battleDescription } = input;
+
+      // Get the original jutsu
+      const originalJutsu = await ctx.drizzle.query.userJutsu.findFirst({
+        where: (userJutsu, { eq }) => eq(userJutsu.id, originalJutsuId),
+        with: {
+          jutsu: true,
+        },
+      });
+
+      if (!originalJutsu) {
+        return errorResponse("Original jutsu not found");
+      }
+
+      // Check if user has enough reskins
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.reskinCount >= user.reskinTokenCount + RESKIN_LIMIT) {
+        return errorResponse(`You have used all your reskins (${user.reskinCount}/${user.reskinTokenCount + RESKIN_LIMIT})`);
+      }
+
+      // Check if user has enough reputation points (if not staff)
+      if (!canReskinJutsu(user.role) && user.reputationPoints < COST_RESKIN_JUTSU) {
+        return errorResponse(`Not enough reputation points. Required: ${COST_RESKIN_JUTSU}`);
+      }
+
+      // Create a new jutsu with the same properties as the original
+      const jutsuId = nanoid();
+      const newJutsu = await ctx.drizzle.insert(jutsu).values({
+        id: jutsuId,
+        name,
+        description,
+        battleDescription,
+        image: `${originalJutsu.jutsu.image}?t=${Date.now()}`,
+        effects: originalJutsu.jutsu.effects,
+        target: originalJutsu.jutsu.target,
+        range: originalJutsu.jutsu.range,
+        cooldown: originalJutsu.jutsu.cooldown,
+        bloodlineId: originalJutsu.jutsu.bloodlineId,
+        requiredLevel: originalJutsu.jutsu.requiredLevel,
+        requiredRank: originalJutsu.jutsu.requiredRank,
+        jutsuType: "RESKIN",
+        jutsuWeapon: originalJutsu.jutsu.jutsuWeapon,
+        statClassification: originalJutsu.jutsu.statClassification,
+        jutsuRank: originalJutsu.jutsu.jutsuRank,
+        actionCostPerc: originalJutsu.jutsu.actionCostPerc,
+        staminaCost: originalJutsu.jutsu.staminaCost,
+        chakraCost: originalJutsu.jutsu.chakraCost,
+        staminaCostReducePerLvl: originalJutsu.jutsu.staminaCostReducePerLvl,
+        chakraCostReducePerLvl: originalJutsu.jutsu.chakraCostReducePerLvl,
+        healthCostReducePerLvl: originalJutsu.jutsu.healthCostReducePerLvl,
+        healthCost: originalJutsu.jutsu.healthCost,
+        villageId: originalJutsu.jutsu.villageId,
+        method: originalJutsu.jutsu.method,
+        hidden: originalJutsu.jutsu.hidden,
+        parentJutsuId: originalJutsu.jutsu.id,
+        createdBy: user.username,
+      });
+
+      // Create a new user jutsu for the reskin
+      const newUserJutsu = await ctx.drizzle.insert(userJutsu).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        jutsuId: jutsuId,
+        level: originalJutsu.level,
+        equipped: 0,
+        finishTraining: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        experience: originalJutsu.experience,
+      });
+
+      // Deduct Reputation Points and increment reskin count
+      if (!canReskinJutsu(user.role)) {
+        await ctx.drizzle
+          .update(userData)
+          .set({
+            reputationPoints: sql`${userData.reputationPoints} - ${COST_RESKIN_JUTSU}`,
+            reskinCount: sql`${userData.reskinCount} + 1`,
+          })
+          .where(eq(userData.userId, ctx.userId));
+      } else {
+        await ctx.drizzle
+          .update(userData)
+          .set({
+            reskinCount: sql`${userData.reskinCount} + 1`,
+          })
+          .where(eq(userData.userId, ctx.userId));
+      }
+
+      return {
+        success: true,
+        message: "Jutsu reskin created successfully",
+        data: {
+          jutsuId: newJutsu.insertId,
+          userJutsuId: newUserJutsu.insertId,
+        },
+      };
     }),
 });
 
@@ -925,7 +1089,8 @@ export const jutsuDatabaseFilter = (input?: JutsuFilteringSchema) => {
               | "BLOODLINE"
               | "FORBIDDEN"
               | "LOYALTY"
-              | "AI",
+              | "AI"
+              | "RESKIN",
           ),
         )
       : []),
