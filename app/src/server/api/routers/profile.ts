@@ -510,6 +510,134 @@ export const profileRouter = createTRPCRouter({
       return { success: false, message: `Not allowed to create AI` };
     }
   }),
+  // Clone an existing AI
+  cloneAi: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, ai] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, input.id),
+          with: { 
+            jutsus: true, 
+            items: true,
+            nindo: true,
+            aiProfile: true
+          },
+        }),
+      ]);
+      // Guard
+      if (!ai) return errorResponse("AI not found");
+      if (!ai.isAi) return errorResponse("Not an AI");
+      if (!canChangeContent(user.role)) return errorResponse("Not allowed");
+
+      // Create new AI with copied data
+      const newId = nanoid();
+      const newAi = {
+        userId: newId,
+        username: `${ai.username} (copy)`,
+        avatar: ai.avatar,
+        avatarLight: ai.avatarLight,
+        villageId: ai.villageId,
+        approvedTos: 1,
+        sector: 0,
+        isAi: true,
+        gender: ai.gender,
+        rank: ai.rank,
+        level: ai.level,
+        experience: ai.experience,
+        earnedExperience: ai.earnedExperience,
+        reputationPoints: ai.reputationPoints,
+        federalStatus: ai.federalStatus,
+        status: ai.status,
+        curHealth: ai.curHealth,
+        maxHealth: ai.maxHealth,
+        curChakra: ai.curChakra,
+        maxChakra: ai.maxChakra,
+        curStamina: ai.curStamina,
+        maxStamina: ai.maxStamina,
+        strength: ai.strength,
+        speed: ai.speed,
+        intelligence: ai.intelligence,
+        willpower: ai.willpower,
+        customTitle: ai.customTitle,
+        showBattleDescription: ai.showBattleDescription,
+        lastIp: ai.lastIp,
+        createdAt: ai.createdAt,
+        updatedAt: ai.updatedAt,
+        // Combat stats
+        ninjutsuOffence: ai.ninjutsuOffence,
+        taijutsuOffence: ai.taijutsuOffence,
+        genjutsuOffence: ai.genjutsuOffence,
+        bukijutsuOffence: ai.bukijutsuOffence,
+        ninjutsuDefence: ai.ninjutsuDefence,
+        taijutsuDefence: ai.taijutsuDefence,
+        genjutsuDefence: ai.genjutsuDefence,
+        bukijutsuDefence: ai.bukijutsuDefence,
+        // Additional fields
+        isBanned: ai.isBanned,
+        isSilenced: ai.isSilenced,
+        movedTooFastCount: ai.movedTooFastCount,
+        deletionAt: ai.deletionAt,
+        clanId: ai.clanId,
+        bloodlineId: ai.bloodlineId,
+        anbuId: ai.anbuId,
+        senseiId: ai.senseiId,
+        recruiterId: ai.recruiterId,
+        pveFights: ai.pveFights,
+        tavernMessages: ai.tavernMessages,
+        statsMultiplier: ai.statsMultiplier,
+        poolsMultiplier: ai.poolsMultiplier,
+        aiProfileId: ai.aiProfileId,
+        // New fields being added
+        primaryElement: ai.primaryElement,
+        secondaryElement: ai.secondaryElement,
+        isSummon: ai.isSummon,
+        inArena: ai.inArena,
+        isEvent: ai.isEvent,
+        preferredStat: ai.preferredStat,
+        preferredGeneral1: ai.preferredGeneral1,
+        preferredGeneral2: ai.preferredGeneral2,
+      };
+
+      // Insert new AI
+      await ctx.drizzle.insert(userData).values(newAi);
+
+      // Copy jutsus and items
+      if (ai.jutsus.length > 0) {
+        await ctx.drizzle.insert(userJutsu).values(
+          ai.jutsus.map((jutsu) => ({
+            id: nanoid(),
+            userId: newId,
+            jutsuId: jutsu.jutsuId,
+            level: jutsu.level,
+          })),
+        );
+      }
+      if (ai.items.length > 0) {
+        await ctx.drizzle.insert(userItem).values(
+          ai.items.map((item) => ({
+            id: nanoid(),
+            userId: newId,
+            itemId: item.itemId,
+            quantity: item.quantity,
+          })),
+        );
+      }
+
+      // Copy nindo if it exists
+      if (ai.nindo) {
+        await ctx.drizzle.insert(userNindo).values({
+          id: nanoid(),
+          userId: newId,
+          content: ai.nindo.content,
+        });
+      }
+
+      return { success: true, message: newId };
+    }),
   // Delete a AI
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -1024,7 +1152,9 @@ export const profileRouter = createTRPCRouter({
               },
             },
             anbuSquad: {
-              columns: { name: true },
+              columns: {
+                name: true,
+              },
             },
           },
         }),

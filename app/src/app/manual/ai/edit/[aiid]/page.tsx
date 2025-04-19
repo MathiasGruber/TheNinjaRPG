@@ -20,6 +20,8 @@ import { insertAiSchema } from "@/drizzle/schema";
 import { useAiEditForm } from "@/libs/ais";
 import { showMutationToast } from "@/libs/toast";
 import type { AiWithRelations } from "@/routers/profile";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
 
 export default function ManualAisEdit(props: { params: Promise<{ aiid: string }> }) {
   const params = use(props.params);
@@ -33,6 +35,23 @@ export default function ManualAisEdit(props: { params: Promise<{ aiid: string }>
     { userId: aiId },
     { enabled: aiId !== undefined },
   );
+
+  const { mutate: cloneAi, isPending: isCloning } = api.profile.cloneAi.useMutation({
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: "AI cloned successfully",
+      });
+      router.push(`/manual/ai/edit/${data.message}`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Convert key null values to empty strings, preparing data for form
   setNullsToEmptyStrings(data);
@@ -50,12 +69,14 @@ export default function ManualAisEdit(props: { params: Promise<{ aiid: string }>
     return <Loader explanation="Loading data" />;
   }
 
-  return <SingleEditUser user={data} refetch={refetch} />;
+  return <SingleEditUser user={data} refetch={refetch} cloneAi={cloneAi} isCloning={isCloning} />;
 }
 
 interface SingleEditUserProps {
   user: AiWithRelations;
   refetch: () => void;
+  cloneAi: (data: { id: string }) => void;
+  isCloning: boolean;
 }
 
 const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
@@ -112,6 +133,16 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
         {!processedUser && <p>Could not find this AI</p>}
         {!loading && processedUser && (
           <>
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-2xl font-bold">Edit AI</h1>
+              <Button
+                variant="outline"
+                onClick={() => props.cloneAi({ id: processedUser.userId })}
+                disabled={props.isCloning}
+              >
+                {props.isCloning ? "Cloning..." : "Clone AI"}
+              </Button>
+            </div>
             <StatusBar
               title="HP"
               tooltip="Health"
