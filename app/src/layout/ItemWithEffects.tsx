@@ -160,7 +160,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       : item.updatedAt}
                   </div>
                 )}
-                {item.createdBy && (
+                {"createdBy" in item && item.createdBy && (
                   <div>
                     <b>Created By: </b>
                     {item.createdBy}
