@@ -458,20 +458,24 @@ export const clanRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, village, clans] = await Promise.all([
+      const [user, villageData, clans, villageWithName] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchVillage(ctx.drizzle, input.villageId),
         fetchClans(ctx.drizzle, input.villageId),
+        ctx.drizzle.query.village.findFirst({
+          where: eq(village.name, input.name),
+        }),
       ]);
       // Derived
-      const villageId = village?.id;
-      const structure = village?.structures.find((s) => s.route === "/clanhall");
+      const villageId = villageData?.id;
+      const structure = villageData?.structures.find((s) => s.route === "/clanhall");
       const groupLabel = user?.isOutlaw ? "faction" : "clan";
       const locationLabel = user?.isOutlaw ? "syndicate" : "village";
       // Guards
       if (!user) return errorResponse("User not found");
-      if (!village) return errorResponse(`${locationLabel} not found`);
+      if (!villageData) return errorResponse(`${locationLabel} not found`);
       if (!structure) return errorResponse(`${groupLabel} hall not found`);
+      if (villageWithName) return errorResponse("Name taken by village/faction");
       if (villageId !== user.villageId) return errorResponse(`Wrong ${locationLabel}`);
       if (clans.find((c) => c.name === input.name)) return errorResponse("Name taken");
       if (clans.find((c) => c.leaderId === ctx.userId))
@@ -503,7 +507,7 @@ export const clanRouter = createTRPCRouter({
       await ctx.drizzle.insert(clan).values({
         id: clanId,
         image: IMG_AVATAR_DEFAULT,
-        villageId: village.id,
+        villageId: villageData.id,
         name: input.name,
         founderId: user.userId,
         leaderId: user.userId,
