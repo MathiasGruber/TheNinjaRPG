@@ -505,7 +505,7 @@ export const EditContent = <
                           AI
                         </Button>
                         <UploadButton
-                          endpoint="imageUploader"
+                          endpoint="modelUploader"
                           onClientUploadComplete={(res) => {
                             const url = res?.[0]?.url;
                             if (url) {
