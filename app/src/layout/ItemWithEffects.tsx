@@ -154,7 +154,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     }
   }
 
-  console.log(item);
 
   return (
     <div className="mb-3 flex flex-row items-center rounded-lg border bg-popover p-2 align-middle shadow-sm ">
