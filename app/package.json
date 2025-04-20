@@ -92,6 +92,7 @@
     "embla-carousel-react": "^8.5.2",
     "emoji-picker-react": "^4.12.0",
     "eslint-plugin-drizzle": "^0.2.3",
+    "fetch-retry": "^6.0.0",
     "honeycomb-grid": "4.1.5",
     "html2canvas": "1.4.1",
     "jotai": "^2.12.1",

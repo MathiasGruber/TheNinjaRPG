@@ -1015,12 +1015,16 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               {!userData?.isOutlaw && <p>Village: {clanData.village.name}</p>}
               <p>
                 Founder:{" "}
-                <Link
-                  className="font-bold hover:text-orange-500"
-                  href={`/userid/${clanData.founder.userId}`}
-                >
-                  {clanData.founder.username}
-                </Link>
+                {clanData?.founder ? (
+                  <Link
+                    className="font-bold hover:text-orange-500"
+                    href={`/userid/${clanData.founder.userId}`}
+                  >
+                    {clanData?.founder.username}
+                  </Link>
+                ) : (
+                  "Unknown"
+                )}
               </p>
               <p>
                 Leader:{" "}
