@@ -7,7 +7,12 @@ import { requestBgRemoval } from "@/libs/replicate";
 
 export const openaiRouter = createTRPCRouter({
   create3dModel: protectedProcedure
-    .input(z.object({ imgUrl: z.string(), field: z.string() }))
+    .input(
+      z.object({
+        imgUrl: z.string().url("imgUrl must be a valid http/https URL"),
+        field: z.string(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (!canChangeContent(user.role)) {
