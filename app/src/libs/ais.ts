@@ -78,7 +78,7 @@ export const useAiEditForm = (
   const effects = useWatch({
     control: form.control,
     name: "effects",
-    defaultValue: [],
+    defaultValue: user.effects,
   });
 
   // Handle updating of effects

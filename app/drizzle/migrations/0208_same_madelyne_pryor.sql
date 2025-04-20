@@ -80,3 +80,6 @@ WHERE NOT EXISTS (
     FROM Sector s 
     WHERE s.villageId = v.id
 );
+
+UPDATE VillageStructure SET `villageDefencePerLvl` = 0 WHERE route = '/anbu';
+UPDATE VillageStructure SET `villageDefencePerLvl` = 0 WHERE route = '/clanhall';

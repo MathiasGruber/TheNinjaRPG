@@ -100,7 +100,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
   const boostEndAt = secondsFromNow(WAR_WINNING_BOOST_DAYS * 24 * 60 * 60);
 
   // If both villages have >= 0 tokens, just return without ending
-  if (activeWar.attackerVillage.tokens >= 0 && activeWar.defenderVillage.tokens >= 0) {
+  if (activeWar.attackerVillage.tokens > 0 && activeWar.defenderVillage.tokens > 0) {
     return activeWar;
   }
 
