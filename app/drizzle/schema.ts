@@ -1374,6 +1374,7 @@ export const userData = mysqlTable(
     approvedTos: tinyint("approvedTos").default(0).notNull(),
     avatar: varchar("avatar", { length: 191 }),
     avatarLight: varchar("avatarLight", { length: 191 }),
+    avatar3d: varchar("avatar3d", { length: 191 }),
     sector: smallint("sector", { unsigned: true }).default(0).notNull(),
     longitude: tinyint("longitude").default(10).notNull(),
     latitude: tinyint("latitude").default(7).notNull(),

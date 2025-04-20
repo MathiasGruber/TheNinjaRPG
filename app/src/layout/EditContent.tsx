@@ -2,8 +2,9 @@ import { z } from "zod";
 import { calculateContentDiff } from "@/utils/diff";
 import { useForm, useWatch } from "react-hook-form";
 import Image from "next/image";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import AvatarImage from "@/layout/Avatar";
+import Model3d from "@/layout/Model3d";
 import RichInput from "@/layout/RichInput";
 import Loader from "@/layout/Loader";
 import { Switch } from "@/components/ui/switch";
@@ -57,6 +58,7 @@ export type FormEntry<K> = {
   | { type: "animation_array"; values: readonly string[] }
   | { type: "statics_array"; values: readonly string[] }
   | { type: "avatar"; href?: string | null }
+  | { type: "avatar3d"; modelUrl?: string | null; imgUrl?: string | null }
   | {
       type: "db_values";
       values: FormDbValue[] | undefined;
@@ -97,6 +99,9 @@ export const EditContent = <
   const { formData, formClassName, form, showSubmit, buttonTxt } = props;
   const currentValues = form.getValues();
 
+  // State
+  const [isLoading, setIsLoading] = useState(false);
+
   // Event listener for submitting on enter click
   const onDocumentKeyDown = (event: KeyboardEvent) => {
     if (props.onEnter) {
@@ -119,7 +124,7 @@ export const EditContent = <
   const { mutate: removeBg, isPending: load1 } = api.openai.removeBg.useMutation({
     onSuccess: (data, variables) => {
       showMutationToast({ success: true, message: "Background removed" });
-      fetchImg({
+      fetchReplicateResult({
         replicateId: data.replicateId,
         field: variables.field,
         removeBg: false,
@@ -127,28 +132,39 @@ export const EditContent = <
     },
   });
 
-  const { mutate: fetchImg, isPending: load2 } = api.openai.fetchImg.useMutation({
-    onSuccess: async (data, variables) => {
-      if (data.status !== "failed") {
-        if (data.url) {
-          form.setValue(variables.field as Path<S>, data.url as PathValue<S, Path<S>>, {
-            shouldDirty: true,
-          });
-          if (variables.removeBg) {
-            removeBg({ url: data.url, field: variables.field });
+  const { mutate: fetchReplicateResult, isPending: load2 } =
+    api.openai.fetchReplicateResult.useMutation({
+      onMutate: () => {
+        setIsLoading(true);
+      },
+      onSuccess: async (data, variables) => {
+        if (data.status !== "failed") {
+          if (data.url) {
+            form.setValue(
+              variables.field as Path<S>,
+              data.url as PathValue<S, Path<S>>,
+              { shouldDirty: true },
+            );
+            if (variables.removeBg) {
+              removeBg({ url: data.url, field: variables.field });
+            }
+            setIsLoading(false);
+          } else {
+            await sleep(5000);
+            fetchReplicateResult(variables);
           }
-        } else {
-          await sleep(5000);
-          fetchImg(variables);
         }
-      }
-    },
-  });
+      },
+      onError: (error) => {
+        console.error(error);
+        setIsLoading(false);
+      },
+    });
 
   const { mutate: createImg, isPending: load3 } = api.openai.createImg.useMutation({
     onSuccess: (data, variables) => {
       showMutationToast({ success: true, message: "Image generated. Now fetching" });
-      fetchImg({
+      fetchReplicateResult({
         replicateId: data.replicateId,
         field: variables.field,
         removeBg: variables.removeBg,
@@ -156,7 +172,23 @@ export const EditContent = <
     },
   });
 
-  const load = load1 || load2 || load3;
+  const { mutate: create3dModel, isPending: load4 } =
+    api.openai.create3dModel.useMutation({
+      onSuccess: (data, variables) => {
+        showMutationToast({
+          success: true,
+          message: "3D model generated. Now fetching",
+        });
+        fetchReplicateResult({
+          replicateId: data.replicateId,
+          field: variables.field,
+          removeBg: false,
+        });
+      },
+    });
+
+  const load = isLoading || load1 || load2 || load3 || load4;
+
   return (
     <Form {...form}>
       <form
@@ -197,7 +229,7 @@ export const EditContent = <
           return (
             <div
               key={`formEntry-${id}`}
-              className={`${type === "avatar" ? "row-span-5" : ""} ${
+              className={`${["avatar", "avatar3d"].includes(type) ? "row-span-5" : ""} ${
                 formEntry.doubleWidth ? "md:col-span-2" : ""
               } ${
                 props.fixedWidths
@@ -354,90 +386,145 @@ export const EditContent = <
                 </div>
               )}
               {type === "avatar" && props.allowImageUpload && "href" in formEntry && (
-                <>
-                  <AvatarImage
-                    href={formEntry.href}
-                    alt={id}
-                    size={100}
-                    hover_effect={true}
-                    priority
-                  />
+                <div className="flex flex-col justify-start">
+                  <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
                   <br />
-                  <div className="flex flex-row justify-center">
-                    <Button
-                      id="create"
-                      className="h-10 mr-1 bg-blue-600"
-                      onClick={() => {
-                        let prompt = "";
-                        // Generate based on name, title and description
-                        if (currentValues?.name) {
-                          prompt += `${currentValues?.name} `;
-                        }
-                        if (currentValues?.username) {
-                          prompt += `${currentValues?.username} `;
-                        }
-                        if (currentValues?.title) {
-                          prompt += `${currentValues?.title} `;
-                        }
-                        if (prompt && !load) {
-                          // Different qualifiers for different content types
-                          if (props.type === "quest") {
-                            prompt = `Epic composition, cinematic ${prompt}, vibrant background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, Trending on artstation, 8k, Japanese inspiration, extremely detailed.`;
-                          } else if (props.type === "item") {
-                            prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Japanese inspiration, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, MOORPG Items, professional videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
-                          } else if (props.type === "badge") {
-                            prompt = `${prompt} round badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
-                          } else if (props.type === "jutsu") {
-                            prompt = `epic composition, symbolic representing the action: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
-                          } else if (props.type === "bloodline") {
-                            prompt = `epic composition, symbolic representing the heritage: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
-                          } else if (props.type === "ai") {
-                            prompt = `A full-body anime-style pixel art ${prompt} in a 3D-like, standing in a balanced, central position. The ${prompt} is rendered with clean, sharp pixel details and modern shading techniques, evoking the style of retro 8-bit/16-bit games but with a polished, high-quality finish. The background is a simple, solid color highlighting the character, allowing them to stand out clearly. Dynamic pose, extremely detailed.`;
-                          }
-                          // Send of the request for content image
-                          createImg({
-                            prompt: prompt,
-                            field: id,
-                            removeBg: ["item", "ai"].includes(props.type ?? ""),
-                          });
-                        }
-                      }}
-                    >
-                      {load ? (
-                        <Loader noPadding={true} size={25} />
-                      ) : (
-                        <RefreshCw className="mr-1 p-2 h-10 w-10" />
-                      )}
-                      AI
-                    </Button>
-                    <UploadButton
-                      endpoint="imageUploader"
-                      onClientUploadComplete={(res) => {
-                        const url = res?.[0]?.url;
-                        if (url) {
-                          form.setValue(id, url as PathValue<S, K>, {
-                            shouldDirty: true,
-                          });
-                        }
-                      }}
-                      onUploadError={(error: Error) => {
-                        showMutationToast({ success: false, message: error.message });
-                      }}
-                    />
-                  </div>
-                </>
-              )}
-              {type === "avatar" && !props.allowImageUpload && "href" in formEntry && (
-                <div className="w-32">
                   <AvatarImage
-                    href={formEntry.href}
+                    href={currentValues?.[id] ?? formEntry.href}
                     alt={id}
                     size={100}
                     hover_effect={true}
                     priority
                   />
+
+                  <br />
+                  {props.allowImageUpload && (
+                    <div className="flex flex-row justify-center">
+                      <Button
+                        id="create"
+                        className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          let prompt = "";
+                          // Generate based on name, title and description
+                          if (currentValues?.name) {
+                            prompt += `${currentValues?.name} `;
+                          }
+                          if (currentValues?.username) {
+                            prompt += `${currentValues?.username} `;
+                          }
+                          if (currentValues?.title) {
+                            prompt += `${currentValues?.title} `;
+                          }
+                          if (prompt && !load) {
+                            // Different qualifiers for different content types
+                            if (props.type === "quest") {
+                              prompt = `Epic composition, cinematic ${prompt}, vibrant background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, Trending on artstation, 8k, Japanese inspiration, extremely detailed.`;
+                            } else if (props.type === "item") {
+                              prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Japanese inspiration, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, MOORPG Items, professional videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
+                            } else if (props.type === "badge") {
+                              prompt = `${prompt} round badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
+                            } else if (props.type === "jutsu") {
+                              prompt = `epic composition, symbolic representing the action: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
+                            } else if (props.type === "bloodline") {
+                              prompt = `epic composition, symbolic representing the heritage: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
+                            } else if (props.type === "ai") {
+                              prompt = `A full-body anime-style pixel art ${prompt} in a 3D-like, standing in a balanced, central position. The ${prompt} is rendered with clean, sharp pixel details and modern shading techniques, evoking the style of retro 8-bit/16-bit games but with a polished, high-quality finish. The background is a simple, solid color highlighting the character, allowing them to stand out clearly. Dynamic pose, extremely detailed.`;
+                            }
+                            // Send of the request for content image
+                            createImg({
+                              prompt: prompt,
+                              field: id,
+                              removeBg: ["item", "ai"].includes(props.type ?? ""),
+                            });
+                          }
+                        }}
+                      >
+                        {load ? (
+                          <Loader noPadding={true} size={25} />
+                        ) : (
+                          <RefreshCw className="mr-1 p-2 h-10 w-10" />
+                        )}
+                        AI
+                      </Button>
+                      <UploadButton
+                        endpoint="imageUploader"
+                        onClientUploadComplete={(res) => {
+                          const url = res?.[0]?.url;
+                          if (url) {
+                            form.setValue(id, url as PathValue<S, K>, {
+                              shouldDirty: true,
+                            });
+                          }
+                        }}
+                        onUploadError={(error: Error) => {
+                          showMutationToast({ success: false, message: error.message });
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
+              {type === "avatar3d" &&
+                "modelUrl" in formEntry &&
+                "imgUrl" in formEntry && (
+                  <div className="flex flex-col justify-start">
+                    <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
+                    <br />
+                    <Model3d
+                      modelUrl={currentValues?.[id] ?? formEntry.modelUrl}
+                      imageUrl={formEntry.imgUrl}
+                      alt={id}
+                      size={100}
+                      hover_effect={true}
+                      priority
+                    />
+                    <br />
+                    {formEntry.imgUrl && props.allowImageUpload && (
+                      <div className="flex flex-row justify-center">
+                        <Button
+                          id="create"
+                          className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (formEntry.imgUrl) {
+                              create3dModel({
+                                imgUrl: formEntry.imgUrl,
+                                field: id,
+                              });
+                            }
+                          }}
+                        >
+                          {load ? (
+                            <Loader noPadding={true} size={25} />
+                          ) : (
+                            <RefreshCw className="mr-1 p-2 h-10 w-10" />
+                          )}
+                          AI
+                        </Button>
+                        <UploadButton
+                          endpoint="imageUploader"
+                          onClientUploadComplete={(res) => {
+                            const url = res?.[0]?.url;
+                            if (url) {
+                              form.setValue(id, url as PathValue<S, K>, {
+                                shouldDirty: true,
+                              });
+                            }
+                          }}
+                          onUploadError={(error: Error) => {
+                            showMutationToast({
+                              success: false,
+                              message: error.message,
+                            });
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
             </div>
           );
         })}

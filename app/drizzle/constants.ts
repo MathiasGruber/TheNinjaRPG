@@ -641,6 +641,12 @@ export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";
 export const ID_ANIMATION_HIT = "oh4kVNrAwF";
 export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
+// Draco files (see https://github.com/google/draco/tree/main/javascript)
+export const DRACO_DECODER_URL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF0eCaMuG2iOewJtjGzvNcmEX3TBnoSfMDZPH";
+export const DRACO_ENCODER_URL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJGexpLZRfoVrha0LP4mAS5KM7wtiZbUNXJxdC";
+
 // Images
 export const IMG_FRONTPAGE_SCREENSHOT_COMBAT =
   "https://utfs.io/f/Hzww9EQvYURJmap513HE4IMO5Goa7cgLxPJ0VC6lU8vbt1Ap";

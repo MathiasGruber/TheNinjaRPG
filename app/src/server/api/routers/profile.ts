@@ -1723,6 +1723,7 @@ export const fetchPublicUsers = async (
       ),
       columns: {
         avatar: true,
+        avatar3d: true,
         avatarLight: true,
         experience: true,
         inArena: true,

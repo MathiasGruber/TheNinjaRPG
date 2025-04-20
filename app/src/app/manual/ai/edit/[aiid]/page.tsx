@@ -20,8 +20,6 @@ import { insertAiSchema } from "@/drizzle/schema";
 import { useAiEditForm } from "@/libs/ais";
 import { showMutationToast } from "@/libs/toast";
 import type { AiWithRelations } from "@/routers/profile";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/use-toast";
 
 export default function ManualAisEdit(props: { params: Promise<{ aiid: string }> }) {
   const params = use(props.params);
