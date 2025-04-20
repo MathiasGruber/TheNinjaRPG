@@ -142,7 +142,7 @@ interface ReplicateReturn {
  */
 export const uploadToUT = async (url: string) => {
   const utapi = new UTApi();
-  const extension = url.split(".").pop();
+  const extension = path.extname(url).replace(/^\./, "") || "bin";
   const name = `${nanoid()}.${extension}`;
   if (!url.startsWith("http")) {
     const fileBuffer = await fs.promises.readFile(url);
