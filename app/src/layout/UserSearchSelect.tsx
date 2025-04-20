@@ -78,7 +78,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
     return () => clearTimeout(delayDebounceFn);
   }, [watchUsername, setSearchTerm]);
 
-  const selectedVisual = watchUsers.map((user) => (
+  const selectedVisual = watchUsers.filter(Boolean).map((user) => (
     <span
       key={user.userId}
       className="inline-flex items-center rounded-lg border border-amber-900 bg-gray-100 px-2 text-sm font-medium text-gray-800"
