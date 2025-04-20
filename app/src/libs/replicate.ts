@@ -144,15 +144,13 @@ export const uploadToUT = async (url: string) => {
   const utapi = new UTApi();
   const extension = url.split(".").pop();
   const name = `${nanoid()}.${extension}`;
-  if (url.startsWith("/var/folders/")) {
-    const fileBuffer = fs.readFileSync(url);
+  if (!url.startsWith("http")) {
+    const fileBuffer = await fs.promises.readFile(url);
     const uploadedFile = await utapi.uploadFiles(new UTFile([fileBuffer], name));
     return uploadedFile.data?.ufsUrl ?? null;
-  } else if (url.includes("http")) {
+  } else {
     const uploadedFile = await utapi.uploadFilesFromUrl({ url, name });
     return uploadedFile.data?.ufsUrl ?? null;
-  } else {
-    throw new Error(`Invalid URL: ${url}`);
   }
 };
 
