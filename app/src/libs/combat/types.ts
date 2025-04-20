@@ -12,7 +12,14 @@ import type { Jutsu, Item, VillageAlliance, Clan, War } from "@/drizzle/schema";
 import type { UserJutsu, UserItem, UserData, AiProfile } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { BattleType } from "@/drizzle/constants";
+import type { WarAlly } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/routers/profile";
+
+export type BattleWar = War & {
+  warAllies: WarAlly[];
+  attackerVillage: { name: string } | null;
+  defenderVillage: { name: string } | null;
+};
 
 /**
  * BattleUserState is the data stored in the battle entry about a given user
@@ -31,7 +38,7 @@ export type BattleUserState = UserWithRelations & {
   round: number;
   loadout?: { jutsuIds: string[] } | null;
   relations: VillageAlliance[];
-  wars: War[];
+  wars: BattleWar[];
   highestOffence: (typeof StatNames)[number];
   highestDefence: (typeof StatNames)[number];
   highestGenerals: (typeof GenNames)[number][];

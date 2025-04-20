@@ -301,49 +301,60 @@ export const updateWars = async (
   // Mutate
   await Promise.all(
     warResults
-      .map((warResult) => [
-        // Insert war kill for tracking purposes
-        ...(result.didWin
-          ? [
-              client.insert(warKill).values({
-                id: nanoid(),
-                warId: warResult.war.id,
-                killerId: user.userId,
-                victimId: warResult.target.userId,
-                killerVillageId: user.villageId!,
-                victimVillageId: warResult.target.villageId!,
-                sector: user.sector,
-                shrineHpChange: result.shrineChangeHp,
-                townhallHpChange: result.townhallChangeHP,
-                killedAt: new Date(),
-              }),
-            ]
-          : []),
-        // Update shrine if we're in a sector war
-        ...(result.shrineChangeHp !== 0 && warResult.war.type === "SECTOR_WAR"
-          ? [
-              client
-                .update(war)
-                .set({ shrineHp: sql`shrineHp + ${result.shrineChangeHp}` })
-                .where(eq(war.id, warResult.war.id)),
-            ]
-          : []),
-        // Update townhall if we're in a village war
-        ...(result.townhallChangeHP !== 0 &&
-        ["VILLAGE_WAR", "FACTION_RAID"].includes(warResult.war.type)
-          ? [
-              client
-                .update(villageStructure)
-                .set({ curSp: sql`LEAST(maxSp, curSp + ${result.townhallChangeHP})` })
-                .where(
-                  and(
-                    eq(villageStructure.villageId, user.villageId!),
-                    eq(villageStructure.route, warResult.war.targetStructureRoute),
+      .map((warResult) => {
+        const townhallVillageId =
+          warResult.war.attackerVillageId === user.villageId ||
+          warResult.war.warAllies.some(
+            (a) =>
+              a.villageId === user.villageId &&
+              a.supportVillageId === warResult.war.attackerVillageId,
+          )
+            ? warResult.war.attackerVillageId
+            : warResult.war.defenderVillageId;
+        return [
+          // Insert war kill for tracking purposes
+          ...(result.didWin
+            ? [
+                client.insert(warKill).values({
+                  id: nanoid(),
+                  warId: warResult.war.id,
+                  killerId: user.userId,
+                  victimId: warResult.target.userId,
+                  killerVillageId: user.villageId!,
+                  victimVillageId: warResult.target.villageId!,
+                  sector: user.sector,
+                  shrineHpChange: result.shrineChangeHp,
+                  townhallHpChange: result.townhallChangeHP,
+                  killedAt: new Date(),
+                }),
+              ]
+            : []),
+          // Update shrine if we're in a sector war
+          ...(result.shrineChangeHp !== 0 && warResult.war.type === "SECTOR_WAR"
+            ? [
+                client
+                  .update(war)
+                  .set({ shrineHp: sql`shrineHp + ${result.shrineChangeHp}` })
+                  .where(eq(war.id, warResult.war.id)),
+              ]
+            : []),
+          // Update townhall if we're in a village war
+          ...(result.townhallChangeHP !== 0 &&
+          ["VILLAGE_WAR", "FACTION_RAID"].includes(warResult.war.type)
+            ? [
+                client
+                  .update(villageStructure)
+                  .set({ curSp: sql`LEAST(maxSp, curSp + ${result.townhallChangeHP})` })
+                  .where(
+                    and(
+                      eq(villageStructure.villageId, townhallVillageId),
+                      eq(villageStructure.route, warResult.war.targetStructureRoute),
+                    ),
                   ),
-                ),
-            ]
-          : []),
-      ])
+              ]
+            : []),
+        ];
+      })
       .flat(),
   );
 };

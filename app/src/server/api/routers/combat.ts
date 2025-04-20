@@ -787,7 +787,14 @@ export const initiateBattle = async (
     // Fetch default AI profile
     fetchAiProfileById(client, "Default"),
     // Fetch active wars
-    client.select().from(war).where(eq(war.status, "ACTIVE")),
+    client.query.war.findMany({
+      where: eq(war.status, "ACTIVE"),
+      with: {
+        warAllies: true,
+        attackerVillage: { columns: { name: true } },
+        defenderVillage: { columns: { name: true } },
+      },
+    }),
     // Fetch game assets
     fetchGameAssets(client),
     // Fetch game settings

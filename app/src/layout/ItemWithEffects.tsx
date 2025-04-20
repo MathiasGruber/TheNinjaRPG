@@ -154,7 +154,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     }
   }
 
-
   return (
     <div className="mb-3 flex flex-row items-center rounded-lg border bg-popover p-2 align-middle shadow-sm ">
       {!hideDetails && !hideImage && (
@@ -238,7 +237,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       the new AI.
                     </Confirm>
                   )}
-                  {show3d && "avatar" in item && "avatar3d" in item && (
+                  {show3d && "avatar" in item && "avatar3d" in item && item.avatar3d ? (
                     <Confirm
                       title="3d Model"
                       button={
@@ -252,7 +251,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                         size={100}
                       />
                     </Confirm>
-                  )}
+                  ) : undefined}
                   <Link href={`/manual/${showEdit}/edit/${item.id}`}>
                     <SquarePen className="h-6 w-6 hover:text-popover-foreground/50" />
                   </Link>

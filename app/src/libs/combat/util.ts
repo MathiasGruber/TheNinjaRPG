@@ -40,6 +40,7 @@ import {
   WAR_SECTORWAR_PVP_SHRINE_REDUCE,
   WAR_SECTORWAR_PVP_SHRINE_RECOVER,
 } from "@/drizzle/constants";
+import type { BattleWar } from "@/libs/combat/types";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
 import type { CombatResult, CompleteBattle, ReturnedBattle } from "./types";
@@ -672,23 +673,38 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
           .filter((t) => t.village?.name)
           .filter((t) => t.villageId !== vilId)
           .forEach((target) => {
-            // eslint-disable-next-line
-            const userVillageName = user.village?.name!;
-            // eslint-disable-next-line
-            const targetVillageName = target.village?.name!;
+            // Get user and target village ids
+            const userVillageId = user.villageId;
+            const targetVillageId = target.villageId;
+            // Get the war from the target, and also search through warAllies
+            const war = target.wars.find(
+              (w) =>
+                w.attackerVillageId === userVillageId ||
+                w.defenderVillageId === userVillageId ||
+                w.warAllies.some(
+                  (wa) =>
+                    wa.villageId === userVillageId &&
+                    wa.supportVillageId !== targetVillageId,
+                ),
+            );
+            if (!war) return;
+            // Get the names of the village
+            const userVillageName =
+              war.attackerVillageId === targetVillageId
+                ? war?.defenderVillage?.name || ""
+                : war?.attackerVillage?.name || "";
+            const targetVillageName =
+              war.attackerVillageId === targetVillageId
+                ? war?.attackerVillage?.name || ""
+                : war?.defenderVillage?.name || "";
+            // Reset to 0 if not in townhallInfo
             if (targetVillageName && !(targetVillageName in townhallInfo)) {
               townhallInfo[targetVillageName] = 0;
             }
             if (userVillageName && !(userVillageName in townhallInfo)) {
               townhallInfo[userVillageName] = 0;
             }
-            // Get the war
-            const war = user.wars.find(
-              (w) =>
-                w.attackerVillageId === target.villageId ||
-                w.defenderVillageId === target.villageId,
-            );
-            if (!war) return;
+
             // Village wars & raids
             if (
               ["VILLAGE_WAR", "FACTION_RAID"].includes(war.type) &&
@@ -1127,7 +1143,7 @@ export const processUsersForBattle = (info: {
   users: BattleUserState[];
   settings: GameSetting[];
   relations: VillageAlliance[];
-  wars: War[];
+  wars: BattleWar[];
   villages: Village[];
   defaultProfile: AiProfile;
   battleType: BattleType;
