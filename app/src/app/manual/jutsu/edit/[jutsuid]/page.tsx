@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, use } from "react";
+import { useEffect, use, useState } from "react";
 import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ChatInputField from "@/layout/ChatInputField";
 import { EditContent } from "@/layout/EditContent";
 import { EffectFormWrapper } from "@/layout/EditContent";
-import { FilePlus, FileMinus } from "lucide-react";
+import { FilePlus, FileMinus, Search } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { DamageTag } from "@/libs/combat/types";
@@ -19,6 +19,9 @@ import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { getTagSchema } from "@/libs/combat/types";
 import type { ZodJutsuType } from "@/libs/combat/types";
 import type { Jutsu } from "@/drizzle/schema";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
 export default function JutsuEdit(props: { params: Promise<{ jutsuid: string }> }) {
   const params = use(props.params);
@@ -62,6 +65,50 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
   // Form handling
   const { loading, jutsu, effects, form, formData, setEffects, handleJutsuSubmit } =
     useJutsuEditForm(props.jutsu, props.refetch);
+
+  // State for search
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
+
+  // Query jutsus based on search
+  const {
+    data: searchResults,
+    fetchNextPage,
+    hasNextPage,
+  } = api.jutsu.getAll.useInfiniteQuery(
+    { 
+      limit: 20,
+      name: search || undefined 
+    },
+    { 
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      enabled: !!jutsu && search.length > 0
+    }
+  );
+
+  // Handle infinite scroll
+  useEffect(() => {
+    if (!lastElement || !hasNextPage) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.length > 0 && entries[0]?.isIntersecting && hasNextPage) {
+        void fetchNextPage();
+      }
+    });
+
+    observer.observe(lastElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [lastElement, hasNextPage, fetchNextPage]);
+
+  // Get the selected jutsu details
+  const { data: selectedJutsu } = api.jutsu.get.useQuery(
+    { id: form.getValues("parentJutsuId") },
+    { enabled: !!form.getValues("parentJutsuId") }
+  );
 
   // Icon for adding tag
   const AddTagIcon = (
@@ -132,16 +179,71 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
       >
         {!jutsu && <p>Could not find this jutsu</p>}
         {!loading && jutsu && (
-          <EditContent
-            schema={JutsuValidator._def.schema._def.schema}
-            form={form}
-            formData={formData}
-            showSubmit={true}
-            buttonTxt="Save to Database"
-            type="jutsu"
-            allowImageUpload={true}
-            onAccept={handleJutsuSubmit}
-          />
+          <>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">Parent Jutsu</label>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between"
+                  >
+                    {selectedJutsu?.name || "Select a parent jutsu..."}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search jutsu..."
+                      value={search}
+                      onValueChange={setSearch}
+                    />
+                    <CommandEmpty>No jutsu found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="none"
+                        onSelect={() => {
+                          form.setValue("parentJutsuId", "");
+                          setOpen(false);
+                        }}
+                      >
+                        None
+                      </CommandItem>
+                      {searchResults?.pages
+                        .flatMap((page) => page.data)
+                        .filter((j) => j.id !== jutsu.id) // Exclude current jutsu
+                        .map((j, index, array) => (
+                          <CommandItem
+                            key={j.id}
+                            value={j.id}
+                            onSelect={() => {
+                              form.setValue("parentJutsuId", j.id);
+                              setOpen(false);
+                            }}
+                            ref={index === array.length - 1 ? setLastElement : undefined}
+                          >
+                            {j.name}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <EditContent
+              schema={JutsuValidator._def.schema._def.schema}
+              form={form}
+              formData={formData}
+              showSubmit={true}
+              buttonTxt="Save to Database"
+              type="jutsu"
+              allowImageUpload={true}
+              onAccept={handleJutsuSubmit}
+            />
+          </>
         )}
       </ContentBox>
 

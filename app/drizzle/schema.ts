@@ -970,6 +970,7 @@ export const jutsu = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    createdBy: varchar("createdBy", { length: 191 }).default("").notNull(),
     extraBaseCost: smallint("extraBaseCost", { unsigned: true }).default(0).notNull(),
     effects: json("effects").$type<ZodAllTags[]>().notNull(),
     target: mysqlEnum("target", consts.AttackTargets).notNull(),
@@ -994,6 +995,7 @@ export const jutsu = mysqlTable(
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     hidden: boolean("hidden").default(false).notNull(),
+    parentJutsuId: varchar("parentJutsuId", { length: 191 }).default("").notNull(),
   },
   (table) => {
     return {
@@ -1001,6 +1003,7 @@ export const jutsu = mysqlTable(
       imageKey: uniqueIndex("Jutsu_image_key").on(table.image),
       bloodlineIdIdx: index("Jutsu_bloodlineId_idx").on(table.bloodlineId),
       villageIdIdx: index("Jutsu_villageId_idx").on(table.villageId),
+      parentJutsuIdIdx: index("Jutsu_parentJutsuId_idx").on(table.parentJutsuId),
     };
   },
 );
@@ -1009,6 +1012,10 @@ export const jutsuRelations = relations(jutsu, ({ one }) => ({
   bloodline: one(bloodline, {
     fields: [jutsu.bloodlineId],
     references: [bloodline.id],
+  }),
+  parentJutsu: one(jutsu, {
+    fields: [jutsu.parentJutsuId],
+    references: [jutsu.id],
   }),
 }));
 
@@ -1461,6 +1468,8 @@ export const userData = mysqlTable(
     tavernMessages: int("tavernMessages").default(0).notNull(),
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
+    reskinCount: int("reskinCount").default(0).notNull(),
+    reskinTokenCount: int("reskinTokenCount").default(0).notNull(),
   },
   (table) => {
     return {

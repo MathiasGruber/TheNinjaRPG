@@ -28,6 +28,7 @@ export type GenericObject = {
   sector?: number;
   createdAt: Date;
   updatedAt: Date;
+  createdBy?: string;
   attacks?: string[];
   effects?: ZodAllTags[];
   village?: { name: string };
@@ -157,6 +158,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                     {item.updatedAt instanceof Date
                       ? item.updatedAt.toLocaleDateString()
                       : item.updatedAt}
+                  </div>
+                )}
+                {"createdBy" in item && item.createdBy && (
+                  <div>
+                    <b>Created By: </b>
+                    {item.createdBy}
                   </div>
                 )}
               </div>
