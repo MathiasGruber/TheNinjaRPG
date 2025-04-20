@@ -517,6 +517,16 @@ export const SectorWar: React.FC<{
       },
     });
 
+  const { mutate: adminEndWar } = api.war.adminEndWar.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.war.getActiveWars.invalidate();
+        await utils.war.getEndedWars.invalidate();
+      }
+    },
+  });
+
   // Derived
   const canBuildShrine =
     isKage &&
@@ -527,78 +537,102 @@ export const SectorWar: React.FC<{
 
   // Render
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col items-center gap-2">
-        <Image
-          src={WAR_SHRINE_IMAGE}
-          alt="War Shrine"
-          width={200}
-          height={200}
-          className={war.shrineHp <= 0 ? "opacity-50 grayscale" : ""}
-        />
-        <div className="w-full max-w-md space-y-2">
-          <div>
-            <p className="text-sm font-medium">Shrine - Sector {war.sector}</p>
-            {war.shrineHp > 0 && (
-              <StatusBar
-                title="HP"
-                tooltip="Shrine Health"
-                color="bg-red-500"
-                showText={true}
-                status="AWAKE"
-                current={war.shrineHp}
-                total={WAR_SHRINE_HP}
-              />
+    <div className="border p-4 rounded-lg">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-full flex justify-end">
+            {canAdministrateWars(user.role) && (
+              <Confirm2
+                title="End War"
+                button={
+                  <Button variant="destructive" size="icon">
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                }
+                onAccept={(e) => {
+                  e.preventDefault();
+                  adminEndWar({ warId: war.id });
+                }}
+              >
+                <p>
+                  As an admin you can end the war at any time. This will end the war and
+                  remove all information about the war. No losses will be incurred for
+                  either side.
+                </p>
+              </Confirm2>
             )}
           </div>
-          <div className="mt-2 rounded-md bg-popover p-3 text-sm text-popover-foreground">
-            {war.shrineHp > 0 ? (
-              <>
-                {war.defenderVillageId === VILLAGE_SYNDICATE_ID ? (
-                  <p>
-                    <strong>Note:</strong> To attack this shrine, you must travel to
-                    sector {war.sector} and engage in combat with the shrine directly.
-                  </p>
-                ) : (
-                  <p>
-                    <strong>Note:</strong> To damage this shrine, attack players from
-                    the defending village. Each victory will reduce the shrine&apos;s
-                    HP.
-                  </p>
-                )}
-              </>
-            ) : (
-              <p>
-                <strong>Note:</strong> This shrine has been destroyed, and your leaders
-                can chose to build a new shrine to claim this sector. The cost of
-                building a new shrine is{" "}
-                {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} tokens. Currently we
-                have {user.village?.tokens?.toLocaleString()} tokens.
-              </p>
+          <Image
+            src={WAR_SHRINE_IMAGE}
+            alt="War Shrine"
+            width={200}
+            height={200}
+            className={war.shrineHp <= 0 ? "opacity-50 grayscale" : ""}
+          />
+          <div className="w-full max-w-md space-y-2">
+            <div>
+              <p className="text-sm font-medium">Shrine - Sector {war.sector}</p>
+              {war.shrineHp > 0 && (
+                <StatusBar
+                  title="HP"
+                  tooltip="Shrine Health"
+                  color="bg-red-500"
+                  showText={true}
+                  status="AWAKE"
+                  current={war.shrineHp}
+                  total={WAR_SHRINE_HP}
+                />
+              )}
+            </div>
+            <div className="mt-2 rounded-md bg-popover p-3 text-sm text-popover-foreground">
+              {war.shrineHp > 0 ? (
+                <>
+                  {war.defenderVillageId === VILLAGE_SYNDICATE_ID ? (
+                    <p>
+                      <strong>Note:</strong> To attack this shrine, you must travel to
+                      sector {war.sector} and engage in combat with the shrine directly.
+                    </p>
+                  ) : (
+                    <p>
+                      <strong>Note:</strong> To damage this shrine, attack players from
+                      the defending village. Each victory will reduce the shrine&apos;s
+                      HP.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p>
+                  <strong>Note:</strong> This shrine has been destroyed, and your
+                  leaders can chose to build a new shrine to claim this sector. The cost
+                  of building a new shrine is{" "}
+                  {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} tokens. Currently we
+                  have {user.village?.tokens?.toLocaleString()} tokens.
+                </p>
+              )}
+            </div>
+            {canBuildShrine && (
+              <Confirm
+                title="Build Shrine"
+                button={
+                  <Button className="w-full" loading={isBuilding}>
+                    <LandPlot className="h-5 w-5 mr-2" />
+                    Build Shrine ({WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()}{" "}
+                    tokens)
+                  </Button>
+                }
+                onAccept={(e) => {
+                  e.preventDefault();
+                  buildShrine({ warId: war.id });
+                }}
+              >
+                <p>
+                  You are about to build a shrine in sector {war.sector}. This will cost{" "}
+                  {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} village tokens. Are
+                  you sure?
+                </p>
+              </Confirm>
             )}
           </div>
-          {canBuildShrine && (
-            <Confirm
-              title="Build Shrine"
-              button={
-                <Button className="w-full" loading={isBuilding}>
-                  <LandPlot className="h-5 w-5 mr-2" />
-                  Build Shrine ({WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()}{" "}
-                  tokens)
-                </Button>
-              }
-              onAccept={(e) => {
-                e.preventDefault();
-                buildShrine({ warId: war.id });
-              }}
-            >
-              <p>
-                You are about to build a shrine in sector {war.sector}. This will cost{" "}
-                {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} village tokens. Are
-                you sure?
-              </p>
-            </Confirm>
-          )}
         </div>
       </div>
     </div>
