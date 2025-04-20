@@ -6,7 +6,6 @@ import { secondsPassed, secondsFromNow, getTimeOfLastReset } from "@/utils/time"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
-  aiProfile,
   actionLog,
   bankTransfers,
   battleHistory,

@@ -313,8 +313,7 @@ export const WarMap: React.FC<{
             console.log(canDeclareWar, userData?.village?.type);
             if (!canDeclareWar) {
               showMutationToast({ success: false, message: "You are not the leader" });
-            }
-            if (canDeclareWar) {
+            } else {
               setTargetSector(sector);
               setShowModal(true);
             }
