@@ -2,10 +2,20 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, serverError } from "../trpc";
 import { canChangeContent } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
-import { fetchReplicateResult, txt2img, uploadToUT } from "@/libs/replicate";
+import { fetchReplicateResult, txt2img, img2model, uploadToUT } from "@/libs/replicate";
 import { requestBgRemoval } from "@/libs/replicate";
 
 export const openaiRouter = createTRPCRouter({
+  create3dModel: protectedProcedure
+    .input(z.object({ imgUrl: z.string(), field: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (!canChangeContent(user.role)) {
+        throw serverError("UNAUTHORIZED", "You are not allowed to change content");
+      }
+      const result = await img2model(input.imgUrl);
+      return { replicateId: result.id };
+    }),
   createImg: protectedProcedure
     .input(z.object({ prompt: z.string(), field: z.string(), removeBg: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
@@ -26,7 +36,7 @@ export const openaiRouter = createTRPCRouter({
       const result = await requestBgRemoval(input.url);
       return { replicateId: result.id, temp: result };
     }),
-  fetchImg: protectedProcedure
+  fetchReplicateResult: protectedProcedure
     .input(
       z.object({ replicateId: z.string(), field: z.string(), removeBg: z.boolean() }),
     )

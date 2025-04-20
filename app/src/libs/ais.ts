@@ -70,6 +70,11 @@ export const useAiEditForm = (
     name: "avatar",
     defaultValue: user.avatar,
   });
+  const avatar3dUrl = useWatch({
+    control: form.control,
+    name: "avatar3d",
+    defaultValue: user.avatar3d,
+  });
   const effects = useWatch({
     control: form.control,
     name: "effects",
@@ -89,6 +94,7 @@ export const useAiEditForm = (
     { id: "username", type: "text" },
     { id: "customTitle", type: "text" },
     { id: "avatar", type: "avatar", href: avatarUrl },
+    { id: "avatar3d", type: "avatar3d", modelUrl: avatar3dUrl, imgUrl: avatarUrl },
     { id: "gender", type: "text" },
     { id: "level", type: "number" },
     { id: "regeneration", type: "number" },

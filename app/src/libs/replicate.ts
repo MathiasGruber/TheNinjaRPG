@@ -3,11 +3,56 @@ import { userData, historicalAvatar, conceptImage } from "@/drizzle/schema";
 import { eq, sql, and, isNotNull } from "drizzle-orm";
 import { fetchImage } from "@/routers/conceptart";
 import sharp from "sharp";
-import { UTApi } from "uploadthing/server";
+import { UTApi, UTFile } from "uploadthing/server";
 import { env } from "@/env/server.mjs";
+import { tmpdir } from "os";
+import path from "path";
 import Replicate, { type Prediction } from "replicate";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData, UserRank } from "@/drizzle/schema";
+import { nanoid } from "nanoid";
+import { NodeIO } from "@gltf-transform/core";
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
+import {
+  resample,
+  prune,
+  dedup,
+  textureCompress,
+  weld,
+  meshopt,
+} from "@gltf-transform/functions";
+import { MeshoptEncoder } from "meshoptimizer";
+import fs from "fs";
+
+export const compressGltf = async (url: string) => {
+  await MeshoptEncoder.ready;
+
+  // 3. Initialize NodeIO (network not needed since binary embedded)
+  const io = new NodeIO(fetch)
+    .registerExtensions(ALL_EXTENSIONS)
+    .registerDependencies({ "meshopt.encoder": MeshoptEncoder })
+    .setAllowNetwork(true);
+
+  // 4. Read, transform with explicit modules, and write
+  const document = await io.read(url);
+  await document.transform(
+    weld(),
+    resample(),
+    prune(),
+    dedup(),
+    meshopt({ encoder: MeshoptEncoder, level: "high" }),
+    textureCompress({
+      encoder: sharp,
+      quality: 80,
+      targetFormat: "webp",
+      resize: [256, 256],
+    }),
+    // Custom transform: backface culling…
+  );
+  const localPath = path.join(tmpdir(), `${nanoid()}-compressed.glb`);
+  await io.write(localPath, document);
+  return { localPath };
+};
 
 /**
  * The prompt to be used for creating the avatar
@@ -97,9 +142,18 @@ interface ReplicateReturn {
  */
 export const uploadToUT = async (url: string) => {
   const utapi = new UTApi();
-  const uploadedFile = await utapi.uploadFilesFromUrl(url);
-  const uploadedFileUrl = uploadedFile.data?.url ?? null;
-  return uploadedFileUrl;
+  const extension = url.split(".").pop();
+  const name = `${nanoid()}.${extension}`;
+  if (url.startsWith("/var/folders/")) {
+    const fileBuffer = fs.readFileSync(url);
+    const uploadedFile = await utapi.uploadFiles(new UTFile([fileBuffer], name));
+    return uploadedFile.data?.ufsUrl ?? null;
+  } else if (url.includes("http")) {
+    const uploadedFile = await utapi.uploadFilesFromUrl({ url, name });
+    return uploadedFile.data?.ufsUrl ?? null;
+  } else {
+    throw new Error(`Invalid URL: ${url}`);
+  }
 };
 
 /**
@@ -145,6 +199,36 @@ export const txt2img = async (config: {
 };
 
 /**
+ * Create a 3D model from an image
+ * @param url The URL of the image to create a 3D model from
+ */
+export const img2model = async (url: string) => {
+  const replicate = new Replicate({
+    auth: env.REPLICATE_API_TOKEN,
+  });
+  const output = await replicate.predictions.create({
+    version: "4876f2a8da1c544772dffa32e8889da4a1bab3a1f5c1937bfcfccb99ae347251",
+    input: {
+      seed: Math.floor(Math.random() * 1000000),
+      images: [url],
+      texture_size: 2048,
+      mesh_simplify: 0.9,
+      generate_color: false,
+      generate_model: true,
+      randomize_seed: true,
+      generate_normal: false,
+      save_gaussian_ply: false,
+      ss_sampling_steps: 50,
+      slat_sampling_steps: 50,
+      return_no_background: false,
+      ss_guidance_strength: 7.5,
+      slat_guidance_strength: 3,
+    },
+  });
+  return output;
+};
+
+/**
  * Remove background
  */
 export const requestBgRemoval = async (url: string): Promise<ReplicateReturn> => {
@@ -174,6 +258,13 @@ export const fetchReplicateResult = async (replicateId: string) => {
   let replicateUrl: string | null = null;
   if (typeof prediction.output === "string") {
     replicateUrl = prediction.output;
+  } else if (prediction.output && "model_file" in prediction.output) {
+    replicateUrl = (prediction.output as { model_file: string }).model_file;
+    // If this is a glb, compress it
+    if (replicateUrl.endsWith(".glb")) {
+      const compressed = await compressGltf(replicateUrl);
+      replicateUrl = compressed.localPath;
+    }
   } else {
     replicateUrl = (prediction.output as string[])?.[0] ?? null;
   }
@@ -289,7 +380,7 @@ export const createThumbnail = async (url: string) => {
     thumbnail.name = "thumbnail.png";
     const utapi = new UTApi();
     const response = await utapi.uploadFiles(thumbnail);
-    const imageUrl = response.data?.url;
+    const imageUrl = response.data?.ufsUrl;
     return imageUrl ?? url;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
@@ -325,7 +416,7 @@ export const syncImage = async (
       const watermarkedresult = new Blob([resultBuffer]) as FileEsque;
       watermarkedresult.name = "image.png";
       const response = await utapi.uploadFiles(watermarkedresult);
-      imageUrl = response.data?.url;
+      imageUrl = response.data?.ufsUrl;
     } else {
       prediction.status = "failed";
     }
