@@ -40,9 +40,22 @@ const Model3d: React.FC<Model3dProps> = (props) => {
 
   // Prefetch the model
   useEffect(() => {
-    // @ts-expect-error - This is valid to avoid texture error
+    // Temporarily disable to avoid texture errors in three.js GLTF loader
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const originalCreateImageBitmap = window.createImageBitmap;
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     window.createImageBitmap = undefined;
 
+    // … other logic …
+
+    return () => {
+      // Restore global to keep the rest of the app functional
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      window.createImageBitmap = originalCreateImageBitmap;
+    };
     if (!modelUrl) {
       setModelError(true);
       setIsLoading(false);
