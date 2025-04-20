@@ -136,7 +136,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
                           return undefined;
                         }
                       })
-                      .filter((e) => e !== undefined);
+                      .filter((e): e is NonNullable<typeof e> => e !== undefined);
                     setObjectives(newObjectives);
                   } else {
                     form.setValue(key, data[key], { shouldDirty: true });

@@ -136,7 +136,17 @@ export async function GET() {
             return null;
           }
         })
-        .filter((v) => v !== null),
+        .filter(
+          (
+            v,
+          ): v is {
+            userId: string;
+            callName: string;
+            email: string;
+            secret: string;
+            lastActivity: Date;
+          } => v !== null,
+        ),
     );
 
     // Update emailReminder's lastActivity with userData's updatedAt for matching userIds

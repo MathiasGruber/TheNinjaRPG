@@ -952,14 +952,19 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
                 .map((option, index) => {
                   // Find the actual index in the full options array
                   const actualIndex = options.findIndex((opt) => opt === option);
+                  // After filtering, we know this is a text option
+                  const textOption = option as { type: "text"; text: string };
                   return (
                     <div key={actualIndex} className="flex gap-2">
                       <Input
                         placeholder={`Option ${index + 1}`}
-                        value={option.text}
+                        value={textOption.text}
                         onChange={(e) => {
                           const newOptions = [...options];
-                          newOptions[actualIndex] = { ...option, text: e.target.value };
+                          newOptions[actualIndex] = {
+                            ...textOption,
+                            text: e.target.value,
+                          };
                           setOptions(newOptions);
                           form.setValue("options", newOptions);
                         }}

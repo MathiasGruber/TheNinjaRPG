@@ -28,7 +28,10 @@ export const getNewReactions = (
         delete newReactions[sanitizedEmoji];
       }
     } else {
-      newReactions[sanitizedEmoji] = [...newReactions[sanitizedEmoji], username];
+      newReactions[sanitizedEmoji] = [
+        ...(newReactions[sanitizedEmoji] || []),
+        username,
+      ];
     }
   } else {
     newReactions[sanitizedEmoji] = [username];

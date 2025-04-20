@@ -8,7 +8,6 @@ import { cn } from "src/libs/shadui";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { CombatResult } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
-import { ElementNames, type ElementName } from "@/drizzle/constants";
 
 interface CombatHistoryProps {
   battleId: string;

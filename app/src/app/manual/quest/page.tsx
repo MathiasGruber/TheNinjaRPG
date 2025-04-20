@@ -8,13 +8,12 @@ import MassEditContent from "@/layout/MassEditContent";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { Button } from "@/components/ui/button";
 import { api } from "@/app/_trpc/client";
-import { FilePlus, SquarePen, Copy } from "lucide-react";
+import { FilePlus, SquarePen } from "lucide-react";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import QuestFiltering, { useFiltering, getFilter } from "@/layout/QuestFiltering";
-import Confirm from "@/layout/Confirm";
 
 export default function ManualQuests() {
   // Settings
@@ -56,14 +55,6 @@ export default function ManualQuests() {
     },
   });
 
-  const { mutate: cloneQuest, isPending: load3 } = api.quests.clone.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      await refetch();
-      router.push(`/manual/quest/edit/${data.message}`);
-    },
-  });
-
   const { mutate: remove, isPending: load2 } = api.quests.delete.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -72,7 +63,7 @@ export default function ManualQuests() {
   });
 
   // Derived
-  const totalLoading = isFetching || load1 || load2 || load3;
+  const totalLoading = isFetching || load1 || load2;
 
   // Return JSX
   return (

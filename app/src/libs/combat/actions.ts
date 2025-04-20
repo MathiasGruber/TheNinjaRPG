@@ -17,7 +17,6 @@ import { PathCalculator } from "@/libs/hexgrid";
 import { calcCombatHealPercentage } from "@/libs/hospital/hospital";
 import { actionHasSharedCooldown } from "@/libs/combat/util";
 import { tagHasSharedCooldown } from "@/libs/combat/util";
-import { SHARED_COOLDOWN_TAGS } from "@/drizzle/constants";
 import {
   IMG_BASIC_HEAL,
   IMG_BASIC_ATTACK,
