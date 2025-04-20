@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "next build",
+    "build": "next build --debug",
     "check": "next lint && tsc --noEmit",
     "build-stats": "ANALYZE=true next build",
     "dev": "next dev",
@@ -158,7 +158,7 @@
     "prettier-plugin-tailwindcss": "0.6.11",
     "tailwindcss": "4.1.4",
     "tsx": "4.19.3",
-    "typescript": "5.8.2",
+    "typescript": "5.8.3",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.7"
   },
