@@ -50,6 +50,7 @@ import {
   Plus,
   PersonStanding,
   MessageCircle,
+  IdCard,
 } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
@@ -229,6 +230,15 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     },
   });
 
+  const updateUserId = api.staff.updateUserId.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+      }
+    },
+  });
+
   const unstuckUser = api.staff.forceAwake.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -331,10 +341,17 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         topRightContent={
           <div className="flex flex-row gap-1">
             {userData?.username === "Terriator" && (
-              <CopyCheck
-                className="h-6 w-6 cursor-pointer hover:text-orange-500"
-                onClick={() => cloneUser.mutate({ userId: profile.userId })}
-              />
+              <>
+                <CopyCheck
+                  className="h-6 w-6 cursor-pointer hover:text-orange-500"
+                  onClick={() => cloneUser.mutate({ userId: profile.userId })}
+                />
+                <UpdateUserIdButton
+                  userId={profile.userId}
+                  username={profile.username}
+                  updateUserIdMutation={updateUserId}
+                />
+              </>
             )}
             {userData && !userData.isBanned && !userData.isSilenced && (
               <NewConversationPrompt
@@ -1169,6 +1186,65 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
           </div>
         </TabsContent>
       </Tabs>
+    </Confirm>
+  );
+};
+
+interface UpdateUserIdButtonProps {
+  userId: string;
+  username: string;
+  updateUserIdMutation: ReturnType<typeof api.staff.updateUserId.useMutation>;
+}
+
+const UpdateUserIdButton: React.FC<UpdateUserIdButtonProps> = ({
+  userId,
+  username,
+  updateUserIdMutation,
+}) => {
+  // Create form with zod schema
+  const userIdForm = useForm<{ newUserId: string }>({
+    defaultValues: {
+      newUserId: userId,
+    },
+  });
+
+  // Handle form submission
+  const handleUpdateUserId = userIdForm.handleSubmit((data) => {
+    updateUserIdMutation.mutate({
+      userId: userId,
+      newUserId: data.newUserId,
+    });
+  });
+
+  return (
+    <Confirm
+      title="Update User ID"
+      proceed_label="Update"
+      button={<IdCard className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
+      onAccept={handleUpdateUserId}
+      isValid={userIdForm.formState.isValid}
+    >
+      <Form {...userIdForm}>
+        <form className="space-y-4">
+          <p>
+            This will update the user ID for {username}. This action cannot be undone
+            and may affect database relationships.
+          </p>
+          <FormField
+            control={userIdForm.control}
+            name="newUserId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>New User ID</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </form>
+      </Form>
     </Confirm>
   );
 };
