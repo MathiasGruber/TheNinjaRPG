@@ -506,7 +506,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                   alt="rightbottomdecor"
                   loading="lazy"
                 ></Image>
-                <div className="absolute top-4 left-0 right-0 hidden md:block">
+                <div className="absolute top-2 left-0 right-0 hidden md:block">
                   <Footer />
                 </div>
                 {userData ? (
