@@ -327,13 +327,37 @@ export const warRouter = createTRPCRouter({
       if (
         activeWars.find(
           (w) =>
-            (w.attackerVillageId === user?.village?.id &&
+            (w.type === "VILLAGE_WAR" &&
+              w.attackerVillageId === user?.village?.id &&
               w.defenderVillageId === input.targetVillageId) ||
-            (w.attackerVillageId === input.targetVillageId &&
+            (w.type === "VILLAGE_WAR" &&
+              w.attackerVillageId === input.targetVillageId &&
               w.defenderVillageId === user?.village?.id),
         )
       ) {
         return errorResponse("You are already at war with this village");
+      }
+      if (
+        activeWars.find((w) =>
+          w.warAllies.some(
+            (f) =>
+              f.villageId === user?.village?.id &&
+              f.supportVillageId === input.targetVillageId,
+          ),
+        )
+      ) {
+        return errorResponse("You are already supporting this village");
+      }
+      if (
+        activeWars.find(
+          (w) =>
+            w.type === "FACTION_RAID" &&
+            w.attackerVillageId === user?.village?.id &&
+            w.defenderVillageId === input.targetVillageId &&
+            w.targetStructureRoute === input.targetStructureRoute,
+        )
+      ) {
+        return errorResponse("You are already raiding this village structure");
       }
 
       // Create war and deduct tokens

@@ -905,10 +905,10 @@ export const VillageWar: React.FC<{
     },
   });
 
-  const attackerTownHall = war.attackerVillage?.structures?.find(
+  const attackerStructure = war.attackerVillage?.structures?.find(
     (s) => s.route === war.targetStructureRoute,
   );
-  const defenderTownHall = war.defenderVillage?.structures?.find(
+  const defenderStructure = war.defenderVillage?.structures?.find(
     (s) => s.route === war.targetStructureRoute,
   );
   const villagesThatCanJoin = villages?.filter((v) => {
@@ -918,7 +918,7 @@ export const VillageWar: React.FC<{
     }
     return false;
   });
-  if (!attackerTownHall || !defenderTownHall) return null;
+  if (!attackerStructure || !defenderStructure) return null;
   return (
     <div className="border p-4 rounded-lg">
       <div className="flex justify-between items-center mb-4">
@@ -1075,7 +1075,7 @@ export const VillageWar: React.FC<{
         {/* Our Town Hall */}
         <div className="flex flex-col items-center justify-center">
           <h5 className="font-bold mb-2">
-            Our Town Hall (
+            Our {attackerStructure.name} (
             {war.attackerVillageId === user.villageId
               ? war.attackerVillage?.name
               : war.defenderVillage?.name}
@@ -1085,8 +1085,8 @@ export const VillageWar: React.FC<{
             <Building
               structure={
                 war.attackerVillageId === user.villageId
-                  ? attackerTownHall
-                  : defenderTownHall
+                  ? attackerStructure
+                  : defenderStructure
               }
               village={
                 war.attackerVillageId === user.villageId
@@ -1141,7 +1141,7 @@ export const VillageWar: React.FC<{
         {/* Enemy Town Hall */}
         <div className="flex flex-col items-center justify-center">
           <h5 className="font-bold mb-2">
-            Enemy Town Hall (
+            Enemy {defenderStructure.name} (
             {war.attackerVillageId === user.villageId
               ? war.defenderVillage?.name
               : war.attackerVillage?.name}
@@ -1151,8 +1151,8 @@ export const VillageWar: React.FC<{
             <Building
               structure={
                 war.attackerVillageId === user.villageId
-                  ? defenderTownHall
-                  : attackerTownHall
+                  ? defenderStructure
+                  : attackerStructure
               }
               village={
                 war.attackerVillageId === user.villageId
