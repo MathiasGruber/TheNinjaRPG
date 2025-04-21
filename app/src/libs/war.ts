@@ -16,7 +16,37 @@ import { TERR_BOT_ID } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import type { Village, VillageAlliance } from "@/drizzle/schema";
+import type { BattleWar } from "@/libs/combat/types";
 import { secondsFromNow } from "@/utils/time";
+
+/**
+ * Convenience method which checks target wars, and sees if the user village ID is in the war.
+ * Returns the given war if found, otherwise undefined.
+ * @param targetWars - The wars to check
+ * @param targetVillageId - The village ID to check
+ * @param userVillageId - The village ID of the user
+ * @returns The war if found, otherwise undefined
+ */
+export const findWarWithUser = (
+  targetWars: BattleWar[],
+  targetVillageId: string | null | undefined,
+  userVillageId: string | null | undefined,
+) => {
+  return targetWars.find(
+    (w) =>
+      w.attackerVillageId === userVillageId ||
+      w.defenderVillageId === userVillageId ||
+      w.warAllies.some(
+        (wa) =>
+          wa.villageId === userVillageId && wa.supportVillageId !== targetVillageId,
+      ) ||
+      w.warAllies.some(
+        (wa) =>
+          wa.villageId === targetVillageId && wa.supportVillageId !== userVillageId,
+      ),
+  );
+};
+
 /**
  * Resets the wartime townhalls
  * @param activeWars - The active wars

@@ -22,6 +22,7 @@ import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
+import { findWarWithUser } from "@/libs/war";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -275,23 +276,15 @@ export const updateWars = async (
 ) => {
   // Fetch user
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
+  const userVillageId = user?.villageId;
   // Fetch target with whom the user is in a war
   const warResults = curBattle.usersState
     .filter((t) => t.userId !== userId)
     .filter((t) => !t.isSummon)
     .filter((t) => t.villageId)
-    .filter((t) =>
-      user?.wars.find((w) =>
-        [w.attackerVillageId, w.defenderVillageId].includes(t.villageId!),
-      ),
-    )
+    .filter((t) => findWarWithUser(t.wars, t.villageId, userVillageId))
     .map((target) => {
-      // Find the war
-      const war = user?.wars.find(
-        (w) =>
-          w.attackerVillageId === target.villageId ||
-          w.defenderVillageId === target.villageId,
-      );
+      const war = findWarWithUser(target.wars, target.villageId, userVillageId);
       return { target, war: war! };
     });
   // Guard

@@ -23,6 +23,7 @@ import { defineHex } from "../hexgrid";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
+import { findWarWithUser } from "@/libs/war";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
 import {
   SHARED_COOLDOWN_TAGS,
@@ -667,7 +668,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const shrineInfo: Record<number, number> = {};
       let townhallChangeHP = 0;
       let shrineChangeHp = 0;
-      if (user.wars.length > 0 && !allOpponentsFled) {
+      if (!allOpponentsFled && !user.fledBattle) {
         targets
           .filter((t) => !t.isSummon)
           .filter((t) => t.village?.name)
@@ -677,16 +678,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             const userVillageId = user.villageId;
             const targetVillageId = target.villageId;
             // Get the war from the target, and also search through warAllies
-            const war = target.wars.find(
-              (w) =>
-                w.attackerVillageId === userVillageId ||
-                w.defenderVillageId === userVillageId ||
-                w.warAllies.some(
-                  (wa) =>
-                    wa.villageId === userVillageId &&
-                    wa.supportVillageId !== targetVillageId,
-                ),
-            );
+            const war = findWarWithUser(target.wars, targetVillageId, userVillageId);
             if (!war) return;
             // Get the names of the village
             const userVillageName =
@@ -789,8 +781,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Adjust shrine & townhall datamage based on level different
       const maxTargetLevel = Math.max(...targets.map((t) => t.level), 0);
-      const levelDifference = user.level - maxTargetLevel;
-      if (levelDifference > STREAK_LEVEL_DIFF) {
+      if (Math.abs(user.level - maxTargetLevel) > STREAK_LEVEL_DIFF) {
         if (shrineChangeHp !== 0) shrineChangeHp /= Math.abs(shrineChangeHp);
         if (townhallChangeHP !== 0) townhallChangeHP /= Math.abs(townhallChangeHP);
         Object.keys(shrineInfo).forEach((sector) => {
@@ -1484,7 +1475,8 @@ export const processUsersForBattle = (info: {
     user.wars = wars.filter(
       (w) =>
         w.attackerVillageId === user.villageId ||
-        w.defenderVillageId === user.villageId,
+        w.defenderVillageId === user.villageId ||
+        w.warAllies.find((wa) => wa.villageId === user.villageId),
     );
 
     // Check if we are in ally village or not
