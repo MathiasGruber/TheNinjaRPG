@@ -277,20 +277,22 @@ export const updateWars = async (
   // Fetch user
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const userVillageId = user?.villageId;
+  // Guard
+  if (!user) return;
+  if (!user.villageId) return;
+  if (!result) return;
   // Fetch target with whom the user is in a war
   const warResults = curBattle.usersState
     .filter((t) => t.userId !== userId)
     .filter((t) => !t.isSummon)
-    .filter((t) => t.villageId)
-    .filter((t) => findWarWithUser(t.wars, t.villageId, userVillageId))
+    .filter((t) => findWarWithUser(t.wars, user.wars, t.villageId, userVillageId))
     .map((target) => {
-      const war = findWarWithUser(target.wars, target.villageId, userVillageId);
-      return { target, war: war! };
+      return {
+        target,
+        war: findWarWithUser(target.wars, user.wars, target.villageId, userVillageId)!,
+      };
     });
-  // Guard
-  if (!result) return;
-  if (!user) return;
-  if (!user.villageId) return;
+
   // Mutate
   await Promise.all(
     warResults
@@ -313,8 +315,8 @@ export const updateWars = async (
                   warId: warResult.war.id,
                   killerId: user.userId,
                   victimId: warResult.target.userId,
-                  killerVillageId: user.villageId!,
-                  victimVillageId: warResult.target.villageId!,
+                  killerVillageId: user.villageId || "unknown",
+                  victimVillageId: warResult.target.villageId || "unknonwn",
                   sector: user.sector,
                   shrineHpChange: result.shrineChangeHp,
                   townhallHpChange: result.townhallChangeHP,

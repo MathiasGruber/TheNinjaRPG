@@ -29,10 +29,11 @@ import { secondsFromNow } from "@/utils/time";
  */
 export const findWarWithUser = (
   targetWars: BattleWar[],
+  userWars: BattleWar[],
   targetVillageId: string | null | undefined,
   userVillageId: string | null | undefined,
 ) => {
-  return targetWars.find(
+  return [...targetWars, ...userWars].find(
     (w) =>
       w.attackerVillageId === userVillageId ||
       w.defenderVillageId === userVillageId ||

@@ -671,14 +671,18 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       if (!allOpponentsFled && !user.fledBattle) {
         targets
           .filter((t) => !t.isSummon)
-          .filter((t) => t.village?.name)
           .filter((t) => t.villageId !== vilId)
           .forEach((target) => {
             // Get user and target village ids
             const userVillageId = user.villageId;
             const targetVillageId = target.villageId;
             // Get the war from the target, and also search through warAllies
-            const war = findWarWithUser(target.wars, targetVillageId, userVillageId);
+            const war = findWarWithUser(
+              target.wars,
+              user.wars,
+              targetVillageId,
+              userVillageId,
+            );
             if (!war) return;
             // Get the names of the village
             const userVillageName =
