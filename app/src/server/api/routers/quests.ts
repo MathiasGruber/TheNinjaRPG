@@ -806,11 +806,12 @@ export const questsRouter = createTRPCRouter({
         throw serverError("UNAUTHORIZED", "Not authorized to view user quests");
       }
       // Get all quests for the user
-      return await ctx.drizzle.query.questHistory.findMany({
+      const quests = await ctx.drizzle.query.questHistory.findMany({
         where: eq(questHistory.userId, input.userId),
         with: { quest: true },
         orderBy: [asc(questHistory.startedAt)],
       });
+      return quests.filter((q) => q.quest);
     }),
   deleteUserQuest: protectedProcedure
     .input(z.object({ userId: z.string(), questId: z.string() }))
