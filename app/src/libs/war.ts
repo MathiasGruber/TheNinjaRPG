@@ -101,7 +101,8 @@ export const canJoinWar = (
   const check3 = !activeWar.warAllies.some((f) => f.villageId === joiningVillageId);
   const check4 = ["VILLAGE", "HIDEOUT", "TOWN"].includes(joiningVillage.type);
   const check5 = ["NEUTRAL", "ALLY"].includes(status);
-  const check = check1 && check2 && check3 && check4 && check5;
+  const check6 = joiningVillage.type !== "VILLAGE" || joiningVillage.allianceSystem;
+  const check = check1 && check2 && check3 && check4 && check5 && check6;
   // Derived message for each check failing
   let message = "";
   if (!check1) message = "Cannot join war, already in it";
@@ -109,6 +110,7 @@ export const canJoinWar = (
   if (!check3) message = "Cannot join war, faction already in war";
   if (!check4) message = "Cannot join war, not a village/hideout/town";
   if (!check5) message = "Cannot join war with your enemy";
+  if (!check6) message = "Cannot join war, not a joinable village/hideout/town";
   // Return
   return { check, message };
 };

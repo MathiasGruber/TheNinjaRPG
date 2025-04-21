@@ -68,8 +68,11 @@ const GlobalMap = dynamic(() => import("@/layout/Map"), { ssr: false });
  */
 export const WarRoom: React.FC<{
   user: NonNullable<UserWithRelations>;
-  navTabs: React.ReactNode;
+  navTabs?: React.ReactNode;
 }> = ({ user, navTabs }) => {
+  // tRPC utility
+  const utils = api.useUtils();
+
   // State
   const [warType, setWarType] = useState<"Active" | "Ended">("Active");
 
@@ -88,8 +91,45 @@ export const WarRoom: React.FC<{
     staleTime: 10000,
   });
 
+  const { data: requests } = api.war.getAllyOffers.useQuery(undefined, {
+    staleTime: 30000,
+  });
+
+  // Mutations
+  const { mutate: acceptAllyOffer, isPending: isHiring } =
+    api.war.acceptAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getActiveWars.invalidate();
+          await utils.war.getEndedWars.invalidate();
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
+  const { mutate: rejectAllyOffer, isPending: isRejectingOffer } =
+    api.war.rejectAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
+  const { mutate: cancelAllyOffer, isPending: isCancelling } =
+    api.war.cancelAllyOffer.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.war.getAllyOffers.invalidate();
+        }
+      },
+    });
+
   // Derived
-  const isKage = user.userId === user.village?.kageId;
+  const isLeader = user.userId === user.village?.kageId;
   const villages = villageData?.villages;
   const userVillage = villages?.find((v) => v.id === user.villageId);
   const relationships = villageData?.relationships || [];
@@ -101,14 +141,14 @@ export const WarRoom: React.FC<{
     <>
       <ContentBox
         title="Wars"
-        subtitle="Manage Village Wars"
+        subtitle="Manage Wars"
         back_href="/village"
         topRightContent={navTabs}
         initialBreak={true}
       >
         <WarMap
           user={user}
-          isKage={isKage}
+          isKage={isLeader}
           villages={villages}
           relationships={relationships}
         />
@@ -132,7 +172,7 @@ export const WarRoom: React.FC<{
             {warType === "Active" &&
               activeWars?.map((war) =>
                 war.type === "SECTOR_WAR" ? (
-                  <SectorWar key={war.id} war={war} user={user} isKage={isKage} />
+                  <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
                 ) : (
                   <VillageWar
                     key={war.id}
@@ -141,7 +181,7 @@ export const WarRoom: React.FC<{
                     villages={villages}
                     relationships={relationships}
                     userVillage={userVillage}
-                    isKage={isKage}
+                    isKage={isLeader}
                   />
                 ),
               )}
@@ -151,7 +191,7 @@ export const WarRoom: React.FC<{
             {warType === "Ended" &&
               endedWars?.map((war) =>
                 war.type === "SECTOR_WAR" ? (
-                  <SectorWar key={war.id} war={war} user={user} isKage={isKage} />
+                  <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
                 ) : (
                   <VillageWar
                     key={war.id}
@@ -160,7 +200,7 @@ export const WarRoom: React.FC<{
                     villages={villages}
                     relationships={relationships}
                     userVillage={userVillage}
-                    isKage={isKage}
+                    isKage={isLeader}
                   />
                 ),
               )}
@@ -168,6 +208,28 @@ export const WarRoom: React.FC<{
               <p>No ended wars</p>
             )}
           </div>
+        </ContentBox>
+      )}
+      {isLeader && warType === "Active" && (
+        <ContentBox
+          title="War Contract Offers"
+          subtitle="Pending war participation requests"
+          initialBreak={true}
+          padding={false}
+        >
+          {requests && requests.length > 0 && (
+            <UserRequestSystem
+              isLoading={isHiring || isRejectingOffer || isCancelling}
+              requests={requests}
+              userId={user.userId}
+              onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
+              onReject={({ id }) => rejectAllyOffer({ id })}
+              onCancel={({ id }) => cancelAllyOffer({ offerId: id })}
+            />
+          )}
+          {requests && requests.length === 0 && (
+            <p className="p-4">No pending war participation requests</p>
+          )}
         </ContentBox>
       )}
     </>
@@ -857,7 +919,6 @@ export const VillageWar: React.FC<{
     return false;
   });
   if (!attackerTownHall || !defenderTownHall) return null;
-
   return (
     <div className="border p-4 rounded-lg">
       <div className="flex justify-between items-center mb-4">
@@ -1245,173 +1306,5 @@ export const VillageWar: React.FC<{
           </ContentBox>
         )}
     </div>
-  );
-};
-
-/**
- * Faction Room Component for Outlaws
- */
-export const FactionRoom: React.FC<{
-  user: NonNullable<UserWithRelations>;
-  navTabs?: React.ReactNode;
-}> = ({ user, navTabs }) => {
-  // tRPC utility
-  const utils = api.useUtils();
-
-  // State
-  const [warType, setWarType] = useState<"Active" | "Ended">("Active");
-
-  // Queries
-  const { data: activeWars, isPending: isLoadingActive } =
-    api.war.getActiveWars.useQuery(
-      { villageId: user.villageId ?? "" },
-      { staleTime: 10000, enabled: !!user.villageId && warType === "Active" },
-    );
-
-  const { data: endedWars, isPending: isLoadingEnded } = api.war.getEndedWars.useQuery(
-    { villageId: user.villageId ?? "" },
-    { staleTime: 10000, enabled: !!user.villageId && warType === "Ended" },
-  );
-
-  const { data: villageData } = api.village.getAlliances.useQuery(undefined, {
-    staleTime: 10000,
-  });
-
-  const { data: requests } = api.war.getAllyOffers.useQuery(undefined, {
-    staleTime: 30000,
-  });
-
-  // Mutations
-  const { mutate: acceptAllyOffer, isPending: isHiring } =
-    api.war.acceptAllyOffer.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.war.getActiveWars.invalidate();
-          await utils.war.getEndedWars.invalidate();
-          await utils.war.getAllyOffers.invalidate();
-        }
-      },
-    });
-
-  const { mutate: rejectAllyOffer, isPending: isRejectingOffer } =
-    api.war.rejectAllyOffer.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.war.getAllyOffers.invalidate();
-        }
-      },
-    });
-
-  const { mutate: cancelAllyOffer, isPending: isCancelling } =
-    api.war.cancelAllyOffer.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.war.getAllyOffers.invalidate();
-        }
-      },
-    });
-
-  // Derived
-  const isLeader = user.userId === user.village?.kageId;
-  const villages = villageData?.villages;
-  const relationships = villageData?.relationships || [];
-
-  // Checks
-  if (!user.villageId) return <Loader explanation="Join a faction first" />;
-  if (isLoadingActive && warType === "Active")
-    return <Loader explanation="Loading active wars" />;
-  if (isLoadingEnded && warType === "Ended")
-    return <Loader explanation="Loading ended wars" />;
-
-  const WarTypeNavTabs = (
-    <NavTabs
-      id="warTypeSelection"
-      current={warType}
-      options={["Active", "Ended"]}
-      setValue={setWarType}
-    />
-  );
-
-  return (
-    <>
-      <ContentBox
-        title="Faction Wars"
-        subtitle="Manage Faction Wars"
-        back_href="/village"
-        initialBreak={true}
-        topRightContent={navTabs}
-      >
-        <p>
-          As a faction, you can be hired by villages to join their wars as mercenaries.
-          Each war contract comes with a payment in tokens, which will be transferred to
-          your faction upon accepting the offer. In addition factions can participage in
-          sectors wars to claim additional territory.
-        </p>
-        <WarMap
-          user={user}
-          isKage={isLeader}
-          villages={villages}
-          relationships={relationships}
-        />
-      </ContentBox>
-
-      <ContentBox
-        title={`${warType} Wars`}
-        subtitle={warType === "Active" ? "Current Conflicts" : "Past Conflicts"}
-        initialBreak={true}
-        topRightContent={WarTypeNavTabs}
-      >
-        <div className="grid grid-cols-1 gap-4">
-          {warType === "Active" &&
-            activeWars?.map((war) =>
-              war.type === "SECTOR_WAR" ? (
-                <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
-              ) : (
-                <VillageWar key={war.id} war={war} user={user} isKage={isLeader} />
-              ),
-            )}
-          {warType === "Active" && activeWars?.length === 0 && (
-            <p className="text-muted-foreground">No active wars</p>
-          )}
-          {warType === "Ended" &&
-            endedWars?.map((war) =>
-              war.type === "SECTOR_WAR" ? (
-                <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
-              ) : (
-                <VillageWar key={war.id} war={war} user={user} isKage={isLeader} />
-              ),
-            )}
-          {warType === "Ended" && endedWars?.length === 0 && (
-            <p className="text-muted-foreground">No ended wars</p>
-          )}
-        </div>
-      </ContentBox>
-
-      {isLeader && warType === "Active" && (
-        <ContentBox
-          title="War Contract Offers"
-          subtitle="Pending war participation requests"
-          initialBreak={true}
-          padding={false}
-        >
-          {requests && requests.length > 0 && (
-            <UserRequestSystem
-              isLoading={isHiring || isRejectingOffer || isCancelling}
-              requests={requests}
-              userId={user.userId}
-              onAccept={({ id }) => acceptAllyOffer({ offerId: id })}
-              onReject={({ id }) => rejectAllyOffer({ id })}
-              onCancel={({ id }) => cancelAllyOffer({ offerId: id })}
-            />
-          )}
-          {requests && requests.length === 0 && (
-            <p className="p-4">No pending war participation requests</p>
-          )}
-        </ContentBox>
-      )}
-    </>
   );
 };

@@ -46,7 +46,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { WarRoom, FactionRoom } from "@/layout/WarSystem";
+import { WarRoom } from "@/layout/WarSystem";
 
 export default function TownHall() {
   const { data: userData } = useRequiredUserData();
@@ -75,7 +75,7 @@ export default function TownHall() {
     return <ElderHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Wars") {
     return userData.isOutlaw ? (
-      <FactionRoom user={userData} navTabs={NavBarBlock} />
+      <WarRoom user={userData} navTabs={NavBarBlock} />
     ) : (
       <WarRoom user={userData} navTabs={NavBarBlock} />
     );
