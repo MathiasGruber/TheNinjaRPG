@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const data = await request.formData();
     const incentive =
       (data.get("incentive") as string) ||
+      (data.get("uid") as string) ||
       searchParams.get("incentive") ||
       searchParams.get("param") ||
       searchParams.get("userid");

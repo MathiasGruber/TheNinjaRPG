@@ -6,6 +6,7 @@ export const ACTIVE_VOTING_SITES = [
   "mmoHub",
   "arenaTop100",
   "bbogd",
+  "topWebGames",
 ] as const;
 
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
