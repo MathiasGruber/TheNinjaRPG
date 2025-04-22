@@ -352,12 +352,14 @@ const NotificationSystem: React.FC = () => {
                   <Post align_middle={true}>
                     <div className="flex flex-row">
                       <div className="w-20 grow-0 shrink-0">
-                        <AvatarImage
-                          href={entry.user.avatar}
-                          userId={entry.user.userId}
-                          alt={entry.user.username}
-                          size={100}
-                        />
+                        {entry.user && (
+                          <AvatarImage
+                            href={entry.user.avatar}
+                            userId={entry.user.userId}
+                            alt={entry.user.username}
+                            size={100}
+                          />
+                        )}
                       </div>
                       <div className="ml-2">
                         {parseHtml(entry.content)}
