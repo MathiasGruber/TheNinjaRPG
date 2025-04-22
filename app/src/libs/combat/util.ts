@@ -23,7 +23,7 @@ import { defineHex } from "../hexgrid";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
-import { findWarWithUser } from "@/libs/war";
+import { findWarsWithUser } from "@/libs/war";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
 import {
   SHARED_COOLDOWN_TAGS,
@@ -677,107 +677,109 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             const userVillageId = user.villageId;
             const targetVillageId = target.villageId;
             // Get the war from the target, and also search through warAllies
-            const war = findWarWithUser(
+            const wars = findWarsWithUser(
               target.wars,
               user.wars,
               targetVillageId,
               userVillageId,
             );
-            if (!war) return;
-            // Get the names of the village
-            const userVillageName =
-              war.attackerVillageId === targetVillageId
-                ? war?.defenderVillage?.name || ""
-                : war?.attackerVillage?.name || "";
-            const targetVillageName =
-              war.attackerVillageId === targetVillageId
-                ? war?.attackerVillage?.name || ""
-                : war?.defenderVillage?.name || "";
-            // Reset to 0 if not in townhallInfo
-            if (targetVillageName && !(targetVillageName in townhallInfo)) {
-              townhallInfo[targetVillageName] = 0;
-            }
-            if (userVillageName && !(userVillageName in townhallInfo)) {
-              townhallInfo[userVillageName] = 0;
-            }
+            wars.forEach((war) => {
+              // Get the names of the village
+              const userVillageName =
+                war.attackerVillageId === targetVillageId
+                  ? war?.defenderVillage?.name || ""
+                  : war?.attackerVillage?.name || "";
+              const targetVillageName =
+                war.attackerVillageId === targetVillageId
+                  ? war?.attackerVillage?.name || ""
+                  : war?.defenderVillage?.name || "";
+              // Reset to 0 if not in townhallInfo
+              if (targetVillageName && !(targetVillageName in townhallInfo)) {
+                townhallInfo[targetVillageName] = 0;
+              }
+              if (userVillageName && !(userVillageName in townhallInfo)) {
+                townhallInfo[userVillageName] = 0;
+              }
 
-            // Village wars & raids
-            if (
-              ["VILLAGE_WAR", "FACTION_RAID"].includes(war.type) &&
-              battleType === "COMBAT"
-            ) {
-              if (didWin) {
-                if (user.village?.kageId === user.userId) {
-                  townhallChangeHP += WAR_TOWNHALL_HP_KAGE_RECOVER;
-                  townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_KAGE_RECOVER;
-                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_KAGE_REMOVE;
-                } else if (user.rank === "ELDER") {
-                  townhallChangeHP += WAR_TOWNHALL_HP_ELDER_RECOVER;
-                  townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ELDER_RECOVER;
-                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                } else if (user.anbuId) {
-                  townhallChangeHP += WAR_TOWNHALL_HP_ANBU_RECOVER;
-                  townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ANBU_RECOVER;
-                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+              // Village wars & raids
+              if (
+                ["VILLAGE_WAR", "FACTION_RAID"].includes(war.type) &&
+                battleType === "COMBAT"
+              ) {
+                if (didWin) {
+                  if (user.village?.kageId === user.userId) {
+                    townhallChangeHP += WAR_TOWNHALL_HP_KAGE_RECOVER;
+                    townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_KAGE_RECOVER;
+                    townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+                  } else if (user.rank === "ELDER") {
+                    townhallChangeHP += WAR_TOWNHALL_HP_ELDER_RECOVER;
+                    townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ELDER_RECOVER;
+                    townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                  } else if (user.anbuId) {
+                    townhallChangeHP += WAR_TOWNHALL_HP_ANBU_RECOVER;
+                    townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ANBU_RECOVER;
+                    townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+                  } else {
+                    townhallChangeHP += WAR_TOWNHALL_HP_RECOVER;
+                    townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_RECOVER;
+                    townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_REMOVE;
+                  }
+                  if (target.village?.kageId === target.userId) {
+                    townhallInfo[targetVillageName]! -=
+                      WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+                  }
                 } else {
-                  townhallChangeHP += WAR_TOWNHALL_HP_RECOVER;
-                  townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_RECOVER;
-                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_REMOVE;
-                }
-                if (target.village?.kageId === target.userId) {
-                  townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
-                }
-              } else {
-                if (target.village?.kageId === target.userId) {
-                  townhallChangeHP -= WAR_TOWNHALL_HP_KAGE_REMOVE;
-                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_KAGE_REMOVE;
-                } else if (target.rank === "ELDER") {
-                  townhallChangeHP -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                } else if (target.anbuId) {
-                  townhallChangeHP -= WAR_TOWNHALL_HP_ANBU_REMOVE;
-                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
-                } else {
-                  townhallChangeHP -= WAR_TOWNHALL_HP_REMOVE;
-                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_REMOVE;
-                }
-                if (user.village?.kageId === user.userId) {
-                  townhallChangeHP -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
-                  townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+                  if (target.village?.kageId === target.userId) {
+                    townhallChangeHP -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+                    townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_KAGE_REMOVE;
+                  } else if (target.rank === "ELDER") {
+                    townhallChangeHP -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                    townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                  } else if (target.anbuId) {
+                    townhallChangeHP -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+                    townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
+                  } else {
+                    townhallChangeHP -= WAR_TOWNHALL_HP_REMOVE;
+                    townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_REMOVE;
+                  }
+                  if (user.village?.kageId === user.userId) {
+                    townhallChangeHP -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+                    townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_KAGEDEATH_REMOVE;
+                  }
                 }
               }
-            }
-            // Sector wars
-            if (war.type === "SECTOR_WAR") {
-              const sector = war.sector;
-              if (!(sector in shrineInfo)) {
-                shrineInfo[sector] = 0;
-              }
-              if (battleType === "SHRINE_WAR") {
-                if (
-                  (didWin && war.attackerVillageId === vilId) ||
-                  (!didWin && war.defenderVillageId === vilId)
-                ) {
-                  shrineChangeHp -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
-                  shrineInfo[sector]! -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
-                } else {
-                  shrineChangeHp += WAR_SECTORWAR_AI_SHRINE_RECOVER;
-                  shrineInfo[sector]! += WAR_SECTORWAR_AI_SHRINE_RECOVER;
+              // Sector wars
+              if (war.type === "SECTOR_WAR") {
+                const sector = war.sector;
+                if (!(sector in shrineInfo)) {
+                  shrineInfo[sector] = 0;
+                }
+                if (battleType === "SHRINE_WAR") {
+                  if (
+                    (didWin && war.attackerVillageId === vilId) ||
+                    (!didWin && war.defenderVillageId === vilId)
+                  ) {
+                    shrineChangeHp -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
+                    shrineInfo[sector]! -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
+                  } else {
+                    shrineChangeHp += WAR_SECTORWAR_AI_SHRINE_RECOVER;
+                    shrineInfo[sector]! += WAR_SECTORWAR_AI_SHRINE_RECOVER;
+                  }
+                }
+                if (battleType === "COMBAT") {
+                  if (
+                    (didWin && war.attackerVillageId === vilId) ||
+                    (!didWin && war.defenderVillageId === vilId)
+                  ) {
+                    if (didWin) shrineChangeHp -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                    shrineInfo[sector]! -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                  } else {
+                    if (didWin) shrineChangeHp += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
+                    shrineInfo[sector]! += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
+                  }
                 }
               }
-              if (battleType === "COMBAT") {
-                if (
-                  (didWin && war.attackerVillageId === vilId) ||
-                  (!didWin && war.defenderVillageId === vilId)
-                ) {
-                  if (didWin) shrineChangeHp -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
-                  shrineInfo[sector]! -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
-                } else {
-                  if (didWin) shrineChangeHp += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
-                  shrineInfo[sector]! += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
-                }
-              }
-            }
+            });
           });
       }
       shrineChangeHp *= battle.rewardScaling;

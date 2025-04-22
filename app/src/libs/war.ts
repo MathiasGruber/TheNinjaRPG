@@ -27,13 +27,13 @@ import { secondsFromNow } from "@/utils/time";
  * @param userVillageId - The village ID of the user
  * @returns The war if found, otherwise undefined
  */
-export const findWarWithUser = (
+export const findWarsWithUser = (
   targetWars: BattleWar[],
   userWars: BattleWar[],
   targetVillageId: string | null | undefined,
   userVillageId: string | null | undefined,
 ) => {
-  return [...targetWars, ...userWars].find(
+  return [...targetWars, ...userWars].filter(
     (w) =>
       w.attackerVillageId === userVillageId ||
       w.defenderVillageId === userVillageId ||

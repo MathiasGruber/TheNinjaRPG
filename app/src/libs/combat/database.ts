@@ -22,7 +22,7 @@ import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
-import { findWarWithUser } from "@/libs/war";
+import { findWarsWithUser } from "@/libs/war";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -285,11 +285,11 @@ export const updateWars = async (
   const warResults = curBattle.usersState
     .filter((t) => t.userId !== userId)
     .filter((t) => !t.isSummon)
-    .filter((t) => findWarWithUser(t.wars, user.wars, t.villageId, userVillageId))
+    .filter((t) => findWarsWithUser(t.wars, user.wars, t.villageId, userVillageId))
     .map((target) => {
       return {
         target,
-        war: findWarWithUser(target.wars, user.wars, target.villageId, userVillageId)!,
+        wars: findWarsWithUser(target.wars, user.wars, target.villageId, userVillageId),
       };
     });
 
@@ -297,58 +297,64 @@ export const updateWars = async (
   await Promise.all(
     warResults
       .map((warResult) => {
-        const townhallVillageId =
-          warResult.war.attackerVillageId === user.villageId ||
-          warResult.war.warAllies.some(
-            (a) =>
-              a.villageId === user.villageId &&
-              a.supportVillageId === warResult.war.attackerVillageId,
-          )
-            ? warResult.war.attackerVillageId
-            : warResult.war.defenderVillageId;
-        return [
-          // Insert war kill for tracking purposes
-          ...(result.didWin
-            ? [
-                client.insert(warKill).values({
-                  id: nanoid(),
-                  warId: warResult.war.id,
-                  killerId: user.userId,
-                  victimId: warResult.target.userId,
-                  killerVillageId: user.villageId || "unknown",
-                  victimVillageId: warResult.target.villageId || "unknonwn",
-                  sector: user.sector,
-                  shrineHpChange: result.shrineChangeHp,
-                  townhallHpChange: result.townhallChangeHP,
-                  killedAt: new Date(),
-                }),
-              ]
-            : []),
-          // Update shrine if we're in a sector war
-          ...(result.shrineChangeHp !== 0 && warResult.war.type === "SECTOR_WAR"
-            ? [
-                client
-                  .update(war)
-                  .set({ shrineHp: sql`shrineHp + ${result.shrineChangeHp}` })
-                  .where(eq(war.id, warResult.war.id)),
-              ]
-            : []),
-          // Update townhall if we're in a village war
-          ...(result.townhallChangeHP !== 0 &&
-          ["VILLAGE_WAR", "FACTION_RAID"].includes(warResult.war.type)
-            ? [
-                client
-                  .update(villageStructure)
-                  .set({ curSp: sql`LEAST(maxSp, curSp + ${result.townhallChangeHP})` })
-                  .where(
-                    and(
-                      eq(villageStructure.villageId, townhallVillageId),
-                      eq(villageStructure.route, warResult.war.targetStructureRoute),
-                    ),
-                  ),
-              ]
-            : []),
-        ];
+        return warResult.wars
+          .map((w) => {
+            const townhallVillageId =
+              w.attackerVillageId === user.villageId ||
+              w.warAllies.some(
+                (a) =>
+                  a.villageId === user.villageId &&
+                  a.supportVillageId === w.attackerVillageId,
+              )
+                ? w.attackerVillageId
+                : w.defenderVillageId;
+            return [
+              // Insert war kill for tracking purposes
+              ...(result.didWin
+                ? [
+                    client.insert(warKill).values({
+                      id: nanoid(),
+                      warId: w.id,
+                      killerId: user.userId,
+                      victimId: warResult.target.userId,
+                      killerVillageId: user.villageId || "unknown",
+                      victimVillageId: warResult.target.villageId || "unknonwn",
+                      sector: user.sector,
+                      shrineHpChange: result.shrineChangeHp,
+                      townhallHpChange: result.townhallChangeHP,
+                      killedAt: new Date(),
+                    }),
+                  ]
+                : []),
+              // Update shrine if we're in a sector war
+              ...(result.shrineChangeHp !== 0 && w.type === "SECTOR_WAR"
+                ? [
+                    client
+                      .update(war)
+                      .set({ shrineHp: sql`shrineHp + ${result.shrineChangeHp}` })
+                      .where(eq(war.id, w.id)),
+                  ]
+                : []),
+              // Update townhall if we're in a village war
+              ...(result.townhallChangeHP !== 0 &&
+              ["VILLAGE_WAR", "FACTION_RAID"].includes(w.type)
+                ? [
+                    client
+                      .update(villageStructure)
+                      .set({
+                        curSp: sql`LEAST(maxSp, curSp + ${result.townhallChangeHP})`,
+                      })
+                      .where(
+                        and(
+                          eq(villageStructure.villageId, townhallVillageId),
+                          eq(villageStructure.route, w.targetStructureRoute),
+                        ),
+                      ),
+                  ]
+                : []),
+            ];
+          })
+          .flat();
       })
       .flat(),
   );
