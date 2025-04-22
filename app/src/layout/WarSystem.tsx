@@ -933,6 +933,7 @@ export const VillageWar: React.FC<{
             - {capitalizeFirstLetter(war.type.replace("_", " "))}
           </h4>
           <p className="text-sm">Started: {war.startedAt.toLocaleDateString()}</p>
+          <p className="text-sm">War ID: {war.id}</p>
           {war.status !== "ACTIVE" && war.endedAt && (
             <>
               <p className="text-sm">Ended: {war.endedAt.toLocaleDateString()}</p>
