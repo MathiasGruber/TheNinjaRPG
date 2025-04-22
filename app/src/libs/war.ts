@@ -162,7 +162,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
     winningAllies = activeWar.warAllies
       .filter((f) => f.villageId === winnerVillageId)
       .map((f) => f.villageId);
-    winningPoints = WAR_VICTORY_TOKEN_BONUS / winningAllies.length;
+    winningPoints = WAR_VICTORY_TOKEN_BONUS / (winningAllies.length + 1);
   }
 
   let notificationContent = "";
