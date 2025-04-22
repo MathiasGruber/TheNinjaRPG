@@ -127,7 +127,7 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
                 <div
                   key={i}
                   className={`absolute top-[-5px]`}
-                  style={{ right: `${i * 10}px` }}
+                  style={{ left: `${i * 10}px` }}
                 >
                   <ElementImage element={element} className="w-6" />
                 </div>
@@ -219,11 +219,14 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
                 background: `conic-gradient(#ededed ${cooldownPerc}%, rgba(0, 0, 0, 0.1) 0deg)`,
               }}
             ></div>
-            {cooldown && currentRound && lastUsedRound && cooldown - (currentRound - lastUsedRound) > 0 && (
-              <div className="absolute top-0 left-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-slate-400 bg-slate-300 text-black text-base font-bold z-10">
-                {cooldown - (currentRound - lastUsedRound)}
-              </div>
-            )}
+            {cooldown &&
+              currentRound &&
+              lastUsedRound &&
+              cooldown - (currentRound - lastUsedRound) > 0 && (
+                <div className="absolute top-0 left-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-slate-400 bg-slate-300 text-black text-base font-bold z-10">
+                  {cooldown - (currentRound - lastUsedRound)}
+                </div>
+              )}
           </>
         )}
       </div>
