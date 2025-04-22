@@ -97,11 +97,13 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
         className="ml-2 h-6 w-6 rounded-full hover:bg-gray-300"
         onClick={(e) => {
           e.preventDefault();
-          const newSelected = getUnique(
-            watchUsers.filter(Boolean).filter((e) => e.userId !== user.userId),
-            "userId",
-          );
-          form.setValue("users", newSelected);
+          if (watchUsers) {
+            const newSelected = getUnique(
+              watchUsers.filter(Boolean).filter((e) => e.userId !== user.userId),
+              "userId",
+            );
+            form.setValue("users", newSelected);
+          }
         }}
       />
     </span>
