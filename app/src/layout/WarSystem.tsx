@@ -747,7 +747,7 @@ export const VillageWar: React.FC<{
       victimInfo: (
         <div>
           <p className="font-bold">{kill.victim.username}</p>
-          <p>{kill.victimVillage.name}</p>
+          <p>{kill.victimVillage?.name || "Unknown"}</p>
         </div>
       ),
     }));
