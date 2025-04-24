@@ -6,7 +6,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trp
 import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
 import { village, villageStructure, userData, notification } from "@/drizzle/schema";
 import { villageAlliance, kageDefendedChallenges, war, sector } from "@/drizzle/schema";
-import { eq, sql, gte, and, or, inArray, ne } from "drizzle-orm";
+import { eq, sql, gte, and, or, inArray, ne, count } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
@@ -70,8 +70,12 @@ export const villageRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       // Fetch in parallel
-      const [villageData, defendedChallenges] = await Promise.all([
+      const [villageData, sectorCount, defendedChallenges] = await Promise.all([
         fetchVillage(ctx.drizzle, input.id),
+        ctx.drizzle
+          .select({ count: count() })
+          .from(sector)
+          .where(eq(sector.villageId, input.id)),
         ctx.drizzle.query.kageDefendedChallenges.findMany({
           with: {
             user: {
@@ -92,7 +96,11 @@ export const villageRouter = createTRPCRouter({
       if (!villageData) throw serverError("NOT_FOUND", "Village not found");
 
       // Return
-      return { villageData, defendedChallenges };
+      return {
+        villageData,
+        sectorCount: sectorCount?.[0]?.count || 0,
+        defendedChallenges,
+      };
     }),
   // Get sector ownership
   getSectorOwnerships: publicProcedure.query(async ({ ctx }) => {

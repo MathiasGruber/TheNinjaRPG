@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import RichInput from "@/layout/RichInput";
 import {
   Tooltip,
@@ -15,8 +15,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { prettyNumber } from "@/utils/string";
 import { mutateContentSchema } from "@/validators/comments";
-import { GitFork } from "lucide-react";
+import { TentTree, Pencil, MapPinHouse } from "lucide-react";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -117,8 +118,17 @@ export default function VillageOverview() {
         subtitle={subtitle}
         topRightContent={
           <div className="flex flex-row items-center">
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-3 gap-1">
               <TooltipProvider delayDuration={50}>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <div className="flex flex-row">
+                      <MapPinHouse className="w-6 h-6 mr-2" />{" "}
+                      {data?.sectorCount || "?"}
+                    </div>
+                  </TooltipTrigger>
+                  {walls && <TooltipContent>Number of sectors owned</TooltipContent>}
+                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger>
                     <div className="flex flex-row">
@@ -128,19 +138,6 @@ export default function VillageOverview() {
                   {walls && (
                     <TooltipContent>{StructureRewardEntries(walls)}</TooltipContent>
                   )}
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Link href={href}>
-                      <div className="ml-3 flex flex-row hover:text-orange-500 hover:cursor-pointer">
-                        <Users className="w-6 h-6 mr-2" />{" "}
-                        {villageData?.populationCount}
-                      </div>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Total {userData?.isOutlaw ? "faction" : "village"} population
-                  </TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger>
@@ -156,25 +153,39 @@ export default function VillageOverview() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger>
-                    <div className="ml-3 flex flex-row">
+                    <Link href={href}>
+                      <div className="flex flex-row hover:text-orange-500 hover:cursor-pointer">
+                        <Users className="w-6 h-6 mr-2" />{" "}
+                        {prettyNumber(villageData?.populationCount ?? 0)}
+                      </div>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Total {userData?.isOutlaw ? "faction" : "village"} population
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <div className="flex flex-row">
                       <ReceiptJapaneseYen className="w-6 h-6 mr-2" />{" "}
-                      {villageData?.tokens}
+                      {prettyNumber(villageData?.tokens ?? 0)}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
                     Tokens earned through PvP and quests can be used to improve{" "}
-                    {userData?.isOutlaw ? "faction" : "village"}.
+                    {userData?.isOutlaw ? "faction" : "village"}. Current tokens:{" "}
+                    {villageData?.tokens.toLocaleString()}.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             {!userData.isOutlaw && canLeave && ownSector && (
-              <Confirm
+              <Confirm2
                 title="Leave Village"
                 proceed_label="Submit"
                 button={
-                  <Button className="w-14 h-12 p-0 ml-2">
-                    <GitFork className="h-6 w-6" />
+                  <Button className="ml-2">
+                    <TentTree className="h-6 w-6" />
                   </Button>
                 }
                 onAccept={() => leaveVillage()}
@@ -184,7 +195,7 @@ export default function VillageOverview() {
                 reset to 0. Please be aware that if you join another{" "}
                 {userData?.isOutlaw ? "faction" : "village"} your training benefits &
                 regen will be reduced for {VILLAGE_REDUCED_GAINS_DAYS} days.
-              </Confirm>
+              </Confirm2>
             )}
           </div>
         }
@@ -219,10 +230,14 @@ export default function VillageOverview() {
           initialBreak={true}
           topRightContent={
             isKage && (
-              <Confirm
+              <Confirm2
                 title="Update Notice"
                 proceed_label="Submit"
-                button={<Button id="create">Update</Button>}
+                button={
+                  <Button id="create">
+                    <Pencil className="h-6 w-6" />
+                  </Button>
+                }
                 onAccept={onSubmit}
               >
                 <RichInput
@@ -233,7 +248,7 @@ export default function VillageOverview() {
                   control={control}
                   error={errors.content?.message}
                 />
-              </Confirm>
+              </Confirm2>
             )
           }
         >
