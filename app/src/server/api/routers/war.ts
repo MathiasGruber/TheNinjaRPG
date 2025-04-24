@@ -199,6 +199,7 @@ export const warRouter = createTRPCRouter({
         return errorResponse("This sector is reserved and cannot be claimed");
       }
       if (
+        targetSector &&
         attackerVillage.warExhaustionEndedAt &&
         attackerVillage.warExhaustionEndedAt > now
       ) {
