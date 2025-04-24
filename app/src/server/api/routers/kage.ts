@@ -77,6 +77,7 @@ export const kageRouter = createTRPCRouter({
           fetchActiveWars(ctx.drizzle, input.villageId),
         ]);
       const previousCount = previous?.[0]?.count ?? 0;
+      const activeVillageWars = activeWars?.filter((w) => w.type === "VILLAGE_WAR");
       // Guard
       if (!village) return errorResponse("Village not found");
       if (!canChallengeKage(user)) return errorResponse("Not eligible to challenge");
@@ -89,7 +90,7 @@ export const kageRouter = createTRPCRouter({
       if (recent.length > 0) {
         return errorResponse(`Max 1 challenge per ${KAGE_CHALLENGE_SECS} seconds`);
       }
-      if (activeWars && activeWars.length > 0) {
+      if (activeVillageWars && activeVillageWars.length > 0) {
         return errorResponse("Cannot challenge kage while village is at war");
       }
       // Mutate
@@ -128,7 +129,7 @@ export const kageRouter = createTRPCRouter({
         fetchVillage(ctx.drizzle, user.villageId || ""),
         fetchActiveWars(ctx.drizzle, user.villageId || ""),
       ]);
-
+      const activeVillageWars = activeWars?.filter((w) => w.type === "VILLAGE_WAR");
       // Guards
       if (!village) return errorResponse("Village not found");
       if (village.kageId !== user.userId) return errorResponse("Not kage");
@@ -138,10 +139,9 @@ export const kageRouter = createTRPCRouter({
       if (challenge.status !== "PENDING") {
         return errorResponse("Challenge not pending");
       }
-      if (activeWars && activeWars.length > 0) {
+      if (activeVillageWars && activeVillageWars.length > 0) {
         return errorResponse("Cannot accept challenge while village is at war");
       }
-
       // Mutate
       const result = await initiateBattle(
         {

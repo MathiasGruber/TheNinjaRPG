@@ -214,7 +214,7 @@ const ElderHall: React.FC<{
               )}
               {(targetUser.rank === "JONIN" || targetUser.rank === "ELITE JONIN") && (
                 <Button
-                  id="challenge"
+                  id="promote"
                   className="mt-2 w-full"
                   onClick={() =>
                     toggleElder({
@@ -433,6 +433,7 @@ const KageChallenge: React.FC<{
   );
 
   // Derived
+  const activeVillageWars = activeWars?.filter((w) => w.type === "VILLAGE_WAR");
   const isKage = user.userId === user.village?.kageId;
   const openForChallenges = user.village?.openForChallenges;
   const pendingRequests = requests?.filter((r) => r.status === "PENDING");
@@ -441,7 +442,7 @@ const KageChallenge: React.FC<{
   const expiredRequest = pendingRequests?.find(
     (r) => secondsPassed(r.createdAt) > KAGE_CHALLENGE_SECS,
   );
-  const isAtWar = activeWars && activeWars.length > 0;
+  const isAtWar = activeVillageWars && activeVillageWars.length > 0;
 
   // Mutations
   const { mutate: create, isPending: isSendingChallenge } =
