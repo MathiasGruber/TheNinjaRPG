@@ -99,7 +99,9 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
           e.preventDefault();
           if (watchUsers) {
             const newSelected = getUnique(
-              watchUsers.filter(Boolean).filter((e) => e.userId !== user.userId),
+              watchUsers
+                .filter(Boolean)
+                .filter((e) => e.userId && e.userId !== user.userId),
               "userId",
             );
             form.setValue("users", newSelected);
