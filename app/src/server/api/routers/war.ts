@@ -159,6 +159,12 @@ export const warRouter = createTRPCRouter({
         attackerVillage?.id || "",
         defenderVillageId,
       );
+      const activeSectorWar = activeWars.find(
+        (w) =>
+          (w.attackerVillageId === user?.village?.id ||
+            w.defenderVillageId === user?.village?.id) &&
+          w.type === "SECTOR_WAR",
+      );
       const sectorVillage = villages.find((v) => v.sector === input.sectorId);
       // Guard
       if (!user?.village) {
@@ -197,16 +203,26 @@ export const warRouter = createTRPCRouter({
       if (
         activeWars.find(
           (w) =>
+            w.attackerVillageId === user?.village?.id && w.sector === input.sectorId,
+        )
+      ) {
+        return errorResponse("You are already at war for this sector");
+      }
+      if (activeSectorWar) {
+        return errorResponse(
+          `You are already in a sector war for sector ${activeSectorWar.sector}`,
+        );
+      }
+      if (
+        activeWars.find(
+          (w) =>
             (w.attackerVillageId === user?.village?.id &&
               w.defenderVillageId === defenderVillageId) ||
             (w.attackerVillageId === defenderVillageId &&
-              w.defenderVillageId === user?.village?.id) ||
-            (w.attackerVillageId === user?.village?.id && w.sector === input.sectorId),
+              w.defenderVillageId === user?.village?.id),
         )
       ) {
-        return errorResponse(
-          "You are already at war for this sector or against the owner village.",
-        );
+        return errorResponse("You are already at war against the owner village.");
       }
       // Create war and deduct tokens
       const warId = nanoid();
