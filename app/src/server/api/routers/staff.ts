@@ -56,6 +56,7 @@ import { nanoid } from "nanoid";
 import { canUnstuckVillage, canModifyUserBadges } from "@/utils/permissions";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { UserStatus } from "@/drizzle/constants";
+import type { DrizzleClient } from "@/server/db";
 
 export const staffRouter = createTRPCRouter({
   forceAwake: protectedProcedure
@@ -531,3 +532,80 @@ export const staffRouter = createTRPCRouter({
 });
 
 export type staffRouter = inferRouterOutputs<typeof staffRouter>;
+
+/**
+ * Delete a user from the database.
+ * @param client - The database client.
+ * @param userId - The ID of the user to delete.
+ */
+export const deleteUser = async (client: DrizzleClient, userId: string) => {
+  await Promise.all([
+    client
+      .update(userData)
+      .set({ senseiId: null })
+      .where(eq(userData.senseiId, userId)),
+    client.delete(userData).where(eq(userData.userId, userId)),
+    client.delete(mpvpBattleUser).where(eq(mpvpBattleUser.userId, userId)),
+    client.delete(bloodlineRolls).where(eq(bloodlineRolls.userId, userId)),
+    client.delete(conversation).where(eq(conversation.createdById, userId)),
+    client.delete(user2conversation).where(eq(user2conversation.userId, userId)),
+    client.delete(conversationComment).where(eq(conversationComment.userId, userId)),
+    client.delete(damageSimulation).where(eq(damageSimulation.userId, userId)),
+    client.delete(forumPost).where(eq(forumPost.userId, userId)),
+    client.delete(forumThread).where(eq(forumThread.userId, userId)),
+    client.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId)),
+    client.delete(jutsuLoadout).where(eq(jutsuLoadout.userId, userId)),
+    client.delete(notification).where(eq(notification.userId, userId)),
+    client.delete(paypalSubscription).where(eq(paypalSubscription.createdById, userId)),
+    client
+      .delete(paypalSubscription)
+      .where(eq(paypalSubscription.affectedUserId, userId)),
+    client
+      .delete(paypalTransaction)
+      .where(eq(paypalTransaction.affectedUserId, userId)),
+    client.delete(paypalTransaction).where(eq(paypalTransaction.createdById, userId)),
+    client.delete(ryoTrade).where(eq(ryoTrade.creatorUserId, userId)),
+    client.delete(ryoTrade).where(eq(ryoTrade.purchaserUserId, userId)),
+    client.delete(ryoTrade).where(eq(ryoTrade.allowedPurchaserId, userId)),
+    client.delete(reportLog).where(eq(reportLog.targetUserId, userId)),
+    client.delete(reportLog).where(eq(reportLog.staffUserId, userId)),
+    client.delete(actionLog).where(eq(actionLog.userId, userId)),
+    client.delete(trainingLog).where(eq(trainingLog.userId, userId)),
+    client.delete(userAttribute).where(eq(userAttribute.userId, userId)),
+    client.delete(userReview).where(eq(userReview.authorUserId, userId)),
+    client.delete(userRewards).where(eq(userRewards.awardedById, userId)),
+    client.delete(userRewards).where(eq(userRewards.receiverId, userId)),
+    client.delete(userReview).where(eq(userReview.targetUserId, userId)),
+    client.delete(userNindo).where(eq(userNindo.userId, userId)),
+    client.delete(userItem).where(eq(userItem.userId, userId)),
+    client.delete(userJutsu).where(eq(userJutsu.userId, userId)),
+    client.delete(userReport).where(eq(userReport.reporterUserId, userId)),
+    client.delete(userReport).where(eq(userReport.reportedUserId, userId)),
+    client.delete(userReportComment).where(eq(userReportComment.userId, userId)),
+    client.delete(bankTransfers).where(eq(bankTransfers.senderId, userId)),
+    client.delete(bankTransfers).where(eq(bankTransfers.receiverId, userId)),
+    client.delete(automatedModeration).where(eq(automatedModeration.userId, userId)),
+    client.delete(supportReview).where(eq(supportReview.userId, userId)),
+    client
+      .delete(kageDefendedChallenges)
+      .where(eq(kageDefendedChallenges.userId, userId)),
+    client
+      .delete(kageDefendedChallenges)
+      .where(eq(kageDefendedChallenges.kageId, userId)),
+    client.delete(questHistory).where(eq(questHistory.userId, userId)),
+    client.delete(userLikes).where(eq(userLikes.userId, userId)),
+    client.delete(conceptImage).where(eq(conceptImage.userId, userId)),
+    client.delete(userBadge).where(eq(userBadge.userId, userId)),
+    client.delete(userRequest).where(eq(userRequest.senderId, userId)),
+    client.delete(userRequest).where(eq(userRequest.receiverId, userId)),
+    client.delete(linkPromotion).where(eq(linkPromotion.userId, userId)),
+    client.delete(linkPromotion).where(eq(linkPromotion.reviewedBy, userId)),
+    client.delete(userVote).where(eq(userVote.userId, userId)),
+    client.delete(poll).where(eq(poll.createdByUserId, userId)),
+    client.delete(pollOption).where(eq(pollOption.targetUserId, userId)),
+    client.delete(pollOption).where(eq(pollOption.createdByUserId, userId)),
+    client.delete(village).where(eq(village.kageId, userId)),
+    client.delete(userPollVote).where(eq(userPollVote.userId, userId)),
+    client.delete(userUpload).where(eq(userUpload.userId, userId)),
+  ]);
+};

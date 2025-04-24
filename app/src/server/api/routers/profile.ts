@@ -9,20 +9,13 @@ import {
   actionLog,
   bankTransfers,
   battleHistory,
-  bloodlineRolls,
-  conversationComment,
-  forumPost,
   gameSetting,
-  historicalAvatar,
   item,
   jutsu,
-  jutsuLoadout,
   notification,
   poll,
   quest,
   questHistory,
-  reportLog,
-  user2conversation,
   userAttribute,
   userBlackList,
   userData,
@@ -31,8 +24,6 @@ import {
   userNindo,
   userPollVote,
   userReport,
-  userReportComment,
-  userRequest,
   userVote,
   village,
 } from "@/drizzle/schema";
@@ -86,6 +77,7 @@ import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
+import { deleteUser } from "@/server/api/routers/staff";
 import { moderateContent } from "@/libs/moderator";
 import { fetchKageReplacement } from "@/routers/kage";
 import type { UserVote } from "@/drizzle/schema";
@@ -1239,6 +1231,12 @@ export const profileRouter = createTRPCRouter({
       if (ctx.userId !== input.userId && !canSeeSecretData(user.role)) {
         return errorResponse("You can't delete other users");
       }
+      if (target.anbuId) {
+        return errorResponse("Please leave ANBU first.");
+      }
+      if (target.clanId) {
+        return errorResponse("Please leave clan or faction first.");
+      }
       // Mutate
       await deleteUser(ctx.drizzle, input.userId);
       return { success: true, message: "User deleted" };
@@ -1321,38 +1319,6 @@ export const updateNindo = async (
         }),
   ]);
   return { success: true, message: "Content updated" };
-};
-
-export const deleteUser = async (client: DrizzleClient, userId: string) => {
-  await client.transaction(async (tx) => {
-    await tx.delete(actionLog).where(eq(actionLog.userId, userId));
-    await tx.delete(bankTransfers).where(eq(bankTransfers.senderId, userId));
-    await tx.delete(bankTransfers).where(eq(bankTransfers.receiverId, userId));
-    await tx.delete(bloodlineRolls).where(eq(bloodlineRolls.userId, userId));
-    await tx.delete(conversationComment).where(eq(conversationComment.userId, userId));
-    await tx.delete(forumPost).where(eq(forumPost.userId, userId));
-    await tx.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId));
-    await tx.delete(jutsuLoadout).where(eq(jutsuLoadout.userId, userId));
-    await tx.delete(questHistory).where(eq(questHistory.userId, userId));
-    await tx.delete(user2conversation).where(eq(user2conversation.userId, userId));
-    await tx.delete(userAttribute).where(eq(userAttribute.userId, userId));
-    await tx.delete(userData).where(eq(userData.userId, userId));
-    await tx.delete(userItem).where(eq(userItem.userId, userId));
-    await tx.delete(userJutsu).where(eq(userJutsu.userId, userId));
-    await tx.delete(userNindo).where(eq(userNindo.userId, userId));
-    await tx.delete(userRequest).where(eq(userRequest.senderId, userId));
-    await tx.delete(userRequest).where(eq(userRequest.receiverId, userId));
-    await tx.delete(userReportComment).where(eq(userReportComment.userId, userId));
-    await tx
-      .delete(reportLog)
-      .where(or(eq(reportLog.targetUserId, userId), eq(reportLog.staffUserId, userId)));
-  });
-  await Promise.all([
-    client
-      .update(userData)
-      .set({ senseiId: null })
-      .where(eq(userData.senseiId, userId)),
-  ]);
 };
 
 export const fetchUser = async (client: DrizzleClient, userId: string) => {
