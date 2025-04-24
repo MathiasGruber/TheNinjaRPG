@@ -364,7 +364,7 @@ const NotificationSystem: React.FC = () => {
                       <div className="ml-2">
                         {parseHtml(entry.content)}
                         <div className="mt-2 italic">
-                          By {entry.user.username} on{" "}
+                          By {entry?.user?.username || "Unknown"} on{" "}
                           {entry.createdAt.toLocaleDateString()}
                         </div>
                       </div>
