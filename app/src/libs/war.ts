@@ -282,10 +282,12 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
                 lastUpgradedAt: structureUpgradeBlock,
               })
               .where(
-                and(
-                  eq(villageStructure.villageId, loserVillageId),
-                  eq(villageStructure.route, activeWar.targetStructureRoute),
-                ),
+                activeWar.type === "FACTION_RAID"
+                  ? and(
+                      eq(villageStructure.villageId, loserVillageId),
+                      eq(villageStructure.route, activeWar.targetStructureRoute),
+                    )
+                  : eq(villageStructure.route, activeWar.targetStructureRoute),
               ),
           ]
       : []),
