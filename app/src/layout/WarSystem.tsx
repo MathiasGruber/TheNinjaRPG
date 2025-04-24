@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
-import Confirm from "@/layout/Confirm";
 import Modal2 from "@/layout/Modal2";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
@@ -403,7 +402,10 @@ export const WarMap: React.FC<{
                   });
                 }
               } else {
-                declareSectorWar({ sectorId: targetSector });
+                declareSectorWar({
+                  sectorId: targetSector,
+                  userVillageId: user.villageId,
+                });
               }
             }}
           >
@@ -673,7 +675,7 @@ export const SectorWar: React.FC<{
               )}
             </div>
             {canBuildShrine && (
-              <Confirm
+              <Confirm2
                 title="Build Shrine"
                 button={
                   <Button className="w-full" loading={isBuilding}>
@@ -692,7 +694,7 @@ export const SectorWar: React.FC<{
                   {WAR_PURCHASE_SHRINE_TOKEN_COST.toLocaleString()} village tokens. Are
                   you sure?
                 </p>
-              </Confirm>
+              </Confirm2>
             )}
           </div>
         </div>
@@ -1232,7 +1234,7 @@ export const VillageWar: React.FC<{
                       {village.type === "VILLAGE" ? "Ally" : "Faction"}
                     </p>
                   </div>
-                  <Confirm
+                  <Confirm2
                     title={`Send Offer to ${village.name}`}
                     button={
                       <Button
@@ -1277,7 +1279,7 @@ export const VillageWar: React.FC<{
                         : war.attackerVillage?.name}
                       . They can choose to accept or reject this offer.
                     </p>
-                  </Confirm>
+                  </Confirm2>
                 </div>
               </div>
             ))}

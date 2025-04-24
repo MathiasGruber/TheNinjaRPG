@@ -14,7 +14,7 @@ import { isAtEdge, maxDistance } from "@/libs/travel/controls";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { secondsFromNow } from "@/utils/time";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
-import { userData, clan, village, actionLog, war, sector } from "@/drizzle/schema";
+import { userData, clan, village, actionLog, war } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { initiateBattle } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
@@ -26,6 +26,7 @@ import {
   ROBBING_VILLAGE_PRESTIGE_GAIN,
   ROBBING_IMMUNITY_DURATION,
 } from "@/drizzle/constants";
+import { fetchSector } from "@/routers/village";
 import * as map from "@/data/hexasphere.json";
 import { UserStatuses } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -254,11 +255,7 @@ export const travelRouter = createTRPCRouter({
           ),
           with: { structures: true },
         }),
-        ctx.drizzle.query.sector.findFirst({
-          columns: { sector: true, villageId: true },
-          with: { village: { columns: { name: true, id: true } } },
-          where: eq(sector.sector, user.sector),
-        }),
+        fetchSector(ctx.drizzle, user.sector),
         ctx.drizzle.query.war.findMany({
           where: and(eq(war.sector, user.sector), eq(war.status, "ACTIVE")),
           with: {

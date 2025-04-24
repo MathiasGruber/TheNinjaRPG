@@ -72,10 +72,7 @@ export const villageRouter = createTRPCRouter({
       // Fetch in parallel
       const [villageData, sectorCount, defendedChallenges] = await Promise.all([
         fetchVillage(ctx.drizzle, input.id),
-        ctx.drizzle
-          .select({ count: count() })
-          .from(sector)
-          .where(eq(sector.villageId, input.id)),
+        countVillageSectors(ctx.drizzle, input.id),
         ctx.drizzle.query.kageDefendedChallenges.findMany({
           with: {
             user: {
@@ -96,11 +93,7 @@ export const villageRouter = createTRPCRouter({
       if (!villageData) throw serverError("NOT_FOUND", "Village not found");
 
       // Return
-      return {
-        villageData,
-        sectorCount: sectorCount?.[0]?.count || 0,
-        defendedChallenges,
-      };
+      return { villageData, sectorCount, defendedChallenges };
     }),
   // Get sector ownership
   getSectorOwnerships: publicProcedure.query(async ({ ctx }) => {
@@ -759,5 +752,37 @@ export const fetchStructures = async (
 export const fetchStructure = async (client: DrizzleClient, structureId: string) => {
   return await client.query.villageStructure.findFirst({
     where: eq(villageStructure.id, structureId),
+  });
+};
+
+/**
+ * Counts the number of sectors a village has.
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param villageId - The ID of the village to count sectors for.
+ * @returns The number of sectors a village has.
+ */
+export const countVillageSectors = async (
+  client: DrizzleClient,
+  villageId: string | null,
+) => {
+  if (!villageId) return 0;
+  const counts = await client
+    .select({ count: count() })
+    .from(sector)
+    .where(eq(sector.villageId, villageId));
+  return counts?.[0]?.count || 0;
+};
+
+/**
+ * Fetches a sector from the database.
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param sectorId - The ID of the sector to fetch.
+ * @returns A Promise that resolves to the fetched sector.
+ */
+export const fetchSector = async (client: DrizzleClient, sectorId: number) => {
+  return await client.query.sector.findFirst({
+    columns: { sector: true, villageId: true },
+    with: { village: { columns: { name: true, id: true } } },
+    where: eq(sector.sector, sectorId),
   });
 };

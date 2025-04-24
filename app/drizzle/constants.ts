@@ -575,6 +575,8 @@ export const FED_EVENT_ITEMS_DEFAULT = 10;
 export const MISSIONS_PER_DAY = 9;
 
 // War config
+export const WAR_VILLAGE_MAX_SECTORS = 12;
+export const WAR_FACTION_MAX_SECTORS = 6;
 export const WAR_TOWNHALL_HP_REMOVE = 5;
 export const WAR_TOWNHALL_HP_RECOVER = 2;
 export const WAR_TOWNHALL_HP_ANBU_REMOVE = 10;

@@ -13,6 +13,8 @@ import {
   VILLAGE_SYNDICATE_ID,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
   MAP_RESERVED_SECTORS,
+  WAR_VILLAGE_MAX_SECTORS,
+  WAR_FACTION_MAX_SECTORS,
 } from "@/drizzle/constants";
 import { handleWarEnd, canJoinWar, resetStructuresWhenNotInWar } from "@/libs/war";
 import { sql } from "drizzle-orm";
@@ -24,6 +26,7 @@ import {
 } from "@/routers/sparring";
 import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
+import { countVillageSectors, fetchSector } from "@/routers/village";
 import type { War, WarAlly, Village, VillageStructure } from "@/drizzle/schema";
 import type { RouterOutputs } from "@/app/_trpc/client";
 
@@ -132,11 +135,11 @@ export const warRouter = createTRPCRouter({
     }),
 
   declareSectorWar: protectedProcedure
-    .input(z.object({ sectorId: z.number() }))
+    .input(z.object({ sectorId: z.number(), userVillageId: z.string().nullable() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [{ user }, activeWars, villages, relationships, targetSector] =
+      const [{ user }, activeWars, villages, relationships, targetSector, sectorCount] =
         await Promise.all([
           fetchUpdatedUser({
             client: ctx.drizzle,
@@ -145,9 +148,8 @@ export const warRouter = createTRPCRouter({
           fetchActiveWars(ctx.drizzle),
           fetchVillages(ctx.drizzle),
           fetchAlliances(ctx.drizzle),
-          ctx.drizzle.query.sector.findFirst({
-            where: eq(sector.sector, input.sectorId),
-          }),
+          fetchSector(ctx.drizzle, input.sectorId),
+          countVillageSectors(ctx.drizzle, input.userVillageId),
         ]);
       // Derived
       const now = new Date();
@@ -172,6 +174,11 @@ export const warRouter = createTRPCRouter({
       }
       if (sectorVillage) {
         return errorResponse("This sector is already occupied");
+      }
+      if (input.userVillageId && input.userVillageId !== user.villageId) {
+        return errorResponse(
+          "Your village does not seem to match that on your profile",
+        );
       }
       if (!user?.villageId) {
         return errorResponse("You must be in a village to declare war");
@@ -213,6 +220,16 @@ export const warRouter = createTRPCRouter({
           `You are already in a sector war for sector ${activeSectorWar.sector}`,
         );
       }
+      if (user.isOutlaw && sectorCount >= WAR_FACTION_MAX_SECTORS) {
+        return errorResponse(
+          `Your faction has too many sectors. Can max own ${WAR_FACTION_MAX_SECTORS} sectors`,
+        );
+      }
+      if (!user.isOutlaw && sectorCount >= WAR_VILLAGE_MAX_SECTORS) {
+        return errorResponse(
+          `Your village has too many sectors. Can max own ${WAR_VILLAGE_MAX_SECTORS} sectors`,
+        );
+      }
       if (
         activeWars.find(
           (w) =>
@@ -224,6 +241,7 @@ export const warRouter = createTRPCRouter({
       ) {
         return errorResponse("You are already at war against the owner village.");
       }
+
       // Create war and deduct tokens
       const warId = nanoid();
       const [updateResult] = await Promise.all([
