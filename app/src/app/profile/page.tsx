@@ -63,7 +63,7 @@ export default function Profile() {
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>
             <p>Status: {userData.status}</p>
-            <p>Regeneration: {userData.regeneration.toFixed(2)}</p>
+            <p>Regen per minute: {userData.regeneration.toFixed(2)}</p>
             <p>Gender: {userData.gender}</p>
           </div>
           <div>
