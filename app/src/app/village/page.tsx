@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { prettyNumber } from "@/utils/string";
 import { mutateContentSchema } from "@/validators/comments";
-import { TentTree, Pencil, MapPinHouse } from "lucide-react";
+import { DoorOpen, Pencil, MapPinHouse } from "lucide-react";
 import { Users, BrickWall, Bot, ReceiptJapaneseYen } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -185,7 +185,7 @@ export default function VillageOverview() {
                 proceed_label="Submit"
                 button={
                   <Button className="ml-2">
-                    <TentTree className="h-6 w-6" />
+                    <DoorOpen className="h-6 w-6" />
                   </Button>
                 }
                 onAccept={() => leaveVillage()}

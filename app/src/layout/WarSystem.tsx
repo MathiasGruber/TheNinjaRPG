@@ -32,7 +32,7 @@ import { MAP_RESERVED_SECTORS } from "@/drizzle/constants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import type { Village, VillageAlliance } from "@/drizzle/schema";
+import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import { Input } from "@/components/ui/input";
 import { canJoinWar } from "@/libs/war";
@@ -907,6 +907,14 @@ export const VillageWar: React.FC<{
     },
   });
 
+  // Derived
+  const isAttacker =
+    war.attackerVillageId === user.villageId ||
+    war.warAllies.some(
+      (warAlly) =>
+        warAlly.supportVillageId === war.attackerVillageId &&
+        warAlly.villageId === user.villageId,
+    );
   const attackerStructure = war.attackerVillage?.structures?.find(
     (s) => s.route === war.targetStructureRoute,
   );
@@ -926,13 +934,9 @@ export const VillageWar: React.FC<{
       <div className="flex justify-between items-center mb-4">
         <div>
           <h4 className="font-bold text-lg">
-            {war.attackerVillageId === user.villageId
-              ? "Attacking"
-              : "Defending Against"}{" "}
-            {war.attackerVillageId === user.villageId
-              ? war.defenderVillage?.name
-              : war.attackerVillage?.name}{" "}
-            - {capitalizeFirstLetter(war.type.replace("_", " "))}
+            {isAttacker ? "Attacking" : "Defending Against"}{" "}
+            {isAttacker ? war.defenderVillage?.name : war.attackerVillage?.name} -{" "}
+            {capitalizeFirstLetter(war.type.replace("_", " "))}
           </h4>
           <p className="text-sm">Started: {war.startedAt.toLocaleDateString()}</p>
           <p className="text-sm">War ID: {war.id}</p>
@@ -1075,137 +1079,16 @@ export const VillageWar: React.FC<{
       </Dialog>
 
       <div className="grid grid-cols-2 gap-8 items-center justify-center">
-        {/* Our Town Hall */}
-        <div className="flex flex-col items-center justify-center">
-          <h5 className="font-bold mb-2">
-            Our {attackerStructure.name} (
-            {war.attackerVillageId === user.villageId
-              ? war.attackerVillage?.name
-              : war.defenderVillage?.name}
-            )
-          </h5>
-          <div className="w-full md:w-3/5 lg:w-3/4">
-            <Building
-              structure={
-                war.attackerVillageId === user.villageId
-                  ? attackerStructure
-                  : defenderStructure
-              }
-              village={
-                war.attackerVillageId === user.villageId
-                  ? war.attackerVillage
-                  : war.defenderVillage
-              }
-              textPosition="bottom"
-              showBar={war.status === "ACTIVE"}
-              showNumbers={war.status === "ACTIVE"}
-            />
-          </div>
-          {/* Show our supporting factions */}
-          {war.type === "VILLAGE_WAR" && (
-            <div className="mt-4">
-              <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {war.warAllies
-                  .filter((warAlly) =>
-                    war.attackerVillageId === user.villageId
-                      ? warAlly.supportVillageId === war.attackerVillageId
-                      : warAlly.supportVillageId === war.defenderVillageId,
-                  )
-                  .map((warAlly) => (
-                    <div
-                      key={warAlly.villageId}
-                      className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
-                    >
-                      <Image
-                        src={warAlly.village.villageGraphic}
-                        alt={warAlly.village.name}
-                        width={20}
-                        height={20}
-                        className="rounded-full"
-                      />
-                      <span className="text-sm">{warAlly.village.name}</span>
-                    </div>
-                  ))}
-                {war.warAllies.filter((warAlly) =>
-                  war.attackerVillageId === user.villageId
-                    ? warAlly.supportVillageId === war.attackerVillageId
-                    : warAlly.supportVillageId === war.defenderVillageId,
-                ).length === 0 && (
-                  <div className="text-sm text-muted-foreground italic">
-                    No supporting forces
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Enemy Town Hall */}
-        <div className="flex flex-col items-center justify-center">
-          <h5 className="font-bold mb-2">
-            Enemy {defenderStructure.name} (
-            {war.attackerVillageId === user.villageId
-              ? war.defenderVillage?.name
-              : war.attackerVillage?.name}
-            )
-          </h5>
-          <div className="w-full md:w-3/5 lg:w-3/4">
-            <Building
-              structure={
-                war.attackerVillageId === user.villageId
-                  ? defenderStructure
-                  : attackerStructure
-              }
-              village={
-                war.attackerVillageId === user.villageId
-                  ? war.defenderVillage
-                  : war.attackerVillage
-              }
-              textPosition="bottom"
-              showBar={war.status === "ACTIVE"}
-              showNumbers={war.status === "ACTIVE"}
-            />
-          </div>
-          {/* Show enemy supporting factions */}
-          {war.type === "VILLAGE_WAR" && (
-            <div className="mt-4">
-              <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {war.warAllies
-                  .filter((warAlly) =>
-                    war.attackerVillageId === user.villageId
-                      ? warAlly.supportVillageId === war.defenderVillageId
-                      : warAlly.supportVillageId === war.attackerVillageId,
-                  )
-                  .map((warAlly) => (
-                    <div
-                      key={warAlly.villageId}
-                      className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
-                    >
-                      <Image
-                        src={warAlly.village.villageGraphic}
-                        alt={warAlly.village.name}
-                        width={20}
-                        height={20}
-                        className="rounded-full"
-                      />
-                      <span className="text-sm">{warAlly.village.name}</span>
-                    </div>
-                  ))}
-                {war.warAllies.filter((warAlly) =>
-                  war.attackerVillageId === user.villageId
-                    ? warAlly.supportVillageId === war.defenderVillageId
-                    : warAlly.supportVillageId === war.attackerVillageId,
-                ).length === 0 && (
-                  <div className="text-sm text-muted-foreground italic">
-                    No supporting forces
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <WarSide
+          structure={isAttacker ? attackerStructure : defenderStructure}
+          village={isAttacker ? war.attackerVillage : war.defenderVillage}
+          war={war}
+        />
+        <WarSide
+          structure={isAttacker ? defenderStructure : attackerStructure}
+          village={isAttacker ? war.defenderVillage : war.attackerVillage}
+          war={war}
+        />
       </div>
 
       {isKage && war.status === "ACTIVE" && war.type === "VILLAGE_WAR" && (
@@ -1308,6 +1191,68 @@ export const VillageWar: React.FC<{
             />
           </ContentBox>
         )}
+    </div>
+  );
+};
+
+/**
+ * A component that displays a side of a war
+ * @param structure
+ * @param war
+ * @param village
+ * @param user
+ * @returns
+ */
+const WarSide: React.FC<{
+  structure: VillageStructure;
+  war: FetchActiveWarsReturnType;
+  village: Village;
+}> = ({ structure, war, village }) => {
+  return (
+    <div className="flex flex-col items-center justify-center">
+      <h5 className="font-bold mb-2">
+        {structure.name} ({village.name})
+      </h5>
+      <div className="w-full md:w-3/5 lg:w-3/4">
+        <Building
+          structure={structure}
+          village={village}
+          textPosition="bottom"
+          showBar={war.status === "ACTIVE"}
+          showNumbers={war.status === "ACTIVE"}
+        />
+      </div>
+      {/* Show our supporting factions */}
+      {war.type === "VILLAGE_WAR" && (
+        <div className="mt-4">
+          <h6 className="font-semibold text-sm mb-2">Supporting Forces:</h6>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {war.warAllies
+              .filter((warAlly) => warAlly.supportVillageId === village.id)
+              .map((warAlly) => (
+                <div
+                  key={warAlly.villageId}
+                  className="flex items-center space-x-2 bg-poppopover rounded-full px-3 py-1 border-2"
+                >
+                  <Image
+                    src={warAlly.village.villageGraphic}
+                    alt={warAlly.village.name}
+                    width={20}
+                    height={20}
+                    className="rounded-full"
+                  />
+                  <span className="text-sm">{warAlly.village.name}</span>
+                </div>
+              ))}
+            {war.warAllies.filter((warAlly) => warAlly.supportVillageId === village.id)
+              .length === 0 && (
+              <div className="text-sm text-muted-foreground italic">
+                No supporting forces
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

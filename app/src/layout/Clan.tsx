@@ -118,7 +118,7 @@ export const ClansOverview: React.FC = () => {
         )}
       </div>
     ),
-    villageType: clan.village.type,
+    villageType: clan.village?.type || "unknown",
   }));
 
   // Table
