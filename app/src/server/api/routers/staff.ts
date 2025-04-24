@@ -556,14 +556,6 @@ export const deleteUser = async (client: DrizzleClient, userId: string) => {
     client.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId)),
     client.delete(jutsuLoadout).where(eq(jutsuLoadout.userId, userId)),
     client.delete(notification).where(eq(notification.userId, userId)),
-    client.delete(paypalSubscription).where(eq(paypalSubscription.createdById, userId)),
-    client
-      .delete(paypalSubscription)
-      .where(eq(paypalSubscription.affectedUserId, userId)),
-    client
-      .delete(paypalTransaction)
-      .where(eq(paypalTransaction.affectedUserId, userId)),
-    client.delete(paypalTransaction).where(eq(paypalTransaction.createdById, userId)),
     client.delete(ryoTrade).where(eq(ryoTrade.creatorUserId, userId)),
     client.delete(ryoTrade).where(eq(ryoTrade.purchaserUserId, userId)),
     client.delete(ryoTrade).where(eq(ryoTrade.allowedPurchaserId, userId)),
@@ -604,7 +596,6 @@ export const deleteUser = async (client: DrizzleClient, userId: string) => {
     client.delete(poll).where(eq(poll.createdByUserId, userId)),
     client.delete(pollOption).where(eq(pollOption.targetUserId, userId)),
     client.delete(pollOption).where(eq(pollOption.createdByUserId, userId)),
-    client.delete(village).where(eq(village.kageId, userId)),
     client.delete(userPollVote).where(eq(userPollVote.userId, userId)),
     client.delete(userUpload).where(eq(userUpload.userId, userId)),
   ]);
