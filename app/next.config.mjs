@@ -67,7 +67,6 @@ const config = {
   },
 };
 
-// TODO: Uncomment when sentry has turbopack support
 // export default withBundleAnalyzer(config);
 export default withSentryConfig(withBundleAnalyzer(config), {
   // For all available options, see:
