@@ -15,6 +15,7 @@ import {
   MAP_RESERVED_SECTORS,
   WAR_VILLAGE_MAX_SECTORS,
   WAR_FACTION_MAX_SECTORS,
+  WAR_EXHAUSTION_DURATION_DAYS,
 } from "@/drizzle/constants";
 import { handleWarEnd, canJoinWar, resetStructuresWhenNotInWar } from "@/libs/war";
 import { sql } from "drizzle-orm";
@@ -689,6 +690,13 @@ export const warRouter = createTRPCRouter({
       ]);
       // Derived
       const activeWar = activeWars.find((w) => w.id === input.warId);
+      const isMainCompetitor = [
+        activeWar?.attackerVillageId,
+        activeWar?.defenderVillageId,
+      ].includes(user?.villageId || "unknown");
+      const warAllyData = activeWar?.warAllies.find(
+        (f) => f.villageId === user?.villageId,
+      );
       // Guard
       if (!user?.village) {
         return errorResponse("You must be in a village to surrender");
@@ -708,20 +716,35 @@ export const warRouter = createTRPCRouter({
       if (!["FACTION_RAID", "VILLAGE_WAR"].includes(activeWar.type)) {
         return errorResponse("Cannot surrender this type of war");
       }
-      if (
-        ![activeWar.attackerVillageId, activeWar.defenderVillageId].includes(
-          user.villageId,
-        )
-      ) {
+      // Mutate
+      if (isMainCompetitor) {
+        // Main participant surrendering
+        if (user.villageId === activeWar.attackerVillageId) {
+          activeWar.attackerVillage.tokens = 0;
+        } else {
+          activeWar.defenderVillage.tokens = 0;
+        }
+        await handleWarEnd(activeWar);
+      } else if (warAllyData) {
+        // Ally surrendering
+        const endedAt = new Date();
+        const warExhaustionEnd = new Date(
+          endedAt.getTime() + WAR_EXHAUSTION_DURATION_DAYS * 24 * 60 * 60 * 1000,
+        );
+        await Promise.all([
+          ctx.drizzle.delete(warAlly).where(eq(warAlly.id, warAllyData.id)),
+          ctx.drizzle
+            .update(village)
+            .set({
+              warExhaustionEndedAt: warExhaustionEnd,
+              lastWarEndedAt: endedAt,
+            })
+            .where(eq(village.id, user.villageId)),
+        ]);
+      } else {
+        // Not part of the war
         return errorResponse("You are not part of this war");
       }
-      // Mutate
-      if (user.villageId === activeWar.attackerVillageId) {
-        activeWar.attackerVillage.tokens = 0;
-      } else {
-        activeWar.defenderVillage.tokens = 0;
-      }
-      await handleWarEnd(activeWar);
       return { success: true, message: "War surrendered and therefore lost" };
     }),
 
