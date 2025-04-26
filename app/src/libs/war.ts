@@ -11,6 +11,7 @@ import {
   WAR_WINNING_BOOST_REGEN_PERC,
   WAR_WINNING_BOOST_TRAINING_PERC,
 } from "@/drizzle/constants";
+import { getUnique } from "@/utils/grouping";
 import type { WarState } from "@/drizzle/constants";
 import { TERR_BOT_ID } from "@/drizzle/constants";
 import { findRelationship } from "@/utils/alliance";
@@ -33,19 +34,28 @@ export const findWarsWithUser = (
   targetVillageId: string | null | undefined,
   userVillageId: string | null | undefined,
 ) => {
-  return [...targetWars, ...userWars].filter(
-    (w) =>
-      w.attackerVillageId === userVillageId ||
-      w.defenderVillageId === userVillageId ||
+  return getUnique([...targetWars, ...userWars], "id").filter((w) => {
+    // Check if the user is in the war
+    const check1 =
+      w.attackerVillageId === userVillageId && w.defenderVillageId === targetVillageId;
+    const check2 =
+      w.defenderVillageId === userVillageId && w.attackerVillageId === targetVillageId;
+    // Check if the user is an ally of the war
+    const check3 =
+      w.attackerVillageId === targetVillageId &&
       w.warAllies.some(
         (wa) =>
           wa.villageId === userVillageId && wa.supportVillageId !== targetVillageId,
-      ) ||
+      );
+    const check4 =
+      w.defenderVillageId === targetVillageId &&
       w.warAllies.some(
         (wa) =>
-          wa.villageId === targetVillageId && wa.supportVillageId !== userVillageId,
-      ),
-  );
+          wa.villageId === userVillageId && wa.supportVillageId !== targetVillageId,
+      );
+    // Return true if any of the checks are true
+    return check1 || check2 || check3 || check4;
+  });
 };
 
 /**
