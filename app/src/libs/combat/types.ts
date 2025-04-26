@@ -751,6 +751,14 @@ export const IncreaseMarriageSlots = z.object({
   type: z.literal("marriageslotincrease").default("marriageslotincrease"),
 });
 
+export const IncreaseReskinSlots = z.object({
+  ...BaseAttributes,
+  rank: z.enum(LetterRanks).default("D"),
+  description: msg("Increases the number of allowed reskins"),
+  power: z.coerce.number().int().min(0).max(100).default(1),
+  type: z.literal("reskinslotincrease").default("reskinslotincrease"),
+});
+
 /******************** */
 /** UNIONS OF TAGS   **/
 /******************** */
@@ -781,6 +789,7 @@ export const AllTags = z.union([
   IncreaseDamageTakenTag.default({}),
   IncreaseHealGivenTag.default({}),
   IncreaseMarriageSlots.default({}),
+  IncreaseReskinSlots.default({}),
   IncreasePoolCostTag.default({}),
   IncreaseStatTag.default({}),
   LifeStealTag.default({}),
@@ -1124,6 +1133,8 @@ export const JutsuValidator = z
     cooldown: z.coerce.number().int().min(0).max(300),
     bloodlineId: z.string().nullable(),
     villageId: z.string().nullable(),
+    parentJutsuId: z.string(),
+    createdBy: z.string(),
     effects: z.array(AllTags).superRefine(SuperRefineEffects),
   })
   .superRefine(SuperRefineBase)

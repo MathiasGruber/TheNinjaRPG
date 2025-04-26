@@ -378,6 +378,7 @@ export const itemRouter = createTRPCRouter({
         curStamina: user.curStamina,
         curChakra: user.curChakra,
         marriageSlots: user.marriageSlots,
+        reskinTokenCount: user.reskinTokenCount,
       };
       const data: unknown[] = [];
 
@@ -449,6 +450,9 @@ export const itemRouter = createTRPCRouter({
               `Your marriage slots are already at max! Current Slots: ${updates.marriageSlots}`,
             );
           }
+        } else if (effect.type === "reskinslotincrease") {
+          updates.reskinTokenCount += effect.power;
+          messages.push(`Your number of allowed reskins was increased by ${effect.power}! `);
         } else if (effect.type === "heal") {
           const parsedEffect = HealTag.parse(effect);
           const poolsAffects = parsedEffect.poolsAffected || ["Health"];

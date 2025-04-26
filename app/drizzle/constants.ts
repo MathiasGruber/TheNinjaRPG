@@ -247,6 +247,7 @@ export const JutsuTypes = [
   "CLAN",
   "EVENT",
   "AI",
+  "RESKIN"
 ] as const;
 export type JutsuType = (typeof JutsuTypes)[number];
 
@@ -492,6 +493,10 @@ export const JUTSU_TRANSFER_FREE_AMOUNT = 2;
 export const JUTSU_TRANSFER_FREE_NORMAL = 3;
 export const JUTSU_TRANSFER_FREE_SILVER = 4;
 export const JUTSU_TRANSFER_FREE_GOLD = 5;
+
+// Jutsu reskin config
+export const RESKIN_LIMIT = 2;
+export const COST_RESKIN_JUTSU = 60;
 
 // Village config
 export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";

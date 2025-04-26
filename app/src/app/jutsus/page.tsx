@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Trash2, CircleFadingArrowUp, ArrowRightLeft } from "lucide-react";
+import { Trash2, CircleFadingArrowUp, ArrowRightLeft, Palette } from "lucide-react";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal from "@/layout/Modal";
@@ -38,8 +38,10 @@ import { getFreeTransfers } from "@/libs/jutsu";
 import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 import { canTransferJutsu } from "@/utils/permissions";
 import type { Jutsu, UserJutsu } from "@/drizzle/schema";
-
-
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { COST_RESKIN_JUTSU, RESKIN_LIMIT } from "@/drizzle/constants";
+import { canReskinJutsu } from "@/utils/permissions";
 
 export default function MyJutsu() {
   // tRPC utility
@@ -52,6 +54,8 @@ export default function MyJutsu() {
   const now = new Date();
   const { data: userData, updateUser } = useRequiredUserData();
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isReskinOpen, setIsReskinOpen] = useState<boolean>(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [userjutsu, setUserJutsu] = useState<(Jutsu & UserJutsu) | undefined>(
     undefined,
   );
@@ -60,6 +64,15 @@ export default function MyJutsu() {
   );
   const transferCost = canTransferJutsu(userData?.role || "USER") ? 0 : JUTSU_TRANSFER_COST;
   const [transferValue, setTransferValue] = useState<number>(1);
+  const [modalType, setModalType] = useState<string | null>(null);
+  const [reskinName, setReskinName] = useState("");
+  const [reskinDescription, setReskinDescription] = useState("");
+  const [reskinBattleDescription, setReskinBattleDescription] = useState("");
+  const [reskinData, setReskinData] = useState<{
+    name: string;
+    description: string;
+    battleDescription: string;
+  } | null>(null);
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
@@ -183,8 +196,19 @@ export default function MyJutsu() {
       onSettled,
     });
 
+  const { mutate: reskin, isPending: isReskinning } = api.jutsu.reskin.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.jutsu.getUserJutsus.invalidate();
+        setIsReskinOpen(false);
+        setUserJutsu(undefined);
+      }
+    },
+  });
+
   const isPending =
-    isToggling || isForgetting || isUpgrading || isUnequipping || isTransferring;
+    isToggling || isForgetting || isUpgrading || isUnequipping || isTransferring || isReskinning;
   const isFetching = l1 || l2;
 
   // Collapse UserItem and Item
@@ -252,6 +276,9 @@ export default function MyJutsu() {
   // Can afford removing
   const canUpgrade = userData.reputationPoints >= COST_EXTRA_JUTSU_SLOT;
 
+  // Calculate reskin cost based on permissions
+  const reskinCost = canReskinJutsu(userData?.role) ? 0 : COST_RESKIN_JUTSU;
+
   return (
     <ContentBox
       title="Jutsu Management"
@@ -302,12 +329,12 @@ export default function MyJutsu() {
         items={allJutsu}
         counts={userJutsuCounts}
         labelSingles={true}
+        showLabels={true}
+        showBgColor={false}
         onClick={(id) => {
           setUserJutsu(allJutsu?.find((jutsu) => jutsu.id === id));
           setIsOpen(true);
         }}
-        showBgColor={false}
-        showLabels={true}
         emptyText="You have not learned any jutsu. Go to the training grounds in your village to learn some."
       />
       {isOpen && userData && userjutsu && (
@@ -461,6 +488,18 @@ export default function MyJutsu() {
                     )}
                   </Confirm>
                 )}
+                <Button
+                  id="reskin"
+                  variant="outline"
+                  onClick={() => {
+                    setIsReskinOpen(true);
+                    setModalType("reskin");
+                  }}
+                  disabled={isPending || userjutsu.jutsuType === "SPECIAL" || userjutsu.jutsuType === "BLOODLINE" || userjutsu.jutsuType === "RESKIN"}
+                >
+                  <Palette className="h-6 w-6 mr-2" />
+                  Reskin
+                </Button>
                 <Confirm
                   title="Forget Jutsu"
                   button={
@@ -482,7 +521,139 @@ export default function MyJutsu() {
           {isPending && <Loader explanation={`Processing ${userjutsu.name}`} />}
         </Modal>
       )}
-      {isPending && <Loader explanation="Loading Jutsu" />}
+      {modalType === "reskin" && userjutsu && isReskinOpen && (
+        <Modal
+          title="Create Jutsu Reskin"
+          proceed_label="Create Reskin"
+          setIsOpen={setIsReskinOpen}
+          isValid={!!reskinName && !!reskinDescription && !!reskinBattleDescription}
+          onAccept={() => {
+            if (!isReskinning && userjutsu) {
+              const data = {
+                name: reskinName,
+                description: reskinDescription,
+                battleDescription: reskinBattleDescription,
+              };
+              setReskinData(data);
+              setIsReskinOpen(false);
+              setIsConfirmOpen(true);
+            }
+          }}
+        >
+          <div className="space-y-4">
+            <div className="reskin-rules" style={{ maxWidth: "800px", margin: "0 auto", padding: "1rem", fontFamily: "sans-serif", lineHeight: "1.6" }}>
+              <p style={{ fontWeight: "bold", marginBottom: "1rem" }}>Jutsu Reskin Rules</p>
+              <p>
+              <strong>Creating a reskin costs {reskinCost} reputation points.</strong>
+                <br /><br />
+                <strong>Reskin Usage:</strong><br />
+                You have used {userData.reskinCount}/{userData.reskinTokenCount + RESKIN_LIMIT} available reskins.
+                <br /><br />
+                Reskins are a way to personalize your jutsu&apos;s name, description, and in-combat flavor text. These are cosmetic only and must follow the rules below.
+                <br /><br />
+                <strong>What You Can Change:</strong><br />
+                You are allowed to modify only the following:<br />
+                - Jutsu Name<br />
+                - Jutsu Description (what shows outside of combat)<br />
+                - Battle Description (what appears in combat, e.g., &quot;%user uses %jutsu on %target&quot;)
+                <br /><br />
+                <strong>Tone & Content Restrictions:</strong><br />
+                - No hostile, mocking, or negative wording toward other players, clans, villages, bloodlines, or jutsu.<br />
+                - No profanity, slurs, or real-world political/religious references.<br />
+                - No inappropriate humor or immersion-breaking language.<br />
+                - No subtle digs or sarcasm aimed at others. If it could be taken negatively, it&apos;s not allowed.
+                <br /><br />
+                <strong>Example:</strong><br />
+                Original Name: Fireball Jutsu<br />
+                Reskin Name: Blazing Verdict<br />
+                Original Description: A sphere of fire launched at the target.<br />
+                Reskin Description: A judgment cast in searing flame, leaving no room for appeal.<br />
+                Original Battle Description: %user hurls a fireball at %target.<br />
+                Reskin Battle Description: %user delivers the Blazing Verdict to %target, flames roaring with finality.
+                <br /><br />
+                <strong>Note:</strong> Violation of these rules may result in the modification or removal of the reskinned jutsu.
+              </p>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const data = {
+                  name: reskinName,
+                  description: reskinDescription,
+                  battleDescription: reskinBattleDescription,
+                };
+                setReskinData(data);
+                setIsReskinOpen(false);
+                setIsConfirmOpen(true);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <Input 
+                  placeholder="New jutsu name" 
+                  value={reskinName}
+                  onChange={(e) => setReskinName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Textarea 
+                  placeholder="New jutsu description" 
+                  value={reskinDescription}
+                  onChange={(e) => setReskinDescription(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Textarea 
+                  placeholder="New battle description" 
+                  value={reskinBattleDescription}
+                  onChange={(e) => setReskinBattleDescription(e.target.value)}
+                />
+              </div>
+            </form>
+          </div>
+        </Modal>
+      )}
+      {isConfirmOpen && reskinData && userjutsu && (
+        <Modal
+          setIsOpen={setIsConfirmOpen}
+          title="Confirm Jutsu Reskin"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              By clicking &quot;Confirm&quot;, you acknowledge that you are creating a reskin that costs {reskinCost} reputation points and that your reskin 
+              follows all the outlined rules.
+              <br /><br />
+              <strong>Note:</strong> Violations may result in the modification or removal of your reskin.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsConfirmOpen(false);
+                  setIsReskinOpen(true);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (reskinData && userjutsu) {
+                    reskin({
+                      originalJutsuId: userjutsu.id,
+                      ...reskinData,
+                    });
+                    setIsConfirmOpen(false);
+                  }
+                }}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </ContentBox>
   );
 }
