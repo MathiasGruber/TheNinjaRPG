@@ -248,6 +248,15 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     },
   });
 
+  const toggleMuteUser = api.profile.toggleMuteUser.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+      }
+    },
+  });
+
   const insertUserBadge = api.staff.insertUserBadge.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -367,6 +376,20 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                   federalStatus: profile.federalStatus,
                 }}
               />
+            )}
+            {userData && canMuteUsers(userData.role) && (
+              <Confirm
+                title="Toggle User Mute"
+                proceed_label={profile.isMuted ? "Unmute" : "Mute"}
+                button={
+                  <MessageCircle className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                }
+                onAccept={() => toggleMuteUser.mutate({ userId: profile.userId })}
+              >
+                {profile.isMuted
+                  ? "Are you sure you want to unmute this user?"
+                  : "Are you sure you want to mute this user?"}
+              </Confirm>
             )}
             {availableRoles &&
               availableRoles.length > 0 &&
