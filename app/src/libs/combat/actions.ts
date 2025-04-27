@@ -548,6 +548,7 @@ export const insertAction = (info: {
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
       }
+      action.battleDescription = `${action.name}: ${action.battleDescription}`;
       action.battleDescription = action.battleDescription.replaceAll(
         "%user_subject",
         user.gender === "Male" ? "he" : "she",
