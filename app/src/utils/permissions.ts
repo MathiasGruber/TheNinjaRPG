@@ -199,13 +199,13 @@ export const canClearReport = (user: UserData, report: UserReport) => {
   );
 };
 
-export const canMuteUsers = (user: UserData) => {
+export const canMuteUsers = (role: UserRole) => {
   return [
     "MODERATOR-ADMIN",
     "HEAD_MODERATOR",
     "MODERATOR",
     "CODING-ADMIN",
-  ].includes(user.role);
+  ].includes(role);
 };
 
 export const canClearUserNindo = (user: UserData) => {
