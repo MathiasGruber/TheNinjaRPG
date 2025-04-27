@@ -59,6 +59,7 @@ import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 import { IMG_BG_FOREST } from "@/drizzle/constants";
 import type { ZodBgSchemaType } from "@/validators/backgroundSchema";
+import { canViewFullBattleLog } from "@/utils/permissions";
 
 // Debug flag when testing battle
 const debug = false;
@@ -174,8 +175,17 @@ export const combatRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      const user = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, ctx.userId),
+        columns: { role: true },
+      });
+      
+      if (!user) {
+        return errorResponse("User not found");
+      }
+
       const entries = await ctx.drizzle.query.battleAction.findMany({
-        limit: 30,
+        limit: canViewFullBattleLog(user.role) ? undefined : 30,
         where: eq(battleAction.battleId, input.battleId),
         orderBy: [desc(battleAction.createdAt)],
       });
