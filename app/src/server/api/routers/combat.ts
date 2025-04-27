@@ -180,10 +180,6 @@ export const combatRouter = createTRPCRouter({
         columns: { role: true },
       });
       
-      if (!user) {
-        return errorResponse("User not found");
-      }
-
       const entries = await ctx.drizzle.query.battleAction.findMany({
         limit: canViewFullBattleLog(user.role) ? undefined : 30,
         where: eq(battleAction.battleId, input.battleId),
