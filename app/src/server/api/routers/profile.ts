@@ -1065,6 +1065,7 @@ export const profileRouter = createTRPCRouter({
             isAi: true,
             isBanned: true,
             isSilenced: true,
+            isMuted: true,
             isOutlaw: true,
             lastIp: true,
             level: true,
