@@ -1321,6 +1321,12 @@ export const profileRouter = createTRPCRouter({
         routeText: "To Profile",
       });
 
+      // Force disconnect the user's WebSocket connection
+      void pusher.trigger(input.userId, "disconnect", {
+        type: "forceDisconnect",
+        reason: "userMuteStatusChanged",
+      });
+
       return {
         success: true,
         message: targetUser.isMuted ? "User unmuted" : "User muted",
