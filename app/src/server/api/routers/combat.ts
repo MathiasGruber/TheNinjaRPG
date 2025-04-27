@@ -175,13 +175,15 @@ export const combatRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const user = await ctx.drizzle.query.userData.findFirst({
-        where: eq(userData.userId, ctx.userId),
-        columns: { role: true },
-      });
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
       
+      if (!user) {
+        throw serverError("NOT_FOUND", "User not found");
+      }
+
+      const limit = canViewFullBattleLog(user.role) ? undefined : 30;
       const entries = await ctx.drizzle.query.battleAction.findMany({
-        limit: canViewFullBattleLog(user.role) ? undefined : 30,
+        limit,
         where: eq(battleAction.battleId, input.battleId),
         orderBy: [desc(battleAction.createdAt)],
       });
