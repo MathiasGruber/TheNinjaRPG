@@ -1313,6 +1313,14 @@ export const profileRouter = createTRPCRouter({
         .set({ isMuted: !targetUser.isMuted })
         .where(eq(userData.userId, input.userId));
 
+      // Trigger a WebSocket event to force the muted user to reconnect
+      void pusher.trigger(input.userId, "event", {
+        type: "userMessage",
+        message: `You have been ${!targetUser.isMuted ? "muted" : "unmuted"}`,
+        route: "/profile",
+        routeText: "To Profile",
+      });
+
       return {
         success: true,
         message: targetUser.isMuted ? "User unmuted" : "User muted",
