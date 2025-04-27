@@ -199,6 +199,15 @@ export const canClearReport = (user: UserData, report: UserReport) => {
   );
 };
 
+export const canMuteUsers = (user: UserData) => {
+  return [
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+    "CODING-ADMIN",
+  ].includes(user.role);
+};
+
 export const canClearUserNindo = (user: UserData) => {
   return ["MODERATOR", "HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(
     user.role,
