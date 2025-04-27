@@ -84,6 +84,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Jutsu } from "@/drizzle/schema";
 import { NewConversationPrompt } from "@/app/inbox/page";
+import { canMuteUsers } from "@/utils/permissions";
 
 interface PublicUserComponentProps {
   userId: string;
