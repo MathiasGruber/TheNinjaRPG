@@ -244,3 +244,13 @@ export const canClosePolls = (role: UserRole) => {
 export const canDeletePollOptions = (role: UserRole) => {
   return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
 };
+
+export const canViewFullBattleLog = (role: UserRole) => {
+  return [
+    "CODER",
+    "CONTENT",
+    "EVENT",
+    "CODING-ADMIN",
+    "CONTENT-ADMIN",
+  ].includes(role);
+};
