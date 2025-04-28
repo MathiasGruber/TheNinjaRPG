@@ -634,8 +634,8 @@ export const CLAN_REGEN_BOOST_COST = 300;
 export const CLAN_COLOR_CHANGE_REP_COST = 50;
 
 // Hideout and town costs
-export const HIDEOUT_COST = 1; // TODO: 50_000_000; // Ryo
-export const HIDEOUT_TOWN_UPGRADE = 1; // TODO: 2_000; // Reps
+export const HIDEOUT_COST = 50000000; // TODO: 50_000_000; // Ryo
+export const HIDEOUT_TOWN_UPGRADE = 2000; // TODO: 2_000; // Reps
 export const TOWN_REESTABLISH_COST = 30_000_000; // Ryo
 export const TOWN_MONTHLY_MAINTENANCE = 30_000; // Faction points
 export const FACTION_MIN_POINTS_FOR_TOWN = 1_000_000;
