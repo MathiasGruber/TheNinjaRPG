@@ -738,11 +738,8 @@ export const performBattleAction = (props: {
         actionPerformed = user.basicActions.find((ba) => ba.id === action.id);
         break;
     }
-    if (actionPerformed) {
+    if (actionPerformed)
       actionPerformed.lastUsedRound = battle.round;
-      // Update the user's round to match the battle round
-      user.round = battle.round;
-    }
 
     // If this action has shared cooldown, update the rounds for all related actions
     if (actionHasSharedCooldown(action)) {
