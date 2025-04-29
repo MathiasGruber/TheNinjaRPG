@@ -134,11 +134,11 @@ export const availableUserActions = (
       ? user.jutsus
           .filter((userjutsu) => {
             // Filter out jutsus with damage tag when stealthed
-            const hasDamageTag = userjutsu.jutsu.effects.some(
-              (effect) => effect.type === "damage"
+            const offensiveTags = new Set(["damage", "pierce", "drain"]);
+            const hasOffensiveTag = userjutsu.jutsu.effects.some((e) =>
+              offensiveTags.has(e.type),
             );
-            if (hasDamageTag) return false;
-            
+            if (hasOffensiveTag) return false;
             // Still check for elemental seal
             if (!elementalSeal?.elements?.length) return true;
             const jutsuElements = new Set(
@@ -738,8 +738,7 @@ export const performBattleAction = (props: {
         actionPerformed = user.basicActions.find((ba) => ba.id === action.id);
         break;
     }
-    if (actionPerformed)
-      actionPerformed.lastUsedRound = battle.round;
+    if (actionPerformed) actionPerformed.lastUsedRound = battle.round;
 
     // If this action has shared cooldown, update the rounds for all related actions
     if (actionHasSharedCooldown(action)) {
