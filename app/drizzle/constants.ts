@@ -40,6 +40,9 @@ export const SHARED_COOLDOWN_TAGS = [
   "pierce",
   "debuffprevent",
   "buffprevent",
+  "cleanseprevent",
+  "clearprevent",
+  "seal",
 ] as const;
 
 export const LOG_TYPES = [
