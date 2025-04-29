@@ -130,6 +130,61 @@ export const availableUserActions = (
               data: userjutsu.jutsu,
             };
           })
+      : user?.jutsus && isStealth
+      ? user.jutsus
+          .filter((userjutsu) => {
+            // Filter out jutsus with damage tag when stealthed
+            const hasDamageTag = userjutsu.jutsu.effects.some(
+              (effect) => effect.type === "damage"
+            );
+            if (hasDamageTag) return false;
+            
+            // Still check for elemental seal
+            if (!elementalSeal?.elements?.length) return true;
+            const jutsuElements = new Set(
+              userjutsu.jutsu.effects.flatMap((effect) =>
+                "elements" in effect ? effect.elements : [],
+              ),
+            );
+            return (
+              jutsuElements.size === 0 ||
+              !elementalSeal.elements.some((e: ElementName) => jutsuElements.has(e))
+            );
+          })
+          .map((userjutsu) => {
+            return {
+              id: userjutsu.jutsu.id,
+              name: userjutsu.jutsu.name,
+              image: userjutsu.jutsu.image,
+              battleDescription: userjutsu.jutsu.battleDescription,
+              type: "jutsu" as const,
+              target: userjutsu.jutsu.target,
+              method: userjutsu.jutsu.method,
+              range: userjutsu.jutsu.range,
+              updatedAt: new Date(userjutsu.updatedAt).getTime(),
+              cooldown: userjutsu.jutsu.cooldown,
+              lastUsedRound: userjutsu.lastUsedRound,
+              healthCost: Math.max(
+                0,
+                userjutsu.jutsu.healthCost -
+                  userjutsu.jutsu.healthCostReducePerLvl * userjutsu.level,
+              ),
+              chakraCost: Math.max(
+                0,
+                userjutsu.jutsu.chakraCost -
+                  userjutsu.jutsu.chakraCostReducePerLvl * userjutsu.level,
+              ),
+              staminaCost: Math.max(
+                0,
+                userjutsu.jutsu.staminaCost -
+                  userjutsu.jutsu.staminaCostReducePerLvl * userjutsu.level,
+              ),
+              actionCostPerc: userjutsu.jutsu.actionCostPerc,
+              effects: userjutsu.jutsu.effects,
+              level: userjutsu.level,
+              data: userjutsu.jutsu,
+            };
+          })
       : []),
     ...(user?.items && !isStealth
       ? user.items
@@ -548,6 +603,7 @@ export const insertAction = (info: {
       if (action.battleDescription === "") {
         action.battleDescription = `%user uses ${action.name}`;
       }
+      action.battleDescription = `${action.name}: ${action.battleDescription}`;
       action.battleDescription = action.battleDescription.replaceAll(
         "%user_subject",
         user.gender === "Male" ? "he" : "she",
@@ -682,7 +738,11 @@ export const performBattleAction = (props: {
         actionPerformed = user.basicActions.find((ba) => ba.id === action.id);
         break;
     }
-    if (actionPerformed) actionPerformed.lastUsedRound = battle.round;
+    if (actionPerformed) {
+      actionPerformed.lastUsedRound = battle.round;
+      // Update the user's round to match the battle round
+      user.round = battle.round;
+    }
 
     // If this action has shared cooldown, update the rounds for all related actions
     if (actionHasSharedCooldown(action)) {
