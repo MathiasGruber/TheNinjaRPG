@@ -6,7 +6,7 @@ import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
-import { absorb, reflect, recoil, lifesteal, drain, shield, poison } from "./tags";
+import { absorb, reflect, recoil, lifesteal, drain, shield, poison, finalStand } from "./tags";
 import { increaseStats, decreaseStats, copy, mirror } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -342,6 +342,20 @@ export const applyEffects = (
             }
           });
         }
+
+        // Apply final stand if active
+        const finalStandEffect = usersEffects.find(
+          (e) => e.type === "finalstand" && e.targetId === target.userId && e.rounds > 0
+        );
+        if (finalStandEffect && target.curHealth - remainingDamage < 1) {
+          const preventedDamage = remainingDamage - (target.curHealth - 1);
+          remainingDamage = target.curHealth - 1;
+          actionEffects.push({
+            txt: `${target.username}'s final stand prevents ${preventedDamage.toFixed(2)} damage`,
+            color: "orange",
+          });
+        }
+
         return remainingDamage;
       };
       // Adjust damages and reduce shields
@@ -721,6 +735,8 @@ export const applySingleEffect = (
           info = copy(effect, usersEffects, curUser, curTarget);
         } else if (effect.type === "mirror") {
           info = mirror(effect, usersEffects, curUser, curTarget);
+        } else if (effect.type === "finalstand") {
+          info = finalStand(effect, curTarget);
         }
         updateStatUsage(newTarget, effect, true);
       }

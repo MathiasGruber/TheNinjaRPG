@@ -325,6 +325,7 @@ export const sortEffects = (
     // Mid-modifiers
     "barrier",
     "shield",
+    "finalstand",
     "clone",
     "damage",
     "flee",

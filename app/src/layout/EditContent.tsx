@@ -685,7 +685,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   };
 
   // Parse how to present the tag form
-  const ignore = ["timeTracker", "type", "direction"];
+  const ignore = ["timeTracker", "type"];
   if (props.type === "bloodline") {
     ignore.push(...["rounds", "friendlyFire"]);
   }

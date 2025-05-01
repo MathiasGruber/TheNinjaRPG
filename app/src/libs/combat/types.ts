@@ -367,8 +367,9 @@ export const IncreaseStatTag = z.object({
   ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("increasestat").default("increasestat"),
+  direction: z.enum(["offence", "defence", "both"]).default("both"),
   description: msg("Increase stats of target"),
-  calculation: z.enum(["static", "percentage"]).default("percentage"),
+  calculation: z.enum(["static", "percentage"]).default("static"),
 });
 
 export const DecreaseStatTag = z.object({
@@ -376,6 +377,7 @@ export const DecreaseStatTag = z.object({
   ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("decreasestat").default("decreasestat"),
+  direction: z.enum(["offence", "defence", "both"]).default("both"),
   description: msg("Decrease stats of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
@@ -567,6 +569,15 @@ export const ShieldTag = z.object({
   health: z.coerce.number().int().min(1).max(100000).default(100),
 });
 export type ShieldTagType = z.infer<typeof ShieldTag>;
+
+export const FinalStandTag = z.object({
+  ...BaseAttributes,
+  type: type("finalstand"),
+  description: msg("%user cannot be reduced below 1 HP"),
+  power: z.coerce.number().min(0).max(100).default(100),
+  powerPerLevel: z.coerce.number().min(0).max(1).default(0),
+});
+export type FinalStandTagType = z.infer<typeof FinalStandTag>;
 
 export const MoveTag = z.object({
   ...BaseAttributes,
@@ -773,6 +784,7 @@ export const AllTags = z.union([
   DecreaseStatTag.default({}),
   DrainTag.default({}),
   ElementalSealTag.default({}),
+  FinalStandTag.default({}),
   FleePreventTag.default({}),
   FleeTag.default({}),
   HealPreventTag.default({}),
