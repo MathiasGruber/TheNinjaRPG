@@ -58,7 +58,7 @@ const Modal: React.FC<ModalProps> = (props) => {
         }}
       ></div>
       <div
-        className={`fixed left-1/2 top-1/2 z-40 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-[url('https://i.imgur.com/RaEW54C.png')] bg-cover bg-center p-6 shadow-lg shadow-red-900/20 backdrop-blur-sm ${props.className}`}
+        className={`fixed left-1/2 top-1/2 z-40 my-2 max-h-screen w-11/12 -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto rounded-lg bg-[url('https://i.imgur.com/RaEW54C.png')] bg-cover bg-center bg-no-repeat p-6 shadow-lg shadow-red-900/20 backdrop-blur-sm ${props.className}`}
       >
         <div className="flex items-start justify-between rounded-t border-b border-red-900/30 p-4">
           <h3 className="text-xl font-semibold text-white">{props.title}</h3>
