@@ -1797,6 +1797,79 @@ export const summonPrevent = (
   }
 };
 
+/** Increase action point cost of actions */
+export const timeCompression = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "debuffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be debuffed");
+  }
+
+  // Make power negative to increase costs
+  effect.power = -Math.abs(effect.power);
+  effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < Math.abs(power) / 100;
+
+  if (effect.isNew && effect.rounds && effect.castThisRound) {
+    if (primaryCheck) {
+      return getInfo(target, effect, "action point costs will be increased");
+    } else {
+      effect.rounds = 0;
+      return {
+        txt: `${target.username}'s time compression failed to activate`,
+        color: "blue",
+      };
+    }
+  }
+
+  if (!effect.isNew && !effect.castThisRound) {
+    // The actual modification of action point costs happens in actionPointsAfterAction
+    // This tag just provides the information about the effect
+    return getInfo(target, effect, "action point costs are increased");
+  }
+
+  return getInfo(target, effect, "action point costs will be increased");
+};
+
+/** Decrease action point cost of actions */
+export const timeDilation = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+) => {
+  const { pass, preventTag } = preventCheck(usersEffects, "buffprevent", target);
+  if (preventTag && preventTag.createdRound < effect.createdRound) {
+    if (!pass) return preventResponse(effect, target, "cannot be buffed");
+  }
+
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+
+  if (effect.isNew && effect.rounds && effect.castThisRound) {
+    if (primaryCheck) {
+      return getInfo(target, effect, "action point costs will be decreased");
+    } else {
+      effect.rounds = 0;
+      return {
+        txt: `${target.username}'s time dilation failed to activate`,
+        color: "blue",
+      };
+    }
+  }
+
+  if (!effect.isNew && !effect.castThisRound) {
+    // The actual modification of action point costs happens in actionPointsAfterAction
+    // This tag just provides the information about the effect
+    return getInfo(target, effect, "action point costs are decreased");
+  }
+
+  return getInfo(target, effect, "action point costs will be decreased");
+};
+
 /** Prevent target from being stunned */
 export const weakness = (effect: UserEffect, target: BattleUserState) => {
   const { power } = getPower(effect);
