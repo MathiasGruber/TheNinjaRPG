@@ -743,9 +743,23 @@ export const actionPointsAfterAction = (
   if (!user || !battle) return { apAfter: 0, canAct: false, availableActionPoints: 0 };
   const stunReduction = calcApReduction(battle, user.userId);
   const availableActionPoints = user.actionPoints - stunReduction;
+
+  // Calculate action point cost modification from time effects
+  let actionCostModifier = 0;
+  battle.usersEffects
+    .filter((e) => e.targetId === user.userId && !e.castThisRound)
+    .filter((e) => e.type === "timedilation" || e.type === "timecompression")
+    .forEach((e) => {
+      actionCostModifier += e.type === "timedilation" ? -10 : 10;
+    });
+
+  // Apply the modifier to the action cost
+  const baseActionCost = action?.actionCostPerc || 0;
+  const modifiedActionCost = Math.max(0, baseActionCost + actionCostModifier);
+
   return {
-    apAfter: user.actionPoints - (action?.actionCostPerc || 0),
-    canAct: availableActionPoints - (action?.actionCostPerc || 0) >= 0,
+    apAfter: user.actionPoints - modifiedActionCost,
+    canAct: availableActionPoints - modifiedActionCost >= 0,
     availableActionPoints: availableActionPoints,
   };
 };
