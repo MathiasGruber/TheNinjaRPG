@@ -718,6 +718,22 @@ export const SummonTag = z.object({
   calculation: z.enum(["percentage"]).default("percentage"),
 });
 
+export const TimeCompressionTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("timecompression").default("timecompression"),
+  description: msg("Increases action point cost of actions"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+});
+
+export const TimeDilationTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("timedilation").default("timedilation"),
+  description: msg("Decreases action point cost of actions"),
+  calculation: z.enum(["percentage"]).default("percentage"),
+});
+
 export const VisualTag = z.object({
   ...BaseAttributes,
   type: z.literal("visual").default("visual"),
@@ -805,6 +821,8 @@ export const AllTags = z.union([
   StunTag.default({}),
   SummonPreventTag.default({}),
   SummonTag.default({}),
+  TimeCompressionTag.default({}),
+  TimeDilationTag.default({}),
   UnknownTag.default({}),
   VisualTag.default({}),
   WeaknessTag.default({}),
@@ -840,6 +858,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "robprevent",
       "sealprevent",
       "stunprevent",
+      "timedilation",
       "summon",
       "shield",
     ].includes(tag.type)
@@ -877,6 +896,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       "onehitkill",
       "rob",
       "seal",
+      "timecompression",
       "summonprevent",
       "weakness",
       "healprevent",
