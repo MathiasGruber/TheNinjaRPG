@@ -349,8 +349,14 @@ export const applyEffects = (
         if (c.damage && c.damage > 0) {
           c.damage = calcAdjustedDamage(target, c.damage, c.types);
         }
+        if (c.pierce_damage && c.pierce_damage > 0) {
+          c.pierce_damage = calcAdjustedDamage(target, c.pierce_damage, c.types);
+        }
         if (c.residual && c.residual > 0) {
           c.residual = calcAdjustedDamage(target, c.residual, c.types);
+        }
+        if (c.residual_pierce && c.residual_pierce > 0) {
+          c.residual_pierce = calcAdjustedDamage(target, c.residual_pierce, c.types);
         }
         if (c.reflect && c.reflect > 0) {
           c.reflect = calcAdjustedDamage(user, c.reflect, c.types);
