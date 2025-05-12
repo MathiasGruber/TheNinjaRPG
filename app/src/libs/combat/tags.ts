@@ -948,8 +948,8 @@ export const damageUser = (
       userId: effect.creatorId,
       targetId: effect.targetId,
       types: types,
-      ...(instant ? { damage: damage } : {}),
-      ...(residual ? { residual: damage } : {}),
+      ...(instant ? (effect.type === "pierce" ? { pierce_damage: damage } : { damage: damage }) : {}),
+      ...(residual ? (effect.type === "pierce" ? { residual_pierce: damage } : { residual: damage }) : {}),
     });
   }
   return getInfo(target, effect, "will take damage");
@@ -1224,11 +1224,12 @@ export const lifesteal = (
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
-      if (consequence.userId === effect.targetId && consequence.damage) {
+      if (consequence.userId === effect.targetId && (consequence.damage || consequence.pierce_damage)) {
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
-          const convert = Math.floor(consequence.damage * (power / 100)) * ratio;
+          const damageDealt = consequence.damage || consequence.pierce_damage || 0;
+          const convert = Math.floor(damageDealt * (power / 100)) * ratio;
           consequence.lifesteal_hp = consequence.lifesteal_hp
             ? consequence.lifesteal_hp + convert
             : convert;
