@@ -386,12 +386,34 @@ export const applyEffects = (
             });
           }
         }
+        if (c.pierce_damage && c.pierce_damage > 0) {
+          if (c.pierce_damage > 0) {
+            target.curHealth -= c.pierce_damage;
+            target.curHealth = Math.max(0, target.curHealth);
+            actionEffects.push({
+              txt: `${target.username} takes ${c.pierce_damage.toFixed(2)} piercing damage`,
+              color: "red",
+              types: c.types,
+            });
+          }
+        }
         if (c.residual && c.residual > 0) {
           if (c.residual > 0) {
             target.curHealth -= c.residual;
             target.curHealth = Math.max(0, target.curHealth);
             actionEffects.push({
               txt: `${target.username} takes ${c.residual.toFixed(2)} residual damage`,
+              color: "red",
+              types: c.types,
+            });
+          }
+        }
+        if (c.residual_pierce && c.residual_pierce > 0) {
+          if (c.residual_pierce > 0) {
+            target.curHealth -= c.residual_pierce;
+            target.curHealth = Math.max(0, target.curHealth);
+            actionEffects.push({
+              txt: `${target.username} takes ${c.residual_pierce.toFixed(2)} residual piercing damage`,
               color: "red",
               types: c.types,
             });
