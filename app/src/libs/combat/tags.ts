@@ -1227,8 +1227,9 @@ export const lifesteal = (
       if (consequence.userId === effect.targetId && (consequence.damage || consequence.pierce_damage)) {
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
-          // For pierce damage, always apply lifesteal
-          const ratio = consequence.pierce_damage ? 1 : getEfficiencyRatio(damageEffect, effect);
+          // Check both the consequence and the damage effect type for pierce
+          const isPierceDamage = consequence.pierce_damage || damageEffect.type === "pierce";
+          const ratio = isPierceDamage ? 1 : getEfficiencyRatio(damageEffect, effect);
           // Calculate total damage from both regular and pierce damage
           const regularDamage = consequence.damage || 0;
           const pierceDamage = consequence.pierce_damage || 0;
