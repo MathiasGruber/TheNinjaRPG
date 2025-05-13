@@ -1228,7 +1228,10 @@ export const lifesteal = (
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
-          const damageDealt = consequence.damage || consequence.pierce_damage || 0;
+          // Calculate total damage from both regular and pierce damage
+          const regularDamage = consequence.damage || 0;
+          const pierceDamage = consequence.pierce_damage || 0;
+          const damageDealt = regularDamage + pierceDamage;
           const convert = Math.floor(damageDealt * (power / 100)) * ratio;
           consequence.lifesteal_hp = consequence.lifesteal_hp
             ? consequence.lifesteal_hp + convert
