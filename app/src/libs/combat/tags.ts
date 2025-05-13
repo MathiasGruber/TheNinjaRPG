@@ -948,8 +948,8 @@ export const damageUser = (
       userId: effect.creatorId,
       targetId: effect.targetId,
       types: types,
-      ...(instant ? (effect.type === "pierce" ? { pierce_damage: damage } : { damage: damage }) : {}),
-      ...(residual ? (effect.type === "pierce" ? { residual_pierce: damage } : { residual: damage }) : {}),
+      ...(instant ? (effect.type === "pierce" ? { damage: damage, pierce_damage: damage } : { damage: damage }) : {}),
+      ...(residual ? (effect.type === "pierce" ? { residual: damage, residual_pierce: damage } : { residual: damage }) : {}),
     });
   }
   return getInfo(target, effect, "will take damage");
