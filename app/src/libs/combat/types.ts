@@ -192,9 +192,7 @@ export type Consequence = {
   absorb_hp?: number;
   absorb_sp?: number;
   absorb_cp?: number;
-  drain_hp?: number;
-  drain_cp?: number;
-  drain_sp?: number;
+  drain?: number;
   poison?: number;
   types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
