@@ -1225,20 +1225,14 @@ export const lifesteal = (
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
       if (consequence.userId === effect.targetId && (consequence.damage || consequence.pierce_damage)) {
-        const damageEffect = usersEffects.find((e) => e.id === effectId);
-        if (damageEffect) {
-          // Check both the consequence and the damage effect type for pierce
-          const isPierceDamage = consequence.pierce_damage || damageEffect.type === "pierce";
-          const ratio = isPierceDamage ? 1 : getEfficiencyRatio(damageEffect, effect);
-          // Calculate total damage from both regular and pierce damage
-          const regularDamage = consequence.damage || 0;
-          const pierceDamage = consequence.pierce_damage || 0;
-          const damageDealt = regularDamage + pierceDamage;
-          const convert = Math.floor(damageDealt * (power / 100)) * ratio;
-          consequence.lifesteal_hp = consequence.lifesteal_hp
-            ? consequence.lifesteal_hp + convert
-            : convert;
-        }
+        // Calculate total damage from both regular and pierce damage
+        const regularDamage = consequence.damage || 0;
+        const pierceDamage = consequence.pierce_damage || 0;
+        const damageDealt = regularDamage + pierceDamage;
+        const convert = Math.floor(damageDealt * (power / 100));
+        consequence.lifesteal_hp = consequence.lifesteal_hp
+          ? consequence.lifesteal_hp + convert
+          : convert;
       }
     });
   }
