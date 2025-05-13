@@ -1224,15 +1224,17 @@ export const lifesteal = (
   const { power, qualifier } = getPower(effect);
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
-      if (consequence.userId === effect.targetId && (consequence.damage || consequence.pierce_damage)) {
+      if (consequence.userId === effect.targetId) {
         // Calculate total damage from both regular and pierce damage
         const regularDamage = consequence.damage || 0;
         const pierceDamage = consequence.pierce_damage || 0;
         const damageDealt = regularDamage + pierceDamage;
-        const convert = Math.floor(damageDealt * (power / 100));
-        consequence.lifesteal_hp = consequence.lifesteal_hp
-          ? consequence.lifesteal_hp + convert
-          : convert;
+        if (damageDealt > 0) {
+          const convert = Math.floor(damageDealt * (power / 100));
+          consequence.lifesteal_hp = consequence.lifesteal_hp
+            ? consequence.lifesteal_hp + convert
+            : convert;
+        }
       }
     });
   }
