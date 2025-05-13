@@ -1227,7 +1227,8 @@ export const lifesteal = (
       if (consequence.userId === effect.targetId && (consequence.damage || consequence.pierce_damage)) {
         const damageEffect = usersEffects.find((e) => e.id === effectId);
         if (damageEffect) {
-          const ratio = getEfficiencyRatio(damageEffect, effect);
+          // For pierce damage, always apply lifesteal
+          const ratio = consequence.pierce_damage ? 1 : getEfficiencyRatio(damageEffect, effect);
           // Calculate total damage from both regular and pierce damage
           const regularDamage = consequence.damage || 0;
           const pierceDamage = consequence.pierce_damage || 0;
@@ -1985,7 +1986,7 @@ export const getStatTypeFromStat = (stat: (typeof StatNames)[number]) => {
  */
 const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
   // Force reflect for pierce damage, bypassing tag matching
-  if (dmgEffect.type === "pierce") return 1;
+  if (dmgEffect.type === "pierce" || effect.type === "pierce") return 1;
   // We need to get the list of dmgEffect stats/gens/elements and effect stats/gens/elements
   const getTags = (e: UserEffect) => {
     const tags: string[] = [];
