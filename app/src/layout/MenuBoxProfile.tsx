@@ -212,7 +212,7 @@ const MenuBoxProfile: React.FC = () => {
               total={battleUser?.maxStamina || userData?.maxStamina}
               timeDiff={timeDiff}
             />
-            {expRequired && expForNextLevel && expTowardsNextLevel && expNeededForNextLevel ? (
+            {expRequired && expForNextLevel && expTowardsNextLevel && expNeededForNextLevel && expTowardsNextLevel >= expNeededForNextLevel ? (
               <LevelUpBtn />
             ) : (
               <StatusBar
