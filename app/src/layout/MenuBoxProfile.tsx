@@ -156,8 +156,8 @@ const MenuBoxProfile: React.FC = () => {
 
   const expRequired = userData && calcLevelRequirements(userData.level);
   const expForNextLevel = userData && calcLevelRequirements(userData.level + 1);
-  const expTowardsNextLevel = userData && Math.max(0, userData.experience - (expRequired ?? 0));
-  const expNeededForNextLevel = userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
+  const expTowardsNextLevel = userData && userData.experience;
+  const expNeededForNextLevel = userData && (expRequired ?? 0);
 
   return (
     <>
