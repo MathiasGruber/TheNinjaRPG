@@ -154,8 +154,8 @@ const MenuBoxProfile: React.FC = () => {
     }
   };
 
-  const expRequired = userData && calcLevelRequirements(userData.level);
-  const expForNextLevel = userData && calcLevelRequirements(userData.level + 1);
+  const expRequired = userData && calcLevelRequirements(userData.level - 1);
+  const expForNextLevel = userData && calcLevelRequirements(userData.level);
   const expTowardsNextLevel = userData && Math.max(0, userData.experience - (expRequired ?? 0));
   const expNeededForNextLevel = userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
 
@@ -217,7 +217,7 @@ const MenuBoxProfile: React.FC = () => {
             ) : (
               <StatusBar
                 title="XP"
-                tooltip={`Experience towards level ${(userData?.level ?? 0) + 1}`}
+                tooltip="Experience required for next level"
                 color="bg-yellow-500"
                 showText={true}
                 lastRegenAt={userData?.regenAt}
