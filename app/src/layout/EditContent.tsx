@@ -685,9 +685,13 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   };
 
   // Parse how to present the tag form
-  const ignore = ["timeTracker", "type", "direction"];
+  const ignore = ["timeTracker", "type"];
   if (props.type === "bloodline") {
     ignore.push(...["rounds", "friendlyFire"]);
+  }
+  // Add direction to ignore list if not increasestat or decreasestat
+  if (!["increasestat", "decreasestat"].includes(tag.type)) {
+    ignore.push("direction");
   }
   const formData: FormEntry<Attribute>[] = attributes
     .filter((value) => !ignore.includes(value))

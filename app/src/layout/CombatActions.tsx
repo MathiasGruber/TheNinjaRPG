@@ -223,7 +223,7 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
               currentRound &&
               lastUsedRound &&
               cooldown - (currentRound - lastUsedRound) > 0 && (
-                <div className="absolute top-0 left-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-slate-400 bg-slate-300 text-black text-base font-bold z-10">
+                <div className="absolute bottom-0 left-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-slate-400 bg-slate-300 text-black text-base font-bold z-10">
                   {cooldown - (currentRound - lastUsedRound)}
                 </div>
               )}

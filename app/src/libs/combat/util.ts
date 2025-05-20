@@ -325,6 +325,7 @@ export const sortEffects = (
     // Mid-modifiers
     "barrier",
     "shield",
+    "finalstand",
     "clone",
     "damage",
     "flee",
@@ -339,12 +340,12 @@ export const sortEffects = (
     "decreasedamagetaken",
     "increasedamagegiven",
     "increasedamagetaken",
-    "lifesteal",
-    "drain",
-    "poison",
     // Piercing damage
     "pierce",
     // Post-modifiers after pierce
+    "lifesteal",
+    "drain",
+    "poison",
     "absorb",
     "recoil",
     "reflect",
@@ -465,8 +466,14 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
     if (val.types) {
       current.types = current.types ? current.types.concat(val.types) : val.types;
     }
-    if (val.drain) {
-      current.drain = current.drain ? current.drain + val.drain : val.drain;
+    if (val.drain_hp) {
+      current.drain_hp = current.drain_hp ? current.drain_hp + val.drain_hp : val.drain_hp;
+    }
+    if (val.drain_cp) {
+      current.drain_cp = current.drain_cp ? current.drain_cp + val.drain_cp : val.drain_cp;
+    }
+    if (val.drain_sp) {
+      current.drain_sp = current.drain_sp ? current.drain_sp + val.drain_sp : val.drain_sp;
     }
     if (val.poison) {
       current.poison = current.poison ? current.poison + val.poison : val.poison;
