@@ -171,11 +171,13 @@ export const combatRouter = createTRPCRouter({
         battleId: z.string(),
         refreshKey: z.number().optional(),
         checkBattle: z.boolean().optional(),
+        limit: z.number().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 30;
       const entries = await ctx.drizzle.query.battleAction.findMany({
-        limit: 30,
+        limit: limit,
         where: eq(battleAction.battleId, input.battleId),
         orderBy: [desc(battleAction.createdAt)],
       });

@@ -256,95 +256,135 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
       effect.statTypes?.forEach((stat) => {
         if (stat === "Highest") {
           if (effect.calculation === "static") {
-            switch (target.highestOffence) {
-              case "ninjutsuOffence":
-                target.ninjutsuOffence += power;
-                break;
-              case "genjutsuOffence":
-                target.genjutsuOffence += power;
-                break;
-              case "taijutsuOffence":
-                target.taijutsuOffence += power;
-                break;
-              case "bukijutsuOffence":
-                target.bukijutsuOffence += power;
-                break;
+            if (effect.direction === "offence" || effect.direction === "both") {
+              switch (target.highestOffence) {
+                case "ninjutsuOffence":
+                  target.ninjutsuOffence += power;
+                  break;
+                case "genjutsuOffence":
+                  target.genjutsuOffence += power;
+                  break;
+                case "taijutsuOffence":
+                  target.taijutsuOffence += power;
+                  break;
+                case "bukijutsuOffence":
+                  target.bukijutsuOffence += power;
+                  break;
+              }
             }
-            switch (target.highestDefence) {
-              case "ninjutsuDefence":
-                target.ninjutsuDefence += power;
-                break;
-              case "genjutsuDefence":
-                target.genjutsuDefence += power;
-                break;
-              case "taijutsuDefence":
-                target.taijutsuDefence += power;
-                break;
-              case "bukijutsuDefence":
-                target.bukijutsuDefence += power;
-                break;
+            if (effect.direction === "defence" || effect.direction === "both") {
+              switch (target.highestDefence) {
+                case "ninjutsuDefence":
+                  target.ninjutsuDefence += power;
+                  break;
+                case "genjutsuDefence":
+                  target.genjutsuDefence += power;
+                  break;
+                case "taijutsuDefence":
+                  target.taijutsuDefence += power;
+                  break;
+                case "bukijutsuDefence":
+                  target.bukijutsuDefence += power;
+                  break;
+              }
             }
-          } else if (effect.calculation === "percentage") {
-            switch (target.highestOffence) {
-              case "ninjutsuOffence":
-                target.ninjutsuOffence *= (100 + power) / 100;
-                break;
-              case "genjutsuOffence":
-                target.genjutsuOffence *= (100 + power) / 100;
-                break;
-              case "taijutsuOffence":
-                target.taijutsuOffence *= (100 + power) / 100;
-                break;
-              case "bukijutsuOffence":
-                target.bukijutsuOffence *= (100 + power) / 100;
-                break;
+          } else {
+            if (effect.direction === "offence" || effect.direction === "both") {
+              switch (target.highestOffence) {
+                case "ninjutsuOffence":
+                  target.ninjutsuOffence *= (100 + power) / 100;
+                  break;
+                case "genjutsuOffence":
+                  target.genjutsuOffence *= (100 + power) / 100;
+                  break;
+                case "taijutsuOffence":
+                  target.taijutsuOffence *= (100 + power) / 100;
+                  break;
+                case "bukijutsuOffence":
+                  target.bukijutsuOffence *= (100 + power) / 100;
+                  break;
+              }
             }
-            switch (target.highestDefence) {
-              case "ninjutsuDefence":
-                target.ninjutsuDefence *= (100 + power) / 100;
-                break;
-              case "genjutsuDefence":
-                target.genjutsuDefence *= (100 + power) / 100;
-                break;
-              case "taijutsuDefence":
-                target.taijutsuDefence *= (100 + power) / 100;
-                break;
-              case "bukijutsuDefence":
-                target.bukijutsuDefence *= (100 + power) / 100;
-                break;
+            if (effect.direction === "defence" || effect.direction === "both") {
+              switch (target.highestDefence) {
+                case "ninjutsuDefence":
+                  target.ninjutsuDefence *= (100 + power) / 100;
+                  break;
+                case "genjutsuDefence":
+                  target.genjutsuDefence *= (100 + power) / 100;
+                  break;
+                case "taijutsuDefence":
+                  target.taijutsuDefence *= (100 + power) / 100;
+                  break;
+                case "bukijutsuDefence":
+                  target.bukijutsuDefence *= (100 + power) / 100;
+                  break;
+              }
             }
           }
         } else if (stat === "Ninjutsu") {
           if (effect.calculation === "static") {
-            target.ninjutsuOffence += power;
-            target.ninjutsuDefence += power;
-          } else if (effect.calculation === "percentage") {
-            target.ninjutsuOffence *= (100 + power) / 100;
-            target.ninjutsuDefence *= (100 + power) / 100;
+            if (effect.direction === "offence" || effect.direction === "both") {
+              target.ninjutsuOffence += power;
+            }
+            if (effect.direction === "defence" || effect.direction === "both") {
+              target.ninjutsuDefence += power;
+            }
+          } else {
+            if (effect.direction === "offence" || effect.direction === "both") {
+              target.ninjutsuOffence *= (100 + power) / 100;
+            }
+            if (effect.direction === "defence" || effect.direction === "both") {
+              target.ninjutsuDefence *= (100 + power) / 100;
+            }
           }
         } else if (stat === "Genjutsu") {
           if (effect.calculation === "static") {
-            target.genjutsuOffence += power;
-            target.genjutsuDefence += power;
-          } else if (effect.calculation === "percentage") {
-            target.genjutsuOffence *= (100 + power) / 100;
-            target.genjutsuDefence *= (100 + power) / 100;
+            if (effect.direction === "offence" || effect.direction === "both") {
+              target.genjutsuOffence += power;
+            }
+            if (effect.direction === "defence" || effect.direction === "both") {
+              target.genjutsuDefence += power;
+            }
+          } else {
+            if (effect.direction === "offence" || effect.direction === "both") {
+              target.genjutsuOffence *= (100 + power) / 100;
+            }
+            if (effect.direction === "defence" || effect.direction === "both") {
+              target.genjutsuDefence *= (100 + power) / 100;
+            }
           }
         } else if (stat === "Taijutsu") {
           if (effect.calculation === "static") {
-            target.taijutsuOffence += power;
-            target.taijutsuDefence += power;
-          } else if (effect.calculation === "percentage") {
-            target.taijutsuOffence *= (100 + power) / 100;
-            target.taijutsuDefence *= (100 + power) / 100;
+            if (effect.direction === "offence" || effect.direction === "both") {
+              target.taijutsuOffence += power;
+            }
+            if (effect.direction === "defence" || effect.direction === "both") {
+              target.taijutsuDefence += power;
+            }
+          } else {
+            if (effect.direction === "offence" || effect.direction === "both") {
+              target.taijutsuOffence *= (100 + power) / 100;
+            }
+            if (effect.direction === "defence" || effect.direction === "both") {
+              target.taijutsuDefence *= (100 + power) / 100;
+            }
           }
         } else if (stat === "Bukijutsu") {
           if (effect.calculation === "static") {
-            target.bukijutsuOffence += power;
-            target.bukijutsuDefence += power;
-          } else if (effect.calculation === "percentage") {
-            target.bukijutsuOffence *= (100 + power) / 100;
-            target.bukijutsuDefence *= (100 + power) / 100;
+            if (effect.direction === "offence" || effect.direction === "both") {
+              target.bukijutsuOffence += power;
+            }
+            if (effect.direction === "defence" || effect.direction === "both") {
+              target.bukijutsuDefence += power;
+            }
+          } else {
+            if (effect.direction === "offence" || effect.direction === "both") {
+              target.bukijutsuOffence *= (100 + power) / 100;
+            }
+            if (effect.direction === "defence" || effect.direction === "both") {
+              target.bukijutsuDefence *= (100 + power) / 100;
+            }
           }
         }
       });
@@ -411,6 +451,7 @@ export const decreaseStats = (
   if (preventTag && preventTag.createdRound < effect.createdRound) {
     if (!pass) return preventResponse(effect, target, "cannot be debuffed");
   }
+  // Make power negative to decrease stats
   effect.power = -Math.abs(effect.power);
   effect.powerPerLevel = -Math.abs(effect.powerPerLevel);
   return adjustStats(effect, target);
@@ -896,7 +937,7 @@ export const damageCalc = (
 
 /** Calculate damage modifier, e.g. from weakness tag */
 export const calcDmgModifier = (
-  dmgEffect: UserEffect & (DamageTagType | PierceTagType),
+  dmgEffect: UserEffect & { type: "damage" | "pierce" },
   target: BattleUserState,
   usersState: UserEffect[],
 ) => {
@@ -1035,7 +1076,9 @@ export const fleePrevent = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
-    return getInfo(target, effect, "cannot flee");
+    const info = getInfo(target, effect, "cannot flee");
+    effect.power = 100;
+    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
     return {
@@ -1102,6 +1145,7 @@ export const healPrevent = (
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     const info = getInfo(target, effect, "cannot be healed");
+    effect.power = 100;
     return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
@@ -1253,22 +1297,52 @@ export const drain = (
   // Calculate drain amount
   const { power, qualifier } = getPower(effect);
 
-  // Apply drain effect each round
-  if (!effect.isNew && !effect.castThisRound) {
-    const drainAmount =
-      effect.calculation === "percentage"
-        ? Math.floor((power / 100) * Math.max(target.curChakra, target.curStamina))
-        : power;
+  // Get pools to drain from
+  const pools =
+    "poolsAffected" in effect && effect.poolsAffected
+      ? effect.poolsAffected
+      : ["Health" as const];
 
-    // Reduce target's Chakra and Stamina directly
-    const consequence = consequences.get(effect.targetId) || {
+  // Apply drain effect each round
+  if (
+    !effect.isNew &&
+    !effect.castThisRound &&
+    (effect.rounds === undefined || effect.rounds > 0)
+  ) {
+    const consequence: Consequence = consequences.get(effect.targetId) || {
       userId: effect.targetId,
       targetId: effect.targetId,
+      drain_hp: 0,
+      drain_cp: 0,
+      drain_sp: 0,
     };
 
-    consequence.drain = consequence.drain
-      ? consequence.drain + drainAmount
-      : drainAmount;
+    // Calculate drain amount for each pool
+    pools.forEach((pool) => {
+      const poolValue =
+        pool === "Health"
+          ? target.curHealth
+          : pool === "Chakra"
+            ? target.curChakra
+            : target.curStamina;
+      const drainAmount =
+        effect.calculation === "percentage"
+          ? Math.floor((power / 100) * poolValue)
+          : power;
+
+      // Add to existing drain value for the specific pool
+      switch (pool) {
+        case "Health":
+          consequence.drain_hp = (consequence.drain_hp || 0) + drainAmount;
+          break;
+        case "Chakra":
+          consequence.drain_cp = (consequence.drain_cp || 0) + drainAmount;
+          break;
+        case "Stamina":
+          consequence.drain_sp = (consequence.drain_sp || 0) + drainAmount;
+          break;
+      }
+    });
 
     consequences.set(effect.targetId, consequence);
   }
@@ -1276,7 +1350,7 @@ export const drain = (
   return getInfo(
     target,
     effect,
-    `will be drained ${qualifier} of Chakra and Stamina for ${effect.rounds} rounds`,
+    `will be drained ${qualifier} of ${pools.join(", ")} for ${effect.rounds} rounds`,
   );
 };
 
@@ -1362,6 +1436,29 @@ export const shield = (effect: UserEffect, target: BattleUserState) => {
   return info;
 };
 
+/** Prevents the user from being reduced below 1 HP */
+export const finalStand = (effect: UserEffect, target: BattleUserState) => {
+  const { power } = getPower(effect);
+  const primaryCheck = Math.random() < power / 100;
+  let info: ActionEffect | undefined = undefined;
+  if (effect.isNew && effect.castThisRound) {
+    if (primaryCheck) {
+      info = getInfo(
+        target,
+        effect,
+        "takes a final stand and cannot be reduced below 1 HP",
+      );
+    } else {
+      effect.rounds = 0;
+      info = {
+        txt: `${target.username}'s final stand failed to activate`,
+        color: "blue",
+      };
+    }
+  }
+  return info;
+};
+
 /**
  * Move user on the battlefield
  * 1. Remove user from current ground effect
@@ -1417,7 +1514,9 @@ export const movePrevent = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
-    return getInfo(target, effect, "cannot move");
+    const info = getInfo(target, effect, "cannot move");
+    effect.power = 100;
+    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
     return {
@@ -1460,7 +1559,9 @@ export const onehitkillPrevent = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
-    return getInfo(target, effect, "cannot be one-hit-killed");
+    const info = getInfo(target, effect, "cannot be one-hit-killed");
+    effect.power = 100;
+    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
     return {
@@ -1533,7 +1634,9 @@ export const robPrevent = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
-    return getInfo(target, effect, "cannot be robbed");
+    const info = getInfo(target, effect, "cannot be robbed");
+    effect.power = 100;
+    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
     return {
@@ -1551,7 +1654,9 @@ export const cleansePrevent = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
-    return getInfo(target, effect, "cannot be cleansed");
+    const info = getInfo(target, effect, "cannot be cleansed");
+    effect.power = 100;
+    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
     return {
@@ -1570,6 +1675,7 @@ export const clearPrevent = (
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
     const info = getInfo(target, effect, "cannot be cleared");
+    effect.power = 100;
     return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
@@ -1622,7 +1728,9 @@ export const sealPrevent = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
-    return getInfo(target, effect, "bloodline cannot be sealed");
+    const info = getInfo(target, effect, "bloodline cannot be sealed");
+    effect.power = 100;
+    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
     return {
@@ -1699,7 +1807,9 @@ export const stunPrevent = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
-    return getInfo(target, effect, "cannot be stunned");
+    const info = getInfo(target, effect, "cannot be stunned");
+    effect.power = 100;
+    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
     return {
@@ -1787,7 +1897,9 @@ export const summonPrevent = (
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
   if (mainCheck) {
-    return getInfo(target, effect, "cannot summon companions");
+    const info = getInfo(target, effect, "cannot summon companions");
+    effect.power = 100;
+    return info;
   } else if (effect.isNew) {
     effect.rounds = 0;
     return {

@@ -6,7 +6,16 @@ import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
-import { absorb, reflect, recoil, lifesteal, drain, shield, poison } from "./tags";
+import {
+  absorb,
+  reflect,
+  recoil,
+  lifesteal,
+  drain,
+  shield,
+  poison,
+  finalStand,
+} from "./tags";
 import { increaseStats, decreaseStats, copy, mirror } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -342,6 +351,23 @@ export const applyEffects = (
             }
           });
         }
+
+        // Apply final stand if active
+        const finalStandEffect = usersEffects.find(
+          (e) =>
+            e.type === "finalstand" &&
+            e.targetId === target.userId &&
+            (e.rounds ?? 0) > 0,
+        );
+        if (finalStandEffect && target.curHealth - remainingDamage < 1) {
+          const preventedDamage = remainingDamage - (target.curHealth - 1);
+          remainingDamage = target.curHealth - 1;
+          actionEffects.push({
+            txt: `${target.username}'s final stand prevents ${preventedDamage.toFixed(2)} damage`,
+            color: "orange",
+          });
+        }
+
         return remainingDamage;
       };
       // Adjust damages and reduce shields
@@ -435,7 +461,12 @@ export const applyEffects = (
             });
           }
         }
-        if (c.lifesteal_hp && c.lifesteal_hp > 0 && target.curHealth > 0) {
+        if (
+          c.lifesteal_hp &&
+          c.lifesteal_hp > 0 &&
+          target.curHealth > 0 &&
+          user.curHealth > 0
+        ) {
           user.curHealth += c.lifesteal_hp;
           user.curHealth = Math.min(user.maxHealth, user.curHealth);
           actionEffects.push({
@@ -473,28 +504,25 @@ export const applyEffects = (
             color: "green",
           });
         }
-        if (
-          c.drain &&
-          c.drain > 0 &&
-          target.curStamina > 0 &&
-          target.curChakra > 0 &&
-          target.curHealth > 0
-        ) {
-          target.curChakra = Math.max(
-            0,
-            Math.min(target.maxChakra, target.curChakra - c.drain),
-          );
-          target.curStamina = Math.max(
-            0,
-            Math.min(target.maxStamina, target.curStamina - c.drain),
-          );
-          target.curHealth = Math.max(
-            0,
-            Math.min(target.maxHealth, target.curHealth - c.drain),
-          );
-
+        // Handle drain effects for each pool
+        if (c.drain_hp && c.drain_hp > 0 && target.curHealth > 0) {
+          target.curHealth = Math.max(0, target.curHealth - c.drain_hp);
           actionEffects.push({
-            txt: `${user.username} is drained of ${c.drain.toFixed(2)} chakra/stamina/health`,
+            txt: `${target.username} loses ${c.drain_hp.toFixed(2)} HP to drain`,
+            color: "purple",
+          });
+        }
+        if (c.drain_cp && c.drain_cp > 0 && target.curChakra > 0) {
+          target.curChakra = Math.max(0, target.curChakra - c.drain_cp);
+          actionEffects.push({
+            txt: `${target.username} loses ${c.drain_cp.toFixed(2)} CP to drain`,
+            color: "purple",
+          });
+        }
+        if (c.drain_sp && c.drain_sp > 0 && target.curStamina > 0) {
+          target.curStamina = Math.max(0, target.curStamina - c.drain_sp);
+          actionEffects.push({
+            txt: `${target.username} loses ${c.drain_sp.toFixed(2)} SP to drain`,
             color: "purple",
           });
         }
@@ -641,6 +669,8 @@ export const applySingleEffect = (
             info = increasepoolcost(effect, curTarget);
           } else if (effect.type === "decreasepoolcost" && isTargetOrNew) {
             info = decreasepoolcost(effect, curTarget);
+          } else if (effect.type === "drain" && isTargetOrNew) {
+            info = drain(effect, usersEffects, consequences, curTarget);
           } else if (effect.type === "clear" && isTargetOrNew) {
             info = clear(effect, usersEffects, curTarget);
           } else if (effect.type === "cleanse" && isTargetOrNew) {
@@ -657,8 +687,6 @@ export const applySingleEffect = (
             info = seal(effect, newUsersEffects, curTarget);
           } else if (effect.type === "stun") {
             info = stun(effect, newUsersEffects, curTarget);
-          } else if (effect.type === "drain") {
-            info = drain(effect, usersEffects, consequences, curTarget);
           }
         }
 
@@ -721,6 +749,8 @@ export const applySingleEffect = (
           info = copy(effect, usersEffects, curUser, curTarget);
         } else if (effect.type === "mirror") {
           info = mirror(effect, usersEffects, curUser, curTarget);
+        } else if (effect.type === "finalstand") {
+          info = finalStand(effect, curTarget);
         }
         updateStatUsage(newTarget, effect, true);
       }

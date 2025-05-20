@@ -6,6 +6,7 @@ import { groupBy } from "@/utils/grouping";
 import { insertComponentsIntoText } from "@/utils/string";
 import { cn } from "src/libs/shadui";
 import { useRequiredUserData } from "@/utils/UserContext";
+import { canViewFullBattleLog } from "@/utils/permissions";
 import type { CombatResult } from "@/libs/combat/types";
 import type { ActionEffect } from "@/libs/combat/types";
 
@@ -28,9 +29,10 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
       battleId: battleId,
       refreshKey: battleVersion ?? 0,
       checkBattle: results ? true : false,
+      limit: canViewFullBattleLog(userData?.role ?? "USER") ? 1000 : 30,
     },
     {
-      enabled: battleId !== undefined,
+      enabled: !!battleId && !!userData,
       placeholderData: (previousData) => previousData,
     },
   );
