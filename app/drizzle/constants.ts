@@ -53,6 +53,7 @@ export const LOG_TYPES = [
   "item",
   "badge",
   "clan",
+  "war",
 ] as const;
 export type LogType = (typeof LOG_TYPES)[number];
 

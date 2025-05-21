@@ -2,7 +2,15 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { eq, and, gte, ne, desc } from "drizzle-orm";
-import { war, village, warAlly, warKill, sector, userData } from "@/drizzle/schema";
+import {
+  war,
+  village,
+  warAlly,
+  warKill,
+  sector,
+  userData,
+  actionLog,
+} from "@/drizzle/schema";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchVillages, fetchAlliances, fetchStructures } from "@/routers/village";
 import { nanoid } from "nanoid";
@@ -28,6 +36,7 @@ import {
 import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
 import { countVillageSectors, fetchSector } from "@/routers/village";
+import { IMG_AVATAR_DEFAULT } from "@/utils/constants";
 import type { War, WarAlly, Village, VillageStructure } from "@/drizzle/schema";
 import type { RouterOutputs } from "@/app/_trpc/client";
 
@@ -51,11 +60,13 @@ export const warRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, activeWar] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchActiveWar(ctx.drizzle, input.warId),
+      ]);
       // Guard
-      if (!user) {
-        return errorResponse("User not found");
-      }
+      if (!user) return errorResponse("User not found");
+      if (!activeWar) return errorResponse("War not found");
       if (!canAdministrateWars(user.role)) {
         return errorResponse("You are not authorized to end wars");
       }
@@ -64,6 +75,17 @@ export const warRouter = createTRPCRouter({
         ctx.drizzle.delete(war).where(eq(war.id, input.warId)),
         ctx.drizzle.delete(warKill).where(eq(warKill.warId, input.warId)),
         ctx.drizzle.delete(warAlly).where(eq(warAlly.warId, input.warId)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "war",
+          changes: [
+            `Ended war between ${activeWar.attackerVillage?.name ?? "Unknown"} and ${activeWar.defenderVillage?.name ?? "Unknown"}`,
+          ],
+          relatedId: input.warId,
+          relatedMsg: `Ended war`,
+          relatedImage: IMG_AVATAR_DEFAULT,
+        }),
       ]);
       return { success: true, message: "War ended successfully" };
     }),

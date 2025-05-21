@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../trpc";
-import { eq, and, like, inArray } from "drizzle-orm";
+import { eq, ne, and, like, inArray } from "drizzle-orm";
 import { extractValueFromJson } from "@/utils/regex";
-import { actionLog, village, bloodline } from "@/drizzle/schema";
+import { actionLog, village, bloodline, userData } from "@/drizzle/schema";
 import { actionLogSchema } from "@/validators/logs";
 import { fetchUser } from "@/routers/profile";
 import { canSeeSecretData } from "@/utils/permissions";
@@ -14,39 +14,54 @@ export const logsRouter = createTRPCRouter({
         cursor: z.number().nullish(),
         limit: z.number().min(1).max(100),
         relatedId: z.string().optional(),
+        username: z.string().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const [entries, user] = await Promise.all([
-        ctx.drizzle.query.actionLog.findMany({
-          where: and(
-            eq(actionLog.tableName, input.logtype),
-            ...(input.relatedId ? [eq(actionLog.relatedId, input.relatedId)] : []),
-            ...(input.search ? [like(actionLog.changes, `%${input.search}%`)] : []),
-          ),
-          columns: {
-            userId: true,
-            createdAt: true,
-            changes: true,
-            relatedId: true,
-            relatedMsg: true,
-            relatedImage: true,
-          },
-          with: {
-            user: {
-              columns: {
-                username: true,
-              },
+      // Query
+      const [user, target] = await Promise.all([
+        ctx.userId ? fetchUser(ctx.drizzle, ctx.userId) : null,
+        ctx.userId
+          ? await ctx.drizzle.query.userData.findFirst({
+              where: and(
+                like(userData.username, `%${input.username}%`),
+                ne(userData.role, "USER"),
+              ),
+            })
+          : null,
+      ]);
+      // Get entries
+      const entries = await ctx.drizzle.query.actionLog.findMany({
+        where: and(
+          eq(actionLog.tableName, input.logtype),
+          ...(input.relatedId ? [eq(actionLog.relatedId, input.relatedId)] : []),
+          ...(input.search ? [like(actionLog.changes, `%${input.search}%`)] : []),
+          // Username filtering if allowed
+          ...(input.username && user && target && canSeeSecretData(user.role)
+            ? [eq(actionLog.userId, target.userId)]
+            : []),
+        ),
+        columns: {
+          userId: true,
+          createdAt: true,
+          changes: true,
+          relatedId: true,
+          relatedMsg: true,
+          relatedImage: true,
+        },
+        with: {
+          user: {
+            columns: {
+              username: true,
             },
           },
-          offset: skip,
-          orderBy: (table, { desc }) => desc(table.createdAt),
-          limit: input.limit,
-        }),
-        ctx.userId ? fetchUser(ctx.drizzle, ctx.userId) : null,
-      ]);
+        },
+        offset: skip,
+        orderBy: (table, { desc }) => desc(table.createdAt),
+        limit: input.limit,
+      });
       // Overwrite all villageIds, bloodlineIds, etc. with their names
       const villageIds: string[] = [];
       const bloodlineIds: string[] = [];

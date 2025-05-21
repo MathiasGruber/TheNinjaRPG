@@ -42,7 +42,7 @@ export const canChangeDefaultAiProfile = (role: UserRole) => {
 };
 
 export const canAdministrateWars = (role: UserRole) => {
-  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+  return ["CODING-ADMIN", "CONTENT-ADMIN", "CONTENT", "EVENT"].includes(role);
 };
 
 export const canChangeUserRole = (role: UserRole) => {
@@ -206,7 +206,13 @@ export const canClearUserNindo = (user: UserData) => {
 };
 
 export const canEditPublicUser = (user: UserData) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(user.role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "CONTENT",
+    "EVENT",
+    "MODERATOR-ADMIN",
+  ].includes(user.role);
 };
 
 export const canAwardReputation = (role: UserRole) => {
@@ -222,7 +228,7 @@ export const canReviewLinkPromotions = (role: UserRole) => {
 };
 
 export const canEditClans = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN", "CONTENT"].includes(role);
 };
 
 export const canAddNonCustomPollOptions = (role: UserRole) => {

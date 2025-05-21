@@ -29,6 +29,8 @@ import { canAdministrateWars } from "@/utils/permissions";
 import { canSwapVillage } from "@/utils/permissions";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { actionLog } from "@/drizzle/schema";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { AllianceState } from "@/drizzle/constants";
 import type { VillageAlliance } from "@/drizzle/schema";
@@ -59,10 +61,19 @@ export const villageRouter = createTRPCRouter({
         return errorResponse("You are not authorized to restore structure points");
       }
       // Restore
-      await ctx.drizzle
-        .update(villageStructure)
-        .set({ curSp: sql`${villageStructure.maxSp}` })
-        .where(eq(villageStructure.id, input.structureId));
+      await Promise.all([
+        ctx.drizzle
+          .update(villageStructure)
+          .set({ curSp: sql`${villageStructure.maxSp}` })
+          .where(eq(villageStructure.id, input.structureId)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "war",
+          changes: [`Restored structure points for ${input.structureId}`],
+          relatedId: input.structureId,
+        }),
+      ]);
       return { success: true, message: "Structure points restored successfully" };
     }),
   // Get a specific village & its structures∂
