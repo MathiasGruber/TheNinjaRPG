@@ -36,7 +36,7 @@ import {
 import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
 import { countVillageSectors, fetchSector } from "@/routers/village";
-import { IMG_AVATAR_DEFAULT } from "@/utils/constants";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import type { War, WarAlly, Village, VillageStructure } from "@/drizzle/schema";
 import type { RouterOutputs } from "@/app/_trpc/client";
 
