@@ -36,6 +36,7 @@ import { fetchUserReport } from "@/routers/reports";
 import { fetchThread } from "@/routers/forum";
 import { fetchUser } from "@/routers/profile";
 import { moderateContent } from "@/libs/moderator";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
 
@@ -53,7 +54,12 @@ export const commentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const report = await fetchUserReport(ctx.drizzle, input.id, ctx.userId);
+      // Query
+      const [report, user] = await Promise.all([
+        fetchUserReport(ctx.drizzle, input.id, ctx.userId),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      // Get comments
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
       const comments = await ctx.drizzle.query.userReportComment.findMany({
@@ -77,6 +83,20 @@ export const commentsRouter = createTRPCRouter({
         orderBy: [desc(userReportComment.createdAt)],
       });
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
+      // If not able to see secret data, hide reporter
+      if (!canSeeSecretData(user.role)) {
+        comments.forEach((comment) => {
+          if (comment.user.role !== "USER") {
+            comment.user.username = "Annonymized";
+            comment.user.avatar = IMG_AVATAR_DEFAULT;
+            comment.user.rank = "STUDENT";
+            comment.user.isOutlaw = false;
+            comment.user.level = 0;
+            comment.user.role = "MODERATOR";
+            comment.user.federalStatus = "NONE";
+          }
+        });
+      }
       return {
         data: comments,
         nextCursor: nextCursor,

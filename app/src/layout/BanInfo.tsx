@@ -32,7 +32,11 @@ const BanInfo: React.FC<BanInfoProps> = (props) => {
         </div>
       )}
       <ParsedReportJson report={report} />
-      <b>Report by</b> {report.reportedUser.username}
+      {report.reporterUser?.username && (
+        <span>
+          <b>Report by</b> {report.reporterUser?.username}
+        </span>
+      )}
     </Post>
   );
 

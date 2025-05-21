@@ -4,6 +4,8 @@ import { eq, and, like, inArray } from "drizzle-orm";
 import { extractValueFromJson } from "@/utils/regex";
 import { actionLog, village, bloodline } from "@/drizzle/schema";
 import { actionLogSchema } from "@/validators/logs";
+import { fetchUser } from "@/routers/profile";
+import { canSeeSecretData } from "@/utils/permissions";
 
 export const logsRouter = createTRPCRouter({
   getContentChanges: publicProcedure
@@ -17,31 +19,34 @@ export const logsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const currentCursor = input.cursor ? input.cursor : 0;
       const skip = currentCursor * input.limit;
-      const entries = await ctx.drizzle.query.actionLog.findMany({
-        where: and(
-          eq(actionLog.tableName, input.logtype),
-          ...(input.relatedId ? [eq(actionLog.relatedId, input.relatedId)] : []),
-          ...(input.search ? [like(actionLog.changes, `%${input.search}%`)] : []),
-        ),
-        columns: {
-          userId: true,
-          createdAt: true,
-          changes: true,
-          relatedId: true,
-          relatedMsg: true,
-          relatedImage: true,
-        },
-        with: {
-          user: {
-            columns: {
-              username: true,
+      const [entries, user] = await Promise.all([
+        ctx.drizzle.query.actionLog.findMany({
+          where: and(
+            eq(actionLog.tableName, input.logtype),
+            ...(input.relatedId ? [eq(actionLog.relatedId, input.relatedId)] : []),
+            ...(input.search ? [like(actionLog.changes, `%${input.search}%`)] : []),
+          ),
+          columns: {
+            userId: true,
+            createdAt: true,
+            changes: true,
+            relatedId: true,
+            relatedMsg: true,
+            relatedImage: true,
+          },
+          with: {
+            user: {
+              columns: {
+                username: true,
+              },
             },
           },
-        },
-        offset: skip,
-        orderBy: (table, { desc }) => desc(table.createdAt),
-        limit: input.limit,
-      });
+          offset: skip,
+          orderBy: (table, { desc }) => desc(table.createdAt),
+          limit: input.limit,
+        }),
+        ctx.userId ? fetchUser(ctx.drizzle, ctx.userId) : null,
+      ]);
       // Overwrite all villageIds, bloodlineIds, etc. with their names
       const villageIds: string[] = [];
       const bloodlineIds: string[] = [];
@@ -63,6 +68,15 @@ export const logsRouter = createTRPCRouter({
           columns: { id: true, name: true },
         }),
       ]);
+      // If user is not set, or not allowed to see secret data, hide username
+      if (!user || !canSeeSecretData(user.role)) {
+        entries.forEach((entry) => {
+          entry.userId = "Annonymized";
+          if (entry.user) {
+            entry.user.username = "Annonymized";
+          }
+        });
+      }
 
       // Return
       const nextCursor = entries.length < input.limit ? null : currentCursor + 1;
