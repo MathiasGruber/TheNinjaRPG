@@ -299,7 +299,7 @@ export default function HomePage() {
                 <TabsContent value="stored">
                   {storedItems.length === 0 ? (
                     <div className="text-center p-4">
-                      You don't have any items stored in your home.
+                      You don&apos;t have any items stored in your home.
                     </div>
                   ) : (
                     <div className="h-64 overflow-y-auto pr-1">
@@ -335,7 +335,7 @@ export default function HomePage() {
                 <TabsContent value="inventory">
                   {!userItems || userItems.length === 0 ? (
                     <div className="text-center p-4">
-                      You don't have any items in your inventory.
+                      You don&apos;t have any items in your inventory.
                     </div>
                   ) : (
                     <div className="h-64 overflow-y-auto pr-1">
