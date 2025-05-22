@@ -224,7 +224,7 @@ export const homeRouter = createTRPCRouter({
       if (!userItemResult) return errorResponse("Item not found or is equipped");
       
       // Add to storage and remove from inventory
-      const updatedStorage = [...(user.homeStoredItems ?? []), input.itemId];
+      const updatedStorage = [...(user.homeStoredItems ?? []), userItemResult.itemId];
       
       await ctx.drizzle.update(userData).set({
         homeStoredItems: updatedStorage,
@@ -287,7 +287,7 @@ export const homeRouter = createTRPCRouter({
       } else {
         // Add new item to inventory
         const item = await ctx.drizzle.query.item.findFirst({
-          where: eq(userItem.id, input.itemId),
+          where: eq(item.id, input.itemId),
         });
         
         if (!item) return errorResponse("Item data not found");
