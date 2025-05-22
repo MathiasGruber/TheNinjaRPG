@@ -34,6 +34,7 @@ export default function AwardsManual() {
   const allAwards = data?.pages
     .map((page) => page.data)
     .flat()
+    .filter((award) => award.receiver && award.awardedBy)
     .map((award) => ({
       ...award,
       awardedBy: (

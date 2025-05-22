@@ -136,7 +136,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
                           return undefined;
                         }
                       })
-                      .filter((e) => e !== undefined);
+                      .filter((e): e is NonNullable<typeof e> => e !== undefined);
                     setObjectives(newObjectives);
                   } else {
                     form.setValue(key, data[key], { shouldDirty: true });
@@ -149,6 +149,11 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
         }
       >
         {!quest && <p>Could not find this item</p>}
+        {quest && (
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold">Edit Quest</h1>
+          </div>
+        )}
         {quest && (
           <EditContent
             schema={QuestValidator._def.schema.merge(ObjectiveReward)}

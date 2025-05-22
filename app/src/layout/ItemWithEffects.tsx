@@ -7,12 +7,16 @@ import { parseHtml } from "@/utils/parse";
 import ElementImage from "@/layout/ElementImage";
 import { canChangeCombatBgScheme, canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
-import { SquarePen, Trash2, BarChartBig } from "lucide-react";
+import { SquarePen, Trash2, BarChartBig, Copy, Box } from "lucide-react";
 import { getTagSchema } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { getObjectiveImage } from "@/libs/objectives";
 import { ObjectiveReward } from "@/validators/objectives";
+import { showMutationToast } from "@/libs/toast";
 import { cn } from "src/libs/shadui";
+import { api } from "@/app/_trpc/client";
+import { useRouter } from "next/navigation";
+import Model3d from "@/layout/Model3d";
 import type { ItemRarity, GameAsset } from "@/drizzle/schema";
 import type { Bloodline, Item, Jutsu, Quest } from "@/drizzle/schema";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -49,15 +53,46 @@ export interface ItemWithEffectsProps {
     | "asset"
     | "backgroundSchema";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
+  showCopy?: "quest" | "ai";
+  show3d?: boolean;
   hideTitle?: boolean;
   hideImage?: boolean;
   onDelete?: (id: string) => void;
 }
 
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
-  const { item, showEdit, showStatistic, hideTitle, hideDetails, hideImage, onDelete } =
-    props;
+  const {
+    item,
+    showEdit,
+    showStatistic,
+    showCopy,
+    show3d,
+    hideTitle,
+    hideDetails,
+    hideImage,
+    onDelete,
+  } = props;
   const { data: userData } = useUserData();
+  const router = useRouter();
+
+  // Setup clone mutations
+  const { mutate: cloneQuest } = api.quests.clone.useMutation({
+    onSuccess: (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        router.push(`/manual/quest/edit/${data.message}`);
+      }
+    },
+  });
+
+  const { mutate: cloneAi } = api.profile.cloneAi.useMutation({
+    onSuccess: (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        router.push(`/manual/ai/edit/${data.message}`);
+      }
+    },
+  });
 
   // Extract effects if they exist
   const effects =
@@ -172,6 +207,51 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               )}
               {showEdit && userData && canChangeContent(userData.role) && (
                 <>
+                  {showCopy === "quest" && (
+                    <Confirm
+                      title="Clone Quest"
+                      button={
+                        <Copy className="h-6 w-6 hover:text-popover-foreground/50" />
+                      }
+                      onAccept={(e) => {
+                        e.preventDefault();
+                        cloneQuest({ id: item.id });
+                      }}
+                    >
+                      This will create a copy of this quest. You will be redirected to
+                      edit the new quest.
+                    </Confirm>
+                  )}
+                  {showCopy === "ai" && (
+                    <Confirm
+                      title="Clone AI"
+                      button={
+                        <Copy className="h-6 w-6 hover:text-popover-foreground/50" />
+                      }
+                      onAccept={(e) => {
+                        e.preventDefault();
+                        cloneAi({ id: item.id });
+                      }}
+                    >
+                      This will create a copy of this AI. You will be redirected to edit
+                      the new AI.
+                    </Confirm>
+                  )}
+                  {show3d && "avatar" in item && "avatar3d" in item && item.avatar3d ? (
+                    <Confirm
+                      title="3d Model"
+                      button={
+                        <Box className="h-6 w-6 hover:text-popover-foreground/50 hover:cursor-pointer" />
+                      }
+                    >
+                      <Model3d
+                        modelUrl={item.avatar3d as string}
+                        imageUrl={item.avatar as string}
+                        alt={item.name}
+                        size={100}
+                      />
+                    </Confirm>
+                  ) : undefined}
                   <Link href={`/manual/${showEdit}/edit/${item.id}`}>
                     <SquarePen className="h-6 w-6 hover:text-popover-foreground/50" />
                   </Link>
@@ -355,6 +435,11 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             {"method" in item && (
               <p>
                 <b>Method</b>: {item.method.toLowerCase()}
+              </p>
+            )}
+            {"direction" in item && typeof item.direction === "string" && item.direction && (
+              <p>
+                <b>Direction</b>: {item.direction.toLowerCase()}
               </p>
             )}
             {"weaponType" in item && item.weaponType && (

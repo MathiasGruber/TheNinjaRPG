@@ -25,6 +25,8 @@ import { Filter } from "lucide-react";
 import { LOG_TYPES } from "@/drizzle/constants";
 import type { LogType } from "@/drizzle/constants";
 import type { ActionLogSchema } from "@/validators/logs";
+import { useUserData } from "@/utils/UserContext";
+import { canSeeSecretData } from "@/utils/permissions";
 
 interface ActionLogFilteringProps {
   state: ActionLogFilteringState;
@@ -32,17 +34,24 @@ interface ActionLogFilteringProps {
 
 const ActionLogFiltering: React.FC<ActionLogFilteringProps> = (props) => {
   // Destructure the state
-  const { setSearch, setLogType } = props.state;
-  const { search, logtype } = props.state;
+  const { setSearch, setLogType, setUsername, search, logtype, username } = props.state;
+
+  // User data for permission check
+  const { data: userData } = useUserData();
+  const canSeeUsernames = userData && canSeeSecretData(userData.role);
 
   // Name search schema
   const form = useForm<ActionLogSchema>({
     resolver: zodResolver(actionLogSchema),
-    defaultValues: { search: search, logtype: logtype },
+    defaultValues: { search, logtype, username },
   });
   const watchSearch = useWatch({
     control: form.control,
     name: "search",
+  });
+  const watchUsername = useWatch({
+    control: form.control,
+    name: "username",
   });
 
   // Update the state
@@ -52,6 +61,14 @@ const ActionLogFiltering: React.FC<ActionLogFilteringProps> = (props) => {
     }, 500);
     return () => clearTimeout(delayDebounceFn);
   }, [watchSearch, setSearch]);
+
+  useEffect(() => {
+    if (!canSeeUsernames) return;
+    const delayDebounceFn = setTimeout(() => {
+      setUsername(watchUsername || "");
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [watchUsername, setUsername, canSeeUsernames]);
 
   return (
     <Popover>
@@ -84,6 +101,23 @@ const ActionLogFiltering: React.FC<ActionLogFilteringProps> = (props) => {
           {/* Search */}
           <div>
             <Form {...form}>
+              {canSeeUsernames && (
+                <>
+                  <Label htmlFor="rank">Performed by</Label>
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input id="username" placeholder="Username" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
               <Label htmlFor="rank">Search</Label>
               <FormField
                 control={form.control}
@@ -108,19 +142,19 @@ const ActionLogFiltering: React.FC<ActionLogFilteringProps> = (props) => {
 
 export default ActionLogFiltering;
 
-/** tRPC filter to be used on api.jutsu.getAll */
 export const getFilter = (state: ActionLogFilteringState) => {
   return {
     search: state.search ? state.search : undefined,
     logtype: state.logtype ? state.logtype : "user",
+    username: state.username ? state.username : undefined,
   };
 };
 
-/** State for the Jutsu Filtering component */
 export const useFiltering = (logType: LogType = "user") => {
   // State variables
   const [search, setSearch] = useState<string>("");
   const [logtype, setLogType] = useState<LogType>(logType);
+  const [username, setUsername] = useState<string>("");
 
   // Return all
   return {
@@ -128,6 +162,8 @@ export const useFiltering = (logType: LogType = "user") => {
     search,
     setSearch,
     setLogType,
+    username,
+    setUsername,
   };
 };
 

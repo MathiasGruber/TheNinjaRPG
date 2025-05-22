@@ -150,6 +150,7 @@ export default function ManualQuests() {
               key={quest.id}
               onDelete={(id: string) => remove({ id })}
               showEdit="quest"
+              showCopy="quest"
             />
           </div>
         ))}

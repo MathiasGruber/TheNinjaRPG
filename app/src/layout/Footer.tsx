@@ -41,8 +41,12 @@ const Footer: React.FC = () => {
           Staff
         </Link>
       </p>
-      <p className="mb-7 text-sm">
+      <p className="text-sm">
         TheNinja-RPG © by Studie-Tech ApS - 2005-{new Date().getFullYear()}
+      </p>
+      <p className="mb-7 text-sm">
+        Hindegade 6 - 1303 København K - Denmark -{" "}
+        <a href="mailto:contact@theninja-rpg.com">Contact</a>
       </p>
     </div>
   );

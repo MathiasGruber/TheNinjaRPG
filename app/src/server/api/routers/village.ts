@@ -5,11 +5,11 @@ import { getTableColumns } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { baseServerResponse, serverError, errorResponse } from "@/api/trpc";
 import { village, villageStructure, userData, notification } from "@/drizzle/schema";
-import { villageAlliance, kageDefendedChallenges } from "@/drizzle/schema";
-import { eq, sql, gte, and, or, inArray } from "drizzle-orm";
+import { villageAlliance, kageDefendedChallenges, war, sector } from "@/drizzle/schema";
+import { eq, sql, gte, and, or, inArray, ne, count } from "drizzle-orm";
 import { ramenOptions } from "@/utils/ramen";
 import { getRamenHealPercentage, calcRamenCost } from "@/utils/ramen";
-import { fetchUpdatedUser } from "@/routers/profile";
+import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchRequests } from "@/routers/sparring";
 import { insertRequest, updateRequestState } from "@/routers/sparring";
 import { createConvo } from "@/routers/comments";
@@ -17,7 +17,7 @@ import { canAccessStructure } from "@/utils/village";
 import { structureBoost } from "@/utils/village";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
-import { canAlly, canWar, canSurrender } from "@/utils/alliance";
+import { canAlly, canEnemy, canSurrender } from "@/utils/alliance";
 import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { KAGE_WAR_DECLARE_COST } from "@/drizzle/constants";
@@ -25,9 +25,12 @@ import { UserRequestTypes } from "@/drizzle/constants";
 import { WAR_FUNDS_COST } from "@/drizzle/constants";
 import { deleteRequests } from "@/routers/sensei";
 import { hasRequiredRank } from "@/libs/train";
+import { canAdministrateWars } from "@/utils/permissions";
 import { canSwapVillage } from "@/utils/permissions";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { actionLog } from "@/drizzle/schema";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 import type { AllianceState } from "@/drizzle/constants";
 import type { VillageAlliance } from "@/drizzle/schema";
@@ -46,13 +49,41 @@ export const villageRouter = createTRPCRouter({
   getAll: publicProcedure.query(async ({ ctx }) => {
     return await fetchVillages(ctx.drizzle);
   }),
+  // Restore village structure points
+  restoreStructurePoints: protectedProcedure
+    .input(z.object({ structureId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canAdministrateWars(user.role)) {
+        return errorResponse("You are not authorized to restore structure points");
+      }
+      // Restore
+      await Promise.all([
+        ctx.drizzle
+          .update(villageStructure)
+          .set({ curSp: sql`${villageStructure.maxSp}` })
+          .where(eq(villageStructure.id, input.structureId)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "war",
+          changes: [`Restored structure points for ${input.structureId}`],
+          relatedId: input.structureId,
+        }),
+      ]);
+      return { success: true, message: "Structure points restored successfully" };
+    }),
   // Get a specific village & its structures∂
   get: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       // Fetch in parallel
-      const [villageData, defendedChallenges] = await Promise.all([
+      const [villageData, sectorCount, defendedChallenges] = await Promise.all([
         fetchVillage(ctx.drizzle, input.id),
+        countVillageSectors(ctx.drizzle, input.id),
         ctx.drizzle.query.kageDefendedChallenges.findMany({
           with: {
             user: {
@@ -73,8 +104,31 @@ export const villageRouter = createTRPCRouter({
       if (!villageData) throw serverError("NOT_FOUND", "Village not found");
 
       // Return
-      return { villageData, defendedChallenges };
+      return { villageData, sectorCount, defendedChallenges };
     }),
+  // Get sector ownership
+  getSectorOwnerships: publicProcedure.query(async ({ ctx }) => {
+    const [sectors, colors, sectorWars] = await Promise.all([
+      ctx.drizzle.query.sector.findMany({
+        columns: {
+          sector: true,
+          villageId: true,
+        },
+        where: ne(sector.villageId, VILLAGE_SYNDICATE_ID),
+      }),
+      ctx.drizzle.query.village.findMany({
+        columns: {
+          id: true,
+          hexColor: true,
+        },
+      }),
+      ctx.drizzle.query.war.findMany({
+        columns: { sector: true },
+        where: and(eq(war.status, "ACTIVE"), eq(war.type, "SECTOR_WAR")),
+      }),
+    ]);
+    return { sectors, colors, wars: sectorWars };
+  }),
   // Buying food in ramen shop
   buyFood: protectedProcedure
     .input(z.object({ ramen: z.enum(ramenOptions), villageId: z.string().nullish() }))
@@ -254,10 +308,10 @@ export const villageRouter = createTRPCRouter({
 
       // Guards
       if (!village) return errorResponse("Village does not exist");
-      if (isKage(user)) return errorResponse("You are the kage");
+      if (isKage(user)) return errorResponse("You are the kage or leader");
       if (user.villageId === village.id) return errorResponse("Already in village");
       if (user.anbuId) return errorResponse("Leave ANBU squad first");
-      if (user.clanId) return errorResponse("Leave Clan first");
+      if (user.clanId) return errorResponse("Leave Clan or Faction first");
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.isBanned) return errorResponse("Cannot leave while banned");
       if (!canSwapVillage(user.role)) return errorResponse("No permission to do this");
@@ -302,8 +356,18 @@ export const villageRouter = createTRPCRouter({
       return { success: true, message: "You have swapped villages" };
     }),
   getAlliances: publicProcedure.query(async ({ ctx }) => {
-    return await fetchPublicAllianceInformation(ctx.drizzle);
+    const [villages, relationships, requests] = await Promise.all([
+      fetchVillages(ctx.drizzle),
+      fetchAlliances(ctx.drizzle),
+      fetchRequests(ctx.drizzle, ["ALLIANCE", "SURRENDER"], 3600 * 48),
+    ]);
+    return { villages, relationships, requests };
   }),
+  getVillageStructures: publicProcedure
+    .input(z.object({ villageId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return await fetchStructures(ctx.drizzle, input.villageId);
+    }),
   createRequest: protectedProcedure
     .input(z.object({ targetId: z.string(), type: z.enum(UserRequestTypes) }))
     .output(baseServerResponse)
@@ -466,7 +530,7 @@ export const villageRouter = createTRPCRouter({
       // Return
       return { success: true, message: "You have left the alliance" };
     }),
-  startWar: protectedProcedure
+  declareEnemy: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -492,8 +556,8 @@ export const villageRouter = createTRPCRouter({
       if (!userVillage.allianceSystem) return errorResponse("User Alliance disabled");
       if (!target.allianceSystem) return errorResponse("Target Alliance disabled");
 
-      // Check if war is possible
-      const check = canWar(relationships, villages, villageId, targetId);
+      // Check if declaring enemy is possible
+      const check = canEnemy(relationships, villages, villageId, targetId);
       if (!check.success) return check;
 
       // Mutate
@@ -524,7 +588,7 @@ export const villageRouter = createTRPCRouter({
           .where(eq(userData.userId, user.userId)),
       ]);
       // Return
-      return { success: true, message: "You have declared war" };
+      return { success: true, message: "You have declared yourself an enemy" };
     }),
 });
 
@@ -575,25 +639,6 @@ export const fetchAllienceInfo = async (client: DrizzleClient, userId: string) =
     fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
   ]);
   return { user, villages, relationships, requests };
-};
-
-/**
- * Fetches the information related to villages, alliances, and requests.
- *
- * @param client - The DrizzleClient instance used for making queries.
- * @returns An object containing the fetched villages, alliances, and requests.
- */
-export const fetchPublicAllianceInformation = async (client: DrizzleClient) => {
-  const [villages, relationships, requests] = await Promise.all([
-    fetchVillages(client),
-    fetchAlliances(client),
-    fetchRequests(client, ["ALLIANCE", "SURRENDER"], 3600 * 48),
-  ]);
-  return {
-    villages: villages.filter((v) => v.allianceSystem),
-    relationships,
-    requests,
-  };
 };
 
 /**
@@ -718,5 +763,37 @@ export const fetchStructures = async (
 export const fetchStructure = async (client: DrizzleClient, structureId: string) => {
   return await client.query.villageStructure.findFirst({
     where: eq(villageStructure.id, structureId),
+  });
+};
+
+/**
+ * Counts the number of sectors a village has.
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param villageId - The ID of the village to count sectors for.
+ * @returns The number of sectors a village has.
+ */
+export const countVillageSectors = async (
+  client: DrizzleClient,
+  villageId: string | null,
+) => {
+  if (!villageId) return 0;
+  const counts = await client
+    .select({ count: count() })
+    .from(sector)
+    .where(eq(sector.villageId, villageId));
+  return counts?.[0]?.count || 0;
+};
+
+/**
+ * Fetches a sector from the database.
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param sectorId - The ID of the sector to fetch.
+ * @returns A Promise that resolves to the fetched sector.
+ */
+export const fetchSector = async (client: DrizzleClient, sectorId: number) => {
+  return await client.query.sector.findFirst({
+    columns: { sector: true, villageId: true },
+    with: { village: { columns: { name: true, id: true } } },
+    where: eq(sector.sector, sectorId),
   });
 };

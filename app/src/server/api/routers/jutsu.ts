@@ -34,7 +34,7 @@ import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
-import { JUTSU_MAX_RESIDUAL_EQUIPPED } from "@/drizzle/constants";
+import { JUTSU_MAX_RESIDUAL_EQUIPPED, JUTSU_MAX_PIERCE_EQUIPPED } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { jutsuFilteringSchema } from "@/validators/jutsu";
 import { QuestTracker } from "@/validators/objectives";
@@ -720,8 +720,8 @@ export const jutsuRouter = createTRPCRouter({
       if (!isEquipped && curEquip >= maxEquip) {
         return errorResponse("You cannot equip more jutsu");
       }
-      if (!isEquipped && curJutsuIsPierce && pierceEquipped >= 2) {
-        return errorResponse("You cannot equip more than 2 piercing jutsu");
+      if (!isEquipped && curJutsuIsPierce && pierceEquipped >= JUTSU_MAX_PIERCE_EQUIPPED) {
+        return errorResponse(`You cannot equip more than ${JUTSU_MAX_PIERCE_EQUIPPED} piercing jutsu`);
       }
 
       // Calculate loadout

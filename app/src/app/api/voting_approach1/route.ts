@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const data = await request.formData();
     const incentive =
       (data.get("incentive") as string) ||
+      (data.get("uid") as string) ||
       searchParams.get("incentive") ||
       searchParams.get("param") ||
       searchParams.get("userid");
@@ -79,7 +80,7 @@ async function handleVote(secret: string, siteId: string) {
     await drizzleDB
       .update(userVote)
       .set({
-        ...(siteId === "topwebgames" ? { topWebGames: true } : {}), // in review
+        ...(siteId === "topWebGames" ? { topWebGames: true } : {}), // in review
         ...(siteId === "top100arena" ? { top100Arena: true } : {}),
         ...(siteId === "mmohub" ? { mmoHub: true } : {}),
         ...(siteId === "arenaTop100" ? { arenaTop100: true } : {}),

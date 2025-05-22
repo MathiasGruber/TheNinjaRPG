@@ -10,6 +10,9 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getSearchValidator } from "@/validators/register";
+import { showMutationToast } from "@/libs/toast";
+import { useUploadThing } from "@/utils/uploadthing";
+import { resizeImage } from "@/utils/image";
 
 interface RichInputProps {
   id: string;
@@ -23,6 +26,7 @@ interface RichInputProps {
   onSubmit?: (e: any) => void;
   isDirty?: boolean;
   enableMentions?: boolean;
+  allowClipboardPaste?: boolean;
 }
 
 const RichInput: React.FC<RichInputProps> = (props) => {
@@ -54,6 +58,74 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     name: "users",
     defaultValue: [],
   });
+
+  const { field } = useController({
+    name: props.id,
+    control: props.control,
+    rules: { required: true },
+  });
+
+  const { startUpload } = useUploadThing("tavernUploader", {
+    onClientUploadComplete: () => {
+      // Handle upload complete if needed
+    },
+    onUploadError: (error: Error) => {
+      showMutationToast({ success: false, message: error.message });
+    },
+  });
+
+  // Handle clipboard paste
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!props.allowClipboardPaste) return;
+
+    const items = e.clipboardData.items;
+    const imageItem = Array.from(items).find((item) => item.type.startsWith("image"));
+
+    if (imageItem) {
+      e.preventDefault();
+      const file = imageItem.getAsFile();
+      if (!file) return;
+
+      // Insert loading text at cursor position
+      const loadingText = "![Uploading image...](uploading)";
+      const cursorPos = e.currentTarget.selectionStart;
+      const textBefore = ((field.value as string) || "").substring(0, cursorPos);
+      const textAfter = ((field.value as string) || "").substring(cursorPos);
+      const textWhileUploading = textBefore + loadingText + textAfter;
+      field.onChange(textWhileUploading);
+
+      try {
+        // Resize the image before uploading
+        const resizedFile = await resizeImage(file);
+
+        // Upload the resized file using useUploadThing hook
+        const uploadResponse = await startUpload([resizedFile]);
+        const uploadedFile = uploadResponse?.[0];
+
+        // Check if we have a successful upload with a URL
+        if (!uploadedFile) {
+          throw new Error("Upload failed - no response");
+        }
+
+        const uploadUrl = uploadedFile.url;
+        if (!uploadUrl) {
+          throw new Error("Upload failed - no URL returned");
+        }
+        // Replace the loading text with the actual image markdown
+        const imgHtml = `<img src="${uploadUrl}" alt="${file.name}" />`;
+        const newText = textWhileUploading.replace(loadingText, imgHtml);
+        field.onChange(newText);
+      } catch (error) {
+        // Remove the loading text if upload failed
+        const newText = (field.value as string).replace(loadingText, "");
+        field.onChange(newText);
+        showMutationToast({
+          success: false,
+          message: error instanceof Error ? error.message : "Failed to upload image",
+        });
+      }
+    }
+  };
 
   // Handle button clicks
   const onDocumentKeyDown = (event: KeyboardEvent) => {
@@ -101,12 +173,6 @@ const RichInput: React.FC<RichInputProps> = (props) => {
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
     };
-  });
-
-  const { field } = useController({
-    name: props.id,
-    control: props.control,
-    rules: { required: true },
   });
 
   // Function to check for mentions
@@ -200,6 +266,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
                 placeholder={props.placeholder}
                 className="w-full"
                 onChange={handleTextChange}
+                onPaste={handlePaste}
               />
             );
           }}

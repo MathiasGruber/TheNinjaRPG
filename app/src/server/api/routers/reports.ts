@@ -340,6 +340,16 @@ export const reportsRouter = createTRPCRouter({
       }),
     ]);
 
+    // If user can not see secret data, hide reporter
+    if (!canSeeSecretData(user.role)) {
+      if (banReport) {
+        banReport.reporterUser = null;
+      }
+      if (silenceReport) {
+        silenceReport.reporterUser = null;
+      }
+    }
+
     // Unsilence user if no active silence or ban
     if (!silenceReport && !banReport && user.isSilenced) {
       await ctx.drizzle
@@ -361,18 +371,21 @@ export const reportsRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Query
       const [user, report] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUserReport(ctx.drizzle, input.id, ctx.userId),
       ]);
-      if (canSeeReport(user, report)) {
-        const prevReports = canSeeSecretData(user.role)
-          ? await getRelatedReports(ctx.drizzle, report.aiInterpretation)
-          : [];
-        return { report, prevReports };
-      } else {
+      // Guard
+      if (!canSeeReport(user, report)) {
         throw serverError("UNAUTHORIZED", "You have no access to the report");
       }
+      // Get previous reports
+      const prevReports = canSeeSecretData(user.role)
+        ? await getRelatedReports(ctx.drizzle, report.aiInterpretation)
+        : [];
+      // Return
+      return { report, prevReports };
     }),
   // Create a new user report
   create: protectedProcedure
@@ -893,6 +906,7 @@ export const fetchUserReport = async (
   if (!entry) {
     throw new Error("Report not found");
   }
+  // If fetching report on yourself, hide reporter
   if (fetcherUserId === entry.reportedUserId) {
     entry.reporterUser = null;
     entry.reporterUserId = null;

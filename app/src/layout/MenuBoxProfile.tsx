@@ -16,7 +16,7 @@ import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
 import { groupBy } from "@/utils/grouping";
 import { ShieldCheck, Swords, Moon, Sun, Dumbbell, Star } from "lucide-react";
-import { LayoutList } from "lucide-react";
+import { LayoutList, Atom } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
@@ -39,6 +39,8 @@ import {
 import type { GeneralType, StatType, ElementName } from "@/drizzle/constants";
 import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
+import { api } from "@/app/_trpc/client";
+import { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 
 /**
  * Social media links
@@ -87,6 +89,16 @@ const MenuBoxProfile: React.FC = () => {
   const [, setState] = useState<number>(0);
   const [gameTime, setGameTime] = useState<string>(getGameTime());
   const battle = useAtomValue(userBattleAtom);
+  const utils = api.useUtils();
+  const state = useFiltering();
+
+  // Get user's jutsus
+  const { data: userJutsus } = api.jutsu.getUserJutsus.useQuery(getFilter(state), {
+    enabled: !!userData,
+  });
+  const trainingJutsu = userJutsus?.find(
+    (j) => j.finishTraining && j.finishTraining > new Date(),
+  );
 
   // Update the gameTime with the UTC HH:MM:SS timestring every second
   useEffect(() => {
@@ -142,77 +154,81 @@ const MenuBoxProfile: React.FC = () => {
     }
   };
 
-  const expRequired = userData && calcLevelRequirements(userData.level);
-  const expCurrent = userData && Math.min(userData.experience, expRequired ?? 0);
+  const expRequired = userData && calcLevelRequirements(userData.level - 1);
+  const expForNextLevel = userData && calcLevelRequirements(userData.level);
+  const expTowardsNextLevel = userData && Math.max(0, userData.experience - (expRequired ?? 0));
+  const expNeededForNextLevel = userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
 
   return (
     <>
       <div className="flex-col items-center justify-center ">
-        <Link href="/profile">
-          <AvatarImage
-            href={userData?.avatar}
-            userId={userData?.userId}
-            alt={userData?.username}
-            refetchUserData={true}
-            size={100}
-            hover_effect={true}
-            priority
-          />
-        </Link>
+        <div className="grid grid-cols-2 md:grid-cols-1 items-center justify-center">
+          <Link href="/profile">
+            <AvatarImage
+              href={userData?.avatar}
+              userId={userData?.userId}
+              alt={userData?.username}
+              refetchUserData={true}
+              size={100}
+              hover_effect={true}
+              priority
+            />
+          </Link>
 
-        <div className="pt-5">
-          <StatusBar
-            title="HP"
-            tooltip="Health"
-            color="bg-red-500"
-            showText={true}
-            lastRegenAt={userData?.regenAt}
-            regen={battleUser ? 0 : userData?.regeneration}
-            status={battleUser ? "AWAKE" : userData?.status}
-            current={battleUser?.curHealth || userData?.curHealth}
-            total={battleUser?.maxHealth || userData?.maxHealth}
-            timeDiff={timeDiff}
-          />
-          <StatusBar
-            title="CP"
-            tooltip="Chakra"
-            color="bg-blue-500"
-            showText={true}
-            lastRegenAt={userData?.regenAt}
-            regen={battleUser ? 0 : userData?.regeneration}
-            status={battleUser ? "AWAKE" : userData?.status}
-            current={battleUser?.curChakra || userData?.curChakra}
-            total={battleUser?.maxChakra || userData?.maxChakra}
-            timeDiff={timeDiff}
-          />
-          <StatusBar
-            title="SP"
-            tooltip="Stamina"
-            color="bg-green-500"
-            showText={true}
-            lastRegenAt={userData?.regenAt}
-            regen={battleUser ? 0 : userData?.regeneration}
-            status={battleUser ? "AWAKE" : userData?.status}
-            current={battleUser?.curStamina || userData?.curStamina}
-            total={battleUser?.maxStamina || userData?.maxStamina}
-            timeDiff={timeDiff}
-          />
-          {expRequired && expCurrent && expCurrent >= expRequired ? (
-            <LevelUpBtn />
-          ) : (
+          <div className="pt-5">
             <StatusBar
-              title="XP"
-              tooltip="Experience required for next level"
-              color="bg-yellow-500"
+              title="HP"
+              tooltip="Health"
+              color="bg-red-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={0}
-              status={userData?.status}
-              current={expCurrent}
-              total={expRequired}
+              regen={battleUser ? 0 : userData?.regeneration}
+              status={battleUser ? "AWAKE" : userData?.status}
+              current={battleUser?.curHealth || userData?.curHealth}
+              total={battleUser?.maxHealth || userData?.maxHealth}
               timeDiff={timeDiff}
             />
-          )}
+            <StatusBar
+              title="CP"
+              tooltip="Chakra"
+              color="bg-blue-500"
+              showText={true}
+              lastRegenAt={userData?.regenAt}
+              regen={battleUser ? 0 : userData?.regeneration}
+              status={battleUser ? "AWAKE" : userData?.status}
+              current={battleUser?.curChakra || userData?.curChakra}
+              total={battleUser?.maxChakra || userData?.maxChakra}
+              timeDiff={timeDiff}
+            />
+            <StatusBar
+              title="SP"
+              tooltip="Stamina"
+              color="bg-green-500"
+              showText={true}
+              lastRegenAt={userData?.regenAt}
+              regen={battleUser ? 0 : userData?.regeneration}
+              status={battleUser ? "AWAKE" : userData?.status}
+              current={battleUser?.curStamina || userData?.curStamina}
+              total={battleUser?.maxStamina || userData?.maxStamina}
+              timeDiff={timeDiff}
+            />
+            {expRequired && expForNextLevel && expTowardsNextLevel && expNeededForNextLevel && expTowardsNextLevel >= expNeededForNextLevel ? (
+              <LevelUpBtn />
+            ) : (
+              <StatusBar
+                title="XP"
+                tooltip="Experience required for next level"
+                color="bg-yellow-500"
+                showText={true}
+                lastRegenAt={userData?.regenAt}
+                regen={0}
+                status={userData?.status}
+                current={expTowardsNextLevel}
+                total={expNeededForNextLevel}
+                timeDiff={timeDiff}
+              />
+            )}
+          </div>
         </div>
 
         <div className="mt-4">
@@ -225,6 +241,18 @@ const MenuBoxProfile: React.FC = () => {
             <b>Time: </b> {gameTime}
           </p>
         </div>
+        {/* ACTIVE EFFECTS */}
+        {battle?.usersEffects && userData && (
+          <>
+            <hr className="my-2" />
+            <ul className="italic">
+              <VisualizeEffects
+                effects={battle.usersEffects}
+                userId={userData.userId}
+              />
+            </ul>
+          </>
+        )}
         <hr className="my-2" />
         <div className="flex flex-col gap-1">
           <TooltipProvider delayDuration={50}>
@@ -281,6 +309,29 @@ const MenuBoxProfile: React.FC = () => {
               </Tooltip>
             </TooltipProvider>
           )}
+          {trainingJutsu && (
+            <TooltipProvider delayDuration={50}>
+              <Tooltip>
+                <TooltipTrigger className="w-full">
+                  <div className="flex flex-row items-center hover:text-orange-500">
+                    <Atom className="h-6 w-6 mr-2" />
+                    <Link href="/traininggrounds">
+                      <Countdown
+                        targetDate={trainingJutsu.finishTraining || new Date()}
+                        timeDiff={timeDiff}
+                        onFinish={async () => {
+                          await utils.jutsu.getUserJutsus.invalidate();
+                        }}
+                      />
+                    </Link>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Training {trainingJutsu.jutsu?.name} to level {trainingJutsu.level}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <TooltipProvider delayDuration={50}>
             <Tooltip>
               <TooltipTrigger className="w-full">
@@ -310,18 +361,6 @@ const MenuBoxProfile: React.FC = () => {
             </TooltipProvider>
           )}
         </div>
-        {/* ACTIVE EFFECTS */}
-        {battle?.usersEffects && userData && (
-          <>
-            <hr className="my-2" />
-            <ul className="italic">
-              <VisualizeEffects
-                effects={battle.usersEffects}
-                userId={userData.userId}
-              />
-            </ul>
-          </>
-        )}
       </div>
       <hr className="my-2" />
       <div className="px-2 pt-2 flex align-center justify-center">

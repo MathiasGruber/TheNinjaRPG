@@ -182,7 +182,7 @@ export const getNewTrackers = (
           }
 
           // If not available yet, just skip
-          if (!isQuestObjectiveAvailable(quest, questTracker, i)) {
+          if (questTracker && !isQuestObjectiveAvailable(quest, questTracker, i)) {
             return status;
           }
 
@@ -222,7 +222,7 @@ export const getNewTrackers = (
             .filter((taskUpdate) => taskUpdate.task === task)
             .forEach((taskUpdate) => {
               // If objective has a value, increment it
-              if ("value" in objective) {
+              if (status && "value" in objective) {
                 if (taskUpdate.increment) {
                   status.value += taskUpdate.increment;
                 }
@@ -231,7 +231,7 @@ export const getNewTrackers = (
                 }
               }
               // If objective has a location, set to completed
-              if (isLocationObjective(user, objective)) {
+              if (status && isLocationObjective(user, objective)) {
                 if (task === "move_to_location") {
                   notifications.push(`You arrived at destination for ${quest.name}.`);
                   status.done = true;
@@ -260,7 +260,7 @@ export const getNewTrackers = (
                   }
                 }
               }
-              if (task === "defeat_opponents" && "opponent_ai" in objective) {
+              if (status && task === "defeat_opponents" && "opponent_ai" in objective) {
                 if (
                   taskUpdate.text &&
                   objective.opponent_ai &&
@@ -369,10 +369,10 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
 };
 
 export const mockAchievementHistoryEntries = (
-  quests: Quest[],
+  achievements: Quest[],
   user: NonNullable<UserWithRelations>,
 ) => {
-  return quests
+  return achievements
     .filter((q) => q !== null)
     .filter((q) => !q.hidden || canChangeContent(user.role))
     .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))

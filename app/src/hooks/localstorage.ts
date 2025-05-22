@@ -68,7 +68,7 @@ export const useLocalStorage = <T>(
 
   // Update the local storage when the value changes
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && localStorage) {
       localStorage.setItem(key, JSON.stringify(value));
     }
   }, [key, value]);

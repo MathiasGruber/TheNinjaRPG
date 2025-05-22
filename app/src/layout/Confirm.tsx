@@ -1,3 +1,7 @@
+/**
+ * This is a confirmation modal that is used to display a modal.
+ * This component will be deprecated in favor of the Confirm2 component.
+ */
 import React, { useState } from "react";
 import Modal from "./Modal";
 

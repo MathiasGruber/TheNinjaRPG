@@ -14,7 +14,7 @@ import { isAtEdge, maxDistance } from "@/libs/travel/controls";
 import { SECTOR_HEIGHT, SECTOR_WIDTH } from "@/libs/travel/constants";
 import { secondsFromNow } from "@/utils/time";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
-import { userData, clan, village, actionLog } from "@/drizzle/schema";
+import { userData, clan, village, actionLog, war } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { initiateBattle } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
@@ -26,6 +26,7 @@ import {
   ROBBING_VILLAGE_PRESTIGE_GAIN,
   ROBBING_IMMUNITY_DURATION,
 } from "@/drizzle/constants";
+import { fetchSector } from "@/routers/village";
 import * as map from "@/data/hexasphere.json";
 import { UserStatuses } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -213,10 +214,10 @@ export const travelRouter = createTRPCRouter({
     }),
   // Get users within a given sector
   getSectorData: protectedProcedure
-    .input(z.object({ sector: z.number().int() }))
+    .input(z.object({ sector: z.number().int() })) // Note: this is not actively used, but is there for reloading the sector data
     .query(async ({ ctx }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const [users, villageData] = await Promise.all([
+      const [users, villageData, sectorData, warData] = await Promise.all([
         ctx.drizzle.query.userData.findMany({
           columns: {
             userId: true,
@@ -254,8 +255,20 @@ export const travelRouter = createTRPCRouter({
           ),
           with: { structures: true },
         }),
+        fetchSector(ctx.drizzle, user.sector),
+        ctx.drizzle.query.war.findMany({
+          where: and(eq(war.sector, user.sector), eq(war.status, "ACTIVE")),
+          with: {
+            attackerVillage: {
+              columns: { name: true, id: true, villageGraphic: true },
+            },
+            defenderVillage: {
+              columns: { name: true, id: true, villageGraphic: true },
+            },
+          },
+        }),
       ]);
-      return { users, village: villageData };
+      return { users, village: villageData, sectorData, warData };
     }),
   // Get village & alliance information for a given sector
   getVillageInSector: protectedProcedure

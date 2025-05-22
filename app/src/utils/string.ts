@@ -11,3 +11,15 @@ export const insertComponentsIntoText = (
     return part;
   });
 };
+
+/**
+ * Also removes thousands and replace with k, m, b, t, etc.
+ * @param num
+ * @returns
+ */
+export const prettyNumber = (num: number) => {
+  if (num < 1000) return num;
+  if (num < 1000000) return `${Math.floor(num / 1000)}k`;
+  if (num < 1000000000) return `${Math.floor(num / 1000000)}m`;
+  return `${Math.floor(num / 1000000000)}b`;
+};

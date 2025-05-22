@@ -13,12 +13,12 @@ import AvatarImage from "@/layout/Avatar";
 import PublicUserComponent from "@/layout/PublicUser";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
-import { Handshake, LandPlot, DoorOpen } from "lucide-react";
+import { Handshake, LandPlot, DoorOpen, Swords } from "lucide-react";
 import { CircleArrowUp, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showMutationToast } from "@/libs/toast";
 import { secondsPassed, secondsFromDate } from "@/utils/time";
-import { DoorClosed, ShieldPlus, Swords } from "lucide-react";
+import { DoorClosed, ShieldPlus } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
@@ -27,7 +27,6 @@ import { canChallengeKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { KAGE_CHALLENGE_SECS, KAGE_CHALLENGE_MINS } from "@/drizzle/constants";
-import { canAlly, canWar } from "@/utils/alliance";
 import { KAGE_RANK_REQUIREMENT, WAR_FUNDS_COST } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_COST } from "@/drizzle/constants";
 import { KAGE_MIN_DAYS_IN_VILLAGE } from "@/drizzle/constants";
@@ -39,6 +38,7 @@ import type { Village, VillageAlliance } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { AllianceState } from "@/drizzle/constants";
 import { Input } from "@/components/ui/input";
+import { calculateEnemyConsequences } from "@/utils/alliance";
 import {
   Form,
   FormControl,
@@ -46,10 +46,13 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { WarRoom } from "@/layout/WarSystem";
 
 export default function TownHall() {
   const { data: userData } = useRequiredUserData();
-  const availableTabs = ["Alliance", "Kage", "Elders"] as const;
+  const availableTabs = userData?.isOutlaw
+    ? ["Alliance", "Wars"]
+    : ["Alliance", "Kage", "Elders", "Wars"];
   const [tab, setTab] = useState<(typeof availableTabs)[number] | null>(null);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
@@ -57,21 +60,25 @@ export default function TownHall() {
 
   const NavBarBlock = (
     <NavTabs
-      id="townhallSelection"
+      id={`townhallSelection-${userData.villageId}`}
       current={tab}
       options={availableTabs}
       setValue={setTab}
     />
   );
 
-  if (userData.isOutlaw) {
-    return <AllianceHall user={userData} />;
-  } else if (tab === "Alliance" || !tab) {
+  if (tab === "Alliance" || !tab) {
     return <AllianceHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Kage") {
     return <KageHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Elders") {
     return <ElderHall user={userData} navTabs={NavBarBlock} />;
+  } else if (tab === "Wars") {
+    return userData.isOutlaw ? (
+      <WarRoom user={userData} navTabs={NavBarBlock} />
+    ) : (
+      <WarRoom user={userData} navTabs={NavBarBlock} />
+    );
   }
 }
 
@@ -200,14 +207,14 @@ const ElderHall: React.FC<{
           />
           {targetUser && (
             <div>
-              {targetUser.rank !== "JONIN" && (
+              {targetUser.rank !== "JONIN" && targetUser.rank !== "ELITE JONIN" && (
                 <p className="text-red-500 font-bold text-center pt-2">
-                  User must be Jonin!
+                  User must be at least Jonin!
                 </p>
               )}
-              {targetUser.rank === "JONIN" && (
+              {(targetUser.rank === "JONIN" || targetUser.rank === "ELITE JONIN") && (
                 <Button
-                  id="challenge"
+                  id="promote"
                   className="mt-2 w-full"
                   onClick={() =>
                     toggleElder({
@@ -420,7 +427,13 @@ const KageChallenge: React.FC<{
       staleTime: 10000,
     });
 
+  const { data: activeWars } = api.war.getActiveWars.useQuery(
+    { villageId: user.villageId ?? "" },
+    { staleTime: 10000, enabled: !!user.villageId },
+  );
+
   // Derived
+  const activeVillageWars = activeWars?.filter((w) => w.type === "VILLAGE_WAR");
   const isKage = user.userId === user.village?.kageId;
   const openForChallenges = user.village?.openForChallenges;
   const pendingRequests = requests?.filter((r) => r.status === "PENDING");
@@ -429,6 +442,7 @@ const KageChallenge: React.FC<{
   const expiredRequest = pendingRequests?.find(
     (r) => secondsPassed(r.createdAt) > KAGE_CHALLENGE_SECS,
   );
+  const isAtWar = activeVillageWars && activeVillageWars.length > 0;
 
   // Mutations
   const { mutate: create, isPending: isSendingChallenge } =
@@ -478,7 +492,10 @@ const KageChallenge: React.FC<{
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.village.get.invalidate();
+        await Promise.all([
+          utils.village.get.invalidate(),
+          utils.profile.getUser.invalidate(),
+        ]);
       }
     },
   });
@@ -511,98 +528,113 @@ const KageChallenge: React.FC<{
       initialBreak={true}
       padding={false}
     >
-      <p className="p-3">
-        <Button
-          className="w-full"
-          disabled={!isKage}
-          loading={isToggling}
-          onClick={() => toggleChallenges({ villageId: user.villageId ?? "" })}
-        >
-          {openForChallenges ? (
-            <LockOpen className="h-6 w-6 mr-2" />
-          ) : (
-            <Lock className="h-6 w-6 mr-2" />
+      {isAtWar ? (
+        <p className="p-3 text-red-500 font-bold text-center">
+          Kage challenges are disabled while the village is at war
+        </p>
+      ) : (
+        <>
+          <p className="p-3">
+            <Button
+              className="w-full"
+              disabled={!isKage}
+              loading={isToggling}
+              onClick={() => toggleChallenges({ villageId: user.villageId ?? "" })}
+            >
+              {openForChallenges ? (
+                <LockOpen className="h-6 w-6 mr-2" />
+              ) : (
+                <Lock className="h-6 w-6 mr-2" />
+              )}
+              {openForChallenges ? "Accepting Challenges" : "Not Accepting Challenges"}
+            </Button>
+          </p>
+          {requests && requests.length > 0 && openForChallenges && (
+            <UserRequestSystem
+              isLoading={
+                isAccepting ||
+                isRejecting ||
+                isCancelling ||
+                isSendingChallenge ||
+                isPendingRequests
+              }
+              requests={requests}
+              userId={user.userId}
+              onAccept={accept}
+              onReject={reject}
+              onCancel={cancel}
+            />
           )}
-          {openForChallenges ? "Accepting Challenges" : "Not Accepting Challenges"}
-        </Button>
-      </p>
-      {requests && requests.length > 0 && openForChallenges && (
-        <UserRequestSystem
-          isLoading={
-            isAccepting ||
-            isRejecting ||
-            isCancelling ||
-            isSendingChallenge ||
-            isPendingRequests
-          }
-          requests={requests}
-          userId={user.userId}
-          onAccept={accept}
-          onReject={reject}
-          onCancel={cancel}
-        />
-      )}
-      {requests && requests.length === 0 && isKage && openForChallenges && (
-        <p className="p-3">No current challenge requests</p>
-      )}
-      {activeRequest && (
-        <div className="p-3 flex flex-col items-center">
-          <p>If not accepted by kage, challenge will execute as Ai vs AI in:</p>
-          <Countdown
-            targetDate={secondsFromDate(KAGE_CHALLENGE_SECS, activeRequest.createdAt)}
-          />
-        </div>
-      )}
-      {!isKage && openForChallenges && !activeRequest && (
-        <div className="p-3">
-          {canChallengeKage(user) && !nPendingRequests && (
-            <>
-              <Button
-                id="challenge"
-                className="my-2 w-full"
-                onClick={() => {
-                  if (user.village) {
-                    create({
-                      kageId: user.village.kageId,
-                      villageId: user.village.id,
-                    });
-                  }
-                }}
-              >
-                <Swords className="h-6 w-6 mr-2" />
-                Send Kage Challenge Request
-              </Button>
-              <p>
-                <span className="font-bold">Note 1: </span>
-                <span>Kage has {KAGE_CHALLENGE_MINS}mins to accept the challenge</span>
-              </p>
-              <p>
-                <span className="font-bold">Note 2: </span>
-                <span>If challenge is not accepted, it is executed as AI vs AI</span>
-              </p>
-              <p>
-                <span className="font-bold">Note 3: </span>
+          {requests && requests.length === 0 && isKage && openForChallenges && (
+            <p className="p-3">No current challenge requests</p>
+          )}
+          {activeRequest && (
+            <div className="p-3 flex flex-col items-center">
+              <p>If not accepted by kage, challenge will execute as Ai vs Ai in:</p>
+              <Countdown
+                targetDate={secondsFromDate(
+                  KAGE_CHALLENGE_SECS,
+                  activeRequest.createdAt,
+                )}
+              />
+            </div>
+          )}
+          {!isKage && openForChallenges && !activeRequest && (
+            <div className="p-3">
+              {canChallengeKage(user) && !nPendingRequests && (
+                <>
+                  <Button
+                    id="challenge"
+                    className="my-2 w-full"
+                    onClick={() => {
+                      if (user.village) {
+                        create({
+                          kageId: user.village.kageId,
+                          villageId: user.village.id,
+                        });
+                      }
+                    }}
+                  >
+                    <Swords className="h-6 w-6 mr-2" />
+                    Send Kage Challenge Request
+                  </Button>
+                  <p>
+                    <span className="font-bold">Note 1: </span>
+                    <span>
+                      Kage has {KAGE_CHALLENGE_MINS}mins to accept the challenge
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-bold">Note 2: </span>
+                    <span>
+                      If challenge is not accepted, it is executed as AI vs AI
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-bold">Note 3: </span>
+                    <span>
+                      Losing the challenge costs {KAGE_PRESTIGE_COST} village prestige
+                    </span>
+                  </p>
+                  {user.rank === "ELDER" && (
+                    <p>
+                      <span className="font-bold">Note 4: </span>
+                      <span>You will lose the rank of Elder in the village</span>
+                    </p>
+                  )}
+                </>
+              )}
+              <p className="pt-3">
+                <span className="font-bold">Challenge Requirements: </span>
                 <span>
-                  Losing the challenge costs {KAGE_PRESTIGE_COST} village prestige
+                  {KAGE_PRESTIGE_REQUIREMENT} village prestige,{" "}
+                  {capitalizeFirstLetter(KAGE_RANK_REQUIREMENT)} rank and{" "}
+                  {KAGE_MIN_DAYS_IN_VILLAGE} days in village.
                 </span>
               </p>
-              {user.rank === "ELDER" && (
-                <p>
-                  <span className="font-bold">Note 4: </span>
-                  <span>You will lose the rank of Elder in the village</span>
-                </p>
-              )}
-            </>
+            </div>
           )}
-          <p className="pt-3">
-            <span className="font-bold">Challenge Requirements: </span>
-            <span>
-              {KAGE_PRESTIGE_REQUIREMENT} village prestige,{" "}
-              {capitalizeFirstLetter(KAGE_RANK_REQUIREMENT)} rank and{" "}
-              {KAGE_MIN_DAYS_IN_VILLAGE} days in village.
-            </span>
-          </p>
-        </div>
+        </>
       )}
       {!isKage && canChangeContent(user.role) && (
         <div className="p-3">
@@ -627,7 +659,7 @@ const KageChallenge: React.FC<{
  */
 const AllianceHall: React.FC<{
   user: NonNullable<UserWithRelations>;
-  navTabs?: React.ReactNode;
+  navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
   // Queries
   const { data, isPending } = api.village.getAlliances.useQuery(undefined, {
@@ -670,7 +702,9 @@ const AllianceHall: React.FC<{
 
   if (isPending || !data) return <Loader explanation="Loading alliances" />;
 
-  const villages = data.villages.filter((v) => ["OUTLAW", "VILLAGE"].includes(v.type));
+  const villages = data.villages.filter(
+    (v) => ["OUTLAW", "VILLAGE"].includes(v.type) && v.allianceSystem,
+  );
   const relationships = data.relationships;
   const requests = data.requests;
 
@@ -784,14 +818,15 @@ const AllianceBlock: React.FC<{
     },
   );
 
-  const { mutate: attack, isPending: isAttacking } = api.village.startWar.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await utils.village.getAlliances.invalidate();
-      }
-    },
-  });
+  const { mutate: attack, isPending: isAttacking } =
+    api.village.declareEnemy.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.village.getAlliances.invalidate();
+        }
+      },
+    });
 
   // Check alliances
   const relationship = findRelationship(relationships, villageCol.id, villageRow.id);
@@ -812,12 +847,12 @@ const AllianceBlock: React.FC<{
 
   // Permissions
   const isKage = [villageRow.kageId, villageCol.kageId].includes(user?.userId ?? "");
-  const ally = canAlly(relationships, villages, villageRow.id, villageCol.id);
-  const war = canWar(relationships, villages, villageRow.id, villageCol.id);
-
-  // Consequences of war
-  const newEnemies = villages.filter((v) => war.newEnemies.includes(v.id));
-  const newNeutrals = villages.filter((v) => war.newNeutrals.includes(v.id));
+  const { ally, enemy, newEnemies, newNeutrals } = calculateEnemyConsequences(
+    relationships,
+    villages,
+    villageRow.id,
+    villageCol.id,
+  );
 
   // Derived
   const doHighlight = [villageRow.id, villageCol.id].includes(user?.villageId ?? "");
@@ -837,9 +872,9 @@ const AllianceBlock: React.FC<{
           <DoorOpen className=" h-6 w-6 hover:text-orange-500" />
         </Button>
       )}
-      {!isOutlaw && isKage && !sameVillage && war.success && (
+      {!isOutlaw && isKage && !sameVillage && enemy.success && (
         <Confirm
-          title="Confirm War Declaration"
+          title="Confirm Enemy Declaration"
           button={
             <Button className="absolute top-1 right-1 px-1" variant="ghost">
               <Swords className=" h-6 w-6 hover:text-orange-500" />
@@ -850,8 +885,10 @@ const AllianceBlock: React.FC<{
             attack({ villageId: otherVillage.id });
           }}
         >
-          <p>You are about to declare war on {otherVillage.name}. Are you sure?</p>
-          <p>The cost of initiating a war is {WAR_FUNDS_COST} village tokens</p>
+          <p>You are about to declare {otherVillage.name} an enemy. Are you sure?</p>
+          <p>
+            The cost of declaring a village as enemy is {WAR_FUNDS_COST} village tokens.
+          </p>
           {newEnemies.length > 0 && (
             <p>
               <span className="font-bold">Additional Enemies: </span>

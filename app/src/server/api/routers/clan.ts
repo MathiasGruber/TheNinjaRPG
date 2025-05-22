@@ -2,7 +2,8 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { eq, sql, and, or, gte, like, isNull, inArray } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm";
-import { villageStructure, conversation } from "@/drizzle/schema";
+import { villageStructure, conversation, sector } from "@/drizzle/schema";
+import { war, warAlly, warKill } from "@/drizzle/schema";
 import { clan, mpvpBattleQueue, mpvpBattleUser, actionLog } from "@/drizzle/schema";
 import { userData, userRequest, historicalAvatar, village } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
@@ -35,6 +36,7 @@ import { FACTION_MIN_POINTS_FOR_TOWN } from "@/drizzle/constants";
 import { FACTION_MIN_MEMBERS_FOR_TOWN } from "@/drizzle/constants";
 import { IMG_VILLAGE_FACTION } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { CLAN_COLOR_CHANGE_REP_COST } from "@/drizzle/constants";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData } from "@/drizzle/schema";
@@ -112,6 +114,10 @@ export const clanRouter = createTRPCRouter({
           id: nanoid(),
           title: fetchedClan.name,
           createdById: fetchedClan.leaderId,
+        }),
+        ctx.drizzle.insert(sector).values({
+          sector: input.sector,
+          villageId: hideoutId,
         }),
         ctx.drizzle.insert(village).values({
           id: hideoutId,
@@ -452,20 +458,24 @@ export const clanRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, village, clans] = await Promise.all([
+      const [user, villageData, clans, villageWithName] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchVillage(ctx.drizzle, input.villageId),
         fetchClans(ctx.drizzle, input.villageId),
+        ctx.drizzle.query.village.findFirst({
+          where: eq(village.name, input.name),
+        }),
       ]);
       // Derived
-      const villageId = village?.id;
-      const structure = village?.structures.find((s) => s.route === "/clanhall");
+      const villageId = villageData?.id;
+      const structure = villageData?.structures.find((s) => s.route === "/clanhall");
       const groupLabel = user?.isOutlaw ? "faction" : "clan";
       const locationLabel = user?.isOutlaw ? "syndicate" : "village";
       // Guards
       if (!user) return errorResponse("User not found");
-      if (!village) return errorResponse(`${locationLabel} not found`);
+      if (!villageData) return errorResponse(`${locationLabel} not found`);
       if (!structure) return errorResponse(`${groupLabel} hall not found`);
+      if (villageWithName) return errorResponse("Name taken by village/faction");
       if (villageId !== user.villageId) return errorResponse(`Wrong ${locationLabel}`);
       if (clans.find((c) => c.name === input.name)) return errorResponse("Name taken");
       if (clans.find((c) => c.leaderId === ctx.userId))
@@ -497,7 +507,7 @@ export const clanRouter = createTRPCRouter({
       await ctx.drizzle.insert(clan).values({
         id: clanId,
         image: IMG_AVATAR_DEFAULT,
-        villageId: village.id,
+        villageId: villageData.id,
         name: input.name,
         founderId: user.userId,
         leaderId: user.userId,
@@ -537,6 +547,74 @@ export const clanRouter = createTRPCRouter({
         .where(eq(clan.id, fetchedClan.id));
       // Create
       return { success: true, message: `${groupLabel} updated` };
+    }),
+  editClanColor: protectedProcedure
+    .input(z.object({ clanId: z.string(), color: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      const groupLabel = user?.isOutlaw ? "faction" : "clan";
+
+      // Guards
+      if (!fetchedClan) return errorResponse(`${groupLabel} not found`);
+      if (!user) return errorResponse("User not found");
+      if (fetchedClan.leaderId !== user.userId)
+        return errorResponse(`Not ${groupLabel} leader`);
+      if (!user.isOutlaw) return errorResponse(`Only factions can set colors`);
+      if (user.clanId !== fetchedClan.id) return errorResponse(`Wrong ${groupLabel}`);
+      if (!fetchedClan.hasHideout)
+        return errorResponse(`${groupLabel} needs a hideout to change colors`);
+      if (user.reputationPoints < CLAN_COLOR_CHANGE_REP_COST)
+        return errorResponse(`Not enough reputation points`);
+      if (!/^#[0-9A-F]{6}$/i.test(input.color)) {
+        return errorResponse(
+          "Invalid color format. Must be a valid hex color (e.g. #FF0000)",
+        );
+      }
+
+      // Mutate - deduct reputation points from the user
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          reputationPoints: sql`${userData.reputationPoints} - ${CLAN_COLOR_CHANGE_REP_COST}`,
+        })
+        .where(
+          and(
+            eq(userData.userId, user.userId),
+            gte(userData.reputationPoints, CLAN_COLOR_CHANGE_REP_COST),
+          ),
+        );
+
+      if (result.rowsAffected === 0) {
+        return errorResponse("Failed to deduct reputation points");
+      }
+
+      // Create a log entry for the color change
+      await Promise.all([
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "clan",
+          changes: [`Changed ${groupLabel.toLowerCase()} color to ${input.color}`],
+          relatedId: fetchedClan.id,
+          relatedMsg: `${user.username} changed the ${groupLabel.toLowerCase()} color`,
+          relatedImage: fetchedClan.image,
+        }),
+        ctx.drizzle
+          .update(village)
+          .set({ hexColor: input.color })
+          .where(eq(village.id, fetchedClan.villageId)),
+      ]);
+
+      // Create
+      return {
+        success: true,
+        message: `${groupLabel} color updated`,
+      };
     }),
   promoteMember: protectedProcedure
     .input(z.object({ clanId: z.string(), memberId: z.string() }))
@@ -1180,34 +1258,34 @@ export const clanRouter = createTRPCRouter({
       return errorResponse(`Failed to initiate ${groupLabel} battle`);
     }),
   instantJoinAndLead: protectedProcedure
-  .input(z.object({ clanId: z.string() }))
-  .output(baseServerResponse)
-  .mutation(async ({ ctx, input }) => {
-    const [user, fetchedClan] = await Promise.all([
-      fetchUser(ctx.drizzle, ctx.userId),
-      fetchClan(ctx.drizzle, input.clanId),
-    ]);
-    if (!fetchedClan) return errorResponse("Faction not found");
-    if (!user) return errorResponse("User not found");
-    if (!canEditClans(user.role)) return errorResponse("Permission denied");
-    if (user.clanId) return errorResponse("Already in a faction");
+    .input(z.object({ clanId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      if (!fetchedClan) return errorResponse("Faction not found");
+      if (!user) return errorResponse("User not found");
+      if (!canEditClans(user.role)) return errorResponse("Permission denied");
+      if (user.clanId) return errorResponse("Already in a faction");
 
-    await Promise.all([
-      ctx.drizzle
-        .update(userData)
-        .set({ clanId: fetchedClan.id, villageId: fetchedClan.village?.id })
-        .where(eq(userData.userId, user.userId)),
-      ctx.drizzle
-        .update(clan)
-        .set({ leaderId: user.userId })
-        .where(eq(clan.id, fetchedClan.id)),
-    ]);
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ clanId: fetchedClan.id, villageId: fetchedClan.village?.id })
+          .where(eq(userData.userId, user.userId)),
+        ctx.drizzle
+          .update(clan)
+          .set({ leaderId: user.userId })
+          .where(eq(clan.id, fetchedClan.id)),
+      ]);
 
-    return {
-      success: true,
-      message: `You have instantly joined and taken leadership of ${fetchedClan.name}`,
-    };
-  }),
+      return {
+        success: true,
+        message: `You have instantly joined and taken leadership of ${fetchedClan.name}`,
+      };
+    }),
 });
 /**
  * Removes a user from an clan.
@@ -1269,6 +1347,12 @@ export const removeFromClan = async (
           client
             .delete(villageStructure)
             .where(eq(villageStructure.villageId, clanData.villageId)),
+          client.delete(war).where(eq(war.attackerVillageId, clanData.villageId)),
+          client.delete(war).where(eq(war.defenderVillageId, clanData.villageId)),
+          client.delete(warAlly).where(eq(warAlly.villageId, clanData.villageId)),
+          client.delete(warKill).where(eq(warKill.killerVillageId, clanData.villageId)),
+          client.delete(warKill).where(eq(warKill.victimVillageId, clanData.villageId)),
+          client.delete(sector).where(eq(sector.villageId, clanData.villageId)),
         ]
       : []),
     ...(!otherUser
@@ -1465,6 +1549,7 @@ export const fetchClans = async (
           avatar: true,
         },
       },
+      village: true,
     },
     where: isOutlaw
       ? or(eq(clan.villageId, villageId), eq(clan.hasHideout, true))

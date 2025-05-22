@@ -118,7 +118,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
                           return undefined;
                         }
                       })
-                      .filter((e) => e !== undefined);
+                      .filter((e): e is NonNullable<typeof e> => e !== undefined);
                     setEffects(newEffects);
                   } else {
                     form.setValue(key, data[key]);

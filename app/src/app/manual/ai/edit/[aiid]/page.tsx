@@ -112,6 +112,9 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
         {!processedUser && <p>Could not find this AI</p>}
         {!loading && processedUser && (
           <>
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-2xl font-bold">Edit AI</h1>
+            </div>
             <StatusBar
               title="HP"
               tooltip="Health"

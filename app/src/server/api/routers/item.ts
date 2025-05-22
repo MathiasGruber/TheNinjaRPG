@@ -89,44 +89,53 @@ export const itemRouter = createTRPCRouter({
     .input(z.object({ id: z.string(), data: ItemValidator }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const entry = await fetchItem(ctx.drizzle, input.id);
-      if (entry && canChangeContent(user.role)) {
-        // Calculate diff
-        const diff = calculateContentDiff(entry, {
-          id: entry.id,
-          updatedAt: entry.updatedAt,
-          createdAt: entry.createdAt,
-          ...input.data,
-        });
-        // Update database
-        await Promise.all([
-          ctx.drizzle.update(item).set(input.data).where(eq(item.id, input.id)),
-          ctx.drizzle.insert(actionLog).values({
-            id: nanoid(),
-            userId: ctx.userId,
-            tableName: "item",
-            changes: diff,
-            relatedId: entry.id,
-            relatedMsg: `Update: ${entry.name}`,
-            relatedImage: entry.image,
-          }),
-          ...(input.data.hidden
-            ? [
-                ctx.drizzle
-                  .update(userItem)
-                  .set({ equipped: "NONE" })
-                  .where(eq(userItem.itemId, entry.id)),
-              ]
-            : []),
-        ]);
-        if (process.env.NODE_ENV !== "development") {
-          await callDiscordContent(user.username, entry.name, diff, entry.image);
-        }
-        return { success: true, message: `Data updated: ${diff.join(". ")}` };
-      } else {
-        return { success: false, message: `Not allowed to edit item` };
+      // Query
+      const [user, entry, itemWithName] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchItem(ctx.drizzle, input.id),
+        ctx.drizzle.query.item.findFirst({
+          columns: { name: true },
+          where: eq(item.name, input.data.name),
+        }),
+      ]);
+      // Guard
+      if (!entry) return errorResponse("Item not found");
+      if (itemWithName) return errorResponse("Item name already exists");
+      if (!canChangeContent(user.role)) {
+        return errorResponse("Not allowed to edit item");
       }
+      // Calculate diff
+      const diff = calculateContentDiff(entry, {
+        id: entry.id,
+        updatedAt: entry.updatedAt,
+        createdAt: entry.createdAt,
+        ...input.data,
+      });
+      // Update database
+      await Promise.all([
+        ctx.drizzle.update(item).set(input.data).where(eq(item.id, input.id)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "item",
+          changes: diff,
+          relatedId: entry.id,
+          relatedMsg: `Update: ${entry.name}`,
+          relatedImage: entry.image,
+        }),
+        ...(input.data.hidden
+          ? [
+              ctx.drizzle
+                .update(userItem)
+                .set({ equipped: "NONE" })
+                .where(eq(userItem.itemId, entry.id)),
+            ]
+          : []),
+      ]);
+      if (process.env.NODE_ENV !== "development") {
+        await callDiscordContent(user.username, entry.name, diff, entry.image);
+      }
+      return { success: true, message: `Data updated: ${diff.join(". ")}` };
     }),
   getAll: publicProcedure
     .input(
@@ -355,7 +364,8 @@ export const itemRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!useritem) return errorResponse("User item not found");
       if (useritem.userId !== user.userId) return errorResponse("Not yours to consume");
-      if (user.status !== "AWAKE") return errorResponse(`Cannot use items while ${user.status.toLowerCase()}`);
+      if (user.status !== "AWAKE")
+        return errorResponse(`Cannot use items while ${user.status.toLowerCase()}`);
       if (!nonCombatConsume(useritem.item, user)) {
         return errorResponse("Not consumable");
       }
@@ -523,8 +533,10 @@ export const itemRouter = createTRPCRouter({
         fetchStructures(ctx.drizzle, input.villageId),
       ]);
       // Derived
-      const regularItemsCount = useritems?.filter((ui) => !ui.item.isEventItem).length || 0;
-      const eventItemsCount = useritems?.filter((ui) => ui.item.isEventItem).length || 0;
+      const regularItemsCount =
+        useritems?.filter((ui) => !ui.item.isEventItem).length || 0;
+      const eventItemsCount =
+        useritems?.filter((ui) => ui.item.isEventItem).length || 0;
       const sDiscount = structureBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
       const factor = (100 - sDiscount - aDiscount) / 100;

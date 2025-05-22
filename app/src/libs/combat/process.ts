@@ -6,7 +6,16 @@ import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
 import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
-import { absorb, reflect, recoil, lifesteal, drain, shield, poison } from "./tags";
+import {
+  absorb,
+  reflect,
+  recoil,
+  lifesteal,
+  drain,
+  shield,
+  poison,
+  finalStand,
+} from "./tags";
 import { increaseStats, decreaseStats, copy, mirror } from "./tags";
 import { increaseDamageGiven, decreaseDamageGiven } from "./tags";
 import { increaseDamageTaken, decreaseDamageTaken } from "./tags";
@@ -305,58 +314,104 @@ export const applyEffects = (
 
   // Apply consequences to users
   Array.from(consequences.values())
-    .reduce(collapseConsequences, [] as Consequence[])
-    .forEach((c) => {
-      // Convenience variables & methods
+    // Before collapsing consequences, we process each consequence indicidually
+    .map((c) => {
+      // State
       const user = newUsersState.find((u) => u.userId === c.userId);
       const target = newUsersState.find((u) => u.userId === c.targetId);
       const targetShields = newUsersEffects.filter(
         (e) => e.type === "shield" && e.targetId === c.targetId && e.power > 0,
       ) as ShieldTagType[];
-      const calcAdjustedDamage = (target: BattleUserState, originalDamage: number) => {
+      /** Convenience method for reducing shields before applying damage */
+      const calcAdjustedDamage = (
+        target: BattleUserState,
+        originalDamage: number,
+        effectTypes?: string[],
+      ) => {
         // For negative changes, first reduce shields
         let remainingDamage = Math.abs(originalDamage);
-        targetShields.forEach((shield) => {
-          if (remainingDamage > 0 && shield.power && shield.power > 0) {
-            const absorbed = Math.min(remainingDamage, shield.power);
-            shield.power -= absorbed;
-            remainingDamage -= absorbed;
-            if (shield.power > 0) {
-              actionEffects.push({
-                txt: `${target.username}'s shield absorbs ${absorbed.toFixed(2)} damage. ${shield.power.toFixed(2)} remaining.`,
-                color: "red",
-              });
-            } else {
-              actionEffects.push({
-                txt: `${target.username}'s shield absorbs ${absorbed.toFixed(2)} damage and is destroyed`,
-                color: "red",
-              });
+        // Bypass shield absorption for pierce effects
+        if (!effectTypes?.includes("pierce") && !effectTypes?.includes("reflect")) {
+          targetShields.forEach((shield) => {
+            if (remainingDamage > 0 && shield.power && shield.power > 0) {
+              const absorbed = Math.min(remainingDamage, shield.power);
+              shield.power -= absorbed;
+              remainingDamage -= absorbed;
+              if (shield.power > 0) {
+                actionEffects.push({
+                  txt: `${target.username}'s shield absorbs ${absorbed.toFixed(2)} damage. ${shield.power.toFixed(2)} remaining.`,
+                  color: "red",
+                });
+              } else {
+                actionEffects.push({
+                  txt: `${target.username}'s shield absorbs ${absorbed.toFixed(2)} damage and is destroyed`,
+                  color: "red",
+                });
+              }
             }
-          }
-        });
+          });
+        }
+
+        // Apply final stand if active
+        const finalStandEffect = usersEffects.find(
+          (e) =>
+            e.type === "finalstand" &&
+            e.targetId === target.userId &&
+            (e.rounds ?? 0) > 0,
+        );
+        if (finalStandEffect && target.curHealth - remainingDamage < 1) {
+          const preventedDamage = remainingDamage - (target.curHealth - 1);
+          remainingDamage = target.curHealth - 1;
+          actionEffects.push({
+            txt: `${target.username}'s final stand prevents ${preventedDamage.toFixed(2)} damage`,
+            color: "orange",
+          });
+        }
+
         return remainingDamage;
       };
+      // Adjust damages and reduce shields
+      if (target && user) {
+        if (c.damage && c.damage > 0) {
+          c.damage = calcAdjustedDamage(target, c.damage, c.types);
+        }
+        if (c.residual && c.residual > 0) {
+          c.residual = calcAdjustedDamage(target, c.residual, c.types);
+        }
+        if (c.reflect && c.reflect > 0) {
+          c.reflect = calcAdjustedDamage(user, c.reflect, c.types);
+        }
+        if (c.recoil && c.recoil > 0) {
+          c.recoil = calcAdjustedDamage(user, c.recoil, c.types);
+        }
+      }
+      return c;
+    })
+    .reduce(collapseConsequences, [] as Consequence[])
+    .forEach((c) => {
+      // Convenience variables & methods
+      const user = newUsersState.find((u) => u.userId === c.userId);
+      const target = newUsersState.find((u) => u.userId === c.targetId);
+
       // Apply all the consequences
       if (target && user) {
         if (c.damage && c.damage > 0) {
-          const damage = calcAdjustedDamage(target, c.damage);
-          if (damage > 0) {
-            target.curHealth -= damage;
+          if (c.damage > 0) {
+            target.curHealth -= c.damage;
             target.curHealth = Math.max(0, target.curHealth);
             actionEffects.push({
-              txt: `${target.username} takes ${damage.toFixed(2)} damage`,
+              txt: `${target.username} takes ${c.damage.toFixed(2)} damage`,
               color: "red",
               types: c.types,
             });
           }
         }
         if (c.residual && c.residual > 0) {
-          const damage = calcAdjustedDamage(target, c.residual);
-          if (damage > 0) {
-            target.curHealth -= damage;
+          if (c.residual > 0) {
+            target.curHealth -= c.residual;
             target.curHealth = Math.max(0, target.curHealth);
             actionEffects.push({
-              txt: `${target.username} takes ${damage.toFixed(2)} residual damage`,
+              txt: `${target.username} takes ${c.residual.toFixed(2)} residual damage`,
               color: "red",
               types: c.types,
             });
@@ -387,28 +442,31 @@ export const applyEffects = (
           });
         }
         if (c.reflect && c.reflect > 0) {
-          const damage = calcAdjustedDamage(user, c.reflect);
-          if (damage > 0) {
-            user.curHealth -= damage;
+          if (c.reflect > 0) {
+            user.curHealth -= c.reflect;
             user.curHealth = Math.max(0, user.curHealth);
             actionEffects.push({
-              txt: `${user.username} takes ${damage.toFixed(2)} reflect damage`,
+              txt: `${user.username} takes ${c.reflect.toFixed(2)} reflect damage`,
               color: "red",
             });
           }
         }
         if (c.recoil && c.recoil > 0) {
-          const damage = calcAdjustedDamage(user, c.recoil);
-          if (damage > 0) {
-            user.curHealth -= damage;
+          if (c.recoil > 0) {
+            user.curHealth -= c.recoil;
             user.curHealth = Math.max(0, user.curHealth);
             actionEffects.push({
-              txt: `${user.username} takes ${damage.toFixed(2)} recoil damage`,
+              txt: `${user.username} takes ${c.recoil.toFixed(2)} recoil damage`,
               color: "red",
             });
           }
         }
-        if (c.lifesteal_hp && c.lifesteal_hp > 0 && target.curHealth > 0) {
+        if (
+          c.lifesteal_hp &&
+          c.lifesteal_hp > 0 &&
+          target.curHealth > 0 &&
+          user.curHealth > 0
+        ) {
           user.curHealth += c.lifesteal_hp;
           user.curHealth = Math.min(user.maxHealth, user.curHealth);
           actionEffects.push({
@@ -446,17 +504,33 @@ export const applyEffects = (
             color: "green",
           });
         }
-        if (c.drain && c.drain > 0 && target.curStamina > 0 && target.curChakra > 0) {
-          target.curChakra = Math.max(0, Math.min(target.maxChakra, target.curChakra - c.drain));
-          target.curStamina = Math.max(0, Math.min(target.maxStamina, target.curStamina - c.drain));
-        
+        // Handle drain effects for each pool
+        if (c.drain_hp && c.drain_hp > 0 && target.curHealth > 0) {
+          target.curHealth = Math.max(0, target.curHealth - c.drain_hp);
           actionEffects.push({
-            txt: `${user.username} is drained of ${c.drain.toFixed(2)} chakra and stamina`,
+            txt: `${target.username} loses ${c.drain_hp.toFixed(2)} HP to drain`,
+            color: "purple",
+          });
+        }
+        if (c.drain_cp && c.drain_cp > 0 && target.curChakra > 0) {
+          target.curChakra = Math.max(0, target.curChakra - c.drain_cp);
+          actionEffects.push({
+            txt: `${target.username} loses ${c.drain_cp.toFixed(2)} CP to drain`,
+            color: "purple",
+          });
+        }
+        if (c.drain_sp && c.drain_sp > 0 && target.curStamina > 0) {
+          target.curStamina = Math.max(0, target.curStamina - c.drain_sp);
+          actionEffects.push({
+            txt: `${target.username} loses ${c.drain_sp.toFixed(2)} SP to drain`,
             color: "purple",
           });
         }
         if (c.poison && c.poison > 0) {
-          target.curHealth = Math.max(0, Math.min(target.maxHealth, target.curHealth - c.poison));
+          target.curHealth = Math.max(
+            0,
+            Math.min(target.maxHealth, target.curHealth - c.poison),
+          );
           actionEffects.push({
             txt: `${target.username} takes ${c.poison.toFixed(2)} poison damage`,
             color: "purple",
@@ -595,6 +669,8 @@ export const applySingleEffect = (
             info = increasepoolcost(effect, curTarget);
           } else if (effect.type === "decreasepoolcost" && isTargetOrNew) {
             info = decreasepoolcost(effect, curTarget);
+          } else if (effect.type === "drain" && isTargetOrNew) {
+            info = drain(effect, usersEffects, consequences, curTarget);
           } else if (effect.type === "clear" && isTargetOrNew) {
             info = clear(effect, usersEffects, curTarget);
           } else if (effect.type === "cleanse" && isTargetOrNew) {
@@ -611,8 +687,6 @@ export const applySingleEffect = (
             info = seal(effect, newUsersEffects, curTarget);
           } else if (effect.type === "stun") {
             info = stun(effect, newUsersEffects, curTarget);
-          } else if (effect.type === "drain") {
-            info = drain(effect, usersEffects, consequences, curTarget);
           }
         }
 
@@ -675,6 +749,8 @@ export const applySingleEffect = (
           info = copy(effect, usersEffects, curUser, curTarget);
         } else if (effect.type === "mirror") {
           info = mirror(effect, usersEffects, curUser, curTarget);
+        } else if (effect.type === "finalstand") {
+          info = finalStand(effect, curTarget);
         }
         updateStatUsage(newTarget, effect, true);
       }

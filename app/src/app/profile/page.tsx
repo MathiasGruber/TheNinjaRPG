@@ -14,6 +14,7 @@ import { showUserRank } from "@/libs/profile";
 import { calcMedninRank } from "@/libs/hospital/hospital";
 import { calcLevelRequirements } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { differenceInDays, differenceInHours } from "date-fns";
 
 export default function Profile() {
   // State
@@ -62,7 +63,7 @@ export default function Profile() {
             <p>Money: {userData.money.toFixed(2)}</p>
             <p>Bank: {userData.bank.toFixed(2)}</p>
             <p>Status: {userData.status}</p>
-            <p>Regeneration: {userData.regeneration.toFixed(2)}</p>
+            <p>Regen per minute: {userData.regeneration.toFixed(2)}</p>
             <p>Gender: {userData.gender}</p>
           </div>
           <div>
@@ -82,6 +83,14 @@ export default function Profile() {
             <p>Activity Streak: {userData.activityStreak}</p>
             {userData.isOutlaw && <p>Notoriety: {userData.villagePrestige}</p>}
             {!userData.isOutlaw && <p>Village prestige: {userData.villagePrestige}</p>}
+            {userData.joinedVillageAt && (
+              <p>
+                Village Member:{" "}
+                {differenceInDays(new Date(), new Date(userData.joinedVillageAt))} days,{" "}
+                {differenceInHours(new Date(), new Date(userData.joinedVillageAt)) % 24}{" "}
+                hours
+              </p>
+            )}
           </div>
           <div>
             <b>Associations</b>

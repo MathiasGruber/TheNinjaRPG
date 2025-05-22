@@ -4,7 +4,7 @@ SHELL := bash
 .DEFAULT_GOAL = help
 
 # Extract arguments for relevant targets.
-ARGS_TARGETS=makemigrations,bun,uncommit
+ARGS_TARGETS=makemigrations,bun,uncommit,squash
 ifneq ($(findstring $(firstword $(MAKECMDGOALS)),$(ARGS_TARGETS)),)
   ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
   $(eval $(ARGS):;@:)
@@ -163,3 +163,7 @@ uncommit: # Undo the last N commits (keeping changes staged), usage: make uncomm
 	@echo "${YELLOW}Uncommitting last $(ARGS) commits${RESET}"
 	git reset --soft HEAD~$(ARGS)
 	
+.PHONY: squash
+squash: # Squash the last N commits into one, usage: make squash N
+	@echo "${YELLOW}Squashing last $(ARGS) commits${RESET}"
+	git reset --soft HEAD~$(ARGS) && git commit --edit -m"$(shell git log --format=%B --reverse HEAD..HEAD@{1})"
