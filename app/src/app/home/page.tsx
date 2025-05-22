@@ -304,29 +304,26 @@ export default function HomePage() {
                   ) : (
                     <div className="h-64 overflow-y-auto pr-1">
                       <div className="space-y-2 p-1">
-                        {storedItems.map((itemId) => {
-                          const itemDetails = userItems?.find(item => item.id === itemId);
-                          return (
-                            <Card key={itemId} className="mb-2">
-                              <CardContent className="p-4 flex justify-between items-center">
-                                <div>
-                                  <h4 className="font-medium">{itemDetails?.item?.name || "Unknown Item"}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {itemDetails?.item?.itemType || ""}
-                                  </p>
-                                </div>
-                                <Button 
-                                  onClick={() => retrieveItem({ itemId })}
-                                  disabled={isRetrievingItem}
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  <MinusCircle className="mr-2 h-4 w-4" /> Take
-                                </Button>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
+                        {storedItems.map((storedItem) => (
+                          <Card key={storedItem.id} className="mb-2">
+                            <CardContent className="p-4 flex justify-between items-center">
+                              <div>
+                                <h4 className="font-medium">{storedItem.name}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  Quantity: {storedItem.quantity}
+                                </p>
+                              </div>
+                              <Button 
+                                onClick={() => retrieveItem({ itemId: storedItem.id })}
+                                disabled={isRetrievingItem}
+                                size="sm"
+                                variant="outline"
+                              >
+                                <MinusCircle className="mr-2 h-4 w-4" /> Take
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
                     </div>
                   )}

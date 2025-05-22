@@ -219,25 +219,27 @@ export const homeRouter = createTRPCRouter({
           eq(userItem.id, input.itemId),
           eq(userItem.equipped, "NONE")
         ),
+        with: {
+          item: true
+        }
       });
       
       if (!userItemResult) return errorResponse("Item not found or is equipped");
       
       // Add to storage and remove from inventory
-      const updatedStorage = [...(user.homeStoredItems ?? []), userItemResult.itemId];
+      const storedItem = {
+        id: userItemResult.id,
+        name: userItemResult.item.name,
+        quantity: userItemResult.quantity
+      };
+      const updatedStorage = [...(user.homeStoredItems ?? []), storedItem];
       
       await ctx.drizzle.update(userData).set({
         homeStoredItems: updatedStorage,
       }).where(eq(userData.userId, ctx.userId));
       
-      await ctx.drizzle.update(userItem).set({
-        quantity: userItemResult.quantity - 1,
-      }).where(eq(userItem.id, input.itemId));
-      
-      // If quantity becomes 0, delete the item
-      if (userItemResult.quantity <= 1) {
-        await ctx.drizzle.delete(userItem).where(eq(userItem.id, input.itemId));
-      }
+      // Delete the item from inventory since we're storing the full stack
+      await ctx.drizzle.delete(userItem).where(eq(userItem.id, input.itemId));
       
       return {
         success: true,
@@ -259,49 +261,28 @@ export const homeRouter = createTRPCRouter({
       
       // Guard
       if (!user) return errorResponse("User not found");
-      if (!user.homeStoredItems.includes(input.itemId)) {
+      const storedItem = user.homeStoredItems.find(item => item.id === input.itemId);
+      if (!storedItem) {
         return errorResponse("Item not found in your home storage");
       }
       
       // Remove from storage
-      const updatedStorage = user.homeStoredItems.filter(id => id !== input.itemId);
+      const updatedStorage = user.homeStoredItems.filter(item => item.id !== input.itemId);
       
       await ctx.drizzle.update(userData).set({
         homeStoredItems: updatedStorage,
       }).where(eq(userData.userId, ctx.userId));
       
-      // Check if user already has this item in inventory
-      const existingItem = await ctx.drizzle.query.userItem.findFirst({
-        where: and(
-          eq(userItem.userId, ctx.userId),
-          eq(userItem.itemId, input.itemId),
-          eq(userItem.equipped, "NONE")
-        ),
+      // Add back to inventory
+      await ctx.drizzle.insert(userItem).values({
+        id: storedItem.id,
+        userId: ctx.userId,
+        itemId: storedItem.id,
+        quantity: storedItem.quantity,
+        equipped: "NONE",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
-      
-      if (existingItem) {
-        // Update quantity
-        await ctx.drizzle.update(userItem).set({
-          quantity: existingItem.quantity + 1,
-        }).where(eq(userItem.id, existingItem.id));
-      } else {
-        // Add new item to inventory
-        const itemResult = await ctx.drizzle.query.item.findFirst({
-          where: eq(item.id, input.itemId),
-        });
-        
-        if (!itemResult) return errorResponse("Item data not found");
-        
-        await ctx.drizzle.insert(userItem).values({
-          id: crypto.randomUUID(),
-          userId: ctx.userId,
-          itemId: itemResult.id,
-          quantity: 1,
-          equipped: "NONE",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      }
       
       return {
         success: true,
