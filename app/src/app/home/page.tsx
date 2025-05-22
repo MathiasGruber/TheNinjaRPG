@@ -99,7 +99,7 @@ export default function HomePage() {
   const homeName = homeData ? HomeTypeDetails[homeData.homeType].name : "No Home";
   const homeRegen = homeData ? homeData.regen : 0;
   const homeStorage = homeData ? homeData.storage : 0;
-  const storedItems = homeData?.storedItems || [];
+  const storedItems = (homeData?.storedItems ?? []) as Array<{ id: string; name: string; quantity: number }>;
   
   const canStoreMoreItems = storedItems.length < homeStorage;
   
@@ -191,7 +191,7 @@ export default function HomePage() {
                 <Tabs defaultValue="upgrades" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="upgrades" onClick={() => setActiveTab("upgrades")}>
-                      <BadgePlus className="mr-2" /> Upgrades
+                      <BadgePlus className="mr-2" /> Buy New Home
                     </TabsTrigger>
                     <TabsTrigger value="downgrades" onClick={() => setActiveTab("downgrades")}>
                       <BadgeMinus className="mr-2" /> Downgrades
@@ -224,7 +224,7 @@ export default function HomePage() {
                                   disabled={isUpgrading || (userData?.money ?? 0) < upgrade.cost}
                                   size="sm"
                                 >
-                                  <PlusCircle className="mr-2 h-4 w-4" /> Upgrade
+                                  <PlusCircle className="mr-2 h-4 w-4" /> Buy
                                 </Button>
                               </CardFooter>
                             </Card>
