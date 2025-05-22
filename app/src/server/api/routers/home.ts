@@ -287,7 +287,7 @@ export const homeRouter = createTRPCRouter({
       } else {
         // Add new item to inventory
         const item = await ctx.drizzle.query.item.findFirst({
-          where: eq(userItem.itemId, input.itemId),
+          where: eq(userItem.id, input.itemId),
         });
         
         if (!item) return errorResponse("Item data not found");
