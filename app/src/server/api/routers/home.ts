@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, gte, and } from "drizzle-orm";
-import { userData, userItem } from "@/drizzle/schema";
+import { userData, userItem, item } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
@@ -286,16 +286,16 @@ export const homeRouter = createTRPCRouter({
         }).where(eq(userItem.id, existingItem.id));
       } else {
         // Add new item to inventory
-        const item = await ctx.drizzle.query.item.findFirst({
+        const itemResult = await ctx.drizzle.query.item.findFirst({
           where: eq(item.id, input.itemId),
         });
         
-        if (!item) return errorResponse("Item data not found");
+        if (!itemResult) return errorResponse("Item data not found");
         
         await ctx.drizzle.insert(userItem).values({
           id: crypto.randomUUID(),
           userId: ctx.userId,
-          itemId: item.id,
+          itemId: itemResult.id,
           quantity: 1,
           equipped: "NONE",
           createdAt: new Date(),
