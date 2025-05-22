@@ -208,7 +208,7 @@ export const homeRouter = createTRPCRouter({
       // Guard
       if (!user) return errorResponse("User not found");
       if (user.homeType === "NONE") return errorResponse("You need a home to store items");
-      if (user.homeStoredItems.length >= HomeTypeDetails[user.homeType].storage) {
+      if ((user.homeStoredItems ?? []).length >= HomeTypeDetails[user.homeType].storage) {
         return errorResponse("Your home storage is full");
       }
       
@@ -224,7 +224,7 @@ export const homeRouter = createTRPCRouter({
       if (!userItemResult) return errorResponse("Item not found or is equipped");
       
       // Add to storage and remove from inventory
-      const updatedStorage = [...user.homeStoredItems, input.itemId];
+      const updatedStorage = [...(user.homeStoredItems ?? []), input.itemId];
       
       await ctx.drizzle.update(userData).set({
         homeStoredItems: updatedStorage,

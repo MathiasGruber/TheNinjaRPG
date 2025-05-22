@@ -14,6 +14,7 @@ import { getReducedGainsDays } from "@/libs/train";
 import { getGameSettingBoost } from "@/libs/gamesettings";
 import type { UserRank } from "@/drizzle/constants";
 import type { StatSchemaType } from "./combat/types";
+import { HomeTypeDetails, type HomeType } from "@/drizzle/constants";
 
 export function calcLevelRequirements(level: number): number {
   const prevLvl = level - 1;
@@ -177,10 +178,16 @@ export const calcActiveUserRegen = (
     clan?: Clan | null;
     bloodline?: Bloodline | null;
     village?: (Village & { structures?: VillageStructure[] }) | null;
+    homeType: HomeType;
   },
   settings: GameSetting[],
 ) => {
   let regeneration = user.regeneration;
+
+  // Add home regeneration bonus when asleep
+  if (user.status === "ASLEEP" && user.homeType !== "NONE") {
+    regeneration += HomeTypeDetails[user.homeType].regen;
+  }
 
   // // Bloodline
   if (user.bloodline?.regenIncrease) {
