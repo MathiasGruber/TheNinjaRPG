@@ -120,7 +120,7 @@ export const homeRouter = createTRPCRouter({
     
     // Add upgrades (higher tier homes)
     for (let i = currentHomeIndex + 1; i < HomeTypes.length; i++) {
-      const homeType = HomeTypes[i] as HomeType;
+      const homeType = HomeTypes[i]!;
       upgrades.push({
         type: homeType,
         ...HomeTypeDetails[homeType],
@@ -130,7 +130,7 @@ export const homeRouter = createTRPCRouter({
 
     // Add downgrades (lower tier homes)
     for (let i = currentHomeIndex - 1; i >= 0; i--) {
-      const homeType = HomeTypes[i] as HomeType;
+      const homeType = HomeTypes[i]!;
       upgrades.push({
         type: homeType,
         ...HomeTypeDetails[homeType],
@@ -158,8 +158,7 @@ export const homeRouter = createTRPCRouter({
       if (user.isBanned) return errorResponse("You are banned");
       if (user.homeType === input.homeType) return errorResponse("You already own this home type");
       
-      const targetHome = HomeTypeDetails[input.homeType];
-      const currentHome = HomeTypeDetails[user.homeType];
+      const targetHome = HomeTypeDetails[input.homeType as HomeType];
       
       // Upgrading
       if (HomeTypes.indexOf(input.homeType) > HomeTypes.indexOf(user.homeType)) {
