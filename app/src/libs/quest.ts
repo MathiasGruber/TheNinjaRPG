@@ -369,10 +369,10 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
 };
 
 export const mockAchievementHistoryEntries = (
-  quests: Quest[],
+  achievements: Quest[],
   user: NonNullable<UserWithRelations>,
 ) => {
-  return quests
+  return achievements
     .filter((q) => q !== null)
     .filter((q) => !q.hidden || canChangeContent(user.role))
     .filter((q) => !user.userQuests?.find((uq) => uq.questId === q.id))

@@ -64,6 +64,9 @@ const LogbookAchievements: React.FC = () => {
     ["tier", "achievement"].includes(uq.quest.questType),
   );
 
+  // Mutation
+  const { checkRewards } = useCheckRewards();
+
   useEffect(() => {
     if (quests && quests.length > 0 && !activeElement) {
       const firstAchievement = quests[0];
@@ -80,6 +83,12 @@ const LogbookAchievements: React.FC = () => {
         .filter((uq) => uq.completed === 0)
         ?.map((uq, i) => {
           const tracker = userData?.questData?.find((q) => q.id === uq.questId);
+          const check = uq.quest.questType === "achievement" && !uq.completed;
+          const allDone = tracker?.goals.every((g) => g.done);
+          if (check && allDone && userData?.status === "AWAKE") {
+            void checkRewards({ questId: uq.quest.id });
+          }
+
           return (
             tracker && (
               <Accordion
@@ -286,6 +295,104 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   const utils = api.useUtils();
 
   // Mutations
+  const { checkRewards } = useCheckRewards();
+  const { mutate: abandon } = api.quests.abandon.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      await utils.quests.allianceBuilding.invalidate();
+      await utils.profile.getUser.invalidate();
+    },
+  });
+
+  useEffect(() => {
+    const check = quest.questType === "achievement" && !userQuest.completed;
+    if (check && allDone && userData?.status === "AWAKE") {
+      void checkRewards({ questId: quest.id });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, userQuest, quest, allDone]);
+
+  return (
+    <Post
+      className={`${tierOrDaily ? "" : "col-span-2"} px-3`}
+      options={
+        <div className="ml-3">
+          <div className="mt-2 flex flex-row items-center ">
+            {["mission", "crime", "event", "errand"].includes(quest.questType) && (
+              <Confirm
+                title="Confirm deleting quest"
+                button={
+                  <X className="ml-2 h-6 w-6 hover:text-orange-500 cursor-pointer" />
+                }
+                onAccept={(e) => {
+                  e.preventDefault();
+                  void abandon({ id: quest.id });
+                }}
+              >
+                Are you sure you want to abandon this quest? Note that even though you
+                abandon this quest, you have still used one of your daily attempts.
+              </Confirm>
+            )}
+          </div>
+        </div>
+      }
+    >
+      <div className="flex flex-col h-full">
+        {!hideTitle && (
+          <>
+            <div className="font-bold text-xl">
+              Current {capitalizeFirstLetter(quest.questType)}
+            </div>
+            <div className="font-bold text-sm">{quest.name}</div>
+          </>
+        )}
+        <div className="pt-2">
+          <Reward info={quest.content.reward} />
+          <EventTimer quest={quest} tracker={tracker} />
+        </div>
+        {!["tier", "daily"].includes(quest.questType) && quest.description && (
+          <div>{parseHtml(quest.description)}</div>
+        )}
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-${
+            tierOrDaily ? "1" : "2"
+          } gap-4 pt-3`}
+        >
+          {quest.content.objectives?.map((objective, i) => (
+            <Objective
+              objective={objective}
+              tracker={tracker}
+              checkRewards={() => checkRewards({ questId: quest.id })}
+              key={i}
+              titlePrefix={`${i + 1}. `}
+              grayedOut={!isQuestObjectiveAvailable(quest, tracker, i)}
+            />
+          ))}
+        </div>
+        <div className="grow" />
+        {allDone && userData?.status === "AWAKE" && (
+          <Button
+            id="return"
+            className="mt-3"
+            onClick={() => checkRewards({ questId: quest.id })}
+          >
+            <Sparkles className="h-5 w-5 mr-2" />
+            Collect Reward
+          </Button>
+        )}
+      </div>
+    </Post>
+  );
+};
+
+/**
+ * Hook for checking rewards.
+ * @returns The checkRewards mutation.
+ */
+export const useCheckRewards = () => {
+  const utils = api.useUtils();
+
+  // Mutations
   const { mutate: checkRewards } = api.quests.checkRewards.useMutation({
     onSuccess: async (data) => {
       // If a failutre, show a toast
@@ -393,91 +500,5 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
     },
   });
 
-  const { mutate: abandon } = api.quests.abandon.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      await utils.quests.allianceBuilding.invalidate();
-      await utils.profile.getUser.invalidate();
-    },
-  });
-
-  useEffect(() => {
-    const check = quest.questType === "achievement" && !userQuest.completed;
-    if (check && allDone && userData?.status === "AWAKE") {
-      void checkRewards({ questId: quest.id });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData, userQuest, quest, allDone]);
-
-  return (
-    <Post
-      className={`${tierOrDaily ? "" : "col-span-2"} px-3`}
-      options={
-        <div className="ml-3">
-          <div className="mt-2 flex flex-row items-center ">
-            {["mission", "crime", "event", "errand"].includes(quest.questType) && (
-              <Confirm
-                title="Confirm deleting quest"
-                button={
-                  <X className="ml-2 h-6 w-6 hover:text-orange-500 cursor-pointer" />
-                }
-                onAccept={(e) => {
-                  e.preventDefault();
-                  void abandon({ id: quest.id });
-                }}
-              >
-                Are you sure you want to abandon this quest? Note that even though you
-                abandon this quest, you have still used one of your daily attempts.
-              </Confirm>
-            )}
-          </div>
-        </div>
-      }
-    >
-      <div className="flex flex-col h-full">
-        {!hideTitle && (
-          <>
-            <div className="font-bold text-xl">
-              Current {capitalizeFirstLetter(quest.questType)}
-            </div>
-            <div className="font-bold text-sm">{quest.name}</div>
-          </>
-        )}
-        <div className="pt-2">
-          <Reward info={quest.content.reward} />
-          <EventTimer quest={quest} tracker={tracker} />
-        </div>
-        {!["tier", "daily"].includes(quest.questType) && quest.description && (
-          <div>{parseHtml(quest.description)}</div>
-        )}
-        <div
-          className={`grid grid-cols-1 sm:grid-cols-${
-            tierOrDaily ? "1" : "2"
-          } gap-4 pt-3`}
-        >
-          {quest.content.objectives?.map((objective, i) => (
-            <Objective
-              objective={objective}
-              tracker={tracker}
-              checkRewards={() => checkRewards({ questId: quest.id })}
-              key={i}
-              titlePrefix={`${i + 1}. `}
-              grayedOut={!isQuestObjectiveAvailable(quest, tracker, i)}
-            />
-          ))}
-        </div>
-        <div className="grow" />
-        {allDone && userData?.status === "AWAKE" && (
-          <Button
-            id="return"
-            className="mt-3"
-            onClick={() => checkRewards({ questId: quest.id })}
-          >
-            <Sparkles className="h-5 w-5 mr-2" />
-            Collect Reward
-          </Button>
-        )}
-      </div>
-    </Post>
-  );
+  return { checkRewards };
 };
