@@ -305,7 +305,7 @@ export default function HomePage() {
                     <div className="h-64 overflow-y-auto pr-1">
                       <div className="space-y-2 p-1">
                         {storedItems.map((itemId) => {
-                          const itemDetails = userItems?.find(item => item.itemId === itemId);
+                          const itemDetails = userItems?.find(item => item.id === itemId);
                           return (
                             <Card key={itemId} className="mb-2">
                               <CardContent className="p-4 flex justify-between items-center">
