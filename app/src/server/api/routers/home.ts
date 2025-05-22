@@ -158,7 +158,7 @@ export const homeRouter = createTRPCRouter({
       if (user.isBanned) return errorResponse("You are banned");
       if (user.homeType === input.homeType) return errorResponse("You already own this home type");
       
-      const targetHome = HomeTypeDetails[input.homeType as HomeType];
+      const targetHome = HomeTypeDetails[input.homeType];
       
       // Upgrading
       if (HomeTypes.indexOf(input.homeType) > HomeTypes.indexOf(user.homeType)) {
