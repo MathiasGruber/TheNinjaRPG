@@ -349,7 +349,12 @@ export default function HomePage() {
                                   </p>
                                 </div>
                                 <Button 
-                                  onClick={() => storeItem({ itemId: item.id })}
+                                  onClick={() => storeItem({ 
+                                    itemId: item.id,
+                                    name: item.item?.name || "Unknown Item",
+                                    quantity: item.quantity,
+                                    itemType: item.item?.itemType || ""
+                                  })}
                                   disabled={isStoringItem || !canStoreMoreItems}
                                   size="sm"
                                 >

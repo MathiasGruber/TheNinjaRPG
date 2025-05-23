@@ -220,6 +220,9 @@ export const homeRouter = createTRPCRouter({
   storeItem: protectedProcedure
     .input(z.object({
       itemId: z.string(),
+      name: z.string(),
+      quantity: z.number(),
+      itemType: z.string(),
     }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -249,13 +252,20 @@ export const homeRouter = createTRPCRouter({
       });
       
       if (!userItemResult) return errorResponse("Item not found or is equipped");
+      if (!userItemResult.item) return errorResponse("Item data not found");
+      
+      // Verify the input data matches the database
+      if (userItemResult.item.name !== input.name) return errorResponse("Item name mismatch");
+      if (userItemResult.quantity !== input.quantity) return errorResponse("Item quantity mismatch");
+      if (userItemResult.item.itemType !== input.itemType) return errorResponse("Item type mismatch");
       
       // Add to storage and remove from inventory
       const storedItem = {
         id: userItemResult.id,
         itemId: userItemResult.itemId,
-        name: userItemResult.item.name,
-        quantity: userItemResult.quantity
+        name: input.name,
+        quantity: input.quantity,
+        itemType: input.itemType
       };
       const updatedStorage = [...(user.homeStoredItems ?? []), JSON.stringify(storedItem)];
       
