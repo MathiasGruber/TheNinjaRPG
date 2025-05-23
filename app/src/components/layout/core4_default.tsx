@@ -255,7 +255,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
       <div className="pl-2 pt-6 flex align-center justify-center">
         <iframe
-          src="https://ghbtns.com/github-btn.html?user=MathiasGruber&repo=TheNinjaRPG&type=star&count=true"
+          src="https://ghbtns.com/github-btn.html?user=studie-tech&repo=TheNinjaRPG&type=star&count=true"
           width="90"
           height="20"
           title="GitHub"
