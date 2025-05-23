@@ -249,7 +249,8 @@ export const homeRouter = createTRPCRouter({
       
       // Add to storage and remove from inventory
       const storedItem = {
-        id: userItemResult.itemId,
+        id: userItemResult.id,
+        itemId: userItemResult.itemId,
         name: userItemResult.item.name,
         quantity: userItemResult.quantity
       };
@@ -316,7 +317,7 @@ export const homeRouter = createTRPCRouter({
       await ctx.drizzle.insert(userItem).values({
         id: crypto.randomUUID(),
         userId: ctx.userId,
-        itemId: storedItem.id,
+        itemId: storedItem.itemId,
         quantity: storedItem.quantity,
         equipped: "NONE",
         createdAt: new Date(),
