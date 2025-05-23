@@ -99,7 +99,13 @@ export default function HomePage() {
   const homeName = homeData ? HomeTypeDetails[homeData.homeType].name : "No Home";
   const homeRegen = homeData ? homeData.regen : 0;
   const homeStorage = homeData ? homeData.storage : 0;
-  const storedItems = ((homeData?.storedItems ?? []) as unknown) as Array<{ id: string; name: string; quantity: number }>;
+  const storedItems = ((homeData?.storedItems ?? []) as unknown) as Array<{ 
+    id: string; 
+    itemId: string;
+    name: string; 
+    quantity: number;
+    itemType: string;
+  }>;
   
   const canStoreMoreItems = storedItems.length < homeStorage;
   
@@ -310,7 +316,7 @@ export default function HomePage() {
                               <div>
                                 <h4 className="font-medium">{storedItem.name}</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  Quantity: {storedItem.quantity}
+                                  {storedItem.name} (x{storedItem.quantity})
                                 </p>
                               </div>
                               <Button 
