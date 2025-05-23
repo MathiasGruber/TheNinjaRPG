@@ -10,6 +10,27 @@ import { fetchSectorVillage } from "@/routers/village";
 import { HomeTypes, HomeTypeDetails, type HomeType } from "@/drizzle/constants";
 import type { UserStatus } from "@/drizzle/constants";
 
+// Define the type for stored items
+type StoredItem = {
+  id: string;
+  name: string;
+  quantity: number;
+};
+
+// Type guard to check if an object is a StoredItem
+const isStoredItem = (obj: unknown): obj is StoredItem => {
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    "id" in obj &&
+    "name" in obj &&
+    "quantity" in obj &&
+    typeof (obj as StoredItem).id === "string" &&
+    typeof (obj as StoredItem).name === "string" &&
+    typeof (obj as StoredItem).quantity === "number"
+  );
+};
+
 export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
     .output(
@@ -261,7 +282,17 @@ export const homeRouter = createTRPCRouter({
       
       // Guard
       if (!user) return errorResponse("User not found");
-      const storedItems = (user.homeStoredItems ?? []).map(item => JSON.parse(item));
+      const storedItems = (user.homeStoredItems ?? [])
+        .map(item => {
+          try {
+            const parsed = JSON.parse(item);
+            return isStoredItem(parsed) ? parsed : null;
+          } catch {
+            return null;
+          }
+        })
+        .filter((item): item is StoredItem => item !== null);
+      
       const storedItem = storedItems.find(item => item.id === input.itemId);
       if (!storedItem) {
         return errorResponse("Item not found in your home storage");
@@ -269,8 +300,12 @@ export const homeRouter = createTRPCRouter({
       
       // Remove from storage
       const updatedStorage = user.homeStoredItems.filter(item => {
-        const parsedItem = JSON.parse(item);
-        return parsedItem.id !== input.itemId;
+        try {
+          const parsed = JSON.parse(item);
+          return isStoredItem(parsed) && parsed.id !== input.itemId;
+        } catch {
+          return false;
+        }
       });
       
       await ctx.drizzle.update(userData).set({
