@@ -285,7 +285,7 @@ export const homeRouter = createTRPCRouter({
       const storedItems = (user.homeStoredItems ?? [])
         .map(item => {
           try {
-            const parsed = JSON.parse(item);
+            const parsed = JSON.parse(item) as unknown;
             return isStoredItem(parsed) ? parsed : null;
           } catch {
             return null;
@@ -301,7 +301,7 @@ export const homeRouter = createTRPCRouter({
       // Remove from storage
       const updatedStorage = user.homeStoredItems.filter(item => {
         try {
-          const parsed = JSON.parse(item);
+          const parsed = JSON.parse(item) as unknown;
           return isStoredItem(parsed) && parsed.id !== input.itemId;
         } catch {
           return false;
