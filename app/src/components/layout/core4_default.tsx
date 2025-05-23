@@ -152,7 +152,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         <SideBannerTitle>Participate</SideBannerTitle>
         <div className="flex flex-row gap-4 pt-3">
           <Link
-            href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+            href="https://github.com/studie-tech/TheNinjaRPG/issues"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
             <SiGithub
