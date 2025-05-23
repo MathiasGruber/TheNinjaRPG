@@ -324,7 +324,7 @@ export default function HomePage() {
                               <div>
                                 <h4 className="font-medium">{storedItem.name}</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  {storedItem.name} (x{storedItem.quantity})
+                                  {storedItem.itemType} (x{storedItem.quantity})
                                 </p>
                               </div>
                               <Button 
