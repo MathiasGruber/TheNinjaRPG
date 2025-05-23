@@ -232,7 +232,7 @@ export const homeRouter = createTRPCRouter({
         name: userItemResult.item.name,
         quantity: userItemResult.quantity
       };
-      const updatedStorage = [...(user.homeStoredItems ?? []), storedItem];
+      const updatedStorage = [...(user.homeStoredItems ?? []), JSON.stringify(storedItem)];
       
       await ctx.drizzle.update(userData).set({
         homeStoredItems: updatedStorage,
@@ -261,13 +261,17 @@ export const homeRouter = createTRPCRouter({
       
       // Guard
       if (!user) return errorResponse("User not found");
-      const storedItem = user.homeStoredItems.find(item => item.id === input.itemId);
+      const storedItems = (user.homeStoredItems ?? []).map(item => JSON.parse(item));
+      const storedItem = storedItems.find(item => item.id === input.itemId);
       if (!storedItem) {
         return errorResponse("Item not found in your home storage");
       }
       
       // Remove from storage
-      const updatedStorage = user.homeStoredItems.filter(item => item.id !== input.itemId);
+      const updatedStorage = user.homeStoredItems.filter(item => {
+        const parsedItem = JSON.parse(item);
+        return parsedItem.id !== input.itemId;
+      });
       
       await ctx.drizzle.update(userData).set({
         homeStoredItems: updatedStorage,
