@@ -99,7 +99,7 @@ export default function HomePage() {
   const homeName = homeData ? HomeTypeDetails[homeData.homeType].name : "No Home";
   const homeRegen = homeData ? homeData.regen : 0;
   const homeStorage = homeData ? homeData.storage : 0;
-  const storedItems = (homeData?.storedItems ?? []) as Array<{ id: string; name: string; quantity: number }>;
+  const storedItems = ((homeData?.storedItems ?? []) as unknown) as Array<{ id: string; name: string; quantity: number }>;
   
   const canStoreMoreItems = storedItems.length < homeStorage;
   
