@@ -13,6 +13,7 @@ import type { UserStatus } from "@/drizzle/constants";
 // Define the type for stored items
 type StoredItem = {
   id: string;
+  itemId: string;
   name: string;
   quantity: number;
 };
@@ -23,9 +24,11 @@ const isStoredItem = (obj: unknown): obj is StoredItem => {
     typeof obj === "object" &&
     obj !== null &&
     "id" in obj &&
+    "itemId" in obj &&
     "name" in obj &&
     "quantity" in obj &&
     typeof (obj as StoredItem).id === "string" &&
+    typeof (obj as StoredItem).itemId === "string" &&
     typeof (obj as StoredItem).name === "string" &&
     typeof (obj as StoredItem).quantity === "number"
   );
@@ -284,7 +287,7 @@ export const homeRouter = createTRPCRouter({
       // Guard
       if (!user) return errorResponse("User not found");
       const storedItems = (user.homeStoredItems ?? [])
-        .map(item => {
+        .map((item: string) => {
           try {
             const parsed = JSON.parse(item) as unknown;
             return isStoredItem(parsed) ? parsed : null;
@@ -292,15 +295,15 @@ export const homeRouter = createTRPCRouter({
             return null;
           }
         })
-        .filter((item): item is StoredItem => item !== null);
+        .filter((item: StoredItem | null): item is StoredItem => item !== null);
       
-      const storedItem = storedItems.find(item => item.id === input.itemId);
+      const storedItem = storedItems.find((item: StoredItem) => item.id === input.itemId);
       if (!storedItem) {
         return errorResponse("Item not found in your home storage");
       }
       
       // Remove from storage
-      const updatedStorage = user.homeStoredItems.filter(item => {
+      const updatedStorage = user.homeStoredItems.filter((item: string) => {
         try {
           const parsed = JSON.parse(item) as unknown;
           return isStoredItem(parsed) && parsed.id !== input.itemId;
