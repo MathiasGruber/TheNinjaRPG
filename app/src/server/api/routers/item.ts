@@ -94,13 +94,14 @@ export const itemRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchItem(ctx.drizzle, input.id),
         ctx.drizzle.query.item.findFirst({
-          columns: { name: true },
+          columns: { name: true, id: true },
           where: eq(item.name, input.data.name),
         }),
       ]);
       // Guard
       if (!entry) return errorResponse("Item not found");
-      if (itemWithName) return errorResponse("Item name already exists");
+      if (itemWithName && itemWithName.id !== entry.id)
+        return errorResponse("Item name already exists");
       if (!canChangeContent(user.role)) {
         return errorResponse("Not allowed to edit item");
       }
