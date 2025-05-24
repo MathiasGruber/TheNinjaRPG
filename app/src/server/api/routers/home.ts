@@ -2,12 +2,37 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { eq, gte, and } from "drizzle-orm";
-import { userData } from "@/drizzle/schema";
+import { userData, userItem, item } from "@/drizzle/schema";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage } from "@/libs/travel/controls";
 import { fetchSectorVillage } from "@/routers/village";
+import { HomeTypes, HomeTypeDetails, type HomeType } from "@/drizzle/constants";
 import type { UserStatus } from "@/drizzle/constants";
+
+// Define the type for stored items
+type StoredItem = {
+  id: string;
+  itemId: string;
+  name: string;
+  quantity: number;
+};
+
+// Type guard to check if an object is a StoredItem
+const isStoredItem = (obj: unknown): obj is StoredItem => {
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    "id" in obj &&
+    "itemId" in obj &&
+    "name" in obj &&
+    "quantity" in obj &&
+    typeof (obj as StoredItem).id === "string" &&
+    typeof (obj as StoredItem).itemId === "string" &&
+    typeof (obj as StoredItem).name === "string" &&
+    typeof (obj as StoredItem).quantity === "number"
+  );
+};
 
 export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
@@ -87,6 +112,234 @@ export const homeRouter = createTRPCRouter({
         success: true,
         message: newStatus === "AWAKE" ? "You have woken up" : "You have gone to sleep",
         newStatus,
+      };
+    }),
+
+  getUserHome: protectedProcedure.query(async ({ ctx }) => {
+    const { user } = await fetchUpdatedUser({
+      client: ctx.drizzle,
+      userId: ctx.userId,
+    });
+
+    if (!user) return null;
+
+    return {
+      homeType: user.homeType,
+      regen: HomeTypeDetails[user.homeType].regen,
+      storage: HomeTypeDetails[user.homeType].storage,
+      storedItems: user.homeStoredItems,
+    };
+  }),
+
+  getAvailableUpgrades: protectedProcedure.query(async ({ ctx }) => {
+    const { user } = await fetchUpdatedUser({
+      client: ctx.drizzle,
+      userId: ctx.userId,
+    });
+
+    if (!user) return [];
+
+    const currentHomeIndex = HomeTypes.indexOf(user.homeType);
+    const upgrades = [];
+    
+    // Add upgrades (higher tier homes)
+    for (let i = currentHomeIndex + 1; i < HomeTypes.length; i++) {
+      const homeType = HomeTypes[i]!;
+      upgrades.push({
+        type: homeType,
+        ...HomeTypeDetails[homeType],
+        isUpgrade: true,
+      });
+    }
+
+    // Add downgrades (lower tier homes)
+    for (let i = currentHomeIndex - 1; i >= 0; i--) {
+      const homeType = HomeTypes[i]!;
+      upgrades.push({
+        type: homeType,
+        ...HomeTypeDetails[homeType],
+        isUpgrade: false,
+      });
+    }
+
+    return upgrades;
+  }),
+
+  upgradeHome: protectedProcedure
+    .input(z.object({
+      homeType: z.enum(HomeTypes),
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+
+      // Guard
+      if (!user) return errorResponse("User not found");
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.homeType === input.homeType) return errorResponse("You already own this home type");
+      
+      const targetHome = HomeTypeDetails[input.homeType];
+      
+      // Upgrading
+      if (HomeTypes.indexOf(input.homeType) > HomeTypes.indexOf(user.homeType)) {
+        const cost = targetHome.cost;
+        if (user.money < cost) return errorResponse("Not enough Ryo to upgrade your home");
+        
+        await ctx.drizzle.update(userData).set({
+          money: user.money - cost,
+          homeType: input.homeType,
+        }).where(eq(userData.userId, ctx.userId));
+        
+        return {
+          success: true,
+          message: `Successfully upgraded to ${targetHome.name}`,
+        };
+      } 
+      // Downgrading
+      else {
+        // Check if stored items can fit in the new home
+        if (user.homeStoredItems.length > targetHome.storage) {
+          return errorResponse(`You need to remove some items from storage first (max ${targetHome.storage})`);
+        }
+        
+        await ctx.drizzle.update(userData).set({
+          homeType: input.homeType,
+        }).where(eq(userData.userId, ctx.userId));
+        
+        return {
+          success: true,
+          message: `Successfully downgraded to ${targetHome.name}`,
+        };
+      }
+    }),
+
+  storeItem: protectedProcedure
+    .input(z.object({
+      itemId: z.string(),
+      name: z.string(),
+      quantity: z.number(),
+      itemType: z.string(),
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      
+      // Guard
+      if (!user) return errorResponse("User not found");
+      if (user.homeType === "NONE") return errorResponse("You need a home to store items");
+      if ((user.homeStoredItems ?? []).length >= HomeTypeDetails[user.homeType].storage) {
+        return errorResponse("Your home storage is full");
+      }
+      
+      // Verify item exists in inventory and is not equipped
+      const userItemResult = await ctx.drizzle.query.userItem.findFirst({
+        where: and(
+          eq(userItem.userId, ctx.userId),
+          eq(userItem.id, input.itemId),
+          eq(userItem.equipped, "NONE")
+        ),
+        with: {
+          item: true
+        }
+      });
+      
+      if (!userItemResult) return errorResponse("Item not found or is equipped");
+      if (!userItemResult.item) return errorResponse("Item data not found");
+      
+      // Verify the input data matches the database
+      if (userItemResult.item.name !== input.name) return errorResponse("Item name mismatch");
+      if (userItemResult.quantity !== input.quantity) return errorResponse("Item quantity mismatch");
+      if (userItemResult.item.itemType !== input.itemType) return errorResponse("Item type mismatch");
+      
+      // Add to storage and remove from inventory
+      const storedItem = {
+        id: userItemResult.id,
+        itemId: userItemResult.itemId,
+        name: input.name,
+        quantity: input.quantity,
+        itemType: input.itemType
+      };
+      const updatedStorage = [...(user.homeStoredItems ?? []), JSON.stringify(storedItem)];
+      
+      await ctx.drizzle.update(userData).set({
+        homeStoredItems: updatedStorage,
+      }).where(eq(userData.userId, ctx.userId));
+      
+      // Delete the item from inventory since we're storing the full stack
+      await ctx.drizzle.delete(userItem).where(eq(userItem.id, input.itemId));
+      
+      return {
+        success: true,
+        message: "Item stored in your home successfully",
+      };
+    }),
+
+  retrieveItem: protectedProcedure
+    .input(z.object({
+      itemId: z.string(),
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      
+      // Guard
+      if (!user) return errorResponse("User not found");
+      const storedItems = (user.homeStoredItems ?? [])
+        .map((item: string) => {
+          try {
+            const parsed = JSON.parse(item) as unknown;
+            return isStoredItem(parsed) ? parsed : null;
+          } catch {
+            return null;
+          }
+        })
+        .filter((item: StoredItem | null): item is StoredItem => item !== null);
+      
+      const storedItem = storedItems.find((item: StoredItem) => item.id === input.itemId);
+      if (!storedItem) {
+        return errorResponse("Item not found in your home storage");
+      }
+      
+      // Remove from storage
+      const updatedStorage = user.homeStoredItems.filter((item: string) => {
+        try {
+          const parsed = JSON.parse(item) as unknown;
+          return isStoredItem(parsed) && parsed.id !== input.itemId;
+        } catch {
+          return false;
+        }
+      });
+      
+      await ctx.drizzle.update(userData).set({
+        homeStoredItems: updatedStorage,
+      }).where(eq(userData.userId, ctx.userId));
+      
+      // Add back to inventory
+      await ctx.drizzle.insert(userItem).values({
+        id: crypto.randomUUID(),
+        userId: ctx.userId,
+        itemId: storedItem.itemId,
+        quantity: storedItem.quantity,
+        equipped: "NONE",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      
+      return {
+        success: true,
+        message: "Item retrieved from your home successfully",
       };
     }),
 });
