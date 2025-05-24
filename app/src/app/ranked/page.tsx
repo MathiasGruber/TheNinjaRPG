@@ -16,10 +16,6 @@ import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering
 import type { Jutsu } from "@/drizzle/schema";
 import { OctagonX } from "lucide-react";
 import LoadoutSelector from "@/layout/LoadoutSelector";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ItemTypes } from "@/drizzle/constants";
-import { useSession } from "next-auth/react";
-import { toast } from "react-hot-toast";
 
 const QueueTimer = ({ createdAt }: { createdAt: Date }) => {
   const [queueTime, setQueueTime] = useState("0:00");
@@ -45,20 +41,6 @@ const QueueTimer = ({ createdAt }: { createdAt: Date }) => {
 };
 
 export default function Ranked() {
-  const { data: session } = useSession();
-  const { data: userData } = api.user.getUserData.useQuery();
-  const { data: userJutsus } = api.jutsu.getUserJutsus.useQuery();
-  const { data: allJutsus } = api.jutsu.getAllJutsus.useQuery();
-  const { data: weapons } = api.item.getAll.useQuery({ itemType: "WEAPON" });
-  const { data: consumables } = api.item.getAll.useQuery({ itemType: "CONSUMABLE" });
-  const { data: rankedLoadout } = api.combat.getRankedLoadout.useQuery();
-  const updateLoadout = api.combat.updateRankedLoadout.useMutation({
-    onSuccess: () => {
-      toast.success("Loadout updated");
-      void utils.combat.getRankedLoadout.invalidate();
-    },
-  });
-
   // Router for forwarding
   const router = useRouter();
   const utils = api.useUtils();
