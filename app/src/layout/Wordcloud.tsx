@@ -1,13 +1,21 @@
 "use client";
 
-import React from "react";
-import ReactWordcloud from "react-wordcloud";
+import React, { useRef, useEffect } from "react";
+import { Chart as ChartJS, registerables } from "chart.js";
+import { WordCloudController, WordElement } from "chartjs-chart-wordcloud";
+import type { ChartData, ChartOptions } from "chart.js";
+
+// Register Chart.js components and word cloud elements
+ChartJS.register(...registerables, WordCloudController, WordElement);
 
 interface WordCloudProps {
   text: string | undefined;
 }
 
 const WordCloud: React.FC<WordCloudProps> = (props) => {
+  const chartRef = useRef<HTMLCanvasElement>(null);
+  const chartInstance = useRef<ChartJS | null>(null);
+
   // Reduce to word frequency
   const stopWords = [
     "and",
@@ -209,18 +217,112 @@ const WordCloud: React.FC<WordCloudProps> = (props) => {
     "target",
     "jutsu",
   ];
-  const wordCounts = (props.text || "")
-    .split(" ")
-    .map((token) => token.toLowerCase().replace(/[^\w\s]/g, ""))
-    .filter((token) => !stopWords.includes(token))
-    .reduce<Record<string, number>>((acc, curr) => {
-      acc[curr] = (acc[curr] || 0) + 1;
-      return acc;
-    }, {});
-  const words = Object.entries(wordCounts).map(([text, value]) => ({ text, value }));
+
+  // Process text to create word frequency data
+  const processedData = React.useMemo(() => {
+    if (!props.text) return { labels: [], data: [] };
+
+    const wordCounts = props.text
+      .split(" ")
+      .map((token) => token.toLowerCase().replace(/[^\w\s]/g, ""))
+      .filter((token) => !stopWords.includes(token) && token.length > 0)
+      .reduce<Record<string, number>>((acc, curr) => {
+        acc[curr] = (acc[curr] || 0) + 1;
+        return acc;
+      }, {});
+
+    const words = Object.entries(wordCounts)
+      .map(([text, value]) => ({ text, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 50); // Limit to top 50 words for better performance
+
+    return {
+      labels: words.map((word) => word.text),
+      data: words.map((word) => word.value),
+    };
+  }, [props.text]);
+
+  // Function to create or update the chart
+  const createOrUpdateChart = () => {
+    if (!chartRef.current || processedData.labels.length === 0) {
+      return;
+    }
+
+    // Clean up previous chart instance
+    if (chartInstance.current) {
+      chartInstance.current.destroy();
+      chartInstance.current = null;
+    }
+
+    const ctx = chartRef.current.getContext("2d");
+    if (ctx) {
+      // Prepare chart data
+      const chartConfig: ChartData = {
+        labels: processedData.labels,
+        datasets: [
+          {
+            label: "Word Frequency",
+            data: processedData.data,
+          },
+        ],
+      };
+
+      // Chart options
+      const options: ChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                return `${context.label}: ${String(context.raw)}`;
+              },
+            },
+          },
+        },
+      };
+
+      try {
+        // Create new chart
+        chartInstance.current = new ChartJS(ctx, {
+          type: WordCloudController.id,
+          data: chartConfig,
+          options: options,
+        });
+      } catch (error) {
+        console.error("Error creating word cloud chart:", error);
+      }
+    }
+  };
+
+  // Effect to handle chart creation/destruction based on data changes
+  useEffect(() => {
+    if (processedData.labels.length > 0) {
+      // Small delay to ensure the canvas is visible
+      const timer = setTimeout(() => {
+        createOrUpdateChart();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [processedData]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (chartInstance.current) {
+        chartInstance.current.destroy();
+        chartInstance.current = null;
+      }
+    };
+  }, []);
+
   return (
-    <div>
-      <ReactWordcloud words={words} />
+    <div style={{ height: "400px", width: "100%" }}>
+      <canvas ref={chartRef} />
     </div>
   );
 };

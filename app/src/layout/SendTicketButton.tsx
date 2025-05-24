@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import RichInput from "@/layout/RichInput";
@@ -22,7 +22,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { showMutationToast } from "@/libs/toast";
 import { SiDiscord } from "@icons-pack/react-simple-icons";
-import type { TicketType } from "@/validators/misc";
+import { type TicketType, TicketTypes } from "@/validators/misc";
 import ChatBox from "@/layout/ChatBox";
 import { Button } from "@/components/ui/button";
 import { useUserData } from "@/utils/UserContext";
@@ -80,6 +80,27 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
     resetTutorial({ step: 0 });
   };
 
+  // Safe setter for showActive that validates the value
+  const setShowActiveSafe = (value: string) => {
+    // Ensure the value is a string and is in the valid ticket types
+    if (typeof value === "string" && TicketTypes.includes(value as TicketType)) {
+      setShowActive(value as TicketType);
+    } else {
+      console.warn("Invalid ticket type received:", value);
+      setShowActive("ai_support");
+    }
+  };
+
+  // If chosen ticket type if not of available type, set to ai_support
+  useEffect(() => {
+    if (!TicketTypes.includes(showActive)) {
+      setShowActive("ai_support");
+    }
+  }, [showActive, setShowActive]);
+
+  // Ensure defaultValue is always a valid string
+  const safeDefaultValue = TicketTypes.includes(showActive) ? showActive : "ai_support";
+
   return (
     <Popover>
       <PopoverTrigger name="supportBtn" aria-label="supportBtn">
@@ -102,9 +123,9 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
         {!isSuccess && isPending && <Loader explanation="Sending ticket" />}
         {!isSuccess && !isPending && (
           <Tabs
-            defaultValue={showActive}
+            defaultValue={safeDefaultValue}
             className="flex flex-col items-center justify-center"
-            onValueChange={(value) => setShowActive(value as TicketType)}
+            onValueChange={setShowActiveSafe}
           >
             <TabsContent value="human_support" className="flex flex-col gap-2">
               <p className="font-bold text-lg">Get Human Help</p>

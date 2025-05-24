@@ -236,7 +236,11 @@ const Map: React.FC<MapProps> = (props) => {
                 context.fillStyle = highlight.hexColor;
                 context.lineWidth = 4;
                 context.strokeStyle = "black";
-                context.roundRect(r / 2, r / 2, w - r, h - r, r);
+                if (context.roundRect) {
+                  context.roundRect(r / 2, r / 2, w - r, h - r, r);
+                } else {
+                  context.rect(r / 2, r / 2, w - r, h - r);
+                }
                 context.stroke();
                 context.fill();
                 context.globalAlpha = 1.0;
