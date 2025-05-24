@@ -2881,3 +2881,34 @@ export const userUploadRelations = relations(userUpload, ({ one }) => ({
 }));
 
 export type UserUpload = InferSelectModel<typeof userUpload>;
+
+export const rankedLoadout = mysqlTable("RankedLoadout", {
+  id: varchar("id", { length: 191 }).notNull().primaryKey(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  weaponId: varchar("weaponId", { length: 191 }),
+  consumable1Id: varchar("consumable1Id", { length: 191 }),
+  consumable2Id: varchar("consumable2Id", { length: 191 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const rankedLoadoutRelations = relations(rankedLoadout, ({ one }) => ({
+  user: one(userData, {
+    fields: [rankedLoadout.userId],
+    references: [userData.userId],
+  }),
+  weapon: one(item, {
+    fields: [rankedLoadout.weaponId],
+    references: [item.id],
+  }),
+  consumable1: one(item, {
+    fields: [rankedLoadout.consumable1Id],
+    references: [item.id],
+  }),
+  consumable2: one(item, {
+    fields: [rankedLoadout.consumable2Id],
+    references: [item.id],
+  }),
+}));
+
+export type RankedLoadout = InferSelectModel<typeof rankedLoadout>;

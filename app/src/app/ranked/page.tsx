@@ -16,6 +16,10 @@ import JutsuFiltering, { useFiltering, getFilter } from "@/layout/JutsuFiltering
 import type { Jutsu } from "@/drizzle/schema";
 import { OctagonX } from "lucide-react";
 import LoadoutSelector from "@/layout/LoadoutSelector";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ItemTypes } from "@/drizzle/constants";
+import { useSession } from "next-auth/react";
+import { toast } from "react-hot-toast";
 
 const QueueTimer = ({ createdAt }: { createdAt: Date }) => {
   const [queueTime, setQueueTime] = useState("0:00");
@@ -41,6 +45,20 @@ const QueueTimer = ({ createdAt }: { createdAt: Date }) => {
 };
 
 export default function Ranked() {
+  const { data: session } = useSession();
+  const { data: userData } = api.user.getUserData.useQuery();
+  const { data: userJutsus } = api.jutsu.getUserJutsus.useQuery();
+  const { data: allJutsus } = api.jutsu.getAllJutsus.useQuery();
+  const { data: weapons } = api.item.getAll.useQuery({ itemType: "WEAPON" });
+  const { data: consumables } = api.item.getAll.useQuery({ itemType: "CONSUMABLE" });
+  const { data: rankedLoadout } = api.combat.getRankedLoadout.useQuery();
+  const updateLoadout = api.combat.updateRankedLoadout.useMutation({
+    onSuccess: () => {
+      toast.success("Loadout updated");
+      void utils.combat.getRankedLoadout.invalidate();
+    },
+  });
+
   // Router for forwarding
   const router = useRouter();
   const utils = api.useUtils();
@@ -287,6 +305,61 @@ export default function Ranked() {
               {isLeaving ? "Leaving..." : "Leave Queue"}
             </Button>
           )}
+        </div>
+      </ContentBox>
+
+      <ContentBox
+        title="Ranked PvP"
+        subtitle="Select your items for ranked battles"
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Weapon</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {weapons?.map((weapon) => (
+                <div
+                  key={weapon.id}
+                  className={`p-2 border rounded cursor-pointer ${
+                    rankedLoadout?.weaponId === weapon.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                  onClick={() => updateLoadout.mutate({ weaponId: weapon.id })}
+                >
+                  <ItemWithEffects item={weapon} showStatistic="weapon" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Consumables</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {consumables?.map((consumable) => (
+                <div
+                  key={consumable.id}
+                  className={`p-2 border rounded cursor-pointer ${
+                    rankedLoadout?.consumable1Id === consumable.id ||
+                    rankedLoadout?.consumable2Id === consumable.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                  onClick={() => {
+                    if (rankedLoadout?.consumable1Id === consumable.id) {
+                      updateLoadout.mutate({ consumable1Id: null });
+                    } else if (rankedLoadout?.consumable2Id === consumable.id) {
+                      updateLoadout.mutate({ consumable2Id: null });
+                    } else if (!rankedLoadout?.consumable1Id) {
+                      updateLoadout.mutate({ consumable1Id: consumable.id });
+                    } else if (!rankedLoadout?.consumable2Id) {
+                      updateLoadout.mutate({ consumable2Id: consumable.id });
+                    }
+                  }}
+                >
+                  <ItemWithEffects item={consumable} showStatistic="consumable" />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </ContentBox>
 

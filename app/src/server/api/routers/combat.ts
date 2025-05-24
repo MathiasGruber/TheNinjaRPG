@@ -59,6 +59,8 @@ import type { CompleteBattle } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
 import { IMG_BG_FOREST } from "@/drizzle/constants";
 import type { ZodBgSchemaType } from "@/validators/backgroundSchema";
+import { TRPCError } from "@trpc/server";
+import { rankedLoadout } from "@/drizzle/schema";
 
 // Debug flag when testing battle
 const debug = false;
@@ -994,6 +996,91 @@ export const combatRouter = createTRPCRouter({
         },
         "SHRINE_WAR",
       );
+    }),
+  getRankedLoadout: protectedProcedure
+    .query(async ({ ctx }) => {
+      return await ctx.db.query.rankedLoadout.findFirst({
+        where: eq(rankedLoadout.userId, ctx.session.user.id),
+      });
+    }),
+  updateRankedLoadout: protectedProcedure
+    .input(z.object({
+      weaponId: z.string().optional(),
+      consumable1Id: z.string().optional(),
+      consumable2Id: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Check if items exist and are of correct type
+      if (input.weaponId) {
+        const weapon = await ctx.db.query.item.findFirst({
+          where: and(
+            eq(item.id, input.weaponId),
+            eq(item.itemType, "WEAPON"),
+          ),
+        });
+        if (!weapon) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Weapon not found",
+          });
+        }
+      }
+
+      if (input.consumable1Id) {
+        const consumable1 = await ctx.db.query.item.findFirst({
+          where: and(
+            eq(item.id, input.consumable1Id),
+            eq(item.itemType, "CONSUMABLE"),
+          ),
+        });
+        if (!consumable1) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "First consumable not found",
+          });
+        }
+      }
+
+      if (input.consumable2Id) {
+        const consumable2 = await ctx.db.query.item.findFirst({
+          where: and(
+            eq(item.id, input.consumable2Id),
+            eq(item.itemType, "CONSUMABLE"),
+          ),
+        });
+        if (!consumable2) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Second consumable not found",
+          });
+        }
+      }
+
+      // Update or create loadout
+      const existingLoadout = await ctx.db.query.rankedLoadout.findFirst({
+        where: eq(rankedLoadout.userId, ctx.session.user.id),
+      });
+
+      if (existingLoadout) {
+        await ctx.db
+          .update(rankedLoadout)
+          .set({
+            weaponId: input.weaponId ?? existingLoadout.weaponId,
+            consumable1Id: input.consumable1Id ?? existingLoadout.consumable1Id,
+            consumable2Id: input.consumable2Id ?? existingLoadout.consumable2Id,
+          })
+          .where(eq(rankedLoadout.id, existingLoadout.id));
+      } else {
+        await ctx.db.insert(rankedLoadout).values({
+          id: nanoid(),
+          userId: ctx.session.user.id,
+          weaponId: input.weaponId ?? null,
+          consumable1Id: input.consumable1Id ?? null,
+          consumable2Id: input.consumable2Id ?? null,
+        });
+      }
+
+      return { success: true };
     }),
 });
 
