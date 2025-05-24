@@ -35,7 +35,7 @@ import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
-import { JUTSU_MAX_RESIDUAL_EQUIPPED, JUTSU_MAX_SHIELD_EQUIPPED, JUTSU_MAX_GROUND_EQUIPPED, JUTSU_MAX_MOVEPREVENT_EQUIPPED } from "@/drizzle/constants";
+import { JUTSU_MAX_RESIDUAL_EQUIPPED, JUTSU_MAX_SHIELD_EQUIPPED, JUTSU_MAX_GROUND_EQUIPPED, JUTSU_MAX_MOVEPREVENT_EQUIPPED, JUTSU_MAX_PIERCE_EQUIPPED } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { jutsuFilteringSchema } from "@/validators/jutsu";
 import { QuestTracker } from "@/validators/objectives";
