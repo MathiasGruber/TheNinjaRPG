@@ -1445,11 +1445,12 @@ export const processUsersForBattle = (info: {
         if (userjutsu.jutsu.bloodlineId !== "" && !user.isAi && user.bloodlineId !== userjutsu.jutsu.bloodlineId) {
           return false;
         }
-        // Skip element checks for ranked battles
-        if (battleType === "RANKED") return true;
         // For non-ranked battles, check elements
-        const userElements = new Set(getUserElements(user));
-        return checkJutsuElements(userjutsu.jutsu, userElements);
+        if (battleType !== "RANKED") {
+          const userElements = new Set(getUserElements(user));
+          return checkJutsuElements(userjutsu.jutsu, userElements);
+        }
+        return true;
       }).map((userjutsu) => {
         userjutsu.lastUsedRound = -userjutsu.jutsu.cooldown;
         return userjutsu;
