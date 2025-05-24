@@ -1417,10 +1417,12 @@ export const processUsersForBattle = (info: {
     }
 
     // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
-    user.jutsus = (battleType === "RANKED" 
-      ? user.rankedUserJutsus.map(jutsu => ({ ...jutsu, experience: 0 }))
-      : user.jutsus)
-      .filter((userjutsu) => {
+    user.jutsus = (battleType === "RANKED"
+      ? user.rankedUserJutsus?.map(jutsu => ({
+          ...jutsu,
+          experience: 0,
+        }))
+      : user.jutsus)?.filter((userjutsu) => {
         // Not if no jutsu
         if (!userjutsu.jutsu) {
           return false;
@@ -1438,13 +1440,15 @@ export const processUsersForBattle = (info: {
           .filter((e) => e.type === "summon")
           .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
         // Not if not the right bloodline
-        return (
-          userjutsu.jutsu.bloodlineId === "" ||
-          user.isAi ||
-          user.bloodlineId === userjutsu.jutsu.bloodlineId
-        );
-      })
-      .map((userjutsu) => {
+        if (userjutsu.jutsu.bloodlineId !== "" && !user.isAi && user.bloodlineId !== userjutsu.jutsu.bloodlineId) {
+          return false;
+        }
+        // Skip element checks for ranked battles
+        if (battleType === "RANKED") return true;
+        // For non-ranked battles, check elements
+        const userElements = new Set(getUserElements(user));
+        return checkJutsuElements(userjutsu.jutsu, userElements);
+      }).map((userjutsu) => {
         userjutsu.lastUsedRound = -userjutsu.jutsu.cooldown;
         return userjutsu;
       });
