@@ -308,7 +308,7 @@ export default function Ranked() {
           <div>
             <h3 className="text-lg font-semibold mb-2">Weapon</h3>
             <div className="grid grid-cols-2 gap-2">
-              {weapons?.map((weapon) => (
+              {weapons?.data.map((weapon) => (
                 <div
                   key={weapon.id}
                   className={`p-2 border rounded cursor-pointer ${
@@ -326,7 +326,7 @@ export default function Ranked() {
           <div>
             <h3 className="text-lg font-semibold mb-2">Consumables</h3>
             <div className="grid grid-cols-2 gap-2">
-              {consumables?.map((consumable) => (
+              {consumables?.data.map((consumable) => (
                 <div
                   key={consumable.id}
                   className={`p-2 border rounded cursor-pointer ${
