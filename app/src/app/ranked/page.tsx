@@ -337,9 +337,9 @@ export default function Ranked() {
                   }`}
                   onClick={() => {
                     if (rankedLoadout?.consumable1Id === consumable.id) {
-                      updateLoadout.mutate({ consumable1Id: null });
+                      updateLoadout.mutate({ consumable1Id: undefined });
                     } else if (rankedLoadout?.consumable2Id === consumable.id) {
-                      updateLoadout.mutate({ consumable2Id: null });
+                      updateLoadout.mutate({ consumable2Id: undefined });
                     } else if (!rankedLoadout?.consumable1Id) {
                       updateLoadout.mutate({ consumable1Id: consumable.id });
                     } else if (!rankedLoadout?.consumable2Id) {
