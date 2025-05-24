@@ -18,6 +18,8 @@ Sentry.init({
     "Uncaught NetworkError: Failed to execute 'importScripts' on 'WorkerGlobalScope'",
     "CanvasRenderingContext2D.setTransform",
     "Java bridge method invocation error",
+    "Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.",
+    "GME Provider is disconnected or locked", // timeout error
   ],
 
   // Only enable Sentry in production
