@@ -9,7 +9,7 @@ import type { StatType, GeneralType, PoolType, ElementName } from "@/drizzle/con
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames, GenNames } from "@/libs/combat/constants";
 import type { Jutsu, Item, VillageAlliance, Clan, War } from "@/drizzle/schema";
-import type { UserJutsu, UserItem, UserData, AiProfile } from "@/drizzle/schema";
+import type { UserJutsu, UserItem, UserData, AiProfile, RankedUserJutsu } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { BattleType } from "@/drizzle/constants";
 import type { WarAlly } from "@/drizzle/schema";
@@ -26,6 +26,10 @@ export type BattleWar = War & {
  */
 export type BattleUserState = UserWithRelations & {
   jutsus: (UserJutsu & {
+    jutsu: Jutsu;
+    lastUsedRound: number;
+  })[];
+  rankedUserJutsus: (RankedUserJutsu & {
     jutsu: Jutsu;
     lastUsedRound: number;
   })[];
