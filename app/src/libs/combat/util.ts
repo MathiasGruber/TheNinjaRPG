@@ -55,7 +55,6 @@ import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/sc
 import type { Item, UserItem, AiProfile, War } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 import { nanoid } from "nanoid";
-import { DrizzleClient } from "drizzle-orm";
 import { UserData, UserJutsu, RankedLoadout } from "@/drizzle/schema";
 
 /**
@@ -1481,7 +1480,17 @@ export const processUsersForBattle = (info: {
 
     // Add item effects
     const items: (UserItem & { item: Item; lastUsedRound: number })[] = [];
-    user.items
+    
+    // Get items to process - either ranked loadout items or regular items
+    const itemsToProcess = battleType === "RANKED" 
+      ? [
+          ...(user.rankedLoadout?.weapon ? [{ item: user.rankedLoadout.weapon, equipped: "WEAPON" }] : []),
+          ...(user.rankedLoadout?.consumable1 ? [{ item: user.rankedLoadout.consumable1, equipped: "NONE" }] : []),
+          ...(user.rankedLoadout?.consumable2 ? [{ item: user.rankedLoadout.consumable2, equipped: "NONE" }] : []),
+        ]
+      : user.items;
+
+    itemsToProcess
       .filter((useritem) => useritem.item && !useritem.item.preventBattleUsage)
       .forEach((useritem) => {
         const itemType = useritem.item.itemType;
@@ -1552,63 +1561,4 @@ export const processUsersForBattle = (info: {
   });
 
   return { userEffects, usersState, allSummons };
-};
-
-export const assignUserToBattle = async (
-  db: DrizzleClient,
-  user: UserData & {
-    jutsus?: (UserJutsu & { jutsu: Jutsu })[];
-    rankedUserJutsus?: (UserJutsu & { jutsu: Jutsu })[];
-    rankedLoadout?: RankedLoadout & {
-      weapon?: Item;
-      consumable1?: Item;
-      consumable2?: Item;
-    };
-  },
-  battleType: BattleType,
-  battleId: string,
-  position: number,
-) => {
-  // Get user's weapon and consumables
-  const weapon = battleType === "RANKED" 
-    ? user.rankedLoadout?.weapon
-    : user.weapon;
-
-  const consumables = battleType === "RANKED"
-    ? [
-        ...Array(10).fill(user.rankedLoadout?.consumable1),
-        ...Array(10).fill(user.rankedLoadout?.consumable2),
-      ].filter((item): item is Item => item !== undefined)
-    : [];
-
-  // ... existing code ...
-
-  // Add user to battle
-  await db.insert(battleUser).values({
-    id: nanoid(),
-    battleId,
-    userId: user.id,
-    position,
-    health: user.health,
-    maxHealth: user.maxHealth,
-    chakra: user.chakra,
-    maxChakra: user.maxChakra,
-    weaponId: weapon?.id,
-    // ... rest of the values ...
-  });
-
-  // Add consumables to battle
-  if (consumables.length > 0) {
-    await db.insert(battleItem).values(
-      consumables.map(item => ({
-        id: nanoid(),
-        battleId,
-        userId: user.id,
-        itemId: item.id,
-        quantity: 1,
-      }))
-    );
-  }
-
-  // ... rest of the code ...
 };
