@@ -81,7 +81,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",
-    "cytoscape": "^3.31.1",
+    "cytoscape": "^3.32.0",
     "cytoscape-edgehandles": "^4.0.1",
     "date-fns": "^4.1.0",
     "deep-object-diff": "^1.1.9",
