@@ -48,6 +48,16 @@ export default function Ranked() {
   // Ensure user is in village
   const { userData, access } = useRequireInVillage("/battlearena");
 
+  // Get items and loadout data
+  const { data: weapons } = api.item.getAll.useQuery({ itemType: "WEAPON" });
+  const { data: consumables } = api.item.getAll.useQuery({ itemType: "CONSUMABLE" });
+  const { data: rankedLoadout } = api.combat.getRankedLoadout.useQuery();
+  const updateLoadout = api.combat.updateRankedLoadout.useMutation({
+    onSuccess: () => {
+      void utils.combat.getRankedLoadout.invalidate();
+    },
+  });
+
   // Two-level filtering for jutsu
   const state = useFiltering();
   const [isOpen, setIsOpen] = useState<boolean>(false);
