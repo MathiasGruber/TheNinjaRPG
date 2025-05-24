@@ -7,7 +7,12 @@ import { type GlobalMapData } from "./types";
  */
 export const fetchMap = async () => {
   const fetch = fetchRetry(global.fetch);
-  const response = await fetch(IMG_MAP_HEXASPHERE);
+  const response = await fetch(IMG_MAP_HEXASPHERE, {
+    retries: 3,
+    retryDelay: function (attempt) {
+      return Math.pow(2, attempt) * 1000; // 1000, 2000, 4000
+    },
+  });
   const hexasphere = await response.json().then((data) => data as GlobalMapData);
   return hexasphere;
 };
