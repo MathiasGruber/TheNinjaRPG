@@ -49,8 +49,8 @@ export default function Ranked() {
   const { userData, access } = useRequireInVillage("/battlearena");
 
   // Get items and loadout data
-  const { data: weapons } = api.item.getAll.useQuery({ itemType: "WEAPON" });
-  const { data: consumables } = api.item.getAll.useQuery({ itemType: "CONSUMABLE" });
+  const { data: weapons } = api.item.getAll.useQuery({ itemType: "WEAPON", limit: 100 });
+  const { data: consumables } = api.item.getAll.useQuery({ itemType: "CONSUMABLE", limit: 100 });
   const { data: rankedLoadout } = api.combat.getRankedLoadout.useQuery();
   const updateLoadout = api.combat.updateRankedLoadout.useMutation({
     onSuccess: () => {
