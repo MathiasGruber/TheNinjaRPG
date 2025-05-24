@@ -47,8 +47,8 @@ export default function HomePage() {
       },
     });
 
-  const { data: homeData, isLoading: isHomeLoading } = api.home.getUserHome.useQuery();
-  const { data: availableUpgrades, isLoading: isUpgradesLoading } = api.home.getAvailableUpgrades.useQuery();
+    const { data: homeData, isLoading: isHomeLoading, refetch: userHomeRefetch } = api.home.getUserHome.useQuery();
+    const { data: availableUpgrades, isLoading: isUpgradesLoading, refetch: upgradesRefetch } = api.home.getAvailableUpgrades.useQuery();
   
   const { mutate: upgradeHome, isPending: isUpgrading } = api.home.upgradeHome.useMutation({
     onSuccess: (data) => {
@@ -58,6 +58,12 @@ export default function HomePage() {
         void userHomeRefetch();
         void upgradesRefetch();
       }
+    },
+    onError: (error) => {
+      showMutationToast({
+        success: false,
+        message: error.message || "Failed to upgrade home"
+      });
     },
   });
   
@@ -82,10 +88,6 @@ export default function HomePage() {
       }
     },
   });
-
-  // Refetch functions
-  const { refetch: userHomeRefetch } = api.home.getUserHome.useQuery();
-  const { refetch: upgradesRefetch } = api.home.getAvailableUpgrades.useQuery();
   
   // Get user's items for storage functionality
   const { data: userItems, isLoading: isItemsLoading, refetch: userItemsRefetch } = api.item.getUserItems.useQuery();
@@ -365,9 +367,9 @@ export default function HomePage() {
                                 <Button 
                                   onClick={() => storeItem({ 
                                     itemId: item.id,
-                                    name: item.item?.name || "Unknown Item",
+                                    name: item.item?.name || `Item ${item.id}`,
                                     quantity: item.quantity,
-                                    itemType: item.item?.itemType || ""
+                                    itemType: item.item?.itemType || "UNKNOWN"
                                   })}
                                   disabled={isStoringItem || !canStoreMoreItems}
                                   size="sm"
