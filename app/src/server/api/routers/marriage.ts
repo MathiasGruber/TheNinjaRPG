@@ -14,7 +14,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import type { UserAssociation } from "@/drizzle/constants";
 import { nanoid } from "nanoid";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, inArray } from "drizzle-orm";
 const pusher = getServerPusher();
 
 export const marriageRouter = createTRPCRouter({
@@ -26,7 +26,7 @@ export const marriageRouter = createTRPCRouter({
       const [user, targetUser, userAssociations] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.userId),
-        fetchAssociations(ctx.drizzle, ctx.userId, "MARRIAGE"),
+        fetchAssociations(ctx.drizzle, ctx.userId, ["MARRIAGE"]),
       ]);
       // Guards
       if (
@@ -88,8 +88,8 @@ export const marriageRouter = createTRPCRouter({
         await Promise.all([
           fetchUser(ctx.drizzle, request.senderId),
           fetchUser(ctx.drizzle, request.receiverId),
-          fetchAssociations(ctx.drizzle, request.senderId, "MARRIAGE"),
-          fetchAssociations(ctx.drizzle, request.receiverId, "MARRIAGE"),
+          fetchAssociations(ctx.drizzle, request.senderId, ["MARRIAGE"]),
+          fetchAssociations(ctx.drizzle, request.receiverId, ["MARRIAGE"]),
         ]);
       // Guards
       if (ctx.userId !== request.receiverId) return errorResponse("Not your request");
@@ -124,7 +124,7 @@ export const marriageRouter = createTRPCRouter({
       const associations = await fetchAssociations(
         ctx.drizzle,
         input.id ?? ctx?.userId ?? "",
-        "MARRIAGE",
+        ["MARRIAGE"],
       );
       const marriedUsers = associations.map((x) =>
         x.userOne.userId !== (input.id ?? ctx?.userId) ? x.userOne : x.userTwo,
@@ -133,14 +133,17 @@ export const marriageRouter = createTRPCRouter({
       return marriedUsers;
     }),
   getDivorcedAssociations: protectedProcedure.query(async ({ ctx }) => {
-    return await fetchAssociations(ctx.drizzle, ctx.userId, "DIVORCED");
+    return await fetchAssociations(ctx.drizzle, ctx.userId, ["DIVORCED"]);
   }),
   divorce: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const associations = await fetchAssociations(ctx.drizzle, ctx.userId, "MARRIAGE");
+      const associations = await fetchAssociations(ctx.drizzle, ctx.userId, [
+        "MARRIAGE",
+        "DIVORCED",
+      ]);
       // Derived
       const marriage = associations.find(
         (x) =>
@@ -230,14 +233,14 @@ export const deleteAssociation = async (
 export const fetchAssociations = async (
   client: DrizzleClient,
   idOne?: string,
-  type?: UserAssociation,
+  types?: UserAssociation[],
 ) => {
   const results = await client.query.userAssociation.findMany({
     where: and(
       ...(idOne
         ? [or(eq(userAssociation.userOne, idOne), eq(userAssociation.userTwo, idOne))]
         : []),
-      ...(type ? [eq(userAssociation.associationType, type)] : []),
+      ...(types ? [inArray(userAssociation.associationType, types)] : []),
     ),
     with: {
       userOne: { columns: { username: true, userId: true, avatar: true } },

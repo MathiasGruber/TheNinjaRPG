@@ -160,16 +160,19 @@ export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
       case "JONIN":
         return "Higher Outlaw";
       case "ELITE JONIN":
-        return "Elite Outlaw";
+        return "Warlord";
       case "ELDER":
         return "Outlaw Council";
     }
+  } 
+  else if (user.rank === "ELITE JONIN"){
+    return "Elite Jonin";
   }
   return capitalizeFirstLetter(user.rank);
 };
 
 // Calculate user stats
-export const deduceActiveUserRegen = (
+export const calcActiveUserRegen = (
   user: UserData & {
     clan?: Clan | null;
     bloodline?: Bloodline | null;
@@ -210,6 +213,11 @@ export const deduceActiveUserRegen = (
   const setting = getGameSettingBoost("regenGainMultiplier", settings);
   const gameFactor = setting?.value || 1;
   regeneration *= gameFactor;
+
+  // Increase by wartime winnings
+  const warSetting = getGameSettingBoost(`war-${user.village?.id}-regen`, settings);
+  const warFactor = warSetting?.value || 0;
+  regeneration *= (100 + warFactor) / 100;
 
   return regeneration;
 };

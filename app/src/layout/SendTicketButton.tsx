@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import RichInput from "@/layout/RichInput";
@@ -22,7 +22,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { showMutationToast } from "@/libs/toast";
 import { SiDiscord } from "@icons-pack/react-simple-icons";
-import type { TicketType } from "@/validators/misc";
+import { type TicketType, TicketTypes } from "@/validators/misc";
 import ChatBox from "@/layout/ChatBox";
 import { Button } from "@/components/ui/button";
 import { useUserData } from "@/utils/UserContext";
@@ -37,6 +37,23 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
     "ticketType2",
     "ai_support",
   );
+
+  // Helper function to safely validate ticket types
+  const getValidTicketType = useCallback((value: any): TicketType => {
+    try {
+      if (typeof value === "string" && TicketTypes.includes(value as TicketType)) {
+        return value as TicketType;
+      }
+    } catch (error) {
+      console.error("Error validating ticket type:", error);
+    }
+    return "ai_support";
+  }, []);
+
+  // Ensure showActive is always a valid TicketType
+  const safeTicketType = useMemo(() => {
+    return getValidTicketType(showActive);
+  }, [showActive, getValidTicketType]);
 
   // Mutations
   const {
@@ -66,19 +83,73 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
 
   // Handling submit
   const onSubmit = createForm.handleSubmit((data) => {
-    create({ ...data, type: showActive });
+    try {
+      const validType = getValidTicketType(safeTicketType);
+      create({ ...data, type: validType });
+    } catch (error) {
+      console.error("Error in onSubmit:", error);
+      // Fallback to safe default
+      create({ ...data, type: "ai_support" });
+    }
   });
 
   // Handle tool calls from AI
-  const handleToolCall = (toolCall: any) => {
-    console.log("Tool call received:", toolCall);
-    // Implement specific tool call handling if needed
-  };
+  const handleToolCall = useCallback((toolCall: any) => {
+    try {
+      console.log("Tool call received:", toolCall);
+      // Implement specific tool call handling if needed
+      // Ensure we don't accidentally render the toolCall object
+      if (toolCall && typeof toolCall === "object") {
+        // Process the tool call but don't render it directly
+        return undefined;
+      }
+    } catch (error) {
+      console.error("Error in handleToolCall:", error);
+    }
+  }, []);
 
   // Handle tutorial reset
-  const handleTutorialReset = () => {
-    resetTutorial({ step: 0 });
-  };
+  const handleTutorialReset = useCallback(() => {
+    try {
+      resetTutorial({ step: 0 });
+    } catch (error) {
+      console.error("Error in handleTutorialReset:", error);
+    }
+  }, [resetTutorial]);
+
+  // Safe setter for showActive that validates the value
+  const setShowActiveSafe = useCallback(
+    (value: any) => {
+      try {
+        // Ensure the value is a string and is in the valid ticket types
+        if (typeof value === "string" && TicketTypes.includes(value as TicketType)) {
+          setShowActive(value as TicketType);
+        } else {
+          console.warn("Invalid ticket type received:", value, typeof value);
+          setShowActive("ai_support");
+        }
+      } catch (error) {
+        console.error("Error in setShowActiveSafe:", error);
+        setShowActive("ai_support");
+      }
+    },
+    [setShowActive],
+  );
+
+  // If chosen ticket type if not of available type, set to ai_support
+  useEffect(() => {
+    try {
+      if (!TicketTypes.includes(showActive)) {
+        setShowActive("ai_support");
+      }
+    } catch (error) {
+      console.error("Error in useEffect:", error);
+      setShowActive("ai_support");
+    }
+  }, [showActive, setShowActive]);
+
+  // Ensure defaultValue is always a valid string
+  const safeDefaultValue = safeTicketType;
 
   return (
     <Popover>
@@ -102,9 +173,9 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
         {!isSuccess && isPending && <Loader explanation="Sending ticket" />}
         {!isSuccess && !isPending && (
           <Tabs
-            defaultValue={showActive}
+            defaultValue={safeDefaultValue}
             className="flex flex-col items-center justify-center"
-            onValueChange={(value) => setShowActive(value as TicketType)}
+            onValueChange={setShowActiveSafe}
           >
             <TabsContent value="human_support" className="flex flex-col gap-2">
               <p className="font-bold text-lg">Get Human Help</p>

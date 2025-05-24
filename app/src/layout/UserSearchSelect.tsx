@@ -78,7 +78,9 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
     return () => clearTimeout(delayDebounceFn);
   }, [watchUsername, setSearchTerm]);
 
-  const selectedVisual = watchUsers.map((user) => (
+  const filteredUsers = watchUsers.filter((u) => u?.userId);
+
+  const selectedVisual = filteredUsers.map((user) => (
     <span
       key={user.userId}
       className="inline-flex items-center rounded-lg border border-amber-900 bg-gray-100 px-2 text-sm font-medium text-gray-800"
@@ -97,11 +99,13 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
         className="ml-2 h-6 w-6 rounded-full hover:bg-gray-300"
         onClick={(e) => {
           e.preventDefault();
-          const newSelected = getUnique(
-            watchUsers.filter((e) => e.userId !== user.userId),
-            "userId",
-          );
-          form.setValue("users", newSelected);
+          if (watchUsers && user.userId) {
+            const newSelected = getUnique(
+              filteredUsers.filter((e) => e.userId !== user.userId),
+              "userId",
+            );
+            form.setValue("users", newSelected);
+          }
         }}
       />
     </span>

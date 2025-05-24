@@ -17,9 +17,10 @@ const config = {
   experimental: {
     reactCompiler: true, // Fix user search, money sending, combat, search jutsu name
     nextScriptWorkers: true,
-    turbo: {
-      resolveExtensions: [".tsx", ".ts", ".jsx", ".js"],
-    },
+    optimizePackageImports: ["three"],
+  },
+  turbopack: {
+    resolveExtensions: [".tsx", ".ts", ".jsx", ".js"],
   },
   generateBuildId: () => process.env.VERCEL_GIT_COMMIT_SHA || "unknown",
   reactStrictMode: false,
@@ -64,15 +65,8 @@ const config = {
       },
     ];
   },
-  /* If trying out the experimental appDir, comment the i18n config out
-   * @see https://github.com/vercel/next.js/issues/41980 */
-  i18n: {
-    locales: ["en"],
-    defaultLocale: "en",
-  },
 };
 
-// TODO: Uncomment when sentry has turbopack support
 // export default withBundleAnalyzer(config);
 export default withSentryConfig(withBundleAnalyzer(config), {
   // For all available options, see:

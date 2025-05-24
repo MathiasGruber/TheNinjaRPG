@@ -4,11 +4,9 @@ import { parseHtml } from "@/utils/parse";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
-import StatusBar from "@/layout/StatusBar";
 import Loader from "@/layout/Loader";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import RichInput from "@/layout/RichInput";
 import {
   Tooltip,
@@ -17,22 +15,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { prettyNumber } from "@/utils/string";
 import { mutateContentSchema } from "@/validators/comments";
-import { CircleArrowUp, GitFork } from "lucide-react";
-import { Users, BrickWall, Bot, ReceiptJapaneseYen, Info } from "lucide-react";
-import { useRequiredUserData } from "@/utils/UserContext";
+import { DoorOpen, Pencil, MapPinHouse } from "lucide-react";
+import { Users, BrickWall, Bot, ReceiptJapaneseYen } from "lucide-react";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { calcStructureUpgrade } from "@/utils/village";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { hasRequiredRank } from "@/libs/train";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
-import { CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
-import { calcBankInterest } from "@/utils/village";
-import { cn } from "src/libs/shadui";
-import type { Village } from "@/drizzle/schema";
-import type { VillageStructure } from "@/drizzle/schema";
+import Building from "@/layout/Building";
+import { StructureRewardEntries } from "@/layout/Building";
 import type { MutateContentSchema } from "@/validators/comments";
 
 export default function VillageOverview() {
@@ -124,8 +118,17 @@ export default function VillageOverview() {
         subtitle={subtitle}
         topRightContent={
           <div className="flex flex-row items-center">
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-3 gap-1">
               <TooltipProvider delayDuration={50}>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <div className="flex flex-row">
+                      <MapPinHouse className="w-6 h-6 mr-2" />{" "}
+                      {data?.sectorCount || "?"}
+                    </div>
+                  </TooltipTrigger>
+                  {walls && <TooltipContent>Number of sectors owned</TooltipContent>}
+                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger>
                     <div className="flex flex-row">
@@ -135,19 +138,6 @@ export default function VillageOverview() {
                   {walls && (
                     <TooltipContent>{StructureRewardEntries(walls)}</TooltipContent>
                   )}
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Link href={href}>
-                      <div className="ml-3 flex flex-row hover:text-orange-500 hover:cursor-pointer">
-                        <Users className="w-6 h-6 mr-2" />{" "}
-                        {villageData?.populationCount}
-                      </div>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Total {userData?.isOutlaw ? "faction" : "village"} population
-                  </TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger>
@@ -163,25 +153,39 @@ export default function VillageOverview() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger>
-                    <div className="ml-3 flex flex-row">
+                    <Link href={href}>
+                      <div className="flex flex-row hover:text-orange-500 hover:cursor-pointer">
+                        <Users className="w-6 h-6 mr-2" />{" "}
+                        {prettyNumber(villageData?.populationCount ?? 0)}
+                      </div>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Total {userData?.isOutlaw ? "faction" : "village"} population
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <div className="flex flex-row">
                       <ReceiptJapaneseYen className="w-6 h-6 mr-2" />{" "}
-                      {villageData?.tokens}
+                      {prettyNumber(villageData?.tokens ?? 0)}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
                     Tokens earned through PvP and quests can be used to improve{" "}
-                    {userData?.isOutlaw ? "faction" : "village"}.
+                    {userData?.isOutlaw ? "faction" : "village"}. Current tokens:{" "}
+                    {villageData?.tokens.toLocaleString()}.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             {!userData.isOutlaw && canLeave && ownSector && (
-              <Confirm
+              <Confirm2
                 title="Leave Village"
                 proceed_label="Submit"
                 button={
-                  <Button className="w-14 h-12 p-0 ml-2">
-                    <GitFork className="h-6 w-6" />
+                  <Button className="ml-2">
+                    <DoorOpen className="h-6 w-6" />
                   </Button>
                 }
                 onAccept={() => leaveVillage()}
@@ -191,7 +195,7 @@ export default function VillageOverview() {
                 reset to 0. Please be aware that if you join another{" "}
                 {userData?.isOutlaw ? "faction" : "village"} your training benefits &
                 regen will be reduced for {VILLAGE_REDUCED_GAINS_DAYS} days.
-              </Confirm>
+              </Confirm2>
             )}
           </div>
         }
@@ -212,6 +216,7 @@ export default function VillageOverview() {
                   key={structure.id}
                   textPosition="bottom"
                   showBar
+                  showUpgrade
                 />
               </div>
             ))}
@@ -225,10 +230,14 @@ export default function VillageOverview() {
           initialBreak={true}
           topRightContent={
             isKage && (
-              <Confirm
+              <Confirm2
                 title="Update Notice"
                 proceed_label="Submit"
-                button={<Button id="create">Update</Button>}
+                button={
+                  <Button id="create">
+                    <Pencil className="h-6 w-6" />
+                  </Button>
+                }
                 onAccept={onSubmit}
               >
                 <RichInput
@@ -239,7 +248,7 @@ export default function VillageOverview() {
                   control={control}
                   error={errors.content?.message}
                 />
-              </Confirm>
+              </Confirm2>
             )
           }
         >
@@ -252,199 +261,3 @@ export default function VillageOverview() {
     </>
   );
 }
-
-interface BuildingProps {
-  structure: VillageStructure;
-  village: Village;
-  showBar?: boolean;
-  textPosition: "bottom" | "right";
-}
-
-const Building: React.FC<BuildingProps> = (props) => {
-  // Destructure
-  const { structure, village, showBar, textPosition } = props;
-
-  // State
-  const { data: userData } = useRequiredUserData();
-
-  // Blocks
-  const TextBlock = (
-    <div className="text-xs">
-      <p className="font-bold">{structure.name}</p>
-      <div className="flex flex-row items-center justify-center gap-1">
-        <p>Lvl. {structure.level}</p>{" "}
-        <TooltipProvider delayDuration={50}>
-          <Tooltip>
-            <TooltipTrigger>
-              <Info className="w-4 h-4" />
-            </TooltipTrigger>
-            <TooltipContent>{StructureRewardEntries(structure)}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        {userData && userData?.village?.kageId === userData?.userId && (
-          <UpgradeButton
-            structure={structure}
-            village={village}
-            clanId={userData.clanId}
-          />
-        )}
-      </div>
-    </div>
-  );
-  // Render
-  return (
-    <div className={`flex flex-col items-center justify-center text-center`}>
-      {showBar && (
-        <div className="w-2/3">
-          <StatusBar
-            title=""
-            tooltip="Health"
-            color="bg-red-500"
-            showText={false}
-            current={structure.curSp}
-            total={structure.maxSp}
-          />
-        </div>
-      )}
-      <div
-        className={`grid ${textPosition === "right" ? "grid-cols-2" : ""} items-center`}
-      >
-        <Link href={structure.route}>
-          <Image
-            className={`${structure.level > 0 ? "hover:opacity-80" : "opacity-30"}`}
-            src={structure.image}
-            alt={structure.name}
-            width={200}
-            height={200}
-            priority={true}
-            id={`tutorial${structure.route.replace("/", "-")}`}
-          />
-        </Link>
-        {TextBlock}
-      </div>
-    </div>
-  );
-};
-
-const UpgradeButton = ({
-  structure,
-  village,
-  clanId,
-}: {
-  structure: VillageStructure;
-  village: Village;
-  clanId: string | null;
-}) => {
-  const utils = api.useUtils();
-
-  const { data } = api.village.get.useQuery({ id: structure.villageId }, {});
-
-  const { mutate: purchase, isPending: isPurchasing } =
-    api.kage.upgradeStructure.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.village.get.invalidate();
-        }
-      },
-    });
-
-  const currentFunds = data?.villageData.tokens ?? 0;
-  const { cost, tax, discount, total } = calcStructureUpgrade(structure, {
-    ...village,
-    structures: data?.villageData.structures || [],
-  });
-  const canAfford = total <= currentFunds;
-  const canLevel = structure.level < structure.maxLevel && structure.level !== 0;
-
-  return (
-    <div>
-      {canAfford && canLevel && (
-        <Confirm
-          title="Upgrade Structure"
-          proceed_label="Upgrade"
-          onAccept={() =>
-            purchase({
-              structureId: structure.id,
-              villageId: structure.villageId,
-              clanId: clanId,
-            })
-          }
-          button={
-            <CircleArrowUp
-              className={cn(
-                "h-4 w-4 hover:text-orange-500 hover:cursor-pointer",
-                isPurchasing && "animate-spin",
-              )}
-            />
-          }
-        >
-          <p>
-            Upgrading this structure will cost a total of {total} village tokens (base
-            cost of {cost} + {tax} population tax - {discount} discounted from town hall
-            level).
-          </p>
-          <p>You currently have {currentFunds} village tokens.</p>
-        </Confirm>
-      )}
-    </div>
-  );
-};
-
-/**
- * Generates an array of reward messages based on the level of a village structure.
- * @param structure - The village structure object.
- * @returns An array of reward messages.
- */
-const StructureRewardEntries = (structure: VillageStructure) => {
-  const { level } = structure;
-  const msgs: string[] = [];
-  if (level > 0) {
-    if (structure.anbuSquadsPerLvl > 0) {
-      msgs.push(`Anbu Squads: +${structure.anbuSquadsPerLvl * level}`);
-    }
-    if (structure.arenaRewardPerLvl > 0) {
-      msgs.push(`Arena Rewards: +${structure.arenaRewardPerLvl * level}%`);
-    }
-    if (structure.bankInterestPerLvl > 0) {
-      msgs.push(
-        `Bank Interest: +${calcBankInterest(structure.bankInterestPerLvl * level)}%`,
-      );
-    }
-    if (structure.blackDiscountPerLvl > 0) {
-      msgs.push(`Market discount: ${structure.blackDiscountPerLvl * level}%`);
-    }
-    if (structure.clansPerLvl > 0) {
-      msgs.push(`Clans: +${structure.clansPerLvl * level * CLANS_PER_STRUCTURE_LEVEL}`);
-    }
-    if (structure.hospitalSpeedupPerLvl > 0) {
-      msgs.push(`Hospital Speed: +${structure.hospitalSpeedupPerLvl * level}%`);
-    }
-    if (structure.itemDiscountPerLvl > 0) {
-      msgs.push(`Item discount: ${structure.itemDiscountPerLvl * level}%`);
-    }
-    if (structure.patrolsPerLvl > 0) {
-      msgs.push(`Patrol attacking enemies: +${structure.patrolsPerLvl * level}%`);
-    }
-    if (structure.ramenDiscountPerLvl > 0) {
-      msgs.push(`Ramen discount: ${structure.ramenDiscountPerLvl * level}%`);
-    }
-    if (structure.regenIncreasePerLvl > 0) {
-      msgs.push(`Regen in Village: +${structure.regenIncreasePerLvl * level}%`);
-    }
-    if (structure.sleepRegenPerLvl > 0) {
-      msgs.push(`Sleep Regen: +${structure.sleepRegenPerLvl * level}%`);
-    }
-    if (structure.structureDiscountPerLvl > 0) {
-      msgs.push(`Structure Discount: ${structure.structureDiscountPerLvl * level}%`);
-    }
-    if (structure.trainBoostPerLvl > 0) {
-      msgs.push(`Training Boost: +${structure.trainBoostPerLvl * level}%`);
-    }
-    if (structure.villageDefencePerLvl > 0) {
-      msgs.push(`Village Defence: +${structure.villageDefencePerLvl * level}%`);
-    }
-  }
-  if (msgs.length === 0) msgs.push("No rewards for this structure");
-  return msgs.map((e, i) => <p key={i}>{e}</p>);
-};

@@ -263,7 +263,9 @@ export const battleHistory = mysqlTable(
   },
   (table) => {
     return {
+      createdAtIdx: index("BattleHistory_createdAt_idx").on(table.createdAt),
       battleIdIdx: index("BattleHistory_battleId_idx").on(table.battleId),
+      battleTypeIdx: index("BattleHistory_battleType_idx").on(table.battleType),
       battleWinnerIdx: index("BattleHistory_attackedId_idx").on(table.attackedId),
       battleLoserIdx: index("BattleHistory_defenderId_idx").on(table.defenderId),
     };
@@ -1393,6 +1395,7 @@ export const userData = mysqlTable(
     approvedTos: tinyint("approvedTos").default(0).notNull(),
     avatar: varchar("avatar", { length: 191 }),
     avatarLight: varchar("avatarLight", { length: 191 }),
+    avatar3d: varchar("avatar3d", { length: 191 }),
     sector: smallint("sector", { unsigned: true }).default(0).notNull(),
     longitude: tinyint("longitude").default(10).notNull(),
     latitude: tinyint("latitude").default(7).notNull(),
@@ -1883,6 +1886,31 @@ export const automatedModeration = mysqlTable(
   },
 );
 
+export const sector = mysqlTable(
+  "Sector",
+  {
+    id: int("id").autoincrement().primaryKey().notNull(),
+    sector: smallint("sector").notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      sectorKey: uniqueIndex("Sector_sector_key").on(table.sector),
+    };
+  },
+);
+
+export const sectorRelations = relations(sector, ({ one, many }) => ({
+  village: one(village, {
+    fields: [sector.villageId],
+    references: [village.id],
+  }),
+  wars: many(war, { relationName: "sectorWars" }),
+}));
+
 export const supportReview = mysqlTable("SupportReview", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   apiRoute: varchar("apiRoute", { length: 191 }).notNull(),
@@ -1936,6 +1964,8 @@ export const village = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     wallpaperOverwrite: varchar("wallpaperOverwrite", { length: 191 }),
+    warExhaustionEndedAt: datetime("warExhaustionEndedAt", { mode: "date", fsp: 3 }),
+    lastWarEndedAt: datetime("lastWarEndedAt", { mode: "date", fsp: 3 }),
   },
   (table) => {
     return {
@@ -1958,6 +1988,8 @@ export const villageRelations = relations(village, ({ many, one }) => ({
     fields: [village.id],
     references: [userNindo.userId],
   }),
+  declaredWars: many(war, { relationName: "attackerVillage" }),
+  receivedWars: many(war, { relationName: "defenderVillage" }),
 }));
 
 export const villageStructure = mysqlTable(
@@ -1978,6 +2010,7 @@ export const villageStructure = mysqlTable(
     baseCost: int("baseCost").default(10000).notNull(),
     level: int("level").default(1).notNull(),
     maxLevel: int("maxLevel").default(10).notNull(),
+    lastUpgradedAt: datetime("lastUpgradedAt", { mode: "date", fsp: 3 }),
     // Per level advantages
     anbuSquadsPerLvl: tinyint("anbuSquadsPerLvl").default(0).notNull(),
     arenaRewardPerLvl: tinyint("arenaRewardPerLvl").default(0).notNull(),
@@ -2378,6 +2411,8 @@ export const userRequest = mysqlTable(
     receiverId: varchar("receiverId", { length: 191 }).notNull(),
     status: mysqlEnum("status", consts.UserRequestStates).notNull(),
     type: mysqlEnum("type", consts.UserRequestTypes).notNull(),
+    value: int("value").default(0),
+    relatedId: varchar("relatedId", { length: 191 }),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -2537,6 +2572,134 @@ export const userVoteRelations = relations(userVote, ({ one }) => ({
   user: one(userData, {
     fields: [userVote.userId],
     references: [userData.userId],
+  }),
+}));
+
+// War System Tables
+export const war = mysqlTable("War", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  attackerVillageId: varchar("attackerVillageId", { length: 191 }).notNull(),
+  defenderVillageId: varchar("defenderVillageId", { length: 191 }).notNull(),
+  startedAt: datetime("startedAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
+  status: mysqlEnum("status", consts.WAR_STATES).notNull(),
+  type: mysqlEnum("type", consts.WAR_TYPES).notNull(),
+  sector: smallint("sector").default(0).notNull(),
+  shrineHp: smallint("shrineHp").default(consts.WAR_SHRINE_HP).notNull(),
+  dailyTokenReduction: int("dailyTokenReduction").default(1000).notNull(),
+  lastTokenReductionAt: datetime("lastTokenReductionAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  targetStructureRoute: varchar("targetStructureRoute", { length: 191 })
+    .default("/townhall")
+    .notNull(),
+});
+export type War = InferSelectModel<typeof war>;
+
+export const warRelations = relations(war, ({ one, many }) => ({
+  attackerVillage: one(village, {
+    fields: [war.attackerVillageId],
+    references: [village.id],
+    relationName: "attackerVillage",
+  }),
+  defenderVillage: one(village, {
+    fields: [war.defenderVillageId],
+    references: [village.id],
+    relationName: "defenderVillage",
+  }),
+  warAllies: many(warAlly),
+  sector: one(sector, {
+    fields: [war.sector],
+    references: [sector.sector],
+    relationName: "sectorWars",
+  }),
+}));
+
+export const warAlly = mysqlTable(
+  "WarAlly",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    warId: varchar("warId", { length: 191 }).notNull(),
+    villageId: varchar("villageId", { length: 191 }).notNull(),
+    supportVillageId: varchar("supportVillageId", { length: 191 }).notNull(),
+    tokensPaid: int("tokensPaid").notNull(),
+    joinedAt: datetime("joinedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      warIdIdx: index("WarAlly_warId_idx").on(table.warId),
+      villageIdIdx: index("WarAlly_villageId_idx").on(table.villageId),
+    };
+  },
+);
+export type WarAlly = InferSelectModel<typeof warAlly>;
+
+export const warAllyRelations = relations(warAlly, ({ one }) => ({
+  war: one(war, {
+    fields: [warAlly.warId],
+    references: [war.id],
+  }),
+  village: one(village, {
+    fields: [warAlly.villageId],
+    references: [village.id],
+  }),
+}));
+
+export const warKill = mysqlTable(
+  "WarKill",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    warId: varchar("warId", { length: 191 }).notNull(),
+    killerId: varchar("killerId", { length: 191 }).notNull(),
+    victimId: varchar("victimId", { length: 191 }).notNull(),
+    killerVillageId: varchar("killerVillageId", { length: 191 }).notNull(),
+    victimVillageId: varchar("victimVillageId", { length: 191 }).notNull(),
+    sector: smallint("sector").default(1337).notNull(),
+    shrineHpChange: smallint("shrineHpChange").default(1337).notNull(),
+    townhallHpChange: smallint("townhallHpChange").default(1337).notNull(),
+    killedAt: datetime("killedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      warIdIdx: index("WarKill_warId_idx").on(table.warId),
+      killerIdIdx: index("WarKill_killerId_idx").on(table.killerId),
+      victimIdIdx: index("WarKill_victimId_idx").on(table.victimId),
+      killerVillageIdIdx: index("WarKill_killerVillageId_idx").on(
+        table.killerVillageId,
+      ),
+      victimVillageIdIdx: index("WarKill_victimVillageId_idx").on(
+        table.victimVillageId,
+      ),
+    };
+  },
+);
+
+export const warKillRelations = relations(warKill, ({ one }) => ({
+  war: one(war, {
+    fields: [warKill.warId],
+    references: [war.id],
+  }),
+  killer: one(userData, {
+    fields: [warKill.killerId],
+    references: [userData.userId],
+  }),
+  victim: one(userData, {
+    fields: [warKill.victimId],
+    references: [userData.userId],
+  }),
+  killerVillage: one(village, {
+    fields: [warKill.killerVillageId],
+    references: [village.id],
+  }),
+  victimVillage: one(village, {
+    fields: [warKill.victimVillageId],
+    references: [village.id],
   }),
 }));
 

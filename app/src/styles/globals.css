@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@import "uploadthing/tw/v4";
+@source "../../node_modules/@uploadthing/react/dist";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -170,7 +173,7 @@
     --accent: 215 19% 35%;
     --accent-foreground: 215 19% 35%;
 
-    --destructive: 38 92% 50%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 215 16% 47%;
@@ -340,4 +343,16 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+::-webkit-scrollbar {
+  @apply w-5 h-2.5;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-border border-[1px] border-transparent border-solid bg-clip-padding;
 }

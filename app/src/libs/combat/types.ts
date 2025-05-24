@@ -8,11 +8,18 @@ import { MAX_STATS_CAP, MAX_GENS_CAP, USER_CAPS } from "@/drizzle/constants";
 import type { StatType, GeneralType, PoolType, ElementName } from "@/drizzle/constants";
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames, GenNames } from "@/libs/combat/constants";
-import type { Jutsu, Item, VillageAlliance, Clan } from "@/drizzle/schema";
+import type { Jutsu, Item, VillageAlliance, Clan, War } from "@/drizzle/schema";
 import type { UserJutsu, UserItem, UserData, AiProfile } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { BattleType } from "@/drizzle/constants";
+import type { WarAlly } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/routers/profile";
+
+export type BattleWar = War & {
+  warAllies: WarAlly[];
+  attackerVillage: { name: string } | null;
+  defenderVillage: { name: string } | null;
+};
 
 /**
  * BattleUserState is the data stored in the battle entry about a given user
@@ -22,10 +29,7 @@ export type BattleUserState = UserWithRelations & {
     jutsu: Jutsu;
     lastUsedRound: number;
   })[];
-  basicActions: {
-    id: string;
-    lastUsedRound: number;
-  }[];
+  basicActions: CombatAction[];
   items: (UserItem & {
     item: Item;
     lastUsedRound: number;
@@ -34,6 +38,7 @@ export type BattleUserState = UserWithRelations & {
   round: number;
   loadout?: { jutsuIds: string[] } | null;
   relations: VillageAlliance[];
+  wars: BattleWar[];
   highestOffence: (typeof StatNames)[number];
   highestDefence: (typeof StatNames)[number];
   highestGenerals: (typeof GenNames)[number][];
@@ -118,6 +123,10 @@ export type CombatResult = {
   friendsLeft: number;
   targetsLeft: number;
   villageTokens: number;
+  townhallChangeHP: number;
+  shrineChangeHp: number;
+  townhallInfo: Record<string, number>;
+  shrineInfo: Record<number, number>;
   clanPoints: number;
   notifications: string[];
 };
@@ -181,9 +190,11 @@ export type Consequence = {
   absorb_hp?: number;
   absorb_sp?: number;
   absorb_cp?: number;
-  drain?: number;
+  drain_hp?: number;
+  drain_cp?: number;
+  drain_sp?: number;
   poison?: number;
-  types?: (GeneralType | StatType | ElementName | PoolType)[];
+  types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
 
 /**
@@ -358,6 +369,7 @@ export const IncreaseStatTag = z.object({
   ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("increasestat").default("increasestat"),
+  direction: z.enum(["offence", "defence", "both"]).default("both"),
   description: msg("Increase stats of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
@@ -367,6 +379,7 @@ export const DecreaseStatTag = z.object({
   ...IncludeStats,
   ...PowerAttributes,
   type: z.literal("decreasestat").default("decreasestat"),
+  direction: z.enum(["offence", "defence", "both"]).default("both"),
   description: msg("Decrease stats of target"),
   calculation: z.enum(["static", "percentage"]).default("percentage"),
 });
@@ -530,10 +543,10 @@ export const DrainTag = z.object({
   ...PowerAttributes,
   ...PoolAttributes,
   type: z.literal("drain").default("drain"),
-  description: msg("Drain target's Chakra and Stamina over time"),
+  description: msg("Drain target's pools over time"),
   calculation: z.enum(["percentage"]).default("percentage"),
   rounds: z.coerce.number().int().min(1).max(10).default(3),
-  poolsAffected: z.array(z.enum(PoolTypes)).default(["Chakra", "Stamina"]),
+  poolsAffected: z.array(z.enum(PoolTypes)).default(["Chakra", "Stamina", "Health"]),
 });
 export type DrainTagType = z.infer<typeof DrainTag>;
 
@@ -558,6 +571,15 @@ export const ShieldTag = z.object({
   health: z.coerce.number().int().min(1).max(100000).default(100),
 });
 export type ShieldTagType = z.infer<typeof ShieldTag>;
+
+export const FinalStandTag = z.object({
+  ...BaseAttributes,
+  type: z.literal("finalstand").default("finalstand"),
+  description: msg("%user cannot be reduced below 1 HP"),
+  power: z.coerce.number().min(0).max(100).default(100),
+  powerPerLevel: z.coerce.number().min(0).max(1).default(0),
+});
+export type FinalStandTagType = z.infer<typeof FinalStandTag>;
 
 export const MoveTag = z.object({
   ...BaseAttributes,
@@ -770,6 +792,7 @@ export const AllTags = z.union([
   DecreaseStatTag.default({}),
   DrainTag.default({}),
   ElementalSealTag.default({}),
+  FinalStandTag.default({}),
   FleePreventTag.default({}),
   FleeTag.default({}),
   GroundTag.default({}),
@@ -965,7 +988,7 @@ export type UserEffect = BattleEffect & {
 export type ActionEffect = {
   txt: string;
   color: "red" | "green" | "blue" | "yellow" | "purple" | "orange" | "pink" | "gray";
-  types?: (GeneralType | StatType | ElementName | PoolType)[];
+  types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
 
 /**

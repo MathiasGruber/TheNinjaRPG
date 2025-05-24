@@ -548,6 +548,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   // Derived variables
   const showNextMatch =
     result?.outcome === "Won" && (battleType === "ARENA" || battleType === "TRAINING");
+  const showShrineAgain = result?.outcome === "Won" && battleType === "SHRINE_WAR";
   const showTravelBtn = battleType === "QUEST";
   const arenaOpponentId = battle.current?.usersState.find(
     (u) => u.userId !== suid && !u.isSummon && u.isAi,
@@ -661,16 +662,55 @@ const Combat: React.FC<CombatProps> = (props) => {
               {result.strength > 0 && <p>Strength: {result.strength.toFixed(2)}</p>}
               {result.willpower > 0 && <p>Willpower: {result.willpower.toFixed(2)}</p>}
               {result.speed > 0 && <p>Speed: {result.speed.toFixed(2)}</p>}
+              {Object.entries(result.townhallInfo).map(([villageName, change]) => {
+                const key = `${villageName}-${change}`;
+                if (change > 0) {
+                  return (
+                    <p key={key} className="text-green-500">
+                      {villageName} Structure HP: +{change.toFixed(2)}
+                    </p>
+                  );
+                } else if (change < 0) {
+                  return (
+                    <p key={key} className="text-red-500">
+                      {villageName} Structure HP: {change.toFixed(2)}
+                    </p>
+                  );
+                }
+              })}
+              {Object.entries(result.shrineInfo).map(([sectorId, change]) => {
+                const key = `sector-${sectorId}-${change}`;
+                if (change > 0) {
+                  return (
+                    <p key={key} className="text-green-500">
+                      Shrine HP in sector {sectorId}: +{change.toFixed(2)}
+                    </p>
+                  );
+                } else if (change < 0) {
+                  return (
+                    <p key={key} className="text-red-500">
+                      Shrine HP in sector {sectorId}: {change.toFixed(2)}
+                    </p>
+                  );
+                }
+              })}
             </div>
-            <div className="p-5 flex flex-row justify-center gap-2">
+            <div className="p-5 flex flex-row justify-center gap-2 ">
               <Link
                 href={toHospital ? "/hospital" : "/profile"}
-                className={`${showNextMatch || showTravelBtn ? "basis-1/2" : "basis-1/1"} w-full`}
+                className={`${showNextMatch || showTravelBtn || showShrineAgain ? "basis-1/2" : "basis-1/1"} w-full `}
               >
                 <Button id="return" className="w-full">
                   Return to {toHospital ? "Hospital" : "Profile"}
                 </Button>
               </Link>
+              {showShrineAgain && (
+                <Link href="/shrine" className="basis-1/2 w-full ">
+                  <Button id="return" className="w-full">
+                    Back to Shrine
+                  </Button>
+                </Link>
+              )}
               {showNextMatch && arenaOpponentId && (
                 <div>
                   <Button

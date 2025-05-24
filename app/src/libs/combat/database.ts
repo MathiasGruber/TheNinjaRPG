@@ -9,6 +9,9 @@ import {
   userItem,
   userJutsu,
   mpvpBattleQueue,
+  villageStructure,
+  warKill,
+  war,
 } from "@/drizzle/schema";
 import { kageDefendedChallenges, village, clan, anbuSquad } from "@/drizzle/schema";
 import { dataBattleAction } from "@/drizzle/schema";
@@ -18,9 +21,10 @@ import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
-import { KAGE_DEFAULT_PRESTIGE } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { calculateLPChange } from "./ranked";
+import { WAR_SHRINE_HP } from "@/drizzle/constants";
+import { findWarsWithUser } from "@/libs/war";
 import type { PusherClient } from "@/libs/pusher";
 import type { BattleTypes, BattleDataEntryType } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -199,10 +203,6 @@ export const updateKage = async (
               .where(eq(village.id, user.villageId)),
             client
               .update(userData)
-              .set({ villagePrestige: KAGE_DEFAULT_PRESTIGE })
-              .where(eq(userData.userId, user.userId)),
-            client
-              .update(userData)
               .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
               .where(eq(userData.userId, user?.village?.kageId ?? "")),
           ]
@@ -268,6 +268,100 @@ export const updateClanLeaders = async (
         ),
       ),
   ]);
+};
+
+export const updateWars = async (
+  client: DrizzleClient,
+  curBattle: CompleteBattle,
+  result: CombatResult | null,
+  userId: string,
+) => {
+  // Fetch user
+  const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
+  const userVillageId = user?.villageId;
+  // Guard
+  if (!user) return;
+  if (!user.villageId) return;
+  if (!result) return;
+  // Fetch target with whom the user is in a war
+  const warResults = curBattle.usersState
+    .filter((t) => t.userId !== userId)
+    .filter((t) => !t.isSummon)
+    .filter((t) => findWarsWithUser(t.wars, user.wars, t.villageId, userVillageId))
+    .map((target) => {
+      return {
+        target,
+        wars: findWarsWithUser(target.wars, user.wars, target.villageId, userVillageId),
+      };
+    });
+
+  // Mutate
+  await Promise.all(
+    warResults
+      .map((warResult) => {
+        return warResult.wars
+          .map((w) => {
+            const townhallVillageId =
+              w.attackerVillageId === user.villageId ||
+              w.warAllies.some(
+                (a) =>
+                  a.villageId === user.villageId &&
+                  a.supportVillageId === w.attackerVillageId,
+              )
+                ? w.attackerVillageId
+                : w.defenderVillageId;
+            return [
+              // Insert war kill for tracking purposes
+              ...(result.didWin
+                ? [
+                    client.insert(warKill).values({
+                      id: nanoid(),
+                      warId: w.id,
+                      killerId: user.userId,
+                      victimId: warResult.target.userId,
+                      killerVillageId: user.villageId || "unknown",
+                      victimVillageId: warResult.target.villageId || "unknonwn",
+                      sector: user.sector,
+                      shrineHpChange: result.shrineChangeHp,
+                      townhallHpChange: result.townhallChangeHP,
+                      killedAt: new Date(),
+                    }),
+                  ]
+                : []),
+              // Update shrine if we're in a sector war
+              ...(result.shrineChangeHp !== 0 && w.type === "SECTOR_WAR"
+                ? [
+                    client
+                      .update(war)
+                      .set({
+                        shrineHp: sql`GREATEST(LEAST(shrineHp + ${result.shrineChangeHp}, ${WAR_SHRINE_HP}), 0)`,
+                      })
+                      .where(eq(war.id, w.id)),
+                  ]
+                : []),
+              // Update townhall if we're in a village war
+              ...(result.townhallChangeHP !== 0 &&
+              ["VILLAGE_WAR", "FACTION_RAID"].includes(w.type)
+                ? [
+                    client
+                      .update(villageStructure)
+                      .set({
+                        curSp: sql`LEAST(maxSp, curSp + ${result.townhallChangeHP})`,
+                      })
+                      .where(
+                        and(
+                          eq(villageStructure.villageId, townhallVillageId),
+                          eq(villageStructure.route, w.targetStructureRoute),
+                        ),
+                      ),
+                  ]
+                : []),
+            ];
+          })
+          .flat();
+      })
+      .flat(),
+  );
 };
 
 export const updateTournament = async (

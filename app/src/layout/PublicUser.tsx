@@ -49,6 +49,8 @@ import {
   Trash2,
   Plus,
   PersonStanding,
+  MessageCircle,
+  IdCard,
 } from "lucide-react";
 import { updateUserSchema } from "@/validators/user";
 import { canChangeUserRole } from "@/utils/permissions";
@@ -81,6 +83,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Jutsu } from "@/drizzle/schema";
+import { NewConversationPrompt } from "@/app/inbox/page";
 
 interface PublicUserComponentProps {
   userId: string;
@@ -237,6 +240,15 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     },
   });
 
+  const updateUserId = api.staff.updateUserId.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+      }
+    },
+  });
+
   const unstuckUser = api.staff.forceAwake.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -339,9 +351,31 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         topRightContent={
           <div className="flex flex-row gap-1">
             {userData?.username === "Terriator" && (
-              <CopyCheck
-                className="h-6 w-6 cursor-pointer hover:text-orange-500"
-                onClick={() => cloneUser.mutate({ userId: profile.userId })}
+              <>
+                <CopyCheck
+                  className="h-6 w-6 cursor-pointer hover:text-orange-500"
+                  onClick={() => cloneUser.mutate({ userId: profile.userId })}
+                />
+                <UpdateUserIdButton
+                  userId={profile.userId}
+                  username={profile.username}
+                  updateUserIdMutation={updateUserId}
+                />
+              </>
+            )}
+            {userData && !userData.isBanned && !userData.isSilenced && (
+              <NewConversationPrompt
+                newButton={
+                  <MessageCircle className="h-6 w-6 cursor-pointer hover:text-orange-500" />
+                }
+                preSelectedUser={{
+                  userId: profile.userId,
+                  username: profile.username,
+                  rank: profile.rank,
+                  level: profile.level,
+                  avatar: profile.avatar,
+                  federalStatus: profile.federalStatus,
+                }}
               />
             )}
             {availableRoles &&
@@ -784,7 +818,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             <TabsContent value="nindo">
               <ContentBox
                 title="Nindo"
-                subtitle={`${profile.username}&apos;s Ninja Way`}
+                subtitle={`${profile.username}'s Ninja Way`}
                 initialBreak={true}
                 topRightContent={
                   <div className="flex flex-row gap-1">
@@ -919,10 +953,38 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
   // State
   const [jutsu, setJutsu] = useState<Jutsu | undefined>(undefined);
   const [showActive, setShowActive] = useState<string>("userData");
+  const [selectedQuestType, setSelectedQuestType] = useState<string>("all");
   const now = new Date();
 
   // tRPC utility
   const utils = api.useUtils();
+
+  // Queries
+  const { data: userQuests } = api.quests.getUserQuests.useQuery(
+    { userId: userId },
+    { enabled: !!userId },
+  );
+
+  // Get unique quest types
+  const questTypes = userQuests
+    ? Array.from(new Set(userQuests.map((q) => q.quest.questType).filter(Boolean)))
+    : [];
+
+  // Filter quests by type
+  const filteredQuests = userQuests?.filter(
+    (quest) =>
+      selectedQuestType === "all" || quest.quest.questType === selectedQuestType,
+  );
+
+  // Mutations
+  const deleteUserQuest = api.quests.deleteUserQuest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.quests.getUserQuests.invalidate();
+      }
+    },
+  });
 
   // Form handling
   const { form, formData, userJutsus, handleUserSubmit } = useUserEditForm(
@@ -983,6 +1045,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
         <TabsList className="text-center mt-3">
           <TabsTrigger value="userData">Main Data</TabsTrigger>
           {hasJutsus && <TabsTrigger value="jutsus">Jutsus Specifics</TabsTrigger>}
+          <TabsTrigger value="quests">Quests</TabsTrigger>
         </TabsList>
         <TabsContent value="userData">
           <EditContent
@@ -1068,7 +1131,133 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
             )}
           </TabsContent>
         )}
+        <TabsContent value="quests">
+          <div className="mt-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">User Quests</h3>
+              {questTypes.length > 0 && (
+                <select
+                  className="bg-card text-foreground border border-border rounded-md px-3 py-1"
+                  value={selectedQuestType}
+                  onChange={(e) => setSelectedQuestType(e.target.value)}
+                >
+                  <option value="all">All Quest Types</option>
+                  {questTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {filteredQuests && filteredQuests.length > 0 ? (
+              <div className="space-y-2">
+                {filteredQuests.map((userQuest) => (
+                  <div
+                    key={userQuest.id}
+                    className="flex items-center justify-between p-3 border-2 border-border rounded-lg bg-card"
+                  >
+                    <div>
+                      <h4 className="font-semibold text-foreground">
+                        {userQuest.quest.name}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        Started: {userQuest.startedAt.toLocaleString()}
+                        {userQuest.endAt &&
+                          ` • Completed: ${userQuest.endAt.toLocaleString()}`}
+                      </p>
+                      {userQuest.quest.questType && (
+                        <p className="text-sm text-muted-foreground">
+                          Type: {userQuest.quest.questType}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (
+                          confirm("Are you sure you want to delete this quest record?")
+                        ) {
+                          deleteUserQuest.mutate({
+                            userId: userId,
+                            questId: userQuest.quest.id,
+                          });
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground">
+                No quests found for this user.
+              </p>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
+    </Confirm>
+  );
+};
+
+interface UpdateUserIdButtonProps {
+  userId: string;
+  username: string;
+  updateUserIdMutation: ReturnType<typeof api.staff.updateUserId.useMutation>;
+}
+
+const UpdateUserIdButton: React.FC<UpdateUserIdButtonProps> = ({
+  userId,
+  username,
+  updateUserIdMutation,
+}) => {
+  // Create form with zod schema
+  const userIdForm = useForm<{ newUserId: string }>({
+    defaultValues: {
+      newUserId: userId,
+    },
+  });
+
+  // Handle form submission
+  const handleUpdateUserId = userIdForm.handleSubmit((data) => {
+    updateUserIdMutation.mutate({
+      userId: userId,
+      newUserId: data.newUserId,
+    });
+  });
+
+  return (
+    <Confirm
+      title="Update User ID"
+      proceed_label="Update"
+      button={<IdCard className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
+      onAccept={handleUpdateUserId}
+      isValid={userIdForm.formState.isValid}
+    >
+      <Form {...userIdForm}>
+        <form className="space-y-4">
+          <p>
+            This will update the user ID for {username}. This action cannot be undone
+            and may affect database relationships.
+          </p>
+          <FormField
+            control={userIdForm.control}
+            name="newUserId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>New User ID</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </form>
+      </Form>
     </Confirm>
   );
 };

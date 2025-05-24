@@ -214,7 +214,7 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
       case "ELDER":
         return 7 + 2;
       case "ELITE JONIN":
-        return 8 + 2;
+        return 7 + 2;
     }
     return 4 + 2;
   };
@@ -330,10 +330,16 @@ export const energyPerSecond = (speed: TrainingSpeed) => {
 };
 
 // Jutsu experience gain based on battle type
-export const battleJutsuExp = (battleType: BattleType, experienceGain: number, userData: UserData) => {
+export const battleJutsuExp = (
+  battleType: BattleType,
+  experienceGain: number,
+  userData: UserData,
+) => {
   switch (battleType) {
     case "COMBAT":
-      return experienceGain * (1 + (userData.pvpStreak * 0.05));
+      return experienceGain * (1 + userData.pvpStreak * 0.05);
+    case "SHRINE_WAR":
+      return experienceGain * (1 + userData.pvpStreak * 0.05);
     case "ARENA":
       return experienceGain * 0.5;
     case "QUEST":

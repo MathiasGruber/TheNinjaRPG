@@ -41,6 +41,7 @@ import { getServerPusher } from "@/libs/pusher";
 import type { DrizzleClient } from "@/server/db";
 import { secondsFromDate, secondsPassed } from "@/utils/time";
 import { fetchClan } from "@/routers/clan";
+import { fetchActiveWars } from "@/routers/war";
 
 const pusher = getServerPusher();
 
@@ -56,24 +57,27 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, kage, elders, recent, village, previous] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchUser(ctx.drizzle, input.kageId),
-        fetchElders(ctx.drizzle, input.villageId),
-        fetchRequests(ctx.drizzle, ["KAGE"], KAGE_CHALLENGE_SECS, ctx.userId),
-        fetchVillage(ctx.drizzle, input.villageId),
-        ctx.drizzle
-          .select({ count: sql<number>`count(*)`.mapWith(Number) })
-          .from(kageDefendedChallenges)
-          .where(
-            and(
-              eq(kageDefendedChallenges.villageId, input.villageId),
-              eq(kageDefendedChallenges.userId, ctx.userId),
-              gte(kageDefendedChallenges.createdAt, sql`NOW() - INTERVAL 1 DAY`),
+      const [user, kage, elders, recent, village, previous, activeWars] =
+        await Promise.all([
+          fetchUser(ctx.drizzle, ctx.userId),
+          fetchUser(ctx.drizzle, input.kageId),
+          fetchElders(ctx.drizzle, input.villageId),
+          fetchRequests(ctx.drizzle, ["KAGE"], KAGE_CHALLENGE_SECS, ctx.userId),
+          fetchVillage(ctx.drizzle, input.villageId),
+          ctx.drizzle
+            .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .from(kageDefendedChallenges)
+            .where(
+              and(
+                eq(kageDefendedChallenges.villageId, input.villageId),
+                eq(kageDefendedChallenges.userId, ctx.userId),
+                gte(kageDefendedChallenges.createdAt, sql`NOW() - INTERVAL 1 DAY`),
+              ),
             ),
-          ),
-      ]);
+          fetchActiveWars(ctx.drizzle, input.villageId),
+        ]);
       const previousCount = previous?.[0]?.count ?? 0;
+      const activeVillageWars = activeWars?.filter((w) => w.type === "VILLAGE_WAR");
       // Guard
       if (!village) return errorResponse("Village not found");
       if (!canChallengeKage(user)) return errorResponse("Not eligible to challenge");
@@ -85,6 +89,9 @@ export const kageRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("User is not awake");
       if (recent.length > 0) {
         return errorResponse(`Max 1 challenge per ${KAGE_CHALLENGE_SECS} seconds`);
+      }
+      if (activeVillageWars && activeVillageWars.length > 0) {
+        return errorResponse("Cannot challenge kage while village is at war");
       }
       // Mutate
       await Promise.all([
@@ -113,12 +120,16 @@ export const kageRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
-      // Fetch
-      const [challenge, user] = await Promise.all([
-        fetchRequest(ctx.drizzle, input.id, "KAGE"),
+      // Fetch village and war data
+      const [user, challenge] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
+        fetchRequest(ctx.drizzle, input.id, "KAGE"),
       ]);
-      const village = await fetchVillage(ctx.drizzle, user.villageId || "");
+      const [village, activeWars] = await Promise.all([
+        fetchVillage(ctx.drizzle, user.villageId || ""),
+        fetchActiveWars(ctx.drizzle, user.villageId || ""),
+      ]);
+      const activeVillageWars = activeWars?.filter((w) => w.type === "VILLAGE_WAR");
       // Guards
       if (!village) return errorResponse("Village not found");
       if (village.kageId !== user.userId) return errorResponse("Not kage");
@@ -127,6 +138,9 @@ export const kageRouter = createTRPCRouter({
       }
       if (challenge.status !== "PENDING") {
         return errorResponse("Challenge not pending");
+      }
+      if (activeVillageWars && activeVillageWars.length > 0) {
+        return errorResponse("Cannot accept challenge while village is at war");
       }
       // Mutate
       const result = await initiateBattle(
@@ -276,6 +290,7 @@ export const kageRouter = createTRPCRouter({
           where: and(
             eq(actionLog.userId, ctx.userId),
             eq(actionLog.relatedId, input.kageId),
+            gte(actionLog.createdAt, sql`NOW() - INTERVAL 1 DAY`),
           ),
         }),
       ]);

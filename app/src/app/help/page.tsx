@@ -10,14 +10,14 @@ export default function BugReport() {
     </Link>
   );
   const link_github = (
-    <Link className="font-bold" href="https://github.com/MathiasGruber/TheNinjaRPG">
+    <Link className="font-bold" href="https://github.com/studie-tech/TheNinjaRPG">
       GitHub
     </Link>
   );
   const link_issues = (
     <Link
       className="font-bold"
-      href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+      href="https://github.com/studie-tech/TheNinjaRPG/issues"
     >
       GitHub Issues
     </Link>
@@ -43,7 +43,7 @@ export default function BugReport() {
             <p>Go to Discord</p>
           </Link>
           <Link
-            href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+            href="https://github.com/studie-tech/TheNinjaRPG/issues"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
             <SiGithub className="text-black dark:text-white" size={100} />
@@ -92,7 +92,7 @@ export default function BugReport() {
         </p>
         <div className="flex flex-row justify-center p-5">
           <Link
-            href="https://github.com/MathiasGruber/TheNinjaRPG"
+            href="https://github.com/studie-tech/TheNinjaRPG"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
             <SiGithub className="text-black dark:text-white" size={100} />

@@ -152,7 +152,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         <SideBannerTitle>Participate</SideBannerTitle>
         <div className="flex flex-row gap-4 pt-3">
           <Link
-            href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+            href="https://github.com/studie-tech/TheNinjaRPG/issues"
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
             <SiGithub
@@ -255,7 +255,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
       <div className="pl-2 pt-6 flex align-center justify-center">
         <iframe
-          src="https://ghbtns.com/github-btn.html?user=MathiasGruber&repo=TheNinjaRPG&type=star&count=true"
+          src="https://ghbtns.com/github-btn.html?user=studie-tech&repo=TheNinjaRPG&type=star&count=true"
           width="90"
           height="20"
           title="GitHub"
@@ -506,7 +506,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
                   alt="rightbottomdecor"
                   loading="lazy"
                 ></Image>
-                <div className="absolute top-4 left-0 right-0 hidden md:block">
+                <div className="absolute top-2 left-0 right-0 hidden md:block">
                   <Footer />
                 </div>
                 {userData ? (

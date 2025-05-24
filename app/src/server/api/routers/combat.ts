@@ -25,11 +25,12 @@ import {
   updateKage,
   updateClanLeaders,
   updateTournament,
+  updateWars,
 } from "@/libs/combat/database";
 import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
-import { userData, questHistory, quest, gameSetting, rankedPvpQueue } from "@/drizzle/schema";
-import { battle, battleAction, battleHistory } from "@/drizzle/schema";
+import { userData, questHistory, quest, gameSetting } from "@/drizzle/schema";
+import { battle, battleAction, battleHistory, war } from "@/drizzle/schema";
 import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
@@ -46,7 +47,7 @@ import { canAccessStructure } from "@/utils/village";
 import { fetchSectorVillage } from "@/routers/village";
 import { fetchAiProfileById } from "@/routers/ai";
 import { getBattleGrid } from "@/libs/combat/util";
-import { BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
+import { BATTLE_ARENA_DAILY_LIMIT, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { BattleTypes } from "@/drizzle/constants";
 import { PvpBattleTypes } from "@/drizzle/constants";
 import { backgroundSchema } from "@/drizzle/schema";
@@ -206,7 +207,10 @@ export const combatRouter = createTRPCRouter({
 
           // Update user
           if (result) {
-            await updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId);
+            await Promise.all([
+              updateUser(ctx.drizzle, pusher, userBattle, result, ctx.userId),
+              updateWars(ctx.drizzle, userBattle, result, ctx.userId),
+            ]);
           }
 
           // Hide private state of non-session user
@@ -234,11 +238,13 @@ export const combatRouter = createTRPCRouter({
         battleId: z.string(),
         refreshKey: z.number().optional(),
         checkBattle: z.boolean().optional(),
+        limit: z.number().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 30;
       const entries = await ctx.drizzle.query.battleAction.findMany({
-        limit: 30,
+        limit: limit,
         where: eq(battleAction.battleId, input.battleId),
         orderBy: [desc(battleAction.createdAt)],
       });
@@ -519,6 +525,7 @@ export const combatRouter = createTRPCRouter({
               updateKage(db, newBattle, result, suid),
               updateClanLeaders(db, newBattle, result, suid),
               updateVillageAnbuClan(db, newBattle, result, suid),
+              updateWars(db, newBattle, result, suid),
               updateTournament(db, newBattle, result, suid),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
@@ -942,6 +949,50 @@ export const combatRouter = createTRPCRouter({
       }
 
       return { success: true, message: "Checked for matches" };
+
+  startShrineBattle: protectedProcedure
+    .use(ratelimitMiddleware)
+    .use(hasUserMiddleware)
+    .input(z.object({ sector: z.number().int() }))
+    .output(baseServerResponse.extend({ battleId: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      // Get information
+      const [{ user }, warData] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        ctx.drizzle.query.war.findMany({
+          where: and(
+            eq(war.sector, input.sector),
+            eq(war.status, "ACTIVE"),
+            eq(war.defenderVillageId, VILLAGE_SYNDICATE_ID),
+          ),
+        }),
+      ]);
+
+      // Get the war the user is involved with
+      const userWar = warData.find((w) => w.attackerVillageId === user?.villageId);
+
+      // Check that user was found
+      if (!user) return errorResponse("User not found");
+      if (user.isBanned) return errorResponse("Cannot attack shrine while banned");
+      if (user.sector !== input.sector)
+        return errorResponse("Not in the correct sector");
+      if (!userWar)
+        return errorResponse("You are not in an AI shrine war in this sector");
+
+      // Return battle
+      return await initiateBattle(
+        {
+          sector: input.sector,
+          userIds: [user.userId],
+          targetIds: ["MJMzOE67Cx2YP3NX8SAbh"],
+          client: ctx.drizzle,
+          asset: "arena",
+        },
+        "SHRINE_WAR",
+      );
     }),
 });
 
@@ -1000,12 +1051,14 @@ export const initiateBattle = async (
   const [
     activeSchema,
     defaultProfile,
+    activeWars,
     assets,
     settings,
     villages,
     relations,
     achievements,
     users,
+    previousBattleResults,
   ] = await Promise.all([
     // Conditionally Fetch background schema
     client.query.backgroundSchema.findFirst({
@@ -1013,6 +1066,15 @@ export const initiateBattle = async (
     }),
     // Fetch default AI profile
     fetchAiProfileById(client, "Default"),
+    // Fetch active wars
+    client.query.war.findMany({
+      where: eq(war.status, "ACTIVE"),
+      with: {
+        warAllies: true,
+        attackerVillage: { columns: { name: true } },
+        defenderVillage: { columns: { name: true } },
+      },
+    }),
     // Fetch game assets
     fetchGameAssets(client),
     // Fetch game settings
@@ -1059,6 +1121,28 @@ export const initiateBattle = async (
       },
       where: or(inArray(userData.userId, userIds), inArray(userData.userId, targetIds)),
     }),
+    ...(PvpBattleTypes.includes(battleType)
+      ? [
+          client
+            .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .from(battleHistory)
+            .where(
+              and(
+                or(
+                  and(
+                    inArray(battleHistory.attackedId, userIds),
+                    inArray(battleHistory.defenderId, targetIds),
+                  ),
+                  and(
+                    inArray(battleHistory.attackedId, userIds),
+                    inArray(battleHistory.defenderId, targetIds),
+                  ),
+                ),
+                gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
+              ),
+            ),
+        ]
+      : []),
   ]);
 
   const background = getBackground(info.asset, activeSchema?.schema);
@@ -1139,26 +1223,8 @@ export const initiateBattle = async (
 
   // Get previous battles between these two users within last 60min
   let rewardScaling = (scaleGains * users.length) / 2;
-  if (PvpBattleTypes.includes(battleType)) {
-    const results = await client
-      .select({ count: sql<number>`count(*)`.mapWith(Number) })
-      .from(battleHistory)
-      .where(
-        and(
-          or(
-            and(
-              inArray(battleHistory.attackedId, userIds),
-              inArray(battleHistory.defenderId, targetIds),
-            ),
-            and(
-              inArray(battleHistory.attackedId, userIds),
-              inArray(battleHistory.defenderId, targetIds),
-            ),
-          ),
-          gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
-        ),
-      );
-    const previousBattles = results?.[0]?.count || 0;
+  if (PvpBattleTypes.includes(battleType) && previousBattleResults) {
+    const previousBattles = previousBattleResults?.[0]?.count || 0;
     if (previousBattles > 0) {
       rewardScaling = rewardScaling / (previousBattles + 1);
     }
@@ -1169,6 +1235,7 @@ export const initiateBattle = async (
     users: users as BattleUserState[],
     settings: settings,
     relations: relations,
+    wars: activeWars,
     villages: villages,
     defaultProfile: defaultProfile,
     battleType: battleType,
@@ -1214,6 +1281,7 @@ export const initiateBattle = async (
         users: summons as BattleUserState[],
         settings: settings,
         relations: relations,
+        wars: activeWars,
         villages: villages,
         defaultProfile: defaultProfile,
         battleType: battleType,

@@ -30,6 +30,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { createConversationSchema } from "@/validators/comments";
 import { type CreateConversationSchema } from "@/validators/comments";
 import { getSearchValidator } from "@/validators/register";
+import type { FederalStatus } from "@/drizzle/schema";
 
 export default function Inbox() {
   const { data: userData } = useRequiredUserData();
@@ -38,7 +39,15 @@ export default function Inbox() {
 
   const topRightContent = (
     <div className="flex flex-row gap-1">
-      <NewConversationPrompt setSelectedConvo={setSelectedConvo} />
+      <NewConversationPrompt
+        setSelectedConvo={setSelectedConvo}
+        newButton={
+          <Button id="conversation">
+            <SquarePen className="mr-2 h-5 w-5" />
+            New
+          </Button>
+        }
+      />
       <Popover>
         <PopoverTrigger asChild>
           <Button id="filter-bloodline">
@@ -204,21 +213,36 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
 /**
  * Component for creating a new conversation
  */
-interface NewConversationPromptProps {
-  setSelectedConvo: React.Dispatch<React.SetStateAction<string | null>>;
+export interface NewConversationPromptProps {
+  setSelectedConvo?: React.Dispatch<React.SetStateAction<string | null>>;
+  preSelectedUser?: {
+    userId: string;
+    username: string;
+    rank: string;
+    level: number;
+    avatar?: string | null;
+    federalStatus: FederalStatus;
+  };
+  newButton: React.ReactNode;
 }
 
-const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
+export const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
   const { data: userData } = useRequiredUserData();
   const maxUsers = 5;
 
   const create = useForm<CreateConversationSchema>({
     resolver: zodResolver(createConversationSchema),
+    defaultValues: {
+      users: props.preSelectedUser?.userId ? [props.preSelectedUser?.userId] : [],
+    },
   });
 
   const userSearchSchema = getSearchValidator({ max: maxUsers });
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
+    defaultValues: {
+      users: [props.preSelectedUser],
+    },
   });
 
   const users = useWatch({
@@ -238,12 +262,13 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
   const createConversation = api.comments.createConversation.useMutation({
     onSuccess: (data) => {
       create.reset();
-      props.setSelectedConvo(data.conversationId);
+      props.setSelectedConvo?.(data.conversationId);
     },
   });
 
   const onSubmit = create.handleSubmit(
     (data) => {
+      console.log(data);
       createConversation.mutate(data);
     },
     (error) => console.error(error),
@@ -263,12 +288,7 @@ const NewConversationPrompt: React.FC<NewConversationPromptProps> = (props) => {
           title="Create a new conversation"
           proceed_label="Submit"
           isValid={create.formState.isValid}
-          button={
-            <Button id="conversation">
-              <SquarePen className="mr-2 h-5 w-5" />
-              New
-            </Button>
-          }
+          button={props.newButton}
           onAccept={onSubmit}
         >
           <Form {...create}>

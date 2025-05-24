@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { createAppTRPCContext } from "@/api/trpc";
 import type { NextRequest } from "next/server";
 import { appRouter } from "@/api/root";
+import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,7 @@ const handler = async (req: NextRequest) => {
         console.error(
           `❌ tRPC failed with ${error.code} on ${path ?? "<no-path>"}. Message: ${error.message}. Input: ${JSON.stringify(input)}. Stack: ${error.stack}`,
         );
+        Sentry.captureException(error);
       }
     },
   });

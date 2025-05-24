@@ -16,7 +16,7 @@ import { trainingSpeedSeconds } from "@/libs/train";
 import { useUserData } from "@/utils/UserContext";
 import { groupBy } from "@/utils/grouping";
 import { ShieldCheck, Swords, Moon, Sun, Dumbbell, Star } from "lucide-react";
-import { LayoutList } from "lucide-react";
+import { LayoutList, Atom } from "lucide-react";
 import { sealCheck } from "@/libs/combat/tags";
 import { isEffectActive } from "@/libs/combat/util";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
@@ -39,6 +39,8 @@ import {
 import type { GeneralType, StatType, ElementName } from "@/drizzle/constants";
 import type { UserStatuses } from "@/drizzle/constants";
 import type { UserEffect } from "@/libs/combat/types";
+import { api } from "@/app/_trpc/client";
+import { useFiltering, getFilter } from "@/layout/JutsuFiltering";
 
 /**
  * Social media links
@@ -87,6 +89,16 @@ const MenuBoxProfile: React.FC = () => {
   const [, setState] = useState<number>(0);
   const [gameTime, setGameTime] = useState<string>(getGameTime());
   const battle = useAtomValue(userBattleAtom);
+  const utils = api.useUtils();
+  const state = useFiltering();
+
+  // Get user's jutsus
+  const { data: userJutsus } = api.jutsu.getUserJutsus.useQuery(getFilter(state), {
+    enabled: !!userData,
+  });
+  const trainingJutsu = userJutsus?.find(
+    (j) => j.finishTraining && j.finishTraining > new Date(),
+  );
 
   // Update the gameTime with the UTC HH:MM:SS timestring every second
   useEffect(() => {
@@ -142,8 +154,10 @@ const MenuBoxProfile: React.FC = () => {
     }
   };
 
-  const expRequired = userData && calcLevelRequirements(userData.level);
-  const expCurrent = userData && Math.min(userData.experience, expRequired ?? 0);
+  const expRequired = userData && calcLevelRequirements(userData.level - 1);
+  const expForNextLevel = userData && calcLevelRequirements(userData.level);
+  const expTowardsNextLevel = userData && Math.max(0, userData.experience - (expRequired ?? 0));
+  const expNeededForNextLevel = userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
 
   return (
     <>
@@ -198,7 +212,7 @@ const MenuBoxProfile: React.FC = () => {
               total={battleUser?.maxStamina || userData?.maxStamina}
               timeDiff={timeDiff}
             />
-            {expRequired && expCurrent && expCurrent >= expRequired ? (
+            {expRequired && expForNextLevel && expTowardsNextLevel && expNeededForNextLevel && expTowardsNextLevel >= expNeededForNextLevel ? (
               <LevelUpBtn />
             ) : (
               <StatusBar
@@ -209,8 +223,8 @@ const MenuBoxProfile: React.FC = () => {
                 lastRegenAt={userData?.regenAt}
                 regen={0}
                 status={userData?.status}
-                current={expCurrent}
-                total={expRequired}
+                current={expTowardsNextLevel}
+                total={expNeededForNextLevel}
                 timeDiff={timeDiff}
               />
             )}
@@ -292,6 +306,29 @@ const MenuBoxProfile: React.FC = () => {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>Current training activity</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {trainingJutsu && (
+            <TooltipProvider delayDuration={50}>
+              <Tooltip>
+                <TooltipTrigger className="w-full">
+                  <div className="flex flex-row items-center hover:text-orange-500">
+                    <Atom className="h-6 w-6 mr-2" />
+                    <Link href="/traininggrounds">
+                      <Countdown
+                        targetDate={trainingJutsu.finishTraining || new Date()}
+                        timeDiff={timeDiff}
+                        onFinish={async () => {
+                          await utils.jutsu.getUserJutsus.invalidate();
+                        }}
+                      />
+                    </Link>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Training {trainingJutsu.jutsu?.name} to level {trainingJutsu.level}
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}

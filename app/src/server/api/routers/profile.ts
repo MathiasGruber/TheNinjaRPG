@@ -9,20 +9,13 @@ import {
   actionLog,
   bankTransfers,
   battleHistory,
-  bloodlineRolls,
-  conversationComment,
-  forumPost,
   gameSetting,
-  historicalAvatar,
   item,
   jutsu,
-  jutsuLoadout,
   notification,
   poll,
   quest,
   questHistory,
-  reportLog,
-  user2conversation,
   userAttribute,
   userBlackList,
   userData,
@@ -31,8 +24,6 @@ import {
   userNindo,
   userPollVote,
   userReport,
-  userReportComment,
-  userRequest,
   userVote,
   village,
 } from "@/drizzle/schema";
@@ -70,7 +61,7 @@ import { UserRanks, BasicElementName } from "@/drizzle/constants";
 import { getRandomElement } from "@/utils/array";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { capUserStats } from "@/libs/profile";
-import { deduceActiveUserRegen } from "@/libs/profile";
+import { calcActiveUserRegen } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
 import { RYO_CAP } from "@/drizzle/constants";
 import { USER_CAPS } from "@/drizzle/constants";
@@ -86,6 +77,7 @@ import { hideQuestInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
+import { deleteUser } from "@/server/api/routers/staff";
 import { moderateContent } from "@/libs/moderator";
 import { fetchKageReplacement } from "@/routers/kage";
 import type { UserVote } from "@/drizzle/schema";
@@ -364,6 +356,46 @@ export const profileRouter = createTRPCRouter({
     }
     // User specific
     if (user) {
+      // War-time regen boost
+      const warRegenName = `war-${user.village?.id}-regen`;
+      const warRegenSetting = settings.find((s) => s.name === warRegenName);
+      const warRegenBoost = getGameSettingBoost(warRegenName, settings);
+      if (warRegenBoost) {
+        notifications.push({
+          href: "/profile",
+          name: `+${warRegenBoost.value}% regen | ${warRegenBoost.daysLeft} days`,
+          color: "green",
+        });
+      }
+      if (!warRegenSetting) {
+        await ctx.drizzle.insert(gameSetting).values({
+          id: nanoid(),
+          name: warRegenName,
+          value: 0,
+          time: new Date(),
+        });
+      }
+
+      // War-time training boost
+      const warTrainingName = `war-${user.village?.id}-train`;
+      const warTrainingSetting = settings.find((s) => s.name === warTrainingName);
+      const warTrainingBoost = getGameSettingBoost(warTrainingName, settings);
+      if (warTrainingBoost) {
+        notifications.push({
+          href: "/profile",
+          name: `+${warTrainingBoost.value}% gains | ${warTrainingBoost.daysLeft} days`,
+          color: "green",
+        });
+      }
+      if (!warTrainingSetting) {
+        await ctx.drizzle.insert(gameSetting).values({
+          id: nanoid(),
+          name: warTrainingName,
+          value: 0,
+          time: new Date(),
+        });
+      }
+
       // Get number of un-resolved user reports
       if (canModerateRoles.includes(user.role)) {
         const reportCounts = await ctx.drizzle
@@ -510,6 +542,67 @@ export const profileRouter = createTRPCRouter({
       return { success: false, message: `Not allowed to create AI` };
     }
   }),
+  // Clone an existing AI
+  cloneAi: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [user, aiData, jutsuData, itemData, nindoData] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, input.id),
+        }),
+        ctx.drizzle.query.userJutsu.findMany({
+          where: eq(userJutsu.userId, input.id),
+        }),
+        ctx.drizzle.query.userItem.findMany({ where: eq(userItem.userId, input.id) }),
+        ctx.drizzle.query.userNindo.findFirst({
+          where: eq(userNindo.userId, input.id),
+        }),
+      ]);
+      // Guard
+      if (!aiData) return errorResponse("AI not found");
+      if (!aiData.isAi) return errorResponse("Not an AI");
+      if (!canChangeContent(user.role)) return errorResponse("Not allowed");
+
+      // Create new AI with copied data
+      aiData.userId = nanoid();
+      aiData.username = `${aiData.username} - copy`;
+      aiData.createdAt = new Date();
+      aiData.updatedAt = new Date();
+      // Run all inserts at once
+      await Promise.all([
+        ctx.drizzle.insert(userData).values(aiData),
+        ...(jutsuData.length > 0
+          ? [
+              ctx.drizzle.insert(userJutsu).values(
+                jutsuData.map((jutsu) => ({
+                  id: nanoid(),
+                  userId: aiData.userId,
+                  jutsuId: jutsu.jutsuId,
+                  level: jutsu.level,
+                })),
+              ),
+            ]
+          : []),
+        ...(itemData.length > 0
+          ? [
+              ctx.drizzle.insert(userItem).values(
+                itemData.map((item) => ({
+                  id: nanoid(),
+                  userId: aiData.userId,
+                  itemId: item.itemId,
+                  quantity: item.quantity,
+                })),
+              ),
+            ]
+          : []),
+        ...(nindoData ? [ctx.drizzle.insert(userNindo).values(nindoData)] : []),
+      ]);
+
+      return { success: true, message: aiData.userId };
+    }),
   // Delete a AI
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -1025,7 +1118,9 @@ export const profileRouter = createTRPCRouter({
               },
             },
             anbuSquad: {
-              columns: { name: true },
+              columns: {
+                name: true,
+              },
             },
           },
         }),
@@ -1137,6 +1232,12 @@ export const profileRouter = createTRPCRouter({
       if (ctx.userId !== input.userId && !canSeeSecretData(user.role)) {
         return errorResponse("You can't delete other users");
       }
+      if (target.anbuId) {
+        return errorResponse("Please leave ANBU first.");
+      }
+      if (target.clanId) {
+        return errorResponse("Please leave clan or faction first.");
+      }
       // Mutate
       await deleteUser(ctx.drizzle, input.userId);
       return { success: true, message: "User deleted" };
@@ -1219,38 +1320,6 @@ export const updateNindo = async (
         }),
   ]);
   return { success: true, message: "Content updated" };
-};
-
-export const deleteUser = async (client: DrizzleClient, userId: string) => {
-  await client.transaction(async (tx) => {
-    await tx.delete(actionLog).where(eq(actionLog.userId, userId));
-    await tx.delete(bankTransfers).where(eq(bankTransfers.senderId, userId));
-    await tx.delete(bankTransfers).where(eq(bankTransfers.receiverId, userId));
-    await tx.delete(bloodlineRolls).where(eq(bloodlineRolls.userId, userId));
-    await tx.delete(conversationComment).where(eq(conversationComment.userId, userId));
-    await tx.delete(forumPost).where(eq(forumPost.userId, userId));
-    await tx.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId));
-    await tx.delete(jutsuLoadout).where(eq(jutsuLoadout.userId, userId));
-    await tx.delete(questHistory).where(eq(questHistory.userId, userId));
-    await tx.delete(user2conversation).where(eq(user2conversation.userId, userId));
-    await tx.delete(userAttribute).where(eq(userAttribute.userId, userId));
-    await tx.delete(userData).where(eq(userData.userId, userId));
-    await tx.delete(userItem).where(eq(userItem.userId, userId));
-    await tx.delete(userJutsu).where(eq(userJutsu.userId, userId));
-    await tx.delete(userNindo).where(eq(userNindo.userId, userId));
-    await tx.delete(userRequest).where(eq(userRequest.senderId, userId));
-    await tx.delete(userRequest).where(eq(userRequest.receiverId, userId));
-    await tx.delete(userReportComment).where(eq(userReportComment.userId, userId));
-    await tx
-      .delete(reportLog)
-      .where(or(eq(reportLog.targetUserId, userId), eq(reportLog.staffUserId, userId)));
-  });
-  await Promise.all([
-    client
-      .update(userData)
-      .set({ senseiId: null })
-      .where(eq(userData.senseiId, userId)),
-  ]);
 };
 
 export const fetchUser = async (client: DrizzleClient, userId: string) => {
@@ -1461,7 +1530,7 @@ export const fetchUpdatedUser = async (props: {
 
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
-    user.regeneration = deduceActiveUserRegen(user, settings);
+    user.regeneration = calcActiveUserRegen(user, settings);
   }
 
   // Handle village prestige situations
@@ -1666,6 +1735,7 @@ export const fetchPublicUsers = async (
       ),
       columns: {
         avatar: true,
+        avatar3d: true,
         avatarLight: true,
         experience: true,
         inArena: true,

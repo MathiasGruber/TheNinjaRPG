@@ -117,7 +117,7 @@ const RichInput: React.FC<RichInputProps> = (props) => {
         field.onChange(newText);
       } catch (error) {
         // Remove the loading text if upload failed
-        const newText = (field.value as string).replace(loadingText, "");
+        const newText = ((field.value as string) ?? "").replace(loadingText, "");
         field.onChange(newText);
         showMutationToast({
           success: false,

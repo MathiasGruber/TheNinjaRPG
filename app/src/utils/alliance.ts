@@ -136,29 +136,29 @@ export const canAlly = (
   const relation = findRelationship(relationships, villageId, targetId);
   // Guards
   if (villageId === targetId) return errorResponse("Cannot ally with yourself");
-  if (relation?.status === "ENEMY") return errorResponse("Not when in war");
+  if (relation?.status === "ENEMY") return errorResponse("Not when enemy");
   if (relation?.status === "ALLY") return errorResponse("Already allied");
   for (const village of villages) {
     if (village.id === villageId || village.id === targetId) continue;
     const target = findRelationship(relationships, village.id, targetId)?.status;
     const self = findRelationship(relationships, village.id, villageId)?.status;
-    // Cannot ally with someone who is allied with someone we are in war with
+    // Cannot ally with someone who is allied with someone we are enemy with
     if (target === "ALLY" && self === "ENEMY") {
       return errorResponse(
-        "Cannot ally with someone who is allied with someone we are in war with",
+        "Cannot ally with someone who is allied with someone we are enemies with",
       );
     }
-    // Cannot ally with someone who is in war with someone we are allied with
+    // Cannot ally with someone who is allied with someone we are enemy with
     if (target === "ENEMY" && self === "ALLY") {
       return errorResponse(
-        "Cannot ally with someone who is in war with someone we are allied with",
+        "Cannot ally with someone who is allied with someone we are enemies with",
       );
     }
   }
   return { success: true, message: "OK" };
 };
 
-export const canWar = (
+export const canEnemy = (
   relationships: VillageAlliance[],
   villages: Village[],
   villageId: string,
@@ -178,13 +178,13 @@ export const canWar = (
     message = "Village not found";
   } else if (villageId === targetId) {
     success = false;
-    message = "Cannot war with yourself";
+    message = "Cannot be enemy with yourself";
   } else if (relation?.status === "ENEMY") {
     success = false;
-    message = "Already at war";
+    message = "Already an enemy";
   } else if (relation?.status === "ALLY") {
     success = false;
-    message = "Cannot war with an ally";
+    message = "Cannot be enemy with an ally";
   } else if (senderVillage.tokens < WAR_FUNDS_COST) {
     success = false;
     message = "Insufficient funds";
@@ -216,7 +216,23 @@ export const canSurrender = (
   const relation = findRelationship(relationships, villageId, targetId);
   // Guards
   if (villageId === targetId) return errorResponse("Cannot surrender to yourself");
-  if (relation?.status === "NEUTRAL") return errorResponse("Not in war");
+  if (relation?.status === "NEUTRAL") return errorResponse("Not an enemy");
   if (relation?.status === "ALLY") return errorResponse("Cannot surrender to ally");
   return { success: true, message: "OK" };
+};
+
+/**
+ * Calculate the consequences of declaring a village as enemy
+ */
+export const calculateEnemyConsequences = (
+  relationships: VillageAlliance[],
+  villages: Village[],
+  sourceVillageId: string,
+  targetVillageId: string,
+) => {
+  const enemy = canEnemy(relationships, villages, sourceVillageId, targetVillageId);
+  const ally = canAlly(relationships, villages, sourceVillageId, targetVillageId);
+  const newEnemies = villages.filter((v) => enemy.newEnemies.includes(v.id));
+  const newNeutrals = villages.filter((v) => enemy.newNeutrals.includes(v.id));
+  return { newEnemies, newNeutrals, enemy, ally };
 };

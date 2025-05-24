@@ -31,7 +31,7 @@ export const forumText = (
       updates and contributions, visit our{" "}
       <Link
         className="font-bold"
-        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+        href="https://github.com/studie-tech/TheNinjaRPG/issues"
       >
         GitHub repository
       </Link>
@@ -94,7 +94,7 @@ export const publicUserText = (username: string) => {
       fellow enthusiasts through our{" "}
       <Link
         className="font-bold"
-        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+        href="https://github.com/studie-tech/TheNinjaRPG/issues"
       >
         GitHub repository
       </Link>
@@ -154,7 +154,7 @@ export const bloodlineText = (name: string) => {
       our{" "}
       <Link
         className="font-bold"
-        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+        href="https://github.com/studie-tech/TheNinjaRPG/issues"
       >
         {" "}
         GitHub repository{" "}
@@ -207,7 +207,7 @@ export const jutsuText = (name: string) => {
       ideas, or report issues in our{" "}
       <Link
         className="font-bold"
-        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+        href="https://github.com/studie-tech/TheNinjaRPG/issues"
       >
         {" "}
         GitHub repository{" "}
@@ -261,7 +261,7 @@ export const itemText = (name: string) => {
       issues in our{" "}
       <Link
         className="font-bold"
-        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+        href="https://github.com/studie-tech/TheNinjaRPG/issues"
       >
         {" "}
         GitHub repository{" "}
@@ -316,7 +316,7 @@ export const aiText = (name: string) => {
       at our{" "}
       <Link
         className="font-bold"
-        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+        href="https://github.com/studie-tech/TheNinjaRPG/issues"
       >
         {" "}
         GitHub repository{" "}
@@ -360,7 +360,7 @@ export const changelogText = () => {
       development insights, check our{" "}
       <Link
         className="font-bold"
-        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+        href="https://github.com/studie-tech/TheNinjaRPG/issues"
       >
         GitHub repository
       </Link>
@@ -420,7 +420,7 @@ export const battleCalcText = () => {
       , or report potential issues through our{" "}
       <Link
         className="font-bold"
-        href="https://github.com/MathiasGruber/TheNinjaRPG/issues"
+        href="https://github.com/studie-tech/TheNinjaRPG/issues"
       >
         GitHub repository
       </Link>

@@ -17,9 +17,9 @@ export const resizeImage = async (
   options: ImageResizeOptions = {},
 ): Promise<File> => {
   const {
-    maxWidth = 300,
-    maxHeight = 300,
-    quality = 0.6,
+    maxWidth = 512,
+    maxHeight = 512,
+    quality = 0.7,
     maintainAspectRatio = true,
     outputFormat = "webp",
   } = options;

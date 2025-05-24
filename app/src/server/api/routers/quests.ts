@@ -42,6 +42,7 @@ import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
+import { canEditPublicUser } from "@/utils/permissions";
 
 export const questsRouter = createTRPCRouter({
   getAll: publicProcedure
@@ -350,7 +351,10 @@ export const questsRouter = createTRPCRouter({
         if (questData.questRank !== "A") {
           return errorResponse(`Only A rank missions/crimes are allowed`);
         }
-        if (!user.isOutlaw && !canAccessStructure(user, "/missionhall", sectorVillage)) {
+        if (
+          !user.isOutlaw &&
+          !canAccessStructure(user, "/missionhall", sectorVillage)
+        ) {
           return errorResponse("Must be in your allied village to start quest");
         }
         const current = user?.userQuests?.find(
@@ -528,6 +532,31 @@ export const questsRouter = createTRPCRouter({
       return { success: false, message: `Not allowed to create quest` };
     }
   }),
+  clone: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, questData] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchQuest(ctx.drizzle, input.id),
+      ]);
+      // Guard
+      if (!questData) {
+        return errorResponse("Quest not found");
+      }
+      if (!canChangeContent(user.role)) {
+        return errorResponse("Not allowed to clone quest");
+      }
+      // Clone quest
+      questData.id = nanoid();
+      questData.name = `${questData.name} - copy`;
+      questData.createdAt = new Date();
+      questData.updatedAt = new Date();
+      await ctx.drizzle.insert(quest).values(questData);
+
+      return { success: true, message: questData.id };
+    }),
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .output(baseServerResponse)
@@ -766,6 +795,42 @@ export const questsRouter = createTRPCRouter({
         }
       }
       return { success: false, notifications };
+    }),
+  getUserQuests: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Check if user has permission to view quests
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Safety
+      if (!canEditPublicUser(user)) {
+        throw serverError("UNAUTHORIZED", "Not authorized to view user quests");
+      }
+      // Get all quests for the user
+      const quests = await ctx.drizzle.query.questHistory.findMany({
+        where: eq(questHistory.userId, input.userId),
+        with: { quest: true },
+        orderBy: [asc(questHistory.startedAt)],
+      });
+      return quests.filter((q) => q.quest);
+    }),
+  deleteUserQuest: protectedProcedure
+    .input(z.object({ userId: z.string(), questId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (!user || !canEditPublicUser(user)) {
+        return errorResponse("Not authorized to delete user quests");
+      }
+      // Mutate
+      await ctx.drizzle
+        .delete(questHistory)
+        .where(
+          and(
+            eq(questHistory.userId, input.userId),
+            eq(questHistory.questId, input.questId),
+          ),
+        );
+      return { success: true, message: "Quest deleted successfully" };
     }),
 });
 

@@ -157,13 +157,16 @@ export const useGameMenu = (userData: UserWithRelations) => {
     // Is in village
     if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw || isSafezone) {
       // Check if user is standing on a village structure
+      const showStructure = ownSector || isAllied || (userData.isOutlaw && ownSector);
       const structure =
-        pathname === "/travel"
+        pathname === "/travel" && showStructure
           ? sector.structures?.find(
               (s) =>
                 s.longitude === userData.longitude && s.latitude === userData.latitude,
             )
           : undefined;
+      const name =
+        structure?.name || (ownSector ? sector.mapName || sector.name : "Unknown");
       // Set the location
       location = {
         id: "tutorial-village",
@@ -174,14 +177,13 @@ export const useGameMenu = (userData: UserWithRelations) => {
           <div>
             <Image
               src={structure?.image || sector.villageGraphic}
-              alt={structure?.name || sector.name}
+              alt={name}
               width={200}
               height={200}
               priority={true}
             />
             <span className="font-bold">
-              {structure?.name || sector.mapName || sector.name}{" "}
-              {!structure && sector.type === "VILLAGE" ? "Village" : ""}
+              {name} {!structure && sector.type === "VILLAGE" ? "Village" : ""}
             </span>
           </div>
         ),
