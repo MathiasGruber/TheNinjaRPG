@@ -1484,10 +1484,31 @@ export const processUsersForBattle = (info: {
     // Get items to process - either ranked loadout items or regular items
     const itemsToProcess = battleType === "RANKED" 
       ? [
-          ...(user.rankedLoadout?.weapon ? [{ item: user.rankedLoadout.weapon, equipped: "WEAPON" }] : []),
-          ...(user.rankedLoadout?.consumable1 ? [{ item: user.rankedLoadout.consumable1, equipped: "NONE" }] : []),
-          ...(user.rankedLoadout?.consumable2 ? [{ item: user.rankedLoadout.consumable2, equipped: "NONE" }] : []),
-        ]
+          ...(user.rankedLoadout?.weapon ? [{ 
+            item: user.rankedLoadout.weapon, 
+            equipped: "WEAPON",
+            userId: user.userId,
+            itemId: user.rankedLoadout.weapon.id,
+            quantity: 1,
+            lastUsedRound: -user.rankedLoadout.weapon.cooldown
+          }] : []),
+          ...(user.rankedLoadout?.consumable1 ? [{ 
+            item: user.rankedLoadout.consumable1, 
+            equipped: "NONE",
+            userId: user.userId,
+            itemId: user.rankedLoadout.consumable1.id,
+            quantity: 6,
+            lastUsedRound: -user.rankedLoadout.consumable1.cooldown
+          }] : []),
+          ...(user.rankedLoadout?.consumable2 ? [{ 
+            item: user.rankedLoadout.consumable2, 
+            equipped: "NONE",
+            userId: user.userId,
+            itemId: user.rankedLoadout.consumable2.id,
+            quantity: 6,
+            lastUsedRound: -user.rankedLoadout.consumable2.cooldown
+          }] : []),
+        ] as (UserItem & { item: Item; lastUsedRound: number })[]
       : user.items;
 
     itemsToProcess
@@ -1504,7 +1525,7 @@ export const processUsersForBattle = (info: {
               const realized = realizeTag({
                 tag: effect,
                 user: user,
-                actionId: useritem.itemId,
+                actionId: useritem.item.id,
                 target: user,
                 level: user.level,
               });
