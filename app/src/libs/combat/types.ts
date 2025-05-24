@@ -9,7 +9,7 @@ import type { StatType, GeneralType, PoolType, ElementName } from "@/drizzle/con
 import type { publicState } from "@/libs/combat/constants";
 import type { StatNames, GenNames } from "@/libs/combat/constants";
 import type { Jutsu, Item, VillageAlliance, Clan, War } from "@/drizzle/schema";
-import type { UserJutsu, UserItem, UserData, AiProfile, RankedUserJutsu } from "@/drizzle/schema";
+import type { UserJutsu, UserItem, UserData, AiProfile, RankedUserJutsu, RankedLoadout } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { BattleType } from "@/drizzle/constants";
 import type { WarAlly } from "@/drizzle/schema";
@@ -34,6 +34,11 @@ export type BattleUserState = UserWithRelations & {
     lastUsedRound: number;
     experience: number;
   })[];
+  rankedLoadout?: RankedLoadout & {
+    weapon?: Item;
+    consumable1?: Item;
+    consumable2?: Item;
+  };
   basicActions: CombatAction[];
   items: (UserItem & {
     item: Item;
