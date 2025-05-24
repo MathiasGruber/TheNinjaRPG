@@ -999,7 +999,7 @@ export const combatRouter = createTRPCRouter({
     }),
   getRankedLoadout: protectedProcedure
     .query(async ({ ctx }) => {
-      return await ctx.db.query.rankedLoadout.findFirst({
+      return await ctx.drizzle.query.rankedLoadout.findFirst({
         where: eq(rankedLoadout.userId, ctx.userId),
       });
     }),
@@ -1012,7 +1012,7 @@ export const combatRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Check if items exist and are of correct type
       if (input.weaponId) {
-        const weapon = await ctx.db.query.item.findFirst({
+        const weapon = await ctx.drizzle.query.item.findFirst({
           where: and(
             eq(item.id, input.weaponId),
             eq(item.itemType, "WEAPON"),
@@ -1027,7 +1027,7 @@ export const combatRouter = createTRPCRouter({
       }
 
       if (input.consumable1Id) {
-        const consumable1 = await ctx.db.query.item.findFirst({
+        const consumable1 = await ctx.drizzle.query.item.findFirst({
           where: and(
             eq(item.id, input.consumable1Id),
             eq(item.itemType, "CONSUMABLE"),
@@ -1042,7 +1042,7 @@ export const combatRouter = createTRPCRouter({
       }
 
       if (input.consumable2Id) {
-        const consumable2 = await ctx.db.query.item.findFirst({
+        const consumable2 = await ctx.drizzle.query.item.findFirst({
           where: and(
             eq(item.id, input.consumable2Id),
             eq(item.itemType, "CONSUMABLE"),
@@ -1057,12 +1057,12 @@ export const combatRouter = createTRPCRouter({
       }
 
       // Update or create loadout
-      const existingLoadout = await ctx.db.query.rankedLoadout.findFirst({
+      const existingLoadout = await ctx.drizzle.query.rankedLoadout.findFirst({
         where: eq(rankedLoadout.userId, ctx.userId),
       });
 
       if (existingLoadout) {
-        await ctx.db
+        await ctx.drizzle
           .update(rankedLoadout)
           .set({
             weaponId: input.weaponId ?? existingLoadout.weaponId,
@@ -1071,7 +1071,7 @@ export const combatRouter = createTRPCRouter({
           })
           .where(eq(rankedLoadout.id, existingLoadout.id));
       } else {
-        await ctx.db.insert(rankedLoadout).values({
+        await ctx.drizzle.insert(rankedLoadout).values({
           id: nanoid(),
           userId: ctx.userId,
           weaponId: input.weaponId ?? null,
