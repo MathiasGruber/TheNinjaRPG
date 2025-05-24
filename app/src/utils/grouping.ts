@@ -15,5 +15,9 @@ export const groupBy = <T, K extends keyof T>(value: T[], key: K) =>
  * Return unique objects in array
  */
 export const getUnique = <T, K extends keyof T>(array: T[], key: K) => {
-  return [...new Map(array.map((element) => [element[key], element])).values()];
+  return [
+    ...new Map(
+      array.filter(Boolean).map((element) => [element[key], element]),
+    ).values(),
+  ];
 };

@@ -77,7 +77,7 @@ export const metadata: Metadata = {
     "theninja-rpg",
   ],
   authors: [
-    { name: "Mathias F. Gruber", url: "https://github.com/MathiasGruber/TheNinjaRPG" },
+    { name: "Mathias F. Gruber", url: "https://github.com/studie-tech/TheNinjaRPG" },
   ],
   creator: "Mathias F. Gruber",
   publisher: "Studie-Tech ApS",
