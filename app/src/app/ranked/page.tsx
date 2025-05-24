@@ -318,7 +318,7 @@ export default function Ranked() {
                   }`}
                   onClick={() => updateLoadout.mutate({ weaponId: weapon.id })}
                 >
-                  <ItemWithEffects item={weapon} showStatistic="weapon" />
+                  <ItemWithEffects item={weapon} showStatistic="item" />
                 </div>
               ))}
             </div>
@@ -347,7 +347,7 @@ export default function Ranked() {
                     }
                   }}
                 >
-                  <ItemWithEffects item={consumable} showStatistic="consumable" />
+                  <ItemWithEffects item={consumable} showStatistic="item" />
                 </div>
               ))}
             </div>
