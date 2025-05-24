@@ -31,7 +31,7 @@ import { fetchUpdatedUser, fetchUser } from "./profile";
 import { performAIaction } from "@/libs/combat/ai_v2";
 import { userData, questHistory, quest, gameSetting } from "@/drizzle/schema";
 import { battle, battleAction, battleHistory, war } from "@/drizzle/schema";
-import { villageAlliance, village, tournamentMatch } from "@/drizzle/schema";
+import { villageAlliance, village, tournamentMatch, rankedPvpQueue } from "@/drizzle/schema";
 import { performActionSchema, statSchema } from "@/libs/combat/types";
 import { performBattleAction } from "@/libs/combat/actions";
 import { availableUserActions } from "@/libs/combat/actions";
@@ -744,7 +744,7 @@ export const combatRouter = createTRPCRouter({
       const queueEntry = await ctx.drizzle.query.rankedPvpQueue.findFirst({
         where: eq(rankedPvpQueue.userId, ctx.userId),
         columns: {
-          createdAt: true,
+          queueStartTime: true,
         },
       });
 
@@ -755,7 +755,7 @@ export const combatRouter = createTRPCRouter({
 
       return { 
         inQueue: !!queueEntry,
-        createdAt: queueEntry?.createdAt,
+        createdAt: queueEntry?.queueStartTime,
         queueCount,
       };
     }),
@@ -784,6 +784,7 @@ export const combatRouter = createTRPCRouter({
         id: nanoid(),
         userId: ctx.userId,
         rankedLp: user.rankedLp,
+        queueStartTime: new Date(),
         createdAt: new Date(),
       });
 
@@ -797,13 +798,13 @@ export const combatRouter = createTRPCRouter({
       const baseRange = 100;
       const potentialOpponents = await ctx.drizzle.query.rankedPvpQueue.findMany({
         where: ne(rankedPvpQueue.userId, ctx.userId),
-        orderBy: desc(rankedPvpQueue.createdAt),
+        orderBy: desc(rankedPvpQueue.queueStartTime),
       });
 
       // Find opponent considering queue time
       for (const opponent of potentialOpponents) {
         // Calculate additional range based on queue time for both players
-        const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
+        const opponentQueueTimeMinutes = (new Date().getTime() - opponent.queueStartTime.getTime()) / (1000 * 60);
         const opponentAdditionalRange = opponentQueueTimeMinutes >= 15 ? 10000 : 
           opponentQueueTimeMinutes >= 2 ? 25 + Math.floor((opponentQueueTimeMinutes - 2) / 2) * 25 : 0;
         const opponentTotalRange = baseRange + opponentAdditionalRange;
@@ -847,7 +848,7 @@ export const combatRouter = createTRPCRouter({
     .mutation(async ({ ctx }) => {
       // Get all queued players
       const queuedPlayers = await ctx.drizzle.query.rankedPvpQueue.findMany({
-        orderBy: desc(rankedPvpQueue.createdAt),
+        orderBy: desc(rankedPvpQueue.queueStartTime),
       });
 
       console.log("Queued players:", queuedPlayers.map(p => ({ userId: p.userId, lp: p.rankedLp })));
@@ -864,7 +865,7 @@ export const combatRouter = createTRPCRouter({
 
         // Calculate base range and additional range based on queue time
         const baseRange = 100;
-        const queueTimeMinutes = (new Date().getTime() - player.createdAt.getTime()) / (1000 * 60);
+        const queueTimeMinutes = (new Date().getTime() - player.queueStartTime.getTime()) / (1000 * 60);
         const additionalRange = queueTimeMinutes >= 30 ? 10000 : 
           queueTimeMinutes >= 5 ? 25 + Math.floor((queueTimeMinutes - 5) / 2) * 25 : 0;
         const totalRange = baseRange + additionalRange;
@@ -875,7 +876,7 @@ export const combatRouter = createTRPCRouter({
             if (opponent.userId === player.userId) return false;
             
             // Calculate opponent's range
-            const opponentQueueTimeMinutes = (new Date().getTime() - opponent.createdAt.getTime()) / (1000 * 60);
+            const opponentQueueTimeMinutes = (new Date().getTime() - opponent.queueStartTime.getTime()) / (1000 * 60);
             const opponentAdditionalRange = opponentQueueTimeMinutes >= 30 ? 10000 : 
               opponentQueueTimeMinutes >= 5 ? 25 + Math.floor((opponentQueueTimeMinutes - 5) / 2) * 25 : 0;
             const opponentBaseRange = 100;
