@@ -1016,12 +1016,13 @@ export const combatRouter = createTRPCRouter({
           where: and(
             eq(item.id, input.weaponId),
             eq(item.itemType, "WEAPON"),
+            eq(item.availableInShop, true),
           ),
         });
         if (!weapon) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Weapon not found",
+            message: "Weapon not found or not available in shop",
           });
         }
       }
@@ -1031,12 +1032,13 @@ export const combatRouter = createTRPCRouter({
           where: and(
             eq(item.id, input.consumable1Id),
             eq(item.itemType, "CONSUMABLE"),
+            eq(item.availableInShop, true),
           ),
         });
         if (!consumable1) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "First consumable not found",
+            message: "First consumable not found or not available in shop",
           });
         }
       }
@@ -1046,12 +1048,13 @@ export const combatRouter = createTRPCRouter({
           where: and(
             eq(item.id, input.consumable2Id),
             eq(item.itemType, "CONSUMABLE"),
+            eq(item.availableInShop, true),
           ),
         });
         if (!consumable2) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Second consumable not found",
+            message: "Second consumable not found or not available in shop",
           });
         }
       }
