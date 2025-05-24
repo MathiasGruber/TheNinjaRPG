@@ -200,14 +200,20 @@ export default function Ranked() {
         return aEquipped ? -1 : 1;
       }
   
-      // 2. If both are equipped AND we have a loadout, sort by loadout order
+      // 2. If both are equipped, sort by loadout order
       if (aEquipped && bEquipped && userData?.loadout?.jutsuIds) {
         const aIndex = userData.loadout.jutsuIds.indexOf(a.id);
         const bIndex = userData.loadout.jutsuIds.indexOf(b.id);
-        return aIndex - bIndex;
+        // If both are in loadout, sort by loadout order
+        if (aIndex !== -1 && bIndex !== -1) {
+          return aIndex - bIndex;
+        }
+        // If only one is in loadout, prioritize the one in loadout
+        if (aIndex !== -1) return -1;
+        if (bIndex !== -1) return 1;
       }
   
-      // 3. Optional: fallback to alphabetical
+      // 3. For non-equipped jutsu or if no loadout, sort alphabetically
       return a.name.localeCompare(b.name);
     });
   }

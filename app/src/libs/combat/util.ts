@@ -1417,7 +1417,7 @@ export const processUsersForBattle = (info: {
     }
 
     // Set jutsus updatedAt to now (we use it for determining usage cooldowns)
-    user.jutsus = user.jutsus
+    user.jutsus = (battleType === "RANKED" ? user.rankedUserJutsus : user.jutsus)
       .filter((userjutsu) => {
         // Not if no jutsu
         if (!userjutsu.jutsu) {
