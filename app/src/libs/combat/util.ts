@@ -25,6 +25,8 @@ import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
 import { findWarsWithUser } from "@/libs/war";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
+import { getUserElements } from "@/validators/user";
+import { checkJutsuElements } from "@/libs/train";
 import {
   SHARED_COOLDOWN_TAGS,
   WAR_TOWNHALL_HP_REMOVE,
