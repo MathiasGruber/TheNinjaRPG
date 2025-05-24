@@ -949,7 +949,7 @@ export const combatRouter = createTRPCRouter({
       }
 
       return { success: true, message: "Checked for matches" };
-
+    }),
   startShrineBattle: protectedProcedure
     .use(ratelimitMiddleware)
     .use(hasUserMiddleware)
