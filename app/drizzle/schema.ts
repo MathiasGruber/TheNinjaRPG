@@ -1705,7 +1705,6 @@ export const userJutsu = mysqlTable(
     level: int("level").default(1).notNull(),
     experience: int("experience").default(0).notNull(),
     equipped: tinyint("equipped").default(0).notNull(),
-    rankedEquipped: tinyint("rankedEquipped").default(0).notNull(),
     finishTraining: datetime("finishTraining", { mode: "date", fsp: 3 }),
   },
   (table) => {
@@ -1716,7 +1715,6 @@ export const userJutsu = mysqlTable(
       ),
       jutsuIdIdx: index("UserJutsu_jutsuId_idx").on(table.jutsuId),
       equippedIdx: index("Jutsu_equipped_idx").on(table.equipped),
-      rankedEquippedIdx: index("Jutsu_rankedEquipped_idx").on(table.rankedEquipped),
     };
   },
 );
