@@ -32,6 +32,7 @@ export type BattleUserState = UserWithRelations & {
   rankedUserJutsus: (RankedUserJutsu & {
     jutsu: Jutsu;
     lastUsedRound: number;
+    experience: number;
   })[];
   basicActions: CombatAction[];
   items: (UserItem & {
