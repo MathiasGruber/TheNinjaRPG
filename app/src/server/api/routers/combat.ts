@@ -1000,7 +1000,7 @@ export const combatRouter = createTRPCRouter({
   getRankedLoadout: protectedProcedure
     .query(async ({ ctx }) => {
       return await ctx.db.query.rankedLoadout.findFirst({
-        where: eq(rankedLoadout.userId, ctx.session.user.id),
+        where: eq(rankedLoadout.userId, ctx.userId),
       });
     }),
   updateRankedLoadout: protectedProcedure
@@ -1058,7 +1058,7 @@ export const combatRouter = createTRPCRouter({
 
       // Update or create loadout
       const existingLoadout = await ctx.db.query.rankedLoadout.findFirst({
-        where: eq(rankedLoadout.userId, ctx.session.user.id),
+        where: eq(rankedLoadout.userId, ctx.userId),
       });
 
       if (existingLoadout) {
@@ -1073,7 +1073,7 @@ export const combatRouter = createTRPCRouter({
       } else {
         await ctx.db.insert(rankedLoadout).values({
           id: nanoid(),
-          userId: ctx.session.user.id,
+          userId: ctx.userId,
           weaponId: input.weaponId ?? null,
           consumable1Id: input.consumable1Id ?? null,
           consumable2Id: input.consumable2Id ?? null,
