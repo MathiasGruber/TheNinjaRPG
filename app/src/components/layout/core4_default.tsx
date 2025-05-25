@@ -33,7 +33,6 @@ import { api } from "@/app/_trpc/client";
 import { showUserRank } from "@/libs/profile";
 import { useUser } from "@clerk/nextjs";
 import { getCurrentSeason } from "@/utils/time";
-import { useLocalStorage } from "@/hooks/localstorage";
 import { showMutationToast } from "@/libs/toast";
 import Tutorial from "@/layout/Tutorial";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
@@ -92,6 +91,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   const rightSideBarRef = React.useRef<HTMLDivElement | null>(null);
 
   // State
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const pathname = usePathname();
 
   // Derived data for layout
@@ -112,22 +112,19 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
     },
   });
 
-  // Fetch the theme from local storage
-  const [localTheme, setLocalTheme] = useLocalStorage("themeNew", "light");
-
   // Set theme
   useEffect(() => {
     if (
-      localTheme === "dark" ||
-      (!localTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
+      theme === "dark" ||
+      (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches)
     ) {
       document.documentElement.classList.add("dark");
-      setLocalTheme("dark");
+      setTheme("dark");
     } else {
       document.documentElement.classList.remove("dark");
-      setLocalTheme("light");
+      setTheme("light");
     }
-  }, [localTheme, setLocalTheme]);
+  }, [theme, setTheme]);
 
   // Images
   const imageset = getImageSet(userData);
@@ -299,14 +296,14 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
         </div>
       )}
       <Eclipse
-        className={`hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${localTheme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
+        className={`hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${theme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
         onClick={() => {
-          if (!localTheme || localTheme === "light") {
+          if (!theme || theme === "light") {
             localStorage.setItem("theme", "dark");
-            setLocalTheme("dark");
+            setTheme("dark");
           } else {
             localStorage.setItem("theme", "light");
-            setLocalTheme("light");
+            setTheme("light");
           }
         }}
       />
