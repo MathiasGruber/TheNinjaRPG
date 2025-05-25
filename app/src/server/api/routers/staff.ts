@@ -197,17 +197,21 @@ export const staffRouter = createTRPCRouter({
       if (target.username === "Terriator") {
         return { success: false, message: "Cannot copy Terriator to Terriator" };
       }
-      const [targetJutsus, targetItems] = await Promise.all([
+      const [targetJutsus, targetItems, targetQuestHistory] = await Promise.all([
         ctx.drizzle.query.userJutsu.findMany({
           where: eq(userJutsu.userId, input.userId),
         }),
         ctx.drizzle.query.userItem.findMany({
           where: eq(userItem.userId, input.userId),
         }),
+        ctx.drizzle.query.questHistory.findMany({
+          where: eq(questHistory.userId, input.userId),
+        }),
       ]);
       await Promise.all([
         ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, user.userId)),
         ctx.drizzle.delete(userItem).where(eq(userItem.userId, user.userId)),
+        ctx.drizzle.delete(questHistory).where(eq(questHistory.userId, user.userId)),
         ctx.drizzle
           .update(userData)
           .set({
@@ -256,6 +260,15 @@ export const staffRouter = createTRPCRouter({
         await ctx.drizzle.insert(userItem).values(
           targetItems.map((useritem) => ({
             ...useritem,
+            userId: ctx.userId,
+            id: nanoid(),
+          })),
+        );
+      }
+      if (targetQuestHistory.length > 0) {
+        await ctx.drizzle.insert(questHistory).values(
+          targetQuestHistory.map((questhistory) => ({
+            ...questhistory,
             userId: ctx.userId,
             id: nanoid(),
           })),
