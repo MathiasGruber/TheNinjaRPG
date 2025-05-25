@@ -852,7 +852,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                   </DialogTrigger>
                   <DialogContent className="min-w-[99%] min-h-[99%]">
                     <DialogHeader>
-                      <DialogTitle>PvP Overview</DialogTitle>
+                      <DialogTitle>
+                        PvP Overview (Top Sampled Fights, Not all included)
+                      </DialogTitle>
                       <DialogDescription asChild>
                         <GraphCombatLog userId={profile.userId} />
                       </DialogDescription>

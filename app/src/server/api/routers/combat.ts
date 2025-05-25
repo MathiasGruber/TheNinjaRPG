@@ -247,7 +247,10 @@ export const combatRouter = createTRPCRouter({
         if (level2) results.push(...level2);
       }
 
-      return results;
+      // Filter the results to only include the top 50 edges
+      const topFights = results.sort((a, b) => b.total - a.total).slice(0, 100);
+
+      return topFights;
     }),
   getBattleHistory: protectedProcedure
     .input(
