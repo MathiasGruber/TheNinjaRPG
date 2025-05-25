@@ -148,7 +148,8 @@ export const questsRouter = createTRPCRouter({
               lte(quest.requiredLevel, input.level ?? 0),
               gte(quest.maxLevel, input.level ?? 0),
             ),
-          ),
+          )
+          .orderBy(asc(quest.name)),
       ]);
       events.forEach((r) => hideQuestInformation(r));
       return events.filter((e) => isAvailableUserQuests(e, user));
@@ -187,7 +188,8 @@ export const questsRouter = createTRPCRouter({
               lte(quest.requiredLevel, input.level ?? 0),
               gte(quest.maxLevel, input.level ?? 0),
             ),
-          ),
+          )
+          .orderBy(asc(quest.name)),
       ]);
       // Return
       missions.forEach((r) => hideQuestInformation(r));
