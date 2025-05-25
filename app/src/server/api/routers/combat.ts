@@ -1016,7 +1016,7 @@ export const combatRouter = createTRPCRouter({
           where: and(
             eq(item.id, input.weaponId),
             eq(item.itemType, "WEAPON"),
-            eq(item.availableInShop, true),
+            eq(item.inShop, true),
           ),
         });
         if (!weapon) {
@@ -1032,7 +1032,7 @@ export const combatRouter = createTRPCRouter({
           where: and(
             eq(item.id, input.consumable1Id),
             eq(item.itemType, "CONSUMABLE"),
-            eq(item.availableInShop, true),
+            eq(item.inShop, true),
           ),
         });
         if (!consumable1) {
@@ -1048,7 +1048,7 @@ export const combatRouter = createTRPCRouter({
           where: and(
             eq(item.id, input.consumable2Id),
             eq(item.itemType, "CONSUMABLE"),
-            eq(item.availableInShop, true),
+            eq(item.inShop, true),
           ),
         });
         if (!consumable2) {
