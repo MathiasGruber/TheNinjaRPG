@@ -86,9 +86,9 @@ export const logsRouter = createTRPCRouter({
       // If user is not set, or not allowed to see secret data, hide username
       if (!user || !canSeeSecretData(user.role)) {
         entries.forEach((entry) => {
-          entry.userId = "Annonymized";
+          entry.userId = "staff";
           if (entry.user) {
-            entry.user.username = "Annonymized";
+            entry.user.username = "staff";
           }
         });
       }

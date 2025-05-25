@@ -87,7 +87,7 @@ export const commentsRouter = createTRPCRouter({
       if (!canSeeSecretData(user.role)) {
         comments.forEach((comment) => {
           if (comment.user.role !== "USER") {
-            comment.user.username = "Annonymized";
+            comment.user.username = "moderator";
             comment.user.avatar = IMG_AVATAR_DEFAULT;
             comment.user.rank = "STUDENT";
             comment.user.isOutlaw = false;
