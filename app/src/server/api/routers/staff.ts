@@ -54,6 +54,7 @@ import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { canUnstuckVillage, canModifyUserBadges } from "@/utils/permissions";
+import { canCloneUser } from "@/utils/permissions";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { UserStatus } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -191,11 +192,11 @@ export const staffRouter = createTRPCRouter({
       if (!user || !target) {
         return { success: false, message: "User not found" };
       }
-      if (user.username !== "Terriator") {
-        return { success: false, message: "You are not Terriator" };
+      if (!canCloneUser(user.role)) {
+        return { success: false, message: "You are not allowed to clone users" };
       }
-      if (target.username === "Terriator") {
-        return { success: false, message: "Cannot copy Terriator to Terriator" };
+      if (canCloneUser(target.role)) {
+        return { success: false, message: "Cannot copy people able to clone" };
       }
       const [targetJutsus, targetItems, targetQuestHistory] = await Promise.all([
         ctx.drizzle.query.userJutsu.findMany({

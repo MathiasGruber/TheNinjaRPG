@@ -82,6 +82,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { canCloneUser } from "@/utils/permissions";
 import type { Jutsu } from "@/drizzle/schema";
 import { NewConversationPrompt } from "@/app/inbox/page";
 
@@ -340,7 +341,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         initialBreak={userData ? initialBreak : true}
         topRightContent={
           <div className="flex flex-row gap-1">
-            {userData?.username === "Terriator" && (
+            {userData && canCloneUser(userData.role) && (
               <>
                 <CopyCheck
                   className="h-6 w-6 cursor-pointer hover:text-orange-500"

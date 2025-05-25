@@ -254,3 +254,7 @@ export const canDeletePollOptions = (role: UserRole) => {
 export const canViewFullBattleLog = (role: UserRole) => {
   return ["CODER", "CONTENT", "EVENT", "CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };
+
+export const canCloneUser = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
