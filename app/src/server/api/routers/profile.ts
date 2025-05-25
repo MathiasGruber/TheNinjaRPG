@@ -1519,7 +1519,7 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     user.userQuests = user.userQuests
       .filter((q) => q.quest)
-      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user));
+      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user).check);
   }
 
   // Hide information relating to quests

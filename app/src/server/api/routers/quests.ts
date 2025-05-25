@@ -152,7 +152,7 @@ export const questsRouter = createTRPCRouter({
           .orderBy(asc(quest.name)),
       ]);
       events.forEach((r) => hideQuestInformation(r));
-      return events.filter((e) => isAvailableUserQuests(e, user));
+      return events.filter((e) => isAvailableUserQuests(e, user, true).check);
     }),
   missionHall: protectedProcedure
     .input(z.object({ villageId: z.string(), level: z.number() }))
@@ -193,7 +193,7 @@ export const questsRouter = createTRPCRouter({
       ]);
       // Return
       missions.forEach((r) => hideQuestInformation(r));
-      return missions.filter((e) => isAvailableUserQuests(e, user));
+      return missions.filter((e) => isAvailableUserQuests(e, user, true).check);
     }),
   startRandom: protectedProcedure
     .input(
@@ -285,7 +285,7 @@ export const questsRouter = createTRPCRouter({
       }
       // Fetch quest
       const result = getRandomElement(
-        results.filter((e) => isAvailableUserQuests(e, user)),
+        results.filter((e) => isAvailableUserQuests(e, user).check),
       );
       if (!result) return errorResponse("No assignments at this level could be found");
 
@@ -322,12 +322,17 @@ export const questsRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
-      if (!isAvailableUserQuests({ ...questData, ...prevAttempt }, user)) {
-        return errorResponse("Quest is not available for you");
-      }
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.questRank)) {
         return errorResponse(`Rank ${user.rank} not allowed`);
+      }
+      // Availability checks
+      const { check, message } = isAvailableUserQuests(
+        { ...questData, ...prevAttempt },
+        user,
+      );
+      if (!check) {
+        return errorResponse(`Quest is not available for you: ${message}`);
       }
       const current = user.userQuests?.filter(
         (q) => q.quest.questType === "event" && !q.endAt,
