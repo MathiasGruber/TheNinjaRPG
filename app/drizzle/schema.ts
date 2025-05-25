@@ -1464,6 +1464,7 @@ export const userData = mysqlTable(
     tavernMessages: int("tavernMessages").default(0).notNull(),
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
+    homeType: mysqlEnum("homeType", consts.HomeTypes).default("NONE").notNull(),
   },
   (table) => {
     return {
@@ -1637,6 +1638,7 @@ export const userItem = mysqlTable(
     itemId: varchar("itemId", { length: 191 }).notNull(),
     quantity: int("quantity").default(1).notNull(),
     equipped: mysqlEnum("equipped", consts.ItemSlots).default("NONE").notNull(),
+    storedAtHome: boolean("storedAtHome").default(false).notNull(),
   },
   (table) => {
     return {
