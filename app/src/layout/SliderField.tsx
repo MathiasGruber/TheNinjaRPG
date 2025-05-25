@@ -1,6 +1,7 @@
 import { type UseFormSetValue } from "react-hook-form";
 import { type UseFormRegister } from "react-hook-form";
 import { PlusCircle, MinusCircle } from "lucide-react";
+import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 
 interface SliderFieldProps {
   id: string;
@@ -16,6 +17,11 @@ interface SliderFieldProps {
 }
 
 const SliderField: React.FC<SliderFieldProps> = (props) => {
+  // Debounced setValue for slider changes
+  const debouncedSetValue = useDebouncedCallback(
+    (id: string, value: number) => props.setValue(id, value),
+    250,
+  );
   return (
     <div className="m-1">
       <label htmlFor={props.id} className="mb-2 block font-medium">
@@ -40,6 +46,7 @@ const SliderField: React.FC<SliderFieldProps> = (props) => {
           max={props.max}
           {...props?.register?.(props.id, { valueAsNumber: true })}
           className="h-5 w-full cursor-pointer appearance-none  rounded-lg bg-orange-200 accent-orange-800"
+          onChange={(e) => debouncedSetValue(props.id, Number(e.target.value))}
         />
         <PlusCircle
           className="inline-block h-10 w-10 ml-2 fill-orange-100 text-orange-800 hover:fill-orange-600 hover:cursor-pointer"
