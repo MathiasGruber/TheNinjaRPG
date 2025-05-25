@@ -288,6 +288,7 @@ export const itemRouter = createTRPCRouter({
       const useritem = useritems.find((i) => i.id === input.userItemId);
       // Definitions & Guard
       if (!useritem) return errorResponse("User item not found");
+      if (useritem.storedAtHome) return errorResponse("Fetch at home first");
       const doEquip = !useritem.equipped || useritem.equipped !== input.slot;
       const info = useritem.item;
       const instances = useritems.filter(
