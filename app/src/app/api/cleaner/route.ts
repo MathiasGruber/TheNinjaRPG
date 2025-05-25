@@ -245,7 +245,7 @@ export async function GET() {
     // Step 32: Clear old paypal subscriptions
     await drizzleDB.execute(
       sql`UPDATE ${userData} u SET u.federalStatus = 'NONE' WHERE u.federalStatus != 'NONE' AND NOT EXISTS (
-        SELECT 1 FROM ${paypalSubscription} p WHERE p.affectedUserId = u.userId AND p.status = 'ACTIVE' AND p.updatedAt >= CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY
+        SELECT 1 FROM ${paypalSubscription} p WHERE p.affectedUserId = u.userId AND p.status = 'ACTIVE' AND p.updatedAt >= CURRENT_TIMESTAMP(3) - INTERVAL 35 DAY
       )`,
     );
 
