@@ -12,6 +12,7 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { secondsFromNow } from "@/utils/time";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
 import { automatedModeration } from "@/drizzle/schema";
+import { paypalSubscription } from "@/drizzle/schema";
 
 export async function GET() {
   // Check timer
@@ -239,6 +240,13 @@ export async function GET() {
     // Step 31: Clear automatedModeration older than  3 months
     await drizzleDB.execute(
       sql`DELETE FROM ${automatedModeration} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 3 MONTH`,
+    );
+
+    // Step 32: Clear old paypal subscriptions
+    await drizzleDB.execute(
+      sql`UPDATE ${userData} u SET u.federalStatus = 'NONE' WHERE u.federalStatus != 'NONE' AND NOT EXISTS (
+        SELECT 1 FROM ${paypalSubscription} p WHERE p.affectedUserId = u.userId AND p.status = 'ACTIVE' AND p.updatedAt >= CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY
+      )`,
     );
 
     return Response.json(`OK`);
