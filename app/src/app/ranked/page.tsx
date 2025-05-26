@@ -451,21 +451,27 @@ export default function Ranked() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-2">
                   <p className="text-sm font-medium">Slot 1:</p>
-                  {rankedLoadout?.consumable1Id && (
-                    <ItemWithEffects 
-                      item={filteredConsumables?.find(c => c.id === rankedLoadout.consumable1Id)} 
-                      showStatistic="item" 
-                    />
-                  )}
+                  {rankedLoadout?.consumable1Id && (() => {
+                    const item = filteredConsumables?.find(c => c.id === rankedLoadout.consumable1Id);
+                    return item ? (
+                      <ItemWithEffects 
+                        item={item}
+                        showStatistic="item" 
+                      />
+                    ) : null;
+                  })()}
                 </div>
                 <div className="flex flex-col gap-2">
                   <p className="text-sm font-medium">Slot 2:</p>
-                  {rankedLoadout?.consumable2Id && (
-                    <ItemWithEffects 
-                      item={filteredConsumables?.find(c => c.id === rankedLoadout.consumable2Id)} 
-                      showStatistic="item" 
-                    />
-                  )}
+                  {rankedLoadout?.consumable2Id && (() => {
+                    const item = filteredConsumables?.find(c => c.id === rankedLoadout.consumable2Id);
+                    return item ? (
+                      <ItemWithEffects 
+                        item={item}
+                        showStatistic="item" 
+                      />
+                    ) : null;
+                  })()}
                 </div>
               </div>
               <div className="flex flex-row gap-2">
