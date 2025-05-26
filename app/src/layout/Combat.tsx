@@ -296,10 +296,10 @@ const Combat: React.FC<CombatProps> = (props) => {
     userId.current = props.userId;
     battle.current = props.battleState.battle;
     if (props.battleState.result) {
-      const update = async () => {
-        await utils.profile.getUser.invalidate();
-      };
-      update().catch(console.error);
+      void Promise.all([
+        utils.profile.getUser.invalidate(),
+        utils.travel.getSectorData.invalidate(),
+      ]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props]);
