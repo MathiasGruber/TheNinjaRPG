@@ -22,6 +22,7 @@ interface TutorialStepConfig {
   elementId?: string;
   page: string;
   requiresGameMenu?: boolean;
+  externalLink?: string;
 }
 
 // Define the type for our tutorial step as used in the helper function
@@ -30,6 +31,7 @@ type TutorialStep = TutorialStepConfig;
 // Define all tutorial steps
 const TUTORIAL_STEPS: TutorialStepConfig[] = [
   // Profile page steps - main menu buttons
+
   {
     title: "Welcome to the game",
     description:
@@ -208,6 +210,14 @@ const TUTORIAL_STEPS: TutorialStepConfig[] = [
       "Elite squad of Ninjas that are control by the Kage, to be an anbu you must ask your Kage.",
     elementId: "tutorial-anbu",
     page: "/village",
+  },
+  {
+    title: "That's it for now!",
+    description:
+      "That's it for the tutorial, you can now start playing the game! You can find further information on how to play the game at this link",
+    elementId: "tutorial-logo",
+    page: "/village",
+    externalLink: "https://the-ninja-rpg.fandom.com/wiki/Getting_Started",
   },
 ];
 
@@ -719,6 +729,16 @@ const Tutorial: React.FC<TutorialProps> = ({
               <h3 className="font-bold text-lg">{currentTutorialStep.title}</h3>
             </div>
             <p className="text-sm mb-4">{currentTutorialStep.description}</p>
+            {currentTutorialStep.externalLink && (
+              <Button
+                className="pointer-events-auto w-full mb-2"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(currentTutorialStep.externalLink, "_blank")}
+              >
+                Read Getting Started Guide
+              </Button>
+            )}
             <div className="flex justify-between">
               <Button
                 className="pointer-events-auto"

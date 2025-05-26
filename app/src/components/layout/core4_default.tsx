@@ -92,9 +92,9 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
   // State
   const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const savedTheme = localStorage.getItem("theme");
-      return (savedTheme === "dark" || savedTheme === "light") ? savedTheme : "light";
+      return savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
     }
     return "light";
   });
@@ -369,6 +369,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           <Link href="/">
             <Image
               className="hidden md:block z-2 relative top-3 left-[50%] translate-x-[-50%] select-none"
+              id="tutorial-logo"
               src={IMG_LOGO_FULL}
               width={384}
               height={138}
@@ -377,6 +378,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             />
             <Image
               className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
+              id="tutorial-logo"
               src={IMG_LOGO_SHORT}
               width={250}
               height={63}
