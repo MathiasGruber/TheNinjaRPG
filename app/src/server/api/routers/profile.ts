@@ -2,7 +2,12 @@ import { z } from "zod";
 import { nanoid, customAlphabet } from "nanoid";
 import { count, eq, ne, sql, gte, and, or, like, asc, desc, isNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
-import { secondsPassed, secondsFromNow, getTimeOfLastReset } from "@/utils/time";
+import {
+  secondsPassed,
+  secondsFromNow,
+  getTimeOfLastReset,
+  isDifferentDay,
+} from "@/utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
@@ -1613,7 +1618,7 @@ export const fetchUpdatedUser = async (props: {
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
       // Get activity rewards if any & update timers
       const now = new Date();
-      const newDay = now.getDate() !== user.updatedAt.getDate();
+      const newDay = isDifferentDay(now, user.updatedAt);
       const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
       if (newDay) {
         user.activityStreak = withinThreshold ? user.activityStreak + 1 : 1;

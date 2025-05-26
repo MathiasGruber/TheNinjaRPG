@@ -162,3 +162,21 @@ export const DAY_S = 24 * HOUR_S;
 export const WEEK_S = 7 * DAY_S;
 export const MONTH_S = 30 * DAY_S;
 export const YEAR_S = 365 * DAY_S;
+
+/**
+ * Check if two dates are on different days (UTC-based comparison)
+ * This is more reliable than comparing getDate() which doesn't account for month/year differences
+ */
+export const isDifferentDay = (date1: Date, date2: Date): boolean => {
+  const utc1 = new Date(
+    date1.getUTCFullYear(),
+    date1.getUTCMonth(),
+    date1.getUTCDate(),
+  );
+  const utc2 = new Date(
+    date2.getUTCFullYear(),
+    date2.getUTCMonth(),
+    date2.getUTCDate(),
+  );
+  return utc1.getTime() !== utc2.getTime();
+};
