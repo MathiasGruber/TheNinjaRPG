@@ -93,7 +93,8 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   // State
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem("theme") as "light" | "dark" || "light";
+      const savedTheme = localStorage.getItem("theme");
+      return (savedTheme === "dark" || savedTheme === "light") ? savedTheme : "light";
     }
     return "light";
   });
