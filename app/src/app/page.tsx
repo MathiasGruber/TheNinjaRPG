@@ -1,30 +1,39 @@
-import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
-import { drizzleDB } from "@/server/db";
-import { userData } from "@/drizzle/schema";
-import { eq } from "drizzle-orm";
+"use client";
+
+import { useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useUserData } from "@/utils/UserContext";
+import { useRouter } from "next/navigation";
+import Loader from "@/layout/Loader";
 import Welcome from "@/layout/Welcome";
 
-export default async function Index() {
-  // Get authentication status from Clerk
-  const { userId } = await auth();
+export default function Index() {
+  // Fetch data
+  const { isSignedIn } = useUser();
+  const { data: userData, status: userStatus, userId } = useUserData();
 
-  // If user is not signed in, show welcome page
-  if (!userId) {
+  // Navigation
+  const router = useRouter();
+
+  // Redirect based on user status
+  useEffect(() => {
+    if (userStatus !== "pending" && !userData) {
+      if (userStatus === "error") {
+        void router.push("/500");
+      } else {
+        void router.push("/register");
+      }
+    }
+    if (userData && userId) {
+      void router.push("/profile");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, userId, userStatus]);
+
+  // Guard
+  if (!isSignedIn && !userData) {
     return <Welcome />;
+  } else {
+    return <Loader explanation="Forwarding to profile" />;
   }
-
-  // Check if user exists in our database
-  const user = await drizzleDB.query.userData.findFirst({
-    where: eq(userData.userId, userId),
-    columns: { userId: true, username: true },
-  });
-
-  // If user doesn't exist in our database, redirect to registration
-  if (!user) {
-    redirect("/register");
-  }
-
-  // If user exists, redirect to profile
-  redirect("/profile");
 }
