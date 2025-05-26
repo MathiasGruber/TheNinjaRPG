@@ -50,6 +50,10 @@ export const canChangeUserRole = (role: UserRole) => {
     return UserRoles;
   } else if (role === "CONTENT-ADMIN") {
     return ["USER", "CONTENT", "EVENT", "CONTENT-ADMIN"];
+  } else if (role === "CONTENT") {
+    return ["USER", "CONTENT", "EVENT"];
+  } else if (role === "EVENT") {
+    return ["USER", "CONTENT", "EVENT"];
   } else if (role === "MODERATOR-ADMIN") {
     return ["USER", "HEAD_MODERATOR", "MODERATOR", "JR_MODERATOR"];
   }
