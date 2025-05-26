@@ -2922,7 +2922,6 @@ export const rankedSeason = mysqlTable("RankedSeason", {
   endDate: datetime("endDate", { mode: "date", fsp: 3 }).notNull(),
   rewards: json("rewards").$type<{
     division: string;
-    minLp: number;
     rewards: {
       type: "item" | "jutsu" | "reputation" | "ryo";
       id?: string;

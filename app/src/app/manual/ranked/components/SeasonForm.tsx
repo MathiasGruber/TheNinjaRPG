@@ -21,7 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2 } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Search } from "lucide-react";
 import { RankedDivisions } from "@/drizzle/constants";
 import {
   Select,
@@ -32,17 +32,19 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/app/_trpc/client";
-
-const rewardSchema = z.object({
-  type: z.enum(["item", "jutsu", "reputation", "ryo"]),
-  id: z.string().optional(),
-  amount: z.number().int().positive(),
-});
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const divisionRewardSchema = z.object({
   division: z.string(),
-  minLp: z.number().int().min(0),
-  rewards: z.array(rewardSchema),
+  rewards: z.array(
+    z.object({
+      type: z.enum(["item", "jutsu", "reputation", "ryo"]),
+      amount: z.number().int().min(0),
+      id: z.string().optional(),
+      name: z.string().optional(),
+    })
+  ),
 });
 
 const formSchema = z.object({
@@ -63,7 +65,20 @@ interface SeasonFormProps {
 
 export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedRewardIndex, setSelectedRewardIndex] = useState<{ divisionIndex: number; rewardIndex: number } | null>(null);
   const utils = api.useUtils();
+
+  const { data: items } = api.item.getAll.useQuery(
+    { name: searchQuery, limit: 10 },
+    { enabled: isSearchOpen && selectedRewardIndex !== null }
+  );
+
+  const { data: jutsus } = api.jutsu.getAll.useQuery(
+    { name: searchQuery, limit: 10 },
+    { enabled: isSearchOpen && selectedRewardIndex !== null }
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -108,8 +123,7 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
     form.setValue("rewards", [
       ...currentRewards,
       {
-        division: RankedDivisions[0].key,
-        minLp: 0,
+        division: "UNRANKED",
         rewards: [],
       },
     ]);
@@ -126,13 +140,18 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
   const addReward = (divisionIndex: number) => {
     const currentRewards = form.getValues("rewards");
     const divisionRewards = currentRewards[divisionIndex];
-    if (!divisionRewards?.division || !divisionRewards?.minLp) return;
+    if (!divisionRewards?.division) return;
 
     const newRewards = [...currentRewards];
     newRewards[divisionIndex] = {
       division: divisionRewards.division,
-      minLp: divisionRewards.minLp,
-      rewards: [...divisionRewards.rewards, { type: "ryo", amount: 0 }],
+      rewards: [
+        ...divisionRewards.rewards,
+        {
+          type: "item",
+          amount: 1,
+        },
+      ],
     };
     form.setValue("rewards", newRewards);
   };
@@ -140,15 +159,33 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
   const removeReward = (divisionIndex: number, rewardIndex: number) => {
     const currentRewards = form.getValues("rewards");
     const divisionRewards = currentRewards[divisionIndex];
-    if (!divisionRewards?.division || !divisionRewards?.minLp) return;
+    if (!divisionRewards?.division) return;
 
     const newRewards = [...currentRewards];
     newRewards[divisionIndex] = {
       division: divisionRewards.division,
-      minLp: divisionRewards.minLp,
-      rewards: divisionRewards.rewards.filter((_, i) => i !== rewardIndex),
+      rewards: divisionRewards.rewards.filter((_, idx) => idx !== rewardIndex),
     };
     form.setValue("rewards", newRewards);
+  };
+
+  const handleSearchSelect = async (id: string, name: string) => {
+    if (!selectedRewardIndex) return;
+    const { divisionIndex, rewardIndex } = selectedRewardIndex;
+    const currentRewards = form.getValues("rewards");
+    const divisionRewards = currentRewards[divisionIndex];
+    if (!divisionRewards?.division) return;
+
+    const newRewards = [...currentRewards];
+    newRewards[divisionIndex] = {
+      division: divisionRewards.division,
+      rewards: divisionRewards.rewards.map((reward, idx) => 
+        idx === rewardIndex ? { ...reward, id, name } : reward
+      ),
+    };
+    await form.setValue("rewards", newRewards);
+    setIsSearchOpen(false);
+    setSearchQuery("");
   };
 
   return (
@@ -324,26 +361,6 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name={`rewards.${divisionIndex}.minLp`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Minimum LP</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(parseInt(e.target.value))
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium">Rewards</h4>
@@ -393,25 +410,77 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
                               )}
                             />
 
-                            <FormField
-                              control={form.control}
-                              name={`rewards.${divisionIndex}.rewards.${rewardIndex}.amount`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Amount</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...field}
-                                      onChange={(e) =>
-                                        field.onChange(parseInt(e.target.value))
-                                      }
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                            {(reward.type === "item" || reward.type === "jutsu") && (
+                              <div className="col-span-2">
+                                <FormLabel>Search {reward.type}</FormLabel>
+                                <div className="flex gap-2">
+                                  <Input
+                                    placeholder={`Search ${reward.type}...`}
+                                    value={reward.name || ""}
+                                    readOnly
+                                    onClick={() => {
+                                      setSelectedRewardIndex({ divisionIndex, rewardIndex });
+                                      setIsSearchOpen(true);
+                                    }}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      setSelectedRewardIndex({ divisionIndex, rewardIndex });
+                                      setIsSearchOpen(true);
+                                    }}
+                                  >
+                                    <Search className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                            {reward.type === "reputation" && (
+                              <FormField
+                                control={form.control}
+                                name={`rewards.${divisionIndex}.rewards.${rewardIndex}.amount`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Amount</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        {...field}
+                                        onChange={(e) =>
+                                          field.onChange(parseInt(e.target.value))
+                                        }
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+
+                            {reward.type === "ryo" && (
+                              <FormField
+                                control={form.control}
+                                name={`rewards.${divisionIndex}.rewards.${rewardIndex}.amount`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Amount</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        {...field}
+                                        onChange={(e) =>
+                                          field.onChange(parseInt(e.target.value))
+                                        }
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
 
                             <div className="flex items-end">
                               <Button
@@ -439,6 +508,44 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
           {isSubmitting ? "Saving..." : seasonId ? "Update Season" : "Create Season"}
         </Button>
       </form>
+
+      <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Search {selectedRewardIndex ? form.watch(`rewards.${selectedRewardIndex.divisionIndex}.rewards.${selectedRewardIndex.rewardIndex}.type`) : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Command>
+              <CommandInput 
+                placeholder="Search..." 
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+              />
+              <CommandEmpty>No results found.</CommandEmpty>
+              <CommandGroup>
+                {selectedRewardIndex && form.watch(`rewards.${selectedRewardIndex.divisionIndex}.rewards.${selectedRewardIndex.rewardIndex}.type`) === "item" && items?.data.map((item) => (
+                  <CommandItem
+                    key={item.id}
+                    onSelect={() => handleSearchSelect(item.id, item.name)}
+                  >
+                    {item.name}
+                  </CommandItem>
+                ))}
+                {selectedRewardIndex && form.watch(`rewards.${selectedRewardIndex.divisionIndex}.rewards.${selectedRewardIndex.rewardIndex}.type`) === "jutsu" && jutsus?.data.map((jutsu) => (
+                  <CommandItem
+                    key={jutsu.id}
+                    onSelect={() => handleSearchSelect(jutsu.id, jutsu.name)}
+                  >
+                    {jutsu.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </Command>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 } 

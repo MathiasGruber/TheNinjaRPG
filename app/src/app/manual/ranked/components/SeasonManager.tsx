@@ -135,9 +135,6 @@ export function SeasonManager() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <h4 className="font-medium">{division.division}</h4>
-                          <span className="text-sm text-muted-foreground">
-                            Min LP: {division.minLp}
-                          </span>
                         </div>
                         <div className="space-y-2">
                           {division.rewards.map((reward, rewardIndex) => (

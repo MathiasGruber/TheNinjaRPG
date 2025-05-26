@@ -14,7 +14,6 @@ const rewardSchema = z.object({
 
 const divisionRewardSchema = z.object({
   division: z.string(),
-  minLp: z.number().int().min(0),
   rewards: z.array(rewardSchema),
 });
 
