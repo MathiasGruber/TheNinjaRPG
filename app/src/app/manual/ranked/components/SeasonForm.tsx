@@ -93,14 +93,14 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
 
   const createSeason = api.ranked.createSeason.useMutation({
     onSuccess: () => {
-      utils.ranked.getSeasons.invalidate();
+      void utils.ranked.getSeasons.invalidate();
       onSuccess?.();
     },
   });
 
   const updateSeason = api.ranked.updateSeason.useMutation({
     onSuccess: () => {
-      utils.ranked.getSeasons.invalidate();
+      void utils.ranked.getSeasons.invalidate();
       onSuccess?.();
     },
   });
