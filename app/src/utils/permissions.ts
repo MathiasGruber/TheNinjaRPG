@@ -67,10 +67,6 @@ export const canUnstuckVillage = (role: UserRole) => {
   return role !== "USER";
 };
 
-export const canSwapBloodline = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CONTENT", "EVENT", "CODING-ADMIN"].includes(role);
-};
-
 export const canSeeSecretData = (role: UserRole) => {
   return [
     "JR_MODERATOR",
