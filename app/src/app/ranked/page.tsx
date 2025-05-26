@@ -395,11 +395,11 @@ export default function Ranked() {
                 if (rankedLoadout?.consumable1Id === selectedItem.id) {
                   updateLoadout.mutate({ 
                     consumable1Id: undefined,
-                    consumable2Id: rankedLoadout.consumable2Id 
+                    consumable2Id: rankedLoadout.consumable2Id ?? undefined
                   });
                 } else if (rankedLoadout?.consumable2Id === selectedItem.id) {
                   updateLoadout.mutate({ 
-                    consumable1Id: rankedLoadout.consumable1Id,
+                    consumable1Id: rankedLoadout.consumable1Id ?? undefined,
                     consumable2Id: undefined 
                   });
                 }
@@ -451,17 +451,21 @@ export default function Ranked() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-2">
                   <p className="text-sm font-medium">Slot 1:</p>
-                  <ItemWithEffects 
-                    item={filteredConsumables?.find(c => c.id === rankedLoadout?.consumable1Id)} 
-                    showStatistic="item" 
-                  />
+                  {rankedLoadout?.consumable1Id && (
+                    <ItemWithEffects 
+                      item={filteredConsumables?.find(c => c.id === rankedLoadout.consumable1Id)} 
+                      showStatistic="item" 
+                    />
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
                   <p className="text-sm font-medium">Slot 2:</p>
-                  <ItemWithEffects 
-                    item={filteredConsumables?.find(c => c.id === rankedLoadout?.consumable2Id)} 
-                    showStatistic="item" 
-                  />
+                  {rankedLoadout?.consumable2Id && (
+                    <ItemWithEffects 
+                      item={filteredConsumables?.find(c => c.id === rankedLoadout.consumable2Id)} 
+                      showStatistic="item" 
+                    />
+                  )}
                 </div>
               </div>
               <div className="flex flex-row gap-2">
