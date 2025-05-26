@@ -55,11 +55,21 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { canUnstuckVillage, canModifyUserBadges } from "@/utils/permissions";
 import { canCloneUser } from "@/utils/permissions";
+import { TRPCError } from "@trpc/server";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { UserStatus } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 export const staffRouter = createTRPCRouter({
+  throwError: protectedProcedure.output(baseServerResponse).mutation(async () => {
+    throw new Error("Test error");
+  }),
+  throwTrpcError: protectedProcedure.output(baseServerResponse).mutation(async () => {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Test error",
+    });
+  }),
   forceAwake: protectedProcedure
     .output(baseServerResponse)
     .input(z.object({ userId: z.string() }))

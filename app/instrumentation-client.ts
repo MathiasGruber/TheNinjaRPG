@@ -32,7 +32,7 @@ Sentry.init({
   enabled: process.env.NODE_ENV !== "development",
 
   // Only on production URLs
-  allowUrls: [/https?:\/\/(www\.)?theninja-rpg\.com.*/],
+  // allowUrls: [/https?:\/\/(www\.)?theninja-rpg\.com.*/],
 
   /**
    * @function ReplaySessions/Errors
