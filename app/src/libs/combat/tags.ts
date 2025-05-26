@@ -5,7 +5,6 @@ import { HealTag } from "@/libs/combat/types";
 import type { BattleUserState, Consequence } from "./types";
 import type { GroundEffect, UserEffect, ActionEffect } from "./types";
 import type { StatNames, GenNames, DmgConfig } from "./constants";
-import type { DamageTagType, PierceTagType } from "@/libs/combat/types";
 import type { WeaknessTagType } from "@/libs/combat/types";
 import type { ShieldTagType } from "@/libs/combat/types";
 import type { GeneralType } from "@/drizzle/constants";

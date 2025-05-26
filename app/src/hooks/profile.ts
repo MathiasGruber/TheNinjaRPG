@@ -85,6 +85,7 @@ export const useUserEditForm = (userId: string, user: UpdateUserSchema) => {
       multiple: true,
       doubleWidth: true,
     },
+    { id: "reason", type: "richinput", doubleWidth: true },
   ];
 
   return { user, loading, form, formData, userJutsus, handleUserSubmit };
