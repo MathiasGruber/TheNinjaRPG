@@ -825,18 +825,30 @@ export const questsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
       if (!user || !canEditPublicUser(user)) {
         return errorResponse("Not authorized to delete user quests");
       }
       // Mutate
-      await ctx.drizzle
-        .delete(questHistory)
-        .where(
-          and(
-            eq(questHistory.userId, input.userId),
-            eq(questHistory.questId, input.questId),
+      await Promise.all([
+        ctx.drizzle
+          .delete(questHistory)
+          .where(
+            and(
+              eq(questHistory.userId, input.userId),
+              eq(questHistory.questId, input.questId),
+            ),
           ),
-        );
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: [`Deleted quest ${input.questId}`],
+          relatedId: input.userId,
+          relatedMsg: `Deleted quest ${input.questId}`,
+          relatedImage: user.avatarLight,
+        }),
+      ]);
       return { success: true, message: "Quest deleted successfully" };
     }),
 });

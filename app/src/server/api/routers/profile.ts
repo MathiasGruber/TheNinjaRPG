@@ -80,6 +80,7 @@ import sanitize from "@/utils/sanitize";
 import { deleteUser } from "@/server/api/routers/staff";
 import { moderateContent } from "@/libs/moderator";
 import { fetchKageReplacement } from "@/routers/kage";
+import { validateUserUpdateReason } from "@/libs/moderator";
 import type { UserVote } from "@/drizzle/schema";
 import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
@@ -671,6 +672,14 @@ export const profileRouter = createTRPCRouter({
       )
         .concat(jutsuChanges)
         .concat(itemChanges);
+      // AI moderation of reason
+      const aiCheck = await validateUserUpdateReason(
+        diff.join(". "),
+        input.data.reason,
+      );
+      if (!aiCheck.allowUpdate) {
+        return errorResponse(aiCheck.comment);
+      }
       // Update database
       await Promise.all([
         ctx.drizzle
@@ -693,7 +702,7 @@ export const profileRouter = createTRPCRouter({
           tableName: "user",
           changes: diff,
           relatedId: target.userId,
-          relatedMsg: `Update: ${target.username}`,
+          relatedMsg: input.data.reason,
           relatedImage: target.avatarLight,
         }),
       ]);

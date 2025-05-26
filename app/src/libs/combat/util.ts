@@ -50,7 +50,7 @@ import type { CombatAction, BattleUserState } from "./types";
 import type { ZodAllTags } from "./types";
 import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types";
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
-import type { Item, UserItem, AiProfile, War } from "@/drizzle/schema";
+import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
 
 /**
@@ -467,13 +467,19 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
       current.types = current.types ? current.types.concat(val.types) : val.types;
     }
     if (val.drain_hp) {
-      current.drain_hp = current.drain_hp ? current.drain_hp + val.drain_hp : val.drain_hp;
+      current.drain_hp = current.drain_hp
+        ? current.drain_hp + val.drain_hp
+        : val.drain_hp;
     }
     if (val.drain_cp) {
-      current.drain_cp = current.drain_cp ? current.drain_cp + val.drain_cp : val.drain_cp;
+      current.drain_cp = current.drain_cp
+        ? current.drain_cp + val.drain_cp
+        : val.drain_cp;
     }
     if (val.drain_sp) {
-      current.drain_sp = current.drain_sp ? current.drain_sp + val.drain_sp : val.drain_sp;
+      current.drain_sp = current.drain_sp
+        ? current.drain_sp + val.drain_sp
+        : val.drain_sp;
     }
     if (val.poison) {
       current.poison = current.poison ? current.poison + val.poison : val.poison;

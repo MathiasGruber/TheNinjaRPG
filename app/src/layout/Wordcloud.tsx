@@ -240,6 +240,7 @@ const WordCloud: React.FC<WordCloudProps> = (props) => {
       labels: words.map((word) => word.text),
       data: words.map((word) => word.value),
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.text]);
 
   // Function to create or update the chart

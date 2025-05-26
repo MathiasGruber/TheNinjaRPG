@@ -376,6 +376,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                   userId={profile.userId}
                   profile={{
                     ...profile,
+                    reason: "",
                     items: profile.items.map((ui) => ui.itemId),
                     jutsus: profile.jutsus.map((ui) => ui.jutsuId),
                   }}
