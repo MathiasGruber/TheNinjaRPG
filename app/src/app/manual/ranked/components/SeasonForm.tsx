@@ -118,9 +118,9 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
     }
   };
 
-  const addDivisionReward = async () => {
+  const addDivisionReward = () => {
     const currentRewards = form.getValues("rewards");
-    await form.setValue("rewards", [
+    void form.setValue("rewards", [
       ...currentRewards,
       {
         division: "UNRANKED",
@@ -129,15 +129,15 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
     ]);
   };
 
-  const removeDivisionReward = async (index: number) => {
+  const removeDivisionReward = (index: number) => {
     const currentRewards = form.getValues("rewards");
-    await form.setValue(
+    void form.setValue(
       "rewards",
       currentRewards.filter((_, i) => i !== index),
     );
   };
 
-  const addReward = async (divisionIndex: number) => {
+  const addReward = (divisionIndex: number) => {
     const currentRewards = form.getValues("rewards");
     const divisionRewards = currentRewards[divisionIndex];
     if (!divisionRewards?.division) return;
@@ -153,10 +153,10 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
         },
       ],
     };
-    await form.setValue("rewards", newRewards);
+    void form.setValue("rewards", newRewards);
   };
 
-  const removeReward = async (divisionIndex: number, rewardIndex: number) => {
+  const removeReward = (divisionIndex: number, rewardIndex: number) => {
     const currentRewards = form.getValues("rewards");
     const divisionRewards = currentRewards[divisionIndex];
     if (!divisionRewards?.division) return;
@@ -166,10 +166,10 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
       division: divisionRewards.division,
       rewards: divisionRewards.rewards.filter((_, idx) => idx !== rewardIndex),
     };
-    await form.setValue("rewards", newRewards);
+    void form.setValue("rewards", newRewards);
   };
 
-  const handleSearchSelect = async (id: string, name: string) => {
+  const handleSearchSelect = (id: string, name: string) => {
     if (!selectedRewardIndex) return;
     const { divisionIndex, rewardIndex } = selectedRewardIndex;
     const currentRewards = form.getValues("rewards");
@@ -183,7 +183,7 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
         idx === rewardIndex ? { ...reward, id, name } : reward
       ),
     };
-    await form.setValue("rewards", newRewards);
+    void form.setValue("rewards", newRewards);
     setIsSearchOpen(false);
     setSearchQuery("");
   };
