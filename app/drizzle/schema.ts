@@ -437,7 +437,6 @@ export const clan = mysqlTable(
     coLeader1: varchar("coLeader1", { length: 191 }),
     coLeader2: varchar("coLeader2", { length: 191 }),
     coLeader3: varchar("coLeader3", { length: 191 }),
-    coLeader4: varchar("coLeader4", { length: 191 }),
     leaderOrderId: varchar("leaderOrderId", { length: 191 }).notNull(),
     trainingBoost: double("trainingBoost").default(0).notNull(),
     ryoBoost: double("ryoBoost").default(0).notNull(),
