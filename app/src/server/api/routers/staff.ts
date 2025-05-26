@@ -242,6 +242,7 @@ export const staffRouter = createTRPCRouter({
             bukijutsuOffence: target.bukijutsuOffence,
             bukijutsuDefence: target.bukijutsuDefence,
             questData: target.questData,
+            isOutlaw: target.isOutlaw,
             sector: target.sector,
             latitude: target.latitude,
             longitude: target.longitude,
