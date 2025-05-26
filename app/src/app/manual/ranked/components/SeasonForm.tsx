@@ -33,7 +33,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/app/_trpc/client";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const divisionRewardSchema = z.object({
   division: z.string(),
@@ -118,9 +118,9 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
     }
   };
 
-  const addDivisionReward = () => {
+  const addDivisionReward = async () => {
     const currentRewards = form.getValues("rewards");
-    void form.setValue("rewards", [
+    await form.setValue("rewards", [
       ...currentRewards,
       {
         division: "UNRANKED",
@@ -129,15 +129,15 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
     ]);
   };
 
-  const removeDivisionReward = (index: number) => {
+  const removeDivisionReward = async (index: number) => {
     const currentRewards = form.getValues("rewards");
-    void form.setValue(
+    await form.setValue(
       "rewards",
       currentRewards.filter((_, i) => i !== index),
     );
   };
 
-  const addReward = (divisionIndex: number) => {
+  const addReward = async (divisionIndex: number) => {
     const currentRewards = form.getValues("rewards");
     const divisionRewards = currentRewards[divisionIndex];
     if (!divisionRewards?.division) return;
@@ -153,10 +153,10 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
         },
       ],
     };
-    void form.setValue("rewards", newRewards);
+    await form.setValue("rewards", newRewards);
   };
 
-  const removeReward = (divisionIndex: number, rewardIndex: number) => {
+  const removeReward = async (divisionIndex: number, rewardIndex: number) => {
     const currentRewards = form.getValues("rewards");
     const divisionRewards = currentRewards[divisionIndex];
     if (!divisionRewards?.division) return;
@@ -166,10 +166,10 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
       division: divisionRewards.division,
       rewards: divisionRewards.rewards.filter((_, idx) => idx !== rewardIndex),
     };
-    void form.setValue("rewards", newRewards);
+    await form.setValue("rewards", newRewards);
   };
 
-  const handleSearchSelect = (id: string, name: string) => {
+  const handleSearchSelect = async (id: string, name: string) => {
     if (!selectedRewardIndex) return;
     const { divisionIndex, rewardIndex } = selectedRewardIndex;
     const currentRewards = form.getValues("rewards");
@@ -183,7 +183,7 @@ export default function SeasonForm({ initialData, seasonId, onSuccess }: SeasonF
         idx === rewardIndex ? { ...reward, id, name } : reward
       ),
     };
-    void form.setValue("rewards", newRewards);
+    await form.setValue("rewards", newRewards);
     setIsSearchOpen(false);
     setSearchQuery("");
   };
