@@ -1071,18 +1071,18 @@ export const combatRouter = createTRPCRouter({
         await ctx.drizzle
           .update(rankedLoadout)
           .set({
-            weaponId: input.weaponId ?? existingLoadout.weaponId,
-            consumable1Id: input.consumable1Id ?? existingLoadout.consumable1Id,
-            consumable2Id: input.consumable2Id ?? existingLoadout.consumable2Id,
+            weaponId: input.weaponId === undefined ? null : input.weaponId,
+            consumable1Id: input.consumable1Id === undefined ? existingLoadout.consumable1Id : input.consumable1Id,
+            consumable2Id: input.consumable2Id === undefined ? existingLoadout.consumable2Id : input.consumable2Id,
           })
           .where(eq(rankedLoadout.id, existingLoadout.id));
       } else {
         await ctx.drizzle.insert(rankedLoadout).values({
           id: nanoid(),
           userId: ctx.userId,
-          weaponId: input.weaponId ?? null,
-          consumable1Id: input.consumable1Id ?? null,
-          consumable2Id: input.consumable2Id ?? null,
+          weaponId: input.weaponId === undefined ? null : input.weaponId,
+          consumable1Id: input.consumable1Id === undefined ? null : input.consumable1Id,
+          consumable2Id: input.consumable2Id === undefined ? null : input.consumable2Id,
         });
       }
 
