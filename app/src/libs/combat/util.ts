@@ -1525,8 +1525,29 @@ export const processUsersForBattle = (info: {
         effects
           .filter((e) => e.type === "summon")
           .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
-        if ((itemType === "ARMOR" || itemType === "ACCESSORY") && battleType !== "RANKED") {
-          if (useritem.item.effects && useritem.equipped !== "NONE") {
+
+        // Process effects based on battle type and item type
+        if (battleType === "RANKED") {
+          // In ranked battles, only process weapon effects
+          if (itemType === "WEAPON") {
+            effects.forEach((effect) => {
+              const realized = realizeTag({
+                tag: effect,
+                user: user,
+                actionId: useritem.item.id,
+                target: user,
+                level: user.level,
+              });
+              realized.isNew = false;
+              realized.fromType = "item";
+              realized.castThisRound = false;
+              realized.targetId = user.userId;
+              userEffects.push(realized);
+            });
+          }
+        } else {
+          // In non-ranked battles, process armor and accessory effects
+          if ((itemType === "ARMOR" || itemType === "ACCESSORY") && useritem.equipped !== "NONE") {
             effects.forEach((effect) => {
               const realized = realizeTag({
                 tag: effect,
@@ -1542,11 +1563,11 @@ export const processUsersForBattle = (info: {
               userEffects.push(realized);
             });
           }
-        } else {
-          useritem.lastUsedRound = -useritem.item.cooldown;
-          if (itemType !== "ARMOR" && itemType !== "ACCESSORY") {
-            items.push(useritem);
-          }
+        }
+
+        // Add consumables and weapons to items array
+        if (itemType !== "ARMOR" && itemType !== "ACCESSORY") {
+          items.push(useritem);
         }
       });
     user.items = items;

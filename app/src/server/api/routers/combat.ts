@@ -1154,7 +1154,6 @@ export const initiateBattle = async (
     users,
     previousBattleResults,
   ] = await Promise.all([
-    // Conditionally Fetch background schema
     client.query.backgroundSchema.findFirst({
       where: eq(backgroundSchema.isActive, true),
     }),
@@ -1189,8 +1188,37 @@ export const initiateBattle = async (
         village: { with: { structures: true } },
         loadout: { columns: { jutsuIds: true } },
         clan: true,
+        rankedLoadout: {
+          with: {
+            weapon: {
+              with: {
+                effects: true,
+                tags: true
+              }
+            },
+            consumable1: {
+              with: {
+                effects: true,
+                tags: true
+              }
+            },
+            consumable2: {
+              with: {
+                effects: true,
+                tags: true
+              }
+            }
+          }
+        },
         items: {
-          with: { item: true },
+          with: { 
+            item: {
+              with: {
+                effects: true,
+                tags: true
+              }
+            } 
+          },
           where: (items) => and(gt(items.quantity, 0), ne(items.equipped, "NONE")),
           orderBy: (table, { desc }) => [desc(table.quantity)],
         },
