@@ -108,6 +108,12 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     defaultValues: { message: "" },
   });
 
+  // Submissions handle
+  const handleSubmit = form.handleSubmit((data) => {
+    void append({ role: "user", content: data.message });
+    form.setValue("message", "");
+  });
+
   // Loader
   if (!userData) return <p>Must be logged in to use chat</p>;
 
@@ -226,10 +232,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                       height="120"
                       control={form.control}
                       disabled={isLoading}
-                      onSubmit={(value) => {
-                        void append({ role: "user", content: value as string });
-                        form.setValue("message", "");
-                      }}
+                      onSubmit={handleSubmit}
                       error={form.formState.errors.message?.message}
                     />
                   </FormControl>

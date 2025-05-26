@@ -50,6 +50,10 @@ export const canChangeUserRole = (role: UserRole) => {
     return UserRoles;
   } else if (role === "CONTENT-ADMIN") {
     return ["USER", "CONTENT", "EVENT", "CONTENT-ADMIN"];
+  } else if (role === "CONTENT") {
+    return ["USER", "CONTENT", "EVENT"];
+  } else if (role === "EVENT") {
+    return ["USER", "CONTENT", "EVENT"];
   } else if (role === "MODERATOR-ADMIN") {
     return ["USER", "HEAD_MODERATOR", "MODERATOR", "JR_MODERATOR"];
   }
@@ -61,10 +65,6 @@ export const canSwapVillage = (role: UserRole) => {
 
 export const canUnstuckVillage = (role: UserRole) => {
   return role !== "USER";
-};
-
-export const canSwapBloodline = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CONTENT", "EVENT", "CODING-ADMIN"].includes(role);
 };
 
 export const canSeeSecretData = (role: UserRole) => {
@@ -253,4 +253,8 @@ export const canDeletePollOptions = (role: UserRole) => {
 
 export const canViewFullBattleLog = (role: UserRole) => {
   return ["CODER", "CONTENT", "EVENT", "CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
+
+export const canCloneUser = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };

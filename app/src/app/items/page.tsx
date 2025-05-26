@@ -51,8 +51,9 @@ export default function MyItems() {
   });
 
   // Subtitle
-  const normalItems = userItems?.filter((ui) => !ui.item.isEventItem);
-  const eventItems = userItems?.filter((ui) => ui.item.isEventItem);
+  const availableItems = userItems?.filter((ui) => !ui.storedAtHome);
+  const normalItems = availableItems?.filter((ui) => !ui.item.isEventItem);
+  const eventItems = availableItems?.filter((ui) => ui.item.isEventItem);
 
   // Calculate inventory limits
   const maxNormalItems = userData ? calcMaxItems(userData) : 0;

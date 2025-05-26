@@ -12,6 +12,7 @@ import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { structureBoost } from "@/utils/village";
 import { getReducedGainsDays } from "@/libs/train";
 import { getGameSettingBoost } from "@/libs/gamesettings";
+import { HomeTypeDetails } from "@/drizzle/constants";
 import type { UserRank } from "@/drizzle/constants";
 import type { StatSchemaType } from "./combat/types";
 
@@ -164,8 +165,7 @@ export const showUserRank = (user: { rank: UserRank; isOutlaw: boolean }) => {
       case "ELDER":
         return "Outlaw Council";
     }
-  } 
-  else if (user.rank === "ELITE JONIN"){
+  } else if (user.rank === "ELITE JONIN") {
     return "Elite Jonin";
   }
   return capitalizeFirstLetter(user.rank);
@@ -181,6 +181,11 @@ export const calcActiveUserRegen = (
   settings: GameSetting[],
 ) => {
   let regeneration = user.regeneration;
+
+  // Add home regeneration bonus when asleep
+  if (user.status === "ASLEEP" && user.homeType !== "NONE") {
+    regeneration += HomeTypeDetails[user.homeType].regen;
+  }
 
   // // Bloodline
   if (user.bloodline?.regenIncrease) {

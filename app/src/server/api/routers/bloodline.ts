@@ -7,15 +7,13 @@ import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
 import { userJutsu, jutsu } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
-import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
+import { fetchUser } from "@/routers/profile";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { getRandomElement } from "@/utils/array";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { ROLL_CHANCE, REMOVAL_COST, BLOODLINE_COST } from "@/drizzle/constants";
-import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
-import { canSwapBloodline } from "@/utils/permissions";
 import { calculateContentDiff } from "@/utils/diff";
 import { bloodlineFilteringSchema } from "@/validators/bloodline";
 import { filterRollableBloodlines, getPityRolls } from "@/libs/bloodline";
@@ -422,37 +420,6 @@ export const bloodlineRouter = createTRPCRouter({
         })
         .where(eq(userData.userId, ctx.userId));
       return { success: true, message: "Bloodline purchased" };
-    }),
-  // Swap a bloodline for another of similar rank
-  swapBloodline: protectedProcedure
-    .input(z.object({ bloodlineId: z.string() }))
-    .output(baseServerResponse)
-    .mutation(async ({ ctx, input }) => {
-      // Query
-      const [updatedUser, line] = await Promise.all([
-        fetchUpdatedUser({
-          client: ctx.drizzle,
-          userId: ctx.userId,
-        }),
-        fetchBloodline(ctx.drizzle, input.bloodlineId),
-      ]);
-      const user = updatedUser.user;
-      // Guards
-      if (!user) return errorResponse("User does not exist");
-      if (!line) return errorResponse("Bloodline does not exist");
-      if (!user.bloodline) return errorResponse("User does not have a bloodline");
-      if (line.rank !== user.bloodline.rank) {
-        return errorResponse("Bloodline ranks are not the same");
-      }
-      if (COST_SWAP_BLOODLINE > user.reputationPoints) {
-        return errorResponse("Not enough reputation points");
-      }
-      if (!canSwapBloodline(user.role)) {
-        return errorResponse("Not allowed to swap bloodline");
-      }
-      // Update
-      await updateBloodline(ctx.drizzle, user, line.id, COST_SWAP_BLOODLINE);
-      return { success: true, message: "Bloodline swapped" };
     }),
 });
 

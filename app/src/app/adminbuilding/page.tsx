@@ -15,6 +15,7 @@ import { api } from "@/app/_trpc/client";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { IMG_BUILDING_ADMINBUILDING } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 
 export default function AdministrationBuilding() {
   const util = api.useUtils();
@@ -25,7 +26,9 @@ export default function AdministrationBuilding() {
   // Query
   const { data: hallData } = api.quests.allianceBuilding.useQuery(
     {
-      villageId: userData?.villageId,
+      villageId: userData?.isOutlaw
+        ? VILLAGE_SYNDICATE_ID
+        : (userData?.villageId ?? VILLAGE_SYNDICATE_ID),
       level: userData?.level,
       rank: userData?.rank ? availableQuestLetterRanks(userData.rank) : [],
     },

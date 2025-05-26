@@ -435,3 +435,36 @@ const updateReportedStatus = async (
       break;
   }
 };
+
+/**
+ * Validate a user update reason
+ * @param update - The update to validate
+ * @param reason - The reason for the update
+ * @returns The validation result
+ */
+export const validateUserUpdateReason = async (update: string, reason: string) => {
+  const { object } = await generateObject({
+    model: openaiSdk("gpt-4o-mini"),
+    schema: z.object({ allowUpdate: z.boolean(), comment: z.string() }),
+    prompt: `
+      The following reason is supplied by a content member to update a user profile. 
+      Please determine if the reason is valid and if the update should be allowed. 
+      Content members are tasked with testing things, helping users, etc, and thus the reasons serves mostly as a way to provide transparency to the end users as for why a given update was made.
+      You are not to judge the validity of the update, only verify that it explains the update in a way that is clear and concise.
+      
+      - The reason must not be offensive.
+      - The reason must be concise and to the point.
+      - Ignore spelling errors, this is not important to the moderation process.
+      - If the reason is not valid, please provide a comment explaining why the update should not be allowed.
+
+      <reason>
+        ${reason}
+      </reason>
+
+      <update>
+        ${update}
+      </update>
+    `,
+  });
+  return object;
+};

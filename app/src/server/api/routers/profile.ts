@@ -2,7 +2,12 @@ import { z } from "zod";
 import { nanoid, customAlphabet } from "nanoid";
 import { count, eq, ne, sql, gte, and, or, like, asc, desc, isNull } from "drizzle-orm";
 import { inArray, notInArray } from "drizzle-orm";
-import { secondsPassed, secondsFromNow, getTimeOfLastReset } from "@/utils/time";
+import {
+  secondsPassed,
+  secondsFromNow,
+  getTimeOfLastReset,
+  isDifferentDay,
+} from "@/utils/time";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import {
@@ -80,6 +85,7 @@ import sanitize from "@/utils/sanitize";
 import { deleteUser } from "@/server/api/routers/staff";
 import { moderateContent } from "@/libs/moderator";
 import { fetchKageReplacement } from "@/routers/kage";
+import { validateUserUpdateReason } from "@/libs/moderator";
 import type { UserVote } from "@/drizzle/schema";
 import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
@@ -671,6 +677,14 @@ export const profileRouter = createTRPCRouter({
       )
         .concat(jutsuChanges)
         .concat(itemChanges);
+      // AI moderation of reason
+      const aiCheck = await validateUserUpdateReason(
+        diff.join(". "),
+        input.data.reason,
+      );
+      if (!aiCheck.allowUpdate) {
+        return errorResponse(aiCheck.comment);
+      }
       // Update database
       await Promise.all([
         ctx.drizzle
@@ -693,7 +707,7 @@ export const profileRouter = createTRPCRouter({
           tableName: "user",
           changes: diff,
           relatedId: target.userId,
-          relatedMsg: `Update: ${target.username}`,
+          relatedMsg: input.data.reason,
           relatedImage: target.avatarLight,
         }),
       ]);
@@ -1520,7 +1534,7 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     user.userQuests = user.userQuests
       .filter((q) => q.quest)
-      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user));
+      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user).check);
   }
 
   // Hide information relating to quests
@@ -1605,7 +1619,7 @@ export const fetchUpdatedUser = async (props: {
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
       // Get activity rewards if any & update timers
       const now = new Date();
-      const newDay = now.getDate() !== user.updatedAt.getDate();
+      const newDay = isDifferentDay(now, user.updatedAt);
       const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
       if (newDay) {
         user.activityStreak = withinThreshold ? user.activityStreak + 1 : 1;

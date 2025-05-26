@@ -665,10 +665,6 @@ export const clanRouter = createTRPCRouter({
             fetchedClan.coLeader3 === input.memberId
               ? fetchedClan.coLeader2
               : fetchedClan.coLeader3,
-          coLeader4:
-            fetchedClan.coLeader4 === input.memberId
-              ? fetchedClan.coLeader3
-              : fetchedClan.coLeader4,
         };
       }
       // If member is NOT a co-leader, allow promotion to co-leader instead
@@ -676,7 +672,6 @@ export const clanRouter = createTRPCRouter({
         if (!fetchedClan.coLeader1) updateData = { coLeader1: input.memberId };
         else if (!fetchedClan.coLeader2) updateData = { coLeader2: input.memberId };
         else if (!fetchedClan.coLeader3) updateData = { coLeader3: input.memberId };
-        else if (!fetchedClan.coLeader4) updateData = { coLeader4: input.memberId };
         else return errorResponse(`No more co-leader slots available in ${groupLabel}`);
       }
       // If the member is already a co-leader but the user isn't a leader or can't edit, deny the promotion attempt
@@ -726,7 +721,6 @@ export const clanRouter = createTRPCRouter({
           coLeader1: clanData.coLeader1 === member.userId ? null : clanData.coLeader1,
           coLeader2: clanData.coLeader2 === member.userId ? null : clanData.coLeader2,
           coLeader3: clanData.coLeader3 === member.userId ? null : clanData.coLeader3,
-          coLeader4: clanData.coLeader4 === member.userId ? null : clanData.coLeader4,
         })
         .where(eq(clan.id, clanData.id));
       // Create
@@ -1382,9 +1376,6 @@ export const removeFromClan = async (
               coLeader3: coLeadersToRemove.includes(clanData.coLeader3)
                 ? null
                 : clanData.coLeader3,
-              coLeader4: coLeadersToRemove.includes(clanData.coLeader4)
-                ? null
-                : clanData.coLeader4,
             })
             .where(eq(clan.id, clanData.id)),
           client

@@ -30,10 +30,59 @@ export default function NotifyUsers() {
     <>
       <RegenGainSystem />
       <TrainingGainSystem />
+      <TestErrorMonitoring />
       <NotificationSystem />
     </>
   );
 }
+
+const TestErrorMonitoring: React.FC = () => {
+  // Invalid state
+  const [state, setState] = useState<string | null>("test");
+
+  // Query data
+  const { data: userData } = useRequiredUserData();
+
+  // Trpc error trigger
+  const trpcErrorMutation = api.staff.throwError.useMutation();
+  const trpcTrpcErrorMutation = api.staff.throwTrpcError.useMutation();
+
+  // Guard
+  if (!userData) return null;
+
+  return (
+    <ContentBox
+      title="Monitoring Tests"
+      subtitle="Test error monitoring"
+      initialBreak={true}
+    >
+      <div className="flex flex-col gap-2">
+        <span className="hidden">{state!.toString()}</span>
+        <div className="flex flex-row gap-2">
+          <Button
+            className="basis-1/2"
+            onClick={() => {
+              throw new Error("Test error");
+            }}
+          >
+            Throw Error on Frontend
+          </Button>
+          <Button className="basis-1/2" onClick={() => setState(null)}>
+            Render Error on Frontend
+          </Button>
+        </div>
+        <div className="flex flex-row gap-2">
+          <Button className="basis-1/2" onClick={() => trpcErrorMutation.mutate()}>
+            Throw Error on Backend
+          </Button>
+          <Button className="basis-1/2" onClick={() => trpcTrpcErrorMutation.mutate()}>
+            Throw TRPC Error on Backend
+          </Button>
+        </div>
+      </div>
+    </ContentBox>
+  );
+};
 
 /**
  * Regen Gain System for setting regen multiplier for all users

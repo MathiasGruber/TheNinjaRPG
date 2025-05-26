@@ -194,6 +194,7 @@ const WarCard = ({
               </p>
               {war.shrineHp > 0 && (
                 <StatusBar
+                  key={war.shrineHp}
                   title="HP"
                   tooltip="Shrine Health"
                   color="bg-red-500"

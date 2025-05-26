@@ -16,6 +16,7 @@ export const updateUserSchema = z.object({
   rank: z.enum(UserRanks),
   jutsus: z.array(z.string()).optional(),
   items: z.array(z.string()).optional(),
+  reason: z.string().min(10),
 });
 
 export type UpdateUserSchema = z.infer<typeof updateUserSchema>;

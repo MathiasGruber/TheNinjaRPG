@@ -54,11 +54,22 @@ import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { canUnstuckVillage, canModifyUserBadges } from "@/utils/permissions";
+import { canCloneUser } from "@/utils/permissions";
+import { TRPCError } from "@trpc/server";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { UserStatus } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 export const staffRouter = createTRPCRouter({
+  throwError: protectedProcedure.output(baseServerResponse).mutation(async () => {
+    throw new Error("Test error");
+  }),
+  throwTrpcError: protectedProcedure.output(baseServerResponse).mutation(async () => {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Test error",
+    });
+  }),
   forceAwake: protectedProcedure
     .output(baseServerResponse)
     .input(z.object({ userId: z.string() }))
@@ -191,23 +202,27 @@ export const staffRouter = createTRPCRouter({
       if (!user || !target) {
         return { success: false, message: "User not found" };
       }
-      if (user.username !== "Terriator") {
-        return { success: false, message: "You are not Terriator" };
+      if (!canCloneUser(user.role)) {
+        return { success: false, message: "You are not allowed to clone users" };
       }
-      if (target.username === "Terriator") {
-        return { success: false, message: "Cannot copy Terriator to Terriator" };
+      if (canCloneUser(target.role)) {
+        return { success: false, message: "Cannot copy people able to clone" };
       }
-      const [targetJutsus, targetItems] = await Promise.all([
+      const [targetJutsus, targetItems, targetQuestHistory] = await Promise.all([
         ctx.drizzle.query.userJutsu.findMany({
           where: eq(userJutsu.userId, input.userId),
         }),
         ctx.drizzle.query.userItem.findMany({
           where: eq(userItem.userId, input.userId),
         }),
+        ctx.drizzle.query.questHistory.findMany({
+          where: eq(questHistory.userId, input.userId),
+        }),
       ]);
       await Promise.all([
         ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, user.userId)),
         ctx.drizzle.delete(userItem).where(eq(userItem.userId, user.userId)),
+        ctx.drizzle.delete(questHistory).where(eq(questHistory.userId, user.userId)),
         ctx.drizzle
           .update(userData)
           .set({
@@ -237,6 +252,7 @@ export const staffRouter = createTRPCRouter({
             bukijutsuOffence: target.bukijutsuOffence,
             bukijutsuDefence: target.bukijutsuDefence,
             questData: target.questData,
+            isOutlaw: target.isOutlaw,
             sector: target.sector,
             latitude: target.latitude,
             longitude: target.longitude,
@@ -256,6 +272,15 @@ export const staffRouter = createTRPCRouter({
         await ctx.drizzle.insert(userItem).values(
           targetItems.map((useritem) => ({
             ...useritem,
+            userId: ctx.userId,
+            id: nanoid(),
+          })),
+        );
+      }
+      if (targetQuestHistory.length > 0) {
+        await ctx.drizzle.insert(questHistory).values(
+          targetQuestHistory.map((questhistory) => ({
+            ...questhistory,
             userId: ctx.userId,
             id: nanoid(),
           })),

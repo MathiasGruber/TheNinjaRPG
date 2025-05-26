@@ -91,7 +91,13 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   const rightSideBarRef = React.useRef<HTMLDivElement | null>(null);
 
   // State
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window !== "undefined") {
+      const savedTheme = localStorage.getItem("theme");
+      return savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
+    }
+    return "light";
+  });
   const pathname = usePathname();
 
   // Derived data for layout
@@ -114,16 +120,10 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
   // Set theme
   useEffect(() => {
-    const localTheme = localStorage.getItem("theme");
-    if (
-      localTheme === "dark" ||
-      (!localTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    ) {
+    if (theme === "dark") {
       document.documentElement.classList.add("dark");
-      setTheme("dark");
     } else {
       document.documentElement.classList.remove("dark");
-      setTheme("light");
     }
   }, [theme]);
 
@@ -299,8 +299,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       <Eclipse
         className={`hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${theme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
         onClick={() => {
-          const localTheme = localStorage.getItem("theme");
-          if (!localTheme || localTheme === "light") {
+          if (!theme || theme === "light") {
             localStorage.setItem("theme", "dark");
             setTheme("dark");
           } else {
@@ -370,6 +369,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
           <Link href="/">
             <Image
               className="hidden md:block z-2 relative top-3 left-[50%] translate-x-[-50%] select-none"
+              id="tutorial-logo"
               src={IMG_LOGO_FULL}
               width={384}
               height={138}
@@ -378,6 +378,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             />
             <Image
               className="block md:hidden absolute top-3 left-[50%] translate-x-[-50%] w-1/2 max-w-250"
+              id="tutorial-logo"
               src={IMG_LOGO_SHORT}
               width={250}
               height={63}

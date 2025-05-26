@@ -27,7 +27,7 @@ export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
   const userQuests =
     user?.userQuests
       .filter((uq) => !!uq.quest)
-      .filter((uq) => isAvailableUserQuests({ ...uq.quest, ...uq }, user))
+      .filter((uq) => isAvailableUserQuests({ ...uq.quest, ...uq }, user).check)
       .map((uq) => ({ ...uq, ...uq.quest })) ?? [];
   return userQuests;
 };
@@ -429,9 +429,11 @@ export const isAvailableUserQuests = (
     expiresAt?: string | null;
     requiredVillage: string | null;
     previousAttempts?: number | null;
+    previousCompletes?: number | null;
     completed?: number | null;
   },
   user: UserData,
+  ignorePreviousAttempts = false,
 ) => {
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
   const expiresCheck =
@@ -441,10 +443,19 @@ export const isAvailableUserQuests = (
     questAndUserQuestInfo.questType !== "event" ||
     !questAndUserQuestInfo.previousAttempts ||
     (questAndUserQuestInfo.previousAttempts <= 1 &&
-      questAndUserQuestInfo.completed === 0);
+      questAndUserQuestInfo.completed === 0) ||
+    (ignorePreviousAttempts && questAndUserQuestInfo.previousCompletes !== 1);
   const villageCheck =
     !questAndUserQuestInfo.requiredVillage ||
     questAndUserQuestInfo.requiredVillage === user.villageId ||
     (questAndUserQuestInfo.requiredVillage === VILLAGE_SYNDICATE_ID && user.isOutlaw);
-  return hideCheck && expiresCheck && prevCheck && villageCheck;
+  const check = hideCheck && expiresCheck && prevCheck && villageCheck;
+  // If quest is not available, return the reason
+  let message = "";
+  if (!hideCheck) message += "Quest is hidden\n";
+  if (!expiresCheck) message += "Quest has expired\n";
+  if (!prevCheck) message += "Quest has been attempted too many times\n";
+  if (!villageCheck) message += "Quest is not available in your village\n";
+  // Returned detailed info on all the checks
+  return { check, message };
 };

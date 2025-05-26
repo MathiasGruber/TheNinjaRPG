@@ -255,7 +255,6 @@ export const updateClanLeaders = async (
         coLeader1: sql`CASE WHEN ${clan.coLeader1} = ${user.userId} THEN NULL ELSE ${clan.coLeader1} END`,
         coLeader2: sql`CASE WHEN ${clan.coLeader2} = ${user.userId} THEN NULL ELSE ${clan.coLeader2} END`,
         coLeader3: sql`CASE WHEN ${clan.coLeader3} = ${user.userId} THEN NULL ELSE ${clan.coLeader3} END`,
-        coLeader4: sql`CASE WHEN ${clan.coLeader4} = ${user.userId} THEN NULL ELSE ${clan.coLeader4} END`,
       })
       .where(eq(clan.id, user.clanId)),
     client

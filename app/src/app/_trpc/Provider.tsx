@@ -44,7 +44,6 @@ export default function TrpcClientProvider(props: { children: React.ReactNode })
           onSettled: () => {
             document.body.style.cursor = "default";
           },
-          onError: onError,
         }),
       }),
   );
@@ -71,6 +70,7 @@ export default function TrpcClientProvider(props: { children: React.ReactNode })
 }
 
 export const onError = (err: unknown) => {
+  console.log("onError", err);
   if (err instanceof TRPCClientError) {
     toast({
       variant: "destructive",

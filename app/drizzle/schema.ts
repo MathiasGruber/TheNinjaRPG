@@ -438,7 +438,6 @@ export const clan = mysqlTable(
     coLeader1: varchar("coLeader1", { length: 191 }),
     coLeader2: varchar("coLeader2", { length: 191 }),
     coLeader3: varchar("coLeader3", { length: 191 }),
-    coLeader4: varchar("coLeader4", { length: 191 }),
     leaderOrderId: varchar("leaderOrderId", { length: 191 }).notNull(),
     trainingBoost: double("trainingBoost").default(0).notNull(),
     ryoBoost: double("ryoBoost").default(0).notNull(),
@@ -1487,6 +1486,7 @@ export const userData = mysqlTable(
     rankedBattles: int("rankedBattles").notNull().default(0),
     rankedWins: int("rankedWins").notNull().default(0),
     rankedStreak: int("rankedStreak").notNull().default(0),
+    homeType: mysqlEnum("homeType", consts.HomeTypes).default("NONE").notNull(),
   },
   (table) => {
     return {
@@ -1666,6 +1666,7 @@ export const userItem = mysqlTable(
     itemId: varchar("itemId", { length: 191 }).notNull(),
     quantity: int("quantity").default(1).notNull(),
     equipped: mysqlEnum("equipped", consts.ItemSlots).default("NONE").notNull(),
+    storedAtHome: boolean("storedAtHome").default(false).notNull(),
   },
   (table) => {
     return {

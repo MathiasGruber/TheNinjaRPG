@@ -148,10 +148,11 @@ export const questsRouter = createTRPCRouter({
               lte(quest.requiredLevel, input.level ?? 0),
               gte(quest.maxLevel, input.level ?? 0),
             ),
-          ),
+          )
+          .orderBy(asc(quest.name)),
       ]);
       events.forEach((r) => hideQuestInformation(r));
-      return events.filter((e) => isAvailableUserQuests(e, user));
+      return events.filter((e) => isAvailableUserQuests(e, user, true).check);
     }),
   missionHall: protectedProcedure
     .input(z.object({ villageId: z.string(), level: z.number() }))
@@ -187,11 +188,12 @@ export const questsRouter = createTRPCRouter({
               lte(quest.requiredLevel, input.level ?? 0),
               gte(quest.maxLevel, input.level ?? 0),
             ),
-          ),
+          )
+          .orderBy(asc(quest.name)),
       ]);
       // Return
       missions.forEach((r) => hideQuestInformation(r));
-      return missions.filter((e) => isAvailableUserQuests(e, user));
+      return missions.filter((e) => isAvailableUserQuests(e, user, true).check);
     }),
   startRandom: protectedProcedure
     .input(
@@ -283,7 +285,7 @@ export const questsRouter = createTRPCRouter({
       }
       // Fetch quest
       const result = getRandomElement(
-        results.filter((e) => isAvailableUserQuests(e, user)),
+        results.filter((e) => isAvailableUserQuests(e, user).check),
       );
       if (!result) return errorResponse("No assignments at this level could be found");
 
@@ -320,12 +322,17 @@ export const questsRouter = createTRPCRouter({
       if (!user) return errorResponse("User does not exist");
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
-      if (!isAvailableUserQuests({ ...questData, ...prevAttempt }, user)) {
-        return errorResponse("Quest is not available for you");
-      }
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.questRank)) {
         return errorResponse(`Rank ${user.rank} not allowed`);
+      }
+      // Availability checks
+      const { check, message } = isAvailableUserQuests(
+        { ...questData, ...prevAttempt },
+        user,
+      );
+      if (!check) {
+        return errorResponse(`Quest is not available for you: ${message}`);
       }
       const current = user.userQuests?.filter(
         (q) => q.quest.questType === "event" && !q.endAt,
@@ -818,18 +825,30 @@ export const questsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
       if (!user || !canEditPublicUser(user)) {
         return errorResponse("Not authorized to delete user quests");
       }
       // Mutate
-      await ctx.drizzle
-        .delete(questHistory)
-        .where(
-          and(
-            eq(questHistory.userId, input.userId),
-            eq(questHistory.questId, input.questId),
+      await Promise.all([
+        ctx.drizzle
+          .delete(questHistory)
+          .where(
+            and(
+              eq(questHistory.userId, input.userId),
+              eq(questHistory.questId, input.questId),
+            ),
           ),
-        );
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: [`Deleted quest ${input.questId}`],
+          relatedId: input.userId,
+          relatedMsg: `Deleted quest ${input.questId}`,
+          relatedImage: user.avatarLight,
+        }),
+      ]);
       return { success: true, message: "Quest deleted successfully" };
     }),
 });

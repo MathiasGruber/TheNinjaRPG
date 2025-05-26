@@ -8,7 +8,9 @@ Sentry.init({
   dsn: "https://c35c54f99b73b4a3b8a7e60936bc2967@o4507797256601600.ingest.de.sentry.io/4507797262958672",
 
   // Replay may only be enabled for the client-side
-  integrations: [Sentry.replayIntegration()],
+  integrations: [
+    Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false }),
+  ],
 
   // Adjust this value in production, or use tracesSampler for greater control
   tracesSampleRate: 0.001,
@@ -30,7 +32,7 @@ Sentry.init({
   enabled: process.env.NODE_ENV !== "development",
 
   // Only on production URLs
-  allowUrls: [/https?:\/\/(www\.)?theninja-rpg\.com.*/],
+  // allowUrls: [/https?:\/\/(www\.)?theninja-rpg\.com.*/],
 
   /**
    * @function ReplaySessions/Errors

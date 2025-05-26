@@ -288,6 +288,7 @@ export const itemRouter = createTRPCRouter({
       const useritem = useritems.find((i) => i.id === input.userItemId);
       // Definitions & Guard
       if (!useritem) return errorResponse("User item not found");
+      if (useritem.storedAtHome) return errorResponse("Fetch at home first");
       const doEquip = !useritem.equipped || useritem.equipped !== input.slot;
       const info = useritem.item;
       const instances = useritems.filter(
@@ -535,9 +536,9 @@ export const itemRouter = createTRPCRouter({
       ]);
       // Derived
       const regularItemsCount =
-        useritems?.filter((ui) => !ui.item.isEventItem).length || 0;
+        useritems?.filter((ui) => !ui.item.isEventItem && !ui.storedAtHome).length || 0;
       const eventItemsCount =
-        useritems?.filter((ui) => ui.item.isEventItem).length || 0;
+        useritems?.filter((ui) => ui.item.isEventItem && !ui.storedAtHome).length || 0;
       const sDiscount = structureBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
       const factor = (100 - sDiscount - aDiscount) / 100;
