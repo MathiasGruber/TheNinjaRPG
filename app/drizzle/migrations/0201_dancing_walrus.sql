@@ -52,3 +52,15 @@ CREATE TABLE `RankedUserJutsu` (
   INDEX `RankedUserJutsu_jutsuId_idx` (`jutsuId`),
   INDEX `RankedUserJutsu_equipped_idx` (`equipped`)
 );
+
+CREATE TABLE `RankedSeason` (
+  `id` varchar(191) NOT NULL,
+  `name` varchar(191) NOT NULL,
+  `description` text NOT NULL,
+  `startDate` datetime(3) NOT NULL,
+  `endDate` datetime(3) NOT NULL,
+  `rewards` json NOT NULL,
+  `createdAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
+  `updatedAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; 

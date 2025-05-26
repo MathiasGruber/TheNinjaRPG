@@ -891,6 +891,8 @@ export const IMG_MANUAL_OPINION =
   "https://utfs.io/f/Hzww9EQvYURJ0dX0Z3grYldRWJcD6vE10SjNsXHeA9pVMfQi";
 export const IMG_MANUAL_POLLS =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRc1v3JK0udmODoNtpa0FMcwI4k2Eq7nJhyvj";
+export const IMG_MANUAL_RANKED =
+  "https://utfs.io/f/Hzww9EQvYURJAa3ucxOoZUC4muiGcQNzjfEndY5y1w20B8hT";
 export const IMG_LAYOUT_USERBANNER_MIDDLE =
   "https://utfs.io/f/Hzww9EQvYURJ6sgzOzDfT5pyNCaUruzhPtAJqb8Kj9mc1nlH";
 export const IMG_LAYOUT_SIDESCROLL =

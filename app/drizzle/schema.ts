@@ -2913,3 +2913,28 @@ export const rankedLoadoutRelations = relations(rankedLoadout, ({ one }) => ({
 }));
 
 export type RankedLoadout = InferSelectModel<typeof rankedLoadout>;
+
+export const rankedSeason = mysqlTable("RankedSeason", {
+  id: varchar("id", { length: 191 }).notNull().primaryKey(),
+  name: varchar("name", { length: 191 }).notNull(),
+  description: text("description").notNull(),
+  startDate: datetime("startDate", { mode: "date", fsp: 3 }).notNull(),
+  endDate: datetime("endDate", { mode: "date", fsp: 3 }).notNull(),
+  rewards: json("rewards").$type<{
+    division: string;
+    minLp: number;
+    rewards: {
+      type: "item" | "jutsu" | "reputation" | "ryo";
+      id?: string;
+      amount: number;
+    }[];
+  }[]>().notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+});
+
+export type RankedSeason = InferSelectModel<typeof rankedSeason>;
