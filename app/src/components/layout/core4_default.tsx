@@ -91,7 +91,12 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
   const rightSideBarRef = React.useRef<HTMLDivElement | null>(null);
 
   // State
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem("theme") as "light" | "dark" || "light";
+    }
+    return "light";
+  });
   const pathname = usePathname();
 
   // Derived data for layout
@@ -114,17 +119,12 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
 
   // Set theme
   useEffect(() => {
-    if (
-      theme === "dark" ||
-      (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    ) {
+    if (theme === "dark") {
       document.documentElement.classList.add("dark");
-      setTheme("dark");
     } else {
       document.documentElement.classList.remove("dark");
-      setTheme("light");
     }
-  }, [theme, setTheme]);
+  }, [theme]);
 
   // Images
   const imageset = getImageSet(userData);
