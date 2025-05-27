@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { and, desc, eq, sql, inArray } from "drizzle-orm";
-import { poll, pollOption, userPollVote } from "@/drizzle/schema";
+import { poll, pollOption, userPollVote, actionLog } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { baseServerResponse, errorResponse } from "../trpc";
 import { fetchUser } from "@/routers/profile";
@@ -78,6 +78,18 @@ export const pollRouter = createTRPCRouter({
           endDate: input.endDate,
         }),
         ctx.drizzle.insert(pollOption).values(optionsToInsert),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: user.userId,
+          tableName: "poll",
+          changes: [
+            `Created poll: ${input.title}`,
+            ...(input.description ? [input.description] : []),
+            `Options: ${input.options.map((o) => (o.type === "text" ? o.text : o.username)).join(", ")}`,
+          ],
+          relatedId: pollId,
+          relatedMsg: `Poll created: ${input.title}`,
+        }),
       ]);
 
       return { success: true, message: "Poll created successfully" };
@@ -112,6 +124,17 @@ export const pollRouter = createTRPCRouter({
 
       // Update poll
       await ctx.drizzle.update(poll).set(updateData).where(eq(poll.id, input.id));
+      await ctx.drizzle.insert(actionLog).values({
+        id: nanoid(),
+        userId: user.userId,
+        tableName: "poll",
+        changes: [
+          `Updated poll: ${existingPoll.title}`,
+          ...Object.entries(updateData).map(([k, v]) => `${k}: ${JSON.stringify(v)}`),
+        ],
+        relatedId: input.id,
+        relatedMsg: `Poll updated: ${existingPoll.title}`,
+      });
 
       return { success: true, message: "Poll updated successfully" };
     }),
@@ -208,6 +231,17 @@ export const pollRouter = createTRPCRouter({
           createdByUserId: user.userId,
           isCustomOption: !isAdmin, // Only mark as custom if not admin
         });
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: user.userId,
+          tableName: "poll",
+          changes: [
+            `Added option to poll: ${existingPoll.title}`,
+            `Option: ${input.text}`,
+          ],
+          relatedId: input.pollId,
+          relatedMsg: `Added option: ${input.text}`,
+        });
       } else if (input.type === "user") {
         await ctx.drizzle.insert(pollOption).values({
           id: nanoid(),
@@ -217,6 +251,17 @@ export const pollRouter = createTRPCRouter({
           targetUserId: input.userId,
           createdByUserId: user.userId,
           isCustomOption: !isAdmin, // Only mark as custom if not admin
+        });
+        await ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: user.userId,
+          tableName: "poll",
+          changes: [
+            `Added user option to poll: ${existingPoll.title}`,
+            `User: ${input.username}`,
+          ],
+          relatedId: input.pollId,
+          relatedMsg: `Added user option: ${input.username}`,
         });
       } else {
         return errorResponse("Invalid option type");
@@ -330,7 +375,6 @@ export const pollRouter = createTRPCRouter({
       await ctx.drizzle
         .delete(userPollVote)
         .where(eq(userPollVote.id, existingVote.id));
-
       return { success: true, message: "Vote retracted successfully" };
     }),
 
@@ -357,6 +401,16 @@ export const pollRouter = createTRPCRouter({
         .update(poll)
         .set({ isActive: input.isActive })
         .where(eq(poll.id, input.id));
+      await ctx.drizzle.insert(actionLog).values({
+        id: nanoid(),
+        userId: user.userId,
+        tableName: "poll",
+        changes: [
+          `${input.isActive ? "Reopened" : "Closed"} poll: ${existingPoll.title}`,
+        ],
+        relatedId: input.id,
+        relatedMsg: `${input.isActive ? "Reopened" : "Closed"} poll: ${existingPoll.title}`,
+      });
 
       return {
         success: true,
@@ -413,6 +467,17 @@ export const pollRouter = createTRPCRouter({
           .where(
             and(eq(pollOption.id, input.optionId), eq(pollOption.pollId, input.pollId)),
           ),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: user.userId,
+          tableName: "poll",
+          changes: [
+            `Deleted poll option in poll: ${existingPoll.title}`,
+            `OptionId: ${input.optionId}`,
+          ],
+          relatedId: input.pollId,
+          relatedMsg: `Deleted poll option: ${input.optionId}`,
+        }),
       ]);
 
       return { success: true, message: "Poll option deleted successfully" };

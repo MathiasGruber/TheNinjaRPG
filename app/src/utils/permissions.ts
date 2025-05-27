@@ -232,27 +232,57 @@ export const canEditClans = (role: UserRole) => {
 };
 
 export const canAddNonCustomPollOptions = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canCreatePolls = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canEditPolls = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canClosePolls = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canDeletePollOptions = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canViewFullBattleLog = (role: UserRole) => {
-  return ["CODER", "CONTENT", "EVENT", "CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+  return ["CODER", "CONTENT", "EVENT", "CODING-ADMIN", "CONTENT-ADMIN "].includes(role);
 };
 
 export const canCloneUser = (role: UserRole) => {
