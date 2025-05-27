@@ -33,6 +33,8 @@ import {
   WAR_TOWNHALL_HP_ANBU_RECOVER,
   WAR_TOWNHALL_HP_ELDER_REMOVE,
   WAR_TOWNHALL_HP_ELDER_RECOVER,
+  WAR_TOWNHALL_HP_COLEADER_REMOVE,
+  WAR_TOWNHALL_HP_COLEADER_RECOVER,
   WAR_TOWNHALL_HP_KAGE_REMOVE,
   WAR_TOWNHALL_HP_KAGE_RECOVER,
   WAR_TOWNHALL_HP_KAGEDEATH_REMOVE,
@@ -41,6 +43,7 @@ import {
   WAR_SECTORWAR_PVP_SHRINE_REDUCE,
   WAR_SECTORWAR_PVP_SHRINE_RECOVER,
 } from "@/drizzle/constants";
+import { checkCoLeader } from "@/validators/clan";
 import type { BattleWar } from "@/libs/combat/types";
 import type { PathCalculator } from "../hexgrid";
 import type { TerrainHex } from "../hexgrid";
@@ -713,6 +716,9 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
               if (userVillageName && !(userVillageName in townhallInfo)) {
                 townhallInfo[userVillageName] = 0;
               }
+              // Derived
+              const isUserClanColeader = checkCoLeader(user.userId, user.clan);
+              const isTargetClanColeader = checkCoLeader(target.userId, target.clan);
 
               // Village wars & raids
               if (
@@ -728,6 +734,10 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                     townhallChangeHP += WAR_TOWNHALL_HP_ELDER_RECOVER;
                     townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ELDER_RECOVER;
                     townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                  } else if (isUserClanColeader) {
+                    townhallChangeHP += WAR_TOWNHALL_HP_COLEADER_RECOVER;
+                    townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_COLEADER_RECOVER;
+                    townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
                   } else if (user.anbuId) {
                     townhallChangeHP += WAR_TOWNHALL_HP_ANBU_RECOVER;
                     townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ANBU_RECOVER;
@@ -748,6 +758,9 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                   } else if (target.rank === "ELDER") {
                     townhallChangeHP -= WAR_TOWNHALL_HP_ELDER_REMOVE;
                     townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
+                  } else if (isTargetClanColeader) {
+                    townhallChangeHP -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
+                    townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
                   } else if (target.anbuId) {
                     townhallChangeHP -= WAR_TOWNHALL_HP_ANBU_REMOVE;
                     townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ANBU_REMOVE;
