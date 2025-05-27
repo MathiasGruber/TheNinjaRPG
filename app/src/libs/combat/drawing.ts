@@ -43,13 +43,18 @@ import type { SpriteMixer } from "../threejs/SpriteMixer";
 export const showAnimation = (
   animation: GameAsset,
   hex: TerrainHex,
-  spriteMixer: ReturnType<typeof SpriteMixer>,
+  spriteMixer: SpriteMixer,
   playInfinite = false,
 ) => {
   const { height: h, width: w } = hex;
   const texture = loadTexture(animation.image);
-  const actionSprite = spriteMixer.ActionSprite(texture, 1, animation.frames);
-  const action = spriteMixer.Action(actionSprite, 0, animation.frames, animation.speed);
+  const actionSprite = spriteMixer.createActionSprite(texture, 1, animation.frames);
+  const action = spriteMixer.createAction(
+    actionSprite,
+    0,
+    animation.frames - 1,
+    animation.speed,
+  );
   if (action) {
     action.hideWhenFinished = true;
     if (playInfinite) {
@@ -156,7 +161,7 @@ export const drawCombatEffects = (info: {
   battle: ReturnedBattle;
   grid: Grid<TerrainHex>;
   animationId: number;
-  spriteMixer: ReturnType<typeof SpriteMixer>;
+  spriteMixer: SpriteMixer;
   gameAssets: GameAsset[];
 }) => {
   // Destructure
@@ -215,7 +220,7 @@ export const drawCombatEffect = (info: {
   effect: GroundEffect | UserEffect;
   animationId: number;
   hex?: TerrainHex;
-  spriteMixer: ReturnType<typeof SpriteMixer>;
+  spriteMixer: SpriteMixer;
   drawnIds: Set<string>;
   gameAssets: GameAsset[];
 }) => {

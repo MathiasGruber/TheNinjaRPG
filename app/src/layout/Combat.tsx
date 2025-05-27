@@ -446,7 +446,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       renderer.domElement.addEventListener("click", onClick, true);
 
       // Sprite mixer for sprite animations
-      const spriteMixer = SpriteMixer();
+      const spriteMixer = new SpriteMixer();
 
       // Callback on sprite animations
       // spriteMixer.addEventListener("finished", function (event) {});
