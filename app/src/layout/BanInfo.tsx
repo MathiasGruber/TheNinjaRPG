@@ -4,51 +4,31 @@ import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
 import ParsedReportJson from "@/layout/ReportReason";
+import DisplayUserReport from "@/layout/UserReport";
 import { reportCommentExplain } from "@/utils/reports";
 import { reportCommentColor } from "@/utils/reports";
 import { api } from "@/app/_trpc/client";
+import { useRequiredUserData } from "@/utils/UserContext";
 
 interface BanInfoProps {
-  hideContentBox?: boolean;
+  placeholder?: string;
 }
 
-const BanInfo: React.FC<BanInfoProps> = (props) => {
+const BanInfo: React.FC<BanInfoProps> = () => {
   const { data: report } = api.reports.getBan.useQuery(undefined);
 
   if (!report?.reportedUser) return <Loader explanation="Loading ban info" />;
 
-  // Pre defined post component
-  const post = (
-    <Post
-      title={reportCommentExplain(report.status)}
-      color={reportCommentColor(report.status)}
-      user={report.reportedUser}
-      hover_effect={true}
-    >
-      {report.banEnd && (
-        <div className="mb-3">
-          <b>Ban countdown:</b> <Countdown targetDate={report.banEnd} />
-          <hr />
-        </div>
-      )}
-      <ParsedReportJson report={report} />
-      {report.reporterUser?.username && (
-        <span>
-          <b>Report by</b> {report.reporterUser?.username}
-        </span>
-      )}
-    </Post>
-  );
-
-  if (props.hideContentBox) {
-    return post;
-  } else {
-    return (
+  return (
+    <>
       <ContentBox title="No Access" subtitle="You are banned" back_href="/profile">
-        {post}
+        Please wait for your ban to end before you can access this page.
       </ContentBox>
-    );
-  }
+      {report && (
+        <DisplayUserReport report={report} initialBreak={true} hideHrefBack={true} />
+      )}
+    </>
+  );
 };
 
 export default BanInfo;

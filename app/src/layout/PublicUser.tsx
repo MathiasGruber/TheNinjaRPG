@@ -622,6 +622,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           </div>
         </div>
       </ContentBox>
+      <div className="text-center text-sm italic">Unique ID: {profile.userId}</div>
       {/* MARRIED USERS */}
       {showMarriages && marriages !== undefined && marriages.length > 0 && (
         <ContentBox
