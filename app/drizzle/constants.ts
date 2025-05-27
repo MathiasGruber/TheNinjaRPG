@@ -55,6 +55,8 @@ export const SHARED_COOLDOWN_TAGS = [
   "cleanseprevent",
   "clearprevent",
   "seal",
+  "absorb",
+  "increasepoolcost",
 ] as const;
 
 export const LOG_TYPES = [

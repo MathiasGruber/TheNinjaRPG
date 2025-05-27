@@ -47,19 +47,41 @@ export const absorb = (
               ? consequence.damage * (power / 100)
               : Math.min(power, consequence.damage);
           const convert = Math.ceil(absorbAmount * ratio);
+
           // Apply absorption to each pool
           pools.map((pool) => {
             switch (pool) {
               case "Health":
-                // Add to existing absorb value instead of overwriting
-                consequence.absorb_hp = (consequence.absorb_hp || 0) + convert / nPools;
+                // Calculate current HP absorption percentage
+                const currentAbsorbHp = consequence.absorb_hp || 0;
+                const totalCurrentAbsorbHp = (currentAbsorbHp / (consequence.damage || 1)) * 100;
+                
+                // Only cap HP absorption at 60%
+                if (totalCurrentAbsorbHp < 60) {
+                  const remainingAbsorbPercent = 60 - totalCurrentAbsorbHp;
+                  const newAbsorbAmount = Math.min(convert / nPools, ((consequence.damage || 1) * remainingAbsorbPercent / 100));
+                  
+                  // Calculate heal increase from other effects
+                  let healIncrease = 0;
+                  usersEffects.forEach(e => {
+                    if (e.type === "increaseheal" && e.targetId === effect.targetId) {
+                      const { power: healPower, level, powerPerLevel } = e;
+                      healIncrease += healPower + level * powerPerLevel;
+                    }
+                  });
+
+                  // Cap the final amount to not exceed 60% of damage
+                  const maxAllowedAbsorb = (consequence.damage || 1) * 0.6;
+                  const increasedAbsorb = newAbsorbAmount * (1 + healIncrease / 100);
+                  consequence.absorb_hp = currentAbsorbHp + Math.min(increasedAbsorb, maxAllowedAbsorb - currentAbsorbHp);
+                }
                 break;
               case "Stamina":
-                // Add to existing absorb value instead of overwriting
+                // SP absorption can stack normally
                 consequence.absorb_sp = (consequence.absorb_sp || 0) + convert / nPools;
                 break;
               case "Chakra":
-                // Add to existing absorb value instead of overwriting
+                // CP absorption can stack normally
                 consequence.absorb_cp = (consequence.absorb_cp || 0) + convert / nPools;
                 break;
             }
