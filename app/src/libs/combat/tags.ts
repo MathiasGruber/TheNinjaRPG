@@ -645,8 +645,13 @@ export const adjustHealGiven = (
           // Calculate what the absorb would be after the increase
           const increasedAbsorb = consequence.absorb_hp + change;
           
-          // Cap at 60% of damage
-          consequence.absorb_hp = Math.min(increasedAbsorb, maxAllowedAbsorb);
+          // If the increased amount would exceed 60%, scale it down proportionally
+          if (increasedAbsorb > maxAllowedAbsorb) {
+            const scaleFactor = maxAllowedAbsorb / increasedAbsorb;
+            consequence.absorb_hp = Math.floor(increasedAbsorb * scaleFactor);
+          } else {
+            consequence.absorb_hp = increasedAbsorb;
+          }
         }
       }
     });
