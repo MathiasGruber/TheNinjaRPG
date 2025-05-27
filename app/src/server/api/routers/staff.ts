@@ -256,6 +256,8 @@ export const staffRouter = createTRPCRouter({
             sector: target.sector,
             latitude: target.latitude,
             longitude: target.longitude,
+            clanId: target.clanId,
+            anbuId: target.anbuId,
           })
           .where(eq(userData.userId, ctx.userId)),
       ]);
