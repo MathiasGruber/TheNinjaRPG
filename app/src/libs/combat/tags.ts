@@ -59,21 +59,16 @@ export const absorb = (
                 // Only cap HP absorption at 60%
                 if (totalCurrentAbsorbHp < 60) {
                   const remainingAbsorbPercent = 60 - totalCurrentAbsorbHp;
-                  const newAbsorbAmount = Math.min(convert / nPools, ((consequence.damage || 1) * remainingAbsorbPercent / 100));
                   
-                  // Calculate heal increase from other effects
-                  let healIncrease = 0;
-                  usersEffects.forEach(e => {
-                    if (e.type === "increaseheal" && e.targetId === effect.targetId) {
-                      const { power: healPower, level, powerPerLevel } = e;
-                      healIncrease += healPower + level * powerPerLevel;
-                    }
-                  });
-
+                  // Calculate base absorption amount
+                  const baseAbsorbAmount = Math.min(convert / nPools, ((consequence.damage || 1) * remainingAbsorbPercent / 100));
+                  
                   // Cap the final amount to not exceed 60% of damage
                   const maxAllowedAbsorb = (consequence.damage || 1) * 0.6;
-                  const increasedAbsorb = newAbsorbAmount * (1 + healIncrease / 100);
-                  consequence.absorb_hp = currentAbsorbHp + Math.min(increasedAbsorb, maxAllowedAbsorb - currentAbsorbHp);
+                  const finalAbsorb = Math.min(baseAbsorbAmount, maxAllowedAbsorb - currentAbsorbHp);
+                  
+                  // Add the final amount to the consequence
+                  consequence.absorb_hp = currentAbsorbHp + finalAbsorb;
                 }
                 break;
               case "Stamina":
@@ -639,14 +634,22 @@ export const adjustHealGiven = (
         }
       }
       // Adjust absorb
-      if (consequence.targetId === effect.targetId && consequence.absorb_hp) {
+      if (consequence.targetId === effect.targetId && consequence.absorb_hp && consequence.damage) {
         const absorbEffect = usersEffects.find((e) => e.id === effectId);
         if (absorbEffect) {
           const change =
             effect.calculation === "percentage"
               ? (power / 100) * consequence.absorb_hp
               : power;
-          consequence.absorb_hp = consequence.absorb_hp + change;
+          // Calculate the maximum allowed absorb (60% of damage)
+          const maxAllowedAbsorb = consequence.damage * 0.6;
+          // Only apply the change if it won't exceed the 60% cap
+          if (consequence.absorb_hp + change <= maxAllowedAbsorb) {
+            consequence.absorb_hp = consequence.absorb_hp + change;
+          } else {
+            // If it would exceed the cap, just set it to the maximum allowed
+            consequence.absorb_hp = maxAllowedAbsorb;
+          }
         }
       }
     });
