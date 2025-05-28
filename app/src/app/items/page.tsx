@@ -372,8 +372,8 @@ const Character: React.FC<CharacterProps> = (props) => {
       <Equip slot={"ITEM_4"} act={act} txt="Item" pos={r + t4} items={items} />
       <Equip slot={"ITEM_5"} act={act} txt="Item" pos={l + t5} items={items} />
       <Equip slot={"ITEM_6"} act={act} txt="Item" pos={r + t5} items={items} />
-      <Equip slot={"ITEM_7"} act={act} txt="Item" pos={t5} items={items} />
-      <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={l + t5} items={items} />
+      <Equip slot={"ITEM_7"} act={act} txt="Item" pos={t6} items={items} />
+      <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={l + t6} items={items} />
       {isOpen && slot && (
         <Modal
           title="Select Item to Equip"
