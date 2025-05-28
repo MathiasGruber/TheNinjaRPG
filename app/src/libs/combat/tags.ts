@@ -1889,6 +1889,24 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect, user
         newAi.willpower = newAi.willpower * perc;
         newAi.speed = newAi.speed * perc;
         newAi.bloodline = ai.bloodline;
+        // Realize bloodline effects if they exist
+        if (newAi.bloodline?.effects) {
+          newAi.bloodline.effects.forEach(bloodlineEffect => {
+            const realizedEffect = realizeTag({
+              tag: bloodlineEffect as BattleEffect,
+              user: newAi,
+              actionId: "initial",
+              target: newAi,
+              level: newAi.level,
+              round: effect.rounds
+            }) as UserEffect;
+            realizedEffect.isNew = true;
+            realizedEffect.castThisRound = true;
+            realizedEffect.targetId = newAi.userId;
+            realizedEffect.fromType = "bloodline";
+            userEffects.push(realizedEffect);
+          });
+        }
         // Realize and copy the AI's effects
         newAi.effects = ai.effects.map(aiEffect => {
           const realizedEffect = realizeTag({
