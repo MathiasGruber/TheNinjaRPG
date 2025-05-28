@@ -344,11 +344,12 @@ const Character: React.FC<CharacterProps> = (props) => {
   // Placement of equip boxes
   const l = "left-[10%] ";
   const r = "right-[10%] ";
-  const t1 = "top-2";
+  const t1 = "top-[5%]";
   const t2 = "top-[20%]";
-  const t3 = "top-[40%]";
-  const t4 = "top-[60%]";
-  const t5 = "top-[80%]";
+  const t3 = "top-[35%]";
+  const t4 = "top-[50%]";
+  const t5 = "top-[65%]";
+  const t6 = "top-[80%]";
 
   return (
     <div className="flex flex-row items-center justify-center text-center">
