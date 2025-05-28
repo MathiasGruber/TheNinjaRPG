@@ -14,11 +14,11 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { canChangeContent } from "@/utils/permissions";
-import { bloodlineTypes } from "@/libs/combat/types";
 import { useBloodlineEditForm } from "@/hooks/bloodline";
 import { getTagSchema } from "@/libs/combat/types";
 import type { ZodBloodlineType } from "@/libs/combat/types";
 import type { Bloodline } from "@/drizzle/schema";
+import { tagTypes } from "@/libs/combat/types";
 
 export default function BloodlineEdit(props: {
   params: Promise<{ bloodlineid: string }>;
@@ -187,7 +187,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
               idx={i}
               type="bloodline"
               tag={tag}
-              availableTags={bloodlineTypes}
+              availableTags={tagTypes}
               effects={effects}
               setEffects={setEffects}
             />
