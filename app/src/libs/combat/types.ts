@@ -575,7 +575,7 @@ export type ShieldTagType = z.infer<typeof ShieldTag>;
 export const FinalStandTag = z.object({
   ...BaseAttributes,
   type: z.literal("finalstand").default("finalstand"),
-  description: msg("%user cannot be reduced below 1 HP"),
+  description: msg("User cannot be reduced below 1 HP"),
   power: z.coerce.number().min(0).max(100).default(100),
   powerPerLevel: z.coerce.number().min(0).max(1).default(0),
 });
