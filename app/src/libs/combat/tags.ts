@@ -11,6 +11,8 @@ import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import type { CombatAction } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import { realizeTag } from "./process";
+import { BattleEffect } from "@/libs/combat/types";
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
@@ -1886,13 +1888,14 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
         newAi.intelligence = newAi.intelligence * perc;
         newAi.willpower = newAi.willpower * perc;
         newAi.speed = newAi.speed * perc;
-        // Copy the AI's effects
-        newAi.effects = ai.effects;
-        // Set AI flags
-        newAi.isAi = true;
-        newAi.isSummon = true;
-        // Copy the AI profile
-        newAi.aiProfile = ai.aiProfile;
+        // Realize and copy the AI's effects
+        newAi.effects = ai.effects.map(effect => realizeTag({
+          tag: effect as BattleEffect,
+          user: newAi,
+          actionId: "initial",
+          target: newAi,
+          level: newAi.level
+        }));
         // Push to userState
         usersState.push(newAi);
         // ActionEffect to be shown
