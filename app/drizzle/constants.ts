@@ -132,6 +132,8 @@ export const ItemSlots = [
   "FEET",
   "HAND_1",
   "HAND_2",
+  "WAIST",
+  "KEYSTONE",
   "ITEM_1",
   "ITEM_2",
   "ITEM_3",
@@ -200,6 +202,7 @@ export const ItemTypes = [
   "ARMOR",
   "ACCESSORY",
   "MATERIAL",
+  "KEYSTONE",
   "OTHER",
 ] as const;
 export type ItemType = (typeof ItemTypes)[number];

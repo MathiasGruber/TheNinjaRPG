@@ -363,6 +363,8 @@ const Character: React.FC<CharacterProps> = (props) => {
       <Equip slot={"CHEST"} act={act} txt="Chest" pos={t2} items={items} />
       <Equip slot={"LEGS"} act={act} txt="Legs" pos={t3} items={items} />
       <Equip slot={"FEET"} act={act} txt="Feet" pos={t4} items={items} />
+      <Equip slot={"WAIST"} act={act} txt="Waist" pos={t2} items={items} />
+      <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={t3} items={items} />
       <Equip slot={"ITEM_1"} act={act} txt="Item" pos={l + t2} items={items} />
       <Equip slot={"ITEM_2"} act={act} txt="Item" pos={r + t2} items={items} />
       <Equip slot={"HAND_1"} act={act} txt="Hand" pos={l + t3} items={items} />
