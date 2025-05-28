@@ -651,6 +651,15 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
         case "stealth":
           insert(image, "text-blue-500", `- Stealthed`, false, e);
           break;
+        case "finalstand":
+          insert(image, "text-orange-500", `- Final Stand`, false, e);
+          break;
+        case "drain":
+          insert(image, "text-red-500", `- Draining`, false, e);
+          break;
+        case "poison":
+          insert(image, "text-red-500", `- Poisoned`, false, e);
+          break;
         case "clear":
           insert(image, "text-red-500", `↓ Clearing positive effects`, false, e);
           break;
