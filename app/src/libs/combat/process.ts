@@ -357,7 +357,7 @@ export const applyEffects = (
           (e) =>
             e.type === "finalstand" &&
             e.targetId === target.userId &&
-            (e.rounds ?? 0) > 0,
+            (e.rounds === undefined ? (e.rounds = 1, true) : e.rounds > 0),
         );
         if (finalStandEffect && target.curHealth - remainingDamage < 1) {
           const preventedDamage = remainingDamage - (target.curHealth - 1);
