@@ -361,10 +361,9 @@ const Character: React.FC<CharacterProps> = (props) => {
       />
       <Equip slot={"HEAD"} act={act} txt="Head" pos={t1} items={items} />
       <Equip slot={"CHEST"} act={act} txt="Chest" pos={t2} items={items} />
-      <Equip slot={"LEGS"} act={act} txt="Legs" pos={t3} items={items} />
-      <Equip slot={"FEET"} act={act} txt="Feet" pos={t4} items={items} />
-      <Equip slot={"WAIST"} act={act} txt="Waist" pos={t2} items={items} />
-      <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={t3} items={items} />
+      <Equip slot={"WAIST"} act={act} txt="Waist" pos={t3} items={items} />
+      <Equip slot={"LEGS"} act={act} txt="Legs" pos={t4} items={items} />
+      <Equip slot={"FEET"} act={act} txt="Feet" pos={t5} items={items} />
       <Equip slot={"ITEM_1"} act={act} txt="Item" pos={l + t2} items={items} />
       <Equip slot={"ITEM_2"} act={act} txt="Item" pos={r + t2} items={items} />
       <Equip slot={"HAND_1"} act={act} txt="Hand" pos={l + t3} items={items} />
@@ -372,8 +371,9 @@ const Character: React.FC<CharacterProps> = (props) => {
       <Equip slot={"ITEM_3"} act={act} txt="Item" pos={l + t4} items={items} />
       <Equip slot={"ITEM_4"} act={act} txt="Item" pos={r + t4} items={items} />
       <Equip slot={"ITEM_5"} act={act} txt="Item" pos={l + t5} items={items} />
-      <Equip slot={"ITEM_6"} act={act} txt="Item" pos={t5} items={items} />
-      <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t5} items={items} />
+      <Equip slot={"ITEM_6"} act={act} txt="Item" pos={r + t5} items={items} />
+      <Equip slot={"ITEM_7"} act={act} txt="Item" pos={t5} items={items} />
+      <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={l + t5} items={items} />
       {isOpen && slot && (
         <Modal
           title="Select Item to Equip"
