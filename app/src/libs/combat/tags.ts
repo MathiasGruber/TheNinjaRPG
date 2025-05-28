@@ -31,9 +31,6 @@ export const realizeTag = <T extends BattleEffect>(props: {
   if ("rounds" in tag) {
     tag.timeTracker = {};
   }
-  if ("power" in tag) {
-    tag.power = tag.power;
-  }
   tag.id = nanoid();
   tag.createdRound = round || 0;
   tag.creatorId = user.userId;
