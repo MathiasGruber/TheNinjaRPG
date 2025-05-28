@@ -1888,6 +1888,7 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect, user
         newAi.intelligence = newAi.intelligence * perc;
         newAi.willpower = newAi.willpower * perc;
         newAi.speed = newAi.speed * perc;
+        newAi.bloodline = ai.bloodline;
         // Realize and copy the AI's effects
         newAi.effects = ai.effects.map(aiEffect => {
           const realizedEffect = realizeTag({
