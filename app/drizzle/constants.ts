@@ -102,6 +102,8 @@ export const ItemSlotTypes = [
   "FEET",
   "HAND",
   "ITEM",
+  "WAIST",
+  "KEYSTONE",
   "NONE",
 ] as const;
 
