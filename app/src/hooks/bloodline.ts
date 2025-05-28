@@ -17,7 +17,7 @@ import type { ZodBloodlineType } from "@/libs/combat/types";
  */
 export const useBloodlineEditForm = (data: Bloodline, refetch: () => void) => {
   // Case type
-  const bloodline = { ...data, effects: data.effects as ZodAllTags[] };
+  const bloodline = { ...data, effects: data.effects };
 
   // Form handling
   const form = useForm<ZodBloodlineType>({
