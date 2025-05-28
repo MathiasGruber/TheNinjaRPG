@@ -1462,20 +1462,18 @@ export const finalStand = (effect: UserEffect, target: BattleUserState) => {
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
   let info: ActionEffect | undefined = undefined;
-  if (effect.isNew && effect.castThisRound) {
-    if (primaryCheck) {
-      info = getInfo(
-        target,
-        effect,
-        "takes a final stand and cannot be reduced below 1 HP",
-      );
-    } else {
-      effect.rounds = 0;
-      info = {
-        txt: `${target.username}'s final stand failed to activate`,
-        color: "blue",
-      };
-    }
+  if (primaryCheck) {
+    info = getInfo(
+      target,
+      effect,
+      "takes a final stand and cannot be reduced below 1 HP",
+    );
+  } else {
+    effect.rounds = 0;
+    info = {
+      txt: `${target.username}'s final stand failed to activate`,
+      color: "blue",
+    };
   }
   return info;
 };
