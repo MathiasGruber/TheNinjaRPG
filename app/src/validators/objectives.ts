@@ -161,38 +161,36 @@ export const QuestTracker = z.object({
 });
 export type QuestTrackerType = z.infer<typeof QuestTracker>;
 
-export const QuestValidator = z
-  .object({
-    name: z.string().min(1).max(191),
-    image: z.string().url().optional().nullish(),
-    description: z.string().min(1).max(5000).optional().nullish(),
-    successDescription: z.string().min(1).max(5000).optional().nullish(),
-    questRank: z.enum(LetterRanks).optional(),
-    requiredLevel: z.coerce.number().min(0).max(100).optional(),
-    maxLevel: z.coerce.number().min(0).max(100).optional(),
-    requiredVillage: z.string().min(0).max(30).optional().nullish(),
-    tierLevel: z.coerce.number().min(0).max(100).optional().nullish(),
-    timeFrame: z.enum(TimeFrames),
-    questType: z.enum(QuestTypes),
-    content: z.object({ objectives: z.array(AllObjectives), reward: ObjectiveReward }),
-    hidden: z.coerce.boolean(),
-    consecutiveObjectives: z.coerce.boolean(),
-    expiresAt: z
-      .string()
-      .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")
-      .optional()
-      .nullish(),
-  })
-  .superRefine((val, ctx) => {
-    if (["daily", "tier"].includes(val.questType)) {
-      if (val.content.objectives.length < 3 || val.content.objectives.length > 7) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Daily & Tier quests must have between 3 and 7 objectives",
-        });
-      }
+export const QuestValidatorRawSchema = z.object({
+  name: z.string().min(1).max(191),
+  image: z.string().url().optional().nullish(),
+  description: z.string().min(1).max(5000).nullable(),
+  successDescription: z.string().min(1).max(5000).nullable(),
+  questRank: z.enum(LetterRanks).optional(),
+  requiredLevel: z.coerce.number().min(0).max(100).optional(),
+  maxLevel: z.coerce.number().min(0).max(100).optional(),
+  requiredVillage: z.string().min(0).max(30).optional().nullish(),
+  tierLevel: z.coerce.number().min(0).max(100).nullable(),
+  timeFrame: z.enum(TimeFrames),
+  questType: z.enum(QuestTypes),
+  content: z.object({ objectives: z.array(AllObjectives), reward: ObjectiveReward }),
+  hidden: z.coerce.boolean(),
+  consecutiveObjectives: z.coerce.boolean(),
+  expiresAt: z
+    .string()
+    .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")
+    .nullable(),
+});
+export const QuestValidator = QuestValidatorRawSchema.superRefine((val, ctx) => {
+  if (["daily", "tier"].includes(val.questType)) {
+    if (val.content.objectives.length < 3 || val.content.objectives.length > 7) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Daily & Tier quests must have between 3 and 7 objectives",
+      });
     }
-  });
+  }
+});
 export type ZodQuestType = z.infer<typeof QuestValidator>;
 
 export const getObjectiveSchema = (type: string) => {

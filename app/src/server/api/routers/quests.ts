@@ -466,8 +466,6 @@ export const questsRouter = createTRPCRouter({
         // Calculate diff
         const diff = calculateContentDiff(entry, {
           id: entry.id,
-          expiresAt: entry.expiresAt,
-          createdAt: entry.createdAt,
           ...input.data,
         });
         // Check if quest is changed to be an event

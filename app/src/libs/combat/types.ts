@@ -1111,37 +1111,36 @@ export const SuperRefineEffects = (
 /**
  * Jutsu Type. Used for validating a jutsu object is set up properly
  */
-export const JutsuValidator = z
-  .object({
-    name: z.string(),
-    image: z.string(),
-    description: z.string(),
-    battleDescription: z.string(),
-    extraBaseCost: z.coerce.number().min(0).max(65535),
-    jutsuWeapon: z.enum(WeaponTypes),
-    jutsuType: z.enum(JutsuTypes),
-    jutsuRank: z.enum(LetterRanks),
-    requiredRank: z.enum(UserRanks),
-    requiredLevel: z.coerce.number().min(1).max(100),
-    method: z.enum(AttackMethods),
-    target: z.enum(AttackTargets),
-    range: z.coerce.number().int().min(0).max(5),
-    statClassification: z.enum(StatTypes),
-    hidden: z.coerce.boolean().optional(),
-    healthCost: z.coerce.number().min(0).max(10000),
-    chakraCost: z.coerce.number().min(0).max(10000),
-    staminaCost: z.coerce.number().min(0).max(10000),
-    healthCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    chakraCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    actionCostPerc: z.coerce.number().int().min(10).max(100),
-    cooldown: z.coerce.number().int().min(0).max(300),
-    bloodlineId: z.string().nullable(),
-    villageId: z.string().nullable(),
-    effects: z.array(AllTags).superRefine(SuperRefineEffects),
-  })
-  .superRefine(SuperRefineBase)
-  .superRefine(SuperRefineJutsu);
+export const JutsuValidatorRawSchema = z.object({
+  name: z.string(),
+  image: z.string(),
+  description: z.string(),
+  battleDescription: z.string(),
+  extraBaseCost: z.coerce.number().min(0).max(65535),
+  jutsuWeapon: z.enum(WeaponTypes),
+  jutsuType: z.enum(JutsuTypes),
+  jutsuRank: z.enum(LetterRanks),
+  requiredRank: z.enum(UserRanks),
+  requiredLevel: z.coerce.number().min(1).max(100),
+  method: z.enum(AttackMethods),
+  target: z.enum(AttackTargets),
+  range: z.coerce.number().int().min(0).max(5),
+  statClassification: z.enum(StatTypes),
+  hidden: z.coerce.boolean().optional(),
+  healthCost: z.coerce.number().min(0).max(10000),
+  chakraCost: z.coerce.number().min(0).max(10000),
+  staminaCost: z.coerce.number().min(0).max(10000),
+  healthCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  chakraCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  actionCostPerc: z.coerce.number().int().min(10).max(100),
+  cooldown: z.coerce.number().int().min(0).max(300),
+  bloodlineId: z.string().nullable(),
+  villageId: z.string().nullable(),
+  effects: z.array(AllTags).superRefine(SuperRefineEffects),
+});
+export const JutsuValidator =
+  JutsuValidatorRawSchema.superRefine(SuperRefineBase).superRefine(SuperRefineJutsu);
 export type ZodJutsuType = z.infer<typeof JutsuValidator>;
 
 /**
@@ -1163,41 +1162,40 @@ export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
 /**
  * Item Type. Used for validating a item object is set up properly
  */
-export const ItemValidator = z
-  .object({
-    name: z.string(),
-    image: z.string(),
-    description: z.string(),
-    battleDescription: z.string(),
-    stackSize: z.coerce.number().int().min(1).max(100),
-    destroyOnUse: z.coerce.number().min(0).max(1),
-    chakraCost: z.coerce.number().int().min(0).max(10000),
-    healthCost: z.coerce.number().int().min(0).max(10000),
-    staminaCost: z.coerce.number().int().min(0).max(10000),
-    healthCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    chakraCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    actionCostPerc: z.coerce.number().int().min(1).max(100),
-    canStack: z.coerce.boolean(),
-    inShop: z.coerce.boolean(),
-    isEventItem: z.coerce.boolean(),
-    preventBattleUsage: z.coerce.boolean(),
-    hidden: z.coerce.boolean(),
-    cooldown: z.coerce.number().int().min(0).max(300),
-    cost: z.coerce.number().int().min(0),
-    repsCost: z.coerce.number().int().min(0),
-    range: z.coerce.number().int().min(0).max(10),
-    maxEquips: z.coerce.number().int().min(0).max(10),
-    method: z.enum(AttackMethods),
-    target: z.enum(AttackTargets),
-    itemType: z.enum(ItemTypes),
-    weaponType: z.enum(WeaponTypes),
-    rarity: z.enum(ItemRarities),
-    slot: z.enum(ItemSlotTypes),
-    effects: z.array(AllTags).superRefine(SuperRefineEffects),
-  })
-  .superRefine(SuperRefineBase)
-  .superRefine(SuperRefineItem);
+export const ItemValidatorRawSchema = z.object({
+  name: z.string(),
+  image: z.string(),
+  description: z.string(),
+  battleDescription: z.string(),
+  stackSize: z.coerce.number().int().min(1).max(100),
+  destroyOnUse: z.coerce.number().min(0).max(1),
+  chakraCost: z.coerce.number().int().min(0).max(10000),
+  healthCost: z.coerce.number().int().min(0).max(10000),
+  staminaCost: z.coerce.number().int().min(0).max(10000),
+  healthCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  chakraCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  actionCostPerc: z.coerce.number().int().min(1).max(100),
+  canStack: z.coerce.boolean().default(false),
+  inShop: z.coerce.boolean().default(false),
+  isEventItem: z.coerce.boolean().default(false),
+  preventBattleUsage: z.coerce.boolean().default(false),
+  hidden: z.coerce.boolean(),
+  cooldown: z.coerce.number().int().min(0).max(300),
+  cost: z.coerce.number().int().min(0),
+  repsCost: z.coerce.number().int().min(0),
+  range: z.coerce.number().int().min(0).max(10),
+  maxEquips: z.coerce.number().int().min(0).max(10),
+  method: z.enum(AttackMethods),
+  target: z.enum(AttackTargets),
+  itemType: z.enum(ItemTypes),
+  weaponType: z.enum(WeaponTypes),
+  rarity: z.enum(ItemRarities),
+  slot: z.enum(ItemSlotTypes),
+  effects: z.array(AllTags).superRefine(SuperRefineEffects),
+});
+export const ItemValidator =
+  ItemValidatorRawSchema.superRefine(SuperRefineBase).superRefine(SuperRefineItem);
 export type ZodItemType = z.infer<typeof ItemValidator>;
 
 /****************************** */

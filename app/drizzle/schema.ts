@@ -355,7 +355,7 @@ export const bloodline = mysqlTable(
   (table) => {
     return {
       nameKey: uniqueIndex("Bloodline_name_key").on(table.name),
-      imageKey: uniqueIndex("Bloodline_image_key").on(table.image),
+      imageKey: index("Bloodline_image_key").on(table.image),
       villageIdx: index("Bloodline_village_idx").on(table.villageId),
       rankIdx: index("Bloodline_rank_idx").on(table.rank),
     };
@@ -999,7 +999,7 @@ export const jutsu = mysqlTable(
   (table) => {
     return {
       nameKey: uniqueIndex("Jutsu_name_key").on(table.name),
-      imageKey: uniqueIndex("Jutsu_image_key").on(table.image),
+      imageKey: index("Jutsu_image_key").on(table.image),
       bloodlineIdIdx: index("Jutsu_bloodlineId_idx").on(table.bloodlineId),
       villageIdIdx: index("Jutsu_villageId_idx").on(table.villageId),
     };

@@ -9,6 +9,7 @@ import { generateText } from "ai";
 import { insertUserReport } from "@/routers/reports";
 import { insertAutomatedModeration } from "@/routers/reports";
 import { TERR_BOT_ID, REPORT_CONTEXT_WINDOW, BanStates } from "@/drizzle/constants";
+import { OPENAI_MODERATION_MODEL } from "@/drizzle/constants";
 import type { UserReport } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { AutomoderationCategory } from "@/drizzle/constants";
@@ -316,7 +317,7 @@ export const generateAiSummary = async (
   context?: AdditionalContext[],
 ) => {
   const { text } = await generateText({
-    model: openaiSdk("gpt-4o-mini"),
+    model: openaiSdk(OPENAI_MODERATION_MODEL),
     prompt: `
     Condense this article into a 25-word summary that captures the core message and most important takeaways. Avoid technical jargon and prioritize simplicity
 
@@ -393,7 +394,7 @@ export const generateModerationDecision = async (
   const prevReports = await getRelatedReports(client, aiInterpretation);
   // Step 3: Create decision with AI based on summary and related reports
   const { object } = await generateObject({
-    model: openaiSdk("gpt-4o"),
+    model: openaiSdk(OPENAI_MODERATION_MODEL),
     schema: z.object({
       createReport: z.enum(BanStates),
       reasoning: z.string(),
@@ -444,7 +445,7 @@ const updateReportedStatus = async (
  */
 export const validateUserUpdateReason = async (update: string, reason: string) => {
   const { object } = await generateObject({
-    model: openaiSdk("gpt-4o-mini"),
+    model: openaiSdk(OPENAI_MODERATION_MODEL),
     schema: z.object({ allowUpdate: z.boolean(), comment: z.string() }),
     prompt: `
       The following reason is supplied by a content member to update a user profile. 

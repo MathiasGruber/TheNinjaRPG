@@ -18,7 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "src/libs/shadui";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import { api } from "@/app/_trpc/client";
 
 interface ToolCall<NAME extends string, ARGS> {

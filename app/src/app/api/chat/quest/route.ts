@@ -1,8 +1,10 @@
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { checkContentAiAuth } from "@/libs/llm";
-import { QuestValidator } from "@/validators/objectives";
+import { QuestValidatorRawSchema } from "@/validators/objectives";
 import type { CoreMessage } from "ai";
+import { OPENAI_CONTENT_MODEL } from "@/drizzle/constants";
+import { convertToOpenaiCompatibleSchema } from "@/libs/zod_utils";
 
 export async function POST(req: Request) {
   // Auth guard
@@ -10,8 +12,15 @@ export async function POST(req: Request) {
 
   // Call LLM
   const { messages } = (await req.json()) as { messages: CoreMessage[] };
+  const schema = convertToOpenaiCompatibleSchema(
+    QuestValidatorRawSchema.omit({
+      image: true,
+      requiredVillage: true,
+      content: true,
+    }),
+  );
   const result = streamText({
-    model: openai("gpt-4o"),
+    model: openai(OPENAI_CONTENT_MODEL),
     system: `You are a helpful assistant tasked with creating new quests set in the ninja world of Seichi. 
     Your primary task is to call the function 'updateQuest' with appropriate parameters to update the quest shown to the user.
     Do not give detailed instructions to the user on what quest is created, instead just give a brief summary and start creating it.
@@ -22,7 +31,7 @@ export async function POST(req: Request) {
     tools: {
       updateQuest: {
         description: "Update quest shown to the user",
-        parameters: QuestValidator,
+        parameters: schema,
       },
     },
     maxSteps: 2,

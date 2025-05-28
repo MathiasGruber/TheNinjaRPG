@@ -465,6 +465,12 @@ export const USER_CAPS: Record<
   NONE: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
 } as const;
 
+// OpenAI models
+export const OPENAI_REVIEW_MODEL = "o4-mini";
+export const OPENAI_CONTENT_MODEL = "o4-mini";
+export const OPENAI_MODERATION_MODEL = "gpt-4o-mini";
+export const OPENAI_CHAT_MODEL = "gpt-4o-mini";
+
 // Paypal shop config
 export const PAYPAL_DISCOUNT_PERCENT = 0;
 export const TRANSACTION_TYPES = ["REP_PURCHASE", "REFERRAL"] as const;

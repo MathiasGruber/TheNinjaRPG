@@ -10,6 +10,7 @@ import { cookies } from "next/headers";
 import { generateText } from "ai";
 import { TERR_BOT_ID } from "@/drizzle/constants";
 import { openai } from "@ai-sdk/openai";
+import { OPENAI_REVIEW_MODEL } from "@/drizzle/constants";
 
 /**
  * DANGER ZONE
@@ -49,7 +50,7 @@ export async function GET() {
 
         // Review
         const { text } = await generateText({
-          model: openai("gpt-4o"),
+          model: openai(OPENAI_REVIEW_MODEL),
           prompt: `
           Write a succint version of the following staff reviews, preferably with actionable feedback for the staff in a listed format.
           Do not give feedback which can not be substantiated from the reviews.
