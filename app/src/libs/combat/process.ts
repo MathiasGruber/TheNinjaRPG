@@ -5,7 +5,7 @@ import { collapseConsequences, sortEffects } from "./util";
 import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
-import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
+import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier, realizeTag } from "./tags";
 import {
   absorb,
   reflect,
@@ -97,46 +97,6 @@ export const checkFriendlyFire = (
 };
 
 /**
- * Realize tag with information about how powerful tag is
- */
-export const realizeTag = <T extends BattleEffect>(props: {
-  tag: T;
-  user: BattleUserState;
-  actionId: string;
-  target?: BattleUserState | undefined;
-  level: number | undefined;
-  round?: number;
-  barrierAbsorb?: number;
-}): T => {
-  const { tag, user, target, level, round, barrierAbsorb } = props;
-  if ("rounds" in tag) {
-    tag.timeTracker = {};
-  }
-  if ("power" in tag) {
-    tag.power = tag.power;
-  }
-  tag.id = nanoid();
-  tag.createdRound = round || 0;
-  tag.creatorId = user.userId;
-  tag.villageId = user.villageId;
-  tag.targetType = "user";
-  tag.level = level ?? 0;
-  tag.isNew = true;
-  tag.castThisRound = true;
-  tag.highestOffence = user.highestOffence;
-  tag.highestDefence = user.highestDefence;
-  tag.highestGenerals = user.highestGenerals;
-  tag.barrierAbsorb = barrierAbsorb || 0;
-  tag.actionId = props.actionId;
-  if (target) {
-    tag.targetHighestOffence = target.highestOffence;
-    tag.targetHighestDefence = target.highestDefence;
-    tag.targetHighestGenerals = target.highestGenerals;
-  }
-  return structuredClone(tag);
-};
-
-/**
  * Create a visual effect with a specified appearAnimation
  */
 const getVisual = (
@@ -201,7 +161,7 @@ export const applyEffects = (
       if (e.type === "clone") {
         info = clone(newUsersState, e);
       } else if (e.type === "summon") {
-        info = summon(newUsersState, e, newUsersEffects);
+        info = summon(newUsersState, e, newUsersEffects, battle);
       } else if (e.type === "barrier") {
         const user = findUser(newUsersState, e.longitude, e.latitude);
         if (user) e.rounds = 0;
