@@ -11,8 +11,52 @@ import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import type { CombatAction } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import { realizeTag } from "./process";
-import { BattleEffect } from "@/libs/combat/types";
+import type { BattleEffect } from "./types";
+import { Battle } from "@/drizzle/schema";
+
+/**
+ * Realize tag with information about how powerful tag is
+ */
+export const realizeTag = <T extends BattleEffect>(props: {
+  tag: T;
+  user: BattleUserState;
+  actionId: string;
+  target?: BattleUserState | undefined;
+  level: number | undefined;
+  round?: number;
+  barrierAbsorb?: number;
+  battle?: Battle; // Make battle optional since it's not always needed
+}): T => {
+  const { tag, user, target, level, round, barrierAbsorb, battle } = props;
+  if ("rounds" in tag) {
+    tag.timeTracker = {};
+  }
+  if ("power" in tag) {
+    tag.power = tag.power;
+  }
+  tag.id = nanoid();
+  tag.createdRound = round || 0;
+  tag.creatorId = user.userId;
+  tag.villageId = user.villageId;
+  tag.targetType = "user";
+  tag.level = level ?? 0;
+  tag.isNew = true;
+  tag.castThisRound = true;
+  tag.highestOffence = user.highestOffence;
+  tag.highestDefence = user.highestDefence;
+  tag.highestGenerals = user.highestGenerals;
+  tag.barrierAbsorb = barrierAbsorb || 0;
+  tag.actionId = props.actionId;
+  if (target) {
+    tag.targetHighestOffence = target.highestOffence;
+    tag.targetHighestDefence = target.highestDefence;
+    tag.targetHighestGenerals = target.highestGenerals;
+  }
+  if (battle && "rounds" in tag) {
+    tag.createdRound = battle.round; // Use battle round if available
+  }
+  return structuredClone(tag);
+};
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
@@ -1841,7 +1885,12 @@ export const stunPrevent = (
 };
 
 /** Clone user on the battlefield */
-export const summon = (usersState: BattleUserState[], effect: GroundEffect, userEffects: UserEffect[]) => {
+export const summon = (
+  usersState: BattleUserState[], 
+  effect: GroundEffect, 
+  userEffects: UserEffect[],
+  battle: Battle // Add battle parameter
+) => {
   const { power } = getPower(effect);
   const perc = power / 100;
   const user = usersState.find((u) => u.userId === effect.creatorId);
@@ -1898,7 +1947,8 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect, user
               actionId: "initial",
               target: newAi,
               level: newAi.level,
-              round: effect.rounds
+              round: battle.round,
+              battle
             }) as UserEffect;
             realizedEffect.isNew = true;
             realizedEffect.castThisRound = true;
@@ -1915,11 +1965,13 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect, user
             actionId: "initial",
             target: newAi,
             level: newAi.level,
-            round: effect.rounds
+            round: battle.round,
+            battle
           }) as UserEffect;
           realizedEffect.isNew = true;
           realizedEffect.castThisRound = true;
           realizedEffect.targetId = newAi.userId;
+          realizedEffect.fromType = "jutsu"; // Use jutsu as fromType since summon isn't a valid type
           userEffects.push(realizedEffect);
           return realizedEffect;
         });
@@ -1932,9 +1984,6 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect, user
         } as ActionEffect;
       }
     }
-    // If return from here, summon failed
-    effect.rounds = 0;
-    return { txt: `Failed to create summon!`, color: "red" } as ActionEffect;
   } else if (effect?.rounds === 0) {
     const ai = usersState.find((u) => u.userId === effect.aiId);
     const idx = usersState.findIndex((u) => u.userId === effect.aiId);
@@ -1943,6 +1992,9 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect, user
       return { txt: `${ai.username} was unsummoned!`, color: "red" } as ActionEffect;
     }
   }
+  // If return from here, summon failed
+  effect.rounds = 0;
+  return { txt: `Failed to create summon!`, color: "red" } as ActionEffect;
 };
 
 /** Prevent target from being stunned */

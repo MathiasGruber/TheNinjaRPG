@@ -1,11 +1,11 @@
 import { publicState, allState } from "./constants";
-import { getPower } from "./tags";
+import { realizeTag, getPower } from "./tags";
 import { randomInt } from "@/utils/math";
 import { availableUserActions, getBasicActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { secondsPassed } from "@/utils/time";
-import { realizeTag, checkFriendlyFire } from "./process";
+import { checkFriendlyFire } from "./process";
 import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/drizzle/constants";
 import { KAGE_CHALLENGE_WIN_PRESTIGE } from "@/drizzle/constants";
 import { calcIsInVillage } from "@/libs/travel/controls";
