@@ -838,24 +838,24 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
     [
       "absorb",
       // "clearprevent",
-      "stealth",
       "debuffprevent",
       "decreasedamagetaken",
       "decreasepoolcost",
       "heal",
-      "lifesteal",
       "increasedamagegiven",
       "increaseheal",
       "increasestat",
+      "lifesteal",
       "move",
       "moveprevent",
       "onehitkillprevent",
       "reflect",
       "robprevent",
       "sealprevent",
+      "shield", 
+      "stealth",
       "stunprevent",
       "summon",
-      "shield",
     ].includes(tag.type)
   ) {
     return true;
@@ -872,64 +872,35 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
 export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
-      // "cleanseprevent",
       "buffprevent",
-      "decreasedamagegiven",
-      "drain",
-      "increasedamagetaken",
-      "decreaseheal",
-      "increasepoolcost",
-      "decreasestat",
+      // "cleanseprevent",
       "clear",
       "damage",
+      "decreasedamagegiven",
+      "decreaseheal",
+      "decreasestat",
+      "drain",
+      "elementalseal",
+      "flee",
+      "fleeprevent",
+      "healprevent",
+      "increasedamagetaken",
+      "increasepoolcost",
       "moveprevent",
+      "onehitkill",
       "pierce",
       "poison",
       "recoil",
-      "flee",
-      "fleeprevent",
-      "onehitkill",
       "rob",
       "seal",
       "summonprevent",
       "weakness",
-      "healprevent",
-      "elementalseal",
     ].includes(tag.type)
   ) {
     return true;
   }
   return false;
 };
-
-const BloodlineTags = z.union([
-  AbsorbTag.default({}),
-  CleansePreventTag.default({}),
-  ClearPreventTag.default({}),
-  DamageTag.default({}),
-  DecreaseDamageGivenTag.default({}),
-  DecreaseDamageTakenTag.default({}),
-  DecreaseHealGivenTag.default({}),
-  DecreasePoolCostTag.default({}),
-  DecreaseStatTag.default({}),
-  HealTag.default({}),
-  IncreaseDamageGivenTag.default({}),
-  IncreaseDamageTakenTag.default({}),
-  IncreaseHealGivenTag.default({}),
-  IncreasePoolCostTag.default({}),
-  IncreaseStatTag.default({}),
-  LifeStealTag.default({}),
-  PierceTag.default({}),
-  RecoilTag.default({}),
-  ReflectTag.default({}),
-  RobPreventTag.default({}),
-  SealPreventTag.default({}),
-  StunPreventTag.default({}),
-]);
-export type ZodBloodlineTags = z.infer<typeof BloodlineTags>;
-export const bloodlineTypes = BloodlineTags._def.options.map(
-  (o) => o._def.innerType.shape.type._def.innerType._def.value,
-);
 
 /** Based on type name, get the zod schema for validation of that tag */
 export const getTagSchema = (type: ZodAllTags["type"]) => {
@@ -1089,7 +1060,7 @@ const SuperRefineJutsu = (data: JutsuValidatorType, ctx: z.RefinementCtx) => {
  * Validator specific to effects
  */
 export const SuperRefineEffects = (
-  effects: ZodAllTags[] | ZodBloodlineTags[],
+  effects: ZodAllTags[],
   ctx: z.RefinementCtx,
 ) => {
   effects.forEach((e) => {
@@ -1155,7 +1126,7 @@ export const BloodlineValidator = z.object({
   statClassification: z.enum(StatTypes),
   villageId: z.string().nullable(),
   hidden: z.coerce.boolean().optional(),
-  effects: z.array(BloodlineTags).superRefine(SuperRefineEffects),
+  effects: z.array(AllTags).superRefine(SuperRefineEffects),
 });
 export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
 
