@@ -49,6 +49,7 @@ export const LOG_TYPES = [
   "ai",
   "user",
   "jutsu",
+  "userjutsu",
   "bloodline",
   "item",
   "badge",
