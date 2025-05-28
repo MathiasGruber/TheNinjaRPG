@@ -1889,13 +1889,20 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
         newAi.willpower = newAi.willpower * perc;
         newAi.speed = newAi.speed * perc;
         // Realize and copy the AI's effects
-        newAi.effects = ai.effects.map(effect => realizeTag({
-          tag: effect as BattleEffect,
-          user: newAi,
-          actionId: "initial",
-          target: newAi,
-          level: newAi.level
-        }));
+        newAi.effects = ai.effects.map(effect => {
+          const realizedEffect = realizeTag({
+            tag: effect as BattleEffect,
+            user: newAi,
+            actionId: "initial",
+            target: newAi,
+            level: newAi.level,
+            round: 0
+          });
+          // Ensure effects are marked as new and cast this round
+          realizedEffect.isNew = true;
+          realizedEffect.castThisRound = true;
+          return realizedEffect;
+        });
         // Push to userState
         usersState.push(newAi);
         // ActionEffect to be shown
