@@ -606,6 +606,12 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
         case "recoil":
           insert(image, "text-red-500", `↓ Dmg recoil`, true, e);
           break;
+        case "drain":
+          insert(image, "text-purple-500", `↓ Draining`, true, e);
+          break;
+        case "poison":
+          insert(image, "text-purple-500", `↓ Poisoned`, true, e);
+          break;
         case "lifesteal":
           insert(image, "text-green-500", `↑ Steal life`, true, e);
           break;
@@ -653,12 +659,6 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
           break;
         case "finalstand":
           insert(image, "text-orange-500", `- Final Stand`, false, e);
-          break;
-        case "drain":
-          insert(image, "text-red-500", `- Draining`, false, e);
-          break;
-        case "poison":
-          insert(image, "text-red-500", `- Poisoned`, false, e);
           break;
         case "clear":
           insert(image, "text-red-500", `↓ Clearing positive effects`, false, e);

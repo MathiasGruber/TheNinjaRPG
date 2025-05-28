@@ -1888,6 +1888,9 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
         newAi.speed = newAi.speed * perc;
         // Copy the AI's effects
         newAi.effects = ai.effects;
+        // Set AI flags
+        newAi.isAi = true;
+        newAi.isSummon = true;
         // Push to userState
         usersState.push(newAi);
         // ActionEffect to be shown
