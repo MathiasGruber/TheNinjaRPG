@@ -1841,7 +1841,7 @@ export const stunPrevent = (
 };
 
 /** Clone user on the battlefield */
-export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
+export const summon = (usersState: BattleUserState[], effect: GroundEffect, userEffects: UserEffect[]) => {
   const { power } = getPower(effect);
   const perc = power / 100;
   const user = usersState.find((u) => u.userId === effect.creatorId);
@@ -1889,18 +1889,19 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
         newAi.willpower = newAi.willpower * perc;
         newAi.speed = newAi.speed * perc;
         // Realize and copy the AI's effects
-        newAi.effects = ai.effects.map(effect => {
+        newAi.effects = ai.effects.map(aiEffect => {
           const realizedEffect = realizeTag({
-            tag: effect as BattleEffect,
+            tag: aiEffect as BattleEffect,
             user: newAi,
             actionId: "initial",
             target: newAi,
             level: newAi.level,
-            round: 0
-          });
-          // Ensure effects are marked as new and cast this round
+            round: effect.rounds
+          }) as UserEffect;
           realizedEffect.isNew = true;
           realizedEffect.castThisRound = true;
+          realizedEffect.targetId = newAi.userId;
+          userEffects.push(realizedEffect);
           return realizedEffect;
         });
         // Push to userState

@@ -201,7 +201,7 @@ export const applyEffects = (
       if (e.type === "clone") {
         info = clone(newUsersState, e);
       } else if (e.type === "summon") {
-        info = summon(newUsersState, e);
+        info = summon(newUsersState, e, newUsersEffects);
       } else if (e.type === "barrier") {
         const user = findUser(newUsersState, e.longitude, e.latitude);
         if (user) e.rounds = 0;
