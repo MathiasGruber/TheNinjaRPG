@@ -344,12 +344,11 @@ const Character: React.FC<CharacterProps> = (props) => {
   // Placement of equip boxes
   const l = "left-[10%] ";
   const r = "right-[10%] ";
-  const t1 = "top-[5%]";
+  const t1 = "top-2";
   const t2 = "top-[20%]";
-  const t3 = "top-[35%]";
-  const t4 = "top-[50%]";
-  const t5 = "top-[65%]";
-  const t6 = "top-[80%]";
+  const t3 = "top-[40%]";
+  const t4 = "top-[60%]";
+  const t5 = "top-[80%]";
 
   return (
     <div className="flex flex-row items-center justify-center text-center">
@@ -373,8 +372,8 @@ const Character: React.FC<CharacterProps> = (props) => {
       <Equip slot={"ITEM_4"} act={act} txt="Item" pos={r + t4} items={items} />
       <Equip slot={"ITEM_5"} act={act} txt="Item" pos={l + t5} items={items} />
       <Equip slot={"ITEM_6"} act={act} txt="Item" pos={r + t5} items={items} />
-      <Equip slot={"ITEM_7"} act={act} txt="Item" pos={t6} items={items} />
-      <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={l + t6} items={items} />
+      <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t1} items={items} />
+      <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={l + t1} items={items} />
       {isOpen && slot && (
         <Modal
           title="Select Item to Equip"
