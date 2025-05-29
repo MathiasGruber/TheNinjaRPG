@@ -1584,6 +1584,15 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   }),
 }));
 
+export const userActivityEvent = mysqlTable("UserActivityEvent", {
+  id: int("id").primaryKey().autoincrement().notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  streak: int("streak").notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+});
+
 export const historicalIp = mysqlTable(
   "HistoricalIp",
   {

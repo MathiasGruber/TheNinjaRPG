@@ -32,6 +32,7 @@ import {
   userVote,
   historicalIp,
   village,
+  userActivityEvent,
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
 import { canChangeContent, canModerateRoles } from "@/utils/permissions";
@@ -1682,6 +1683,14 @@ export const fetchUpdatedUser = async (props: {
             ...(userIp ? { lastIp: userIp } : {}),
           })
           .where(eq(userData.userId, userId)),
+        ...(newDay
+          ? [
+              client.insert(userActivityEvent).values({
+                userId: userId,
+                streak: user.activityStreak,
+              }),
+            ]
+          : []),
         ...(userIp && user.lastIp !== userIp
           ? [
               client

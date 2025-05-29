@@ -1506,6 +1506,13 @@
       "when": 1748495320993,
       "tag": "0214_broad_tempest",
       "breakpoints": false
+    },
+    {
+      "idx": 215,
+      "version": "5",
+      "when": 1748499496947,
+      "tag": "0215_tricky_hannibal_king",
+      "breakpoints": false
     }
   ]
 }

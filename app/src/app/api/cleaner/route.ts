@@ -13,7 +13,7 @@ import { secondsFromNow } from "@/utils/time";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
 import { automatedModeration } from "@/drizzle/schema";
 import { paypalSubscription } from "@/drizzle/schema";
-import { historicalIp } from "@/drizzle/schema";
+import { historicalIp, userActivityEvent } from "@/drizzle/schema";
 
 export async function GET() {
   // Check timer
@@ -253,6 +253,11 @@ export async function GET() {
     // Delete historical ips older than 90 days
     await drizzleDB.execute(
       sql`DELETE FROM ${historicalIp} WHERE usedAt < CURRENT_TIMESTAMP(3) - INTERVAL 90 DAY`,
+    );
+
+    // Clean activity events older than 10 days
+    await drizzleDB.execute(
+      sql`DELETE FROM ${userActivityEvent} WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 10 DAY`,
     );
 
     return Response.json(`OK`);
