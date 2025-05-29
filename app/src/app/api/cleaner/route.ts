@@ -13,6 +13,7 @@ import { secondsFromNow } from "@/utils/time";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
 import { automatedModeration } from "@/drizzle/schema";
 import { paypalSubscription } from "@/drizzle/schema";
+import { historicalIp } from "@/drizzle/schema";
 
 export async function GET() {
   // Check timer
@@ -247,6 +248,11 @@ export async function GET() {
       sql`UPDATE ${userData} u SET u.federalStatus = 'NONE' WHERE u.federalStatus != 'NONE' AND NOT EXISTS (
         SELECT 1 FROM ${paypalSubscription} p WHERE p.affectedUserId = u.userId AND p.updatedAt >= CURRENT_TIMESTAMP(3) - INTERVAL 31 DAY
       )`,
+    );
+
+    // Delete historical ips older than 90 days
+    await drizzleDB.execute(
+      sql`DELETE FROM ${historicalIp} WHERE usedAt < CURRENT_TIMESTAMP(3) - INTERVAL 90 DAY`,
     );
 
     return Response.json(`OK`);

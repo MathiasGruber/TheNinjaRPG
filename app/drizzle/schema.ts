@@ -1528,6 +1528,7 @@ export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
 export const userDataRelations = relations(userData, ({ one, many }) => ({
+  ips: many(historicalIp),
   bloodline: one(bloodline, {
     fields: [userData.bloodlineId],
     references: [bloodline.id],
@@ -1580,6 +1581,30 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   votes: one(userVote, {
     fields: [userData.userId],
     references: [userVote.userId],
+  }),
+}));
+
+export const historicalIp = mysqlTable(
+  "HistoricalIp",
+  {
+    id: int("id").primaryKey().autoincrement().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    ip: varchar("ip", { length: 191 }).notNull(),
+    usedAt: datetime("usedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIpKey: uniqueIndex("HistoricalIp_userId_ip_key").on(table.userId, table.ip),
+    };
+  },
+);
+
+export const historicalIpRelations = relations(historicalIp, ({ one }) => ({
+  user: one(userData, {
+    fields: [historicalIp.userId],
+    references: [userData.userId],
   }),
 }));
 

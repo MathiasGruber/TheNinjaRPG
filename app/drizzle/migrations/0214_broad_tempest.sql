@@ -1,0 +1,1 @@
+ALTER TABLE `HistoricalIp` ADD CONSTRAINT `HistoricalIp_userId_ip_key` UNIQUE(`userId`,`ip`);

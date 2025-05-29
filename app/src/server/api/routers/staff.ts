@@ -1,7 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { fetchBadge } from "@/routers/badge";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   actionLog,
   aiProfile,
@@ -16,6 +16,7 @@ import {
   forumPost,
   forumThread,
   historicalAvatar,
+  historicalIp,
   jutsuLoadout,
   kageDefendedChallenges,
   linkPromotion,
@@ -53,7 +54,7 @@ import { fetchUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { canUnstuckVillage, canModifyUserBadges } from "@/utils/permissions";
+import { canUnstuckVillage, canModifyUserBadges, canSeeIps } from "@/utils/permissions";
 import { canCloneUser } from "@/utils/permissions";
 import { TRPCError } from "@trpc/server";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -289,6 +290,26 @@ export const staffRouter = createTRPCRouter({
         );
       }
       return { success: true, message: "User copied" };
+    }),
+  getUserHistoricalIps: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canSeeIps(user.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to view IP addresses",
+        });
+      }
+      // Fetch historical IPs
+      const historicalIps = await ctx.drizzle.query.historicalIp.findMany({
+        where: eq(historicalIp.userId, input.userId),
+        orderBy: [desc(historicalIp.usedAt)],
+        limit: 100, // Limit to last 100 IP records
+      });
+      return historicalIps;
     }),
   // Update all occurances of a user ID in the database to another userId.
   // VERY dangerous - used to e.g. link up unlinked accounts with new userIds from clerk

@@ -25,6 +25,7 @@ export default async function PublicProfile(props: {
       showTrainingLogs
       showCombatLogs
       showMarriages
+      showHistoricalIps
     />
   );
 }

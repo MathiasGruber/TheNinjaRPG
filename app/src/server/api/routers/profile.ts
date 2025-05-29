@@ -30,6 +30,7 @@ import {
   userPollVote,
   userReport,
   userVote,
+  historicalIp,
   village,
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
@@ -1658,28 +1659,43 @@ export const fetchUpdatedUser = async (props: {
         user.secondaryElement = getRandomElement(available) ?? null;
       }
       // Update database
-      await client
-        .update(userData)
-        .set({
-          curHealth: user.curHealth,
-          curStamina: user.curStamina,
-          curChakra: user.curChakra,
-          updatedAt: user.updatedAt,
-          regenAt: user.regenAt,
-          questData: user.questData,
-          activityStreak: user.activityStreak,
-          money: user.money > RYO_CAP ? RYO_CAP : user.money,
-          bank: user.bank > RYO_CAP ? RYO_CAP : user.bank,
-          primaryElement: user.primaryElement,
-          secondaryElement: user.secondaryElement,
-          reputationPoints: user.reputationPoints,
-          reputationPointsTotal: user.reputationPointsTotal,
-          villagePrestige: user.villagePrestige,
-          villageId: user.villageId,
-          isOutlaw: user.isOutlaw,
-          ...(userIp ? { lastIp: userIp } : {}),
-        })
-        .where(eq(userData.userId, userId));
+      await Promise.all([
+        client
+          .update(userData)
+          .set({
+            curHealth: user.curHealth,
+            curStamina: user.curStamina,
+            curChakra: user.curChakra,
+            updatedAt: user.updatedAt,
+            regenAt: user.regenAt,
+            questData: user.questData,
+            activityStreak: user.activityStreak,
+            money: user.money > RYO_CAP ? RYO_CAP : user.money,
+            bank: user.bank > RYO_CAP ? RYO_CAP : user.bank,
+            primaryElement: user.primaryElement,
+            secondaryElement: user.secondaryElement,
+            reputationPoints: user.reputationPoints,
+            reputationPointsTotal: user.reputationPointsTotal,
+            villagePrestige: user.villagePrestige,
+            villageId: user.villageId,
+            isOutlaw: user.isOutlaw,
+            ...(userIp ? { lastIp: userIp } : {}),
+          })
+          .where(eq(userData.userId, userId)),
+        ...(userIp && user.lastIp !== userIp
+          ? [
+              client
+                .insert(historicalIp)
+                .values({
+                  userId: userId,
+                  ip: userIp,
+                })
+                .onDuplicateKeyUpdate({
+                  set: { usedAt: new Date() },
+                }),
+            ]
+          : []),
+      ]);
     }
   }
   if (user) {
