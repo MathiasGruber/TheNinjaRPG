@@ -1079,6 +1079,7 @@ function EditPollForm({
       id: poll.id,
       title: poll.title,
       description: poll.description,
+      allowCustomOptions: poll.allowCustomOptions,
     },
     mode: "onChange",
   });
@@ -1105,6 +1106,7 @@ function EditPollForm({
       id: poll.id,
       title: data.title,
       description: data.description,
+      allowCustomOptions: data.allowCustomOptions,
     });
   };
 
@@ -1139,6 +1141,19 @@ function EditPollForm({
                 />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="allowCustomOptions"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+              <FormControl>
+                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+              </FormControl>
+              <FormLabel>Allow users to add custom options</FormLabel>
             </FormItem>
           )}
         />
