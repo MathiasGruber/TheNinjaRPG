@@ -9,7 +9,6 @@ import { UncontrolledSliderField } from "@/layout/SliderField";
 import { useAwake } from "@/utils/routing";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { ItemTypes } from "@/drizzle/constants";
 import { structureBoost } from "@/utils/village";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import { ItemFiltering, useFiltering } from "@/layout/ItemFiltering";
@@ -19,7 +18,6 @@ import type { UserWithRelations } from "@/server/api/routers/profile";
 interface ShopProps {
   userData: NonNullable<UserWithRelations>;
   defaultType: ItemType;
-  restrictTypes?: ItemType[];
   eventItems?: boolean;
   title?: string;
   image?: string;
@@ -32,7 +30,7 @@ interface ShopProps {
 
 const Shop: React.FC<ShopProps> = (props) => {
   // Destructure
-  const { userData, defaultType, minCost, minRepsCost, restrictTypes } = props;
+  const { userData, defaultType, minCost, minRepsCost } = props;
 
   // Settings
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -50,7 +48,7 @@ const Shop: React.FC<ShopProps> = (props) => {
   // Data
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
     {
-      itemType: itemType === "ANY" ? defaultType : (itemType as ItemType),
+      itemType: itemType === "ANY" ? defaultType : itemType,
       minCost,
       minRepsCost,
       onlyInShop: true,
