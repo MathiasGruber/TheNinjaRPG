@@ -178,9 +178,7 @@ export const itemRouter = createTRPCRouter({
           gte(item.repsCost, input.minRepsCost),
         ),
         orderBy: (table, { asc }) => [
-          asc(table.rarity),
           asc(table.slot),
-          asc(table.requiredLevel),
           asc(table.cost),
           asc(table.repsCost),
         ],
