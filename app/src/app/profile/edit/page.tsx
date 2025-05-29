@@ -190,16 +190,6 @@ export default function EditProfile() {
         >
           <AttributeChange />
         </Accordion>
-        {userData && canEditPublicUser(userData) && (
-          <Accordion
-            title="Mass Management"
-            selectedTitle={activeElement}
-            unselectedSubtitle="Manage your equipped gear"
-            onClick={setActiveElement}
-          >
-            <GearManagement />
-          </Accordion>
-        )}
         <Accordion
           title="Reset Stats"
           selectedTitle={activeElement}
@@ -273,6 +263,16 @@ export default function EditProfile() {
             onClick={setActiveElement}
           >
             <SwapVillage />
+          </Accordion>
+        )}
+        {userData && canEditPublicUser(userData) && (
+          <Accordion
+            title="Mass Management"
+            selectedTitle={activeElement}
+            unselectedSubtitle="Manage your equipped gear"
+            onClick={setActiveElement}
+          >
+            <GearManagement />
           </Accordion>
         )}
       </div>
