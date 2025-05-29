@@ -265,7 +265,7 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
   );
 };
 
-export default ItemFiltering;
+export { ItemFiltering };
 
 /** tRPC filter to be used on api.item.getAll */
 export const getFilter = (state: ItemFilteringState) => {

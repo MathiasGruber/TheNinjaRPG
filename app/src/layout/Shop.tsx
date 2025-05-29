@@ -50,13 +50,19 @@ const Shop: React.FC<ShopProps> = (props) => {
   // Data
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
     {
-      itemType: itemType === "ANY" ? defaultType : itemType,
+      itemType: itemType === "ANY" ? defaultType : (itemType as ItemType),
       minCost,
       minRepsCost,
       onlyInShop: true,
       eventItems: props.eventItems,
       limit: 500,
-      ...filteringState,
+      name: filteringState.name,
+      itemRarity: filteringState.itemRarity === "ANY" ? undefined : filteringState.itemRarity,
+      effect: filteringState.effect === "ANY" ? undefined : filteringState.effect,
+      slot: filteringState.slot === "ANY" ? undefined : filteringState.slot,
+      target: filteringState.target === "ANY" ? undefined : filteringState.target,
+      method: filteringState.method === "ANY" ? undefined : filteringState.method,
+      hidden: filteringState.hidden,
     },
     {
       enabled: userData !== undefined,
