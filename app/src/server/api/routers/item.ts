@@ -578,7 +578,8 @@ export const itemRouter = createTRPCRouter({
       ).length;
       if (
         !info.effects.find((e) => e.type.includes("bloodline")) &&
-        instancesEquipped < info.maxEquips
+        instancesEquipped < info.maxEquips &&
+        user.level >= info.requiredLevel
       ) {
         ItemSlots.forEach((slot) => {
           if (slot.includes(info.slot) && !useritems.find((i) => i.equipped === slot)) {
