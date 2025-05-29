@@ -67,7 +67,7 @@ import { updateUserPreferencesSchema } from "@/validators/user";
 import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
-import { canSwapVillage } from "@/utils/permissions";
+import { canSwapVillage, canEditPublicUser } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import UserSearchSelect from "@/layout/UserSearchSelect";
@@ -190,6 +190,16 @@ export default function EditProfile() {
         >
           <AttributeChange />
         </Accordion>
+        {userData && canEditPublicUser(userData) && (
+          <Accordion
+            title="Mass Management"
+            selectedTitle={activeElement}
+            unselectedSubtitle="Manage your equipped gear"
+            onClick={setActiveElement}
+          >
+            <GearManagement />
+          </Accordion>
+        )}
         <Accordion
           title="Reset Stats"
           selectedTitle={activeElement}
@@ -1543,6 +1553,39 @@ const ChangeGender: React.FC = () => {
           </Confirm>
         </form>
       </Form>
+    </div>
+  );
+};
+
+/**
+ * Gear Management Section
+ */
+const GearManagement: React.FC = () => {
+  const utils = api.useUtils();
+  const { mutate, isPending } = api.profile.unequipAllGear.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+      }
+    },
+  });
+  return (
+    <div className="flex flex-col items-center gap-4 p-4">
+      <Confirm
+        title="Confirm Unequip All Gear"
+        button={
+          <Button variant="destructive" disabled={isPending}>
+            {isPending ? <Loader size={5} /> : "Unequip All Gear"}
+          </Button>
+        }
+        onAccept={(e) => {
+          e.preventDefault();
+          mutate();
+        }}
+      >
+        This will unequip all currently equipped gear. Are you sure you want to continue?
+      </Confirm>
     </div>
   );
 };
