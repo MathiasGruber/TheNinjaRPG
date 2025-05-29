@@ -37,6 +37,12 @@ export const getMainNavbarLinks = () => {
       icon: <Scale className="h-6 w-6" />,
     },
     {
+      id: "tutorial-rules",
+      href: "/rules",
+      name: "Rules",
+      icon: <BookOpenText className="h-6 w-6" />,
+    },
+    {
       id: "tutorial-forum",
       href: "/forum",
       name: "Forum",
