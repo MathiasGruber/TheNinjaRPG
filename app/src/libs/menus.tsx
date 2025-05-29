@@ -37,12 +37,6 @@ export const getMainNavbarLinks = () => {
       icon: <Scale className="h-6 w-6" />,
     },
     {
-      id: "tutorial-rules",
-      href: "/rules",
-      name: "Rules",
-      icon: <BookOpenText className="h-6 w-6" />,
-    },
-    {
       id: "tutorial-forum",
       href: "/forum",
       name: "Forum",
@@ -117,6 +111,12 @@ export const useGameMenu = (userData: UserWithRelations) => {
       href: "/points",
       name: "Points",
       icon: <Receipt key="travel" className="h-6 w-6" />,
+    },
+    {
+      id: "tutorial-rules",
+      href: "/rules",
+      name: "Rules",
+      icon: <Scale key="rules" className="h-6 w-6" />,
     },
   ];
 
