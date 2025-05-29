@@ -59,6 +59,7 @@ import {
   canModifyUserBadges,
   canUnstuckVillage,
   canAwardReputation,
+  canSeeActivityEvents,
 } from "@/utils/permissions";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -102,6 +103,7 @@ interface PublicUserComponentProps {
   showCombatLogs?: boolean;
   showMarriages?: boolean;
   showHistoricalIps?: boolean;
+  showActivityEvents?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
@@ -121,6 +123,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     showCombatLogs,
     showMarriages,
     showHistoricalIps,
+    showActivityEvents,
   } = props;
   // Get state
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
@@ -131,6 +134,8 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   const enablePaypal = showTransactions && canSeeSecrets;
   const enableLogs = showActionLogs && canSeeSecrets;
   const enableHistoricalIps = showHistoricalIps && userData && canSeeIps(userData.role);
+  const enableActivityEvents =
+    showActivityEvents && userData && canSeeActivityEvents(userData.role);
 
   // Two-level filtering
   const state = useFiltering();
@@ -149,6 +154,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     api.staff.getUserHistoricalIps.useQuery(
       { userId: userId },
       { enabled: !!enableHistoricalIps },
+    );
+
+  const { data: activityEvents, isPending: isPendingActivityEvents } =
+    api.staff.getUserActivityEvents.useQuery(
+      { userId: userId },
+      { enabled: !!enableActivityEvents },
     );
 
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
@@ -790,7 +801,8 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         showReports ||
         showTrainingLogs ||
         enableLogs ||
-        enableHistoricalIps) && (
+        enableHistoricalIps ||
+        enableActivityEvents) && (
         <Tabs
           defaultValue={showActive}
           className="flex flex-col items-center justify-center mt-3"
@@ -812,6 +824,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
               {enableHistoricalIps && (
                 <TabsTrigger value="historicalIps">IP log</TabsTrigger>
+              )}
+              {enableActivityEvents && (
+                <TabsTrigger value="activityEvents">Activity</TabsTrigger>
               )}
             </TabsList>
           )}
@@ -971,6 +986,43 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                           </h4>
                           <p className="text-sm text-muted-foreground">
                             Last used: {ip.usedAt.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ContentBox>
+            </TabsContent>
+          )}
+          {/* USER ACTIVITY EVENTS */}
+          {enableActivityEvents && (
+            <TabsContent value="activityEvents">
+              <ContentBox
+                title="Activity Events"
+                subtitle={`Latest claimed activity events`}
+                initialBreak={true}
+              >
+                {isPendingActivityEvents && (
+                  <Loader explanation="Fetching Activity Events" />
+                )}
+                {activityEvents?.length === 0 && <p>No activity events found</p>}
+                {activityEvents && activityEvents.length > 0 && (
+                  <div className="space-y-2">
+                    {activityEvents.map((event, i) => (
+                      <div
+                        key={`event-${i}`}
+                        className="flex items-center justify-between p-3 border-2 border-border rounded-lg bg-card"
+                      >
+                        <div>
+                          <h4 className="font-semibold text-foreground">
+                            Activity Event #{event.id}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            Streak: {event.streak}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Created: {event.createdAt.toLocaleString()}
                           </p>
                         </div>
                       </div>

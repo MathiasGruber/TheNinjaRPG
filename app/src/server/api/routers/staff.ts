@@ -49,12 +49,18 @@ import {
   userUpload,
   userVote,
   village,
+  userActivityEvent,
 } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { canUnstuckVillage, canModifyUserBadges, canSeeIps } from "@/utils/permissions";
+import {
+  canUnstuckVillage,
+  canModifyUserBadges,
+  canSeeIps,
+  canSeeActivityEvents,
+} from "@/utils/permissions";
 import { canCloneUser } from "@/utils/permissions";
 import { TRPCError } from "@trpc/server";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -311,6 +317,26 @@ export const staffRouter = createTRPCRouter({
       });
       return historicalIps;
     }),
+  getUserActivityEvents: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canSeeActivityEvents(user.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to view activity events",
+        });
+      }
+      // Fetch activity events
+      const activityEvents = await ctx.drizzle.query.userActivityEvent.findMany({
+        where: eq(userActivityEvent.userId, input.userId),
+        orderBy: [desc(userActivityEvent.createdAt)],
+        limit: 100, // Limit to last 100 activity events
+      });
+      return activityEvents;
+    }),
   // Update all occurances of a user ID in the database to another userId.
   // VERY dangerous - used to e.g. link up unlinked accounts with new userIds from clerk
   updateUserId: protectedProcedure
@@ -393,6 +419,14 @@ export const staffRouter = createTRPCRouter({
           .update(historicalAvatar)
           .set({ userId: input.newUserId })
           .where(eq(historicalAvatar.userId, input.userId)),
+        ctx.drizzle
+          .update(historicalIp)
+          .set({ userId: input.newUserId })
+          .where(eq(historicalIp.userId, input.userId)),
+        ctx.drizzle
+          .update(userActivityEvent)
+          .set({ userId: input.newUserId })
+          .where(eq(userActivityEvent.userId, input.userId)),
         ctx.drizzle
           .update(jutsuLoadout)
           .set({ userId: input.newUserId })
@@ -602,6 +636,8 @@ export const deleteUser = async (client: DrizzleClient, userId: string) => {
     client.delete(forumPost).where(eq(forumPost.userId, userId)),
     client.delete(forumThread).where(eq(forumThread.userId, userId)),
     client.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId)),
+    client.delete(historicalIp).where(eq(historicalIp.userId, userId)),
+    client.delete(userActivityEvent).where(eq(userActivityEvent.userId, userId)),
     client.delete(jutsuLoadout).where(eq(jutsuLoadout.userId, userId)),
     client.delete(notification).where(eq(notification.userId, userId)),
     client.delete(ryoTrade).where(eq(ryoTrade.creatorUserId, userId)),
