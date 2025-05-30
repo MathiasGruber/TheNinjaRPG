@@ -374,7 +374,7 @@ const Character: React.FC<CharacterProps> = (props) => {
       <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t5} items={items} />
       {isOpen && slot && (
         <Modal
-          title="Select Item to Equip"
+          title={equipped ? "Item Details" : "Select Item to Equip"}
           setIsOpen={setIsOpen}
           isValid={false}
           proceed_label={equipped ? "Unequip" : undefined}
@@ -385,7 +385,13 @@ const Character: React.FC<CharacterProps> = (props) => {
             }
           }}
         >
-          {!isEquipping && (
+          {equipped ? (
+            <ItemWithEffects
+              item={equipped.item}
+              key={equipped.id}
+              showStatistic="item"
+            />
+          ) : !isEquipping ? (
             <ActionSelector
               items={items?.filter((item) => slot?.includes(item.slot))}
               counts={items}
@@ -399,8 +405,9 @@ const Character: React.FC<CharacterProps> = (props) => {
                 equip({ userItemId: id, slot: slot });
               }}
             />
+          ) : (
+            <Loader explanation={`Swapping ${item?.name}`} />
           )}
-          {isEquipping && item && <Loader explanation={`Swapping ${item.name}`} />}
         </Modal>
       )}
     </div>

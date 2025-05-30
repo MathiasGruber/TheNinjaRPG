@@ -146,7 +146,20 @@ const Shop: React.FC<ShopProps> = (props) => {
                 showBgColor={false}
                 showLabels={false}
                 renderItem={(item) => (
-                  <div className="flex flex-col items-center gap-1">
+                  <div 
+                    className={`flex flex-col items-center gap-1 cursor-pointer hover:opacity-90 ${
+                      item.type === "item" ? "bg-purple-100" : ""
+                    }`}
+                    onClick={() => {
+                      if (item.id === item?.id) {
+                        setItem(undefined);
+                        setIsOpen(false);
+                      } else {
+                        setItem(allItems?.find((i) => i.id === item.id));
+                        setIsOpen(true);
+                      }
+                    }}
+                  >
                     <Image
                       src={item.image}
                       alt={item.name}
