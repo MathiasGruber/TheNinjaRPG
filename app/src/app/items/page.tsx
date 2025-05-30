@@ -374,23 +374,33 @@ const Character: React.FC<CharacterProps> = (props) => {
       <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t5} items={items} />
       {isOpen && slot && (
         <Modal
-          title={equipped ? "Item Details" : "Select Item to Equip"}
+          title="Item Details"
           setIsOpen={setIsOpen}
           isValid={false}
-          proceed_label={equipped ? "Unequip" : undefined}
-          onAccept={() => {
-            if (equipped) {
-              setItem(equipped);
-              equip({ userItemId: equipped.id, slot: slot });
-            }
-          }}
         >
           {equipped ? (
-            <ItemWithEffects
-              item={equipped.item}
-              key={equipped.id}
-              showStatistic="item"
-            />
+            <>
+              <ItemWithEffects
+                item={equipped.item}
+                key={equipped.id}
+                showStatistic="item"
+              />
+              {!isEquipping && (
+                <div className="flex flex-row gap-1">
+                  <Button
+                    variant="info"
+                    onClick={() => {
+                      setItem(equipped);
+                      equip({ userItemId: equipped.id, slot: slot });
+                    }}
+                  >
+                    <Shirt className="mr-2 h-5 w-5" />
+                    Unequip
+                  </Button>
+                </div>
+              )}
+              {isEquipping && <Loader explanation={`Unequipping ${equipped.name}`} />}
+            </>
           ) : !isEquipping ? (
             <ActionSelector
               items={items?.filter((item) => slot?.includes(item.slot))}

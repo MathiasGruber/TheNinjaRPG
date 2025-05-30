@@ -14,6 +14,7 @@ import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import { ItemShopFiltering, useShopFiltering, getShopFilter } from "@/layout/ItemShopFiltering";
 import type { ItemType, Item } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
+import ContentImage from "@/layout/ContentImage";
 
 interface ShopProps {
   userData: NonNullable<UserWithRelations>;
@@ -145,46 +146,33 @@ const Shop: React.FC<ShopProps> = (props) => {
                 }}
                 showBgColor={false}
                 showLabels={false}
-                renderItem={(clickedItem) => {
-                  let bgColor = "";
-                  if (clickedItem.rarity === "COMMON") {
-                    bgColor = "bg-slate-100";
-                  } else if (clickedItem.rarity === "RARE") {
-                    bgColor = "bg-blue-100";
-                  } else if (clickedItem.rarity === "EPIC") {
-                    bgColor = "bg-purple-100";
-                  } else if (clickedItem.rarity === "LEGENDARY") {
-                    bgColor = "bg-amber-100";
-                  }
-                  return (
-                    <div 
-                      className={`flex flex-col items-center gap-1 cursor-pointer hover:opacity-90 ${bgColor}`}
-                      onClick={() => {
-                        if (clickedItem.id === item?.id) {
-                          setItem(undefined);
-                          setIsOpen(false);
-                        } else {
-                          setItem(allItems?.find((i) => i.id === clickedItem.id));
-                          setIsOpen(true);
-                        }
-                      }}
-                    >
-                      <Image
-                        src={clickedItem.image}
-                        alt={clickedItem.name}
-                        width={64}
-                        height={64}
-                        className="rounded-lg"
-                      />
-                      <p className="text-sm font-medium text-center">{clickedItem.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(clickedItem.cost ?? 0) > 0 && `${clickedItem.cost} ryo`}
-                        {(clickedItem.cost ?? 0) > 0 && (clickedItem.repsCost ?? 0) > 0 && " + "}
-                        {(clickedItem.repsCost ?? 0) > 0 && `${clickedItem.repsCost} rep`}
-                      </p>
-                    </div>
-                  );
-                }}
+                renderItem={(clickedItem) => (
+                  <div 
+                    className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-90"
+                    onClick={() => {
+                      if (clickedItem.id === item?.id) {
+                        setItem(undefined);
+                        setIsOpen(false);
+                      } else {
+                        setItem(allItems?.find((i) => i.id === clickedItem.id));
+                        setIsOpen(true);
+                      }
+                    }}
+                  >
+                    <ContentImage
+                      image={clickedItem.image}
+                      alt={clickedItem.name}
+                      rarity={clickedItem.rarity}
+                      className="w-16 h-16"
+                    />
+                    <p className="text-sm font-medium text-center">{clickedItem.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(clickedItem.cost ?? 0) > 0 && `${clickedItem.cost} ryo`}
+                      {(clickedItem.cost ?? 0) > 0 && (clickedItem.repsCost ?? 0) > 0 && " + "}
+                      {(clickedItem.repsCost ?? 0) > 0 && `${clickedItem.repsCost} rep`}
+                    </p>
+                  </div>
+                )}
               />
               {isOpen && item && (
                 <Modal
