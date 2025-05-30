@@ -12,7 +12,7 @@ interface Confirm2Props {
   className?: string;
   children: string | React.ReactNode;
   confirmClassName?: string;
-  proceed_label?: string;
+  proceed_label?: string | null;
   isValid?: boolean;
   disabled?: boolean;
   onAccept?: (
@@ -45,7 +45,9 @@ const Confirm2: React.FC<Confirm2Props> = (props) => {
           <Modal2
             title={props.title}
             setIsOpen={setShowModal}
-            proceed_label={props.proceed_label ? props.proceed_label : "Proceed"}
+            proceed_label={
+              props.proceed_label !== undefined ? props.proceed_label : "Proceed"
+            }
             confirmClassName={props.confirmClassName}
             onAccept={props.onAccept}
             className={props.className}

@@ -16,7 +16,7 @@ interface Modal2Props {
   title: string;
   children: string | React.ReactNode;
   className?: string;
-  proceed_label?: string;
+  proceed_label?: string | null;
   confirmClassName?: string;
   isValid?: boolean;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -62,7 +62,7 @@ const Modal2: React.FC<Modal2Props> = (props) => {
         <DialogTitle>{props.title}</DialogTitle>
       </DialogHeader>
 
-      <div className="space-y-6 py-4">{props.children}</div>
+      <div className="space-y-2 py-4">{props.children}</div>
 
       <DialogFooter>
         {props.proceed_label && (
