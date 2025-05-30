@@ -159,7 +159,7 @@ const Shop: React.FC<ShopProps> = (props) => {
                       }
                     }}
                   >
-                    <div className="max-w-40 max-h-40 w-full h-full">
+                    <div className="w-12 h-12">
                       <ContentImage
                         image={clickedItem.image}
                         alt={clickedItem.name}
