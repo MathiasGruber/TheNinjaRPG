@@ -10,7 +10,7 @@ import MassEditContent from "@/layout/MassEditContent";
 import { Button } from "@/components/ui/button";
 import { FilePlus, SquarePen, ChartCandlestick, ChartPie } from "lucide-react";
 import { useInfinitePagination } from "@/libs/pagination";
-import { ItemFiltering, useFiltering, getFilter } from "@/layout/ItemFiltering";
+import ItemFiltering, { useFiltering, getFilter } from "@/layout/ItemFiltering";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
