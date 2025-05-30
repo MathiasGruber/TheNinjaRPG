@@ -4,19 +4,11 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ActionSelector } from "@/layout/CombatActions";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import { useAwake } from "@/utils/routing";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { ItemTypes } from "@/drizzle/constants";
 import { structureBoost } from "@/utils/village";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
 import { ItemShopFiltering, useShopFiltering, getShopFilter } from "@/layout/ItemShopFiltering";
@@ -39,17 +31,16 @@ interface ShopProps {
 
 const Shop: React.FC<ShopProps> = (props) => {
   // Destructure
-  const { userData, defaultType, minCost, minRepsCost, restrictTypes } = props;
+  const { userData, defaultType, minCost, minRepsCost } = props;
 
   // Settings
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [item, setItem] = useState<Item | undefined>(undefined);
   const [stacksize, setStacksize] = useState<number>(1);
-  const [itemtype, setItemtype] = useState<ItemType>(defaultType);
   const isAwake = useAwake(userData);
 
   // Filtering state
-  const filteringState = useShopFiltering();
+  const filteringState = useShopFiltering(defaultType);
 
   // tRPC Utility
   const utils = api.useUtils();
@@ -57,7 +48,6 @@ const Shop: React.FC<ShopProps> = (props) => {
   // Data
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
     {
-      itemType: itemtype,
       minCost,
       minRepsCost,
       eventItems: props.eventItems,
@@ -109,10 +99,6 @@ const Shop: React.FC<ShopProps> = (props) => {
       ? repsCost - userData.reputationPoints + " more reputation points"
       : "");
 
-  // Item types categories
-  let categories = Object.values(ItemTypes);
-  if (restrictTypes) categories = categories.filter((t) => restrictTypes.includes(t));
-
   // Show loaders
   if (!isAwake) return <Loader explanation="Redirecting because not awake" />;
 
@@ -127,28 +113,7 @@ const Shop: React.FC<ShopProps> = (props) => {
           padding={false}
           topRightContent={
             <div className="flex flex-row gap-2">
-              {categories.length > 1 && (
-                <Select
-                  onValueChange={(e) => {
-                    setItemtype(e as ItemType);
-                    setItem(undefined);
-                  }}
-                  defaultValue={itemtype}
-                  value={itemtype}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={`None`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <ItemShopFiltering state={filteringState} />
+              <ItemShopFiltering state={filteringState} defaultType={defaultType} restrictTypes={props.restrictTypes} />
             </div>
           }
         >

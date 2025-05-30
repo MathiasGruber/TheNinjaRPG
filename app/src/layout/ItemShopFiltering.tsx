@@ -21,6 +21,7 @@ import {
   AttackTargets,
   ItemRarities,
   ItemSlotTypes,
+  ItemTypes,
 } from "@/drizzle/constants";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { effectFilters } from "@/libs/train";
@@ -31,19 +32,25 @@ import { Filter } from "lucide-react";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { EffectType } from "@/libs/train";
 import type { AttackTarget, AttackMethod } from "@/drizzle/constants";
-import type { ItemRarity, ItemSlotType } from "@/drizzle/schema";
+import type { ItemRarity, ItemSlotType, ItemType } from "@/drizzle/schema";
 
 interface ItemShopFilteringProps {
   state: ItemShopFilteringState;
+  defaultType: ItemType;
+  restrictTypes?: ItemType[];
 }
 
 const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
   // Destructure the state
-  const { setName, setEffect } = props.state;
+  const { setName, setEffect, setItemType } = props.state;
   const { setRarity, setSlot, setMethod, setTarget } = props.state;
 
-  const { itemRarity, slot, method, target } = props.state;
+  const { itemRarity, slot, method, target, itemType } = props.state;
   const { name, effect } = props.state;
+
+  // Get available item types
+  let categories = Object.values(ItemTypes);
+  if (props.restrictTypes) categories = categories.filter((t) => props.restrictTypes?.includes(t));
 
   // Name search schema
   const form = useForm<SearchJutsuSchema>({
@@ -70,6 +77,22 @@ const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
       </PopoverTrigger>
       <PopoverContent>
         <div className="grid grid-cols-2 gap-1 gap-x-3">
+          {/* Item Type */}
+          <div>
+            <Select onValueChange={(e) => setItemType(e as ItemType)} defaultValue={props.defaultType}>
+              <Label htmlFor="rank">Type</Label>
+              <SelectTrigger>
+                <SelectValue placeholder={itemType} />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {/* item NAME */}
           <div>
             <Form {...form}>
@@ -200,12 +223,13 @@ export const getShopFilter = (state: ItemShopFilteringState) => {
     target: state.target !== "ANY" ? state.target : undefined,
     method: state.method !== "ANY" ? state.method : undefined,
     effect: state.effect !== "ANY" ? state.effect : undefined,
+    itemType: state.itemType,
     onlyInShop: true, // Always ensure onlyInShop is true
   };
 };
 
 /** State for the item shop Filtering component */
-export const useShopFiltering = () => {
+export const useShopFiltering = (defaultType: ItemType) => {
   // State variables
   const [name, setName] = useState<string>("");
   const [itemRarity, setRarity] = useState<(typeof ItemRarities)[number] | "ANY">("ANY");
@@ -213,6 +237,7 @@ export const useShopFiltering = () => {
   const [slot, setSlot] = useState<(typeof ItemSlotTypes)[number] | "ANY">("ANY");
   const [target, setTarget] = useState<(typeof AttackTargets)[number] | "ANY">("ANY");
   const [method, setMethod] = useState<(typeof AttackMethods)[number] | "ANY">("ANY");
+  const [itemType, setItemType] = useState<ItemType>(defaultType);
 
   // Return all
   return {
@@ -226,8 +251,10 @@ export const useShopFiltering = () => {
     setRarity,
     setSlot,
     setTarget,
+    setItemType,
     slot,
     target,
+    itemType,
   };
 };
 
