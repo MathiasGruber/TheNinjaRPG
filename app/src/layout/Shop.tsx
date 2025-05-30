@@ -167,12 +167,14 @@ const Shop: React.FC<ShopProps> = (props) => {
                         className="w-full h-full"
                       />
                     </div>
-                    <p className="text-sm font-medium text-center">{clickedItem.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(clickedItem.cost ?? 0) > 0 && `${clickedItem.cost} ryo`}
-                      {(clickedItem.cost ?? 0) > 0 && (clickedItem.repsCost ?? 0) > 0 && " + "}
-                      {(clickedItem.repsCost ?? 0) > 0 && `${clickedItem.repsCost} rep`}
-                    </p>
+                    <div className="flex flex-col items-center mt-1">
+                      <p className="text-sm font-medium text-center">{clickedItem.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(clickedItem.cost ?? 0) > 0 && `${clickedItem.cost} ryo`}
+                        {(clickedItem.cost ?? 0) > 0 && (clickedItem.repsCost ?? 0) > 0 && " + "}
+                        {(clickedItem.repsCost ?? 0) > 0 && `${clickedItem.repsCost} rep`}
+                      </p>
+                    </div>
                   </div>
                 )}
               />
