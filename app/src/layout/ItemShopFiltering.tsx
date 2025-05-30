@@ -221,7 +221,6 @@ export const useShopFiltering = () => {
     method,
     name,
     setEffect,
-    setItemType,
     setMethod,
     setName,
     setRarity,
