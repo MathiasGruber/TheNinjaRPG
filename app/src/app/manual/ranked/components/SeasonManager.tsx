@@ -22,11 +22,15 @@ import {
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Pencil } from "lucide-react";
+import { canChangeContent } from "@/utils/permissions";
+import { useUserData } from "@/utils/UserContext";
 
 export function SeasonManager() {
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const { data: userData } = useUserData();
+  const canEditContent = canChangeContent(userData?.role ?? "USER");
 
   const { data: seasons } = api.ranked.getSeasons.useQuery();
 
@@ -51,51 +55,53 @@ export function SeasonManager() {
           </SelectContent>
         </Select>
 
-        <div className="flex gap-2">
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Season
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Create New Season</DialogTitle>
-              </DialogHeader>
-              <SeasonForm
-                onSuccess={() => setIsCreateDialogOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
-
-          {selectedSeason && (
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        {canEditContent && (
+          <div className="flex gap-2">
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit Season
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Season
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                  <DialogTitle>Edit Season</DialogTitle>
+                  <DialogTitle>Create New Season</DialogTitle>
                 </DialogHeader>
                 <SeasonForm
-                  seasonId={selectedSeason.id}
-                  initialData={{
-                    name: selectedSeason.name,
-                    description: selectedSeason.description,
-                    startDate: new Date(selectedSeason.startDate),
-                    endDate: new Date(selectedSeason.endDate),
-                    rewards: selectedSeason.rewards,
-                  }}
-                  onSuccess={() => setIsEditDialogOpen(false)}
+                  onSuccess={() => setIsCreateDialogOpen(false)}
                 />
               </DialogContent>
             </Dialog>
-          )}
-        </div>
+
+            {selectedSeason && (
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit Season
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle>Edit Season</DialogTitle>
+                  </DialogHeader>
+                  <SeasonForm
+                    seasonId={selectedSeason.id}
+                    initialData={{
+                      name: selectedSeason.name,
+                      description: selectedSeason.description,
+                      startDate: new Date(selectedSeason.startDate),
+                      endDate: new Date(selectedSeason.endDate),
+                      rewards: selectedSeason.rewards,
+                    }}
+                    onSuccess={() => setIsEditDialogOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedSeason && (

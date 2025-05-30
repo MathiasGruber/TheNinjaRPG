@@ -23,9 +23,6 @@ export default function RankedManualPage() {
           <TabsTrigger value="matchmaking">Matchmaking</TabsTrigger>
           <TabsTrigger value="loadouts">Loadouts</TabsTrigger>
           <TabsTrigger value="rewards">Rewards</TabsTrigger>
-          {canEditContent && (
-            <TabsTrigger value="manage">Manage Seasons</TabsTrigger>
-          )}
         </TabsList>
 
         <TabsContent value="overview">
@@ -83,27 +80,27 @@ export default function RankedManualPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="text-xl font-semibold mb-2">LP Range</h3>
+                <h3 className="text-xl font-semibold mb-2">LP-Based Matchmaking</h3>
                 <p className="text-muted-foreground">
-                  The matchmaking system tries to match you with players within a certain LP range:
+                  Players are matched based on their League Points (LP) to ensure fair and competitive matches:
                 </p>
                 <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
-                  <li>Base range: ±100 LP</li>
-                  <li>Range increases with queue time</li>
-                  <li>Players with 1000+ LP can match with any other 1000+ LP player</li>
-                  <li>Players below 300 LP cannot match with players above 900 LP</li>
+                  <li>Matches are made within a reasonable LP range</li>
+                  <li>Longer queue times may result in wider LP ranges</li>
+                  <li>Players with similar LP are prioritized for matches</li>
                 </ul>
               </div>
 
               <div>
-                <h3 className="text-xl font-semibold mb-2">Queue Time Scaling</h3>
+                <h3 className="text-xl font-semibold mb-2">Queue System</h3>
                 <p className="text-muted-foreground">
-                  The longer you wait in queue, the wider the LP range becomes:
+                  How the ranked queue works:
                 </p>
                 <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
-                  <li>0-2 minutes: Base range only</li>
-                  <li>2-15 minutes: Range increases by 25 LP every 2 minutes</li>
-                  <li>15+ minutes: Uncapped LP range besides the 300 & 900 LP restriction</li>
+                  <li>Join the queue to be matched with other players</li>
+                  <li>You can leave the queue at any time</li>
+                  <li>Matches are made automatically when suitable opponents are found</li>
+                  <li>Queue times vary based on player activity and LP range</li>
                 </ul>
               </div>
             </CardContent>
@@ -119,7 +116,6 @@ export default function RankedManualPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                
               <div>
                 <h3 className="text-xl font-semibold mb-2">Setting Up Your Loadout</h3>
                 <p className="text-muted-foreground">
@@ -184,15 +180,14 @@ export default function RankedManualPage() {
                   <li>All participants: Season participation rewards</li>
                 </ul>
               </div>
+
+              <div>
+                <h3 className="text-xl font-semibold mb-2">Current Season</h3>
+                <SeasonManager />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
-
-        {canEditContent && (
-          <TabsContent value="manage" className="space-y-4">
-            <SeasonManager />
-          </TabsContent>
-        )}
       </Tabs>
     </ContentBox>
   );
