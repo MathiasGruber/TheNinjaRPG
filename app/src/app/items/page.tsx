@@ -378,46 +378,48 @@ const Character: React.FC<CharacterProps> = (props) => {
           setIsOpen={setIsOpen}
           isValid={false}
         >
-          {equipped ? (
-            <>
-              <ItemWithEffects
-                item={equipped.item}
-                key={equipped.id}
-                showStatistic="item"
+          <div className="flex flex-col">
+            {equipped ? (
+              <>
+                <ItemWithEffects
+                  item={equipped.item}
+                  key={equipped.id}
+                  showStatistic="item"
+                />
+                {!isEquipping && (
+                  <div className="flex flex-row gap-1 mt-2">
+                    <Button
+                      variant="info"
+                      onClick={() => {
+                        setItem(equipped);
+                        equip({ userItemId: equipped.id, slot: slot });
+                      }}
+                    >
+                      <Shirt className="mr-2 h-5 w-5" />
+                      Unequip
+                    </Button>
+                  </div>
+                )}
+                {isEquipping && <Loader explanation={`Unequipping ${equipped.name}`} />}
+              </>
+            ) : !isEquipping ? (
+              <ActionSelector
+                items={items?.filter((item) => slot?.includes(item.slot))}
+                counts={items}
+                showBgColor={false}
+                showLabels={false}
+                greyedIds={items
+                  ?.filter((item) => item.equipped !== "NONE")
+                  .map((item) => item.id)}
+                onClick={(id) => {
+                  setItem(items?.find((item) => item.id === id));
+                  equip({ userItemId: id, slot: slot });
+                }}
               />
-              {!isEquipping && (
-                <div className="flex flex-row gap-1">
-                  <Button
-                    variant="info"
-                    onClick={() => {
-                      setItem(equipped);
-                      equip({ userItemId: equipped.id, slot: slot });
-                    }}
-                  >
-                    <Shirt className="mr-2 h-5 w-5" />
-                    Unequip
-                  </Button>
-                </div>
-              )}
-              {isEquipping && <Loader explanation={`Unequipping ${equipped.name}`} />}
-            </>
-          ) : !isEquipping ? (
-            <ActionSelector
-              items={items?.filter((item) => slot?.includes(item.slot))}
-              counts={items}
-              showBgColor={false}
-              showLabels={false}
-              greyedIds={items
-                ?.filter((item) => item.equipped !== "NONE")
-                .map((item) => item.id)}
-              onClick={(id) => {
-                setItem(items?.find((item) => item.id === id));
-                equip({ userItemId: id, slot: slot });
-              }}
-            />
-          ) : (
-            <Loader explanation={`Swapping ${item?.name}`} />
-          )}
+            ) : (
+              <Loader explanation={`Swapping ${item?.name}`} />
+            )}
+          </div>
         </Modal>
       )}
     </div>
