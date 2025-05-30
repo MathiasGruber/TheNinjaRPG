@@ -145,36 +145,46 @@ const Shop: React.FC<ShopProps> = (props) => {
                 }}
                 showBgColor={false}
                 showLabels={false}
-                renderItem={(item) => (
-                  <div 
-                    className={`flex flex-col items-center gap-1 cursor-pointer hover:opacity-90 ${
-                      item.type === "item" ? "bg-purple-100" : ""
-                    }`}
-                    onClick={() => {
-                      if (item.id === item?.id) {
-                        setItem(undefined);
-                        setIsOpen(false);
-                      } else {
-                        setItem(allItems?.find((i) => i.id === item.id));
-                        setIsOpen(true);
-                      }
-                    }}
-                  >
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      width={64}
-                      height={64}
-                      className="rounded-lg"
-                    />
-                    <p className="text-sm font-medium text-center">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(item.cost ?? 0) > 0 && `${item.cost} ryo`}
-                      {(item.cost ?? 0) > 0 && (item.repsCost ?? 0) > 0 && " + "}
-                      {(item.repsCost ?? 0) > 0 && `${item.repsCost} rep`}
-                    </p>
-                  </div>
-                )}
+                renderItem={(clickedItem) => {
+                  let bgColor = "";
+                  if (clickedItem.rarity === "COMMON") {
+                    bgColor = "bg-slate-100";
+                  } else if (clickedItem.rarity === "RARE") {
+                    bgColor = "bg-blue-100";
+                  } else if (clickedItem.rarity === "EPIC") {
+                    bgColor = "bg-purple-100";
+                  } else if (clickedItem.rarity === "LEGENDARY") {
+                    bgColor = "bg-amber-100";
+                  }
+                  return (
+                    <div 
+                      className={`flex flex-col items-center gap-1 cursor-pointer hover:opacity-90 ${bgColor}`}
+                      onClick={() => {
+                        if (clickedItem.id === item?.id) {
+                          setItem(undefined);
+                          setIsOpen(false);
+                        } else {
+                          setItem(allItems?.find((i) => i.id === clickedItem.id));
+                          setIsOpen(true);
+                        }
+                      }}
+                    >
+                      <Image
+                        src={clickedItem.image}
+                        alt={clickedItem.name}
+                        width={64}
+                        height={64}
+                        className="rounded-lg"
+                      />
+                      <p className="text-sm font-medium text-center">{clickedItem.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(clickedItem.cost ?? 0) > 0 && `${clickedItem.cost} ryo`}
+                        {(clickedItem.cost ?? 0) > 0 && (clickedItem.repsCost ?? 0) > 0 && " + "}
+                        {(clickedItem.repsCost ?? 0) > 0 && `${clickedItem.repsCost} rep`}
+                      </p>
+                    </div>
+                  );
+                }}
               />
               {isOpen && item && (
                 <Modal
