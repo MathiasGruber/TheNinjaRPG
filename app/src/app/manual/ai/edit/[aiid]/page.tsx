@@ -149,6 +149,7 @@ const SingleEditUser: React.FC<SingleEditUserProps> = (props) => {
               showSubmit={true}
               buttonTxt="Save to Database"
               type="ai"
+              relationId={processedUser.userId}
               allowImageUpload={true}
               onAccept={handleUserSubmit}
             />

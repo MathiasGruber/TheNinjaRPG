@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Accordion from "@/layout/Accordion";
@@ -74,6 +75,7 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Village } from "@/drizzle/schema";
+import type { ContentType } from "@/drizzle/constants";
 import {
   AiRule,
   ConditionDistanceHigherThan,
@@ -114,7 +116,7 @@ export default function EditProfile() {
           unselectedSubtitle="Choose an old avatar"
           onClick={setActiveElement}
         >
-          <HistoricalAiAvatar />
+          <HistoricalAiAvatar contentType="user" />
         </Accordion>
         <Accordion
           title="Custom Avatar"
@@ -745,7 +747,14 @@ const NewAiAvatar: React.FC = () => {
 /**
  * Historical AI Avatar Change
  */
-const HistoricalAiAvatar: React.FC = () => {
+
+interface HistoricalAiAvatarProps {
+  relationId?: string;
+  contentType: ContentType;
+  onUpdate?: (url: string) => void;
+}
+
+export const HistoricalAiAvatar: React.FC<HistoricalAiAvatarProps> = (props) => {
   // Queries & mutations
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const { data: userData } = useRequiredUserData();
@@ -760,6 +769,7 @@ const HistoricalAiAvatar: React.FC = () => {
     hasNextPage,
   } = api.avatar.getHistoricalAvatars.useInfiniteQuery(
     {
+      relationId: props.relationId,
       limit: 20,
     },
     {
@@ -779,8 +789,11 @@ const HistoricalAiAvatar: React.FC = () => {
   const updateAvatar = api.avatar.updateAvatar.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      if (data.success) {
+      if (data.success && data.url) {
         await utils.profile.getUser.invalidate();
+        if (props.onUpdate) {
+          props.onUpdate(data.url);
+        }
       }
     },
   });
@@ -796,7 +809,7 @@ const HistoricalAiAvatar: React.FC = () => {
   });
 
   const loading = updateAvatar.isPending || deleteAvatar.isPending;
-  if (loading) return <Loader explanation="Processing avatar..." />;
+  if (loading) return <Loader explanation="Processing..." />;
 
   return (
     <>
@@ -806,7 +819,9 @@ const HistoricalAiAvatar: React.FC = () => {
             <div
               key={avatar.id}
               className=" my-2 basis-1/6 relative"
-              onClick={() => updateAvatar.mutate({ avatar: avatar.id })}
+              onClick={() =>
+                updateAvatar.mutate({ avatar: avatar.id, type: props.contentType })
+              }
               ref={i === pageAvatars.length - 1 ? setLastElement : null}
             >
               <AvatarImage
@@ -815,7 +830,7 @@ const HistoricalAiAvatar: React.FC = () => {
                 hover_effect={true}
                 size={200}
               />
-              <Confirm
+              <Confirm2
                 title="Confirm Deletion"
                 button={
                   <Trash2 className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-amber-100 fill-slate-500 p-1 hover:text-orange-500" />
@@ -828,7 +843,7 @@ const HistoricalAiAvatar: React.FC = () => {
               >
                 You are about to delete an avatar. Note that this action is permanent.
                 Are you sure?
-              </Confirm>
+              </Confirm2>
             </div>
           ))}
         </div>

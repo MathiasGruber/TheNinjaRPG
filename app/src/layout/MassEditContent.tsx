@@ -348,6 +348,7 @@ const MassEditQuestRow: React.FC<MassEditQuestRowProps> = (props) => {
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.quest.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"
@@ -388,6 +389,7 @@ const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.jutsu.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"
@@ -440,6 +442,7 @@ const MassEditBloodlineRow: React.FC<MassEditBloodlineRowProps> = (props) => {
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.bloodline.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"
@@ -494,6 +497,7 @@ const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.item.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"
@@ -542,6 +546,7 @@ const MassEditBackgroundSchemaRow: React.FC<MassEditBackgroundSchemaRowProps> = 
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.backgroundSchema.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"

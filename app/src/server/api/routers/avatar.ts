@@ -6,6 +6,8 @@ import { requestAvatarForUser, checkAvatar } from "@/libs/replicate";
 import { createThumbnail } from "@/libs/replicate";
 import { fetchUser } from "@/routers/profile";
 import { userData, historicalAvatar } from "@/drizzle/schema";
+import { canChangeContent } from "@/utils/permissions";
+import { ContentTypes } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
 
 export const avatarRouter = createTRPCRouter({
@@ -45,16 +47,18 @@ export const avatarRouter = createTRPCRouter({
   getHistoricalAvatars: protectedProcedure
     .input(
       z.object({
+        relationId: z.string().nullish(),
         limit: z.number().min(1).max(100).nullish(),
         cursor: z.number().nullish(),
       }),
     )
     .query(async ({ ctx, input }) => {
+      const relationId = input.relationId ?? ctx.userId;
       const limit = input.limit ?? 50;
       const { cursor } = input;
       const avatars = await ctx.drizzle.query.historicalAvatar.findMany({
         where: and(
-          eq(historicalAvatar.userId, ctx.userId),
+          eq(historicalAvatar.userId, relationId),
           eq(historicalAvatar.done, 1),
           isNotNull(historicalAvatar.avatar),
         ),
@@ -73,8 +77,8 @@ export const avatarRouter = createTRPCRouter({
       };
     }),
   updateAvatar: protectedProcedure
-    .input(z.object({ avatar: z.number() }))
-    .output(baseServerResponse)
+    .input(z.object({ avatar: z.number(), type: z.enum(ContentTypes) }))
+    .output(baseServerResponse.extend({ url: z.string().nullish() }))
     .mutation(async ({ ctx, input }) => {
       // Query
       const [user, avatar] = await Promise.all([
@@ -83,7 +87,12 @@ export const avatarRouter = createTRPCRouter({
       ]);
       // Guard
       if (!avatar) return errorResponse("Avatar not found");
-      if (avatar.userId !== ctx.userId) return errorResponse("Not yours");
+      if (
+        (avatar.userId !== ctx.userId && avatar.status !== "content-success") ||
+        (!canChangeContent(user.role) && avatar.status === "content-success")
+      ) {
+        return errorResponse("Not yours");
+      }
       if (user.isBanned) return errorResponse("You are banned");
       // If no thumbnail, we need to generate one and save it for future usage
       let thumbnailUrl = avatar.avatarLight;
@@ -95,23 +104,35 @@ export const avatarRouter = createTRPCRouter({
           .where(eq(historicalAvatar.id, input.avatar));
       }
       // Mutation
-      await ctx.drizzle
-        .update(userData)
-        .set({ avatar: avatar.avatar, avatarLight: thumbnailUrl })
-        .where(eq(userData.userId, ctx.userId));
-      return { success: true, message: "Avatar updated" };
+      switch (input.type) {
+        case "user":
+          await ctx.drizzle
+            .update(userData)
+            .set({ avatar: avatar.avatar, avatarLight: thumbnailUrl })
+            .where(eq(userData.userId, ctx.userId));
+      }
+      return { success: true, message: "Avatar updated", url: avatar.avatar };
     }),
   deleteAvatar: protectedProcedure
     .input(z.object({ avatar: z.number() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const avatar = await fetchAvatar(ctx.drizzle, input.avatar);
+      // Query
+      const [avatar, user] = await Promise.all([
+        fetchAvatar(ctx.drizzle, input.avatar),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      // Guard
       if (!avatar) {
         return errorResponse("Avatar not found");
       }
-      if (avatar.userId !== ctx.userId) {
+      if (
+        (avatar.userId !== ctx.userId && avatar.status !== "content-success") ||
+        (!canChangeContent(user.role) && avatar.status === "content-success")
+      ) {
         return errorResponse("Not your avatar");
       }
+      // Mutation
       await ctx.drizzle
         .delete(historicalAvatar)
         .where(eq(historicalAvatar.id, input.avatar));

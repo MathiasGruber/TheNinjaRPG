@@ -11,7 +11,7 @@ import { SmileyEmotions } from "@/drizzle/constants";
 import Replicate from "replicate";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "../../db";
-import { syncImage, txt2img } from "@/libs/replicate";
+import { syncImage, txt2imgReplicate } from "@/libs/replicate";
 
 const replicate = new Replicate({
   auth: env.REPLICATE_API_TOKEN,
@@ -91,7 +91,7 @@ export const conceptartRouter = createTRPCRouter({
         return errorResponse("Not enough reputation points");
       }
       // Mutate
-      const output = await txt2img({
+      const output = await txt2imgReplicate({
         prompt:
           input.prompt +
           ", trending on ArtStation, trending on CGSociety, Intricate, High Detail, Sharp focus, dramatic, midjourney",

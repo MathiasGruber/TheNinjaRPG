@@ -162,6 +162,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
             showSubmit={true}
             buttonTxt="Save to Database"
             type="quest"
+            relationId={quest.id}
             allowImageUpload={true}
             onAccept={handleQuestSubmit}
           />

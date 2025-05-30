@@ -1,3 +1,4 @@
+import OpenAI from "openai";
 import { fetchAttributes } from "../server/api/routers/profile";
 import { userData, historicalAvatar, conceptImage } from "@/drizzle/schema";
 import { eq, sql, and, isNotNull } from "drizzle-orm";
@@ -24,6 +25,11 @@ import {
 import { MeshoptEncoder } from "meshoptimizer";
 import fs from "fs";
 
+/**
+ * Compress a gltf file
+ * @param url The URL of the gltf file to compress
+ * @returns The compressed gltf file
+ */
 export const compressGltf = async (url: string) => {
   await MeshoptEncoder.ready;
 
@@ -55,7 +61,10 @@ export const compressGltf = async (url: string) => {
 };
 
 /**
- * The prompt to be used for creating the avatar
+ * Get the prompt for the avatar
+ * @param client The database client
+ * @param user The user to get the prompt for
+ * @returns The prompt for the avatar
  */
 export const getPrompt = async (client: DrizzleClient, user: UserData) => {
   const userAttributes = await fetchAttributes(client, user.userId);
@@ -157,7 +166,7 @@ export const uploadToUT = async (url: string) => {
 /**
  * Create an image from text
  */
-export const txt2img = async (config: {
+export const txt2imgReplicate = async (config: {
   prompt: string;
   width: number;
   height: number;
@@ -197,6 +206,68 @@ export const txt2img = async (config: {
 };
 
 /**
+ * Create an image from text using OpenAI
+ * @param config The configuration for the image generation
+ * @returns The URL of the image
+ */
+export const txt2imgGPT = async (config: {
+  preprompt: string;
+  prompt: string;
+  previousImg?: string | null;
+  removeBg: boolean;
+  userId: string;
+  width: number;
+  height: number;
+}) => {
+  const client = new OpenAI();
+
+  // Prepare the input image
+  const inputImage = config.previousImg
+    ? await fetch(config.previousImg).then(async (response) => {
+        const blob = await response.blob();
+        return new File([blob], `${config.userId}-${nanoid()}.webp`, {
+          type: "image/webp",
+        });
+      })
+    : null;
+
+  // Common config
+  const commonConfig = {
+    background: config.removeBg ? "transparent" : "auto",
+    model: "gpt-image-1",
+    size: "1024x1024",
+    quality: "high",
+    user: config.userId,
+    prompt: inputImage
+      ? config.prompt
+      : `
+      <system prompt>
+        ${config.preprompt}
+      </system prompt>
+      <user prompt>
+        ${config.prompt} ${config.removeBg ? "remove background" : "include appropriate background"}
+      </user prompt>
+    `,
+  } as const;
+
+  // Create/Edit the image
+  const image = inputImage
+    ? await client.images.edit({ image: inputImage, ...commonConfig })
+    : await client.images.generate(commonConfig);
+
+  // Upload the image to UploadThing
+  const uploadedFiles = await uploadImageFromOpenAI({
+    prefix: "content",
+    img: image,
+    idx: nanoid(),
+    width: config.width,
+    height: config.height,
+  });
+
+  // Return the URL of the image
+  return uploadedFiles?.[0]?.data?.ufsUrl ?? null;
+};
+/**
  * Create a 3D model from an image
  * @param url The URL of the image to create a 3D model from
  */
@@ -224,6 +295,36 @@ export const img2model = async (url: string) => {
     },
   });
   return output;
+};
+
+/**
+ * Upload an image from OpenAI to UploadThing
+ * @param img - The image to upload
+ * @param generationId - The generation ID
+ * @returns The uploaded files
+ */
+export const uploadImageFromOpenAI = async (config: {
+  prefix: string;
+  img: OpenAI.Images.ImagesResponse;
+  idx: string;
+  width: number;
+  height: number;
+}) => {
+  const { prefix, img, idx, width, height } = config;
+  if (!img.data) throw new Error("No data");
+  const utapi = new UTApi();
+  const resizedImages = await Promise.all(
+    img.data.map(async (data, i) => {
+      const blob = Buffer.from(data.b64_json!, "base64");
+      const resultBuffer = await sharp(blob)
+        .resize(width, height)
+        .webp({ quality: 70 })
+        .toBuffer();
+      return new File([resultBuffer], `${prefix}-${idx}-${i}.webp`);
+    }),
+  );
+  const uploadedFiles = await utapi.uploadFiles(resizedImages);
+  return uploadedFiles;
 };
 
 /**
@@ -282,7 +383,7 @@ export const requestAvatarForUser = async (client: DrizzleClient, user: UserData
   });
   if (!currentProcessing) {
     const prompt = await getPrompt(client, user);
-    const result = await txt2img({ prompt: prompt, width: 512, height: 512 });
+    const result = await txt2imgReplicate({ prompt: prompt, width: 512, height: 512 });
     if (user.avatar) {
       await client
         .update(userData)

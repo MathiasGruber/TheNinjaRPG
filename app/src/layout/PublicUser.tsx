@@ -1151,6 +1151,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
             showSubmit={true}
             buttonTxt="Save to Database"
             type="ai"
+            relationId={userId}
             allowImageUpload={true}
             onAccept={handleUserSubmit}
           />
