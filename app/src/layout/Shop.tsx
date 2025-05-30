@@ -156,9 +156,9 @@ const Shop: React.FC<ShopProps> = (props) => {
                     />
                     <p className="text-sm font-medium text-center">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.cost > 0 && `${item.cost} ryo`}
-                      {item.cost > 0 && item.repsCost > 0 && " + "}
-                      {item.repsCost > 0 && `${item.repsCost} rep`}
+                      {(item.cost ?? 0) > 0 && `${item.cost} ryo`}
+                      {(item.cost ?? 0) > 0 && (item.repsCost ?? 0) > 0 && " + "}
+                      {(item.repsCost ?? 0) > 0 && `${item.repsCost} rep`}
                     </p>
                   </div>
                 )}
