@@ -435,6 +435,10 @@ export const applyEffects = (
           });
         }
         if (c.absorb_hp && c.absorb_hp > 0 && target.curHealth > 0) {
+          const maxAbsorb = (c.damage ?? 0) * 0.6;
+          if (c.absorb_hp > maxAbsorb) {
+            c.absorb_hp = maxAbsorb;
+          }
           target.curHealth += c.absorb_hp;
           target.curHealth = Math.min(target.maxHealth, target.curHealth);
           actionEffects.push({

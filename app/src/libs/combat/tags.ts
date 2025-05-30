@@ -90,36 +90,20 @@ export const absorb = (
               ? consequence.damage * (power / 100)
               : Math.min(power, consequence.damage);
           const convert = Math.ceil(absorbAmount * ratio);
-
+          
           // Apply absorption to each pool
           pools.map((pool) => {
             switch (pool) {
               case "Health":
-                // Calculate current HP absorption percentage
-                const currentAbsorbHp = consequence.absorb_hp || 0;
-                const totalCurrentAbsorbHp =
-                  (currentAbsorbHp / (consequence.damage || 1)) * 100;
-
-                // Only cap HP absorption at 60%
-                if (totalCurrentAbsorbHp < 60) {
-                  const remainingAbsorbPercent = 60 - totalCurrentAbsorbHp;
-
-                  // Calculate base absorption amount
-                  const baseAbsorbAmount = Math.min(
-                    convert / nPools,
-                    ((consequence.damage || 1) * remainingAbsorbPercent) / 100,
-                  );
-
-                  // Add the base amount to the consequence
-                  consequence.absorb_hp = currentAbsorbHp + baseAbsorbAmount;
-                }
+                // Add to existing absorb value instead of overwriting
+                consequence.absorb_hp = (consequence.absorb_hp || 0) + convert / nPools;
                 break;
               case "Stamina":
-                // SP absorption can stack normally
+                // Add to existing absorb value instead of overwriting
                 consequence.absorb_sp = (consequence.absorb_sp || 0) + convert / nPools;
                 break;
               case "Chakra":
-                // CP absorption can stack normally
+                // Add to existing absorb value instead of overwriting
                 consequence.absorb_cp = (consequence.absorb_cp || 0) + convert / nPools;
                 break;
             }
@@ -677,28 +661,14 @@ export const adjustHealGiven = (
         }
       }
       // Adjust absorb
-      // Adjust absorb
-      if (
-        consequence.targetId === effect.targetId &&
-        consequence.absorb_hp &&
-        consequence.damage
-      ) {
+      if (consequence.targetId === effect.targetId && consequence.absorb_hp) {
         const absorbEffect = usersEffects.find((e) => e.id === effectId);
         if (absorbEffect) {
-          // Calculate the maximum allowed absorb (60% of damage)
-          const maxAllowedAbsorb = consequence.damage * 0.6;
-
-          // Calculate the heal increase
           const change =
             effect.calculation === "percentage"
               ? (power / 100) * consequence.absorb_hp
               : power;
-
-          // Calculate what the absorb would be after the increase
-          const increasedAbsorb = consequence.absorb_hp + change;
-
-          // Cap at 60% of damage
-          consequence.absorb_hp = Math.min(increasedAbsorb, maxAllowedAbsorb);
+          consequence.absorb_hp = consequence.absorb_hp + change;
         }
       }
     });
