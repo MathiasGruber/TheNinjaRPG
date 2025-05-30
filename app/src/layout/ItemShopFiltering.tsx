@@ -17,8 +17,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AttackMethods,
-  AttackTargets,
   ItemRarities,
   ItemSlotTypes,
   ItemTypes,
@@ -31,7 +29,6 @@ import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { EffectType } from "@/libs/train";
-import type { AttackTarget, AttackMethod } from "@/drizzle/constants";
 import type { ItemRarity, ItemSlotType, ItemType } from "@/drizzle/schema";
 
 interface ItemShopFilteringProps {
@@ -43,9 +40,9 @@ interface ItemShopFilteringProps {
 const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
   // Destructure the state
   const { setName, setEffect, setItemType } = props.state;
-  const { setRarity, setSlot, setMethod, setTarget } = props.state;
+  const { setRarity, setSlot } = props.state;
 
-  const { itemRarity, slot, method, target, itemType } = props.state;
+  const { itemRarity, slot, itemType } = props.state;
   const { name, effect } = props.state;
 
   // Get available item types
@@ -79,7 +76,7 @@ const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
         <div className="grid grid-cols-2 gap-1 gap-x-3">
           {/* Item Type */}
           <div>
-            <Select onValueChange={(e) => setItemType(e as ItemType)} defaultValue={props.defaultType}>
+            <Select onValueChange={(e) => setItemType(e as ItemType)} value={itemType}>
               <Label htmlFor="rank">Type</Label>
               <SelectTrigger>
                 <SelectValue placeholder={itemType} />
@@ -168,44 +165,6 @@ const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
               </SelectContent>
             </Select>
           </div>
-          {/* Target */}
-          <div>
-            <Select onValueChange={(e) => setTarget(e as AttackTarget)}>
-              <Label htmlFor="rank">Target</Label>
-              <SelectTrigger>
-                <SelectValue placeholder={target} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key={"Any-target"} value="ANY">
-                  ANY
-                </SelectItem>
-                {AttackTargets.map((ir) => (
-                  <SelectItem key={ir} value={ir}>
-                    {ir}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {/* Method */}
-          <div>
-            <Select onValueChange={(e) => setMethod(e as AttackMethod)}>
-              <Label htmlFor="rank">Method</Label>
-              <SelectTrigger>
-                <SelectValue placeholder={method} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key={"Any-method"} value="ANY">
-                  ANY
-                </SelectItem>
-                {AttackMethods.map((ir) => (
-                  <SelectItem key={ir} value={ir}>
-                    {ir}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </PopoverContent>
     </Popover>
@@ -220,8 +179,6 @@ export const getShopFilter = (state: ItemShopFilteringState) => {
     name: state.name ? state.name : undefined,
     itemRarity: state.itemRarity !== "ANY" ? state.itemRarity : undefined,
     slot: state.slot !== "ANY" ? state.slot : undefined,
-    target: state.target !== "ANY" ? state.target : undefined,
-    method: state.method !== "ANY" ? state.method : undefined,
     effect: state.effect !== "ANY" ? state.effect : undefined,
     itemType: state.itemType,
     onlyInShop: true, // Always ensure onlyInShop is true
@@ -235,25 +192,19 @@ export const useShopFiltering = (defaultType: ItemType) => {
   const [itemRarity, setRarity] = useState<(typeof ItemRarities)[number] | "ANY">("ANY");
   const [effect, setEffect] = useState<(typeof effectFilters)[number] | "ANY">("ANY");
   const [slot, setSlot] = useState<(typeof ItemSlotTypes)[number] | "ANY">("ANY");
-  const [target, setTarget] = useState<(typeof AttackTargets)[number] | "ANY">("ANY");
-  const [method, setMethod] = useState<(typeof AttackMethods)[number] | "ANY">("ANY");
   const [itemType, setItemType] = useState<ItemType>(defaultType);
 
   // Return all
   return {
     effect,
     itemRarity,
-    method,
     name,
     setEffect,
-    setMethod,
     setName,
     setRarity,
     setSlot,
-    setTarget,
     setItemType,
     slot,
-    target,
     itemType,
   };
 };

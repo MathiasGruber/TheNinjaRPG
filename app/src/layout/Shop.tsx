@@ -145,6 +145,23 @@ const Shop: React.FC<ShopProps> = (props) => {
                 }}
                 showBgColor={false}
                 showLabels={false}
+                renderItem={(item) => (
+                  <div className="flex flex-col items-center gap-1">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      width={64}
+                      height={64}
+                      className="rounded-lg"
+                    />
+                    <p className="text-sm font-medium text-center">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.cost > 0 && `${item.cost} ryo`}
+                      {item.cost > 0 && item.repsCost > 0 && " + "}
+                      {item.repsCost > 0 && `${item.repsCost} rep`}
+                    </p>
+                  </div>
+                )}
               />
               {isOpen && item && (
                 <Modal
