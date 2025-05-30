@@ -17,7 +17,7 @@ import {
 } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
-import type { Quest, UserData } from "@/drizzle/schema";
+import type { Quest, UserData, UserQuest } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
 /**
@@ -428,11 +428,12 @@ export const isAvailableUserQuests = (
     questType: QuestType;
     expiresAt?: string | null;
     requiredVillage: string | null;
+    prerequisiteQuestId?: string | null;
     previousAttempts?: number | null;
     previousCompletes?: number | null;
     completed?: number | null;
   },
-  user: UserData,
+  user: NonNullable<UserWithRelations>,
   ignorePreviousAttempts = false,
 ) => {
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
@@ -449,13 +450,22 @@ export const isAvailableUserQuests = (
     !questAndUserQuestInfo.requiredVillage ||
     questAndUserQuestInfo.requiredVillage === user.villageId ||
     (questAndUserQuestInfo.requiredVillage === VILLAGE_SYNDICATE_ID && user.isOutlaw);
-  const check = hideCheck && expiresCheck && prevCheck && villageCheck;
+  
+  // Check if prerequisite quest is completed
+  const prerequisiteCheck = !questAndUserQuestInfo.prerequisiteQuestId || 
+    user.userQuests?.some((q: UserQuest) => 
+      q.questId === questAndUserQuestInfo.prerequisiteQuestId && 
+      q.completed === 1
+    );
+
+  const check = hideCheck && expiresCheck && prevCheck && villageCheck && prerequisiteCheck;
   // If quest is not available, return the reason
   let message = "";
   if (!hideCheck) message += "Quest is hidden\n";
   if (!expiresCheck) message += "Quest has expired\n";
   if (!prevCheck) message += "Quest has been attempted too many times\n";
   if (!villageCheck) message += "Quest is not available in your village\n";
+  if (!prerequisiteCheck) message += "You must complete the prerequisite quest first\n";
   // Returned detailed info on all the checks
   return { check, message };
 };
