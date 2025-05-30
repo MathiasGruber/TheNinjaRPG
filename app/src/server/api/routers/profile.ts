@@ -189,25 +189,6 @@ export const profileRouter = createTRPCRouter({
             : "Failed to update preferences",
       };
     }),
-  // Unequip all gear for all users
-  unequipAllGear: protectedProcedure
-    .output(baseServerResponse)
-    .mutation(async ({ ctx }) => {
-      // Check permissions
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (!canEditPublicUser(user)) {
-        return errorResponse("You do not have permission to unequip all gear");
-      }
-
-      // Update all equipped items to set equipped = 'NONE' for all users
-      const result = await ctx.drizzle.update(userItem)
-        .set({ equipped: 'NONE' })
-        .where(ne(userItem.equipped, 'NONE'));
-      return {
-        success: true,
-        message: `All gear has been unequipped for all users.`,
-      };
-    }),
   // Get user blacklist
   getBlacklist: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle.query.userBlackList.findMany({

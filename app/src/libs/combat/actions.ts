@@ -3,7 +3,7 @@ import { ClearTag, CleanseTag } from "@/libs/combat/types";
 import { nanoid } from "nanoid";
 import { getAffectedTiles } from "@/libs/combat/movement";
 import { COMBAT_SECONDS } from "@/libs/combat/constants";
-import { checkFriendlyFire } from "./process";
+import { checkFriendlyFire } from "@/libs/combat/process";
 import { applyEffects } from "@/libs/combat/process";
 import { calcPoolCost } from "@/libs/combat/util";
 import { hasNoAvailableActions } from "@/libs/combat/util";

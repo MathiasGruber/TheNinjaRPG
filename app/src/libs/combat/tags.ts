@@ -12,7 +12,7 @@ import type { BattleType } from "@/drizzle/constants";
 import type { CombatAction } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { BattleEffect } from "./types";
-import { Battle } from "@/drizzle/schema";
+import type { Battle } from "@/drizzle/schema";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -97,15 +97,19 @@ export const absorb = (
               case "Health":
                 // Calculate current HP absorption percentage
                 const currentAbsorbHp = consequence.absorb_hp || 0;
-                const totalCurrentAbsorbHp = (currentAbsorbHp / (consequence.damage || 1)) * 100;
-                
+                const totalCurrentAbsorbHp =
+                  (currentAbsorbHp / (consequence.damage || 1)) * 100;
+
                 // Only cap HP absorption at 60%
                 if (totalCurrentAbsorbHp < 60) {
                   const remainingAbsorbPercent = 60 - totalCurrentAbsorbHp;
-                  
+
                   // Calculate base absorption amount
-                  const baseAbsorbAmount = Math.min(convert / nPools, ((consequence.damage || 1) * remainingAbsorbPercent / 100));
-                  
+                  const baseAbsorbAmount = Math.min(
+                    convert / nPools,
+                    ((consequence.damage || 1) * remainingAbsorbPercent) / 100,
+                  );
+
                   // Add the base amount to the consequence
                   consequence.absorb_hp = currentAbsorbHp + baseAbsorbAmount;
                 }
@@ -674,21 +678,25 @@ export const adjustHealGiven = (
       }
       // Adjust absorb
       // Adjust absorb
-      if (consequence.targetId === effect.targetId && consequence.absorb_hp && consequence.damage) {
+      if (
+        consequence.targetId === effect.targetId &&
+        consequence.absorb_hp &&
+        consequence.damage
+      ) {
         const absorbEffect = usersEffects.find((e) => e.id === effectId);
         if (absorbEffect) {
           // Calculate the maximum allowed absorb (60% of damage)
           const maxAllowedAbsorb = consequence.damage * 0.6;
-          
+
           // Calculate the heal increase
           const change =
             effect.calculation === "percentage"
               ? (power / 100) * consequence.absorb_hp
               : power;
-          
+
           // Calculate what the absorb would be after the increase
           const increasedAbsorb = consequence.absorb_hp + change;
-          
+
           // Cap at 60% of damage
           consequence.absorb_hp = Math.min(increasedAbsorb, maxAllowedAbsorb);
         }
@@ -1884,10 +1892,10 @@ export const stunPrevent = (
 
 /** Clone user on the battlefield */
 export const summon = (
-  usersState: BattleUserState[], 
-  effect: GroundEffect, 
+  usersState: BattleUserState[],
+  effect: GroundEffect,
   userEffects: UserEffect[],
-  battle: Battle // Add battle parameter
+  battle: Battle, // Add battle parameter
 ) => {
   const { power } = getPower(effect);
   const perc = power / 100;
@@ -1938,7 +1946,7 @@ export const summon = (
         newAi.bloodline = ai.bloodline;
         // Realize bloodline effects if they exist
         if (newAi.bloodline?.effects) {
-          newAi.bloodline.effects.forEach(bloodlineEffect => {
+          newAi.bloodline.effects.forEach((bloodlineEffect) => {
             const realizedEffect = realizeTag({
               tag: bloodlineEffect as BattleEffect,
               user: newAi,
@@ -1946,7 +1954,7 @@ export const summon = (
               target: newAi,
               level: newAi.level,
               round: battle.round,
-              battle
+              battle,
             }) as UserEffect;
             realizedEffect.isNew = true;
             realizedEffect.castThisRound = true;
@@ -1956,7 +1964,7 @@ export const summon = (
           });
         }
         // Realize and copy the AI's effects
-        newAi.effects = ai.effects.map(aiEffect => {
+        newAi.effects = ai.effects.map((aiEffect) => {
           const realizedEffect = realizeTag({
             tag: aiEffect as BattleEffect,
             user: newAi,
@@ -1964,7 +1972,7 @@ export const summon = (
             target: newAi,
             level: newAi.level,
             round: battle.round,
-            battle
+            battle,
           }) as UserEffect;
           realizedEffect.isNew = true;
           realizedEffect.castThisRound = true;

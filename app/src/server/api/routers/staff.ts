@@ -1,7 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { fetchBadge } from "@/routers/badge";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, ne, and, desc } from "drizzle-orm";
 import {
   actionLog,
   aiProfile,
@@ -60,6 +60,7 @@ import {
   canModifyUserBadges,
   canSeeIps,
   canSeeActivityEvents,
+  canEditPublicUser,
 } from "@/utils/permissions";
 import { canCloneUser } from "@/utils/permissions";
 import { TRPCError } from "@trpc/server";
@@ -77,6 +78,25 @@ export const staffRouter = createTRPCRouter({
       message: "Test error",
     });
   }),
+  unequipAllGear: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canEditPublicUser(user)) {
+        return errorResponse("You do not have permission to unequip all gear");
+      }
+      // Update all equipped items to set equipped = 'NONE' for all users
+      await ctx.drizzle
+        .update(userItem)
+        .set({ equipped: "NONE" })
+        .where(ne(userItem.equipped, "NONE"));
+      return {
+        success: true,
+        message: `All gear has been unequipped for all users.`,
+      };
+    }),
   forceAwake: protectedProcedure
     .output(baseServerResponse)
     .input(z.object({ userId: z.string() }))
