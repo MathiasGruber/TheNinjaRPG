@@ -1,8 +1,8 @@
 import { type ReactNode } from "react";
 import Image from "next/image";
-import { Atom, Bug, User, Globe2, BookOpenText, Users } from "lucide-react";
+import { Atom, Bug, User, Globe2, BookOpenText } from "lucide-react";
 import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-react";
-import { Inbox, Flag } from "lucide-react";
+import { Inbox, Flag, ShieldHalf } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/app/_trpc/client";
 import { findVillageUserRelationship } from "@/utils/alliance";
@@ -62,10 +62,16 @@ export const useGameMenu = (userData: UserWithRelations) => {
   const pathname = usePathname();
   const systems: NavBarDropdownLink[] = [
     {
+      id: "tutorial-profile",
+      href: "/profile",
+      name: "Profile",
+      icon: <User key="profile" className="h-6 w-6" />,
+    },
+    {
       id: "tutorial-tavern",
       href: "/tavern",
       name: "Tavern",
-      icon: <Users key="tavern" className="h-6 w-6" />,
+      icon: <MessagesSquare key="tavern" className="h-6 w-6" />,
     },
     {
       id: "tutorial-inbox",
@@ -104,7 +110,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
       id: "tutorial-items",
       name: "Items",
       requireAwake: false,
-      icon: <User key="items" className="h-6 w-6" />,
+      icon: <ShieldHalf key="items" className="h-6 w-6" />,
     },
     {
       id: "tutorial-points",

@@ -1527,6 +1527,13 @@
       "when": 1748609362011,
       "tag": "0217_giant_champions",
       "breakpoints": false
+    },
+    {
+      "idx": 218,
+      "version": "5",
+      "when": 1748621915000,
+      "tag": "0218_square_captain_midlands",
+      "breakpoints": false
     }
   ]
 }

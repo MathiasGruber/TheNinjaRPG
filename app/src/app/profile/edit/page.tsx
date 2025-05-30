@@ -5,7 +5,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import Confirm from "@/layout/Confirm";
 import Confirm2 from "@/layout/Confirm2";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
@@ -269,7 +268,7 @@ export default function EditProfile() {
           <Accordion
             title="Mass Management"
             selectedTitle={activeElement}
-            unselectedSubtitle="Manage your equipped gear"
+            unselectedSubtitle="Manage All Users"
             onClick={setActiveElement}
           >
             <GearManagement />
@@ -503,7 +502,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             <Label htmlFor="battle-description">Show battle descriptions</Label>
             <br />
             <br />
-            <Confirm
+            <Confirm2
               title="Reset AI Profile"
               button={
                 <Button
@@ -531,7 +530,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             >
               This will reset your AI profile to default settings. This action cannot be
               undone. Are you sure you want to continue?
-            </Confirm>
+            </Confirm2>
           </TabsContent>
           <TabsContent value="aiprofile">
             <AiProfileEdit userData={profile} hideTitle />
@@ -726,7 +725,7 @@ const NewAiAvatar: React.FC = () => {
         {userData && userData?.reputationPoints > 0 ? (
           <>
             <p className="italic">- Costs 1 reputation point</p>
-            <Confirm
+            <Confirm2
               title="Confirm Avatar Change"
               button={
                 <Button id="create" className="w-full">
@@ -744,7 +743,7 @@ const NewAiAvatar: React.FC = () => {
               NVidia A100 GPU cluster, and each generation costs a little bit of money.
               We are working on a solution to make this free, but for now, we need to
               charge a small fee to cover the cost of the GPU cluster.
-            </Confirm>
+            </Confirm2>
           </>
         ) : (
           <p className="text-red-500">Requires 1 reputation point</p>
@@ -1261,7 +1260,7 @@ const RerollElement: React.FC = () => {
   const disabled = !canAfford || (!canChangeFirst && !canChangeSecond);
 
   return (
-    <Confirm
+    <Confirm2
       title="Confirm Re-Roll"
       button={
         <Button id="create" type="submit" className="w-full my-3" disabled={disabled}>
@@ -1275,7 +1274,7 @@ const RerollElement: React.FC = () => {
     >
       Changing your base elements costs {COST_REROLL_ELEMENT} reputation points. Are you
       sure you want to re-roll?
-    </Confirm>
+    </Confirm2>
   );
 };
 
@@ -1334,7 +1333,7 @@ const NameChange: React.FC = () => {
               </FormItem>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm New Username"
             button={
               <Button
@@ -1354,7 +1353,7 @@ const NameChange: React.FC = () => {
             Changing your username costs {COST_CHANGE_USERNAME} reputation points, and
             can only be reverted by purchasing another name change. Are you sure you
             want to change your username to {searchTerm}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
     </div>
@@ -1415,7 +1414,7 @@ const CustomTitle: React.FC = () => {
               </FormItem>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm Custom Title"
             disabled={disabled}
             button={
@@ -1433,7 +1432,7 @@ const CustomTitle: React.FC = () => {
             Changing your custom title costs {COST_CUSTOM_TITLE} reputation points, and
             can only be changed by requesting another change. Are you sure you want to
             change your title to {curTitle}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
     </div>
@@ -1532,7 +1531,7 @@ const ChangeGender: React.FC = () => {
               </div>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm Gender Change"
             disabled={!canBuyUsername}
             button={
@@ -1550,7 +1549,7 @@ const ChangeGender: React.FC = () => {
             Changing your gender costs {COST_CHANGE_GENDER} reputation points, and can
             only be changed by requesting another change. Are you sure you want to
             change your gender to {watchGender}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
     </div>
@@ -1562,17 +1561,20 @@ const ChangeGender: React.FC = () => {
  */
 const GearManagement: React.FC = () => {
   const utils = api.useUtils();
-  const { mutate, isPending } = api.profile.unequipAllGear.useMutation({
+  const { mutate, isPending } = api.staff.unequipAllGear.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.profile.getUser.invalidate();
+        await Promise.all([
+          utils.profile.getUser.invalidate(),
+          utils.item.getUserItems.invalidate(),
+        ]);
       }
     },
   });
   return (
     <div className="flex flex-col items-center gap-4 p-4">
-      <Confirm
+      <Confirm2
         title="Confirm Unequip All Gear"
         button={
           <Button variant="destructive" disabled={isPending}>
@@ -1584,8 +1586,9 @@ const GearManagement: React.FC = () => {
           mutate();
         }}
       >
-        This will unequip all currently equipped gear. Are you sure you want to continue?
-      </Confirm>
+        This will unequip all currently equipped gear <b>FOR ALL USERS</b>. Are you sure
+        you want to continue?
+      </Confirm2>
     </div>
   );
 };
