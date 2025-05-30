@@ -36,6 +36,7 @@ import {
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
 import { canChangeContent, canModerateRoles } from "@/utils/permissions";
+import { canInteractWithPolls } from "@/utils/permissions";
 import { canEditPublicUser } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
@@ -324,7 +325,12 @@ export const profileRouter = createTRPCRouter({
       }
     }
     // Add notification for unvoted polls
-    if (hasUnvotedPolls && hasUnvotedPolls.length > 0) {
+    if (
+      user &&
+      hasUnvotedPolls &&
+      hasUnvotedPolls.length > 0 &&
+      canInteractWithPolls(user.rank)
+    ) {
       notifications.push({
         href: "/manual/polls",
         name: "Unvoted Polls",

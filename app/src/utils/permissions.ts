@@ -1,5 +1,5 @@
 import { UserRoles } from "@/drizzle/constants";
-import type { UserData, UserReport } from "@/drizzle/schema";
+import type { UserData, UserRank, UserReport } from "@/drizzle/schema";
 import type { UserRole } from "@/drizzle/constants";
 
 export const canChangeContent = (role: UserRole) => {
@@ -291,4 +291,8 @@ export const canViewFullBattleLog = (role: UserRole) => {
 
 export const canCloneUser = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
+
+export const canInteractWithPolls = (rank: UserRank) => {
+  return rank !== "STUDENT";
 };
