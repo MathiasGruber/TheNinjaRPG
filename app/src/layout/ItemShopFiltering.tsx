@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -22,7 +21,6 @@ import {
   AttackTargets,
   ItemRarities,
   ItemSlotTypes,
-  ItemTypes,
 } from "@/drizzle/constants";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { effectFilters } from "@/libs/train";
@@ -30,30 +28,22 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchJutsuSchema } from "@/validators/jutsu";
 import { Filter } from "lucide-react";
-import Toggle from "@/components/control/Toggle";
-import { useUserData } from "@/utils/UserContext";
-import { canChangeContent } from "@/utils/permissions";
 import type { SearchJutsuSchema } from "@/validators/jutsu";
 import type { EffectType } from "@/libs/train";
-import type { AttackTarget, ItemType, AttackMethod } from "@/drizzle/constants";
+import type { AttackTarget, AttackMethod } from "@/drizzle/constants";
 import type { ItemRarity, ItemSlotType } from "@/drizzle/schema";
 
-interface ItemFilteringProps {
-  state: ItemFilteringState;
+interface ItemShopFilteringProps {
+  state: ItemShopFilteringState;
 }
 
-const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
-  // Global state
-  const { data: userData } = useUserData();
-
+const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
   // Destructure the state
-  const { setOnlyInShop, setEventItems } = props.state;
-  const { setName, setEffect, setHidden } = props.state;
-  const { setItemType, setRarity, setSlot, setMethod, setTarget } = props.state;
+  const { setName, setEffect } = props.state;
+  const { setRarity, setSlot, setMethod, setTarget } = props.state;
 
-  const { itemType, itemRarity, slot, method, target } = props.state;
-  const { onlyInShop, eventItems } = props.state;
-  const { name, effect, hidden } = props.state;
+  const { itemRarity, slot, method, target } = props.state;
+  const { name, effect } = props.state;
 
   // Name search schema
   const form = useForm<SearchJutsuSchema>({
@@ -98,18 +88,6 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
               />
             </Form>
           </div>
-          {/* Element */}
-          {/* <div>
-            <Label htmlFor="element">Elements</Label>
-            <MultiSelect
-              selected={element}
-              options={ElementNames.map((element) => ({
-                value: element,
-                label: element,
-              }))}
-              onChange={setElement}
-            />
-          </div> */}
           {/* Effect */}
           <div>
             <Select onValueChange={(e) => setEffect(e as EffectType)}>
@@ -129,26 +107,7 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
               </SelectContent>
             </Select>
           </div>
-          {/* Item Type */}
-          <div>
-            <Select onValueChange={(e) => setItemType(e as ItemType)}>
-              <Label htmlFor="rank">Item Type</Label>
-              <SelectTrigger>
-                <SelectValue placeholder={itemType} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key={"Any-type"} value={"ANY"}>
-                  ANY
-                </SelectItem>
-                {ItemTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {/* Ratity */}
+          {/* Rarity */}
           <div>
             <Select onValueChange={(e) => setRarity(e as ItemRarity)}>
               <Label htmlFor="rank">Rarity</Label>
@@ -224,98 +183,47 @@ const ItemFiltering: React.FC<ItemFilteringProps> = (props) => {
               </SelectContent>
             </Select>
           </div>
-          {/* Event Item */}
-          <div className="mt-1">
-            <Toggle
-              verticalLayout
-              id="toggle-event-only"
-              value={eventItems}
-              setShowActive={setEventItems}
-              labelActive="Event"
-              labelInactive="Non-Event"
-            />
-          </div>
-          {/* Shop Item */}
-          <div className="mt-1">
-            <Toggle
-              verticalLayout
-              id="toggle-in-shop"
-              value={onlyInShop}
-              setShowActive={setOnlyInShop}
-              labelActive="In Shop"
-              labelInactive="Not in Shop"
-            />
-          </div>
-          {/* Hidden */}
-          {userData && canChangeContent(userData.role) && (
-            <div className="mt-1">
-              <Toggle
-                verticalLayout
-                id="toggle-hidden-only"
-                value={hidden}
-                setShowActive={setHidden}
-                labelActive="Hidden"
-                labelInactive="Non-Hidden"
-              />
-            </div>
-          )}
         </div>
       </PopoverContent>
     </Popover>
   );
 };
 
-export default ItemFiltering;
+export { ItemShopFiltering };
 
 /** tRPC filter to be used on api.item.getAll */
-export const getFilter = (state: ItemFilteringState) => {
+export const getShopFilter = (state: ItemShopFilteringState) => {
   return {
     name: state.name ? state.name : undefined,
     itemRarity: state.itemRarity !== "ANY" ? state.itemRarity : undefined,
-    itemType: state.itemType !== "ANY" ? state.itemType : undefined,
     slot: state.slot !== "ANY" ? state.slot : undefined,
     target: state.target !== "ANY" ? state.target : undefined,
     method: state.method !== "ANY" ? state.method : undefined,
-    eventItems: state.eventItems ? state.eventItems : false,
-    onlyInShop: state.onlyInShop ? state.onlyInShop : false,
     effect: state.effect !== "ANY" ? state.effect : undefined,
-    hidden: state.hidden ? state.hidden : undefined,
+    onlyInShop: true, // Always ensure onlyInShop is true
   };
 };
 
-/** State for the item Filtering component */
-export const useFiltering = () => {
+/** State for the item shop Filtering component */
+export const useShopFiltering = () => {
   // State variables
   const [name, setName] = useState<string>("");
-  const [itemRarity, setRarity] = useState<(typeof ItemRarities)[number] | "ANY">(
-    "ANY",
-  );
-  const [itemType, setItemType] = useState<(typeof ItemTypes)[number] | "ANY">("ANY");
+  const [itemRarity, setRarity] = useState<(typeof ItemRarities)[number] | "ANY">("ANY");
   const [effect, setEffect] = useState<(typeof effectFilters)[number] | "ANY">("ANY");
   const [slot, setSlot] = useState<(typeof ItemSlotTypes)[number] | "ANY">("ANY");
   const [target, setTarget] = useState<(typeof AttackTargets)[number] | "ANY">("ANY");
   const [method, setMethod] = useState<(typeof AttackMethods)[number] | "ANY">("ANY");
-  const [eventItems, setEventItems] = useState<boolean | undefined>(false);
-  const [onlyInShop, setOnlyInShop] = useState<boolean | undefined>(true);
-  const [hidden, setHidden] = useState<boolean | undefined>(false);
 
   // Return all
   return {
     effect,
-    eventItems,
-    hidden,
     itemRarity,
-    itemType,
     method,
     name,
-    onlyInShop,
     setEffect,
-    setEventItems,
-    setHidden,
     setItemType,
     setMethod,
     setName,
-    setOnlyInShop,
     setRarity,
     setSlot,
     setTarget,
@@ -325,4 +233,4 @@ export const useFiltering = () => {
 };
 
 /** State type */
-export type ItemFilteringState = ReturnType<typeof useFiltering>;
+export type ItemShopFilteringState = ReturnType<typeof useShopFiltering>; 

@@ -4,20 +4,29 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ActionSelector } from "@/layout/CombatActions";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import { useAwake } from "@/utils/routing";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
+import { ItemTypes } from "@/drizzle/constants";
 import { structureBoost } from "@/utils/village";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
-import { ItemFiltering, useFiltering } from "@/layout/ItemFiltering";
+import { ItemShopFiltering, useShopFiltering, getShopFilter } from "@/layout/ItemShopFiltering";
 import type { ItemType, Item } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
 interface ShopProps {
   userData: NonNullable<UserWithRelations>;
   defaultType: ItemType;
+  restrictTypes?: ItemType[];
   eventItems?: boolean;
   title?: string;
   image?: string;
@@ -30,17 +39,17 @@ interface ShopProps {
 
 const Shop: React.FC<ShopProps> = (props) => {
   // Destructure
-  const { userData, defaultType, minCost, minRepsCost } = props;
+  const { userData, defaultType, minCost, minRepsCost, restrictTypes } = props;
 
   // Settings
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [item, setItem] = useState<Item | undefined>(undefined);
   const [stacksize, setStacksize] = useState<number>(1);
+  const [itemtype, setItemtype] = useState<ItemType>(defaultType);
   const isAwake = useAwake(userData);
 
   // Filtering state
-  const filteringState = useFiltering();
-  const { itemType } = filteringState;
+  const filteringState = useShopFiltering();
 
   // tRPC Utility
   const utils = api.useUtils();
@@ -48,19 +57,12 @@ const Shop: React.FC<ShopProps> = (props) => {
   // Data
   const { data: items, isFetching } = api.item.getAll.useInfiniteQuery(
     {
-      itemType: itemType === "ANY" ? defaultType : itemType,
+      itemType: itemtype,
       minCost,
       minRepsCost,
-      onlyInShop: true,
       eventItems: props.eventItems,
       limit: 500,
-      name: filteringState.name,
-      itemRarity: filteringState.itemRarity === "ANY" ? undefined : filteringState.itemRarity,
-      effect: filteringState.effect === "ANY" ? undefined : filteringState.effect,
-      slot: filteringState.slot === "ANY" ? undefined : filteringState.slot,
-      target: filteringState.target === "ANY" ? undefined : filteringState.target,
-      method: filteringState.method === "ANY" ? undefined : filteringState.method,
-      hidden: filteringState.hidden,
+      ...getShopFilter(filteringState),
     },
     {
       enabled: userData !== undefined,
@@ -107,6 +109,10 @@ const Shop: React.FC<ShopProps> = (props) => {
       ? repsCost - userData.reputationPoints + " more reputation points"
       : "");
 
+  // Item types categories
+  let categories = Object.values(ItemTypes);
+  if (restrictTypes) categories = categories.filter((t) => restrictTypes.includes(t));
+
   // Show loaders
   if (!isAwake) return <Loader explanation="Redirecting because not awake" />;
 
@@ -121,7 +127,28 @@ const Shop: React.FC<ShopProps> = (props) => {
           padding={false}
           topRightContent={
             <div className="flex flex-row gap-2">
-              <ItemFiltering state={filteringState} />
+              {categories.length > 1 && (
+                <Select
+                  onValueChange={(e) => {
+                    setItemtype(e as ItemType);
+                    setItem(undefined);
+                  }}
+                  defaultValue={itemtype}
+                  value={itemtype}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={`None`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <ItemShopFiltering state={filteringState} />
             </div>
           }
         >
