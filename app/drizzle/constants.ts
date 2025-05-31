@@ -115,6 +115,7 @@ export const StructureRoutes = [
   "/battlearena",
   "/blackmarket",
   "/clanhall",
+  "/globalanbuhq",
   "/home",
   "/hospital",
   "/itemshop",
@@ -346,6 +347,7 @@ export const QuestTypes = [
   "tier",
   "daily",
   "achievement",
+  "story",
 ] as const;
 export type QuestType = (typeof QuestTypes)[number];
 export const QUESTS_CONCURRENT_LIMIT = 4;

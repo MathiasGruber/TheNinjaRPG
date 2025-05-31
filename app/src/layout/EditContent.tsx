@@ -46,6 +46,8 @@ export type FormEntry<K> = {
   label?: string;
   doubleWidth?: boolean;
   resetButton?: boolean;
+  searchable?: boolean;
+  searchFields?: string[];
 } & (
   | { type: "text" }
   | { type: "richinput" }
@@ -345,6 +347,31 @@ export const EditContent = <
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
+                                  {formEntry.searchable ? (
+                                    <div className="flex items-center px-3 pb-2">
+                                      <Input
+                                        className="h-8"
+                                        placeholder="Search..."
+                                        onChange={(e) => {
+                                          const searchTerm = e.target.value.toLowerCase();
+                                          const filteredOptions = options.filter((option) =>
+                                            formEntry.searchFields?.some((field) =>
+                                              option.label.toLowerCase().includes(searchTerm)
+                                            )
+                                          );
+                                          // Update the options shown in the dropdown
+                                          const selectContent = document.querySelector(`[data-value="${id}"]`);
+                                          if (selectContent) {
+                                            const items = selectContent.querySelectorAll('[role="option"]');
+                                            items.forEach((item) => {
+                                              const value = item.getAttribute('data-value');
+                                              const option = filteredOptions.find(opt => opt.value === value);
+                                            });
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  ) : null}
                                   {options.map((option) => (
                                     <SelectItem
                                       key={`select-${option.label}`}

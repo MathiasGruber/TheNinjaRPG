@@ -170,6 +170,7 @@ export const QuestValidatorRawSchema = z.object({
   requiredLevel: z.coerce.number().min(0).max(100).optional(),
   maxLevel: z.coerce.number().min(0).max(100).optional(),
   requiredVillage: z.string().min(0).max(30).optional().nullish(),
+  prerequisiteQuestId: z.string().min(0).max(191).optional().nullish(),
   tierLevel: z.coerce.number().min(0).max(100).nullable(),
   timeFrame: z.enum(TimeFrames),
   questType: z.enum(QuestTypes),

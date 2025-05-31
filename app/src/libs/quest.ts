@@ -17,7 +17,7 @@ import {
 } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
-import type { Quest, UserData } from "@/drizzle/schema";
+import type { Quest, UserData, UserQuest } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
 /**
@@ -428,11 +428,12 @@ export const isAvailableUserQuests = (
     questType: QuestType;
     expiresAt?: string | null;
     requiredVillage: string | null;
+    prerequisiteQuestId?: string | null;
     previousAttempts?: number | null;
     previousCompletes?: number | null;
     completed?: number | null;
   },
-  user: UserData,
+  user: NonNullable<UserWithRelations>,
   ignorePreviousAttempts = false,
 ) => {
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
@@ -449,13 +450,79 @@ export const isAvailableUserQuests = (
     !questAndUserQuestInfo.requiredVillage ||
     questAndUserQuestInfo.requiredVillage === user.villageId ||
     (questAndUserQuestInfo.requiredVillage === VILLAGE_SYNDICATE_ID && user.isOutlaw);
-  const check = hideCheck && expiresCheck && prevCheck && villageCheck;
+
+  // Check if prerequisite quest is completed
+  const prerequisiteCheck = !questAndUserQuestInfo.prerequisiteQuestId || 
+    user.userQuests?.some((q: UserQuest) => {
+      console.log('Checking prerequisite:', {
+        questId: q.questId,
+        prerequisiteId: questAndUserQuestInfo.prerequisiteQuestId,
+        completed: q.completed,
+        matches: q.questId === questAndUserQuestInfo.prerequisiteQuestId && q.completed === 1
+      });
+      return q.questId === questAndUserQuestInfo.prerequisiteQuestId && q.completed === 1;
+    });
+
+  const check = hideCheck && expiresCheck && prevCheck && villageCheck && prerequisiteCheck;
   // If quest is not available, return the reason
   let message = "";
   if (!hideCheck) message += "Quest is hidden\n";
   if (!expiresCheck) message += "Quest has expired\n";
   if (!prevCheck) message += "Quest has been attempted too many times\n";
   if (!villageCheck) message += "Quest is not available in your village\n";
+  if (!prerequisiteCheck) message += "You must complete the prerequisite quest first\n";
   // Returned detailed info on all the checks
   return { check, message };
+};
+
+export const isAvailableStoryQuest = (
+  questAndUserQuestInfo: {
+    hidden: boolean;
+    questType: QuestType;
+    requiredVillage: string | null;
+    prerequisiteQuestId?: string | null;
+    previousAttempts?: number | null;
+    previousCompletes?: number | null;
+    completed?: number | null;
+  },
+  user: NonNullable<UserWithRelations>,
+) => {
+  // Check if quest is hidden
+  const hiddenCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
+  if (!hiddenCheck) {
+    return { check: false, message: "Quest is hidden" };
+  }
+
+  // Check if quest has been completed
+  if (questAndUserQuestInfo.completed === 1) {
+    return { check: false, message: "Quest has been completed" };
+  }
+
+  // Check if quest has been attempted too many times
+  const attemptsCheck =
+    !questAndUserQuestInfo.previousAttempts ||
+    questAndUserQuestInfo.previousAttempts < 3;
+  if (!attemptsCheck) {
+    return { check: false, message: "Quest has been attempted too many times" };
+  }
+
+  // Check if quest is available in user's village
+  const villageCheck =
+    !questAndUserQuestInfo.requiredVillage ||
+    questAndUserQuestInfo.requiredVillage === user.villageId;
+  if (!villageCheck) {
+    return { check: false, message: "Quest is not available in your village" };
+  }
+
+  // Check if prerequisite quest is completed
+  if (questAndUserQuestInfo.prerequisiteQuestId) {
+    const prerequisiteQuest = user.userQuests?.find(
+      (q) => q.questId === questAndUserQuestInfo.prerequisiteQuestId,
+    );
+    if (!prerequisiteQuest || prerequisiteQuest.completed !== 1) {
+      return { check: false, message: "Prerequisite quest not completed" };
+    }
+  }
+
+  return { check: true };
 };
