@@ -151,7 +151,7 @@ export default function MissionHall() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Accept Mission: {mission.name}</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to accept the mission "{mission.name}"? You can only have one active mission at a time.
+                                Are you sure you want to accept the mission &quot;{mission.name}&quot;? You can only have one active mission at a time.
                                 {userData.dailyMissions > 9 && (
                                   <p className="mt-2 text-yellow-500">
                                     Note: You have completed more than 9 missions today. This mission will only give 40% of its normal rewards.
