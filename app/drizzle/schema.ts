@@ -2178,7 +2178,10 @@ export const questHistory = mysqlTable(
   },
 );
 export type QuestHistory = InferInsertModel<typeof questHistory>;
-export type UserQuest = QuestHistory & { quest: Quest };
+export type UserQuest = QuestHistory & { 
+  quest: Quest;
+  adjustedRewards?: ObjectiveRewardType | null;
+};
 
 export const questHistoryRelations = relations(questHistory, ({ one }) => ({
   user: one(userData, {

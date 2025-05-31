@@ -347,7 +347,10 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
           </>
         )}
         <div className="pt-2">
-          <Reward info={quest.content.reward} />
+          <Reward 
+            info={userQuest.quest.content.reward} 
+            adjustedRewards={userQuest.adjustedRewards}
+          />
           <EventTimer quest={quest} tracker={tracker} />
         </div>
         {!["tier", "daily"].includes(quest.questType) && quest.description && (
@@ -416,11 +419,11 @@ export const useCheckRewards = () => {
                 ))}
               </div>
             )}
-            {resolved && quest.successDescription && (
+            {resolved && quest?.successDescription && (
               <div>
                 <b>Quest Completed:</b>
                 <br />
-                <i>{parseHtml(quest.successDescription)}</i>
+                <i>{parseHtml(quest?.successDescription)}</i>
               </div>
             )}
             <div className="flex flex-row items-center">
@@ -485,13 +488,13 @@ export const useCheckRewards = () => {
           showMutationToast({
             success: true,
             message: reward,
-            title: `Finished: ${quest.name}`,
+            title: `Finished: ${quest?.name}`,
           });
         } else {
           showMutationToast({
             success: true,
             message: reward,
-            title: `Reward from ${quest.name}`,
+            title: `Reward from ${quest?.name}`,
           });
         }
         await utils.profile.getUser.invalidate();

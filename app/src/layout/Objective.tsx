@@ -132,10 +132,11 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
 
 interface RewardProps {
   info?: AllObjectivesType | ObjectiveRewardType | null;
+  adjustedRewards?: ObjectiveRewardType | null;
 }
 
 export const Reward: React.FC<RewardProps> = (props) => {
-  const info = props.info;
+  const info = props.adjustedRewards ?? props.info;
   let rewards = `${info?.reward_money ? `${info.reward_money} Ryo` : ""}`;
   if (info?.reward_tokens) {
     rewards += `${rewards ? ", " : ""} ${info.reward_tokens} Tokens`;

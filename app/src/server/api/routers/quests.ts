@@ -721,7 +721,7 @@ export const questsRouter = createTRPCRouter({
         undefined;
 
       // Update database
-      const [{ items, jutsus, badges }] = await Promise.all([
+      const [{ items, jutsus, badges, adjustedRewards }] = await Promise.all([
         // Update rewards
         updateRewards(ctx.drizzle, user, rewards, deleteItemIds, questCounterField),
         // Update quest history
@@ -765,8 +765,11 @@ export const questsRouter = createTRPCRouter({
       return {
         success: true,
         successDescriptions,
-        rewards,
-        userQuest,
+        rewards: adjustedRewards,
+        userQuest: {
+          ...userQuest,
+          adjustedRewards,
+        },
         resolved,
         badges,
       };

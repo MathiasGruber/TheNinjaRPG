@@ -203,7 +203,7 @@ export default function MissionHall() {
                       <AlertDialogTitle>Accept Random Mission</AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to accept a random {setting.rank}-rank {setting.type}? You can only have one active mission at a time.
-                        {userData.dailyMissions > 9 && (
+                        {userData.dailyMissions >= 9 && (
                           <p className="mt-2 text-yellow-500">
                             Note: You have completed more than 9 missions today. This mission will only give 40% of its normal rewards.
                           </p>
@@ -213,7 +213,8 @@ export default function MissionHall() {
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.preventDefault();
                           startRandom({
                             type: setting.type,
                             rank: setting.rank,
@@ -222,8 +223,8 @@ export default function MissionHall() {
                             userVillageId: userData.isOutlaw
                               ? VILLAGE_SYNDICATE_ID
                               : userData.villageId,
-                          })
-                        }
+                          });
+                        }}
                       >
                         Accept Random Mission
                       </AlertDialogAction>
