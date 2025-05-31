@@ -27,12 +27,9 @@ export default function StoryQuests({ userData }: StoryQuestsProps) {
     (q) => q.id === currentQuest?.questId,
   );
 
-  const { data: storyQuests } = api.quests.storyQuests.useQuery(
-    {
-      level: userData?.level ?? 0,
-    },
-    { enabled: !!userData },
-  );
+  const { data: storyQuests } = api.quests.storyQuests.useQuery({
+    level: userData?.level ?? 0,
+  });
 
   const { mutate: startQuest, isPending } = api.quests.startQuest.useMutation({
     onSuccess: async (data) => {
@@ -67,7 +64,7 @@ export default function StoryQuests({ userData }: StoryQuestsProps) {
     >
       <div className="p-3">
         <p className="text-center text-xl font-bold mb-4">
-          Story missions are special assignments that advance the game's narrative. They can only be started here at the Global Anbu HQ.
+          Story missions are special assignments that advance the game&apos;s narrative. They can only be started here at the Global Anbu HQ.
         </p>
         {isPending && <Loader explanation="Starting quest..." />}
         {!isPending && (

@@ -81,6 +81,9 @@ export default function MissionHall() {
         className="w-full"
         priority={true}
       />
+      <p className="text-center text-xl font-bold mb-4">
+        Missions are special assignments that advance the game&apos;s narrative. They can only be started here at the Mission Hall.
+      </p>
       <p className="text-center p-3 text-xl font-bold">
         Errands [{userData.dailyErrands} / {MISSIONS_PER_DAY}] -{" "}
         {capitalizeFirstLetter(classifier)}s [{userData.dailyMissions} /{" "}
