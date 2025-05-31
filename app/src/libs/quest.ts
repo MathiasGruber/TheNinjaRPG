@@ -474,3 +474,55 @@ export const isAvailableUserQuests = (
   // Returned detailed info on all the checks
   return { check, message };
 };
+
+export const isAvailableStoryQuest = (
+  questAndUserQuestInfo: {
+    hidden: boolean;
+    questType: QuestType;
+    requiredVillage: string | null;
+    prerequisiteQuestId?: string | null;
+    previousAttempts?: number | null;
+    previousCompletes?: number | null;
+    completed?: number | null;
+  },
+  user: NonNullable<UserWithRelations>,
+) => {
+  // Check if quest is hidden
+  const hiddenCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
+  if (!hiddenCheck) {
+    return { check: false, message: "Quest is hidden" };
+  }
+
+  // Check if quest has been completed
+  if (questAndUserQuestInfo.completed === 1) {
+    return { check: false, message: "Quest has been completed" };
+  }
+
+  // Check if quest has been attempted too many times
+  const attemptsCheck =
+    !questAndUserQuestInfo.previousAttempts ||
+    questAndUserQuestInfo.previousAttempts < 3;
+  if (!attemptsCheck) {
+    return { check: false, message: "Quest has been attempted too many times" };
+  }
+
+  // Check if quest is available in user's village
+  const villageCheck =
+    !questAndUserQuestInfo.requiredVillage ||
+    questAndUserQuestInfo.requiredVillage === user.villageId;
+  if (!villageCheck) {
+    return { check: false, message: "Quest is not available in your village" };
+  }
+
+  // Check if prerequisite quest is completed
+  if (questAndUserQuestInfo.prerequisiteQuestId) {
+    const prerequisiteQuest = user.userQuests?.find(
+      (q) => q.questId === questAndUserQuestInfo.prerequisiteQuestId,
+    );
+    if (!prerequisiteQuest || prerequisiteQuest.completed !== 1) {
+      return { check: false, message: "Prerequisite quest not completed" };
+    }
+  }
+
+  return { check: true };
+};
