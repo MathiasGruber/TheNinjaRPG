@@ -450,13 +450,18 @@ export const isAvailableUserQuests = (
     !questAndUserQuestInfo.requiredVillage ||
     questAndUserQuestInfo.requiredVillage === user.villageId ||
     (questAndUserQuestInfo.requiredVillage === VILLAGE_SYNDICATE_ID && user.isOutlaw);
-  
+
   // Check if prerequisite quest is completed
   const prerequisiteCheck = !questAndUserQuestInfo.prerequisiteQuestId || 
-    user.userQuests?.some((q: UserQuest) => 
-      q.questId === questAndUserQuestInfo.prerequisiteQuestId && 
-      q.completed === 1
-    );
+    user.userQuests?.some((q: UserQuest) => {
+      console.log('Checking prerequisite:', {
+        questId: q.questId,
+        prerequisiteId: questAndUserQuestInfo.prerequisiteQuestId,
+        completed: q.completed,
+        matches: q.questId === questAndUserQuestInfo.prerequisiteQuestId && q.completed === 1
+      });
+      return q.questId === questAndUserQuestInfo.prerequisiteQuestId && q.completed === 1;
+    });
 
   const check = hideCheck && expiresCheck && prevCheck && villageCheck && prerequisiteCheck;
   // If quest is not available, return the reason

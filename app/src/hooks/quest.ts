@@ -41,7 +41,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: ais, isPending: l3 } = api.profile.getAllAiNames.useQuery(undefined);
   const { data: villages, isPending: l4 } = api.village.getAllNames.useQuery(undefined);
   const { data: badges, isPending: l5 } = api.badge.getAll.useQuery(undefined);
-  const { data: quests, isPending: l6 } = api.quests.getAll.useQuery({ limit: 1000 });
+  const { data: quests, isPending: l6 } = api.quests.getAll.useQuery({ limit: 500 });
 
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
@@ -144,6 +144,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
       values: quests.data.filter(q => q.id !== quest.id), // Don't allow self-reference
       resetButton: true,
       label: "Prerequisite Quest",
+      searchable: true,
+      searchFields: ["name", "description"],
     });
   }
 

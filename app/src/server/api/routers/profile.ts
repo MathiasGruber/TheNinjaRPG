@@ -1143,6 +1143,11 @@ export const profileRouter = createTRPCRouter({
                 name: true,
               },
             },
+            userQuests: {
+              with: {
+                quest: true,
+              },
+            },
           },
         }),
       ]);
@@ -1346,6 +1351,13 @@ export const updateNindo = async (
 export const fetchUser = async (client: DrizzleClient, userId: string) => {
   const user = await client.query.userData.findFirst({
     where: eq(userData.userId, userId),
+    with: {
+      userQuests: {
+        with: {
+          quest: true,
+        },
+      },
+    },
   });
   if (!user) {
     throw new Error(`fetchUser: User not found: ${userId}`);
@@ -1497,6 +1509,7 @@ export const fetchUpdatedUser = async (props: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
             eq(questHistory.questType, "achievement"),
+            eq(questHistory.completed, 1),
           ),
           with: {
             quest: true,

@@ -312,11 +312,13 @@ export const questsRouter = createTRPCRouter({
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
+          forceRegen: true, // Force regeneration to ensure we have latest quest data
         }),
         fetchSectorVillage(ctx.drizzle, input.userSector),
         fetchQuest(ctx.drizzle, input.questId),
         fetchUserQuestByQuestId(ctx.drizzle, ctx.userId, input.questId),
       ]);
+
       // Guards
       const { user } = updatedUser;
       if (!user) return errorResponse("User does not exist");
@@ -326,10 +328,32 @@ export const questsRouter = createTRPCRouter({
       if (!ranks.includes(questData.questRank)) {
         return errorResponse(`Rank ${user.rank} not allowed`);
       }
+      // Prerequisite quest check
+      let prerequisiteHistory;
+      if (questData.prerequisiteQuestId) {
+        prerequisiteHistory = await ctx.drizzle.query.questHistory.findFirst({
+          where: and(
+            eq(questHistory.userId, ctx.userId),
+            eq(questHistory.questId, questData.prerequisiteQuestId)
+          ),
+          with: { quest: true }
+        });
+        
+        // Only block if prerequisite exists and is not completed
+        if (prerequisiteHistory && prerequisiteHistory.completed !== 1) {
+          return errorResponse("You must complete the prerequisite quest first.");
+        }
+      }
       // Availability checks
       const { check, message } = isAvailableUserQuests(
         { ...questData, ...prevAttempt },
-        user,
+        {
+          ...user,
+          userQuests: questData.prerequisiteQuestId && prerequisiteHistory?.completed === 1 
+            ? [...(user.userQuests || []), prerequisiteHistory]
+            : user.userQuests
+        },
+        false
       );
       if (!check) {
         return errorResponse(`Quest is not available for you: ${message}`);
