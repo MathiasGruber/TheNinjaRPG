@@ -485,6 +485,34 @@ const Tutorial: React.FC<TutorialProps> = ({
     setCurrentStep(nextStep);
   };
 
+  // Add keyboard event listener for Enter key to forward tutorial
+  useEffect(() => {
+    // Only add keyboard listener when tutorial is visible (either regular or game menu)
+    if (!isVisible && !showGameMenuTutorial) return;
+
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (showGameMenuTutorial) {
+          // If showing game menu tutorial, open the sidebar
+          setRightSideBarOpen(true);
+        } else {
+          // Otherwise, proceed to next step
+          handleNextStep();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVisible, showGameMenuTutorial]);
+
   // Handle skipping tutorial
   const handleSkipTutorial = () => {
     updateTutorialStep.mutate({ step: TUTORIAL_STEPS.length });
