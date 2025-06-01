@@ -640,6 +640,8 @@ export const WAR_SECTORWAR_PVP_SHRINE_REDUCE = 5; // Killing a player in a secto
 export const WAR_SECTORWAR_PVP_SHRINE_RECOVER = 7; // Shrine hp remove per day
 export const WAR_SHRINE_IMAGE =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJgLihSncU9cpECTimBdjaqbNn7vQsxGR1wLk4";
+export const WAR_RAMEN_IMAGE =
+  "https://utfs.io/f/6407eedd-9382-41e9-b27d-eb02afe87ce9-srb0e7.webp";
 export const WAR_STATES = [
   "ACTIVE",
   "ATTACKER_VICTORY",
@@ -1145,7 +1147,12 @@ export type HomeType = (typeof HomeTypes)[number];
 export const HomeTypeDetails = {
   NONE: { regen: 0, storage: 0, cost: 0, name: "No Home" },
   STUDIO_APARTMENT: { regen: 20, storage: 5, cost: 3000000, name: "Studio Apartment" },
-  ONE_BED_APARTMENT: { regen: 50, storage: 10, cost: 10000000, name: "One Bedroom Apartment" },
+  ONE_BED_APARTMENT: {
+    regen: 50,
+    storage: 10,
+    cost: 10000000,
+    name: "One Bedroom Apartment",
+  },
   TWO_BED_HOUSE: { regen: 70, storage: 15, cost: 20000000, name: "Two Bedroom House" },
   TOWN_HOUSE: { regen: 100, storage: 20, cost: 35000000, name: "Town House" },
   SMALL_MANSION: { regen: 130, storage: 25, cost: 45000000, name: "Small Mansion" },
