@@ -685,7 +685,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const shrineInfo: Record<number, number> = {};
       let townhallChangeHP = 0;
       let shrineChangeHp = 0;
-      if (!allOpponentsFled && !user.fledBattle) {
+      if (!user.fledBattle) {
         targets
           .filter((t) => !t.isSummon)
           .filter((t) => t.villageId !== vilId)
