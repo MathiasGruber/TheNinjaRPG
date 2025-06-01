@@ -1232,7 +1232,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               Resign as Leader
             </Button>
           )}
-          {canEditClans(userData.role) && (
+          {!isLeader && canEditClans(userData.role) && (
             <Confirm
               title="Instantly Join & Take Leadership"
               proceed_label="Confirm"
