@@ -234,7 +234,7 @@ export const blackMarketRouter = createTRPCRouter({
         // Update seller's money - add the requested ryo
         ctx.drizzle
           .update(userData)
-          .set({ money: sql`${userData.money} + ${offer.requestedRyo}` })
+          .set({ bank: sql`${userData.bank} + ${offer.requestedRyo}` })
           .where(eq(userData.userId, offer.creatorUserId)),
       ]);
 
@@ -254,7 +254,7 @@ export const blackMarketRouter = createTRPCRouter({
             ? [
                 ctx.drizzle
                   .update(userData)
-                  .set({ money: sql`${userData.money} - ${offer.requestedRyo}` })
+                  .set({ bank: sql`${userData.bank} - ${offer.requestedRyo}` })
                   .where(eq(userData.userId, offer.creatorUserId)),
                 ,
               ]
