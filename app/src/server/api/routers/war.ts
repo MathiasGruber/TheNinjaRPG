@@ -24,6 +24,7 @@ import {
   WAR_VILLAGE_MAX_SECTORS,
   WAR_FACTION_MAX_SECTORS,
   WAR_EXHAUSTION_DURATION_DAYS,
+  WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE,
 } from "@/drizzle/constants";
 import { handleWarEnd, canJoinWar, resetStructuresWhenNotInWar } from "@/libs/war";
 import { sql } from "drizzle-orm";
@@ -360,6 +361,11 @@ export const warRouter = createTRPCRouter({
       }
       if (!["VILLAGE", "TOWN", "HIDEOUT"].includes(defenderVillage.type)) {
         return errorResponse("You cannot declare war on this type of village");
+      }
+      if (defenderVillage.tokens < WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE) {
+        return errorResponse(
+          `Target village needs ${WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE.toLocaleString()} tokens to declare war`,
+        );
       }
       if (!attackerVillage.allianceSystem && warType === "VILLAGE_WAR") {
         return errorResponse("Your village is not part of the alliance system");

@@ -159,6 +159,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
     winnerVillageId === activeWar.attackerVillage.id
       ? activeWar.defenderVillage.id
       : activeWar.attackerVillage.id;
+  console.log("ENDING WAR: ", activeWar);
   const status: WarState = isDraw
     ? "DRAW"
     : winnerVillageId === activeWar.attackerVillage.id

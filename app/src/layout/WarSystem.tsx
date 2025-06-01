@@ -260,7 +260,9 @@ export const WarMap: React.FC<{
   const canDeclareWar = isKage && canWar;
   const sectorVillage = villages?.find(
     (v) =>
-      v.sector === targetSector && v.type === "VILLAGE" && v.allianceSystem === true,
+      v.sector === targetSector &&
+      ((v.type === "VILLAGE" && v.allianceSystem === true) ||
+        ["HIDEOUT", "TOWN"].includes(v.type)),
   );
   const sectorClaimed = villages?.find((v) => v.sector === targetSector);
   const relationship = findRelationship(
@@ -361,6 +363,8 @@ export const WarMap: React.FC<{
     proceedLabel = undefined;
     modalTitle = "Sector Reserved";
   }
+
+  console.log(sectorVillage);
 
   // Depending on which tile the user clicked, we're either declaring a sector war, village war, or faction raid
   return (
