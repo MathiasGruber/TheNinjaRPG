@@ -25,6 +25,7 @@ import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
 import { findWarsWithUser } from "@/libs/war";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import {
   SHARED_COOLDOWN_TAGS,
   WAR_TOWNHALL_HP_REMOVE,
@@ -1191,6 +1192,9 @@ export const processUsersForBattle = (info: {
     // Set the updated at to now, so that action bar starts at 0
     user.updatedAt = new Date();
 
+    // If no village, set to syndicate
+    user.villageId = user.villageId || VILLAGE_SYNDICATE_ID;
+
     // Set all users to not be agressors by default
     user.isAggressor = false;
 
@@ -1466,7 +1470,11 @@ export const processUsersForBattle = (info: {
         effects
           .filter((e) => e.type === "summon")
           .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
-        if (itemType === "ARMOR" || itemType === "ACCESSORY" || itemType === "KEYSTONE") {
+        if (
+          itemType === "ARMOR" ||
+          itemType === "ACCESSORY" ||
+          itemType === "KEYSTONE"
+        ) {
           if (useritem.item.effects && useritem.equipped !== "NONE") {
             effects.forEach((effect) => {
               const realized = realizeTag({
