@@ -139,7 +139,13 @@ const Post: React.FC<PostProps> = (props) => {
           </span>
         )}
         {props.user.villageKageId && props.user.villageKageId === props.user.userId && (
-          <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Kage</span>
+          <>
+            {props.user?.isOutlaw ? (
+              <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Leader</span>
+            ) : (
+              <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Kage</span>
+            )}
+          </>
         )}
         {props.user?.role !== "USER" && (
           <span
