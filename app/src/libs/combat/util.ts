@@ -624,7 +624,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Include money stolen during combat
       if (battleType === "COMBAT" && user.moneyStolen) {
-        if (user.moneyStolen > 0 && outcome === "Lost") {
+        if (user.moneyStolen > 0 && outcome !== "Won") {
           user.moneyStolen = 0;
         } else if (user.moneyStolen < 0 && outcome === "Won") {
           user.moneyStolen = 0;
