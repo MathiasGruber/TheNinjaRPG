@@ -210,7 +210,12 @@ const Map: React.FC<MapProps> = (props) => {
       if (props.highlights) {
         // Loop through the highlights
         props.highlights
-          .filter((h) => h.type !== "HIDEOUT" || userData?.clan?.villageId === h.id)
+          .filter(
+            (h) =>
+              h.type !== "HIDEOUT" ||
+              userData?.clan?.villageId === h.id ||
+              showOwnership,
+          )
           .forEach((highlight) => {
             const sector = hexasphere?.tiles[highlight.sector]?.c;
             if (sector) {

@@ -68,7 +68,8 @@ const GlobalMap = dynamic(() => import("@/layout/Map"), { ssr: false });
 export const WarRoom: React.FC<{
   user: NonNullable<UserWithRelations>;
   navTabs?: React.ReactNode;
-}> = ({ user, navTabs }) => {
+  initialBreak?: boolean;
+}> = ({ user, navTabs, initialBreak }) => {
   // tRPC utility
   const utils = api.useUtils();
 
@@ -143,7 +144,7 @@ export const WarRoom: React.FC<{
         subtitle="Manage Wars"
         back_href="/village"
         topRightContent={navTabs}
-        initialBreak={true}
+        initialBreak={initialBreak}
       >
         <WarMap
           user={user}

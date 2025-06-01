@@ -158,7 +158,6 @@ export const useGameMenu = (userData: UserWithRelations) => {
     const relationship = findVillageUserRelationship(sector, userVillage);
     const isAllied = relationship?.status === "ALLY";
     const isSafezone = sector.type === "SAFEZONE";
-
     // Is in village
     if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw || isSafezone) {
       // Check if user is standing on a village structure
@@ -170,8 +169,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
                 s.longitude === userData.longitude && s.latitude === userData.latitude,
             )
           : undefined;
-      const name =
-        structure?.name || (ownSector ? sector.mapName || sector.name : "Unknown");
+      const name = structure?.name || sector.mapName || sector.name;
       // Set the location
       location = {
         id: "tutorial-village",

@@ -37,6 +37,12 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useMap } from "@/hooks/map";
 import { Input } from "@/components/ui/input";
 import { HIDEOUT_COST } from "@/drizzle/constants";
@@ -321,10 +327,17 @@ export default function Travel() {
                     </div>
                   </PopoverContent>
                 </Popover>
-                <MapPinned
-                  className={`h-7 w-7 mr-2 ${showOwnership ? "fill-orange-500" : ""}`}
-                  onClick={() => setShowOwnership(!showOwnership)}
-                />
+                <TooltipProvider delayDuration={50}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <MapPinned
+                        className={`h-7 w-7 mr-2 ${showOwnership ? "text-orange-500" : ""}`}
+                        onClick={() => setShowOwnership(!showOwnership)}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>Show sector ownerships and factions</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </>
             )}
             {joinVillageBtn && (
