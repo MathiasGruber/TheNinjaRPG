@@ -18,7 +18,7 @@ import { structureBoost } from "@/utils/village";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { canAlly, canEnemy, canSurrender } from "@/utils/alliance";
-import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
+import { COST_SWAP_VILLAGE, IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { KAGE_WAR_DECLARE_COST } from "@/drizzle/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
@@ -556,9 +556,10 @@ export const villageRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetches
-      const [sectorData, { user }] = await Promise.all([
+      const [sectorData, { user }, villages] = await Promise.all([
         fetchSector(ctx.drizzle, input.sector),
         fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchVillages(ctx.drizzle),
       ]);
       // Derived
       const villageId = user?.villageId;
@@ -569,9 +570,23 @@ export const villageRouter = createTRPCRouter({
       if (!villageId) return errorResponse("Not in this village");
       if (!sectorData) return errorResponse("Sector not found");
       if (sectorData.villageId !== villageId) return errorResponse("Not your sector");
+      if (villages?.find((v) => v.sector === input.sector)) {
+        return errorResponse("Cannot clear sector with village/town/hideout in it");
+      }
 
       // Mutate
-      await ctx.drizzle.delete(sector).where(eq(sector.sector, input.sector));
+      await Promise.all([
+        ctx.drizzle.delete(sector).where(eq(sector.sector, input.sector)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "war",
+          changes: [`Released sector ${input.sector} from ${sectorData.village.name}`],
+          relatedId: villageId,
+          relatedMsg: `Released sector ${input.sector}`,
+          relatedImage: IMG_AVATAR_DEFAULT,
+        }),
+      ]);
 
       // Return
       return { success: true, message: "You have released the sector" };

@@ -46,6 +46,7 @@ import {
   Trash2,
   SendHorizontal,
   Ban,
+  ShieldOff,
 } from "lucide-react";
 import { attributes, getSearchValidator } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
@@ -67,6 +68,7 @@ import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
 import { canSwapVillage, canEditPublicUser } from "@/utils/permissions";
+import { canClearSectors } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import UserSearchSelect from "@/layout/UserSearchSelect";
@@ -75,6 +77,7 @@ import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Village } from "@/drizzle/schema";
 import type { ContentType } from "@/drizzle/constants";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 import {
   AiRule,
   ConditionDistanceHigherThan,
@@ -264,14 +267,14 @@ export default function EditProfile() {
             <SwapVillage />
           </Accordion>
         )}
-        {userData && canEditPublicUser(userData) && (
+        {userData && userData.role !== "USER" && (
           <Accordion
-            title="Mass Management"
+            title="Management Commands"
             selectedTitle={activeElement}
-            unselectedSubtitle="Manage All Users"
+            unselectedSubtitle="Staff Management Commands"
             onClick={setActiveElement}
           >
-            <GearManagement />
+            <ManagementCommands user={userData} />
           </Accordion>
         )}
       </div>
@@ -1557,38 +1560,115 @@ const ChangeGender: React.FC = () => {
 };
 
 /**
- * Gear Management Section
+ * Site Management Functionality
  */
-const GearManagement: React.FC = () => {
+interface ManagementCommandsProps {
+  user: NonNullable<UserWithRelations>;
+}
+const ManagementCommands: React.FC<ManagementCommandsProps> = ({ user }) => {
+  // State for sector selection
+  const [sectorNumber, setSectorNumber] = useState<number>(1);
+
+  // Utility
   const utils = api.useUtils();
-  const { mutate, isPending } = api.staff.unequipAllGear.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      if (data.success) {
-        await Promise.all([
-          utils.profile.getUser.invalidate(),
-          utils.item.getUserItems.invalidate(),
-        ]);
-      }
-    },
-  });
-  return (
-    <div className="flex flex-col items-center gap-4 p-4">
-      <Confirm2
-        title="Confirm Unequip All Gear"
-        button={
-          <Button variant="destructive" disabled={isPending}>
-            {isPending ? <Loader size={5} /> : "Unequip All Gear"}
-          </Button>
+
+  // Mutations
+  const { mutate: unequipAllGear, isPending: isUnequipping } =
+    api.staff.unequipAllGear.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.profile.getUser.invalidate(),
+            utils.item.getUserItems.invalidate(),
+          ]);
         }
-        onAccept={(e) => {
-          e.preventDefault();
-          mutate();
-        }}
-      >
-        This will unequip all currently equipped gear <b>FOR ALL USERS</b>. Are you sure
-        you want to continue?
-      </Confirm2>
+      },
+    });
+
+  const { mutate: releaseSector, isPending: isReleasingSector } =
+    api.staff.releaseSector.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.travel.getSectorData.invalidate(),
+            utils.village.getSectorOwnerships.invalidate(),
+          ]);
+        }
+      },
+    });
+
+  // Show options
+  return (
+    <div className="grid grid-cols-3 items-center gap-4 p-4">
+      {canEditPublicUser(user) && (
+        <Confirm2
+          title="Confirm Unequip All Gear"
+          button={
+            <Button variant="destructive" disabled={isUnequipping} className="w-full">
+              {isUnequipping ? (
+                <Loader size={5} />
+              ) : (
+                <>
+                  <ShieldOff className="h-4 w-4 mr-2" />
+                  Unequip All Gear
+                </>
+              )}
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            unequipAllGear();
+          }}
+        >
+          This will unequip all currently equipped gear <b>FOR ALL USERS</b>. Are you
+          sure you want to continue?
+        </Confirm2>
+      )}
+      {canClearSectors(user.role) && (
+        <Confirm2
+          title="Confirm Clear Sector"
+          button={
+            <Button
+              variant="destructive"
+              disabled={isReleasingSector}
+              className="w-full"
+            >
+              {isReleasingSector ? (
+                <Loader size={5} />
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Sector
+                </>
+              )}
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            releaseSector({ sector: sectorNumber });
+          }}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="sectorNumber">Sector #</Label>
+              <Input
+                id="sectorNumber"
+                type="number"
+                min={1}
+                value={sectorNumber}
+                onChange={(e) => setSectorNumber(parseInt(e.target.value) || 1)}
+                className="w-20"
+              />
+            </div>
+            <p>
+              This will clear sector <b>{sectorNumber}</b> ownership from the database.
+              Are you sure you want to continue?
+            </p>
+          </div>
+        </Confirm2>
+      )}
     </div>
   );
 };

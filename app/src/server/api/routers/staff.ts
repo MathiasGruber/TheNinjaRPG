@@ -29,6 +29,7 @@ import {
   questHistory,
   reportLog,
   ryoTrade,
+  sector,
   supportReview,
   trainingLog,
   user2conversation,
@@ -51,8 +52,9 @@ import {
   village,
   userActivityEvent,
 } from "@/drizzle/schema";
-import { fetchUser } from "@/routers/profile";
+import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
+import { fetchVillages } from "@/routers/village";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import {
@@ -62,11 +64,13 @@ import {
   canSeeActivityEvents,
   canEditPublicUser,
 } from "@/utils/permissions";
-import { canCloneUser } from "@/utils/permissions";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { canCloneUser, canClearSectors } from "@/utils/permissions";
 import { TRPCError } from "@trpc/server";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { UserStatus } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
+import { fetchSector } from "./village";
 
 export const staffRouter = createTRPCRouter({
   throwError: protectedProcedure.output(baseServerResponse).mutation(async () => {
@@ -336,6 +340,42 @@ export const staffRouter = createTRPCRouter({
         limit: 100, // Limit to last 100 IP records
       });
       return historicalIps;
+    }),
+  releaseSector: protectedProcedure
+    .input(z.object({ sector: z.number().int() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const [sectorData, { user }, villages] = await Promise.all([
+        fetchSector(ctx.drizzle, input.sector),
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchVillages(ctx.drizzle),
+      ]);
+
+      // Guards
+      if (!user) return errorResponse("Could not find user");
+      if (!sectorData?.village) return errorResponse("Sector not found");
+      if (!canClearSectors(user.role)) return errorResponse("Not allowed for you");
+      if (villages?.find((v) => v.sector === input.sector)) {
+        return errorResponse("Cannot clear sector with village/town/hideout in it");
+      }
+
+      // Mutate
+      await Promise.all([
+        ctx.drizzle.delete(sector).where(eq(sector.sector, input.sector)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "war",
+          changes: [`Released sector ${input.sector} from ${sectorData.village.name}`],
+          relatedId: sectorData.villageId,
+          relatedMsg: `Released sector ${input.sector}`,
+          relatedImage: IMG_AVATAR_DEFAULT,
+        }),
+      ]);
+
+      // Return
+      return { success: true, message: "You have released the sector" };
     }),
   getUserActivityEvents: protectedProcedure
     .input(z.object({ userId: z.string() }))

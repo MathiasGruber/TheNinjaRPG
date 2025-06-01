@@ -296,3 +296,7 @@ export const canCloneUser = (role: UserRole) => {
 export const canInteractWithPolls = (rank: UserRank) => {
   return rank !== "STUDENT";
 };
+
+export const canClearSectors = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN", "CONTENT", "EVENT"].includes(role);
+};
