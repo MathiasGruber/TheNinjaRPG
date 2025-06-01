@@ -1,0 +1,1 @@
+ALTER TABLE `UserData` ADD `isWarned` boolean DEFAULT false NOT NULL;

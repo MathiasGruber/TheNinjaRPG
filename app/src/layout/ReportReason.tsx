@@ -2,10 +2,13 @@ import React from "react";
 import Image from "next/image";
 import type { UserReport } from "../../drizzle/schema";
 import { parseHtml } from "@/utils/parse";
+import { canSeeSecretData } from "@/utils/permissions";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 
-const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }> = (
-  props,
-) => {
+const ParsedReportJson: React.FC<{
+  report: Omit<UserReport, "reporterUserId">;
+  viewer: NonNullable<UserWithRelations>;
+}> = (props) => {
   return (
     <div>
       <b>Report Reason:</b> {parseHtml(props.report.reason)}
@@ -40,8 +43,11 @@ const ParsedReportJson: React.FC<{ report: Omit<UserReport, "reporterUserId"> }>
           <b>AI Interpretation:</b>
           <hr />
           {props.report.aiInterpretation}
-          <br />
-          <b>AI Prediction:</b> {props.report.predictedStatus}
+          {canSeeSecretData(props.viewer.role) && (
+            <div>
+              <b>AI Prediction:</b> {props.report.predictedStatus}
+            </div>
+          )}
         </div>
       )}
       {props.report.infraction?.hasOwnProperty("image") && (

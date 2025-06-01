@@ -18,7 +18,7 @@ import {
   JUTSU_TRANSFER_COST,
   JUTSU_TRANSFER_DAYS,
   JUTSU_TRANSFER_MAX_LEVEL,
-  JUTSU_TRANSFER_MINIMUM_LEVEL
+  JUTSU_TRANSFER_MINIMUM_LEVEL,
 } from "@/drizzle/constants";
 import {
   calcJutsuTrainTime,
@@ -28,14 +28,21 @@ import {
 import { DAY_S, secondsFromDate } from "@/utils/time";
 import { getFreeTransfers } from "@/libs/jutsu";
 import { JutsuValidator } from "@/libs/combat/types";
-import { canChangeContent, canEditPublicUser, canTransferJutsu  } from "@/utils/permissions";
+import {
+  canChangeContent,
+  canEditPublicUser,
+  canTransferJutsu,
+} from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { createTRPCRouter, errorResponse } from "@/server/api/trpc";
 import { protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { serverError, baseServerResponse } from "@/server/api/trpc";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
-import { JUTSU_MAX_RESIDUAL_EQUIPPED, JUTSU_MAX_SHIELD_EQUIPPED, JUTSU_MAX_GROUND_EQUIPPED, JUTSU_MAX_MOVEPREVENT_EQUIPPED, JUTSU_MAX_PIERCE_EQUIPPED } from "@/drizzle/constants";
+import {
+  JUTSU_MAX_RESIDUAL_EQUIPPED,
+  JUTSU_MAX_PIERCE_EQUIPPED,
+} from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { jutsuFilteringSchema } from "@/validators/jutsu";
 import { QuestTracker } from "@/validators/objectives";
@@ -87,6 +94,9 @@ export const jutsuRouter = createTRPCRouter({
       const fromJutsu = fromUserJutsu?.jutsu;
       const toUserJutsu = userJutsus.find((j) => j.jutsuId === input.toJutsuId);
       const toJutsu = toUserJutsu?.jutsu;
+      const prevFreeTransfers = recentTransfers.filter((t) =>
+        (t.changes as string[]).some((c) => c.includes("Used free transfer.")),
+      );
       // Guard
       if (!fromJutsu) return errorResponse("Source jutsu not found");
       if (!toJutsu) return errorResponse("Target jutsu not found");
@@ -98,7 +108,7 @@ export const jutsuRouter = createTRPCRouter({
       }
       if (fromUserJutsu.level < JUTSU_TRANSFER_MINIMUM_LEVEL) {
         return errorResponse(
-          `Source jutsu must be at least ${JUTSU_TRANSFER_MINIMUM_LEVEL} to transfer levels`
+          `Source jutsu must be at least ${JUTSU_TRANSFER_MINIMUM_LEVEL} to transfer levels`,
         );
       }
       if (fromUserJutsu.level > JUTSU_TRANSFER_MAX_LEVEL) {
@@ -114,12 +124,12 @@ export const jutsuRouter = createTRPCRouter({
       if (toUserJutsu.level + transfer > JUTSU_TRANSFER_MAX_LEVEL) {
         return errorResponse("Target jutsu cannot exceed the maximum allowed level");
       }
-      
+
       // Check if user has free transfers
       const transferCost = canTransferJutsu(user.role) ? 0 : JUTSU_TRANSFER_COST;
-      const freeTransfers = getFreeTransfers(user.federalStatus);
-      const usedTransfers = recentTransfers.length;
-      const needsReputation = usedTransfers >= freeTransfers;
+      const availFreeTransfers = getFreeTransfers(user.federalStatus);
+      const usedTransfers = prevFreeTransfers.length;
+      const needsReputation = usedTransfers >= availFreeTransfers;
 
       // If needs reputation, check and deduct
       if (needsReputation) {
@@ -157,7 +167,7 @@ export const jutsuRouter = createTRPCRouter({
           userId: ctx.userId,
           tableName: "userjutsu",
           changes: [
-            `Transferred ${transfer} level(s) from ${fromJutsu.name} (new level: ${fromUserJutsu.level - transfer}) to ${toJutsu.name} (new level: ${toUserJutsu.level + transfer})`,
+            `Transferred ${transfer} level(s) from ${fromJutsu.name} (new level: ${fromUserJutsu.level - transfer}) to ${toJutsu.name} (new level: ${toUserJutsu.level + transfer}). ${!needsReputation ? ` Used free transfer.` : ""}`,
           ],
           relatedId: ctx.userId,
           relatedMsg: "JutsuLevelTransfer",
@@ -801,8 +811,14 @@ export const jutsuRouter = createTRPCRouter({
       if (!isEquipped && curEquip >= maxEquip) {
         return errorResponse("You cannot equip more jutsu");
       }
-      if (!isEquipped && curJutsuIsPierce && pierceEquipped >= JUTSU_MAX_PIERCE_EQUIPPED) {
-        return errorResponse(`You cannot equip more than ${JUTSU_MAX_PIERCE_EQUIPPED} piercing jutsu`);
+      if (
+        !isEquipped &&
+        curJutsuIsPierce &&
+        pierceEquipped >= JUTSU_MAX_PIERCE_EQUIPPED
+      ) {
+        return errorResponse(
+          `You cannot equip more than ${JUTSU_MAX_PIERCE_EQUIPPED} piercing jutsu`,
+        );
       }
 
       // Calculate loadout

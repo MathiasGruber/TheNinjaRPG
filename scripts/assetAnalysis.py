@@ -49,7 +49,7 @@ if __name__ == '__main__':
             # Use OpenAI to create categories for this asset
             prompt = f"This is a game asset with the name '{row[1]}'. Based on the name and image can you return a comma-separated list of lower-case, single word, keywords which would make it easy to search up this specific animation"
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4.1-mini",
                 messages=[
                     {
                         "role": "user",

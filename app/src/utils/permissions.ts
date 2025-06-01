@@ -1,5 +1,5 @@
 import { UserRoles } from "@/drizzle/constants";
-import type { UserData, UserReport } from "@/drizzle/schema";
+import type { UserData, UserRank, UserReport } from "@/drizzle/schema";
 import type { UserRole } from "@/drizzle/constants";
 
 export const canChangeContent = (role: UserRole) => {
@@ -79,6 +79,10 @@ export const canSeeSecretData = (role: UserRole) => {
 
 export const canSeeIps = (role: UserRole) => {
   return ["HEAD_MODERATOR", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+};
+
+export const canSeeActivityEvents = (role: UserRole) => {
+  return role !== "USER";
 };
 
 export const canModifyUserBadges = (role: UserRole) => {
@@ -232,29 +236,67 @@ export const canEditClans = (role: UserRole) => {
 };
 
 export const canAddNonCustomPollOptions = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canCreatePolls = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canEditPolls = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canClosePolls = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canDeletePollOptions = (role: UserRole) => {
-  return ["CONTENT-ADMIN", "CODING-ADMIN", "MODERATOR-ADMIN"].includes(role);
+  return [
+    "CONTENT-ADMIN",
+    "CODING-ADMIN",
+    "MODERATOR-ADMIN",
+    "EVENT",
+    "CONTENT",
+  ].includes(role);
 };
 
 export const canViewFullBattleLog = (role: UserRole) => {
-  return ["CODER", "CONTENT", "EVENT", "CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+  return ["CODER", "CONTENT", "EVENT", "CODING-ADMIN", "CONTENT-ADMIN "].includes(role);
 };
 
 export const canCloneUser = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
+
+export const canInteractWithPolls = (rank: UserRank) => {
+  return rank !== "STUDENT";
+};
+
+export const canClearSectors = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN", "CONTENT", "EVENT"].includes(role);
 };

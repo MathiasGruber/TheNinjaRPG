@@ -59,6 +59,7 @@ import {
   canModifyUserBadges,
   canUnstuckVillage,
   canAwardReputation,
+  canSeeActivityEvents,
 } from "@/utils/permissions";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -101,6 +102,8 @@ interface PublicUserComponentProps {
   showTrainingLogs?: boolean;
   showCombatLogs?: boolean;
   showMarriages?: boolean;
+  showHistoricalIps?: boolean;
+  showActivityEvents?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
@@ -119,6 +122,8 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     showTrainingLogs,
     showCombatLogs,
     showMarriages,
+    showHistoricalIps,
+    showActivityEvents,
   } = props;
   // Get state
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
@@ -128,6 +133,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   const enableReports = showReports && canSeeSecrets;
   const enablePaypal = showTransactions && canSeeSecrets;
   const enableLogs = showActionLogs && canSeeSecrets;
+  const enableHistoricalIps = showHistoricalIps && userData && canSeeIps(userData.role);
+  const enableActivityEvents =
+    showActivityEvents && userData && canSeeActivityEvents(userData.role);
 
   // Two-level filtering
   const state = useFiltering();
@@ -140,6 +148,18 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     api.reports.getUserReports.useQuery(
       { userId: userId },
       { enabled: !!enableReports },
+    );
+
+  const { data: historicalIps, isPending: isPendingHistoricalIps } =
+    api.staff.getUserHistoricalIps.useQuery(
+      { userId: userId },
+      { enabled: !!enableHistoricalIps },
+    );
+
+  const { data: activityEvents, isPending: isPendingActivityEvents } =
+    api.staff.getUserActivityEvents.useQuery(
+      { userId: userId },
+      { enabled: !!enableActivityEvents },
     );
 
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
@@ -635,6 +655,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           </div>
         </div>
       </ContentBox>
+      <div className="text-center text-sm italic">Unique ID: {profile.userId}</div>
       {/* MARRIED USERS */}
       {showMarriages && marriages !== undefined && marriages.length > 0 && (
         <ContentBox
@@ -792,7 +813,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         showTransactions ||
         showReports ||
         showTrainingLogs ||
-        enableLogs) && (
+        enableLogs ||
+        enableHistoricalIps ||
+        enableActivityEvents) && (
         <Tabs
           defaultValue={showActive}
           className="flex flex-col items-center justify-center mt-3"
@@ -812,6 +835,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 <TabsTrigger value="training">Training Log</TabsTrigger>
               )}
               {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
+              {enableHistoricalIps && (
+                <TabsTrigger value="historicalIps">IP log</TabsTrigger>
+              )}
+              {enableActivityEvents && (
+                <TabsTrigger value="activityEvents">Activity</TabsTrigger>
+              )}
             </TabsList>
           )}
 
@@ -940,6 +969,82 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               />
             </TabsContent>
           )}
+          {/* USER HISTORICAL IPS */}
+          {enableHistoricalIps && (
+            <TabsContent value="historicalIps">
+              <ContentBox
+                title="Historical IPs"
+                subtitle={`IP addresses used the last 90 days`}
+                initialBreak={true}
+              >
+                {isPendingHistoricalIps && (
+                  <Loader explanation="Fetching Historical IPs" />
+                )}
+                {historicalIps?.length === 0 && <p>No historical IP records found</p>}
+                {historicalIps && historicalIps.length > 0 && (
+                  <div className="space-y-2">
+                    {historicalIps.map((ip, i) => (
+                      <div
+                        key={`ip-${i}`}
+                        className="flex items-center justify-between p-3 border-2 border-border rounded-lg bg-card"
+                      >
+                        <div>
+                          <h4 className="font-semibold text-foreground">
+                            <Link
+                              href={`/users/ipsearch/${ip.ip}`}
+                              className="hover:text-orange-500 hover:cursor-pointer"
+                            >
+                              {ip.ip}
+                            </Link>
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            Last used: {ip.usedAt.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ContentBox>
+            </TabsContent>
+          )}
+          {/* USER ACTIVITY EVENTS */}
+          {enableActivityEvents && (
+            <TabsContent value="activityEvents">
+              <ContentBox
+                title="Activity Events"
+                subtitle={`Latest claimed activity events`}
+                initialBreak={true}
+              >
+                {isPendingActivityEvents && (
+                  <Loader explanation="Fetching Activity Events" />
+                )}
+                {activityEvents?.length === 0 && <p>No activity events found</p>}
+                {activityEvents && activityEvents.length > 0 && (
+                  <div className="space-y-2">
+                    {activityEvents.map((event, i) => (
+                      <div
+                        key={`event-${i}`}
+                        className="flex items-center justify-between p-3 border-2 border-border rounded-lg bg-card"
+                      >
+                        <div>
+                          <h4 className="font-semibold text-foreground">
+                            Activity Event #{event.id}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            Streak: {event.streak}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Created: {event.createdAt.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ContentBox>
+            </TabsContent>
+          )}
         </Tabs>
       )}
     </>
@@ -1059,6 +1164,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
             showSubmit={true}
             buttonTxt="Save to Database"
             type="ai"
+            relationId={userId}
             allowImageUpload={true}
             onAccept={handleUserSubmit}
           />

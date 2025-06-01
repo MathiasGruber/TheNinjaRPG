@@ -3,18 +3,14 @@ import { calculateContentDiff } from "@/utils/diff";
 import { useForm, useWatch } from "react-hook-form";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
-import AvatarImage from "@/layout/Avatar";
-import Model3d from "@/layout/Model3d";
+import ContentImageSelector from "@/layout/ContentImageSelector";
 import RichInput from "@/layout/RichInput";
-import Loader from "@/layout/Loader";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { objectKeys } from "@/utils/typeutils";
-import { RefreshCw } from "lucide-react";
 import { getTagSchema } from "@/libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { showMutationToast } from "@/libs/toast";
-import { UploadButton } from "@/utils/uploadthing";
 import { api } from "@/app/_trpc/client";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { sleep } from "@/utils/time";
@@ -36,11 +32,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { nanoid } from "nanoid";
 import type { Path, PathValue } from "react-hook-form";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { FieldValues } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
+import type { ContentType } from "@/drizzle/constants";
 
 export type FormDbValue = { id: string; name: string };
 export type FormEntry<K> = {
@@ -75,8 +73,9 @@ interface EditContentProps<T, K, S extends FieldValues> {
   formClassName?: string;
   buttonTxt?: string;
   allowImageUpload?: boolean;
+  relationId?: string;
   fixedWidths?: "basis-32" | "basis-64" | "basis-96";
-  type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge" | "asset";
+  type?: ContentType;
   bgColor?: "bg-slate-600" | "";
   onAccept?: (
     e: React.BaseSyntheticEvent<object, any, any> | undefined,
@@ -121,7 +120,7 @@ export const EditContent = <
   }, []);
 
   // Mutations
-  const { mutate: removeBg, isPending: load1 } = api.openai.removeBg.useMutation({
+  const { mutate: removeBg } = api.openai.removeBg.useMutation({
     onSuccess: (data, variables) => {
       showMutationToast({ success: true, message: "Background removed" });
       fetchReplicateResult({
@@ -132,63 +131,48 @@ export const EditContent = <
     },
   });
 
-  const { mutate: fetchReplicateResult, isPending: load2 } =
-    api.openai.fetchReplicateResult.useMutation({
-      onMutate: () => {
-        setIsLoading(true);
-      },
-      onSuccess: async (data, variables) => {
-        if (data.status !== "failed") {
-          if (data.url) {
-            form.setValue(
-              variables.field as Path<S>,
-              data.url as PathValue<S, Path<S>>,
-              { shouldDirty: true },
-            );
-            if (variables.removeBg) {
-              removeBg({ url: data.url, field: variables.field });
-            }
-            setIsLoading(false);
-          } else {
-            await sleep(5000);
-            fetchReplicateResult(variables);
+  const { mutate: fetchReplicateResult } = api.openai.fetchReplicateResult.useMutation({
+    onMutate: () => {
+      setIsLoading(true);
+    },
+    onSuccess: async (data, variables) => {
+      if (data.status !== "failed") {
+        if (data.url) {
+          form.setValue(variables.field as Path<S>, data.url as PathValue<S, Path<S>>, {
+            shouldDirty: true,
+          });
+          if (variables.removeBg) {
+            removeBg({ url: data.url, field: variables.field });
           }
+          setIsLoading(false);
+        } else {
+          await sleep(5000);
+          fetchReplicateResult(variables);
         }
-      },
-      onError: (error) => {
-        console.error(error);
-        setIsLoading(false);
-      },
-    });
-
-  const { mutate: createImg, isPending: load3 } = api.openai.createImg.useMutation({
-    onSuccess: (data, variables) => {
-      showMutationToast({ success: true, message: "Image generated. Now fetching" });
-      fetchReplicateResult({
-        replicateId: data.replicateId,
-        field: variables.field,
-        removeBg: variables.removeBg,
-      });
+      }
+    },
+    onError: (error) => {
+      console.error(error);
+      setIsLoading(false);
     },
   });
 
-  const { mutate: create3dModel, isPending: load4 } =
-    api.openai.create3dModel.useMutation({
-      onSuccess: (data, variables) => {
-        showMutationToast({
-          success: true,
-          message: "3D model generated. Now fetching",
-        });
-        fetchReplicateResult({
-          replicateId: data.replicateId,
-          field: variables.field,
-          removeBg: false,
-        });
-      },
-    });
+  // const { mutate: create3dModel } =
+  //   api.openai.create3dModel.useMutation({
+  //     onSuccess: (data, variables) => {
+  //       showMutationToast({
+  //         success: true,
+  //         message: "3D model generated. Now fetching",
+  //       });
+  //       fetchReplicateResult({
+  //         replicateId: data.replicateId,
+  //         field: variables.field,
+  //         removeBg: false,
+  //       });
+  //     },
+  //   });
 
-  const load = isLoading || load1 || load2 || load3 || load4;
-
+  // const load = isLoading || load1 || load2 || load3;
   return (
     <Form {...form}>
       <form
@@ -197,337 +181,296 @@ export const EditContent = <
           formClassName ?? "grid grid-cols-1 md:grid-cols-2 items-center gap-2"
         }
       >
-        {formData.map((formEntry) => {
-          // Derived
-          const id = formEntry.id;
-          let type = formEntry.type;
+        {formData
+          .filter((formEntry) => formEntry.type !== "avatar3d")
+          .map((formEntry) => {
+            // Derived
+            const id = formEntry.id;
+            let type = formEntry.type;
 
-          // Options for select & multi-select
-          let options: OptionType[] = [];
-          if (
-            formEntry.type === "animation_array" ||
-            formEntry.type === "statics_array" ||
-            formEntry.type === "str_array"
-          ) {
-            options.push(...formEntry.values?.map((v) => ({ label: v, value: v })));
-          } else if (formEntry.type === "db_values" && formEntry.values) {
-            options.push(
-              ...formEntry.values?.map((v) => ({ label: v.name, value: v.id })),
-            );
-          }
-          options = options.map((o) => ({
-            label: o.label !== "" ? o.label : "None",
-            value: o.value !== "" ? o.value : "None",
-          }));
+            // Options for select & multi-select
+            let options: OptionType[] = [];
+            if (
+              formEntry.type === "animation_array" ||
+              formEntry.type === "statics_array" ||
+              formEntry.type === "str_array"
+            ) {
+              options.push(...formEntry.values?.map((v) => ({ label: v, value: v })));
+            } else if (formEntry.type === "db_values" && formEntry.values) {
+              options.push(
+                ...formEntry.values?.map((v) => ({ label: v.name, value: v.id })),
+              );
+            }
+            options = options.map((o) => ({
+              label: o.label !== "" ? o.label : "None",
+              value: o.value !== "" ? o.value : "None",
+            }));
 
-          // Show richInputs as text if fixedWidths
-          if (props.fixedWidths && formEntry.type === "richinput") {
-            type = "text";
-          }
+            // Show richInputs as text if fixedWidths
+            if (props.fixedWidths && formEntry.type === "richinput") {
+              type = "text";
+            }
 
-          // Render
-          return (
-            <div
-              key={`formEntry-${id}`}
-              className={`${["avatar", "avatar3d"].includes(type) ? "row-span-5" : ""} ${
-                formEntry.doubleWidth ? "md:col-span-2" : ""
-              } ${
-                props.fixedWidths
-                  ? `grow-0 shrink-0 px-2 pt-3 h-32 ${props.fixedWidths}`
-                  : ""
-              } ${props.bgColor ? props.bgColor : ""}`}
-            >
-              {["text", "number", "date"].includes(type) && (
-                <FormField
-                  control={form.control}
-                  name={id}
-                  render={({ field, fieldState }) => {
-                    return (
-                      <FormItem>
-                        <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                        <FormControl>
-                          <Input
-                            id={id}
-                            type={type}
-                            isDirty={fieldState.isDirty}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-              )}
-              {"boolean" === type && (
-                <FormField
-                  control={form.control}
-                  name={id}
-                  render={({ field, fieldState }) => {
-                    return (
-                      <FormItem>
-                        <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                        <br />
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            isDirty={fieldState.isDirty}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-              )}
-              {type === "richinput" && currentValues && (
-                <FormField
-                  control={form.control}
-                  name={id}
-                  render={({ fieldState }) => {
-                    return (
-                      <FormItem>
-                        <FormControl>
-                          <RichInput
-                            id={id}
-                            height="200"
-                            placeholder={currentValues[id] as string}
-                            label={formEntry.label ? formEntry.label : id}
-                            control={form.control}
-                            isDirty={fieldState.isDirty}
-                            error={form.formState.errors[id]?.message as string}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-              )}
-              {(type === "str_array" ||
-                type === "db_values" ||
-                type === "animation_array" ||
-                type === "statics_array") && (
-                <div className="flex flex-row items-end">
-                  <div className="grow">
-                    <FormField
-                      control={form.control}
-                      name={id}
-                      render={({ field, fieldState }) => (
+            // Prompt for image generation
+            let prompt = "";
+            // Generate based on name, title and description
+            if (currentValues?.name) {
+              prompt += `${currentValues?.name} `;
+            }
+            if (currentValues?.username) {
+              prompt += `${currentValues?.username} `;
+            }
+            if (currentValues?.title) {
+              prompt += `${currentValues?.title} `;
+            }
+            if (currentValues?.description) {
+              prompt += `${currentValues?.description} `;
+            }
+
+            // Render
+            return (
+              <div
+                key={`formEntry-${id}`}
+                className={`${["avatar", "avatar3d"].includes(type) ? "row-span-4" : ""} ${
+                  formEntry.doubleWidth ? "md:col-span-2" : ""
+                } ${
+                  props.fixedWidths
+                    ? `grow-0 shrink-0 px-2 pt-3 h-32 ${props.fixedWidths}`
+                    : ""
+                } ${props.bgColor ? props.bgColor : ""}`}
+              >
+                {["text", "number", "date"].includes(type) && (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field, fieldState }) => {
+                      return (
                         <FormItem>
                           <FormLabel>
                             {formEntry.label ? formEntry.label : id}
                           </FormLabel>
-
-                          {"multiple" in formEntry && formEntry.multiple ? (
-                            <MultiSelect
-                              selected={field.value ? field.value : []}
+                          <FormControl>
+                            <Input
+                              id={id}
+                              type={type}
                               isDirty={fieldState.isDirty}
-                              options={options}
-                              onChange={field.onChange}
+                              {...field}
                             />
-                          ) : (
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger isDirty={fieldState.isDirty}>
-                                  <SelectValue placeholder={`None`} />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {options.map((option) => (
-                                  <SelectItem
-                                    key={`select-${option.label}`}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
-                      )}
-                    />
-                  </div>
-                  {formEntry.resetButton && (
-                    <Button
-                      className="w-8 p-0 ml-1"
-                      type="button"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        form.setValue(id, "" as PathValue<S, K>, {
-                          shouldDirty: true,
-                        });
-                      }}
-                    >
-                      <X className="h-5 w-5 stroke-1" />
-                    </Button>
-                  )}
-                  {"current" in formEntry && formEntry.current && (
-                    <div className="w-12 ml-1 h-12 overflow-y-auto">
-                      <Image
-                        src={formEntry.current}
-                        alt={id}
-                        width={100}
-                        height={100}
-                        priority
+                      );
+                    }}
+                  />
+                )}
+                {"boolean" === type && (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field, fieldState }) => {
+                      return (
+                        <FormItem>
+                          <FormLabel>
+                            {formEntry.label ? formEntry.label : id}
+                          </FormLabel>
+                          <br />
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              isDirty={fieldState.isDirty}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                )}
+                {type === "richinput" && currentValues && (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ fieldState }) => {
+                      return (
+                        <FormItem>
+                          <FormControl>
+                            <RichInput
+                              id={id}
+                              height="200"
+                              placeholder={currentValues[id] as string}
+                              label={formEntry.label ? formEntry.label : id}
+                              control={form.control}
+                              isDirty={fieldState.isDirty}
+                              error={form.formState.errors[id]?.message as string}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                )}
+                {(type === "str_array" ||
+                  type === "db_values" ||
+                  type === "animation_array" ||
+                  type === "statics_array") && (
+                  <div className="flex flex-row items-end">
+                    <div className="grow">
+                      <FormField
+                        control={form.control}
+                        name={id}
+                        render={({ field, fieldState }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {formEntry.label ? formEntry.label : id}
+                            </FormLabel>
+
+                            {"multiple" in formEntry && formEntry.multiple ? (
+                              <MultiSelect
+                                selected={field.value ? field.value : []}
+                                isDirty={fieldState.isDirty}
+                                options={options}
+                                onChange={field.onChange}
+                              />
+                            ) : (
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                value={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger isDirty={fieldState.isDirty}>
+                                    <SelectValue placeholder={`None`} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {options.map((option) => (
+                                    <SelectItem
+                                      key={`select-${option.label}`}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
                     </div>
-                  )}
-                </div>
-              )}
-              {type === "avatar" && props.allowImageUpload && "href" in formEntry && (
-                <div className="flex flex-col justify-start">
-                  <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                  <br />
-                  <AvatarImage
-                    href={currentValues?.[id] ?? formEntry.href}
-                    alt={id}
-                    size={100}
-                    hover_effect={true}
-                    priority
-                  />
-
-                  <br />
-                  {props.allowImageUpload && (
-                    <div className="flex flex-row justify-center">
+                    {formEntry.resetButton && (
                       <Button
-                        id="create"
-                        className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
+                        className="w-8 p-0 ml-1"
+                        type="button"
+                        variant="ghost"
                         onClick={(e) => {
-                          e.preventDefault();
                           e.stopPropagation();
-                          let prompt = "";
-                          // Generate based on name, title and description
-                          if (currentValues?.name) {
-                            prompt += `${currentValues?.name} `;
-                          }
-                          if (currentValues?.username) {
-                            prompt += `${currentValues?.username} `;
-                          }
-                          if (currentValues?.title) {
-                            prompt += `${currentValues?.title} `;
-                          }
-                          if (prompt && !load) {
-                            // Different qualifiers for different content types
-                            if (props.type === "quest") {
-                              prompt = `Epic composition, cinematic ${prompt}, vibrant background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, Trending on artstation, 8k, Japanese inspiration, extremely detailed.`;
-                            } else if (props.type === "item") {
-                              prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Japanese inspiration, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, MOORPG Items, professional videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
-                            } else if (props.type === "badge") {
-                              prompt = `${prompt} round badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
-                            } else if (props.type === "jutsu") {
-                              prompt = `epic composition, symbolic representing the action: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
-                            } else if (props.type === "bloodline") {
-                              prompt = `epic composition, symbolic representing the heritage: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
-                            } else if (props.type === "ai") {
-                              prompt = `A full-body anime-style pixel art ${prompt} in a 3D-like, standing in a balanced, central position. The ${prompt} is rendered with clean, sharp pixel details and modern shading techniques, evoking the style of retro 8-bit/16-bit games but with a polished, high-quality finish. The background is a simple, solid color highlighting the character, allowing them to stand out clearly. Dynamic pose, extremely detailed.`;
-                            }
-                            // Send of the request for content image
-                            createImg({
-                              prompt: prompt,
-                              field: id,
-                              removeBg: ["item", "ai"].includes(props.type ?? ""),
-                            });
-                          }
+                          e.preventDefault();
+                          form.setValue(id, "" as PathValue<S, K>, {
+                            shouldDirty: true,
+                          });
                         }}
                       >
-                        {load ? (
-                          <Loader noPadding={true} size={25} />
-                        ) : (
-                          <RefreshCw className="mr-1 p-2 h-10 w-10" />
-                        )}
-                        AI
+                        <X className="h-5 w-5 stroke-1" />
                       </Button>
-                      <UploadButton
-                        endpoint="imageUploader"
-                        onClientUploadComplete={(res) => {
-                          const url = res?.[0]?.url;
-                          if (url) {
-                            form.setValue(id, url as PathValue<S, K>, {
-                              shouldDirty: true,
-                            });
-                          }
-                        }}
-                        onUploadError={(error: Error) => {
-                          showMutationToast({ success: false, message: error.message });
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-              {type === "avatar3d" &&
-                "modelUrl" in formEntry &&
-                "imgUrl" in formEntry && (
-                  <div className="flex flex-col justify-start">
-                    <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                    <br />
-                    <Model3d
-                      modelUrl={currentValues?.[id] ?? formEntry.modelUrl}
-                      imageUrl={formEntry.imgUrl}
-                      alt={id}
-                      size={100}
-                      hover_effect={true}
-                      priority
-                    />
-                    <br />
-                    {formEntry.imgUrl && props.allowImageUpload && (
-                      <div className="flex flex-row justify-center">
-                        <Button
-                          id="create"
-                          className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (formEntry.imgUrl) {
-                              create3dModel({
-                                imgUrl: formEntry.imgUrl,
-                                field: id,
-                              });
-                            }
-                          }}
-                        >
-                          {load ? (
-                            <Loader noPadding={true} size={25} />
-                          ) : (
-                            <RefreshCw className="mr-1 p-2 h-10 w-10" />
-                          )}
-                          AI
-                        </Button>
-                        <UploadButton
-                          endpoint="modelUploader"
-                          onClientUploadComplete={(res) => {
-                            const url = res?.[0]?.url;
-                            if (url) {
-                              form.setValue(id, url as PathValue<S, K>, {
-                                shouldDirty: true,
-                              });
-                            }
-                          }}
-                          onUploadError={(error: Error) => {
-                            showMutationToast({
-                              success: false,
-                              message: error.message,
-                            });
-                          }}
+                    )}
+                    {"current" in formEntry && formEntry.current && (
+                      <div className="w-12 ml-1 h-12 overflow-y-auto">
+                        <Image
+                          src={formEntry.current}
+                          alt={id}
+                          width={100}
+                          height={100}
+                          priority
                         />
                       </div>
                     )}
                   </div>
                 )}
-            </div>
-          );
-        })}
+                {type === "avatar" &&
+                  props.allowImageUpload &&
+                  "href" in formEntry &&
+                  props.type && (
+                    <ContentImageSelector
+                      label={formEntry.label ? formEntry.label : id}
+                      imageUrl={currentValues?.[id] ?? formEntry.href}
+                      id={props.relationId ?? nanoid()}
+                      allowImageUpload={props.allowImageUpload}
+                      prompt={prompt}
+                      type={props.type}
+                      onUploadComplete={(url) => {
+                        form.setValue(id, url as PathValue<S, K>, {
+                          shouldDirty: true,
+                        });
+                      }}
+                    />
+                  )}
+                {/* {type === "avatar3d" &&
+                  "modelUrl" in formEntry &&
+                  "imgUrl" in formEntry && (
+                    <div className="flex flex-col justify-start">
+                      <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
+                      <br />
+                      <Model3d
+                        modelUrl={currentValues?.[id] ?? formEntry.modelUrl}
+                        imageUrl={formEntry.imgUrl}
+                        alt={id}
+                        size={100}
+                        hover_effect={true}
+                        priority
+                      />
+                      <br />
+                      {formEntry.imgUrl && props.allowImageUpload && (
+                        <div className="flex flex-row justify-center">
+                          <Button
+                            id="create"
+                            className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (formEntry.imgUrl) {
+                                create3dModel({
+                                  imgUrl: formEntry.imgUrl,
+                                  field: id,
+                                });
+                              }
+                            }}
+                          >
+                            {load ? (
+                              <Loader noPadding={true} size={25} />
+                            ) : (
+                              <RefreshCw className="mr-1 p-2 h-10 w-10" />
+                            )}
+                            AI
+                          </Button>
+                          <UploadButton
+                            endpoint="modelUploader"
+                            onClientUploadComplete={(res) => {
+                              const url = res?.[0]?.url;
+                              if (url) {
+                                form.setValue(id, url as PathValue<S, K>, {
+                                  shouldDirty: true,
+                                });
+                              }
+                            }}
+                            onUploadError={(error: Error) => {
+                              showMutationToast({
+                                success: false,
+                                message: error.message,
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )} */}
+              </div>
+            );
+          })}
         {showSubmit && props.onAccept && (
           <div className="col-span-2 items-center mt-3">
             <Button id="create" className="w-full" onClick={props.onAccept}>

@@ -12,6 +12,18 @@ export const ACTIVE_VOTING_SITES = [
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
 
+export const ContentTypes = [
+  "asset",
+  "ai",
+  "badge",
+  "bloodline",
+  "item",
+  "jutsu",
+  "quest",
+  "user",
+] as const;
+export type ContentType = (typeof ContentTypes)[number];
+
 export const MAP_RESERVED_SECTORS = [
   73, 72, 75, 78, 275, 279, 201, 183, 272, 264, 270, 308, 289, 259, 260, 253, 304, 307,
   283, 284, 340, 334, 330, 331, 332, 337, 342, 336, 341, 335, 113, 109, 443,
@@ -43,17 +55,20 @@ export const SHARED_COOLDOWN_TAGS = [
   "cleanseprevent",
   "clearprevent",
   "seal",
+  "increasepoolcost",
 ] as const;
 
 export const LOG_TYPES = [
   "ai",
   "user",
   "jutsu",
+  "userjutsu",
   "bloodline",
   "item",
   "badge",
   "clan",
   "war",
+  "poll",
 ] as const;
 export type LogType = (typeof LOG_TYPES)[number];
 
@@ -87,6 +102,8 @@ export const ItemSlotTypes = [
   "FEET",
   "HAND",
   "ITEM",
+  "WAIST",
+  "KEYSTONE",
   "NONE",
 ] as const;
 
@@ -117,6 +134,8 @@ export const ItemSlots = [
   "FEET",
   "HAND_1",
   "HAND_2",
+  "WAIST",
+  "KEYSTONE",
   "ITEM_1",
   "ITEM_2",
   "ITEM_3",
@@ -198,6 +217,7 @@ export const ItemTypes = [
   "ARMOR",
   "ACCESSORY",
   "MATERIAL",
+  "KEYSTONE",
   "OTHER",
 ] as const;
 export type ItemType = (typeof ItemTypes)[number];
@@ -482,6 +502,12 @@ export const USER_CAPS: Record<
   NONE: { GENS_CAP: MAX_GENS_CAP, STATS_CAP: MAX_STATS_CAP, LVL_CAP: 100 },
 } as const;
 
+// OpenAI models
+export const OPENAI_REVIEW_MODEL = "o4-mini";
+export const OPENAI_CONTENT_MODEL = "o4-mini";
+export const OPENAI_MODERATION_MODEL = "gpt-4o-mini";
+export const OPENAI_CHAT_MODEL = "gpt-4o-mini";
+
 // Paypal shop config
 export const PAYPAL_DISCOUNT_PERCENT = 0;
 export const TRANSACTION_TYPES = ["REP_PURCHASE", "REFERRAL"] as const;
@@ -600,12 +626,15 @@ export const MISSIONS_PER_DAY = 9;
 // War config
 export const WAR_VILLAGE_MAX_SECTORS = 12;
 export const WAR_FACTION_MAX_SECTORS = 6;
+export const WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE = 10000;
 export const WAR_TOWNHALL_HP_REMOVE = 5;
 export const WAR_TOWNHALL_HP_RECOVER = 2;
 export const WAR_TOWNHALL_HP_ANBU_REMOVE = 10;
 export const WAR_TOWNHALL_HP_ANBU_RECOVER = 5;
 export const WAR_TOWNHALL_HP_ELDER_REMOVE = 15;
 export const WAR_TOWNHALL_HP_ELDER_RECOVER = 10;
+export const WAR_TOWNHALL_HP_COLEADER_REMOVE = 15;
+export const WAR_TOWNHALL_HP_COLEADER_RECOVER = 10;
 export const WAR_TOWNHALL_HP_KAGE_REMOVE = 35;
 export const WAR_TOWNHALL_HP_KAGE_RECOVER = 15;
 export const WAR_TOWNHALL_HP_KAGEDEATH_REMOVE = 50;
@@ -630,6 +659,8 @@ export const WAR_SECTORWAR_PVP_SHRINE_REDUCE = 5; // Killing a player in a secto
 export const WAR_SECTORWAR_PVP_SHRINE_RECOVER = 7; // Shrine hp remove per day
 export const WAR_SHRINE_IMAGE =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJgLihSncU9cpECTimBdjaqbNn7vQsxGR1wLk4";
+export const WAR_RAMEN_IMAGE =
+  "https://utfs.io/f/6407eedd-9382-41e9-b27d-eb02afe87ce9-srb0e7.webp";
 export const WAR_STATES = [
   "ACTIVE",
   "ATTACKER_VICTORY",
@@ -1124,8 +1155,8 @@ export const IMG_BATTLEFIELD_STAR =
 
 export const HomeTypes = [
   "NONE",
-  "ONE_BED_APARTMENT",
   "STUDIO_APARTMENT",
+  "ONE_BED_APARTMENT",
   "TWO_BED_HOUSE",
   "TOWN_HOUSE",
   "SMALL_MANSION",

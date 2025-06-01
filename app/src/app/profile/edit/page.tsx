@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Accordion from "@/layout/Accordion";
@@ -46,6 +46,7 @@ import {
   Trash2,
   SendHorizontal,
   Ban,
+  ShieldOff,
 } from "lucide-react";
 import { attributes, getSearchValidator } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
@@ -66,7 +67,8 @@ import { updateUserPreferencesSchema } from "@/validators/user";
 import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
-import { canSwapVillage } from "@/utils/permissions";
+import { canSwapVillage, canEditPublicUser } from "@/utils/permissions";
+import { canClearSectors } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { canEditPublicUser } from "@/utils/permissions";
@@ -75,6 +77,8 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Village } from "@/drizzle/schema";
+import type { ContentType } from "@/drizzle/constants";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 import {
   AiRule,
   ConditionDistanceHigherThan,
@@ -115,7 +119,7 @@ export default function EditProfile() {
           unselectedSubtitle="Choose an old avatar"
           onClick={setActiveElement}
         >
-          <HistoricalAiAvatar />
+          <HistoricalAiAvatar contentType="user" />
         </Accordion>
         <Accordion
           title="Custom Avatar"
@@ -264,14 +268,14 @@ export default function EditProfile() {
             <SwapVillage />
           </Accordion>
         )}
-        {canEditPublicUser({ ...userData, role: userData.role }) && (
+        {userData && userData.role !== "USER" && (
           <Accordion
-            title="Admin Controls"
+            title="Management Commands"
             selectedTitle={activeElement}
-            unselectedSubtitle="Advanced admin controls"
+            unselectedSubtitle="Staff Management Commands"
             onClick={setActiveElement}
           >
-            <AdminControls />
+            <ManagementCommands user={userData} />
           </Accordion>
         )}
       </div>
@@ -502,7 +506,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             <Label htmlFor="battle-description">Show battle descriptions</Label>
             <br />
             <br />
-            <Confirm
+            <Confirm2
               title="Reset AI Profile"
               button={
                 <Button
@@ -530,7 +534,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             >
               This will reset your AI profile to default settings. This action cannot be
               undone. Are you sure you want to continue?
-            </Confirm>
+            </Confirm2>
           </TabsContent>
           <TabsContent value="aiprofile">
             <AiProfileEdit userData={profile} hideTitle />
@@ -725,7 +729,7 @@ const NewAiAvatar: React.FC = () => {
         {userData && userData?.reputationPoints > 0 ? (
           <>
             <p className="italic">- Costs 1 reputation point</p>
-            <Confirm
+            <Confirm2
               title="Confirm Avatar Change"
               button={
                 <Button id="create" className="w-full">
@@ -743,7 +747,7 @@ const NewAiAvatar: React.FC = () => {
               NVidia A100 GPU cluster, and each generation costs a little bit of money.
               We are working on a solution to make this free, but for now, we need to
               charge a small fee to cover the cost of the GPU cluster.
-            </Confirm>
+            </Confirm2>
           </>
         ) : (
           <p className="text-red-500">Requires 1 reputation point</p>
@@ -756,7 +760,14 @@ const NewAiAvatar: React.FC = () => {
 /**
  * Historical AI Avatar Change
  */
-const HistoricalAiAvatar: React.FC = () => {
+
+interface HistoricalAiAvatarProps {
+  relationId?: string;
+  contentType: ContentType;
+  onUpdate?: (url: string) => void;
+}
+
+export const HistoricalAiAvatar: React.FC<HistoricalAiAvatarProps> = (props) => {
   // Queries & mutations
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const { data: userData } = useRequiredUserData();
@@ -771,6 +782,7 @@ const HistoricalAiAvatar: React.FC = () => {
     hasNextPage,
   } = api.avatar.getHistoricalAvatars.useInfiniteQuery(
     {
+      relationId: props.relationId,
       limit: 20,
     },
     {
@@ -790,8 +802,11 @@ const HistoricalAiAvatar: React.FC = () => {
   const updateAvatar = api.avatar.updateAvatar.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      if (data.success) {
+      if (data.success && data.url) {
         await utils.profile.getUser.invalidate();
+        if (props.onUpdate) {
+          props.onUpdate(data.url);
+        }
       }
     },
   });
@@ -807,7 +822,7 @@ const HistoricalAiAvatar: React.FC = () => {
   });
 
   const loading = updateAvatar.isPending || deleteAvatar.isPending;
-  if (loading) return <Loader explanation="Processing avatar..." />;
+  if (loading) return <Loader explanation="Processing..." />;
 
   return (
     <>
@@ -817,7 +832,9 @@ const HistoricalAiAvatar: React.FC = () => {
             <div
               key={avatar.id}
               className=" my-2 basis-1/6 relative"
-              onClick={() => updateAvatar.mutate({ avatar: avatar.id })}
+              onClick={() =>
+                updateAvatar.mutate({ avatar: avatar.id, type: props.contentType })
+              }
               ref={i === pageAvatars.length - 1 ? setLastElement : null}
             >
               <AvatarImage
@@ -826,7 +843,7 @@ const HistoricalAiAvatar: React.FC = () => {
                 hover_effect={true}
                 size={200}
               />
-              <Confirm
+              <Confirm2
                 title="Confirm Deletion"
                 button={
                   <Trash2 className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-amber-100 fill-slate-500 p-1 hover:text-orange-500" />
@@ -839,7 +856,7 @@ const HistoricalAiAvatar: React.FC = () => {
               >
                 You are about to delete an avatar. Note that this action is permanent.
                 Are you sure?
-              </Confirm>
+              </Confirm2>
             </div>
           ))}
         </div>
@@ -1247,7 +1264,7 @@ const RerollElement: React.FC = () => {
   const disabled = !canAfford || (!canChangeFirst && !canChangeSecond);
 
   return (
-    <Confirm
+    <Confirm2
       title="Confirm Re-Roll"
       button={
         <Button id="create" type="submit" className="w-full my-3" disabled={disabled}>
@@ -1261,7 +1278,7 @@ const RerollElement: React.FC = () => {
     >
       Changing your base elements costs {COST_REROLL_ELEMENT} reputation points. Are you
       sure you want to re-roll?
-    </Confirm>
+    </Confirm2>
   );
 };
 
@@ -1320,7 +1337,7 @@ const NameChange: React.FC = () => {
               </FormItem>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm New Username"
             button={
               <Button
@@ -1340,7 +1357,7 @@ const NameChange: React.FC = () => {
             Changing your username costs {COST_CHANGE_USERNAME} reputation points, and
             can only be reverted by purchasing another name change. Are you sure you
             want to change your username to {searchTerm}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
     </div>
@@ -1401,7 +1418,7 @@ const CustomTitle: React.FC = () => {
               </FormItem>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm Custom Title"
             disabled={disabled}
             button={
@@ -1419,7 +1436,7 @@ const CustomTitle: React.FC = () => {
             Changing your custom title costs {COST_CUSTOM_TITLE} reputation points, and
             can only be changed by requesting another change. Are you sure you want to
             change your title to {curTitle}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
     </div>
@@ -1518,7 +1535,7 @@ const ChangeGender: React.FC = () => {
               </div>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm Gender Change"
             disabled={!canBuyUsername}
             button={
@@ -1536,54 +1553,123 @@ const ChangeGender: React.FC = () => {
             Changing your gender costs {COST_CHANGE_GENDER} reputation points, and can
             only be changed by requesting another change. Are you sure you want to
             change your gender to {watchGender}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
     </div>
   );
 };
 
-const AdminControls: React.FC = () => {
-  const { mutate: massUnequipAll, isPending: isUnequippingRegular } = api.jutsu.massUnequipAll.useMutation({
-    onSuccess: (result) => {
-      showMutationToast(result);
-    },
-  });
+/**
+ * Site Management Functionality
+ */
+interface ManagementCommandsProps {
+  user: NonNullable<UserWithRelations>;
+}
+const ManagementCommands: React.FC<ManagementCommandsProps> = ({ user }) => {
+  // State for sector selection
+  const [sectorNumber, setSectorNumber] = useState<number>(1);
 
-  const { mutate: massUnequipAllRanked, isPending: isUnequippingRanked } = api.jutsu.massUnequipAllRanked.useMutation({
-    onSuccess: (result) => {
-      showMutationToast(result);
-    },
-  });
+  // Utility
+  const utils = api.useUtils();
 
-  const isPending = isUnequippingRegular || isUnequippingRanked;
+  // Mutations
+  const { mutate: unequipAllGear, isPending: isUnequipping } =
+    api.staff.unequipAllGear.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.profile.getUser.invalidate(),
+            utils.item.getUserItems.invalidate(),
+          ]);
+        }
+      },
+    });
 
+  const { mutate: releaseSector, isPending: isReleasingSector } =
+    api.staff.releaseSector.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.travel.getSectorData.invalidate(),
+            utils.village.getSectorOwnerships.invalidate(),
+          ]);
+        }
+      },
+    });
+
+  // Show options
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Mass Unequip All Jutsu</h3>
-          <p className="text-sm text-muted-foreground">
-            This will unequip all jutsu from all users. Use with caution.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="destructive" 
-            onClick={() => massUnequipAll()}
-            disabled={isPending}
-          >
-            {isUnequippingRegular ? "Processing..." : "Unequip All Regular"}
-          </Button>
-          <Button 
-            variant="destructive" 
-            onClick={() => massUnequipAllRanked()}
-            disabled={isPending}
-          >
-            {isUnequippingRanked ? "Processing..." : "Unequip All Ranked"}
-          </Button>
-        </div>
-      </div>
+    <div className="grid grid-cols-3 items-center gap-4 p-4">
+      {canEditPublicUser(user) && (
+        <Confirm2
+          title="Confirm Unequip All Gear"
+          button={
+            <Button variant="destructive" disabled={isUnequipping} className="w-full">
+              {isUnequipping ? (
+                <Loader size={5} />
+              ) : (
+                <>
+                  <ShieldOff className="h-4 w-4 mr-2" />
+                  Unequip All Gear
+                </>
+              )}
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            unequipAllGear();
+          }}
+        >
+          This will unequip all currently equipped gear <b>FOR ALL USERS</b>. Are you
+          sure you want to continue?
+        </Confirm2>
+      )}
+      {canClearSectors(user.role) && (
+        <Confirm2
+          title="Confirm Clear Sector"
+          button={
+            <Button
+              variant="destructive"
+              disabled={isReleasingSector}
+              className="w-full"
+            >
+              {isReleasingSector ? (
+                <Loader size={5} />
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Sector
+                </>
+              )}
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            releaseSector({ sector: sectorNumber });
+          }}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="sectorNumber">Sector #</Label>
+              <Input
+                id="sectorNumber"
+                type="number"
+                min={1}
+                value={sectorNumber}
+                onChange={(e) => setSectorNumber(parseInt(e.target.value) || 1)}
+                className="w-20"
+              />
+            </div>
+            <p>
+              This will clear sector <b>{sectorNumber}</b> ownership from the database.
+              Are you sure you want to continue?
+            </p>
+          </div>
+        </Confirm2>
+      )}
     </div>
   );
 };

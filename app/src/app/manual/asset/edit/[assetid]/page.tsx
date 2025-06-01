@@ -69,6 +69,7 @@ const SingleEditAsset: React.FC<SingleEditAssetProps> = (props) => {
           showSubmit={true}
           buttonTxt="Save to Database"
           type="asset"
+          relationId={asset.id}
           allowImageUpload={true}
           onAccept={handleAssetSubmit}
         />

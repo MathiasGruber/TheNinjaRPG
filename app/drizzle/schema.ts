@@ -356,7 +356,7 @@ export const bloodline = mysqlTable(
   (table) => {
     return {
       nameKey: uniqueIndex("Bloodline_name_key").on(table.name),
-      imageKey: uniqueIndex("Bloodline_image_key").on(table.image),
+      imageKey: index("Bloodline_image_key").on(table.image),
       villageIdx: index("Bloodline_village_idx").on(table.villageId),
       rankIdx: index("Bloodline_rank_idx").on(table.rank),
     };
@@ -1000,7 +1000,7 @@ export const jutsu = mysqlTable(
   (table) => {
     return {
       nameKey: uniqueIndex("Jutsu_name_key").on(table.name),
-      imageKey: uniqueIndex("Jutsu_image_key").on(table.image),
+      imageKey: index("Jutsu_image_key").on(table.image),
       bloodlineIdIdx: index("Jutsu_bloodlineId_idx").on(table.bloodlineId),
       villageIdIdx: index("Jutsu_villageId_idx").on(table.villageId),
     };
@@ -1416,6 +1416,7 @@ export const userData = mysqlTable(
     travelFinishAt: datetime("travelFinishAt", { mode: "date", fsp: 3 }),
     isBanned: boolean("isBanned").default(false).notNull(),
     isSilenced: boolean("isSilenced").default(false).notNull(),
+    isWarned: boolean("isWarned").default(false).notNull(),
     role: mysqlEnum("role", consts.UserRoles).default("USER").notNull(),
     battleId: varchar("battleId", { length: 191 }),
     isAi: boolean("isAi").default(false).notNull(),
@@ -1552,6 +1553,7 @@ export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
 export const userDataRelations = relations(userData, ({ one, many }) => ({
+  ips: many(historicalIp),
   bloodline: one(bloodline, {
     fields: [userData.bloodlineId],
     references: [bloodline.id],
@@ -1609,6 +1611,39 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   votes: one(userVote, {
     fields: [userData.userId],
     references: [userVote.userId],
+  }),
+}));
+
+export const userActivityEvent = mysqlTable("UserActivityEvent", {
+  id: int("id").primaryKey().autoincrement().notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  streak: int("streak").notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`)
+    .notNull(),
+});
+
+export const historicalIp = mysqlTable(
+  "HistoricalIp",
+  {
+    id: int("id").primaryKey().autoincrement().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    ip: varchar("ip", { length: 191 }).notNull(),
+    usedAt: datetime("usedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdIpKey: uniqueIndex("HistoricalIp_userId_ip_key").on(table.userId, table.ip),
+    };
+  },
+);
+
+export const historicalIpRelations = relations(historicalIp, ({ one }) => ({
+  user: one(userData, {
+    fields: [historicalIp.userId],
+    references: [userData.userId],
   }),
 }));
 

@@ -124,7 +124,7 @@ export default function Reports() {
                           <hr />
                         </div>
                       )}
-                      <ParsedReportJson report={report} />
+                      <ParsedReportJson report={report} viewer={userData} />
                       {isAi && (
                         <div className="flex flex-row p-3">
                           <div className="grow"></div>

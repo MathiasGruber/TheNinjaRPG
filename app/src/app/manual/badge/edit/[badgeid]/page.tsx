@@ -95,6 +95,7 @@ const SingleEditBadge: React.FC<SingleEditBadgeProps> = (props) => {
           showSubmit={true}
           buttonTxt="Save to Database"
           type="badge"
+          relationId={badge.id}
           allowImageUpload={true}
           onAccept={handleBadgeSubmit}
         />

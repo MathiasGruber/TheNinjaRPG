@@ -1,6 +1,8 @@
 import PublicUserComponent from "@/layout/PublicUser";
 
-export default async function PublicProfile(props: { params: Promise<{ userid: string }> }) {
+export default async function PublicProfile(props: {
+  params: Promise<{ userid: string }>;
+}) {
   const params = await props.params;
   return (
     <PublicUserComponent
@@ -17,6 +19,8 @@ export default async function PublicProfile(props: { params: Promise<{ userid: s
       showTrainingLogs
       showCombatLogs
       showMarriages
+      showHistoricalIps
+      showActivityEvents
     />
   );
 }

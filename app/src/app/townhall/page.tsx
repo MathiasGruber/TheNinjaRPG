@@ -74,11 +74,7 @@ export default function TownHall() {
   } else if (tab === "Elders") {
     return <ElderHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Wars") {
-    return userData.isOutlaw ? (
-      <WarRoom user={userData} navTabs={NavBarBlock} />
-    ) : (
-      <WarRoom user={userData} navTabs={NavBarBlock} />
-    );
+    return <WarRoom user={userData} navTabs={NavBarBlock} />;
   }
 }
 

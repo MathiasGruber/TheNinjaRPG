@@ -634,6 +634,7 @@ export const clanRouter = createTRPCRouter({
       const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
       const canEdit = canEditClans(user.role);
       const isMemberLeader = input.memberId === fetchedClan?.leaderId;
+      const hadHideout = ["HIDEOUT", "TOWN"].includes(fetchedClan.village?.type ?? "");
       // Guards
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
@@ -681,7 +682,17 @@ export const clanRouter = createTRPCRouter({
         );
       }
       // Mutate
-      await ctx.drizzle.update(clan).set(updateData).where(eq(clan.id, fetchedClan.id));
+      await Promise.all([
+        ctx.drizzle.update(clan).set(updateData).where(eq(clan.id, fetchedClan.id)),
+        ...(isMemberColeader && hadHideout
+          ? [
+              ctx.drizzle
+                .update(village)
+                .set({ kageId: input.memberId })
+                .where(eq(village.id, fetchedClan.villageId)),
+            ]
+          : []),
+      ]);
       // Create
       return { success: true, message: "Member promoted" };
     }),
@@ -1255,15 +1266,19 @@ export const clanRouter = createTRPCRouter({
     .input(z.object({ clanId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const [user, fetchedClan] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchClan(ctx.drizzle, input.clanId),
       ]);
+      // Guard
       if (!fetchedClan) return errorResponse("Faction not found");
       if (!user) return errorResponse("User not found");
       if (!canEditClans(user.role)) return errorResponse("Permission denied");
-      if (user.clanId) return errorResponse("Already in a faction");
-
+      if (user.clanId && user.clanId !== fetchedClan.id) {
+        return errorResponse("Already in a faction");
+      }
+      // Update
       await Promise.all([
         ctx.drizzle
           .update(userData)
@@ -1273,6 +1288,14 @@ export const clanRouter = createTRPCRouter({
           .update(clan)
           .set({ leaderId: user.userId })
           .where(eq(clan.id, fetchedClan.id)),
+        ...(["HIDEOUT", "TOWN"].includes(fetchedClan.village?.type ?? "")
+          ? [
+              ctx.drizzle
+                .update(village)
+                .set({ kageId: user.userId })
+                .where(eq(village.id, fetchedClan.villageId)),
+            ]
+          : []),
       ]);
 
       return {

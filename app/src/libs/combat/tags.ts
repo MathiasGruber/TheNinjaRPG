@@ -11,6 +11,49 @@ import type { GeneralType } from "@/drizzle/constants";
 import type { BattleType } from "@/drizzle/constants";
 import type { CombatAction } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import type { BattleEffect } from "./types";
+import type { Battle } from "@/drizzle/schema";
+
+/**
+ * Realize tag with information about how powerful tag is
+ */
+export const realizeTag = <T extends BattleEffect>(props: {
+  tag: T;
+  user: BattleUserState;
+  actionId: string;
+  target?: BattleUserState | undefined;
+  level: number | undefined;
+  round?: number;
+  barrierAbsorb?: number;
+  battle?: Battle; // Make battle optional since it's not always needed
+}): T => {
+  const { tag, user, target, level, round, barrierAbsorb, battle } = props;
+  if ("rounds" in tag) {
+    tag.timeTracker = {};
+  }
+  tag.id = nanoid();
+  tag.createdRound = round || 0;
+  tag.creatorId = user.userId;
+  tag.villageId = user.villageId;
+  tag.targetType = "user";
+  tag.level = level ?? 0;
+  tag.isNew = true;
+  tag.castThisRound = true;
+  tag.highestOffence = user.highestOffence;
+  tag.highestDefence = user.highestDefence;
+  tag.highestGenerals = user.highestGenerals;
+  tag.barrierAbsorb = barrierAbsorb || 0;
+  tag.actionId = props.actionId;
+  if (target) {
+    tag.targetHighestOffence = target.highestOffence;
+    tag.targetHighestDefence = target.highestDefence;
+    tag.targetHighestGenerals = target.highestGenerals;
+  }
+  if (battle && "rounds" in tag) {
+    tag.createdRound = battle.round; // Use battle round if available
+  }
+  return structuredClone(tag);
+};
 
 /** Absorb damage & convert it to healing */
 export const absorb = (
@@ -47,6 +90,7 @@ export const absorb = (
               ? consequence.damage * (power / 100)
               : Math.min(power, consequence.damage);
           const convert = Math.ceil(absorbAmount * ratio);
+          
           // Apply absorption to each pool
           pools.map((pool) => {
             switch (pool) {
@@ -1440,20 +1484,18 @@ export const finalStand = (effect: UserEffect, target: BattleUserState) => {
   const { power } = getPower(effect);
   const primaryCheck = Math.random() < power / 100;
   let info: ActionEffect | undefined = undefined;
-  if (effect.isNew && effect.castThisRound) {
-    if (primaryCheck) {
-      info = getInfo(
-        target,
-        effect,
-        "takes a final stand and cannot be reduced below 1 HP",
-      );
-    } else {
-      effect.rounds = 0;
-      info = {
-        txt: `${target.username}'s final stand failed to activate`,
-        color: "blue",
-      };
-    }
+  if (primaryCheck) {
+    info = getInfo(
+      target,
+      effect,
+      "takes a final stand and cannot be reduced below 1 HP",
+    );
+  } else {
+    effect.rounds = 0;
+    info = {
+      txt: `${target.username}'s final stand failed to activate`,
+      color: "blue",
+    };
   }
   return info;
 };
@@ -1819,7 +1861,12 @@ export const stunPrevent = (
 };
 
 /** Clone user on the battlefield */
-export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
+export const summon = (
+  usersState: BattleUserState[],
+  effect: GroundEffect,
+  userEffects: UserEffect[],
+  battle: Battle, // Add battle parameter
+) => {
   const { power } = getPower(effect);
   const perc = power / 100;
   const user = usersState.find((u) => u.userId === effect.creatorId);
@@ -1866,6 +1913,44 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
         newAi.intelligence = newAi.intelligence * perc;
         newAi.willpower = newAi.willpower * perc;
         newAi.speed = newAi.speed * perc;
+        newAi.bloodline = ai.bloodline;
+        // Realize bloodline effects if they exist
+        if (newAi.bloodline?.effects) {
+          newAi.bloodline.effects.forEach((bloodlineEffect) => {
+            const realizedEffect = realizeTag({
+              tag: bloodlineEffect as BattleEffect,
+              user: newAi,
+              actionId: "initial",
+              target: newAi,
+              level: newAi.level,
+              round: battle.round,
+              battle,
+            }) as UserEffect;
+            realizedEffect.isNew = true;
+            realizedEffect.castThisRound = true;
+            realizedEffect.targetId = newAi.userId;
+            realizedEffect.fromType = "bloodline";
+            userEffects.push(realizedEffect);
+          });
+        }
+        // Realize and copy the AI's effects
+        newAi.effects = ai.effects.map((aiEffect) => {
+          const realizedEffect = realizeTag({
+            tag: aiEffect as BattleEffect,
+            user: newAi,
+            actionId: "initial",
+            target: newAi,
+            level: newAi.level,
+            round: battle.round,
+            battle,
+          }) as UserEffect;
+          realizedEffect.isNew = true;
+          realizedEffect.castThisRound = true;
+          realizedEffect.targetId = newAi.userId;
+          realizedEffect.fromType = "jutsu"; // Use jutsu as fromType since summon isn't a valid type
+          userEffects.push(realizedEffect);
+          return realizedEffect;
+        });
         // Push to userState
         usersState.push(newAi);
         // ActionEffect to be shown
@@ -1875,9 +1960,6 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
         } as ActionEffect;
       }
     }
-    // If return from here, summon failed
-    effect.rounds = 0;
-    return { txt: `Failed to create summon!`, color: "red" } as ActionEffect;
   } else if (effect?.rounds === 0) {
     const ai = usersState.find((u) => u.userId === effect.aiId);
     const idx = usersState.findIndex((u) => u.userId === effect.aiId);
@@ -1886,6 +1968,9 @@ export const summon = (usersState: BattleUserState[], effect: GroundEffect) => {
       return { txt: `${ai.username} was unsummoned!`, color: "red" } as ActionEffect;
     }
   }
+  // If return from here, summon failed
+  effect.rounds = 0;
+  return { txt: `Failed to create summon!`, color: "red" } as ActionEffect;
 };
 
 /** Prevent target from being stunned */

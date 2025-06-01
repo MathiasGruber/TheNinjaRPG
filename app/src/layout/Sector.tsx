@@ -35,7 +35,7 @@ import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { SECTOR_LENGTH_TO_WIDTH } from "@/libs/travel/constants";
 import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
-import { WAR_SHRINE_IMAGE } from "@/drizzle/constants";
+import { WAR_SHRINE_IMAGE, WAR_RAMEN_IMAGE } from "@/drizzle/constants";
 import {
   IMG_SECTOR_INFO,
   IMG_SECTOR_ATTACK,
@@ -105,7 +105,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const structures = villageData?.structures || [];
 
   // If we're in an active sector war, then we add a shrine to the center of the sector
-  if (data?.warData) {
+  if (data?.warData?.find((w) => w.type === "SECTOR_WAR")) {
     const shrine = createGenericStructure({
       name: "Sector Shrine",
       route: "/shrine",
@@ -114,6 +114,14 @@ const Sector: React.FC<SectorProps> = (props) => {
       latitude: 5,
     });
     structures.push(shrine);
+    const ramen = createGenericStructure({
+      name: "Ramen Shop",
+      route: "/ramenshop",
+      image: WAR_RAMEN_IMAGE,
+      longitude: 12,
+      latitude: 5,
+    });
+    structures.push(ramen);
   }
 
   // Router for forwarding

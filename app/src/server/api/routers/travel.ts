@@ -20,6 +20,7 @@ import { initiateBattle } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
 import { findRelationship } from "@/utils/alliance";
 import { structureBoost } from "@/utils/village";
+import { groupBy } from "@/utils/grouping";
 import {
   ROBBING_SUCCESS_CHANCE,
   ROBBING_STOLLEN_AMOUNT,
@@ -354,6 +355,24 @@ export const travelRouter = createTRPCRouter({
         .where(and(eq(userData.userId, ctx.userId), eq(userData.status, "TRAVEL")));
       return { success: true, message: "OK" };
     }),
+  // Get all sector ownership
+  getAllSectors: protectedProcedure.query(async ({ ctx }) => {
+    const allSectors = await ctx.drizzle.query.sector.findMany({
+      columns: {
+        sector: true,
+        villageId: true,
+      },
+    });
+    const groupedSectors = groupBy(allSectors, "villageId");
+    const converted = [...groupedSectors.keys()].map((key) => {
+      const sectors = groupedSectors.get(key) || [];
+      return {
+        villageId: key,
+        sectors: sectors.map((s) => s.sector),
+      };
+    });
+    return converted;
+  }),
   // Move user to new local location
   moveInSector: protectedProcedure
     .input(

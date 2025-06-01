@@ -267,7 +267,7 @@ const BaseAttributes = {
 };
 
 const PowerAttributes = {
-  power: z.coerce.number().min(1).max(100).default(1),
+  power: z.coerce.number().min(1).default(1),
   powerPerLevel: z.coerce.number().min(0).max(1).default(0),
 };
 
@@ -585,7 +585,7 @@ export type ShieldTagType = z.infer<typeof ShieldTag>;
 export const FinalStandTag = z.object({
   ...BaseAttributes,
   type: z.literal("finalstand").default("finalstand"),
-  description: msg("%user cannot be reduced below 1 HP"),
+  description: msg("User cannot be reduced below 1 HP"),
   power: z.coerce.number().min(0).max(100).default(100),
   powerPerLevel: z.coerce.number().min(0).max(1).default(0),
 });
@@ -855,24 +855,24 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
     [
       "absorb",
       // "clearprevent",
-      "stealth",
       "debuffprevent",
       "decreasedamagetaken",
       "decreasepoolcost",
       "heal",
-      "lifesteal",
       "increasedamagegiven",
       "increaseheal",
       "increasestat",
+      "lifesteal",
       "move",
       "moveprevent",
       "onehitkillprevent",
       "reflect",
       "robprevent",
       "sealprevent",
+      "shield", 
+      "stealth",
       "stunprevent",
       "summon",
-      "shield",
     ].includes(tag.type)
   ) {
     return true;
@@ -889,64 +889,35 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
 export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
-      // "cleanseprevent",
       "buffprevent",
-      "decreasedamagegiven",
-      "drain",
-      "increasedamagetaken",
-      "decreaseheal",
-      "increasepoolcost",
-      "decreasestat",
+      // "cleanseprevent",
       "clear",
       "damage",
+      "decreasedamagegiven",
+      "decreaseheal",
+      "decreasestat",
+      "drain",
+      "elementalseal",
+      "flee",
+      "fleeprevent",
+      "healprevent",
+      "increasedamagetaken",
+      "increasepoolcost",
       "moveprevent",
+      "onehitkill",
       "pierce",
       "poison",
       "recoil",
-      "flee",
-      "fleeprevent",
-      "onehitkill",
       "rob",
       "seal",
       "summonprevent",
       "weakness",
-      "healprevent",
-      "elementalseal",
     ].includes(tag.type)
   ) {
     return true;
   }
   return false;
 };
-
-const BloodlineTags = z.union([
-  AbsorbTag.default({}),
-  CleansePreventTag.default({}),
-  ClearPreventTag.default({}),
-  DamageTag.default({}),
-  DecreaseDamageGivenTag.default({}),
-  DecreaseDamageTakenTag.default({}),
-  DecreaseHealGivenTag.default({}),
-  DecreasePoolCostTag.default({}),
-  DecreaseStatTag.default({}),
-  HealTag.default({}),
-  IncreaseDamageGivenTag.default({}),
-  IncreaseDamageTakenTag.default({}),
-  IncreaseHealGivenTag.default({}),
-  IncreasePoolCostTag.default({}),
-  IncreaseStatTag.default({}),
-  LifeStealTag.default({}),
-  PierceTag.default({}),
-  RecoilTag.default({}),
-  ReflectTag.default({}),
-  RobPreventTag.default({}),
-  SealPreventTag.default({}),
-  StunPreventTag.default({}),
-]);
-export type ZodBloodlineTags = z.infer<typeof BloodlineTags>;
-export const bloodlineTypes = BloodlineTags._def.options.map(
-  (o) => o._def.innerType.shape.type._def.innerType._def.value,
-);
 
 /** Based on type name, get the zod schema for validation of that tag */
 export const getTagSchema = (type: ZodAllTags["type"]) => {
@@ -1106,7 +1077,7 @@ const SuperRefineJutsu = (data: JutsuValidatorType, ctx: z.RefinementCtx) => {
  * Validator specific to effects
  */
 export const SuperRefineEffects = (
-  effects: ZodAllTags[] | ZodBloodlineTags[],
+  effects: ZodAllTags[],
   ctx: z.RefinementCtx,
 ) => {
   effects.forEach((e) => {
@@ -1128,37 +1099,36 @@ export const SuperRefineEffects = (
 /**
  * Jutsu Type. Used for validating a jutsu object is set up properly
  */
-export const JutsuValidator = z
-  .object({
-    name: z.string(),
-    image: z.string(),
-    description: z.string(),
-    battleDescription: z.string(),
-    extraBaseCost: z.coerce.number().min(0).max(65535),
-    jutsuWeapon: z.enum(WeaponTypes),
-    jutsuType: z.enum(JutsuTypes),
-    jutsuRank: z.enum(LetterRanks),
-    requiredRank: z.enum(UserRanks),
-    requiredLevel: z.coerce.number().min(1).max(100),
-    method: z.enum(AttackMethods),
-    target: z.enum(AttackTargets),
-    range: z.coerce.number().int().min(0).max(5),
-    statClassification: z.enum(StatTypes),
-    hidden: z.coerce.boolean().optional(),
-    healthCost: z.coerce.number().min(0).max(10000),
-    chakraCost: z.coerce.number().min(0).max(10000),
-    staminaCost: z.coerce.number().min(0).max(10000),
-    healthCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    chakraCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    actionCostPerc: z.coerce.number().int().min(10).max(100),
-    cooldown: z.coerce.number().int().min(0).max(300),
-    bloodlineId: z.string().nullable(),
-    villageId: z.string().nullable(),
-    effects: z.array(AllTags).superRefine(SuperRefineEffects),
-  })
-  .superRefine(SuperRefineBase)
-  .superRefine(SuperRefineJutsu);
+export const JutsuValidatorRawSchema = z.object({
+  name: z.string(),
+  image: z.string(),
+  description: z.string(),
+  battleDescription: z.string(),
+  extraBaseCost: z.coerce.number().min(0).max(65535),
+  jutsuWeapon: z.enum(WeaponTypes),
+  jutsuType: z.enum(JutsuTypes),
+  jutsuRank: z.enum(LetterRanks),
+  requiredRank: z.enum(UserRanks),
+  requiredLevel: z.coerce.number().min(1).max(100),
+  method: z.enum(AttackMethods),
+  target: z.enum(AttackTargets),
+  range: z.coerce.number().int().min(0).max(5),
+  statClassification: z.enum(StatTypes),
+  hidden: z.coerce.boolean().optional(),
+  healthCost: z.coerce.number().min(0).max(10000),
+  chakraCost: z.coerce.number().min(0).max(10000),
+  staminaCost: z.coerce.number().min(0).max(10000),
+  healthCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  chakraCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  actionCostPerc: z.coerce.number().int().min(10).max(100),
+  cooldown: z.coerce.number().int().min(0).max(300),
+  bloodlineId: z.string().nullable(),
+  villageId: z.string().nullable(),
+  effects: z.array(AllTags).superRefine(SuperRefineEffects),
+});
+export const JutsuValidator =
+  JutsuValidatorRawSchema.superRefine(SuperRefineBase).superRefine(SuperRefineJutsu);
 export type ZodJutsuType = z.infer<typeof JutsuValidator>;
 
 /**
@@ -1173,48 +1143,47 @@ export const BloodlineValidator = z.object({
   statClassification: z.enum(StatTypes),
   villageId: z.string().nullable(),
   hidden: z.coerce.boolean().optional(),
-  effects: z.array(BloodlineTags).superRefine(SuperRefineEffects),
+  effects: z.array(AllTags).superRefine(SuperRefineEffects),
 });
 export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
 
 /**
  * Item Type. Used for validating a item object is set up properly
  */
-export const ItemValidator = z
-  .object({
-    name: z.string(),
-    image: z.string(),
-    description: z.string(),
-    battleDescription: z.string(),
-    stackSize: z.coerce.number().int().min(1).max(100),
-    destroyOnUse: z.coerce.number().min(0).max(1),
-    chakraCost: z.coerce.number().int().min(0).max(10000),
-    healthCost: z.coerce.number().int().min(0).max(10000),
-    staminaCost: z.coerce.number().int().min(0).max(10000),
-    healthCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    chakraCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
-    actionCostPerc: z.coerce.number().int().min(1).max(100),
-    canStack: z.coerce.boolean(),
-    inShop: z.coerce.boolean(),
-    isEventItem: z.coerce.boolean(),
-    preventBattleUsage: z.coerce.boolean(),
-    hidden: z.coerce.boolean(),
-    cooldown: z.coerce.number().int().min(0).max(300),
-    cost: z.coerce.number().int().min(0),
-    repsCost: z.coerce.number().int().min(0),
-    range: z.coerce.number().int().min(0).max(10),
-    maxEquips: z.coerce.number().int().min(0).max(10),
-    method: z.enum(AttackMethods),
-    target: z.enum(AttackTargets),
-    itemType: z.enum(ItemTypes),
-    weaponType: z.enum(WeaponTypes),
-    rarity: z.enum(ItemRarities),
-    slot: z.enum(ItemSlotTypes),
-    effects: z.array(AllTags).superRefine(SuperRefineEffects),
-  })
-  .superRefine(SuperRefineBase)
-  .superRefine(SuperRefineItem);
+export const ItemValidatorRawSchema = z.object({
+  name: z.string(),
+  image: z.string(),
+  description: z.string(),
+  battleDescription: z.string(),
+  stackSize: z.coerce.number().int().min(1).max(100),
+  destroyOnUse: z.coerce.number().min(0).max(1),
+  chakraCost: z.coerce.number().int().min(0).max(10000),
+  healthCost: z.coerce.number().int().min(0).max(10000),
+  staminaCost: z.coerce.number().int().min(0).max(10000),
+  healthCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  chakraCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
+  actionCostPerc: z.coerce.number().int().min(1).max(100),
+  canStack: z.coerce.boolean().default(false),
+  inShop: z.coerce.boolean().default(false),
+  isEventItem: z.coerce.boolean().default(false),
+  preventBattleUsage: z.coerce.boolean().default(false),
+  hidden: z.coerce.boolean(),
+  cooldown: z.coerce.number().int().min(0).max(300),
+  cost: z.coerce.number().int().min(0),
+  repsCost: z.coerce.number().int().min(0),
+  range: z.coerce.number().int().min(0).max(10),
+  maxEquips: z.coerce.number().int().min(0).max(10),
+  method: z.enum(AttackMethods),
+  target: z.enum(AttackTargets),
+  itemType: z.enum(ItemTypes),
+  weaponType: z.enum(WeaponTypes),
+  rarity: z.enum(ItemRarities),
+  slot: z.enum(ItemSlotTypes),
+  effects: z.array(AllTags).superRefine(SuperRefineEffects),
+});
+export const ItemValidator =
+  ItemValidatorRawSchema.superRefine(SuperRefineBase).superRefine(SuperRefineItem);
 export type ZodItemType = z.infer<typeof ItemValidator>;
 
 /****************************** */

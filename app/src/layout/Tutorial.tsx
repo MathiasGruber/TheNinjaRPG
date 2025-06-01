@@ -65,6 +65,14 @@ const TUTORIAL_STEPS: TutorialStepConfig[] = [
     requiresGameMenu: true,
   },
   {
+    title: "Users",
+    description:
+      "Search for users, view the strongest players or view the current staff and reach out to them.",
+    elementId: "tutorial-users",
+    page: "/profile",
+    requiresGameMenu: true,
+  },
+  {
     title: "Inbox",
     description: "Check your messages from other players and system notifications.",
     elementId: "tutorial-inbox",
@@ -72,10 +80,10 @@ const TUTORIAL_STEPS: TutorialStepConfig[] = [
     requiresGameMenu: true,
   },
   {
-    title: "Users",
+    title: "Jutsus",
     description:
-      "Search for users, view the strongest players or view the current staff and reach out to them.",
-    elementId: "tutorial-users",
+      "View all the jutsu that you have trained and equip them to use in battle.",
+    elementId: "tutorial-jutsus",
     page: "/profile",
     requiresGameMenu: true,
   },
@@ -96,10 +104,10 @@ const TUTORIAL_STEPS: TutorialStepConfig[] = [
     requiresGameMenu: true,
   },
   {
-    title: "Jutsus",
+    title: "Points",
     description:
-      "View all the jutsu that you have trained and equip them to use in battle.",
-    elementId: "tutorial-jutsus",
+      "You can support the game by purchasing reputation points or buying federal support here.",
+    elementId: "tutorial-points",
     page: "/profile",
     requiresGameMenu: true,
   },
@@ -111,10 +119,9 @@ const TUTORIAL_STEPS: TutorialStepConfig[] = [
     requiresGameMenu: true,
   },
   {
-    title: "Points",
-    description:
-      "You can support the game by purchasing reputation points or buying federal support here.",
-    elementId: "tutorial-points",
+    title: "Rules",
+    description: "View all the rules of the game here",
+    elementId: "tutorial-rules",
     page: "/profile",
     requiresGameMenu: true,
   },
@@ -484,6 +491,34 @@ const Tutorial: React.FC<TutorialProps> = ({
 
     setCurrentStep(nextStep);
   };
+
+  // Add keyboard event listener for Enter key to forward tutorial
+  useEffect(() => {
+    // Only add keyboard listener when tutorial is visible (either regular or game menu)
+    if (!isVisible && !showGameMenuTutorial) return;
+
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (showGameMenuTutorial) {
+          // If showing game menu tutorial, open the sidebar
+          setRightSideBarOpen(true);
+        } else {
+          // Otherwise, proceed to next step
+          handleNextStep();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVisible, showGameMenuTutorial]);
 
   // Handle skipping tutorial
   const handleSkipTutorial = () => {

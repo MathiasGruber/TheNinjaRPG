@@ -187,7 +187,7 @@ const ReputationStore = (props: { currency: string }) => {
   }, [userData, userSearchMethods, watchedUsers]);
 
   // No reps for banned users
-  if (userData?.isBanned) return <BanInfo hideContentBox />;
+  if (userData?.isBanned) return <BanInfo />;
 
   // Set the maximum number of purchaseable points
   const maxPoints = purchasedReps
@@ -588,7 +588,7 @@ const FederalStore = () => {
   const status = selectedUser?.federalStatus;
 
   // No fed for banned users
-  if (userData?.isBanned) return <BanInfo hideContentBox />;
+  if (userData?.isBanned) return <BanInfo />;
 
   return (
     <>

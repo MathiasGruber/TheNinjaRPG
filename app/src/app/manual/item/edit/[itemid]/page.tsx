@@ -100,6 +100,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
                 `,
               }}
               onToolCall={(toolCall) => {
+                console.log("TOOL CALL", toolCall);
                 const data = toolCall.args as ZodItemType;
                 let key: keyof typeof data;
                 for (key in data) {
@@ -137,6 +138,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
             showSubmit={true}
             buttonTxt="Save to Database"
             type="item"
+            relationId={item.id}
             allowImageUpload={true}
             onAccept={handleItemSubmit}
           />

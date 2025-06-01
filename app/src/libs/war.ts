@@ -42,17 +42,20 @@ export const findWarsWithUser = (
       w.defenderVillageId === userVillageId && w.attackerVillageId === targetVillageId;
     // Check if the user is an ally of the war
     const check3 =
-      w.attackerVillageId === targetVillageId &&
+      targetVillageId &&
+      [w.attackerVillageId, w.defenderVillageId].includes(targetVillageId) &&
       w.warAllies.some(
         (wa) =>
           wa.villageId === userVillageId && wa.supportVillageId !== targetVillageId,
       );
     const check4 =
-      w.defenderVillageId === targetVillageId &&
+      userVillageId &&
+      [w.attackerVillageId, w.defenderVillageId].includes(userVillageId) &&
       w.warAllies.some(
         (wa) =>
-          wa.villageId === userVillageId && wa.supportVillageId !== targetVillageId,
+          wa.villageId === targetVillageId && wa.supportVillageId !== userVillageId,
       );
+
     // Return true if any of the checks are true
     return check1 || check2 || check3 || check4;
   });
@@ -159,6 +162,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
     winnerVillageId === activeWar.attackerVillage.id
       ? activeWar.defenderVillage.id
       : activeWar.attackerVillage.id;
+  console.log("ENDING WAR: ", activeWar);
   const status: WarState = isDraw
     ? "DRAW"
     : winnerVillageId === activeWar.attackerVillage.id

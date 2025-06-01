@@ -1,7 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { fetchBadge } from "@/routers/badge";
-import { eq, and } from "drizzle-orm";
+import { eq, ne, and, desc } from "drizzle-orm";
 import {
   actionLog,
   aiProfile,
@@ -16,6 +16,7 @@ import {
   forumPost,
   forumThread,
   historicalAvatar,
+  historicalIp,
   jutsuLoadout,
   kageDefendedChallenges,
   linkPromotion,
@@ -28,6 +29,7 @@ import {
   questHistory,
   reportLog,
   ryoTrade,
+  sector,
   supportReview,
   trainingLog,
   user2conversation,
@@ -48,17 +50,27 @@ import {
   userUpload,
   userVote,
   village,
+  userActivityEvent,
 } from "@/drizzle/schema";
-import { fetchUser } from "@/routers/profile";
+import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
+import { fetchVillages } from "@/routers/village";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { canUnstuckVillage, canModifyUserBadges } from "@/utils/permissions";
-import { canCloneUser } from "@/utils/permissions";
+import {
+  canUnstuckVillage,
+  canModifyUserBadges,
+  canSeeIps,
+  canSeeActivityEvents,
+  canEditPublicUser,
+} from "@/utils/permissions";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { canCloneUser, canClearSectors } from "@/utils/permissions";
 import { TRPCError } from "@trpc/server";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { UserStatus } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
+import { fetchSector } from "./village";
 
 export const staffRouter = createTRPCRouter({
   throwError: protectedProcedure.output(baseServerResponse).mutation(async () => {
@@ -70,6 +82,25 @@ export const staffRouter = createTRPCRouter({
       message: "Test error",
     });
   }),
+  unequipAllGear: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canEditPublicUser(user)) {
+        return errorResponse("You do not have permission to unequip all gear");
+      }
+      // Update all equipped items to set equipped = 'NONE' for all users
+      await ctx.drizzle
+        .update(userItem)
+        .set({ equipped: "NONE" })
+        .where(ne(userItem.equipped, "NONE"));
+      return {
+        success: true,
+        message: `All gear has been unequipped for all users.`,
+      };
+    }),
   forceAwake: protectedProcedure
     .output(baseServerResponse)
     .input(z.object({ userId: z.string() }))
@@ -256,6 +287,8 @@ export const staffRouter = createTRPCRouter({
             sector: target.sector,
             latitude: target.latitude,
             longitude: target.longitude,
+            clanId: target.clanId,
+            anbuId: target.anbuId,
           })
           .where(eq(userData.userId, ctx.userId)),
       ]);
@@ -287,6 +320,82 @@ export const staffRouter = createTRPCRouter({
         );
       }
       return { success: true, message: "User copied" };
+    }),
+  getUserHistoricalIps: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canSeeIps(user.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to view IP addresses",
+        });
+      }
+      // Fetch historical IPs
+      const historicalIps = await ctx.drizzle.query.historicalIp.findMany({
+        where: eq(historicalIp.userId, input.userId),
+        orderBy: [desc(historicalIp.usedAt)],
+        limit: 100, // Limit to last 100 IP records
+      });
+      return historicalIps;
+    }),
+  releaseSector: protectedProcedure
+    .input(z.object({ sector: z.number().int() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const [sectorData, { user }, villages] = await Promise.all([
+        fetchSector(ctx.drizzle, input.sector),
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchVillages(ctx.drizzle),
+      ]);
+
+      // Guards
+      if (!user) return errorResponse("Could not find user");
+      if (!sectorData?.village) return errorResponse("Sector not found");
+      if (!canClearSectors(user.role)) return errorResponse("Not allowed for you");
+      if (villages?.find((v) => v.sector === input.sector)) {
+        return errorResponse("Cannot clear sector with village/town/hideout in it");
+      }
+
+      // Mutate
+      await Promise.all([
+        ctx.drizzle.delete(sector).where(eq(sector.sector, input.sector)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "war",
+          changes: [`Released sector ${input.sector} from ${sectorData.village.name}`],
+          relatedId: sectorData.villageId,
+          relatedMsg: `Released sector ${input.sector}`,
+          relatedImage: IMG_AVATAR_DEFAULT,
+        }),
+      ]);
+
+      // Return
+      return { success: true, message: "You have released the sector" };
+    }),
+  getUserActivityEvents: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canSeeActivityEvents(user.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to view activity events",
+        });
+      }
+      // Fetch activity events
+      const activityEvents = await ctx.drizzle.query.userActivityEvent.findMany({
+        where: eq(userActivityEvent.userId, input.userId),
+        orderBy: [desc(userActivityEvent.createdAt)],
+        limit: 100, // Limit to last 100 activity events
+      });
+      return activityEvents;
     }),
   // Update all occurances of a user ID in the database to another userId.
   // VERY dangerous - used to e.g. link up unlinked accounts with new userIds from clerk
@@ -370,6 +479,14 @@ export const staffRouter = createTRPCRouter({
           .update(historicalAvatar)
           .set({ userId: input.newUserId })
           .where(eq(historicalAvatar.userId, input.userId)),
+        ctx.drizzle
+          .update(historicalIp)
+          .set({ userId: input.newUserId })
+          .where(eq(historicalIp.userId, input.userId)),
+        ctx.drizzle
+          .update(userActivityEvent)
+          .set({ userId: input.newUserId })
+          .where(eq(userActivityEvent.userId, input.userId)),
         ctx.drizzle
           .update(jutsuLoadout)
           .set({ userId: input.newUserId })
@@ -579,6 +696,8 @@ export const deleteUser = async (client: DrizzleClient, userId: string) => {
     client.delete(forumPost).where(eq(forumPost.userId, userId)),
     client.delete(forumThread).where(eq(forumThread.userId, userId)),
     client.delete(historicalAvatar).where(eq(historicalAvatar.userId, userId)),
+    client.delete(historicalIp).where(eq(historicalIp.userId, userId)),
+    client.delete(userActivityEvent).where(eq(userActivityEvent.userId, userId)),
     client.delete(jutsuLoadout).where(eq(jutsuLoadout.userId, userId)),
     client.delete(notification).where(eq(notification.userId, userId)),
     client.delete(ryoTrade).where(eq(ryoTrade.creatorUserId, userId)),

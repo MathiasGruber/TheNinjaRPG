@@ -58,7 +58,7 @@ export type FactionColorEditSchema = z.infer<typeof factionColorEditSchema>;
  * @param clan - The clan object to check against.
  * @returns A boolean indicating whether the user is a clan leader.
  */
-export const checkCoLeader = (userId: string, clanData?: Clan) => {
+export const checkCoLeader = (userId: string, clanData?: Clan | null) => {
   return [clanData?.coLeader1, clanData?.coLeader2, clanData?.coLeader3].includes(
     userId,
   );

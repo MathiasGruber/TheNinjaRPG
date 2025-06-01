@@ -8,6 +8,7 @@ import { userData } from "@/drizzle/schema";
 import { eq, lte, sql } from "drizzle-orm";
 import { and } from "drizzle-orm";
 import type { CoreMessage } from "ai";
+import { OPENAI_CHAT_MODEL } from "@/drizzle/constants";
 
 export async function POST(req: Request) {
   // Auth guard
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
   // Call LLM
   const { messages } = (await req.json()) as { messages: CoreMessage[] };
   const result = streamText({
-    model: openai("gpt-4o-mini"),
+    model: openai(OPENAI_CHAT_MODEL),
     system: `
 As an AI assistant, your role is to promptly assist the clients of TheNinja-RPG, adopting the persona of Seichi AI.
 

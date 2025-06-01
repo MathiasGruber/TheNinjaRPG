@@ -270,46 +270,16 @@ export const reportsRouter = createTRPCRouter({
   // Get user report
   getBan: protectedProcedure.query(async ({ ctx }) => {
     // Selector statement
-    const [user, banReport, silenceReport] = await Promise.all([
+    const [user, allReports] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),
-      ctx.drizzle.query.userReport.findFirst({
+      ctx.drizzle.query.userReport.findMany({
         where: and(
-          eq(userReport.status, "BAN_ACTIVATED"),
+          inArray(userReport.status, [
+            "BAN_ACTIVATED",
+            "SILENCE_ACTIVATED",
+            "OFFICIAL_WARNING",
+          ]),
           eq(userReport.reportedUserId, ctx.userId),
-          gt(userReport.banEnd, new Date()),
-        ),
-        with: {
-          reporterUser: {
-            columns: {
-              userId: true,
-              username: true,
-              avatar: true,
-              rank: true,
-              isOutlaw: true,
-              level: true,
-              role: true,
-              federalStatus: true,
-            },
-          },
-          reportedUser: {
-            columns: {
-              userId: true,
-              username: true,
-              avatar: true,
-              rank: true,
-              isOutlaw: true,
-              level: true,
-              role: true,
-              federalStatus: true,
-            },
-          },
-        },
-      }),
-      ctx.drizzle.query.userReport.findFirst({
-        where: and(
-          eq(userReport.status, "SILENCE_ACTIVATED"),
-          eq(userReport.reportedUserId, ctx.userId),
-          gt(userReport.banEnd, new Date()),
         ),
         with: {
           reporterUser: {
@@ -340,6 +310,17 @@ export const reportsRouter = createTRPCRouter({
       }),
     ]);
 
+    const banReport = allReports?.find(
+      (r) => r.status === "BAN_ACTIVATED" && r.banEnd && r.banEnd < new Date(),
+    );
+    const silenceReport = allReports?.find(
+      (r) => r.status === "SILENCE_ACTIVATED" && r.banEnd && r.banEnd < new Date(),
+    );
+    const warningReport = user.isWarned
+      ? allReports?.find((r) => r.status === "OFFICIAL_WARNING")
+      : null;
+    console.log(warningReport);
+
     // If user can not see secret data, hide reporter
     if (!canSeeSecretData(user.role)) {
       if (banReport) {
@@ -347,6 +328,9 @@ export const reportsRouter = createTRPCRouter({
       }
       if (silenceReport) {
         silenceReport.reporterUser = null;
+      }
+      if (warningReport) {
+        warningReport.reporterUser = null;
       }
     }
 
@@ -365,8 +349,18 @@ export const reportsRouter = createTRPCRouter({
         .set({ isBanned: false })
         .where(eq(userData.userId, ctx.userId));
     }
-    return banReport ?? silenceReport ?? null;
+    return warningReport ?? banReport ?? silenceReport ?? null;
   }),
+  // Accept warning
+  acceptWarning: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      await ctx.drizzle
+        .update(userData)
+        .set({ isWarned: false })
+        .where(eq(userData.userId, ctx.userId));
+      return { success: true, message: "Warning accepted" };
+    }),
   // Get a single report
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -572,6 +566,7 @@ export const reportsRouter = createTRPCRouter({
       ]);
       // Guard
       const hasModRights = canModerateReports(user, report);
+      if (!report.reportedUserId) return errorResponse("No user to warn");
       if (!hasModRights) return errorResponse("No permission to warn");
       if (!canWarnUsers(user)) return errorResponse("You cannot warn users");
       // Update
@@ -585,6 +580,10 @@ export const reportsRouter = createTRPCRouter({
             banEnd: null,
           })
           .where(eq(userReport.id, input.object_id)),
+        ctx.drizzle
+          .update(userData)
+          .set({ isWarned: true })
+          .where(eq(userData.userId, report.reportedUserId ?? "")),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,

@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { errorResponse, baseServerResponse } from "@/server/api/trpc";
 import { registrationSchema } from "@/validators/register";
+import { historicalIp } from "@/drizzle/schema";
 import { secondsFromNow } from "@/utils/time";
 import { getMostCommonElement } from "@/utils/array";
 import { userData, village, userAttribute, emailReminder } from "@/drizzle/schema";
@@ -75,6 +76,14 @@ export const registerRouter = createTRPCRouter({
           immunityUntil: secondsFromNow(24 * 3600),
           ...(reminder ? { earnedExperience: 10000 } : {}),
         }),
+        ...(ctx.userIp
+          ? [
+              ctx.drizzle.insert(historicalIp).values({
+                userId: ctx.userId,
+                ip: ctx.userIp,
+              }),
+            ]
+          : []),
       ]);
       if (input.recruiter_userid) {
         await ctx.drizzle
