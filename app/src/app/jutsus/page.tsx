@@ -306,185 +306,184 @@ export default function MyJutsu() {
         emptyText="You have not learned any jutsu. Go to the training grounds in your village to learn some."
       />
       {isOpen && userData && userjutsu && (
-        <Dialog onOpenChange={setIsOpen} open={isOpen}>
-          <Modal2
-            title="Edit Jutsu"
-            setIsOpen={setIsOpen}
-            proceed_label={
-              !isToggling
-                ? userjutsu.equipped
-                  ? "Unequip"
-                  : canEquip
-                    ? "Equip"
-                    : "Unequip other first"
-                : undefined
+        <Modal2
+          title="Edit Jutsu"
+          isOpen={isOpen}
+          setIsOpen={setIsOpen}
+          proceed_label={
+            !isToggling
+              ? userjutsu.equipped
+                ? "Unequip"
+                : canEquip
+                  ? "Equip"
+                  : "Unequip other first"
+              : undefined
+          }
+          isValid={false}
+          onAccept={() => {
+            if (canEquip || userjutsu.equipped) {
+              equip({ userJutsuId: userjutsu.id });
+            } else {
+              setIsOpen(false);
             }
-            isValid={false}
-            onAccept={() => {
-              if (canEquip || userjutsu.equipped) {
-                equip({ userJutsuId: userjutsu.id });
-              } else {
-                setIsOpen(false);
-              }
-            }}
-            confirmClassName={
-              canEquip
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-red-600 text-white hover:bg-red-700"
-            }
-          >
-            <div>
-              <p>- You have {userData.money} ryo in your pocket</p>
-              <p>- Need {JUTSU_XP_TO_LEVEL - userjutsu.experience} XP more to level</p>
-            </div>
-            {!isPending && (
-              <>
-                <ItemWithEffects
-                  item={userjutsu}
-                  key={userjutsu.id}
-                  showStatistic="jutsu"
-                />
-                <div className="flex flex-row gap-3 items-center">
-                  {userData.loadout?.jutsuIds.includes(userjutsu.jutsuId) && (
-                    <>
-                      <SquareChevronLeft
-                        className="h-8 w-8 hover:text-orange-300 hover:cursor-pointer"
-                        onClick={() =>
-                          updateOrder({
-                            jutsuId: userjutsu.jutsuId,
-                            loadoutId: userData?.jutsuLoadout ?? "",
-                            moveForward: false,
-                          })
-                        }
-                      />
-                      <p>Order</p>
-                      <SquareChevronRight
-                        className="h-8 w-8 hover:text-orange-300 hover:cursor-pointer"
-                        onClick={() =>
-                          updateOrder({
-                            jutsuId: userjutsu.jutsuId,
-                            loadoutId: userData?.jutsuLoadout ?? "",
-                            moveForward: true,
-                          })
-                        }
-                      />
-                    </>
-                  )}
+          }}
+          confirmClassName={
+            canEquip
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-red-600 text-white hover:bg-red-700"
+          }
+        >
+          <div>
+            <p>- You have {userData.money} ryo in your pocket</p>
+            <p>- Need {JUTSU_XP_TO_LEVEL - userjutsu.experience} XP more to level</p>
+          </div>
+          {!isPending && (
+            <>
+              <ItemWithEffects
+                item={userjutsu}
+                key={userjutsu.id}
+                showStatistic="jutsu"
+              />
+              <div className="flex flex-row gap-3 items-center">
+                {userData.loadout?.jutsuIds.includes(userjutsu.jutsuId) && (
+                  <>
+                    <SquareChevronLeft
+                      className="h-8 w-8 hover:text-orange-300 hover:cursor-pointer"
+                      onClick={() =>
+                        updateOrder({
+                          jutsuId: userjutsu.jutsuId,
+                          loadoutId: userData?.jutsuLoadout ?? "",
+                          moveForward: false,
+                        })
+                      }
+                    />
+                    <p>Order</p>
+                    <SquareChevronRight
+                      className="h-8 w-8 hover:text-orange-300 hover:cursor-pointer"
+                      onClick={() =>
+                        updateOrder({
+                          jutsuId: userjutsu.jutsuId,
+                          loadoutId: userData?.jutsuLoadout ?? "",
+                          moveForward: true,
+                        })
+                      }
+                    />
+                  </>
+                )}
 
-                  <div className="grow"></div>
-                  {userjutsu.level >= JUTSU_TRANSFER_MINIMUM_LEVEL &&
-                    userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
-                      <Confirm2
-                        title="Transfer Level"
-                        button={
-                          <Button id="transfer" variant="secondary">
-                            <ArrowRightLeft className="h-6 w-6 mr-2" />
-                            Transfer Level
-                          </Button>
+                <div className="grow"></div>
+                {userjutsu.level >= JUTSU_TRANSFER_MINIMUM_LEVEL &&
+                  userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
+                    <Confirm2
+                      title="Transfer Level"
+                      button={
+                        <Button id="transfer" variant="secondary">
+                          <ArrowRightLeft className="h-6 w-6 mr-2" />
+                          Transfer Level
+                        </Button>
+                      }
+                      proceed_label={transferTarget ? "Confirm Transfer" : null}
+                      onClose={() => {
+                        setTransferTarget(undefined);
+                        setTransferValue(1);
+                      }}
+                      isValid={false}
+                      onAccept={(e) => {
+                        e.preventDefault();
+                        if (transferTarget) {
+                          transferLevel({
+                            fromJutsuId: userjutsu.jutsuId,
+                            toJutsuId: transferTarget.jutsuId,
+                            transferLevels: transferValue,
+                          });
                         }
-                        proceed_label={transferTarget ? "Confirm Transfer" : null}
-                        onClose={() => {
-                          setTransferTarget(undefined);
-                          setTransferValue(1);
-                        }}
-                        isValid={false}
-                        onAccept={(e) => {
-                          e.preventDefault();
-                          if (transferTarget) {
-                            transferLevel({
-                              fromJutsuId: userjutsu.jutsuId,
-                              toJutsuId: transferTarget.jutsuId,
-                              transferLevels: transferValue,
-                            });
-                          }
-                        }}
-                      >
-                        {transferTarget ? (
-                          <>
-                            <p>
-                              Transfer{" "}
-                              <input
-                                type="number"
-                                min={1}
-                                max={Math.min(
-                                  userjutsu.level - 1,
-                                  JUTSU_TRANSFER_MAX_LEVEL - transferTarget.level,
-                                )}
-                                value={transferValue}
-                                onChange={(e) =>
-                                  setTransferValue(parseInt(e.target.value) || 1)
-                                }
-                                style={{
-                                  width: "50px",
-                                  margin: "0 5px",
-                                  backgroundColor: "white",
-                                  color: "black",
-                                  border: "1px solid #ccc",
-                                  padding: "2px 4px",
-                                }}
-                              />{" "}
-                              level(s) from {userjutsu.name} to {transferTarget.name}?
-                            </p>
-                            <p>
-                              This will subtract {transferValue} level
-                              {transferValue > 1 ? "s" : ""} from {userjutsu.name} (new
-                              level: {userjutsu.level - transferValue}) and add{" "}
-                              {transferValue} level{transferValue > 1 ? "s" : ""} to{" "}
-                              {transferTarget.name} (new level:{" "}
-                              {transferTarget.level + transferValue}).
-                            </p>
-                            <p>
-                              Cost:{" "}
-                              {usedTransfers < freeTransfers
-                                ? `Free (${Math.max(0, freeTransfers - usedTransfers)} remaining)`
-                                : `${transferCost} reputation points`}
-                            </p>
-                          </>
-                        ) : (
-                          <div className="flex flex-col gap-2">
-                            <p>Select a jutsu to transfer the level to.</p>
-                            <ActionSelector
-                              items={allJutsu?.filter(
-                                (jutsu) =>
-                                  jutsu.jutsuType === userjutsu.jutsuType &&
-                                  jutsu.jutsuRank === userjutsu.jutsuRank &&
-                                  jutsu.id !== userjutsu.id,
+                      }}
+                    >
+                      {transferTarget ? (
+                        <>
+                          <p>
+                            Transfer{" "}
+                            <input
+                              type="number"
+                              min={1}
+                              max={Math.min(
+                                userjutsu.level - 1,
+                                JUTSU_TRANSFER_MAX_LEVEL - transferTarget.level,
                               )}
-                              counts={userJutsuCounts}
-                              labelSingles={true}
-                              showBgColor={false}
-                              showLabels={true}
-                              onClick={(id) => {
-                                setTransferTarget(
-                                  allJutsu?.find((jutsu) => jutsu.id === id),
-                                );
+                              value={transferValue}
+                              onChange={(e) =>
+                                setTransferValue(parseInt(e.target.value) || 1)
+                              }
+                              style={{
+                                width: "50px",
+                                margin: "0 5px",
+                                backgroundColor: "white",
+                                color: "black",
+                                border: "1px solid #ccc",
+                                padding: "2px 4px",
                               }}
-                            />
-                          </div>
-                        )}
-                      </Confirm2>
-                    )}
-                  <Confirm2
-                    title="Forget Jutsu"
-                    button={
-                      <Button id="return" variant="destructive">
-                        <Trash2 className="h-6 w-6 mr-2" />
-                        Forget [${forgetRyo} ryo]
-                      </Button>
-                    }
-                    onAccept={(e) => {
-                      e.preventDefault();
-                      forget({ id: userjutsu.id });
-                    }}
-                  >
-                    <p>Confirm to forget this jutsu and get back {forgetRyo} ryo.</p>
-                  </Confirm2>
-                </div>
-              </>
-            )}
-            {isPending && <Loader explanation={`Processing ${userjutsu.name}`} />}
-          </Modal2>
-        </Dialog>
+                            />{" "}
+                            level(s) from {userjutsu.name} to {transferTarget.name}?
+                          </p>
+                          <p>
+                            This will subtract {transferValue} level
+                            {transferValue > 1 ? "s" : ""} from {userjutsu.name} (new
+                            level: {userjutsu.level - transferValue}) and add{" "}
+                            {transferValue} level{transferValue > 1 ? "s" : ""} to{" "}
+                            {transferTarget.name} (new level:{" "}
+                            {transferTarget.level + transferValue}).
+                          </p>
+                          <p>
+                            Cost:{" "}
+                            {usedTransfers < freeTransfers
+                              ? `Free (${Math.max(0, freeTransfers - usedTransfers)} remaining)`
+                              : `${transferCost} reputation points`}
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <p>Select a jutsu to transfer the level to.</p>
+                          <ActionSelector
+                            items={allJutsu?.filter(
+                              (jutsu) =>
+                                jutsu.jutsuType === userjutsu.jutsuType &&
+                                jutsu.jutsuRank === userjutsu.jutsuRank &&
+                                jutsu.id !== userjutsu.id,
+                            )}
+                            counts={userJutsuCounts}
+                            labelSingles={true}
+                            showBgColor={false}
+                            showLabels={true}
+                            onClick={(id) => {
+                              setTransferTarget(
+                                allJutsu?.find((jutsu) => jutsu.id === id),
+                              );
+                            }}
+                          />
+                        </div>
+                      )}
+                    </Confirm2>
+                  )}
+                <Confirm2
+                  title="Forget Jutsu"
+                  button={
+                    <Button id="return" variant="destructive">
+                      <Trash2 className="h-6 w-6 mr-2" />
+                      Forget [${forgetRyo} ryo]
+                    </Button>
+                  }
+                  onAccept={(e) => {
+                    e.preventDefault();
+                    forget({ id: userjutsu.id });
+                  }}
+                >
+                  <p>Confirm to forget this jutsu and get back {forgetRyo} ryo.</p>
+                </Confirm2>
+              </div>
+            </>
+          )}
+          {isPending && <Loader explanation={`Processing ${userjutsu.name}`} />}
+        </Modal2>
       )}
       {isPending && <Loader explanation="Loading Jutsu" />}
     </ContentBox>

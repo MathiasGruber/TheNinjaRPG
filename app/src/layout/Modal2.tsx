@@ -5,6 +5,7 @@
 import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -19,6 +20,7 @@ interface Modal2Props {
   proceed_label?: string | null;
   confirmClassName?: string;
   isValid?: boolean;
+  isOpen: boolean;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onAccept?: (
     e:
@@ -53,45 +55,47 @@ const Modal2: React.FC<Modal2Props> = (props) => {
   };
 
   return (
-    <DialogContent
-      className={cn(props.className || "", "overflow-y-scroll max-h-screen")}
-      onEscapeKeyDown={handleDialogClose}
-      onInteractOutside={handleDialogClose}
-    >
-      <DialogHeader>
-        <DialogTitle>{props.title}</DialogTitle>
-      </DialogHeader>
+    <Dialog open={props.isOpen} onOpenChange={props.setIsOpen}>
+      <DialogContent
+        className={cn(props.className || "", "overflow-y-scroll max-h-screen")}
+        onEscapeKeyDown={handleDialogClose}
+        onInteractOutside={handleDialogClose}
+      >
+        <DialogHeader>
+          <DialogTitle>{props.title}</DialogTitle>
+        </DialogHeader>
 
-      <div className="space-y-2 py-4">{props.children}</div>
+        <div className="space-y-2 py-4">{props.children}</div>
 
-      <DialogFooter>
-        {props.proceed_label && (
+        <DialogFooter>
+          {props.proceed_label && (
+            <Button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (props.onAccept) props.onAccept(e);
+                if (props.isValid === undefined || props.isValid) {
+                  props.setIsOpen(false);
+                }
+              }}
+              className={`rounded-lg z-30 ${confirmBtnClassName}`}
+            >
+              {props.proceed_label}
+            </Button>
+          )}
           <Button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              if (props.onAccept) props.onAccept(e);
-              if (props.isValid === undefined || props.isValid) {
-                props.setIsOpen(false);
-              }
+              handleDialogClose();
             }}
-            className={`rounded-lg z-30 ${confirmBtnClassName}`}
+            className="z-30 rounded-lg border border-gray-500 bg-gray-700 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white"
           >
-            {props.proceed_label}
+            Close
           </Button>
-        )}
-        <Button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleDialogClose();
-          }}
-          className="z-30 rounded-lg border border-gray-500 bg-gray-700 text-sm font-medium text-gray-300 hover:bg-gray-600 hover:text-white"
-        >
-          Close
-        </Button>
-      </DialogFooter>
-    </DialogContent>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

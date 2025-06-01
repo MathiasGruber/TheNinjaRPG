@@ -9,7 +9,6 @@ import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal2 from "@/layout/Modal2";
 import Confirm2 from "@/layout/Confirm2";
-import { Dialog } from "@/components/ui/dialog";
 import ContentImage from "@/layout/ContentImage";
 import { nonCombatConsume } from "@/libs/item";
 import { Button } from "@/components/ui/button";
@@ -265,74 +264,75 @@ const Backpack: React.FC<BackpackProps> = (props) => {
         }}
       />
       {isOpen && useritem && (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <Modal2 title="Item Details" setIsOpen={setIsOpen} isValid={false}>
-            <ItemWithEffects
-              item={useritem.item}
-              key={useritem.id}
-              showStatistic="item"
-            />
-            {!isLoading && (
-              <div className="flex flex-row gap-1">
-                {useritem.equipped === "NONE" && (
-                  <Button
-                    variant="info"
-                    onClick={() => equip({ userItemId: useritem.id })}
-                  >
-                    <Shirt className="mr-2 h-5 w-5" />
-                    Equip
-                  </Button>
-                )}
-                {useritem.item.canStack && (
-                  <Button
-                    variant="info"
-                    onClick={() => merge({ itemId: useritem.itemId })}
-                  >
-                    <Merge className="mr-2 h-5 w-5" />
-                    Merge Stacks
-                  </Button>
-                )}
-                {nonCombatConsume(useritem.item, userData) && (
-                  <Button
-                    variant="info"
-                    onClick={() => consume({ userItemId: useritem.id })}
-                  >
-                    <Cookie className="mr-2 h-5 w-5" />
-                    Consume
-                  </Button>
-                )}
-                <div className="grow"></div>
-                <Confirm2
-                  title="Security Confirmation"
-                  proceed_label="Submit"
-                  button={
-                    useritem.item.isEventItem ? (
-                      <Button id="sell" variant="destructive">
-                        <ArrowDownToLine className="mr-2 h-5 w-5" />
-                        Drop Item
-                      </Button>
-                    ) : (
-                      <Button id="sell" variant="destructive">
-                        <CircleDollarSign className="mr-2 h-5 w-5" />
-                        Sell Item [{Math.floor(sellPrice)} ryo]
-                      </Button>
-                    )
-                  }
-                  onAccept={() => sell({ userItemId: useritem.id })}
+        <Modal2
+          title="Item Details"
+          isOpen={isOpen}
+          setIsOpen={setIsOpen}
+          isValid={false}
+        >
+          <ItemWithEffects
+            item={useritem.item}
+            key={useritem.id}
+            showStatistic="item"
+          />
+          {!isLoading && (
+            <div className="flex flex-row gap-1">
+              {useritem.equipped === "NONE" && (
+                <Button
+                  variant="info"
+                  onClick={() => equip({ userItemId: useritem.id })}
                 >
-                  Are you absolutely sure you wish to remove this item from your
-                  inventory?
-                </Confirm2>
-              </div>
-            )}
-            {isMerging && (
-              <Loader explanation={`Merging ${useritem.item.name} stacks`} />
-            )}
-            {isConsuming && <Loader explanation={`Using ${useritem.item.name}`} />}
-            {isSelling && <Loader explanation={`Selling ${useritem.item.name}`} />}
-            {isEquipping && <Loader explanation={`Equipping ${useritem.item.name}`} />}
-          </Modal2>
-        </Dialog>
+                  <Shirt className="mr-2 h-5 w-5" />
+                  Equip
+                </Button>
+              )}
+              {useritem.item.canStack && (
+                <Button
+                  variant="info"
+                  onClick={() => merge({ itemId: useritem.itemId })}
+                >
+                  <Merge className="mr-2 h-5 w-5" />
+                  Merge Stacks
+                </Button>
+              )}
+              {nonCombatConsume(useritem.item, userData) && (
+                <Button
+                  variant="info"
+                  onClick={() => consume({ userItemId: useritem.id })}
+                >
+                  <Cookie className="mr-2 h-5 w-5" />
+                  Consume
+                </Button>
+              )}
+              <div className="grow"></div>
+              <Confirm2
+                title="Security Confirmation"
+                proceed_label="Submit"
+                button={
+                  useritem.item.isEventItem ? (
+                    <Button id="sell" variant="destructive">
+                      <ArrowDownToLine className="mr-2 h-5 w-5" />
+                      Drop Item
+                    </Button>
+                  ) : (
+                    <Button id="sell" variant="destructive">
+                      <CircleDollarSign className="mr-2 h-5 w-5" />
+                      Sell Item [{Math.floor(sellPrice)} ryo]
+                    </Button>
+                  )
+                }
+                onAccept={() => sell({ userItemId: useritem.id })}
+              >
+                Are you absolutely sure you wish to remove this item from your
+                inventory?
+              </Confirm2>
+            </div>
+          )}
+          {isMerging && <Loader explanation={`Merging ${useritem.item.name} stacks`} />}
+          {isConsuming && <Loader explanation={`Using ${useritem.item.name}`} />}
+          {isSelling && <Loader explanation={`Selling ${useritem.item.name}`} />}
+          {isEquipping && <Loader explanation={`Equipping ${useritem.item.name}`} />}
+        </Modal2>
       )}
     </>
   );
@@ -418,37 +418,36 @@ const Character: React.FC<CharacterProps> = (props) => {
         <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t1} items={items} />
         <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={l + t1} items={items} />
         {isOpen && slot && (
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <Modal2
-              title="Select Item to Equip"
-              setIsOpen={setIsOpen}
-              isValid={false}
-              proceed_label={equipped ? "Unequip" : undefined}
-              onAccept={() => {
-                if (equipped) {
-                  setItem(equipped);
-                  equip({ userItemId: equipped.id, slot: slot });
-                }
-              }}
-            >
-              {!isEquipping && (
-                <ActionSelector
-                  items={items?.filter((item) => slot?.includes(item.slot))}
-                  counts={items}
-                  showBgColor={false}
-                  showLabels={false}
-                  greyedIds={items
-                    ?.filter((item) => item.equipped !== "NONE")
-                    .map((item) => item.id)}
-                  onClick={(id) => {
-                    setItem(items?.find((item) => item.id === id));
-                    equip({ userItemId: id, slot: slot });
-                  }}
-                />
-              )}
-              {isEquipping && item && <Loader explanation={`Swapping ${item.name}`} />}
-            </Modal2>
-          </Dialog>
+          <Modal2
+            title="Select Item to Equip"
+            isOpen={isOpen}
+            setIsOpen={setIsOpen}
+            isValid={false}
+            proceed_label={equipped ? "Unequip" : undefined}
+            onAccept={() => {
+              if (equipped) {
+                setItem(equipped);
+                equip({ userItemId: equipped.id, slot: slot });
+              }
+            }}
+          >
+            {!isEquipping && (
+              <ActionSelector
+                items={items?.filter((item) => slot?.includes(item.slot))}
+                counts={items}
+                showBgColor={false}
+                showLabels={false}
+                greyedIds={items
+                  ?.filter((item) => item.equipped !== "NONE")
+                  .map((item) => item.id)}
+                onClick={(id) => {
+                  setItem(items?.find((item) => item.id === id));
+                  equip({ userItemId: id, slot: slot });
+                }}
+              />
+            )}
+            {isEquipping && item && <Loader explanation={`Swapping ${item.name}`} />}
+          </Modal2>
         )}
       </div>
     </div>

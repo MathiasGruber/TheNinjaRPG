@@ -8,9 +8,9 @@ import dynamic from "next/dynamic";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import Countdown from "@/layout/Countdown";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import LoadoutSelector from "@/layout/LoadoutSelector";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -255,7 +255,7 @@ export default function Travel() {
   const joinVillageBtn = userData.isOutlaw && canJoin && sectorVillage?.joinable;
   const subtitle =
     currentSector && userData && activeTab === sectorLink
-      ? `Sector ${currentSector} ${sectorData?.sectorData ? `(${sectorData.sectorData.village.name})` : ""}`
+      ? `Sector ${currentSector} ${sectorData?.sectorData?.village ? `(${sectorData.sectorData.village.name})` : ""}`
       : "The world of Seichi";
 
   return (
@@ -328,7 +328,7 @@ export default function Travel() {
               </>
             )}
             {joinVillageBtn && (
-              <Confirm
+              <Confirm2
                 title={`Join Village [${sectorVillage.name}]`}
                 proceed_label="Submit"
                 button={<GitMerge className={`h-7 w-7 mx-1 hover:text-orange-500`} />}
@@ -337,10 +337,10 @@ export default function Travel() {
                 Do you confirm that you wish to join {sectorVillage.name}? Please be
                 aware that if you join this village your training benefits & regen will
                 be reduced for {VILLAGE_REDUCED_GAINS_DAYS} days.
-              </Confirm>
+              </Confirm2>
             )}
             {canCreateHideout && (
-              <Confirm
+              <Confirm2
                 title="Purchase Hideout"
                 proceed_label={canAffordHideout ? "Submit" : "Not enough ryo"}
                 button={<HousePlus className={`h-7 w-7 mx-1 hover:text-orange-500`} />}
@@ -358,7 +358,7 @@ export default function Travel() {
                 syndicate of outlaws. The purchase costs <b>{HIDEOUT_COST} ryo</b>, and
                 the faction currently has <b>{userData?.clan?.bank} ryo</b>. Do you want
                 to create your faction hideout in this sector?
-              </Confirm>
+              </Confirm2>
             )}
 
             <NavTabs
@@ -386,8 +386,9 @@ export default function Travel() {
         {showSector && SectorComponent}
         {!villages && <Loader explanation="Loading data" />}
         {showModal && globe && userData && targetSector && (
-          <Modal
+          <Modal2
             title="World Travel"
+            isOpen={showModal}
             setIsOpen={setShowModal}
             proceed_label={!isStartingTravel ? "Travel" : undefined}
             isValid={false}
@@ -419,7 +420,7 @@ export default function Travel() {
                 Do you confirm?
               </div>
             )}
-          </Modal>
+          </Modal2>
         )}
         {userData?.travelFinishAt && (
           <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
