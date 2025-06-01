@@ -71,7 +71,6 @@ import { canSwapVillage, canEditPublicUser } from "@/utils/permissions";
 import { canClearSectors } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
-import { canEditPublicUser } from "@/utils/permissions";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
