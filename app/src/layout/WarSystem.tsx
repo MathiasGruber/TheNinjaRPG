@@ -253,10 +253,12 @@ export const WarMap: React.FC<{
 
   // Query data
   const { data: userData } = useRequiredUserData();
+  const { data: allSectors } = api.travel.getAllSectors.useQuery();
   const utils = api.useUtils();
 
   // Derived
   const canWar = ["VILLAGE", "TOWN", "HIDEOUT"].includes(userData?.village?.type ?? "");
+  const userOwnedSectors = allSectors?.find((s) => s.villageId === user.villageId);
   const canDeclareWar = isKage && canWar;
   const sectorVillage = villages?.find(
     (v) =>
@@ -265,6 +267,7 @@ export const WarMap: React.FC<{
         ["HIDEOUT", "TOWN"].includes(v.type)),
   );
   const sectorClaimed = villages?.find((v) => v.sector === targetSector);
+  const ownsTargetSector = userOwnedSectors?.sectors?.includes(targetSector ?? 0);
   const relationship = findRelationship(
     relationships ?? [],
     user.villageId ?? "",
@@ -283,6 +286,19 @@ export const WarMap: React.FC<{
   );
 
   // Mutations
+  const { mutate: releaseSector, isPending: isReleasingSector } =
+    api.village.releaseSector.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.village.getSectorOwnerships.invalidate(),
+            utils.travel.getAllSectors.invalidate(),
+          ]);
+        }
+      },
+    });
+
   const { mutate: declareSectorWar, isPending: isDeclaringSectorWar } =
     api.war.declareSectorWar.useMutation({
       onSuccess: async (data) => {
@@ -340,7 +356,8 @@ export const WarMap: React.FC<{
     isDeclaringSectorWar ||
     isDeclaringVillageWar ||
     isDeclaringEnemy ||
-    isLeavingAlliance;
+    isLeavingAlliance ||
+    isReleasingSector;
 
   // What to show in the modal
   let modalTitle = "Declare War";
@@ -356,6 +373,9 @@ export const WarMap: React.FC<{
       proceedLabel = "Declare Enemy";
       modalTitle = "Declare Enemy";
     }
+  } else if (ownsTargetSector) {
+    proceedLabel = "Release Sector";
+    modalTitle = "Your Sector";
   } else if (sectorClaimed) {
     proceedLabel = undefined;
     modalTitle = "Sector Occupied";
@@ -376,7 +396,6 @@ export const WarMap: React.FC<{
           userLocation={true}
           showOwnership={true}
           onTileClick={(sector) => {
-            console.log(canDeclareWar, userData?.village?.type);
             if (!canDeclareWar) {
               showMutationToast({ success: false, message: "You are not the leader" });
             } else {
@@ -407,10 +426,14 @@ export const WarMap: React.FC<{
                 });
               }
             } else {
-              declareSectorWar({
-                sectorId: targetSector,
-                userVillageId: user.villageId,
-              });
+              if (ownsTargetSector) {
+                releaseSector({ sector: targetSector });
+              } else {
+                declareSectorWar({
+                  sectorId: targetSector,
+                  userVillageId: user.villageId,
+                });
+              }
             }
           }}
         >
@@ -455,25 +478,39 @@ export const WarMap: React.FC<{
           {!isLoading && !sectorVillage && !sectorClaimed && isReserved && (
             <div>This sector is reserved and cannot be claimed.</div>
           )}
-          {!isLoading && !sectorVillage && !sectorClaimed && !isReserved && (
-            <div>
-              <p>You are about to declare war on sector {targetSector}.</p>
-              <p className="py-2">
-                This will initiate a war between your village and any village in sector{" "}
-                {targetSector}.
-              </p>
-              <p className="py-2">
-                The cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()}{" "}
-                Village Tokens, and each day at war reduces your tokens by{" "}
-                {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
-                {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}%
-                after 3 days and{" "}
-                {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
-                after 7 days).
-              </p>
-              <p>Do you confirm?</p>
-            </div>
-          )}
+          {!isLoading &&
+            !sectorVillage &&
+            !sectorClaimed &&
+            !isReserved &&
+            !ownsTargetSector && (
+              <div>
+                <p>You are about to declare war on sector {targetSector}.</p>
+                <p className="py-2">
+                  This will initiate a war between your village and any village in
+                  sector {targetSector}.
+                </p>
+                <p className="py-2">
+                  The cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()}{" "}
+                  Village Tokens, and each day at war reduces your tokens by{" "}
+                  {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
+                  {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}%
+                  after 3 days and{" "}
+                  {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
+                  after 7 days).
+                </p>
+                <p>Do you confirm?</p>
+              </div>
+            )}
+          {!isLoading &&
+            !sectorVillage &&
+            !sectorClaimed &&
+            !isReserved &&
+            ownsTargetSector && (
+              <div>
+                <p>You already own sector {targetSector}.</p>
+                <p>Do you you wish to abandon this sector?</p>
+              </div>
+            )}
           {!isLoading && sectorVillage && !user.isOutlaw && (
             <div className="border p-4 rounded-lg text-center relative">
               <p className="font-bold">{sectorVillage.name}</p>

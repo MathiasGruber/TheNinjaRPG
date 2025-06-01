@@ -551,6 +551,31 @@ export const villageRouter = createTRPCRouter({
       // Return
       return { success: true, message: "You have left the alliance" };
     }),
+  releaseSector: protectedProcedure
+    .input(z.object({ sector: z.number().int() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const [sectorData, { user }] = await Promise.all([
+        fetchSector(ctx.drizzle, input.sector),
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+      ]);
+      // Derived
+      const villageId = user?.villageId;
+
+      // Guards
+      if (!user) return errorResponse("Could not find user");
+      if (!isKage(user)) return errorResponse("You are not in charge");
+      if (!villageId) return errorResponse("Not in this village");
+      if (!sectorData) return errorResponse("Sector not found");
+      if (sectorData.villageId !== villageId) return errorResponse("Not your sector");
+
+      // Mutate
+      await ctx.drizzle.delete(sector).where(eq(sector.sector, input.sector));
+
+      // Return
+      return { success: true, message: "You have released the sector" };
+    }),
   declareEnemy: protectedProcedure
     .input(z.object({ villageId: z.string() }))
     .output(baseServerResponse)
