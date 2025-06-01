@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Merge, CircleDollarSign, Cookie, ArrowDownToLine } from "lucide-react";
+import { Merge, CircleDollarSign, Cookie, ArrowDownToLine, Zap } from "lucide-react";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import NavTabs from "@/layout/NavTabs";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import Modal from "@/layout/Modal";
-import Confirm from "@/layout/Confirm";
+import Modal2 from "@/layout/Modal2";
+import Confirm2 from "@/layout/Confirm2";
+import { Dialog } from "@/components/ui/dialog";
 import ContentImage from "@/layout/ContentImage";
 import { nonCombatConsume } from "@/libs/item";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,16 @@ export default function MyItems() {
     },
   });
 
+  const { mutate: autoEquipOptimal, isPending: isAutoEquipping } =
+    api.item.autoEquipOptimal.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.item.getUserItems.invalidate();
+        }
+      },
+    });
+
   // Subtitle
   const availableItems = userItems?.filter((ui) => !ui.storedAtHome);
   const normalItems = availableItems?.filter((ui) => !ui.item.isEventItem);
@@ -68,71 +79,94 @@ export default function MyItems() {
     userData.reputationPoints && userData.reputationPoints >= COST_EXTRA_ITEM_SLOT;
 
   return (
-    <ContentBox
-      title="Item Management"
-      subtitle={
-        activeTab === "normal"
-          ? `Normal Inventory ${normalItems?.length}/${maxNormalItems}`
-          : `Event Inventory ${eventItems?.length}/${maxEventItems}`
-      }
-      padding={false}
-      topRightContent={
-        <div className="flex flex-row gap-2">
-          <NavTabs
-            id="backpackSelection"
-            current={activeTab}
-            options={availableTabs}
-            setValue={setActiveTab}
-          />
-          <Confirm
-            title="Extra Item Slot"
-            proceed_label={
-              canAfford
-                ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
-                : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
-            }
-            isValid={!isPending}
-            button={
-              <Button animation="pulse">
-                <CircleFadingArrowUp className="h-6 w-6" />
-              </Button>
-            }
-            onAccept={(e) => {
-              e.preventDefault();
-              if (canAfford) buyItemSlot();
-            }}
-          >
-            <p>
-              You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
-              reputation points. You currently have {userData.reputationPoints} points.
-              Are you sure?
-            </p>
-          </Confirm>
-        </div>
-      }
-    >
-      <div className="flex flex-col">
-        <div className="flex flex-col sm:flex-row">
-          <div className="w-full basis-1/2 p-3">
-            <h2 className="text-2xl font-bold text-foreground">Equipped</h2>
-            <div className="relative">
-              <Character useritems={userItems} />
+    <>
+      <ContentBox
+        title="Item Management"
+        subtitle={
+          activeTab === "normal"
+            ? `Normal Inventory ${normalItems?.length}/${maxNormalItems}`
+            : `Event Inventory ${eventItems?.length}/${maxEventItems}`
+        }
+        padding={false}
+        topRightContent={
+          <div className="flex flex-row gap-2">
+            <NavTabs
+              id="backpackSelection"
+              current={activeTab}
+              options={availableTabs}
+              setValue={setActiveTab}
+            />
+            <Confirm2
+              title="Extra Item Slot"
+              proceed_label={
+                canAfford
+                  ? `Purchase for ${COST_EXTRA_ITEM_SLOT} reps`
+                  : `Need ${userData.reputationPoints - COST_EXTRA_ITEM_SLOT} more reps`
+              }
+              isValid={!isPending}
+              button={
+                <Button animation="pulse">
+                  <CircleFadingArrowUp className="h-6 w-6" />
+                </Button>
+              }
+              onAccept={(e) => {
+                e.preventDefault();
+                if (canAfford) buyItemSlot();
+              }}
+            >
+              <p>
+                You are about to purchase an extra item slot for {COST_EXTRA_ITEM_SLOT}{" "}
+                reputation points. You currently have {userData.reputationPoints}{" "}
+                points. Are you sure?
+              </p>
+            </Confirm2>
+          </div>
+        }
+      >
+        <div className="flex flex-col">
+          <div className="flex flex-col sm:flex-row">
+            <div className="w-full basis-1/2 p-3">
+              <h2 className="text-2xl font-bold text-foreground">Equipped</h2>
+              <div className="relative">
+                <Character useritems={userItems} />
+              </div>
+            </div>
+            <div className="basis-1/2 p-3 bg-poppopover overflow-y-scroll max-h-full sm:max-h-[600px] border-t-2 sm:border-t-0 border-dashed sm:border-l-2">
+              <h2 className="text-2xl font-bold text-foreground">Backpack</h2>
+              <Backpack
+                userData={userData}
+                useritems={
+                  activeTab === "normal"
+                    ? normalItems?.filter((ui) => ui.equipped === "NONE")
+                    : eventItems?.filter((ui) => ui.equipped === "NONE")
+                }
+              />
             </div>
           </div>
-          <div className="basis-1/2 p-3 bg-poppopover overflow-y-scroll max-h-full sm:max-h-[600px] border-t-2 sm:border-t-0 border-dashed sm:border-l-2">
-            <h2 className="text-2xl font-bold text-foreground">Backpack</h2>
-            <Backpack
-              userData={userData}
-              useritems={
-                activeTab === "normal"
-                  ? normalItems?.filter((ui) => ui.equipped === "NONE")
-                  : eventItems?.filter((ui) => ui.equipped === "NONE")
-              }
-            />
-          </div>
         </div>
+      </ContentBox>
+      <div className="mt-1 w-full flex justify-end">
+        <Confirm2
+          title="Auto Equip"
+          isValid={!isPending}
+          button={
+            <Button disabled={isAutoEquipping} variant="default">
+              <Zap className="mr-2 h-4 w-4" />
+              {isAutoEquipping ? "Auto Equipping..." : "Auto Equip"}
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            autoEquipOptimal();
+          }}
+        >
+          <p>
+            You are about to auto-equip your items. This will equip unequipped items in
+            the best possible way. Are you sure?
+          </p>
+        </Confirm2>
       </div>
-    </ContentBox>
+    </>
   );
 }
 
@@ -231,70 +265,74 @@ const Backpack: React.FC<BackpackProps> = (props) => {
         }}
       />
       {isOpen && useritem && (
-        <Modal title="Item Details" setIsOpen={setIsOpen} isValid={false}>
-          <ItemWithEffects
-            item={useritem.item}
-            key={useritem.id}
-            showStatistic="item"
-          />
-          {!isLoading && (
-            <div className="flex flex-row gap-1">
-              {useritem.equipped === "NONE" && (
-                <Button
-                  variant="info"
-                  onClick={() => equip({ userItemId: useritem.id })}
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Modal2 title="Item Details" setIsOpen={setIsOpen} isValid={false}>
+            <ItemWithEffects
+              item={useritem.item}
+              key={useritem.id}
+              showStatistic="item"
+            />
+            {!isLoading && (
+              <div className="flex flex-row gap-1">
+                {useritem.equipped === "NONE" && (
+                  <Button
+                    variant="info"
+                    onClick={() => equip({ userItemId: useritem.id })}
+                  >
+                    <Shirt className="mr-2 h-5 w-5" />
+                    Equip
+                  </Button>
+                )}
+                {useritem.item.canStack && (
+                  <Button
+                    variant="info"
+                    onClick={() => merge({ itemId: useritem.itemId })}
+                  >
+                    <Merge className="mr-2 h-5 w-5" />
+                    Merge Stacks
+                  </Button>
+                )}
+                {nonCombatConsume(useritem.item, userData) && (
+                  <Button
+                    variant="info"
+                    onClick={() => consume({ userItemId: useritem.id })}
+                  >
+                    <Cookie className="mr-2 h-5 w-5" />
+                    Consume
+                  </Button>
+                )}
+                <div className="grow"></div>
+                <Confirm2
+                  title="Security Confirmation"
+                  proceed_label="Submit"
+                  button={
+                    useritem.item.isEventItem ? (
+                      <Button id="sell" variant="destructive">
+                        <ArrowDownToLine className="mr-2 h-5 w-5" />
+                        Drop Item
+                      </Button>
+                    ) : (
+                      <Button id="sell" variant="destructive">
+                        <CircleDollarSign className="mr-2 h-5 w-5" />
+                        Sell Item [{Math.floor(sellPrice)} ryo]
+                      </Button>
+                    )
+                  }
+                  onAccept={() => sell({ userItemId: useritem.id })}
                 >
-                  <Shirt className="mr-2 h-5 w-5" />
-                  Equip
-                </Button>
-              )}
-              {useritem.item.canStack && (
-                <Button
-                  variant="info"
-                  onClick={() => merge({ itemId: useritem.itemId })}
-                >
-                  <Merge className="mr-2 h-5 w-5" />
-                  Merge Stacks
-                </Button>
-              )}
-              {nonCombatConsume(useritem.item, userData) && (
-                <Button
-                  variant="info"
-                  onClick={() => consume({ userItemId: useritem.id })}
-                >
-                  <Cookie className="mr-2 h-5 w-5" />
-                  Consume
-                </Button>
-              )}
-              <div className="grow"></div>
-              <Confirm
-                title="Security Confirmation"
-                proceed_label="Submit"
-                button={
-                  useritem.item.isEventItem ? (
-                    <Button id="sell" variant="destructive">
-                      <ArrowDownToLine className="mr-2 h-5 w-5" />
-                      Drop Item
-                    </Button>
-                  ) : (
-                    <Button id="sell" variant="destructive">
-                      <CircleDollarSign className="mr-2 h-5 w-5" />
-                      Sell Item [{Math.floor(sellPrice)} ryo]
-                    </Button>
-                  )
-                }
-                onAccept={() => sell({ userItemId: useritem.id })}
-              >
-                Are you absolutely sure you wish to remove this item from your
-                inventory?
-              </Confirm>
-            </div>
-          )}
-          {isMerging && <Loader explanation={`Merging ${useritem.item.name} stacks`} />}
-          {isConsuming && <Loader explanation={`Using ${useritem.item.name}`} />}
-          {isSelling && <Loader explanation={`Selling ${useritem.item.name}`} />}
-          {isEquipping && <Loader explanation={`Equipping ${useritem.item.name}`} />}
-        </Modal>
+                  Are you absolutely sure you wish to remove this item from your
+                  inventory?
+                </Confirm2>
+              </div>
+            )}
+            {isMerging && (
+              <Loader explanation={`Merging ${useritem.item.name} stacks`} />
+            )}
+            {isConsuming && <Loader explanation={`Using ${useritem.item.name}`} />}
+            {isSelling && <Loader explanation={`Selling ${useritem.item.name}`} />}
+            {isEquipping && <Loader explanation={`Equipping ${useritem.item.name}`} />}
+          </Modal2>
+        </Dialog>
       )}
     </>
   );
@@ -319,6 +357,7 @@ const Character: React.FC<CharacterProps> = (props) => {
   // Collapse UserItem and Item
   const items = useritems?.map((useritem) => ({ ...useritem.item, ...useritem }));
   const equipped = items?.find((item) => item.equipped === slot);
+  const noEquipped = items?.filter((item) => item.equipped === "NONE");
 
   // tRPC utility
   const utils = api.useUtils();
@@ -331,8 +370,11 @@ const Character: React.FC<CharacterProps> = (props) => {
 
   // Mutations
   const { mutate: equip, isPending: isEquipping } = api.item.toggleEquip.useMutation({
-    onSuccess: async () => {
-      await utils.item.getUserItems.invalidate();
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.item.getUserItems.invalidate();
+      }
     },
     onSettled: () => {
       document.body.style.cursor = "default";
@@ -351,60 +393,64 @@ const Character: React.FC<CharacterProps> = (props) => {
   const t5 = "top-[80%]";
 
   return (
-    <div className="flex flex-row items-center justify-center text-center">
-      <Image
-        className="w-full opacity-50"
-        src={IMG_EQUIP_SILHOUETTE}
-        alt="background"
-        width={290}
-        height={461}
-      />
-      <Equip slot={"HEAD"} act={act} txt="Head" pos={t1} items={items} />
-      <Equip slot={"CHEST"} act={act} txt="Chest" pos={t2} items={items} />
-      <Equip slot={"WAIST"} act={act} txt="Waist" pos={t3} items={items} />
-      <Equip slot={"LEGS"} act={act} txt="Legs" pos={t4} items={items} />
-      <Equip slot={"FEET"} act={act} txt="Feet" pos={t5} items={items} />
-      <Equip slot={"ITEM_1"} act={act} txt="Item" pos={l + t2} items={items} />
-      <Equip slot={"ITEM_2"} act={act} txt="Item" pos={r + t2} items={items} />
-      <Equip slot={"HAND_1"} act={act} txt="Hand" pos={l + t3} items={items} />
-      <Equip slot={"HAND_2"} act={act} txt="Hand" pos={r + t3} items={items} />
-      <Equip slot={"ITEM_3"} act={act} txt="Item" pos={l + t4} items={items} />
-      <Equip slot={"ITEM_4"} act={act} txt="Item" pos={r + t4} items={items} />
-      <Equip slot={"ITEM_5"} act={act} txt="Item" pos={l + t5} items={items} />
-      <Equip slot={"ITEM_6"} act={act} txt="Item" pos={r + t5} items={items} />
-      <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t1} items={items} />
-      <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={l + t1} items={items} />
-      {isOpen && slot && (
-        <Modal
-          title="Select Item to Equip"
-          setIsOpen={setIsOpen}
-          isValid={false}
-          proceed_label={equipped ? "Unequip" : undefined}
-          onAccept={() => {
-            if (equipped) {
-              setItem(equipped);
-              equip({ userItemId: equipped.id, slot: slot });
-            }
-          }}
-        >
-          {!isEquipping && (
-            <ActionSelector
-              items={items?.filter((item) => slot?.includes(item.slot))}
-              counts={items}
-              showBgColor={false}
-              showLabels={false}
-              greyedIds={items
-                ?.filter((item) => item.equipped !== "NONE")
-                .map((item) => item.id)}
-              onClick={(id) => {
-                setItem(items?.find((item) => item.id === id));
-                equip({ userItemId: id, slot: slot });
+    <div>
+      <div className="flex flex-row items-center justify-center text-center">
+        <Image
+          className="w-full opacity-50"
+          src={IMG_EQUIP_SILHOUETTE}
+          alt="background"
+          width={290}
+          height={461}
+        />
+        <Equip slot={"HEAD"} act={act} txt="Head" pos={t1} items={items} />
+        <Equip slot={"CHEST"} act={act} txt="Chest" pos={t2} items={items} />
+        <Equip slot={"WAIST"} act={act} txt="Waist" pos={t3} items={items} />
+        <Equip slot={"LEGS"} act={act} txt="Legs" pos={t4} items={items} />
+        <Equip slot={"FEET"} act={act} txt="Feet" pos={t5} items={items} />
+        <Equip slot={"ITEM_1"} act={act} txt="Item" pos={l + t2} items={items} />
+        <Equip slot={"ITEM_2"} act={act} txt="Item" pos={r + t2} items={items} />
+        <Equip slot={"HAND_1"} act={act} txt="Hand" pos={l + t3} items={items} />
+        <Equip slot={"HAND_2"} act={act} txt="Hand" pos={r + t3} items={items} />
+        <Equip slot={"ITEM_3"} act={act} txt="Item" pos={l + t4} items={items} />
+        <Equip slot={"ITEM_4"} act={act} txt="Item" pos={r + t4} items={items} />
+        <Equip slot={"ITEM_5"} act={act} txt="Item" pos={l + t5} items={items} />
+        <Equip slot={"ITEM_6"} act={act} txt="Item" pos={r + t5} items={items} />
+        <Equip slot={"ITEM_7"} act={act} txt="Item" pos={r + t1} items={items} />
+        <Equip slot={"KEYSTONE"} act={act} txt="Keystone" pos={l + t1} items={items} />
+        {isOpen && slot && (
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <Modal2
+              title="Select Item to Equip"
+              setIsOpen={setIsOpen}
+              isValid={false}
+              proceed_label={equipped ? "Unequip" : undefined}
+              onAccept={() => {
+                if (equipped) {
+                  setItem(equipped);
+                  equip({ userItemId: equipped.id, slot: slot });
+                }
               }}
-            />
-          )}
-          {isEquipping && item && <Loader explanation={`Swapping ${item.name}`} />}
-        </Modal>
-      )}
+            >
+              {!isEquipping && (
+                <ActionSelector
+                  items={items?.filter((item) => slot?.includes(item.slot))}
+                  counts={items}
+                  showBgColor={false}
+                  showLabels={false}
+                  greyedIds={items
+                    ?.filter((item) => item.equipped !== "NONE")
+                    .map((item) => item.id)}
+                  onClick={(id) => {
+                    setItem(items?.find((item) => item.id === id));
+                    equip({ userItemId: id, slot: slot });
+                  }}
+                />
+              )}
+              {isEquipping && item && <Loader explanation={`Swapping ${item.name}`} />}
+            </Modal2>
+          </Dialog>
+        )}
+      </div>
     </div>
   );
 };
