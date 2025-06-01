@@ -106,28 +106,50 @@ export const villageRouter = createTRPCRouter({
       return { villageData, sectorCount, defendedChallenges };
     }),
   // Get sector ownership
-  getSectorOwnerships: publicProcedure.query(async ({ ctx }) => {
-    const [sectors, colors, sectorWars] = await Promise.all([
-      ctx.drizzle.query.sector.findMany({
-        columns: {
-          sector: true,
-          villageId: true,
-        },
-        where: ne(sector.villageId, VILLAGE_SYNDICATE_ID),
-      }),
-      ctx.drizzle.query.village.findMany({
-        columns: {
-          id: true,
-          hexColor: true,
-        },
-      }),
-      ctx.drizzle.query.war.findMany({
-        columns: { sector: true },
-        where: and(eq(war.status, "ACTIVE"), eq(war.type, "SECTOR_WAR")),
-      }),
-    ]);
-    return { sectors, colors, wars: sectorWars };
-  }),
+  getSectorOwnerships: protectedProcedure
+    .input(z.object({ onlyOwnWar: z.boolean() }))
+    .query(async ({ ctx, input }) => {
+      const [user, sectors, colors, sectorWars] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.sector.findMany({
+          columns: {
+            sector: true,
+            villageId: true,
+          },
+          where: ne(sector.villageId, VILLAGE_SYNDICATE_ID),
+        }),
+        ctx.drizzle.query.village.findMany({
+          columns: {
+            id: true,
+            hexColor: true,
+          },
+        }),
+        ctx.drizzle.query.war.findMany({
+          columns: {
+            sector: true,
+            attackerVillageId: true,
+            defenderVillageId: true,
+          },
+          with: {
+            warAllies: {
+              columns: {
+                villageId: true,
+              },
+            },
+          },
+          where: and(eq(war.status, "ACTIVE"), eq(war.type, "SECTOR_WAR")),
+        }),
+      ]);
+      const returnedWars = input.onlyOwnWar
+        ? sectorWars.filter(
+            (war) =>
+              war.attackerVillageId === user.villageId ||
+              war.defenderVillageId === user.villageId ||
+              war.warAllies.some((ally) => ally.villageId === user.villageId),
+          )
+        : sectorWars;
+      return { sectors, colors, wars: returnedWars };
+    }),
   // Buying food in ramen shop
   buyFood: protectedProcedure
     .input(z.object({ ramen: z.enum(ramenOptions), villageId: z.string().nullish() }))

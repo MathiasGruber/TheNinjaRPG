@@ -62,9 +62,10 @@ const Map: React.FC<MapProps> = (props) => {
     props.actionExplanation || "Double click tile to move there";
 
   // Get sector ownerships if needed
-  const { data: ownershipData } = api.village.getSectorOwnerships.useQuery(undefined, {
-    enabled: showOwnership,
-  });
+  const { data: ownershipData } = api.village.getSectorOwnerships.useQuery(
+    { onlyOwnWar: true },
+    { enabled: showOwnership },
+  );
 
   // Create a ref to store active war sectors
   const activeSectorWars = useRef<number[]>([]);
