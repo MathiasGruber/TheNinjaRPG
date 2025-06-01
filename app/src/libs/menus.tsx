@@ -74,16 +74,23 @@ export const useGameMenu = (userData: UserWithRelations) => {
       icon: <MessagesSquare key="tavern" className="h-6 w-6" />,
     },
     {
+      id: "tutorial-users",
+      href: "/users",
+      name: "Users",
+      icon: <BookOpenText key="users" className="h-6 w-6" />,
+    },
+    {
       id: "tutorial-inbox",
       href: "/inbox",
       name: "Inbox",
       icon: <Inbox key="inbox" className="h-6 w-6" />,
     },
     {
-      id: "tutorial-users",
-      href: "/users",
-      name: "Users",
-      icon: <BookOpenText key="users" className="h-6 w-6" />,
+      id: "tutorial-jutsus",
+      href: "/jutsus",
+      name: "Jutsus",
+      requireAwake: false,
+      icon: <Atom key="jutsus" className="h-6 w-6" />,
     },
     {
       id: "tutorial-reports",
@@ -98,12 +105,12 @@ export const useGameMenu = (userData: UserWithRelations) => {
       requireAwake: true,
       icon: <Globe2 key="travel" className="h-6 w-6" />,
     },
+
     {
-      href: "/jutsus",
-      id: "tutorial-jutsus",
-      name: "Jutsus",
-      requireAwake: false,
-      icon: <Atom key="jutsus" className="h-6 w-6" />,
+      id: "tutorial-points",
+      href: "/points",
+      name: "Points",
+      icon: <Receipt key="travel" className="h-6 w-6" />,
     },
     {
       href: "/items",
@@ -111,12 +118,6 @@ export const useGameMenu = (userData: UserWithRelations) => {
       name: "Items",
       requireAwake: false,
       icon: <ShieldHalf key="items" className="h-6 w-6" />,
-    },
-    {
-      id: "tutorial-points",
-      href: "/points",
-      name: "Points",
-      icon: <Receipt key="travel" className="h-6 w-6" />,
     },
     {
       id: "tutorial-rules",
