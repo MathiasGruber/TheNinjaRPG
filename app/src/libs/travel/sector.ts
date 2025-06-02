@@ -25,7 +25,7 @@ import { defineHex, findHex } from "../hexgrid";
 import { getActiveObjectives } from "@/libs/quest";
 import { LocationTasks } from "@/validators/objectives";
 import { findVillageUserRelationship } from "@/utils/alliance";
-import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import { MEDNIN_MIN_RANK, RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
 import {
   IMG_SECTOR_INFO,
   IMG_SECTOR_ATTACK,
@@ -36,7 +36,9 @@ import {
   IMG_SECTOR_USERSPRITE_RIGHT,
   IMG_SECTOR_VS_ICON,
   IMG_SECTOR_WALL_STONE_TOWER,
+  IMG_ICON_HEAL,
 } from "@/drizzle/constants";
+import { hasRequiredRank } from "@/libs/train";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
@@ -267,6 +269,18 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
     attackSprite.name = `${userData.userId}-attack`;
     group.add(attackSprite);
   }
+
+  // Heal button
+  const heal = loadTexture(IMG_ICON_HEAL);
+  const healMat = new SpriteMaterial({ map: heal, depthTest: false });
+  const healSprite = new Sprite(healMat);
+  healSprite.visible = false;
+  healSprite.userData.userId = userData.userId;
+  healSprite.userData.type = "heal";
+  Object.assign(healSprite.scale, new Vector3(h * 0.7, h * 0.7, 1));
+  Object.assign(healSprite.position, new Vector3(w, h * 0.5, -5));
+  healSprite.name = `${userData.userId}-heal`;
+  group.add(healSprite);
 
   // Info button
   const info = loadTexture(IMG_SECTOR_INFO);
@@ -658,7 +672,8 @@ export const intersectUsers = (info: {
         const user = users.filter(Boolean).find((u) => u.userId === userId);
         if (user) {
           const attack = userMesh?.children[3] as Sprite;
-          const details = userMesh?.children[4] as Sprite;
+          const heal = userMesh?.children[4] as Sprite;
+          const details = userMesh?.children[5] as Sprite;
           const relationship =
             userData.village &&
             findVillageUserRelationship(userData.village, user.villageId);
@@ -666,8 +681,15 @@ export const intersectUsers = (info: {
             user.villageId === userData.villageId || relationship?.status === "ALLY";
           const showAttack =
             !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (allyAttack || !isAlly);
+          const showHeal =
+            user.curHealth < user.maxHealth &&
+            hasRequiredRank(userData.rank, MEDNIN_MIN_RANK);
+
           if (attack && userData.userId !== userId && showAttack) {
             attack.visible = true;
+          }
+          if (heal && userData.userId !== userId && showHeal) {
+            heal.visible = true;
           }
           if (details) details.visible = true;
           if (document.body.style.cursor !== "wait") {
@@ -683,6 +705,8 @@ export const intersectUsers = (info: {
     if (!newUserTooltips.has(userId)) {
       const attackSprite = group_users.getObjectByName(`${userId}-attack`);
       if (attackSprite) attackSprite.visible = false;
+      const healSprite = group_users.getObjectByName(`${userId}-heal`);
+      if (healSprite) healSprite.visible = false;
       const infoSprite = group_users.getObjectByName(`${userId}-info`);
       if (infoSprite) infoSprite.visible = false;
     }

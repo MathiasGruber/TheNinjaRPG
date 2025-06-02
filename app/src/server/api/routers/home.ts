@@ -82,6 +82,8 @@ export const homeRouter = createTRPCRouter({
         status: newStatus,
         location: "",
         userId: ctx.userId,
+        curHealth: user.curHealth,
+        maxHealth: user.maxHealth,
       };
       const pusher = getServerPusher();
       void updateUserOnMap(pusher, user.sector, output);

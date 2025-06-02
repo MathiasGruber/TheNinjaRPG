@@ -1080,6 +1080,8 @@ export const IMG_ICON_FORUM =
   "https://utfs.io/f/Hzww9EQvYURJTwT9cY5IU29dZYJPoOKSh5vmlqatMub3EigH";
 export const IMG_ICON_MOVE =
   "https://utfs.io/f/Hzww9EQvYURJepKSYSyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
+export const IMG_ICON_HEAL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJrtRSYfhuJPmdY8zI2ptZXAoEj1c6BMKvrQOx";
 
 export const IMG_MISSION_S =
   "https://utfs.io/f/Hzww9EQvYURJz3Ph17emvaQu94EYJs8HpxVzofny6iPtbgCZ";
