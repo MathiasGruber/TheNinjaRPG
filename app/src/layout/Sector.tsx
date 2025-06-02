@@ -928,28 +928,9 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                   </Link>
                 </div>
                 <div className="absolute right-0 bottom-0 z-50 hover:opacity-80  hover:cursor-pointer max-w-1/3">
-                  {sameHex &&
-                    user.curHealth < user.maxHealth &&
+                  {user.curHealth < user.maxHealth &&
                     hasRequiredRank(userData.rank, MEDNIN_MIN_RANK) && (
                       <HealingPopover targetUser={user} side="top" />
-                    )}
-                  {sameHex &&
-                    user.curHealth < user.maxHealth &&
-                    !hasRequiredRank(userData.rank, MEDNIN_MIN_RANK) && (
-                      <Image
-                        src={IMG_ICON_HEAL}
-                        onClick={() => {
-                          showMutationToast({
-                            success: false,
-                            message:
-                              "You need to be at least a GENIN to heal other users",
-                          });
-                        }}
-                        width={40}
-                        height={40}
-                        alt={`Heal-${user.userId}`}
-                        className="opacity-50 cursor-not-allowed"
-                      />
                     )}
                 </div>
                 <AvatarImage
