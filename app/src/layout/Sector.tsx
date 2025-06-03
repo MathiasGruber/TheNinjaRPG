@@ -417,6 +417,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           latitude: targetHex.row,
           sector: sector,
           avatar: userData.avatar,
+          avatarLight: userData.avatarLight || userData.avatar,
           villageId: userData.villageId,
           battleId: userData.battleId,
           username: userData.username,

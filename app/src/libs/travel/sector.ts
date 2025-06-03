@@ -25,7 +25,11 @@ import { defineHex, findHex } from "../hexgrid";
 import { getActiveObjectives } from "@/libs/quest";
 import { LocationTasks } from "@/validators/objectives";
 import { findVillageUserRelationship } from "@/utils/alliance";
-import { MEDNIN_MIN_RANK, RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import {
+  IMG_AVATAR_DEFAULT,
+  MEDNIN_MIN_RANK,
+  RANKS_RESTRICTED_FROM_PVP,
+} from "@/drizzle/constants";
 import {
   IMG_SECTOR_INFO,
   IMG_SECTOR_ATTACK,
@@ -247,7 +251,8 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
 
   // Avatar Sprite
   const alphaMap = loadTexture(IMG_SECTOR_USER_SPRITE_MASK);
-  const map = loadTexture(userData.avatar ? `${userData.avatar}?1=1` : "");
+  const avatar = userData?.avatarLight || userData?.avatar || IMG_AVATAR_DEFAULT;
+  const map = loadTexture(avatar);
   map.generateMipmaps = false;
   map.minFilter = LinearFilter;
   const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });

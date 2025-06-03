@@ -231,6 +231,7 @@ export const travelRouter = createTRPCRouter({
             sector: true,
             status: true,
             avatar: true,
+            avatarLight: true,
             level: true,
             rank: true,
             isOutlaw: true,
@@ -394,6 +395,7 @@ export const travelRouter = createTRPCRouter({
         battleId: z.string().nullish(),
         level: z.number().int(),
         avatar: z.string().url(),
+        avatarLight: z.string().url(),
         username: z.string(),
       }),
     )
@@ -408,6 +410,7 @@ export const travelRouter = createTRPCRouter({
               username: z.string(),
               userId: z.string(),
               avatar: z.string(),
+              avatarLight: z.string(),
               sector: z.number(),
               battleId: z.string().nullish(),
               villageId: z.string().nullish(),

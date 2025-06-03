@@ -75,6 +75,7 @@ export const homeRouter = createTRPCRouter({
         latitude: user.latitude,
         sector: newStatus === "AWAKE" ? user.sector : -1,
         avatar: user.avatar,
+        avatarLight: user.avatarLight,
         level: user.level,
         villageId: user.villageId,
         battleId: user.battleId,

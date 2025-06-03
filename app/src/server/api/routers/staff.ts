@@ -134,6 +134,7 @@ export const staffRouter = createTRPCRouter({
         latitude: user.latitude,
         sector: user.sector,
         avatar: user.avatar,
+        avatarLight: user.avatarLight,
         level: user.level,
         villageId: user.villageId,
         battleId: user.battleId,
