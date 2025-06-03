@@ -250,6 +250,17 @@ export async function GET() {
       )`,
     );
 
+    // Step 33: Activate users with active subscriptions
+    await drizzleDB.execute(
+      sql`UPDATE ${userData} u
+          INNER JOIN ${paypalSubscription} ps ON u.userId = ps.affectedUserId
+          SET u.federalStatus = ps.federalStatus
+          WHERE 
+            u.federalStatus = 'NONE'
+            AND ps.status = 'ACTIVE'
+            AND ps.updatedAt > DATE_SUB(NOW(), INTERVAL 31 DAY)`,
+    );
+
     // Delete historical ips older than 90 days
     await drizzleDB.execute(
       sql`DELETE FROM ${historicalIp} WHERE usedAt < CURRENT_TIMESTAMP(3) - INTERVAL 90 DAY`,

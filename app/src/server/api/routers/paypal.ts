@@ -632,6 +632,9 @@ export const getPaypalSubscriptionStatus = (
 
 /**
  * Fetch a subscrioption from paypal
+ * @param subscriptionId - The subscription ID to fetch
+ * @param token - The access token to use
+ * @returns The subscription data
  */
 export const getPaypalSubscription = async (subscriptionId: string, token: string) => {
   return await fetch(
