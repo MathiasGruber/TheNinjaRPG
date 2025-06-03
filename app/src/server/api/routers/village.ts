@@ -186,8 +186,8 @@ export const villageRouter = createTRPCRouter({
       if (user.money < cost) return errorResponse("You don't have enough money");
       if (user.isBanned) return errorResponse("You are banned");
       if (!sectorVillage) return errorResponse("Village does not exist");
-      if (!user.isOutlaw && !canAccessStructure(user, "/ramenshop", sectorVillage)) {
-        return errorResponse("Must be in your allied village to buy ramen");
+      if (!canAccessStructure(user, "/ramenshop", sectorVillage)) {
+        return errorResponse("This is not a safe area for you to eat ramen");
       }
       // Mutate with guard
       const newHealth = Math.min(
