@@ -8,6 +8,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { showMutationToast } from "@/libs/toast";
 import { ToastAction } from "@/components/ui/toast";
 import { env } from "@/env/client.mjs";
+import type { UserWithRelations } from "@/api/routers/profile";
 
 // Events sent to the user from websockets
 export type UserEvent = {
@@ -18,7 +19,13 @@ export type UserEvent = {
   battleId?: string;
 };
 
-export const usePusherHandler = (userId?: string | null) => {
+export const usePusherHandler = (
+  userId?: string | null,
+  userData?: UserWithRelations,
+) => {
+  // Extra parameter
+  const clanId = userData?.clanId;
+
   // Navigation
   const router = useRouter();
   const pathname = usePathname();
@@ -114,13 +121,34 @@ export const usePusherHandler = (userId?: string | null) => {
           });
         }
       });
+      // Listen on clanId channel
+      if (clanId) {
+        const clanChannel = pusher.subscribe(clanId);
+        clanChannel.bind("event", (data: UserEvent) => {
+          if (data.type === "userMessage") {
+            showMutationToast({
+              success: true,
+              message: data.message ?? "You have a new message",
+              title: "Notification!",
+              action: (
+                <ToastAction altText="To Arena">
+                  <Link href={data.route ?? "/battlearena"}>
+                    {data.routeText ?? "To Profile"}
+                  </Link>
+                </ToastAction>
+              ),
+            });
+          }
+        });
+      }
+      // Cleanup
       return () => {
         pusher.unsubscribe(userId);
         pusher.disconnect();
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, router, utils]);
+  }, [userId, clanId, router, utils]);
 
   return pusher;
 };

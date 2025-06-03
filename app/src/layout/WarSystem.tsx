@@ -44,7 +44,6 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { Dialog } from "@/components/ui/dialog";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import type { GlobalMapData } from "@/libs/travel/types";
 import { useMap } from "@/hooks/map";

@@ -41,7 +41,6 @@ import {
   IMG_SECTOR_ATTACK,
   IMG_SECTOR_ROB,
   IMG_ICON_MOVE,
-  IMG_ICON_HEAL,
 } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserData } from "@/drizzle/schema";

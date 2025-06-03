@@ -406,7 +406,7 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
             )}
           </div>
         </form>
-        {allComments?.map((comment, i) => (
+        {allComments?.map((comment) => (
           <div key={comment.id}>
             <CommentOnReport
               title={reportCommentExplain(comment.decision)}

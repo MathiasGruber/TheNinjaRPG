@@ -364,7 +364,12 @@ export const clanRouter = createTRPCRouter({
       }
       // Mutate
       await insertRequest(ctx.drizzle, user.userId, fetchedClan.leaderId, "CLAN");
-      void pusher.trigger(fetchedClan.leaderId, "event", { type: "clan" });
+      void pusher.trigger(fetchedClan.id, "event", {
+        type: "userMessage",
+        message: `${user.username} requested to join your ${user.isOutlaw ? "faction" : "clan"}`,
+        route: `/clanhall`,
+        routeText: `To ${user.isOutlaw ? "faction" : "clan"}`,
+      });
       // Create
       return {
         success: true,
@@ -396,7 +401,6 @@ export const clanRouter = createTRPCRouter({
       if (request.status !== "PENDING") {
         return errorResponse("You can only cancel pending requests");
       }
-      void pusher.trigger(request.receiverId, "event", { type: "clan" });
       return await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "CLAN");
     }),
   acceptRequest: protectedProcedure
@@ -449,7 +453,12 @@ export const clanRouter = createTRPCRouter({
           })
           .where(eq(userData.userId, requester.userId)),
       ]);
-      void pusher.trigger(request.senderId, "event", { type: "clan" });
+      void pusher.trigger(request.senderId, "event", {
+        type: "userMessage",
+        message: `You have been accepted to ${groupLabel}`,
+        route: `/clanhall`,
+        routeText: `To ${groupLabel}`,
+      });
       // Create
       return { success: true, message: "Request accepted" };
     }),

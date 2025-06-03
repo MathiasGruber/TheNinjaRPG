@@ -357,7 +357,6 @@ const Character: React.FC<CharacterProps> = (props) => {
   // Collapse UserItem and Item
   const items = useritems?.map((useritem) => ({ ...useritem.item, ...useritem }));
   const equipped = items?.find((item) => item.equipped === slot);
-  const noEquipped = items?.filter((item) => item.equipped === "NONE");
 
   // tRPC utility
   const utils = api.useUtils();

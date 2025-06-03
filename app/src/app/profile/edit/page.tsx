@@ -10,7 +10,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Accordion from "@/layout/Accordion";
 import AvatarImage from "@/layout/Avatar";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
@@ -929,7 +929,7 @@ const SwapVillage: React.FC = () => {
       )}
       {isFetching && <Loader explanation="Loading villages" />}
       {isOpen && userData && village && (
-        <Modal
+        <Modal2
           title="Confirm Purchase"
           proceed_label={
             isSwapping
@@ -938,6 +938,7 @@ const SwapVillage: React.FC = () => {
                 ? `Swap for ${COST_SWAP_VILLAGE} reps`
                 : `Need ${COST_SWAP_VILLAGE - userData.reputationPoints} reps`
           }
+          isOpen={isOpen}
           setIsOpen={setIsOpen}
           isValid={false}
           onAccept={() => {
@@ -955,7 +956,7 @@ const SwapVillage: React.FC = () => {
         >
           {!isSwapping && <ItemWithEffects item={village} key={village.id} />}
           {isSwapping && <Loader explanation={`Purchasing ${village.name}`} />}
-        </Modal>
+        </Modal2>
       )}
     </div>
   );
