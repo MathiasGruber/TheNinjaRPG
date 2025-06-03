@@ -162,7 +162,6 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
     winnerVillageId === activeWar.attackerVillage.id
       ? activeWar.defenderVillage.id
       : activeWar.attackerVillage.id;
-  console.log("ENDING WAR: ", activeWar);
   const status: WarState = isDraw
     ? "DRAW"
     : winnerVillageId === activeWar.attackerVillage.id
@@ -296,12 +295,12 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
                 lastUpgradedAt: structureUpgradeBlock,
               })
               .where(
-                activeWar.type === "FACTION_RAID"
-                  ? and(
-                      eq(villageStructure.villageId, loserVillageId),
-                      eq(villageStructure.route, activeWar.targetStructureRoute),
-                    )
-                  : eq(villageStructure.route, activeWar.targetStructureRoute),
+                and(
+                  eq(villageStructure.villageId, loserVillageId),
+                  ...(activeWar.type === "FACTION_RAID"
+                    ? [eq(villageStructure.route, activeWar.targetStructureRoute)]
+                    : []),
+                ),
               ),
           ]
       : []),
