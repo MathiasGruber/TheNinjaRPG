@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import ContentImage from "@/layout/ContentImage";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import { parseHtml } from "@/utils/parse";
 import ElementImage from "@/layout/ElementImage";
 import { canChangeCombatBgScheme, canChangeContent } from "@/utils/permissions";
@@ -208,7 +208,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               {showEdit && userData && canChangeContent(userData.role) && (
                 <>
                   {showCopy === "quest" && (
-                    <Confirm
+                    <Confirm2
                       title="Clone Quest"
                       button={
                         <Copy className="h-6 w-6 hover:text-popover-foreground/50" />
@@ -220,10 +220,10 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                     >
                       This will create a copy of this quest. You will be redirected to
                       edit the new quest.
-                    </Confirm>
+                    </Confirm2>
                   )}
                   {showCopy === "ai" && (
-                    <Confirm
+                    <Confirm2
                       title="Clone AI"
                       button={
                         <Copy className="h-6 w-6 hover:text-popover-foreground/50" />
@@ -235,10 +235,10 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                     >
                       This will create a copy of this AI. You will be redirected to edit
                       the new AI.
-                    </Confirm>
+                    </Confirm2>
                   )}
                   {show3d && "avatar" in item && "avatar3d" in item && item.avatar3d ? (
-                    <Confirm
+                    <Confirm2
                       title="3d Model"
                       button={
                         <Box className="h-6 w-6 hover:text-popover-foreground/50 hover:cursor-pointer" />
@@ -250,13 +250,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                         alt={item.name}
                         size={100}
                       />
-                    </Confirm>
+                    </Confirm2>
                   ) : undefined}
                   <Link href={`/manual/${showEdit}/edit/${item.id}`}>
                     <SquarePen className="h-6 w-6 hover:text-popover-foreground/50" />
                   </Link>
                   {onDelete && canChangeCombatBgScheme(userData.role) && (
-                    <Confirm
+                    <Confirm2
                       title="Confirm Deletion"
                       button={
                         <Trash2 className="h-6 w-6 hover:text-popover-foreground/50 hover:cursor-pointer" />
@@ -267,7 +267,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       }}
                     >
                       You are about to delete this. Are you sure?
-                    </Confirm>
+                    </Confirm2>
                   )}
                 </>
               )}
@@ -437,11 +437,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Method</b>: {item.method.toLowerCase()}
               </p>
             )}
-            {"direction" in item && typeof item.direction === "string" && item.direction && (
-              <p>
-                <b>Direction</b>: {item.direction.toLowerCase()}
-              </p>
-            )}
+            {"direction" in item &&
+              typeof item.direction === "string" &&
+              item.direction && (
+                <p>
+                  <b>Direction</b>: {item.direction.toLowerCase()}
+                </p>
+              )}
             {"weaponType" in item && item.weaponType && (
               <p>
                 <b>Weapon</b>: {item.weaponType.toLowerCase()}

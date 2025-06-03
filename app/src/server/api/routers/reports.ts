@@ -311,10 +311,10 @@ export const reportsRouter = createTRPCRouter({
     ]);
 
     const banReport = allReports?.find(
-      (r) => r.status === "BAN_ACTIVATED" && r.banEnd && r.banEnd < new Date(),
+      (r) => r.status === "BAN_ACTIVATED" && r.banEnd && r.banEnd > new Date(),
     );
     const silenceReport = allReports?.find(
-      (r) => r.status === "SILENCE_ACTIVATED" && r.banEnd && r.banEnd < new Date(),
+      (r) => r.status === "SILENCE_ACTIVATED" && r.banEnd && r.banEnd > new Date(),
     );
     const warningReport = user.isWarned
       ? allReports?.find((r) => r.status === "OFFICIAL_WARNING")
@@ -344,6 +344,7 @@ export const reportsRouter = createTRPCRouter({
 
     // Unban user if ban no longer active
     if (!banReport && user.isBanned) {
+      console.log("Unbanning user", banReport);
       await ctx.drizzle
         .update(userData)
         .set({ isBanned: false })

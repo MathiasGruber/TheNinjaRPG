@@ -5,7 +5,7 @@ import { SquarePen, Trash2, Flag, BarChart2 } from "lucide-react";
 import { Quote, SmilePlus } from "lucide-react";
 import Post, { type PostProps } from "./Post";
 import RichInput from "./RichInput";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import ReportUser from "@/layout/Report";
 import { cn } from "src/libs/shadui";
 import { canDeleteComment } from "@/utils/permissions";
@@ -323,7 +323,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
               userData &&
               canDeleteComment(userData, props.user.userId) &&
               props.deleteComment && (
-                <Confirm
+                <Confirm2
                   title="Confirm Deletion"
                   button={<Trash2 className="h-6 w-6 hover:text-orange-500" />}
                   onAccept={(e) => {
@@ -334,7 +334,7 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
                   }}
                 >
                   You are about to delete a comment. Are you sure?
-                </Confirm>
+                </Confirm2>
               )}
           </div>
 
