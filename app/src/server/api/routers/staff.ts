@@ -1,6 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { fetchBadge } from "@/routers/badge";
+import { fetchAttributes } from "@/routers/profile";
 import { eq, ne, and, desc } from "drizzle-orm";
 import {
   actionLog,
@@ -229,8 +230,12 @@ export const staffRouter = createTRPCRouter({
     .input(z.object({ userId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const target = await fetchUser(ctx.drizzle, input.userId);
+      const [user, target, targetAttributes] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+        fetchAttributes(ctx.drizzle, ctx.userId),
+        fetchAttributes(ctx.drizzle, input.userId),
+      ]);
       if (!user || !target) {
         return { success: false, message: "User not found" };
       }
@@ -255,6 +260,7 @@ export const staffRouter = createTRPCRouter({
         ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, user.userId)),
         ctx.drizzle.delete(userItem).where(eq(userItem.userId, user.userId)),
         ctx.drizzle.delete(questHistory).where(eq(questHistory.userId, user.userId)),
+        ctx.drizzle.delete(userAttribute).where(eq(userAttribute.userId, user.userId)),
         ctx.drizzle
           .update(userData)
           .set({
@@ -275,6 +281,7 @@ export const staffRouter = createTRPCRouter({
             speed: target.speed,
             intelligence: target.intelligence,
             willpower: target.willpower,
+            gender: target.gender,
             ninjutsuOffence: target.ninjutsuOffence,
             ninjutsuDefence: target.ninjutsuDefence,
             genjutsuOffence: target.genjutsuOffence,
@@ -315,6 +322,15 @@ export const staffRouter = createTRPCRouter({
         await ctx.drizzle.insert(questHistory).values(
           targetQuestHistory.map((questhistory) => ({
             ...questhistory,
+            userId: ctx.userId,
+            id: nanoid(),
+          })),
+        );
+      }
+      if (targetAttributes) {
+        await ctx.drizzle.insert(userAttribute).values(
+          targetAttributes.map((attribute) => ({
+            ...attribute,
             userId: ctx.userId,
             id: nanoid(),
           })),
