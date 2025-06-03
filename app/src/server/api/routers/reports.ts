@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
 import { eq, and, gte, ne, lte, like, inArray, desc } from "drizzle-orm";
-import { reportLog } from "@/drizzle/schema";
+import { historicalAvatar, reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
 import { automatedModeration } from "@/drizzle/schema";
@@ -11,7 +11,6 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { userReportSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
-import { requestAvatarForUser } from "@/libs/replicate";
 import { canModerateReports } from "@/utils/permissions";
 import { canBanUsers } from "@/utils/permissions";
 import { canSilenceUsers } from "@/utils/permissions";
@@ -33,6 +32,7 @@ import { getAdditionalContext } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
 import { canModerateRoles } from "@/utils/permissions";
 import { reportFilteringSchema } from "@/validators/reports";
+import { createUserAvatar } from "@/routers/avatar";
 import type { AutomoderationCategory } from "@/drizzle/constants";
 import type { BanState } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
@@ -707,7 +707,13 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       if (!canClearUserNindo(user)) return errorResponse("You cannot clear nindos");
       // Mutate
-      void requestAvatarForUser(ctx.drizzle, target);
+      const { avatarUrl, thumbnailUrl } = await createUserAvatar(
+        ctx.drizzle,
+        target,
+        false,
+      );
+      if (!avatarUrl) return errorResponse("Failed to create avatar");
+      // Mutate
       await Promise.all([
         ctx.drizzle.insert(reportLog).values({
           id: nanoid(),
@@ -717,8 +723,15 @@ export const reportsRouter = createTRPCRouter({
         }),
         ctx.drizzle
           .update(userData)
-          .set({ avatar: null, avatarLight: null })
+          .set({ avatar: avatarUrl, avatarLight: thumbnailUrl ?? null })
           .where(eq(userData.userId, input.userId)),
+        ctx.drizzle.insert(historicalAvatar).values({
+          userId: input.userId,
+          avatar: avatarUrl,
+          avatarLight: thumbnailUrl ?? null,
+          status: "success",
+          done: 1,
+        }),
       ]);
       return { success: true, message: "Avatar update request sent" };
     }),

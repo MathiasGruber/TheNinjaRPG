@@ -2,12 +2,13 @@ import { z } from "zod";
 import { eq, sql, gt, and, isNotNull, desc } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "@/api/trpc";
 import { baseServerResponse, errorResponse } from "@/api/trpc";
-import { requestAvatarForUser, checkAvatar } from "@/libs/replicate";
+import { getAvatarPrompt, fastTxt2imgReplicate } from "@/libs/replicate";
 import { createThumbnail } from "@/libs/replicate";
 import { fetchUser } from "@/routers/profile";
 import { userData, historicalAvatar } from "@/drizzle/schema";
 import { canChangeContent } from "@/utils/permissions";
 import { ContentTypes } from "@/drizzle/constants";
+import type { UserData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 
 export const avatarRouter = createTRPCRouter({
@@ -21,28 +22,39 @@ export const avatarRouter = createTRPCRouter({
         return errorResponse("Not enough reputation points");
       }
       if (user.isBanned) return errorResponse("You are banned");
+      // Create avatar
+      const { avatarUrl, thumbnailUrl } = await createUserAvatar(
+        ctx.drizzle,
+        user,
+        true,
+      );
+      if (!avatarUrl) return errorResponse("Failed to create avatar");
+
       // Mutate
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          avatar: null,
-          avatarLight: null,
-          reputationPoints: sql`${userData.reputationPoints} - 1`,
-        })
-        .where(and(eq(userData.userId, ctx.userId), gt(userData.reputationPoints, 0)));
+      const [result] = await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({
+            avatar: avatarUrl,
+            avatarLight: thumbnailUrl || null,
+            reputationPoints: sql`${userData.reputationPoints} - 1`,
+          })
+          .where(
+            and(eq(userData.userId, ctx.userId), gt(userData.reputationPoints, 0)),
+          ),
+        ctx.drizzle.insert(historicalAvatar).values({
+          userId: ctx.userId,
+          avatar: avatarUrl,
+          avatarLight: thumbnailUrl || null,
+          status: "success",
+          done: 1,
+        }),
+      ]);
       if (result.rowsAffected === 1) {
-        await requestAvatarForUser(ctx.drizzle, user);
         return { success: true, message: "Avatar created" };
       } else {
         return errorResponse("Failed to upload avatar");
       }
-    }),
-  checkAvatar: protectedProcedure
-    .input(z.object({ userId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const currentUser = await fetchUser(ctx.drizzle, input.userId);
-      const avatarUrl = await checkAvatar(ctx.drizzle, currentUser);
-      return { url: avatarUrl };
     }),
   getHistoricalAvatars: protectedProcedure
     .input(
@@ -151,4 +163,28 @@ export const fetchAvatar = async (client: DrizzleClient, id: number) => {
   return await client.query.historicalAvatar.findFirst({
     where: eq(historicalAvatar.id, id),
   });
+};
+
+/**
+ * Create a user avatar
+ * @param client - The DrizzleClient instance used to query the database.
+ * @param user - The user to create the avatar for.
+ * @returns The avatar URL and thumbnail URL.
+ */
+export const createUserAvatar = async (
+  client: DrizzleClient,
+  user: UserData,
+  disable_safety_checker = false,
+) => {
+  // Create avatar
+  const prompt = await getAvatarPrompt(client, user);
+  const avatar = await fastTxt2imgReplicate({
+    prompt,
+    disable_safety_checker,
+    aspect_ratio: "1:1",
+  });
+  const avatarUrl = avatar.data?.ufsUrl;
+  // Create thumbnail
+  const thumbnailUrl = await createThumbnail(avatarUrl);
+  return { avatarUrl, thumbnailUrl };
 };

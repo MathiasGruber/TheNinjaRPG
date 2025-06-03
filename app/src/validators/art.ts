@@ -5,8 +5,6 @@ export const timeFrame = ["Week", "Month", "Year", "All Time"] as const;
 
 export const conceptArtPromptSchema = z.object({
   prompt: z.string().min(0).default(""),
-  negative_prompt: z.string().min(0).default(""),
-  guidance_scale: z.number().min(1).max(20).default(7.5),
   seed: z
     .number()
     .int()

@@ -42,22 +42,6 @@ const ConceptImage: React.FC<InputProps> = (props) => {
     void utils.conceptart.getAll.invalidate();
   };
 
-  // Create a new image
-  const { mutate: check, isPending: isChecking } = api.conceptart.check.useMutation({
-    onSuccess: (data, variables) => {
-      if (data && ["starting", "processing"].includes(data.status)) {
-        setTimeout(() => {
-          check({ id: variables.id });
-        }, 3000);
-      } else {
-        refetch();
-      }
-    },
-    onError: (error) => {
-      console.error(error);
-    },
-  });
-
   // Toggle emotion a new image
   const { mutate: emotion } = api.conceptart.toggleEmotion.useMutation({
     onSuccess: (result) => {
@@ -73,14 +57,6 @@ const ConceptImage: React.FC<InputProps> = (props) => {
       refetch();
     },
   });
-
-  // If the image is not loaded, check the status on the server
-  useEffect(() => {
-    if (!isChecking && image?.id && image.done === 0) {
-      check({ id: image.id });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [image?.id, image?.done]);
 
   // Return skeleton
   if (!image?.image || image.done === 0) {

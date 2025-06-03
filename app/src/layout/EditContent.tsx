@@ -98,9 +98,6 @@ export const EditContent = <
   const { formData, formClassName, form, showSubmit, buttonTxt } = props;
   const currentValues = form.getValues();
 
-  // State
-  const [isLoading, setIsLoading] = useState(false);
-
   // Event listener for submitting on enter click
   const onDocumentKeyDown = (event: KeyboardEvent) => {
     if (props.onEnter) {
@@ -120,43 +117,6 @@ export const EditContent = <
   }, []);
 
   // Mutations
-  const { mutate: removeBg } = api.openai.removeBg.useMutation({
-    onSuccess: (data, variables) => {
-      showMutationToast({ success: true, message: "Background removed" });
-      fetchReplicateResult({
-        replicateId: data.replicateId,
-        field: variables.field,
-        removeBg: false,
-      });
-    },
-  });
-
-  const { mutate: fetchReplicateResult } = api.openai.fetchReplicateResult.useMutation({
-    onMutate: () => {
-      setIsLoading(true);
-    },
-    onSuccess: async (data, variables) => {
-      if (data.status !== "failed") {
-        if (data.url) {
-          form.setValue(variables.field as Path<S>, data.url as PathValue<S, Path<S>>, {
-            shouldDirty: true,
-          });
-          if (variables.removeBg) {
-            removeBg({ url: data.url, field: variables.field });
-          }
-          setIsLoading(false);
-        } else {
-          await sleep(5000);
-          fetchReplicateResult(variables);
-        }
-      }
-    },
-    onError: (error) => {
-      console.error(error);
-      setIsLoading(false);
-    },
-  });
-
   // const { mutate: create3dModel } =
   //   api.openai.create3dModel.useMutation({
   //     onSuccess: (data, variables) => {
