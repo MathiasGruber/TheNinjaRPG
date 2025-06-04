@@ -12,12 +12,14 @@ import {
   IMG_MISSION_D,
   IMG_MISSION_E,
   VILLAGE_SYNDICATE_ID,
+  MISSIONS_PER_DAY,
+  ADDITIONAL_MISSION_REWARD_MULTIPLIER,
   type LetterRank,
   type QuestType,
 } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
-import type { Quest, UserData } from "@/drizzle/schema";
+import type { Quest, UserData, UserQuest } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
 /**
@@ -91,6 +93,12 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
     if (resolved) {
       rewards = ObjectiveReward.parse(userQuest.quest.content.reward);
     }
+    const isMissionOrCrime =
+      userQuest.quest.questType === "mission" || userQuest.quest.questType === "crime";
+    const rewardMultiplier =
+      isMissionOrCrime && user.dailyMissions > MISSIONS_PER_DAY
+        ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
+        : 1;
     userQuest.quest.content.objectives.forEach((objective) => {
       const status = goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
@@ -99,19 +107,19 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
           successDescriptions.push(objective.successDescription);
         }
         if (objective.reward_money) {
-          rewards.reward_money += objective.reward_money;
+          rewards.reward_money += objective.reward_money * rewardMultiplier;
         }
         if (objective.reward_clanpoints) {
-          rewards.reward_clanpoints += objective.reward_clanpoints;
+          rewards.reward_clanpoints += objective.reward_clanpoints * rewardMultiplier;
         }
         if (objective.reward_exp) {
-          rewards.reward_exp += objective.reward_exp;
+          rewards.reward_exp += objective.reward_exp * rewardMultiplier;
         }
         if (objective.reward_tokens) {
-          rewards.reward_tokens += objective.reward_tokens;
+          rewards.reward_tokens += objective.reward_tokens * rewardMultiplier;
         }
         if (objective.reward_prestige) {
-          rewards.reward_prestige += objective.reward_prestige;
+          rewards.reward_prestige += objective.reward_prestige * rewardMultiplier;
         }
         if (objective.reward_jutsus) {
           rewards.reward_jutsus.push(...objective.reward_jutsus);
@@ -428,11 +436,12 @@ export const isAvailableUserQuests = (
     questType: QuestType;
     expiresAt?: string | null;
     requiredVillage: string | null;
+    prerequisiteQuestId?: string | null;
     previousAttempts?: number | null;
     previousCompletes?: number | null;
     completed?: number | null;
   },
-  user: UserData,
+  user: NonNullable<UserWithRelations>,
   ignorePreviousAttempts = false,
 ) => {
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
@@ -449,13 +458,44 @@ export const isAvailableUserQuests = (
     !questAndUserQuestInfo.requiredVillage ||
     questAndUserQuestInfo.requiredVillage === user.villageId ||
     (questAndUserQuestInfo.requiredVillage === VILLAGE_SYNDICATE_ID && user.isOutlaw);
-  const check = hideCheck && expiresCheck && prevCheck && villageCheck;
+
+  // Story specific checks
+  const storyCompletedCheck =
+    questAndUserQuestInfo.questType !== "story" ||
+    !questAndUserQuestInfo.completed ||
+    questAndUserQuestInfo.completed < 1;
+  const storyAttemptsCheck =
+    questAndUserQuestInfo.questType !== "story" ||
+    !questAndUserQuestInfo.previousAttempts ||
+    questAndUserQuestInfo.previousAttempts < 3;
+
+  // Check if prerequisite quest is completed
+  const prerequisiteCheck =
+    !questAndUserQuestInfo.prerequisiteQuestId ||
+    user.userQuests?.some((q: UserQuest) => {
+      return (
+        q.questId === questAndUserQuestInfo.prerequisiteQuestId && q.completed === 1
+      );
+    });
+
+  // Check if quest is available
+  const check =
+    hideCheck &&
+    expiresCheck &&
+    prevCheck &&
+    villageCheck &&
+    prerequisiteCheck &&
+    storyCompletedCheck &&
+    storyAttemptsCheck;
   // If quest is not available, return the reason
   let message = "";
   if (!hideCheck) message += "Quest is hidden\n";
   if (!expiresCheck) message += "Quest has expired\n";
   if (!prevCheck) message += "Quest has been attempted too many times\n";
   if (!villageCheck) message += "Quest is not available in your village\n";
+  if (!prerequisiteCheck) message += "You must complete the prerequisite quest first\n";
+  if (!storyCompletedCheck) message += "Story quest already completed\n";
+  if (!storyAttemptsCheck) message += "Story quest has been attempted too many times\n";
   // Returned detailed info on all the checks
   return { check, message };
 };

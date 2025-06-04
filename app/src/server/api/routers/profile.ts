@@ -94,7 +94,7 @@ import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
-import type { UserQuest, Clan } from "@/drizzle/schema";
+import type { UserQuest, Clan, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 
@@ -1343,6 +1343,15 @@ export const updateNindo = async (
   return { success: true, message: "Content updated" };
 };
 
+/**
+ * Fetch a user by id
+ * @param client - The database client
+ * @param userId - The id of the user
+ * @returns The user
+ *
+ * NOTE: This function is used across the codebase. Use fetchUpdatedUser
+ * if more information is required on the user object, so that we keep this method "light"
+ */
 export const fetchUser = async (client: DrizzleClient, userId: string) => {
   const user = await client.query.userData.findFirst({
     where: eq(userData.userId, userId),
@@ -1862,7 +1871,7 @@ export type UserWithRelations =
           })
         | null;
       loadout?: { jutsuIds: string[] } | null;
-      userQuests: UserQuest[];
+      userQuests: (UserQuest & { quest: Quest })[];
       votes?: UserVote | null;
     })
   | undefined;

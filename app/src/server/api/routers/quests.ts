@@ -28,7 +28,6 @@ import { deleteRequests } from "@/routers/sensei";
 import { getQuestCounterFieldName } from "@/validators/user";
 import { getRandomElement } from "@/utils/array";
 import { fetchUserItems } from "@/routers/item";
-import { MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
@@ -45,6 +44,12 @@ import type { DrizzleClient } from "@/server/db";
 import { canEditPublicUser } from "@/utils/permissions";
 
 export const questsRouter = createTRPCRouter({
+  getAllNames: publicProcedure.query(async ({ ctx }) => {
+    const results = await ctx.drizzle.query.quest.findMany({
+      columns: { id: true, name: true },
+    });
+    return results;
+  }),
   getAll: publicProcedure
     .input(
       questFilteringSchema.extend({
@@ -117,8 +122,11 @@ export const questsRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       // Query
-      const [user, events] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+      const [{ user }, events] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
         ctx.drizzle
           .select({ ...getTableColumns(questHistory), ...getTableColumns(quest) })
           .from(quest)
@@ -151,6 +159,7 @@ export const questsRouter = createTRPCRouter({
           )
           .orderBy(asc(quest.name)),
       ]);
+      if (!user) throw serverError("NOT_FOUND", "User not found");
       events.forEach((r) => hideQuestInformation(r));
       return events.filter((e) => isAvailableUserQuests(e, user, true).check);
     }),
@@ -158,8 +167,11 @@ export const questsRouter = createTRPCRouter({
     .input(z.object({ villageId: z.string(), level: z.number() }))
     .query(async ({ ctx, input }) => {
       // Query
-      const [user, missions] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+      const [{ user }, missions] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
         ctx.drizzle
           .select({ ...getTableColumns(questHistory), ...getTableColumns(quest) })
           .from(quest)
@@ -191,9 +203,41 @@ export const questsRouter = createTRPCRouter({
           )
           .orderBy(asc(quest.name)),
       ]);
-      // Return
+      if (!user) throw serverError("NOT_FOUND", "User not found");
       missions.forEach((r) => hideQuestInformation(r));
       return missions.filter((e) => isAvailableUserQuests(e, user, true).check);
+    }),
+  storyQuests: protectedProcedure
+    .input(z.object({ level: z.number() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const [{ user }, quests] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        ctx.drizzle
+          .select({ ...getTableColumns(questHistory), ...getTableColumns(quest) })
+          .from(quest)
+          .leftJoin(
+            questHistory,
+            and(
+              eq(quest.id, questHistory.questId),
+              eq(questHistory.userId, ctx.userId),
+            ),
+          )
+          .where(
+            and(
+              eq(quest.questType, "story"),
+              lte(quest.requiredLevel, input.level ?? 0),
+              gte(quest.maxLevel, input.level ?? 0),
+            ),
+          )
+          .orderBy(asc(quest.name)),
+      ]);
+      if (!user) throw serverError("NOT_FOUND", "User not found");
+      quests.forEach((r) => hideQuestInformation(r));
+      return quests.filter((e) => isAvailableUserQuests(e, user).check);
     }),
   startRandom: protectedProcedure
     .input(
@@ -265,12 +309,7 @@ export const questsRouter = createTRPCRouter({
       // Guards
       if (!setting) return errorResponse("Setting not found");
       if (user.isBanned) return errorResponse("You are banned");
-      if (
-        (!isErrand && user.dailyMissions >= MISSIONS_PER_DAY) ||
-        (isErrand && user.dailyErrands >= MISSIONS_PER_DAY)
-      ) {
-        return errorResponse("Limit reached");
-      }
+
       // Check if user is allowed to perform this rank
       const ranks = availableQuestLetterRanks(user.rank);
       if (!ranks.includes(input.rank) && input.type === "mission") {
@@ -312,16 +351,19 @@ export const questsRouter = createTRPCRouter({
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
+          forceRegen: true, // Force regeneration to ensure we have latest quest data
         }),
         fetchSectorVillage(ctx.drizzle, input.userSector),
         fetchQuest(ctx.drizzle, input.questId),
         fetchUserQuestByQuestId(ctx.drizzle, ctx.userId, input.questId),
       ]);
+
       // Guards
       const { user } = updatedUser;
       if (!user) return errorResponse("User does not exist");
       const ranks = availableQuestLetterRanks(user.rank);
       if (!questData) return errorResponse("Quest does not exist");
+      if (user.sector !== input.userSector) return errorResponse("Sector mismatch");
       if (user.isBanned) return errorResponse("You are banned");
       if (!ranks.includes(questData.questRank)) {
         return errorResponse(`Rank ${user.rank} not allowed`);
@@ -334,10 +376,34 @@ export const questsRouter = createTRPCRouter({
       if (!check) {
         return errorResponse(`Quest is not available for you: ${message}`);
       }
-      const current = user.userQuests?.filter(
-        (q) => q.quest.questType === "event" && !q.endAt,
+
+      // Check if user is already on this quest
+      const isAlreadyOnQuest = user.userQuests?.some(
+        (q) => q.questId === questData.id && !q.endAt,
       );
-      if (!["mission", "crime"].includes(questData.questType)) {
+      if (isAlreadyOnQuest) {
+        return errorResponse(`You are already on this quest: ${questData.name}`);
+      }
+
+      // Handle different quest types
+      if (questData.questType === "story") {
+        if (!canAccessStructure(user, "/globalanbuhq", sectorVillage)) {
+          return errorResponse("Must be in the Global Anbu HQ to start story quests");
+        }
+        const current = user.userQuests?.filter(
+          (q) => q.quest.questType === "story" && !q.endAt,
+        );
+        if (current && current.length >= QUESTS_CONCURRENT_LIMIT) {
+          return errorResponse(
+            `Already ${QUESTS_CONCURRENT_LIMIT} active story quests; ${current
+              .map((c) => c.quest.name)
+              .join(", ")}. Abandon one to start this quest.`,
+          );
+        }
+      } else if (questData.questType === "event") {
+        const current = user.userQuests?.filter(
+          (q) => q.quest.questType === "event" && !q.endAt,
+        );
         if (current && current.length >= QUESTS_CONCURRENT_LIMIT) {
           return errorResponse(
             `Already ${QUESTS_CONCURRENT_LIMIT} active event quests; ${current
@@ -354,7 +420,7 @@ export const questsRouter = createTRPCRouter({
         ) {
           return errorResponse(`You have already attempted this quest`);
         }
-      } else {
+      } else if (["mission", "crime"].includes(questData.questType)) {
         if (questData.questRank !== "A") {
           return errorResponse(`Only A rank missions/crimes are allowed`);
         }
@@ -370,10 +436,14 @@ export const questsRouter = createTRPCRouter({
         if (current) {
           return errorResponse(`Already active ${current.questType}`);
         }
-        if (user.dailyMissions >= MISSIONS_PER_DAY) {
-          return errorResponse("Limit reached");
-        }
+      } else {
+        // Should not happen, record error and hard throw for monitoring
+        throw serverError(
+          "PRECONDITION_FAILED",
+          `Invalid quest type to start: ${questData.questType}`,
+        );
       }
+
       // Insert quest entry
       await Promise.all([
         upsertQuestEntry(ctx.drizzle, user, questData),
@@ -517,6 +587,7 @@ export const questsRouter = createTRPCRouter({
         timeFrame: "all_time",
         questType: "mission",
         hidden: true,
+        prerequisiteQuestId: "",
         content: {
           objectives: [],
           reward: {
@@ -989,12 +1060,39 @@ export const updateRewards = async (
   return { items, jutsus, badges, useritems };
 };
 
+/**
+ * Fetch a quest by id
+ * @param client - The database client
+ * @param id - The id of the quest
+ * @returns The quest
+ */
 export const fetchQuest = async (client: DrizzleClient, id: string) => {
   return await client.query.quest.findFirst({
     where: eq(quest.id, id),
   });
 };
 
+/**
+ * Fetch quest history for a user
+ * @param client - The database client
+ * @param userId - The id of the user
+ * @returns The quest history
+ */
+export const fetchUserQuestHistory = async (client: DrizzleClient, userId: string) => {
+  return await client.query.questHistory.findMany({
+    columns: { id: true },
+    where: eq(questHistory.userId, userId),
+    with: { quest: { columns: { id: true, questType: true } } },
+  });
+};
+
+/**
+ * Fetch uncompleted quests for a user
+ * @param client - The database client
+ * @param user - The user
+ * @param type - The type of quest
+ * @returns The uncompleted quests
+ */
 export const fetchUncompletedQuests = async (
   client: DrizzleClient,
   user: UserData,

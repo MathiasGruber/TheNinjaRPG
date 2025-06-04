@@ -115,6 +115,7 @@ export const StructureRoutes = [
   "/battlearena",
   "/blackmarket",
   "/clanhall",
+  "/globalanbuhq",
   "/home",
   "/hospital",
   "/itemshop",
@@ -346,6 +347,7 @@ export const QuestTypes = [
   "tier",
   "daily",
   "achievement",
+  "story",
 ] as const;
 export type QuestType = (typeof QuestTypes)[number];
 export const QUESTS_CONCURRENT_LIMIT = 4;
@@ -603,7 +605,9 @@ export const FED_EVENT_ITEMS_GOLD = 25;
 export const FED_EVENT_ITEMS_DEFAULT = 10;
 
 // Missions config
+export const ERRANDS_PER_DAY = 9;
 export const MISSIONS_PER_DAY = 9;
+export const ADDITIONAL_MISSION_REWARD_MULTIPLIER = 0.4;
 
 // War config
 export const WAR_VILLAGE_MAX_SECTORS = 12;

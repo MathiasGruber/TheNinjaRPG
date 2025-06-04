@@ -1,14 +1,11 @@
 import OpenAI from "openai";
 import { fetchAttributes } from "../server/api/routers/profile";
-import { userData, historicalAvatar, conceptImage } from "@/drizzle/schema";
-import { eq, sql, and, isNotNull } from "drizzle-orm";
-import { fetchImage } from "@/routers/conceptart";
 import sharp from "sharp";
 import { UTApi, UTFile } from "uploadthing/server";
 import { env } from "@/env/server.mjs";
 import { tmpdir } from "os";
 import path from "path";
-import Replicate, { type Prediction } from "replicate";
+import Replicate from "replicate";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData, UserRank } from "@/drizzle/schema";
 import { nanoid } from "nanoid";

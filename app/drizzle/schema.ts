@@ -2116,6 +2116,7 @@ export const quest = mysqlTable(
     requiredLevel: int("requiredLevel").default(1).notNull(),
     maxLevel: int("maxLevel").default(100).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
+    prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),
     tierLevel: int("tierLevel"),
     timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
     questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
@@ -2138,6 +2139,9 @@ export const quest = mysqlTable(
       requiredLevelIdx: index("Quest_requiredLevel_idx").on(table.requiredLevel),
       maxLevelIdx: index("Quest_maxLevel_idx").on(table.maxLevel),
       requiredVillageIdx: index("Quest_requiredVillage_idx").on(table.requiredVillage),
+      prerequisiteQuestIdIdx: index("Quest_prerequisiteQuestId_idx").on(
+        table.prerequisiteQuestId,
+      ),
     };
   },
 );
