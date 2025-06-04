@@ -41,6 +41,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: ais, isPending: l3 } = api.profile.getAllAiNames.useQuery(undefined);
   const { data: villages, isPending: l4 } = api.village.getAllNames.useQuery(undefined);
   const { data: badges, isPending: l5 } = api.badge.getAll.useQuery(undefined);
+  const { data: quests, isPending: l6 } = api.quests.getAllNames.useQuery(undefined);
 
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
@@ -112,7 +113,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4 || l5;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6;
 
   // Watch for changes
   const imageUrl = useWatch({
@@ -134,6 +135,18 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
     { id: "requiredLevel", type: "number" },
     { id: "maxLevel", type: "number" },
   ];
+
+  // Add prerequisite quest if quests exist
+  if (quests) {
+    formData.push({
+      id: "prerequisiteQuestId",
+      type: "db_values",
+      values: quests.filter((q) => q.id !== quest.id), // Don't allow self-reference
+      resetButton: true,
+      label: "Prerequisite Quest",
+      searchable: true,
+    });
+  }
 
   // Add villages if they exist
   if (villages) {

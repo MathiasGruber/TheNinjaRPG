@@ -25,7 +25,7 @@ import { secondsFromDate } from "@/utils/time";
 import { useAtomValue } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
 import { calcLevelRequirements } from "@/libs/profile";
-import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import { ERRANDS_PER_DAY } from "@/drizzle/constants";
 import { cn } from "src/libs/shadui";
 import {
   IMG_ICON_DISCORD,
@@ -156,8 +156,10 @@ const MenuBoxProfile: React.FC = () => {
 
   const expRequired = userData && calcLevelRequirements(userData.level - 1);
   const expForNextLevel = userData && calcLevelRequirements(userData.level);
-  const expTowardsNextLevel = userData && Math.max(0, userData.experience - (expRequired ?? 0));
-  const expNeededForNextLevel = userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
+  const expTowardsNextLevel =
+    userData && Math.max(0, userData.experience - (expRequired ?? 0));
+  const expNeededForNextLevel =
+    userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
 
   return (
     <>
@@ -212,7 +214,11 @@ const MenuBoxProfile: React.FC = () => {
               total={battleUser?.maxStamina || userData?.maxStamina}
               timeDiff={timeDiff}
             />
-            {expRequired && expForNextLevel && expTowardsNextLevel && expNeededForNextLevel && expTowardsNextLevel >= expNeededForNextLevel ? (
+            {expRequired &&
+            expForNextLevel &&
+            expTowardsNextLevel &&
+            expNeededForNextLevel &&
+            expTowardsNextLevel >= expNeededForNextLevel ? (
               <LevelUpBtn />
             ) : (
               <StatusBar
@@ -345,14 +351,14 @@ const MenuBoxProfile: React.FC = () => {
               <TooltipContent>Reputation points for use in black market</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          {userData && userData.dailyMissions < MISSIONS_PER_DAY && (
+          {userData && userData.dailyMissions < ERRANDS_PER_DAY && (
             <TooltipProvider delayDuration={50}>
               <Tooltip>
                 <TooltipTrigger className="w-full">
                   <Link href="/missionhall" className="hover:text-orange-500">
                     <div className="flex flex-row items-center">
                       <LayoutList className="h-6 w-6 mr-2" />{" "}
-                      {userData?.dailyMissions ?? "??"} / {MISSIONS_PER_DAY}
+                      {userData?.dailyMissions ?? "??"} / {ERRANDS_PER_DAY}
                     </div>
                   </Link>
                 </TooltipTrigger>

@@ -11,9 +11,24 @@ import { availableQuestLetterRanks } from "@/libs/train";
 import { getMissionHallSettings } from "@/libs/quest";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MISSIONS_PER_DAY, IMG_BUILDING_MISSIONHALL } from "@/drizzle/constants";
+import {
+  MISSIONS_PER_DAY,
+  ERRANDS_PER_DAY,
+  IMG_BUILDING_MISSIONHALL,
+} from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function MissionHall() {
   const util = api.useUtils();
@@ -57,7 +72,7 @@ export default function MissionHall() {
   // Derived
   const availableUserRanks = availableQuestLetterRanks(userData.rank);
   const missionsLeft = MISSIONS_PER_DAY - userData.dailyMissions;
-  const errandsLeft = MISSIONS_PER_DAY - userData.dailyErrands;
+  const errandsLeft = ERRANDS_PER_DAY - userData.dailyErrands;
   const classifier = userData.isOutlaw ? "crime" : "mission";
   const aRanks = hallData?.filter(
     (m) => m.questType === classifier && m.questRank === "A",
@@ -80,8 +95,12 @@ export default function MissionHall() {
         className="w-full"
         priority={true}
       />
+      <p className="text-center text-xl font-bold mb-4 p-3">
+        Missions are special assignments that advance the game&apos;s narrative. They
+        can only be started here at the Mission Hall.
+      </p>
       <p className="text-center p-3 text-xl font-bold">
-        Errands [{userData.dailyErrands} / {MISSIONS_PER_DAY}] -{" "}
+        Errands [{userData.dailyErrands} / {ERRANDS_PER_DAY}] -{" "}
         {capitalizeFirstLetter(classifier)}s [{userData.dailyMissions} /{" "}
         {MISSIONS_PER_DAY}]
       </p>
@@ -104,7 +123,7 @@ export default function MissionHall() {
             const isErrand = setting.type === "errand";
             const isRankAllowed = availableUserRanks.includes(setting.rank) || isErrand;
             // Completed field on user model
-            const capped = isErrand ? errandsLeft <= 0 : missionsLeft <= 0;
+            const capped = isErrand ? errandsLeft <= 0 : false;
             if (setting.rank === "A") {
               return (
                 <Popover key={`mission-${i}`}>
@@ -125,27 +144,63 @@ export default function MissionHall() {
                   <PopoverContent>
                     <div className="grid grid-cols-3 gap-2">
                       {aRanks?.map((mission, i) => (
-                        <div
-                          onClick={() =>
-                            startQuest({
-                              questId: mission.id,
-                              userSector: userData.sector,
-                            })
-                          }
-                          key={`specific-mission-${i}`}
-                          className="hover:opacity-70 hover:cursor-pointer"
-                        >
-                          <div className="flex flex-col justify-center items-center">
-                            <Image
-                              alt="small"
-                              className="rounded-lg"
-                              src={mission.image || setting.image}
-                              width={128}
-                              height={128}
-                            />
-                            <p className="font-bold">{mission.name}</p>
-                          </div>
-                        </div>
+                        <AlertDialog key={`specific-mission-${i}`}>
+                          <AlertDialogTrigger asChild>
+                            <div className="hover:opacity-70 hover:cursor-pointer">
+                              <div className="flex flex-col justify-center items-center">
+                                <Image
+                                  alt="small"
+                                  className="rounded-lg"
+                                  src={mission.image || setting.image}
+                                  width={128}
+                                  height={128}
+                                />
+                                <p className="font-bold text-xs text-center">
+                                  {mission.name}
+                                </p>
+                                {userData.dailyMissions > 9 && (
+                                  <p className="text-sm text-yellow-500">40% Rewards</p>
+                                )}
+                              </div>
+                            </div>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Accept Mission: {mission.name}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to accept the mission &quot;
+                                {mission.name}&quot;? You can only have one active
+                                mission at a time.
+                                {userData.dailyMissions > 9 && (
+                                  <>
+                                    <br />
+                                    <br />
+                                    <span className="text-yellow-500">
+                                      Note: You have completed more than 9 missions
+                                      today. This mission will only give 40% of its
+                                      normal rewards.
+                                    </span>
+                                  </>
+                                )}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() =>
+                                  startQuest({
+                                    questId: mission.id,
+                                    userSector: userData.sector,
+                                  })
+                                }
+                              >
+                                Accept Mission
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       ))}
                     </div>
                   </PopoverContent>
@@ -153,30 +208,62 @@ export default function MissionHall() {
               );
             } else {
               return (
-                <div
-                  key={i}
-                  className={
-                    count === 0 || capped || !isRankAllowed
-                      ? "filter grayscale"
-                      : "hover:cursor-pointer hover:opacity-30"
-                  }
-                  onClick={(e) => {
-                    e.preventDefault();
-                    startRandom({
-                      type: setting.type,
-                      rank: setting.rank,
-                      userLevel: userData.level,
-                      userSector: userData.sector,
-                      userVillageId: userData.isOutlaw
-                        ? VILLAGE_SYNDICATE_ID
-                        : userData.villageId,
-                    });
-                  }}
-                >
-                  <Image alt="small" src={setting.image} width={256} height={256} />
-                  <p className="font-bold">{setting.name}</p>
-                  <p>[Random out of {count} available]</p>
-                </div>
+                <AlertDialog key={i}>
+                  <AlertDialogTrigger asChild>
+                    <div
+                      className={
+                        count === 0 || !isRankAllowed
+                          ? "filter grayscale"
+                          : "hover:cursor-pointer hover:opacity-30"
+                      }
+                    >
+                      <Image alt="small" src={setting.image} width={256} height={256} />
+                      <p className="font-bold">{setting.name}</p>
+                      <p>[Random out of {count} available]</p>
+                      {!isErrand && userData.dailyMissions >= 9 && (
+                        <p className="text-sm text-yellow-500">40% Rewards</p>
+                      )}
+                    </div>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Accept Random Mission</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to accept a random {setting.rank}-rank{" "}
+                        {setting.type}? You can only have one active mission at a time.
+                        {!isErrand && userData.dailyMissions >= 9 && (
+                          <>
+                            <br />
+                            <br />
+                            <span className="text-yellow-500">
+                              Note: You have already completed 9 missions today. This
+                              mission will only give 40% of its normal rewards.
+                            </span>
+                          </>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={(e) => {
+                          e.preventDefault();
+                          startRandom({
+                            type: setting.type,
+                            rank: setting.rank,
+                            userLevel: userData.level,
+                            userSector: userData.sector,
+                            userVillageId: userData.isOutlaw
+                              ? VILLAGE_SYNDICATE_ID
+                              : userData.villageId,
+                          });
+                        }}
+                      >
+                        Accept Random Mission
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               );
             }
           })}

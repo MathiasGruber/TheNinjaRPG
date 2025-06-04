@@ -17,6 +17,10 @@ import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import { parseHtml } from "@/utils/parse";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
+import {
+  MISSIONS_PER_DAY,
+  ADDITIONAL_MISSION_REWARD_MULTIPLIER,
+} from "@/drizzle/constants";
 import type { QuestTrackerType } from "@/validators/objectives";
 import type { UserQuest } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
@@ -291,6 +295,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   const { userQuest, tracker, hideTitle } = props;
   const quest = userQuest.quest;
   const tierOrDaily = ["tier", "daily"].includes(quest.questType);
+  const missionOrCrime = ["mission", "crime"].includes(quest.questType);
+  const rewardMultiplier =
+    userData && missionOrCrime && userData.dailyMissions > MISSIONS_PER_DAY
+      ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
+      : 1;
   const allDone = tracker?.goals.every((g) => g.done);
   const utils = api.useUtils();
 
@@ -347,7 +356,10 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
           </>
         )}
         <div className="pt-2">
-          <Reward info={quest.content.reward} />
+          <Reward
+            info={userQuest.quest.content.reward}
+            rewardMultiplier={rewardMultiplier}
+          />
           <EventTimer quest={quest} tracker={tracker} />
         </div>
         {!["tier", "daily"].includes(quest.questType) && quest.description && (

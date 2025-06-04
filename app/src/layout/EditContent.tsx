@@ -2,7 +2,7 @@ import { z } from "zod";
 import { calculateContentDiff } from "@/utils/diff";
 import { useForm, useWatch } from "react-hook-form";
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import ContentImageSelector from "@/layout/ContentImageSelector";
 import RichInput from "@/layout/RichInput";
 import { Switch } from "@/components/ui/switch";
@@ -10,20 +10,20 @@ import { Input } from "@/components/ui/input";
 import { objectKeys } from "@/utils/typeutils";
 import { getTagSchema } from "@/libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { showMutationToast } from "@/libs/toast";
 import { api } from "@/app/_trpc/client";
 import { getObjectiveSchema } from "@/validators/objectives";
-import { sleep } from "@/utils/time";
 import { Button } from "@/components/ui/button";
 import { MultiSelect, type OptionType } from "@/components/ui/multi-select";
 import { X } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -32,7 +32,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { nanoid } from "nanoid";
+import { cn } from "src/libs/shadui";
 import type { Path, PathValue } from "react-hook-form";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -46,6 +48,7 @@ export type FormEntry<K> = {
   label?: string;
   doubleWidth?: boolean;
   resetButton?: boolean;
+  searchable?: boolean;
 } & (
   | { type: "text" }
   | { type: "richinput" }
@@ -191,7 +194,7 @@ export const EditContent = <
             return (
               <div
                 key={`formEntry-${id}`}
-                className={`${["avatar", "avatar3d"].includes(type) ? "row-span-4" : ""} ${
+                className={`${["avatar", "avatar3d"].includes(type) ? "row-span-5" : ""} ${
                   formEntry.doubleWidth ? "md:col-span-2" : ""
                 } ${
                   props.fixedWidths
@@ -281,7 +284,7 @@ export const EditContent = <
                         control={form.control}
                         name={id}
                         render={({ field, fieldState }) => (
-                          <FormItem>
+                          <FormItem className="flex flex-col">
                             <FormLabel>
                               {formEntry.label ? formEntry.label : id}
                             </FormLabel>
@@ -294,27 +297,66 @@ export const EditContent = <
                                 onChange={field.onChange}
                               />
                             ) : (
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                                value={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger isDirty={fieldState.isDirty}>
-                                    <SelectValue placeholder={`None`} />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {options.map((option) => (
-                                    <SelectItem
-                                      key={`select-${option.label}`}
-                                      value={option.value}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      className={cn(
+                                        "w-full justify-between",
+                                        !field.value && "text-muted-foreground",
+                                        fieldState.isDirty && "border-orange-300",
+                                      )}
                                     >
-                                      {option.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                      {field.value
+                                        ? options.find(
+                                            (option) => option.value === field.value,
+                                          )?.label
+                                        : "Select option"}
+                                      <ChevronsUpDown className="opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[200px] p-0">
+                                  <Command>
+                                    {formEntry.searchable && (
+                                      <CommandInput
+                                        placeholder="Search..."
+                                        className="h-9"
+                                      />
+                                    )}
+
+                                    <CommandList>
+                                      <CommandEmpty>No framework found.</CommandEmpty>
+                                      <CommandGroup>
+                                        {options.map((option) => (
+                                          <CommandItem
+                                            value={option.label}
+                                            key={option.value}
+                                            onSelect={() => {
+                                              form.setValue(
+                                                id,
+                                                option.value as PathValue<S, K>,
+                                              );
+                                            }}
+                                          >
+                                            {option.label}
+                                            <Check
+                                              className={cn(
+                                                "ml-auto",
+                                                option.value === field.value
+                                                  ? "opacity-100"
+                                                  : "opacity-0",
+                                              )}
+                                            />
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
                             )}
 
                             <FormMessage />
