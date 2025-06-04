@@ -185,15 +185,14 @@ export const villageRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.money < cost) return errorResponse("You don't have enough money");
       if (user.isBanned) return errorResponse("You are banned");
-      if (!sectorVillage) return errorResponse("Village does not exist");
-      if (!canAccessStructure(user, "/ramenshop", sectorVillage)) {
+      if (
+        user.isOutlaw &&
+        sectorVillage &&
+        !canAccessStructure(user, "/ramenshop", sectorVillage)
+      ) {
         return errorResponse("This is not a safe area for you to eat ramen");
       }
       // Mutate with guard
-      const newHealth = Math.min(
-        user.maxHealth,
-        user.curHealth + (user.maxHealth * healPercentage) / 100,
-      );
       const newStamina = Math.min(
         user.maxStamina,
         user.curStamina + (user.maxStamina * healPercentage) / 100,
@@ -206,7 +205,6 @@ export const villageRouter = createTRPCRouter({
         .update(userData)
         .set({
           money: user.money - cost,
-          curHealth: newHealth,
           curStamina: newStamina,
           curChakra: newChakra,
         })
@@ -216,9 +214,8 @@ export const villageRouter = createTRPCRouter({
       } else {
         return {
           success: true,
-          message: `You have bought food and healed to ${Math.floor(newHealth)}HP, ${Math.floor(newStamina)}SP, and ${Math.floor(newChakra)}CP`,
+          message: `You have bought food and healed to ${Math.floor(newStamina)}SP and ${Math.floor(newChakra)}CP`,
           cost,
-          newHealth,
           newStamina,
           newChakra,
         };
