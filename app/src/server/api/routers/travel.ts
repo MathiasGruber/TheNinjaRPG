@@ -253,7 +253,7 @@ export const travelRouter = createTRPCRouter({
         ctx.drizzle.query.village.findFirst({
           where: and(
             eq(village.sector, user.sector),
-            inArray(village.type, ["VILLAGE", "TOWN", "HIDEOUT", "SAFEZONE"]),
+            inArray(village.type, ["VILLAGE", "OUTLAW", "TOWN", "HIDEOUT", "SAFEZONE"]),
           ),
           with: { structures: true },
         }),
