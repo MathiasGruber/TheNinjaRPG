@@ -9,7 +9,6 @@ import { calcHealCost } from "@/libs/hospital/hospital";
 import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { fetchStructures } from "@/routers/village";
 import { structureBoost } from "@/utils/village";
-import { calcIsInVillage } from "@/libs/travel/controls";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcHealthToChakra } from "@/libs/hospital/hospital";
 import { MEDNIN_MIN_RANK } from "@/drizzle/constants";
@@ -101,9 +100,6 @@ export const hospitalRouter = createTRPCRouter({
       if (!u) return errorResponse("Your user was not found");
       if (!t) return errorResponse("Your target was not found");
       // Derived
-      const uInVillage = calcIsInVillage({ x: u.longitude, y: u.latitude });
-      const tInVillage = calcIsInVillage({ x: t.longitude, y: t.latitude });
-      const inVillage = uInVillage && tInVillage;
       const sameLocation = u.longitude === t.longitude && u.latitude === t.latitude;
       const toHeal = t.maxHealth * (input.healPercentage / 100);
       const chakraCost = calcHealthToChakra(u, toHeal);
@@ -126,8 +122,8 @@ export const hospitalRouter = createTRPCRouter({
       if (u.sector !== t.sector) {
         return errorResponse("You can only heal users in the same sector as you");
       }
-      if (!inVillage && !sameLocation) {
-        return errorResponse("Target user is not in your village");
+      if (!sameLocation) {
+        return errorResponse("Target user is not in your sector");
       }
       if (chakraCost > u.curChakra) {
         return errorResponse("You don't have enough chakra to heal this much");

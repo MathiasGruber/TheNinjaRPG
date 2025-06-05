@@ -917,7 +917,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                     />
                   </Link>
                 </div>
-                <div className="absolute right-0 bottom-0 z-50 hover:opacity-80  hover:cursor-pointer max-w-1/3">
+                <div className="absolute left-0 bottom-0 z-50 hover:opacity-80  hover:cursor-pointer max-w-1/3">
                   {user.curHealth < user.maxHealth &&
                     hasRequiredRank(userData.rank, MEDNIN_MIN_RANK) && (
                       <HealingPopover targetUser={user} side="top" />
