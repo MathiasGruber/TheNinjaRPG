@@ -141,7 +141,7 @@ const Post: React.FC<PostProps> = (props) => {
         {props.user.villageKageId && props.user.villageKageId === props.user.userId && (
           <>
             {props.user?.isOutlaw ? (
-              <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Leader</span>
+              <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Daimyo</span>
             ) : (
               <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Kage</span>
             )}
