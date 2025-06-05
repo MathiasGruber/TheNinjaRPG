@@ -121,7 +121,7 @@ export const profileRouter = createTRPCRouter({
         message: `Battle descriptions ${input.showBattleDescription ? "enabled" : "disabled"}`,
       };
     }),
-  // Toggle audio setting
+    // Toggle audio setting
   toggleAudio: protectedProcedure
     .output(
       baseServerResponse.extend({
@@ -1103,6 +1103,7 @@ export const profileRouter = createTRPCRouter({
             username: true,
             villageId: true,
             tavernMessages: true,
+            rankedLp: true,
           },
           with: {
             village: true,
@@ -1756,8 +1757,14 @@ export const fetchPublicUsers = async (
         return [desc(userData.villagePrestige)];
       case "Community":
         return [desc(userData.tavernMessages)];
+      case "Ranked":
+        return [desc(userData.rankedLp)];
     }
   };
+
+  // Set limit to 10 for specific categories
+  const effectiveLimit = ["Strongest", "Outlaws", "Ranked"].includes(input.orderBy) ? 10 : input.limit;
+
   const [users, user] = await Promise.all([
     client.query.userData.findMany({
       where: and(
@@ -1805,6 +1812,7 @@ export const fetchPublicUsers = async (
         username: true,
         villagePrestige: true,
         tavernMessages: true,
+        rankedLp: true,
       },
       // If AI, also include relations information
       with: {
@@ -1827,7 +1835,7 @@ export const fetchPublicUsers = async (
           : {}),
       },
       offset: skip,
-      limit: input.limit,
+      limit: effectiveLimit,
       orderBy: getOrder(),
     }),
     ...(userId
