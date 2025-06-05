@@ -200,10 +200,6 @@ export const updateKage = async (
               .update(village)
               .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
-            client
-              .update(userData)
-              .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
-              .where(eq(userData.userId, user?.village?.kageId ?? "")),
           ]
         : []),
       ...(deleteItems.length > 0
