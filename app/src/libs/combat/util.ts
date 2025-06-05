@@ -719,8 +719,10 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                 townhallInfo[userVillageName] = 0;
               }
               // Derived
-              const isUserClanColeader = checkCoLeader(user.userId, user.clan);
-              const isTargetClanColeader = checkCoLeader(target.userId, target.clan);
+              const isUserFactionColeader =
+                user.isOutlaw && checkCoLeader(user.userId, user.clan);
+              const isTargetFactionColeader =
+                target.isOutlaw && checkCoLeader(target.userId, target.clan);
 
               // Village wars & raids
               if (
@@ -736,7 +738,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                     townhallChangeHP += WAR_TOWNHALL_HP_ELDER_RECOVER;
                     townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ELDER_RECOVER;
                     townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                  } else if (isUserClanColeader) {
+                  } else if (isUserFactionColeader) {
                     townhallChangeHP += WAR_TOWNHALL_HP_COLEADER_RECOVER;
                     townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_COLEADER_RECOVER;
                     townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
@@ -760,7 +762,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                   } else if (target.rank === "ELDER") {
                     townhallChangeHP -= WAR_TOWNHALL_HP_ELDER_REMOVE;
                     townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                  } else if (isTargetClanColeader) {
+                  } else if (isTargetFactionColeader) {
                     townhallChangeHP -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
                     townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
                   } else if (target.anbuId) {
