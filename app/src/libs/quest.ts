@@ -93,12 +93,6 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
     if (resolved) {
       rewards = ObjectiveReward.parse(userQuest.quest.content.reward);
     }
-    const isMissionOrCrime =
-      userQuest.quest.questType === "mission" || userQuest.quest.questType === "crime";
-    const rewardMultiplier =
-      isMissionOrCrime && user.dailyMissions > MISSIONS_PER_DAY
-        ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
-        : 1;
     userQuest.quest.content.objectives.forEach((objective) => {
       const status = goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
@@ -107,19 +101,19 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
           successDescriptions.push(objective.successDescription);
         }
         if (objective.reward_money) {
-          rewards.reward_money += objective.reward_money * rewardMultiplier;
+          rewards.reward_money += objective.reward_money;
         }
         if (objective.reward_clanpoints) {
-          rewards.reward_clanpoints += objective.reward_clanpoints * rewardMultiplier;
+          rewards.reward_clanpoints += objective.reward_clanpoints;
         }
         if (objective.reward_exp) {
-          rewards.reward_exp += objective.reward_exp * rewardMultiplier;
+          rewards.reward_exp += objective.reward_exp;
         }
         if (objective.reward_tokens) {
-          rewards.reward_tokens += objective.reward_tokens * rewardMultiplier;
+          rewards.reward_tokens += objective.reward_tokens;
         }
         if (objective.reward_prestige) {
-          rewards.reward_prestige += objective.reward_prestige * rewardMultiplier;
+          rewards.reward_prestige += objective.reward_prestige;
         }
         if (objective.reward_jutsus) {
           rewards.reward_jutsus.push(...objective.reward_jutsus);
@@ -135,6 +129,18 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
         }
       }
     });
+    // Scale rewards
+    const isMissionOrCrime =
+      userQuest.quest.questType === "mission" || userQuest.quest.questType === "crime";
+    const factor =
+      isMissionOrCrime && user.dailyMissions > MISSIONS_PER_DAY
+        ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
+        : 1;
+    rewards.reward_money = Math.floor(rewards.reward_money * factor);
+    rewards.reward_clanpoints = Math.floor(rewards.reward_clanpoints * factor);
+    rewards.reward_exp = Math.floor(rewards.reward_exp * factor);
+    rewards.reward_tokens = Math.floor(rewards.reward_tokens * factor);
+    rewards.reward_prestige = Math.floor(rewards.reward_prestige * factor);
   }
   return { rewards, trackers, userQuest, resolved, successDescriptions };
 };
