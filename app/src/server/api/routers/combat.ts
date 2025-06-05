@@ -837,6 +837,10 @@ export const initiateBattle = async (
           ),
           with: { quest: true },
         },
+        completedQuests: {
+          columns: { id: true, questId: true, completed: true },
+          where: gte(questHistory.completed, 1),
+        },
         aiProfile: true,
       },
       where: or(inArray(userData.userId, userIds), inArray(userData.userId, targetIds)),

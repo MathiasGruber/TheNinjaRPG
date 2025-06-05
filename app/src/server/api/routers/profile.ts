@@ -1512,6 +1512,10 @@ export const fetchUpdatedUser = async (props: {
           },
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
+        completedQuests: {
+          columns: { id: true, questId: true, completed: true },
+          where: gte(questHistory.completed, 1),
+        },
         votes: true,
       },
     }),
@@ -1872,6 +1876,7 @@ export type UserWithRelations =
         | null;
       loadout?: { jutsuIds: string[] } | null;
       userQuests: (UserQuest & { quest: Quest })[];
+      completedQuests: { id: string; questId: string; completed: number }[];
       votes?: UserVote | null;
     })
   | undefined;
