@@ -107,7 +107,7 @@ export const hospitalRouter = createTRPCRouter({
       // Guard
       if (u.isBanned) return errorResponse("You are banned");
       if (t.isBanned) return errorResponse("Target is banned");
-      if (u.status !== "AWAKE") {
+      if (!["AWAKE", "ASLEEP"].includes(u.status)) {
         return errorResponse("You can't heal while you're not awake");
       }
       if (!MEDNIN_HEALABLE_STATES.find((s) => s === t.status)) {
