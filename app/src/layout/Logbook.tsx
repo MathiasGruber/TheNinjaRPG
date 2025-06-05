@@ -4,7 +4,7 @@ import Image from "next/image";
 import NavTabs from "@/layout/NavTabs";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import Accordion from "@/layout/Accordion";
 import { Button } from "@/components/ui/button";
 import { Sparkles, X } from "lucide-react";
@@ -328,7 +328,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
         <div className="ml-3">
           <div className="mt-2 flex flex-row items-center ">
             {["mission", "crime", "event", "errand"].includes(quest.questType) && (
-              <Confirm
+              <Confirm2
                 title="Confirm deleting quest"
                 button={
                   <X className="ml-2 h-6 w-6 hover:text-orange-500 cursor-pointer" />
@@ -340,7 +340,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               >
                 Are you sure you want to abandon this quest? Note that even though you
                 abandon this quest, you have still used one of your daily attempts.
-              </Confirm>
+              </Confirm2>
             )}
           </div>
         </div>
@@ -506,8 +506,13 @@ export const useCheckRewards = () => {
             title: `Reward from ${quest.name}`,
           });
         }
-        await utils.profile.getUser.invalidate();
-        await utils.quests.getQuestHistory.invalidate();
+        await Promise.all([
+          utils.profile.getUser.invalidate(),
+          utils.quests.getQuestHistory.invalidate(),
+          utils.quests.allianceBuilding.invalidate(),
+          utils.quests.missionHall.invalidate(),
+          utils.quests.storyQuests.invalidate(),
+        ]);
       }
     },
   });

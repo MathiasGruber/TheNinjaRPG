@@ -19,7 +19,7 @@ import {
 } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
-import type { Quest, UserData, UserQuest } from "@/drizzle/schema";
+import type { Quest, UserData } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
 /**
@@ -441,7 +441,9 @@ export const isAvailableUserQuests = (
     previousCompletes?: number | null;
     completed?: number | null;
   },
-  user: NonNullable<UserWithRelations>,
+  user: UserData & {
+    completedQuests: { id: string; questId: string; completed?: number }[];
+  },
   ignorePreviousAttempts = false,
 ) => {
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
@@ -472,7 +474,7 @@ export const isAvailableUserQuests = (
   // Check if prerequisite quest is completed
   const prerequisiteCheck =
     !questAndUserQuestInfo.prerequisiteQuestId ||
-    user.userQuests?.some((q: UserQuest) => {
+    user.completedQuests?.some((q) => {
       return (
         q.questId === questAndUserQuestInfo.prerequisiteQuestId && q.completed === 1
       );
@@ -487,6 +489,7 @@ export const isAvailableUserQuests = (
     prerequisiteCheck &&
     storyCompletedCheck &&
     storyAttemptsCheck;
+
   // If quest is not available, return the reason
   let message = "";
   if (!hideCheck) message += "Quest is hidden\n";

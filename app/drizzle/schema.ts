@@ -1542,7 +1542,8 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.userId],
     references: [userNindo.userId],
   }),
-  userQuests: many(questHistory),
+  userQuests: many(questHistory, { relationName: "userQuests" }),
+  completedQuests: many(questHistory, { relationName: "completedQuests" }),
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
@@ -2186,6 +2187,12 @@ export const questHistoryRelations = relations(questHistory, ({ one }) => ({
   user: one(userData, {
     fields: [questHistory.userId],
     references: [userData.userId],
+    relationName: "userQuests",
+  }),
+  victor: one(userData, {
+    fields: [questHistory.userId],
+    references: [userData.userId],
+    relationName: "completedQuests",
   }),
   quest: one(quest, {
     fields: [questHistory.questId],
