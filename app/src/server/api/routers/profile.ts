@@ -55,6 +55,7 @@ import { activityStreakRewards } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
 import { MAX_ATTRIBUTES } from "@/drizzle/constants";
+import { REGEN_SECONDS } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
 import { isAvailableUserQuests } from "@/libs/quest";
 import {
@@ -1633,7 +1634,7 @@ export const fetchUpdatedUser = async (props: {
       forceRegen || // Hard overwrite for e.g. debugging or simply ensuring updated user
       (user.villagePrestige < 0 && !user.isOutlaw) // To trigger getting kicked out of village
     ) {
-      const regen = (user.regeneration * secondsPassed(user.regenAt)) / 60;
+      const regen = (user.regeneration * secondsPassed(user.regenAt)) / REGEN_SECONDS;
       user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);

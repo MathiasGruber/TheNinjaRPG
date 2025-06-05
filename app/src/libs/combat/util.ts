@@ -26,6 +26,7 @@ import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
 import { findWarsWithUser } from "@/libs/war";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { REGEN_SECONDS } from "@/drizzle/constants";
 import {
   SHARED_COOLDOWN_TAGS,
   WAR_TOWNHALL_HP_REMOVE,
@@ -1212,7 +1213,7 @@ export const processUsersForBattle = (info: {
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle
     const regen = calcActiveUserRegen(user, settings);
-    const restored = (regen * secondsPassed(user.regenAt)) / 60;
+    const restored = (regen * secondsPassed(user.regenAt)) / REGEN_SECONDS;
     user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);

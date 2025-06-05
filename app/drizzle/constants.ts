@@ -12,6 +12,9 @@ export const ACTIVE_VOTING_SITES = [
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
 
+// How many seconds to regen a given regen value
+export const REGEN_SECONDS = 30;
+
 export const ContentTypes = [
   "asset",
   "ai",
