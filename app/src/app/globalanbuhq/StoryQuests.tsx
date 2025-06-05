@@ -20,10 +20,6 @@ export default function StoryQuests({ userData }: StoryQuestsProps) {
   const util = api.useUtils();
   const [activeElement, setActiveElement] = useState<string>("");
 
-  const currentQuest = userData?.userQuests?.find(
-    (q) => q.quest?.questType === "story" && !q.endAt,
-  );
-
   const { data: storyQuests } = api.quests.storyQuests.useQuery({
     level: userData?.level ?? 0,
   });
