@@ -16,6 +16,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   DoubleSide,
+  CanvasTexture,
 } from "three";
 import { IMG_AVATAR_DEFAULT, IMG_SECTOR_USER_SPRITE_MASK } from "@/drizzle/constants";
 import { loadTexture } from "@/libs/threejs/util";
@@ -122,17 +123,41 @@ export const createUserAvatarSprite = (
   const line = new LineSegments(geometry, lineMaterial);
   group.add(line);
 
-  // Create white circular border
-  const borderGeometry = new CircleGeometry(0.6, 32);
-  const borderMaterial = new MeshBasicMaterial({
-    color: 0xffffff,
-    side: DoubleSide,
+  // Create white circular border sprite
+  const borderCanvas = document.createElement("canvas");
+  const borderSize = 64; // Size in pixels
+  borderCanvas.width = borderSize;
+  borderCanvas.height = borderSize;
+  const borderContext = borderCanvas.getContext("2d");
+
+  if (borderContext) {
+    // Clear the canvas
+    borderContext.clearRect(0, 0, borderSize, borderSize);
+
+    // Draw white circle border
+    const centerX = borderSize / 2;
+    const centerY = borderSize / 2;
+    const radius = borderSize / 2 - 2; // Leave some padding for the border
+
+    borderContext.beginPath();
+    borderContext.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    borderContext.fillStyle = "white";
+    borderContext.fill();
+  }
+
+  const borderTexture = new CanvasTexture(borderCanvas);
+  borderTexture.generateMipmaps = false;
+  borderTexture.minFilter = LinearFilter;
+
+  const borderMaterial = new SpriteMaterial({
+    map: borderTexture,
+    depthWrite: false,
+    depthTest: false,
   });
-  const borderMesh = new Mesh(borderGeometry, borderMaterial);
-  borderMesh.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
-  // Make the border face the camera
-  borderMesh.lookAt(0, 0, 0);
-  group.add(borderMesh);
+  const borderSprite = new Sprite(borderMaterial);
+  borderSprite.scale.set(1.2, 1.2, 1.2); // Slightly larger than avatar
+  borderSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
+  group.add(borderSprite);
 
   // User avatar sprite
   const alphaMap = loadTexture(IMG_SECTOR_USER_SPRITE_MASK);
