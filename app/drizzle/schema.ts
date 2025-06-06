@@ -1686,6 +1686,7 @@ export const userItem = mysqlTable(
 );
 export type UserItem = InferSelectModel<typeof userItem>;
 export type ItemSlot = UserItem["equipped"];
+export type UserItemWithItem = UserItem & { item: Item };
 
 export const userItemRelations = relations(userItem, ({ one }) => ({
   item: one(item, {

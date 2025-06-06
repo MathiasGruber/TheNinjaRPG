@@ -32,9 +32,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { UserItem, Item } from "@/drizzle/schema";
-
-type UserItemWithItem = UserItem & { item: Item };
+import type { UserItemWithItem } from "@/drizzle/schema";
 
 export default function HomePage() {
   const { userData, sectorVillage, access, ownVillage, updateUser } =

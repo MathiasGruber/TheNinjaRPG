@@ -24,7 +24,7 @@ import { HealTag } from "@/libs/combat/types";
 import { itemFilteringSchema } from "@/validators/item";
 import { filterRollableBloodlines } from "@/libs/bloodline";
 import { fetchBloodlines } from "@/routers/bloodline";
-import type { UserItem, Item } from "@/drizzle/schema";
+import type { UserItemWithItem } from "@/drizzle/schema";
 import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -650,7 +650,7 @@ export const fetchUserItem = async (
 export const toggleEquipItem = async (
   client: DrizzleClient,
   userItemId: string,
-  useritems: (UserItem & { item: Item })[],
+  useritems: UserItemWithItem[],
   slot?: ItemSlot,
 ) => {
   const useritem = useritems.find((i) => i.id === userItemId);

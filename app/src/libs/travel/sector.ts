@@ -743,9 +743,8 @@ export const intersectTiles = (info: {
     const shortestPath = origin && pathFinder.getShortestPath(origin, target);
     // Update hover position
     if (
-      info.hoverPosition &&
-      info.hoverPosition.x !== target.col &&
-      info.hoverPosition.y !== target.row
+      !info.hoverPosition ||
+      (info.hoverPosition.x !== target.col && info.hoverPosition.y !== target.row)
     ) {
       info.setHoverPosition({ x: target.col, y: target.row });
     }

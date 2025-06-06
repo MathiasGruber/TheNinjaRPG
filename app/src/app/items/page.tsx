@@ -21,9 +21,7 @@ import { calcMaxItems, calcMaxEventItems } from "@/libs/item";
 import { CircleFadingArrowUp, Shirt } from "lucide-react";
 import { COST_EXTRA_ITEM_SLOT, IMG_EQUIP_SILHOUETTE } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import type { Item, UserItem, ItemSlot } from "@/drizzle/schema";
-
-type UserItemWithItem = UserItem & { item: Item };
+import type { Item, UserItemWithItem, UserItem, ItemSlot } from "@/drizzle/schema";
 
 export default function MyItems() {
   // State
