@@ -1541,6 +1541,13 @@
       "when": 1749019679809,
       "tag": "0219_shallow_lockjaw",
       "breakpoints": false
+    },
+    {
+      "idx": 220,
+      "version": "5",
+      "when": 1749213863010,
+      "tag": "0220_left_warlock",
+      "breakpoints": false
     }
   ]
 }

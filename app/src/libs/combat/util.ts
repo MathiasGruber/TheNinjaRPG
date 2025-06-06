@@ -726,7 +726,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
               // Village wars & raids
               if (
-                ["VILLAGE_WAR", "FACTION_RAID"].includes(war.type) &&
+                ["VILLAGE_WAR", "WAR_RAID"].includes(war.type) &&
                 battleType === "COMBAT"
               ) {
                 if (didWin) {

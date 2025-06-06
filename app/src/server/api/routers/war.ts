@@ -330,8 +330,11 @@ export const warRouter = createTRPCRouter({
         attackerVillage?.id || "",
         defenderVillage?.id || "",
       );
-      const isRaid = user?.isOutlaw;
-      const warType = isRaid ? "FACTION_RAID" : "VILLAGE_WAR";
+      const targetIsOutlaw = ["TOWN", "HIDEOUT", "OUTLAW"].includes(
+        defenderVillage?.type || "",
+      );
+      const isRaid = user?.isOutlaw || targetIsOutlaw;
+      const warType = isRaid ? "WAR_RAID" : "VILLAGE_WAR";
       const relationshipStatus = isRaid ? "ENEMY" : relationship?.status;
       const structure = structures.find((s) => s.route === input.targetStructureRoute);
       // Guard
@@ -415,7 +418,7 @@ export const warRouter = createTRPCRouter({
       if (
         activeWars.find(
           (w) =>
-            w.type === "FACTION_RAID" &&
+            w.type === "WAR_RAID" &&
             w.attackerVillageId === user?.village?.id &&
             w.defenderVillageId === input.targetVillageId &&
             w.targetStructureRoute === input.targetStructureRoute,
@@ -741,7 +744,7 @@ export const warRouter = createTRPCRouter({
       if (activeWar.status !== "ACTIVE") {
         return errorResponse("War is not active");
       }
-      if (!["FACTION_RAID", "VILLAGE_WAR"].includes(activeWar.type)) {
+      if (!["WAR_RAID", "VILLAGE_WAR"].includes(activeWar.type)) {
         return errorResponse("Cannot surrender this type of war");
       }
       // Mutate
@@ -872,7 +875,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
       .filter((war) => war.attackerVillage && war.defenderVillage)
       .map((war) => {
         // If townhall is destroyed, set tokens to 0 (without updating database), which will trigger war end
-        if (["VILLAGE_WAR", "FACTION_RAID"].includes(war.type)) {
+        if (["VILLAGE_WAR", "WAR_RAID"].includes(war.type)) {
           const attackerTownhall = war.attackerVillage.structures.find(
             (s) => s.route === war.targetStructureRoute,
           );
