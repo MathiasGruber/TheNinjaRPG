@@ -1628,8 +1628,14 @@ export const fetchUpdatedUser = async (props: {
   // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
   // and it is mostly done to keep user updated on the overview pages
   if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
+    // Get activity rewards if any & update timers
+    const now = new Date();
+    const newDay = isDifferentDay(now, user.updatedAt);
+    const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
+    // Figure out if we're running update
     const sinceUpdate = secondsPassed(user.updatedAt);
     if (
+      newDay ||
       sinceUpdate > 300 || // Update user in database every 5 minutes only so as to reduce server load
       forceRegen || // Hard overwrite for e.g. debugging or simply ensuring updated user
       (user.villagePrestige < 0 && !user.isOutlaw) // To trigger getting kicked out of village
@@ -1639,9 +1645,6 @@ export const fetchUpdatedUser = async (props: {
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
       // Get activity rewards if any & update timers
-      const now = new Date();
-      const newDay = isDifferentDay(now, user.updatedAt);
-      const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
       if (newDay) {
         user.activityStreak = withinThreshold ? user.activityStreak + 1 : 1;
         rewards = activityStreakRewards(user.activityStreak);

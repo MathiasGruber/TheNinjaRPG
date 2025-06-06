@@ -60,6 +60,7 @@ import {
   canUnstuckVillage,
   canAwardReputation,
   canSeeActivityEvents,
+  canRestoreActivityStreak,
 } from "@/utils/permissions";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -285,6 +286,16 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
       if (data.success) {
         await utils.profile.getPublicUser.invalidate();
         await utils.logs.getContentChanges.invalidate();
+      }
+    },
+  });
+
+  const restoreActivityStreak = api.staff.restoreUserActivityStreak.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+        await utils.staff.getUserActivityEvents.invalidate();
       }
     },
   });
@@ -809,26 +820,32 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           onValueChange={(value) => setShowActive(value)}
         >
           {userData && (
-            <TabsList className="text-center">
-              {showNindo && <TabsTrigger value="nindo">Nindo</TabsTrigger>}
-              {showCombatLogs && <TabsTrigger value="graph">Combat Graph</TabsTrigger>}
-              {showTransactions && enablePaypal && (
-                <TabsTrigger value="transactions">Transactions</TabsTrigger>
-              )}
-              {showReports && enableReports && (
-                <TabsTrigger value="reports">Reports</TabsTrigger>
-              )}
-              {showTrainingLogs && enableLogs && (
-                <TabsTrigger value="training">Training Log</TabsTrigger>
-              )}
-              {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
-              {enableHistoricalIps && (
-                <TabsTrigger value="historicalIps">IP log</TabsTrigger>
-              )}
-              {enableActivityEvents && (
-                <TabsTrigger value="activityEvents">Activity</TabsTrigger>
-              )}
-            </TabsList>
+            <div className="flex flex-col gap-1">
+              <TabsList className="text-center">
+                {showNindo && <TabsTrigger value="nindo">Nindo</TabsTrigger>}
+                {showCombatLogs && (
+                  <TabsTrigger value="graph">Combat Graph</TabsTrigger>
+                )}
+                {showTransactions && enablePaypal && (
+                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                )}
+                {showReports && enableReports && (
+                  <TabsTrigger value="reports">Reports</TabsTrigger>
+                )}
+              </TabsList>
+              <TabsList className="text-center">
+                {showTrainingLogs && enableLogs && (
+                  <TabsTrigger value="training">Training Log</TabsTrigger>
+                )}
+                {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
+                {enableHistoricalIps && (
+                  <TabsTrigger value="historicalIps">IP log</TabsTrigger>
+                )}
+                {enableActivityEvents && (
+                  <TabsTrigger value="activityEvents">Activity</TabsTrigger>
+                )}
+              </TabsList>
+            </div>
           )}
 
           {/* USER NINDO */}
@@ -1025,6 +1042,27 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                             Created: {event.createdAt.toLocaleString()}
                           </p>
                         </div>
+                        {userData && canRestoreActivityStreak(userData.role) && (
+                          <Confirm2
+                            title="Restore Activity Streak"
+                            proceed_label="Restore Streak"
+                            button={
+                              <Button variant="secondary" size="sm">
+                                Restore Streak
+                              </Button>
+                            }
+                            onAccept={() => {
+                              restoreActivityStreak.mutate({
+                                userId: profile.userId,
+                                activityEventId: event.id,
+                              });
+                            }}
+                          >
+                            Are you sure you want to restore the activity streak to{" "}
+                            <strong>{event.streak}</strong>? This action will update the
+                            user&apos;s current activity streak.
+                          </Confirm2>
+                        )}
                       </div>
                     ))}
                   </div>
