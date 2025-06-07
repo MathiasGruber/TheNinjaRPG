@@ -46,7 +46,7 @@ export default function Users() {
     fetchNextPage,
     hasNextPage,
   } = api.profile.getPublicUsers.useInfiniteQuery(
-    { ...getFilter(state), limit: 30, orderBy: activeTab as "Online" | "Strongest" | "PvP" | "Outlaws" | "Community" | "Staff" | "Dailies" | "Weakest", isAi: false },
+    { ...getFilter(state), limit: 30, orderBy: activeTab, isAi: false },
     {
       enabled: isClerkLoaded,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
