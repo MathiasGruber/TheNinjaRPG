@@ -33,9 +33,9 @@ export default function GameRules() {
           </li>
           <li>
             <b>Offensive Language:</b> Use of racist, sexist, discriminatory, obscene,
-            or otherwise offensive language. Moderate use of profanity is allowed;
-            however, excessive or aggressive use directed at others is not. These rules
-            apply equally to all players.
+            or otherwise offensive language. Moderate use of profanity is allowed (as
+            long as it is not reported as harassment); however, excessive or aggressive
+            use directed at others is not. These rules apply equally to all players.
           </li>
           <li>
             <b>Trolling:</b> Intentional incitement of negative responses or disruption
@@ -43,14 +43,14 @@ export default function GameRules() {
           </li>
           <li>
             <b>Prohibited Topics:</b> Discussions involving sexual content, political
-            issues, drugs, religion, sensitive issues (e.g., suicide), or ongoing court
-            cases in public forums or the Tavern.
+            issues, widely illegal drugs, religion, sensitive issues (e.g., suicide), or
+            ongoing court cases in public forums or the Tavern.
           </li>
           <li>
             <b>External Harassment:</b> Personal harassment of TNR community members
             outside the game, if reported and verified, will be addressed within the
-            rules if deemed exceptional or extreme. (e.g stalking, unwanted sexual
-            advances, blackmail)
+            rules <b>if deemed exceptional or extreme</b>. (e.g stalking, extreme sexual
+            harassment, blackmail)
           </li>
         </ul>
         <hr className="my-2" />
@@ -61,9 +61,11 @@ export default function GameRules() {
         <ul className="pl-5 list-disc">
           <li>
             <b>Prohibited Content:</b> Avatars, account names, and titles depicting
-            political, religiously demeaning, and sexually explicit content, and
-            references to widely illegal drugs, or guns are prohibited. Mildly
-            provocative avatars are allowed.
+            politically offensive (for example but not limited to: mocking or demeaning
+            current political parties and politicians), religiously demeaning, and
+            sexually explicit content, and references to widely illegal drugs or guns
+            are prohibited. Mildly provocative avatars are allowed. Good rule: If it’s
+            safe to show on Naruto, it is fine on TNR.
           </li>
           <li>
             <b>Disruptive Designs, Names, and Titles:</b> Avatars designed to annoy,
@@ -71,13 +73,17 @@ export default function GameRules() {
           </li>
           <li>
             <b>Staff Requests:</b> Moderators may request avatar changes to maintain
-            community standards. Requests must be respected.
+            community standards. Requests must be respected. If you wish to challenge
+            the request, please follow moderator instructions and appeal. Moderators may
+            help in suggesting changes which may make the avatar acceptable to community
+            standards.
           </li>
           <li>
             <b>Forced Changes:</b> Names, avatars, or titles deemed inappropriate may be
             changed without prior notification. Reputation points lost due to these
             changes will not be refunded unless the action is deemed to be in error by a
-            moderator.
+            moderator. As with avatars, please follow moderator instructions and appeal
+            if you think the request was inaccurate or in error.
           </li>
         </ul>
         <hr className="my-2" />
@@ -161,7 +167,8 @@ export default function GameRules() {
           <li>Users should report rule violations via the in-game reporting system.</li>
           <li>
             Reports must include relevant evidence. Abuse of the system may result in
-            penalties for the reporting user.
+            penalties (including but not limited to a silence and/or 1 strike) for the
+            reporting user.
           </li>
           <li>
             Screenshots and grabs may be submitted as evidence however the use of them
@@ -180,6 +187,10 @@ export default function GameRules() {
           <li>
             Appeals require substantial evidence and are rarely granted for permanent
             bans.
+          </li>
+          <li>
+            Appeals may also be made through discord using a moderation ticket. However
+            this process is subject to change.
           </li>
         </ul>
         <hr className="my-2" />
@@ -249,15 +260,25 @@ export default function GameRules() {
           &nbsp;&nbsp;7.2 Account Sharing and Multiple Accounts
         </h3>
         <ul className="pl-5 list-disc">
+          <li>Players are restricted to two accounts.</li>
           <li>
             Accounts must be used by a single individual. Shared or multiple accounts on
             the same IP must be reported to moderators to avoid penalties.
+          </li>
+          <li>
+            Sharing accounts between players on the same IP is prohibited. If this is
+            proven, it may lead to a warning or ban of all shared accounts.
           </li>
           <li>
             If multiple accounts on a single IP are discovered the account owner will be
             asked to mark the additional accounts for deletion. Failure to do so may
             result in bans on all accounts. Users will be given a 24hr window to reply
             to the request before action will be taken.
+          </li>
+          <li>
+            The killing of one’s own secondary account, as well as the coordinated
+            farming of another user’s alt, is prohibited. Players caught doing so may
+            receive a warning or ban.
           </li>
         </ul>
 
@@ -323,6 +344,18 @@ export default function GameRules() {
             context not available to players.
           </li>
         </ul>
+
+        <h3 className="text-md font-bold pt-3">
+          &nbsp;&nbsp;10.4 Selling Reputation Points
+        </h3>
+        <ul className="pl-5 list-disc">
+          <li>
+            The selling and the advertisement of selling reputation points for real
+            currency is prohibited. Players wishing to buy reputation points may only
+            use the blackmarket to purchase through paypal or with ryo from another
+            player. Players caught doing so may face warnings or a ban.
+          </li>
+        </ul>
         <hr className="my-2" />
 
         <h2 className="text-lg font-bold">11. Disclaimer of Warranties</h2>
@@ -351,12 +384,12 @@ export default function GameRules() {
 
         <h3 className="text-md font-bold pt-3">&nbsp;&nbsp;13.1 Rules</h3>
         <p className="my-2">
-          &nbsp;&nbsp;The TNR discord generally follows rules and TNR of the website,
-          but may have additional rules in place in a separate rule channel. It also
-          follows the official Discord ToS. It is important to familiarize yourself with
-          both sets of the rules. Strikes on discord are considered separate from
-          strikes in-game, except for rare or extreme circumstances. Therefore a person
-          may be banned or removed from the discord but be allowed to remain in-game.
+          &nbsp;&nbsp;The TNR discord generally follows rules of the TNR website, but
+          may have additional rules in place in a separate rule channel. It also follows
+          the official Discord ToS. It is important to familiarize yourself with both
+          sets of the rules. Strikes on discord are considered separate from strikes
+          in-game, except for rare or extreme circumstances. Therefore a person may be
+          banned or removed from the discord but be allowed to remain in-game.
           Individuals considered exceptionally disruptive to the TNR discord community
           may be removed, as discord is considered non essential for gameplay.
         </p>
@@ -368,10 +401,10 @@ export default function GameRules() {
           required to follow the official TNR rules. These servers are joined at the
           risk of the player and are not the responsibility of TNR. Except when evidence
           of in-game infractions (such as botting, account sharing, exploitation etc.)
-          or extreme circumstances (stalking, doxxing etc.) official action will not be
-          taken against a player for behaviour within those servers. If users are
-          experiencing negativity or disruptions within these servers, they are
-          encouraged to leave them.
+          or extreme, potentially criminal, circumstances (stalking, doxxing etc.)
+          official action will not be taken against a player for behaviour within those
+          servers. If users are experiencing negativity, harassment or disruptions
+          within these servers, they are encouraged to leave them.
         </p>
 
         <h3 className="text-md font-bold pt-3">&nbsp;&nbsp;13.2.1 Staff</h3>
