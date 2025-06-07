@@ -1762,8 +1762,6 @@ export const fetchPublicUsers = async (
         return [desc(userData.level), desc(userData.experience)];
       case "PvP":
         return [desc(userData.pvpStreak), desc(userData.experience)];
-      case "Weakest":
-        return [asc(userData.level), asc(userData.experience)];
       case "Staff":
         return [desc(userData.tavernMessages)];
       case "Outlaws":
