@@ -32,6 +32,7 @@ export default function Users() {
     "Outlaws",
     "Community",
     "Staff",
+    ...(userData?.role !== "USER" ? ["Dailies"] : []),
   ] as const;
   type TabName = (typeof tabNames)[number];
   const [activeTab, setActiveTab] = useState<TabName>("Online");
@@ -45,7 +46,7 @@ export default function Users() {
     fetchNextPage,
     hasNextPage,
   } = api.profile.getPublicUsers.useInfiniteQuery(
-    { ...getFilter(state), limit: 30, orderBy: activeTab, isAi: false },
+    { ...getFilter(state), limit: 30, orderBy: activeTab as "Online" | "Strongest" | "PvP" | "Outlaws" | "Community" | "Staff" | "Dailies" | "Weakest", isAi: false },
     {
       enabled: isClerkLoaded,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -99,6 +100,10 @@ export default function Users() {
   } else if (activeTab === "Staff") {
     columns.push({ key: "tavernMessages", header: "Yapper Rank", type: "string" });
     columns.push({ key: "role", header: "Role", type: "capitalized" });
+  } else if (activeTab === "Dailies") {
+    columns.push({ key: "dailyArenaFights", header: "Arena Fights", type: "string" });
+    columns.push({ key: "dailyMissions", header: "Missions", type: "string" });
+    columns.push({ key: "dailyErrands", header: "Errands", type: "string" });
   }
   if (userData && canSeeIps(userData.role)) {
     columns.push({ key: "lastIp", header: "LastIP", type: "string" });
