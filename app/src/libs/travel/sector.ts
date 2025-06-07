@@ -730,8 +730,6 @@ export const intersectTiles = (info: {
   pathFinder: PathCalculator;
   origin: TerrainHex;
   currentHighlights: Set<string>;
-  hoverPosition: SectorPoint | null;
-  setHoverPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }) => {
   const { group_tiles, raycaster, origin, pathFinder, currentHighlights } = info;
   const intersects = raycaster.intersectObjects(group_tiles.children);
@@ -741,13 +739,6 @@ export const intersectTiles = (info: {
     // Fetch the shortest path on the map using A*
     const target = intersected.userData.tile;
     const shortestPath = origin && pathFinder.getShortestPath(origin, target);
-    // Update hover position
-    // if (
-    //   !info.hoverPosition ||
-    //   (info.hoverPosition.x !== target.col && info.hoverPosition.y !== target.row)
-    // ) {
-    //   info.setHoverPosition({ x: target.col, y: target.row });
-    // }
     // Highlight the path
     void shortestPath?.forEach((tile) => {
       const mesh = group_tiles.getObjectByName(

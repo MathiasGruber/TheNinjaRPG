@@ -58,17 +58,15 @@ interface SectorProps {
   target: SectorPoint | null;
   showSorrounding: boolean;
   showActive: boolean;
-  hoverPosition: SectorPoint | null;
   setShowSorrounding: React.Dispatch<React.SetStateAction<boolean>>;
   setTarget: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
   setPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
-  setHoverPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }
 
 const Sector: React.FC<SectorProps> = (props) => {
   // Incoming props
-  const { sector, target, showActive, hoverPosition } = props;
-  const { setTarget, setPosition, setHoverPosition } = props;
+  const { sector, target, showActive } = props;
+  const { setTarget, setPosition } = props;
 
   // State pertaining to the sector
   const [webglError, setWebglError] = useState<boolean>(false);
@@ -662,8 +660,6 @@ const Sector: React.FC<SectorProps> = (props) => {
             pathFinder: pathFinder.current,
             origin: origin.current,
             currentHighlights: highlights,
-            hoverPosition: hoverPosition,
-            setHoverPosition: setHoverPosition,
           });
         }
 

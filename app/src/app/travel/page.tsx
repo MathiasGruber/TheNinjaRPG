@@ -79,7 +79,6 @@ export default function Travel() {
 
   // Current and target sectors & positions
   const [currentTile, setCurrentTile] = useState<GlobalTile | null>(null);
-  const [hoverPosition, setHoverPosition] = useState<SectorPoint | null>(null);
   const [currentPosition, setCurrentPosition] = useState<SectorPoint | null>(null);
   const [targetPosition, setTargetPosition] = useState<SectorPoint | null>(null);
   const [targetSector, setTargetSector] = useState<number | null>(null);
@@ -255,11 +254,9 @@ export default function Travel() {
           target={targetPosition}
           showSorrounding={showSorrounding}
           showActive={showActive}
-          hoverPosition={hoverPosition}
           setShowSorrounding={setShowSorrounding}
           setTarget={setTargetPosition}
           setPosition={setCurrentPosition}
-          setHoverPosition={setHoverPosition}
         />
       )
     );
@@ -484,14 +481,6 @@ export default function Travel() {
       </ContentBox>
       <div className="flex flex-row p-1">
         {showSector && <LoadoutSelector size="small" />}
-        {hoverPosition && (
-          <>
-            <p className="grow"></p>
-            <p>
-              Hover: ({hoverPosition.x}, {hoverPosition.y})
-            </p>
-          </>
-        )}
       </div>
       {shownConsumables && shownConsumables.length > 0 && (
         <div className="flex flex-col">
