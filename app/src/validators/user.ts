@@ -91,6 +91,7 @@ export const getPublicUsersSchema = z.object({
   orderBy: z.enum([
     "Online",
     "Strongest",
+    "Weakest",
     "PvP",
     "Staff",
     "Outlaws",
