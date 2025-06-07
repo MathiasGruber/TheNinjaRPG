@@ -742,12 +742,12 @@ export const intersectTiles = (info: {
     const target = intersected.userData.tile;
     const shortestPath = origin && pathFinder.getShortestPath(origin, target);
     // Update hover position
-    if (
-      !info.hoverPosition ||
-      (info.hoverPosition.x !== target.col && info.hoverPosition.y !== target.row)
-    ) {
-      info.setHoverPosition({ x: target.col, y: target.row });
-    }
+    // if (
+    //   !info.hoverPosition ||
+    //   (info.hoverPosition.x !== target.col && info.hoverPosition.y !== target.row)
+    // ) {
+    //   info.setHoverPosition({ x: target.col, y: target.row });
+    // }
     // Highlight the path
     void shortestPath?.forEach((tile) => {
       const mesh = group_tiles.getObjectByName(
