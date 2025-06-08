@@ -34,6 +34,7 @@ export const LocationTasks = [
   "move_to_location",
   "collect_item",
   "defeat_opponents",
+  "multiple_choice",
 ] as const;
 export type LocationTasksType = (typeof LocationTasks)[number];
 
@@ -133,11 +134,27 @@ export const DefeatOpponents = z.object({
   ...complexObjectiveFields,
 });
 
+export const MultipleChoice = z.object({
+  ...baseObjectiveFields,
+  task: z.literal("multiple_choice").default("multiple_choice"),
+  question: z.string().min(3).default("What is the answer?"),
+  choices: z.array(z.string().min(1)).length(4).default([
+    "Choice 1",
+    "Choice 2",
+    "Choice 3",
+    "Choice 4"
+  ]),
+  correctChoice: z.number().min(0).max(3).default(0),
+  ...complexObjectiveFields,
+});
+export type MultipleChoiceType = z.infer<typeof MultipleChoice>;
+
 export const AllObjectives = z.union([
   SimpleObjective,
   MoveToObjective,
   CollectItem,
   DefeatOpponents,
+  MultipleChoice,
 ]);
 export type AllObjectivesType = z.infer<typeof AllObjectives>;
 
@@ -203,6 +220,8 @@ export const getObjectiveSchema = (type: string) => {
     return CollectItem;
   } else if (type === "defeat_opponents") {
     return DefeatOpponents;
+  } else if (type === "multiple_choice") {
+    return MultipleChoice;
   }
   throw new Error(`Unknown objective task ${type}`);
 };
@@ -212,4 +231,5 @@ export const allObjectiveSchema = z.union([
   MoveToObjective,
   CollectItem,
   DefeatOpponents,
+  MultipleChoice,
 ]);

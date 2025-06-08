@@ -11,6 +11,8 @@ import { hasReward } from "@/validators/objectives";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { isObjectiveComplete } from "@/libs/objectives";
+import { api } from "@/app/_trpc/client";
+import { showMutationToast } from "@/libs/toast";
 import type { TimeFrames } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType, ObjectiveRewardType } from "@/validators/objectives";
@@ -26,9 +28,23 @@ interface ObjectiveProps {
 }
 export const Objective: React.FC<ObjectiveProps> = (props) => {
   const [modalOpen, setModalOpen] = useState(false);
+  const [questionModalOpen, setQuestionModalOpen] = useState(false);
+  const [cooldownEnd, setCooldownEnd] = useState<number>(0);
   const { data: userData } = useRequiredUserData();
   const { objective, tier, tracker, titlePrefix, checkRewards } = props;
   const { image, title } = getObjectiveImage(objective);
+
+  const { mutate: answerQuestion, isPending: isAnswering } = api.quests.answerMultipleChoice.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        setQuestionModalOpen(false);
+        checkRewards();
+      } else {
+        // Set 3 minute cooldown
+        setCooldownEnd(Date.now() + 3 * 60 * 1000);
+      }
+    },
+  });
 
   // Parse objective
   const objectiveSchema = getObjectiveSchema(objective.task as string);
@@ -36,6 +52,16 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
 
   // Derived status of the objective
   const { done, value, canCollect } = isObjectiveComplete(tracker, parsed);
+
+  // Check if user is at the correct location for multiple choice
+  const isAtLocation = parsed.task === "multiple_choice" && 
+    userData?.sector === parsed.sector &&
+    userData?.latitude === parsed.latitude &&
+    userData?.longitude === parsed.longitude;
+
+  // Calculate remaining cooldown time
+  const remainingCooldown = Math.max(0, cooldownEnd - Date.now());
+  const isOnCooldown = remainingCooldown > 0;
 
   // Indicator icon
   const indicatorIcons = done ? (
@@ -54,6 +80,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   ) : (
     <X className="h-10 w-10 stroke-red-500" />
   );
+
   // Show the objective
   return (
     <div className={`flex flex-row ${props.grayedOut ? "grayscale opacity-30" : ""}`}>
@@ -112,6 +139,14 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                     <div>
                       <b>Position:</b> [{parsed.longitude}, {parsed.latitude}]
                     </div>
+                    {parsed.task === "multiple_choice" && !done && isAtLocation && (
+                      <button
+                        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onClick={() => setQuestionModalOpen(true)}
+                      >
+                        Answer Question
+                      </button>
+                    )}
                   </>
                 )}
                 {parsed.hideLocation && (
@@ -126,6 +161,43 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
           )}
         </div>
       </div>
+
+      {/* Multiple Choice Question Modal */}
+      {questionModalOpen && parsed.task === "multiple_choice" && (
+        <Modal 
+          title="Question" 
+          setIsOpen={() => {
+            setQuestionModalOpen(false);
+            setCooldownEnd(0);
+          }}
+          className="max-w-lg"
+        >
+          <div className="space-y-4">
+            <p className="text-lg font-medium">{parsed.question}</p>
+            {isOnCooldown && (
+              <p className="text-red-500 font-medium">
+                Incorrect answer. Please wait {Math.ceil(remainingCooldown / 1000 / 60)} minutes before trying again.
+              </p>
+            )}
+            <div className="grid grid-cols-1 gap-2">
+              {parsed.choices.map((choice, index) => (
+                <button
+                  key={index}
+                  className="px-4 py-2 text-left border rounded hover:bg-slate-100 disabled:opacity-50"
+                  onClick={() => answerQuestion({
+                    questId: tracker.id,
+                    objectiveId: objective.id,
+                    answer: index
+                  })}
+                  disabled={isAnswering || isOnCooldown}
+                >
+                  {choice}
+                </button>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

@@ -920,6 +920,69 @@ export const questsRouter = createTRPCRouter({
       ]);
       return { success: true, message: "Quest deleted successfully" };
     }),
+  answerMultipleChoice: protectedProcedure
+    .input(z.object({ 
+      questId: z.string(),
+      objectiveId: z.string(),
+      answer: z.number().min(0).max(3)
+    }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      if (!user) {
+        return errorResponse("User does not exist");
+      }
+
+      // Find the quest and objective
+      const userQuest = user.userQuests.find((uq) => uq.questId === input.questId);
+      if (!userQuest) {
+        return errorResponse("Quest not found");
+      }
+
+      const objective = userQuest.quest.content.objectives.find(
+        (o) => o.id === input.objectiveId && o.task === "multiple_choice"
+      );
+      if (!objective || objective.task !== "multiple_choice") {
+        return errorResponse("Objective not found or not a multiple choice question");
+      }
+
+      // Check if user is at the correct location
+      if (
+        user.sector !== objective.sector ||
+        user.latitude !== objective.latitude ||
+        user.longitude !== objective.longitude
+      ) {
+        return errorResponse("You must be at the correct location to answer this question");
+      }
+
+      // Check if the answer is correct
+      const isCorrect = input.answer === objective.correctChoice;
+
+      // Update the quest tracker
+      const tracker = user.questData?.find((q) => q.id === userQuest.quest.id);
+      if (tracker) {
+        const goal = tracker.goals.find((g) => g.id === objective.id);
+        if (goal) {
+          goal.done = isCorrect;
+          goal.value = isCorrect ? 1 : 0;
+        }
+      }
+
+      // Update the database
+      await ctx.drizzle
+        .update(userData)
+        .set({ questData: user.questData })
+        .where(eq(userData.userId, ctx.userId));
+
+      return {
+        success: true,
+        message: isCorrect ? "Correct answer!" : "Incorrect answer. Try again!",
+      };
+    }),
 });
 
 /**
