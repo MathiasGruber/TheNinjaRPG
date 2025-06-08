@@ -103,7 +103,8 @@ export default function Users() {
   } else if (activeTab === "Dailies") {
     const currentHour = new Date().getUTCHours();
     const currentMinutes = new Date().getUTCMinutes();
-    const hoursPassed = (currentHour + (currentMinutes / 60)).toFixed(2);
+    // Ensure minimum of 1 minute (0.0167 hours) to prevent division by zero
+    const hoursPassed = Math.max(0.0167, (currentHour + (currentMinutes / 60))).toFixed(2);
     columns.push({ 
       key: "dailyArenaFights", 
       header: "Arena Fights", 
