@@ -101,25 +101,26 @@ export default function Users() {
     columns.push({ key: "tavernMessages", header: "Yapper Rank", type: "string" });
     columns.push({ key: "role", header: "Role", type: "capitalized" });
   } else if (activeTab === "Dailies") {
-    const currentHour = new Date().getHours();
-    const hoursPassed = Math.max(1, currentHour); // Use at least 1 hour to avoid division by zero
+    const currentHour = new Date().getUTCHours();
+    const currentMinutes = new Date().getUTCMinutes();
+    const hoursPassed = (currentHour + (currentMinutes / 60)).toFixed(2);
     columns.push({ 
       key: "dailyArenaFights", 
       header: "Arena Fights", 
       type: "string",
-      tooltip: (user: User) => `${(user.dailyArenaFights / hoursPassed).toFixed(1)} per hour`
+      tooltip: (user: User) => `${(user.dailyArenaFights / Number(hoursPassed)).toFixed(2)} per hour`
     });
     columns.push({ 
       key: "dailyMissions", 
       header: "Missions", 
       type: "string",
-      tooltip: (user: User) => `${(user.dailyMissions / hoursPassed).toFixed(1)} per hour`
+      tooltip: (user: User) => `${(user.dailyMissions / Number(hoursPassed)).toFixed(2)} per hour`
     });
     columns.push({ 
       key: "dailyErrands", 
       header: "Errands", 
       type: "string",
-      tooltip: (user: User) => `${(user.dailyErrands / hoursPassed).toFixed(1)} per hour`
+      tooltip: (user: User) => `${(user.dailyErrands / Number(hoursPassed)).toFixed(2)} per hour`
     });
   }
   if (userData && canSeeIps(userData.role)) {
