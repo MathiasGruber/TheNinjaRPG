@@ -157,8 +157,11 @@ export default function MissionHall() {
                                 <p className="font-bold text-xs text-center">
                                   {mission.name}
                                 </p>
-                                {userData.dailyMissions > 9 && (
+                                {userData.dailyMissions >= 9 && userData.dailyMissions < 20 && (
                                   <p className="text-sm text-yellow-500">40% Rewards</p>
+                                )}
+                                {userData.dailyMissions >= 20 && (
+                                  <p className="text-sm text-red-500">Daily Limit Reached</p>
                                 )}
                               </div>
                             </div>
@@ -169,34 +172,44 @@ export default function MissionHall() {
                                 Accept Mission: {mission.name}
                               </AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to accept the mission &quot;
-                                {mission.name}&quot;? You can only have one active
-                                mission at a time.
-                                {userData.dailyMissions > 9 && (
+                                {userData.dailyMissions >= 20 ? (
+                                  "You have reached your daily mission limit of 20 missions. Please try again tomorrow."
+                                ) : (
                                   <>
-                                    <br />
-                                    <br />
-                                    <span className="text-yellow-500">
-                                      Note: You have completed more than 9 missions
-                                      today. This mission will only give 40% of its
-                                      normal rewards.
-                                    </span>
+                                    Are you sure you want to accept the mission &quot;
+                                    {mission.name}&quot;? You can only have one active
+                                    mission at a time.
+                                    {userData.dailyMissions >= 9 && (
+                                      <>
+                                        <br />
+                                        <br />
+                                        <span className="text-yellow-500">
+                                          Note: You have completed more than 9 missions
+                                          today. This mission will only give 40% of its
+                                          normal rewards.
+                                        </span>
+                                      </>
+                                    )}
                                   </>
                                 )}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() =>
-                                  startQuest({
-                                    questId: mission.id,
-                                    userSector: userData.sector,
-                                  })
-                                }
-                              >
-                                Accept Mission
-                              </AlertDialogAction>
+                              {userData.dailyMissions >= 20 ? (
+                                <AlertDialogAction disabled>Daily Limit Reached</AlertDialogAction>
+                              ) : (
+                                <AlertDialogAction
+                                  onClick={() =>
+                                    startQuest({
+                                      questId: mission.id,
+                                      userSector: userData.sector,
+                                    })
+                                  }
+                                >
+                                  Accept Mission
+                                </AlertDialogAction>
+                              )}
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -211,7 +224,7 @@ export default function MissionHall() {
                   <AlertDialogTrigger asChild>
                     <div
                       className={
-                        count === 0 || !isRankAllowed
+                        count === 0 || !isRankAllowed || (!isErrand && userData.dailyMissions >= 20)
                           ? "filter grayscale"
                           : "hover:cursor-pointer hover:opacity-30"
                       }
@@ -219,8 +232,11 @@ export default function MissionHall() {
                       <Image alt="small" src={setting.image} width={256} height={256} />
                       <p className="font-bold">{setting.name}</p>
                       <p>[Random out of {count} available]</p>
-                      {!isErrand && userData.dailyMissions >= 9 && (
+                      {!isErrand && userData.dailyMissions >= 9 && userData.dailyMissions < 20 && (
                         <p className="text-sm text-yellow-500">40% Rewards</p>
+                      )}
+                      {!isErrand && userData.dailyMissions >= 20 && (
+                        <p className="text-sm text-red-500">Daily Limit Reached</p>
                       )}
                     </div>
                   </AlertDialogTrigger>
@@ -228,38 +244,46 @@ export default function MissionHall() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Accept Random Mission</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Are you sure you want to accept a random {setting.rank}-rank{" "}
-                        {setting.type}? You can only have one active mission at a time.
-                        {!isErrand && userData.dailyMissions >= 9 && (
+                        {!isErrand && userData.dailyMissions >= 20 ? (
+                          "You have reached your daily mission limit of 20 missions. Please try again tomorrow."
+                        ) : (
                           <>
-                            <br />
-                            <br />
-                            <span className="text-yellow-500">
-                              Note: You have already completed 9 missions today. This
-                              mission will only give 40% of its normal rewards.
-                            </span>
+                            Are you sure you want to accept a random {setting.rank}-rank{" "}
+                            {setting.type}? You can only have one active mission at a time.
+                            {!isErrand && userData.dailyMissions >= 9 && (
+                              <>
+                                <br />
+                                <br />
+                                <span className="text-yellow-500">
+                                  Note: You have already completed 9 missions today. This
+                                  mission will only give 40% of its normal rewards.
+                                </span>
+                              </>
+                            )}
                           </>
                         )}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={(e) => {
-                          e.preventDefault();
-                          startRandom({
-                            type: setting.type,
-                            rank: setting.rank,
-                            userLevel: userData.level,
-                            userSector: userData.sector,
-                            userVillageId: userData.isOutlaw
-                              ? VILLAGE_SYNDICATE_ID
-                              : userData.villageId,
-                          });
-                        }}
-                      >
-                        Accept Random Mission
-                      </AlertDialogAction>
+                      {!isErrand && userData.dailyMissions >= 20 ? (
+                        <AlertDialogAction disabled>Daily Limit Reached</AlertDialogAction>
+                      ) : (
+                        <AlertDialogAction
+                          onClick={(e) => {
+                            e.preventDefault();
+                            startRandom({
+                              type: setting.type,
+                              rank: setting.rank,
+                              userLevel: userData.level,
+                              userSector: userData.sector,
+                              userVillageId: userData.villageId,
+                            });
+                          }}
+                        >
+                          Accept Mission
+                        </AlertDialogAction>
+                      )}
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
