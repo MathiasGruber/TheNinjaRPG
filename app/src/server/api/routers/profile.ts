@@ -1183,7 +1183,7 @@ export const profileRouter = createTRPCRouter({
       ctx.drizzle
         .select({ count: count() })
         .from(userData)
-        .where(gte(userData.updatedAt, secondsFromNow(-300))),
+        .where(gte(userData.updatedAt, secondsFromNow(-1800))), // 30 minutes = 1800 seconds
       ctx.drizzle
         .select({ count: count() })
         .from(userData)

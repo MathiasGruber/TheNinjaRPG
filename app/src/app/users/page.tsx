@@ -159,7 +159,7 @@ export default function Users() {
     >
       <div className="p-2 grid grid-cols-3 text-center">
         <p>
-          <b>Online last 5min</b>
+          <b>Online last 30min</b>
           <br /> {userCountNow} users
         </p>
         <p>
