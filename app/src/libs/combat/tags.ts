@@ -13,7 +13,6 @@ import type { CombatAction } from "@/libs/combat/types";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { BattleEffect } from "./types";
 import type { Battle } from "@/drizzle/schema";
-import { isEffectActive } from "./util";
 
 /**
  * Realize tag with information about how powerful tag is
@@ -643,19 +642,11 @@ export const adjustHealGiven = (
       if (consequence.userId === effect.targetId && consequence.heal_hp) {
         const healEffect = usersEffects.find((e) => e.id === effectId);
         if (healEffect) {
-          // Calculate total heal increase from all active effects
-          const totalHealIncrease = usersEffects
-            .filter(e => e.type === "increaseheal" && e.targetId === effect.targetId)
-            .reduce((sum, e) => sum + (e.power || 0), 0);
-          
-          // Calculate base change
-          const change = effect.calculation === "percentage" ? (power / 100) * consequence.heal_hp : power;
-          
-          // Apply change with 50% cap
-          const maxHealIncrease = 1.5; // 50% increase cap
-          const cappedChange = change * Math.min(1 + (totalHealIncrease / 100), maxHealIncrease);
-          
-          consequence.heal_hp = consequence.heal_hp + cappedChange;
+          const change =
+            effect.calculation === "percentage"
+              ? (power / 100) * consequence.heal_hp
+              : power;
+          consequence.heal_hp = consequence.heal_hp + change;
         }
       }
       // Adjust lifesteal
