@@ -2094,13 +2094,16 @@ export const dataBattleAction = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     battleWon: tinyint("battleWon").notNull(),
+    count: int("count").notNull().default(1),
   },
   (table) => {
     return {
-      contentIdIdx: index("DataBattleActions_contentId_idx").on(table.contentId),
-      typeIdx: index("DataBattleActions_type").on(table.type),
-      battleWonIdx: index("DataBattleActions_battleWon").on(table.battleWon),
-      battleTypeIdx: index("DataBattleActions_battleType").on(table.battleType),
+      uniqueContentIdIdx: unique("uniqueContentId").on(
+        table.type,
+        table.contentId,
+        table.battleType,
+        table.battleWon,
+      ),
       createdAt: index("DataBattleActions_createdAt").on(table.createdAt),
     };
   },

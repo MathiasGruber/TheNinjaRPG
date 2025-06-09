@@ -126,8 +126,12 @@ export const saveUsage = async (
         return a;
       }
     }, [] as DataBattleAction[]);
+    // Upsert dataBattleActions
     if (uniqueData.length > 0) {
-      await client.insert(dataBattleAction).values(uniqueData);
+      await client
+        .insert(dataBattleAction)
+        .values(uniqueData)
+        .onDuplicateKeyUpdate({ set: { count: sql`${dataBattleAction.count} + 1` } });
     }
   }
 };
