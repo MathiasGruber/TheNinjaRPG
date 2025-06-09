@@ -2,7 +2,7 @@ import { z } from "zod";
 import { calculateContentDiff } from "@/utils/diff";
 import { useForm, useWatch } from "react-hook-form";
 import Image from "next/image";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import ContentImageSelector from "@/layout/ContentImageSelector";
 import RichInput from "@/layout/RichInput";
 import { Switch } from "@/components/ui/switch";
@@ -14,7 +14,7 @@ import { api } from "@/app/_trpc/client";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { Button } from "@/components/ui/button";
 import { MultiSelect, type OptionType } from "@/components/ui/multi-select";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -55,11 +55,16 @@ export type FormEntry<K> = {
   | { type: "date" }
   | { type: "number" }
   | { type: "boolean" }
-  | { type: "str_array"; values: readonly string[]; multiple?: boolean }
   | { type: "animation_array"; values: readonly string[] }
   | { type: "statics_array"; values: readonly string[] }
   | { type: "avatar"; href?: string | null }
   | { type: "avatar3d"; modelUrl?: string | null; imgUrl?: string | null }
+  | {
+      type: "str_array";
+      values: readonly string[];
+      multiple?: boolean;
+      allowAddNew?: boolean;
+    }
   | {
       type: "db_values";
       values: FormDbValue[] | undefined;
@@ -100,6 +105,12 @@ export const EditContent = <
   // Destructure
   const { formData, formClassName, form, showSubmit, buttonTxt } = props;
   const currentValues = form.getValues();
+
+  // State for managing dynamic options for fields with allowAddNew
+  const [dynamicOptionsMap, setDynamicOptionsMap] = useState<
+    Record<string, OptionType[]>
+  >({});
+  const [newItemInputMap, setNewItemInputMap] = useState<Record<string, string>>({});
 
   // Event listener for submitting on enter click
   const onDocumentKeyDown = (event: KeyboardEvent) => {
@@ -283,85 +294,171 @@ export const EditContent = <
                       <FormField
                         control={form.control}
                         name={id}
-                        render={({ field, fieldState }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>
-                              {formEntry.label ? formEntry.label : id}
-                            </FormLabel>
+                        render={({ field, fieldState }) => {
+                          const canAddNew =
+                            "allowAddNew" in formEntry && formEntry.allowAddNew;
 
-                            {"multiple" in formEntry && formEntry.multiple ? (
-                              <MultiSelect
-                                selected={field.value ? field.value : []}
-                                isDirty={fieldState.isDirty}
-                                options={options}
-                                onChange={field.onChange}
-                              />
-                            ) : (
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      variant="outline"
-                                      role="combobox"
-                                      className={cn(
-                                        "w-full justify-between",
-                                        !field.value && "text-muted-foreground",
-                                        fieldState.isDirty && "border-orange-300",
+                          // Get or initialize dynamic options for this field
+                          const fieldId = String(id);
+                          const dynamicOptions = dynamicOptionsMap[fieldId] || options;
+                          const newItemInput = newItemInputMap[fieldId] || "";
+
+                          const setDynamicOptions = (newOptions: OptionType[]) => {
+                            setDynamicOptionsMap((prev) => ({
+                              ...prev,
+                              [fieldId]: newOptions,
+                            }));
+                          };
+
+                          const setNewItemInput = (value: string) => {
+                            setNewItemInputMap((prev) => ({
+                              ...prev,
+                              [fieldId]: value,
+                            }));
+                          };
+
+                          const addNewItem = () => {
+                            if (
+                              newItemInput.trim() &&
+                              !dynamicOptions.find(
+                                (opt) => opt.value === newItemInput.trim(),
+                              )
+                            ) {
+                              const newOption = {
+                                label: newItemInput.trim(),
+                                value: newItemInput.trim(),
+                              };
+                              const updatedOptions = [...dynamicOptions, newOption];
+                              setDynamicOptions(updatedOptions);
+
+                              // If single select, auto-select the new item
+                              if (!("multiple" in formEntry && formEntry.multiple)) {
+                                form.setValue(
+                                  id,
+                                  newItemInput.trim() as PathValue<S, K>,
+                                );
+                              } else {
+                                // If multi-select, add to current selection
+                                const currentValues = field.value ? field.value : [];
+                                field.onChange([...currentValues, newItemInput.trim()]);
+                              }
+
+                              setNewItemInput("");
+                            }
+                          };
+
+                          return (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>
+                                {formEntry.label ? formEntry.label : id}
+                              </FormLabel>
+
+                              {"multiple" in formEntry && formEntry.multiple ? (
+                                <MultiSelect
+                                  selected={field.value ? field.value : []}
+                                  isDirty={fieldState.isDirty}
+                                  options={dynamicOptions}
+                                  onChange={field.onChange}
+                                  allowAddNew={canAddNew}
+                                  onAddNewOption={(newOption) => {
+                                    setDynamicOptions([...dynamicOptions, newOption]);
+                                  }}
+                                />
+                              ) : (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <FormControl>
+                                      <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn(
+                                          "w-full justify-between",
+                                          !field.value && "text-muted-foreground",
+                                          fieldState.isDirty && "border-orange-300",
+                                        )}
+                                      >
+                                        {field.value
+                                          ? dynamicOptions.find(
+                                              (option) => option.value === field.value,
+                                            )?.label
+                                          : "Select option"}
+                                        <ChevronsUpDown className="opacity-50" />
+                                      </Button>
+                                    </FormControl>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[200px] p-0">
+                                    <Command>
+                                      {formEntry.searchable && (
+                                        <CommandInput
+                                          placeholder="Search..."
+                                          className="h-9"
+                                        />
                                       )}
-                                    >
-                                      {field.value
-                                        ? options.find(
-                                            (option) => option.value === field.value,
-                                          )?.label
-                                        : "Select option"}
-                                      <ChevronsUpDown className="opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[200px] p-0">
-                                  <Command>
-                                    {formEntry.searchable && (
-                                      <CommandInput
-                                        placeholder="Search..."
-                                        className="h-9"
-                                      />
-                                    )}
 
-                                    <CommandList>
-                                      <CommandEmpty>No framework found.</CommandEmpty>
-                                      <CommandGroup>
-                                        {options.map((option) => (
-                                          <CommandItem
-                                            value={option.label}
-                                            key={option.value}
-                                            onSelect={() => {
-                                              form.setValue(
-                                                id,
-                                                option.value as PathValue<S, K>,
-                                              );
-                                            }}
-                                          >
-                                            {option.label}
-                                            <Check
-                                              className={cn(
-                                                "ml-auto",
-                                                option.value === field.value
-                                                  ? "opacity-100"
-                                                  : "opacity-0",
-                                              )}
-                                            />
-                                          </CommandItem>
-                                        ))}
-                                      </CommandGroup>
-                                    </CommandList>
-                                  </Command>
-                                </PopoverContent>
-                              </Popover>
-                            )}
+                                      <CommandList>
+                                        <CommandEmpty>No framework found.</CommandEmpty>
+                                        <CommandGroup>
+                                          {dynamicOptions.map((option) => (
+                                            <CommandItem
+                                              value={option.label}
+                                              key={option.value}
+                                              onSelect={() => {
+                                                form.setValue(
+                                                  id,
+                                                  option.value as PathValue<S, K>,
+                                                );
+                                              }}
+                                            >
+                                              {option.label}
+                                              <Check
+                                                className={cn(
+                                                  "ml-auto",
+                                                  option.value === field.value
+                                                    ? "opacity-100"
+                                                    : "opacity-0",
+                                                )}
+                                              />
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                        {canAddNew && (
+                                          <div className="p-2 border-t">
+                                            <div className="flex items-center space-x-2">
+                                              <Input
+                                                placeholder="Add new option..."
+                                                value={newItemInput}
+                                                onChange={(e) =>
+                                                  setNewItemInput(e.target.value)
+                                                }
+                                                onKeyDown={(e) => {
+                                                  if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    addNewItem();
+                                                  }
+                                                }}
+                                                className="h-8"
+                                              />
+                                              <Button
+                                                size="sm"
+                                                onClick={addNewItem}
+                                                disabled={!newItemInput.trim()}
+                                                className="h-8 w-8 p-0"
+                                              >
+                                                <Plus className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
 
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
                       />
                     </div>
                     {formEntry.resetButton && (
@@ -878,6 +975,9 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     return type;
   };
 
+  const sectorType = "sectorType" in watchAll ? watchAll.sectorType : undefined;
+  const locationType = "locationType" in watchAll ? watchAll.locationType : undefined;
+
   // Parse how to present the tag form
   const formData: FormEntry<Attribute>[] = attributes
     .filter(
@@ -892,6 +992,23 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           "completed",
         ].includes(value),
     )
+    .filter((value) => {
+      return (
+        !sectorType ||
+        (sectorType === "specific" && !["sectorList"].includes(value)) ||
+        (sectorType === "from_list" && !["sector"].includes(value)) ||
+        (sectorType === "random" && !["sector", "sectorList"].includes(value)) ||
+        (sectorType === "user_village" && !["sector", "sectorList"].includes(value)) ||
+        (sectorType === "current_sector" && !["sector", "sectorList"].includes(value))
+      );
+    })
+    .filter((value) => {
+      return (
+        !locationType ||
+        locationType === "specific" ||
+        (locationType === "random" && !["longitude", "latitude"].includes(value))
+      );
+    })
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);
       if ((value as string) === "opponent_ai" && aiData) {
@@ -971,6 +1088,17 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       ) {
         const values = innerType._def.type._def.values as string[];
         return { id: value, type: "str_array", values: values, multiple: true };
+      } else if (
+        innerType instanceof z.ZodArray &&
+        innerType._def.type instanceof z.ZodString
+      ) {
+        return {
+          id: value,
+          type: "str_array",
+          values: [],
+          multiple: true,
+          allowAddNew: true,
+        };
       } else if (innerType instanceof z.ZodBoolean) {
         return { id: value, label: value, type: "boolean" };
       } else {

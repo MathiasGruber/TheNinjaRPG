@@ -33,7 +33,10 @@ import { SENSEI_STUDENT_RYO_PER_MISSION } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { QUESTS_CONCURRENT_LIMIT } from "@/drizzle/constants";
 import { questFilteringSchema } from "@/validators/quest";
-import { hideQuestInformation, isAvailableUserQuests } from "@/libs/quest";
+import {
+  controlShownQuestLocationInformation,
+  isAvailableUserQuests,
+} from "@/libs/quest";
 import { QuestTracker } from "@/validators/objectives";
 import type { QuestCounterFieldName } from "@/validators/user";
 import type { ObjectiveRewardType } from "@/validators/objectives";
@@ -90,7 +93,7 @@ export const questsRouter = createTRPCRouter({
         offset: skip,
         limit: input.limit,
       });
-      results.forEach((r) => hideQuestInformation(r));
+      results.forEach((r) => controlShownQuestLocationInformation(r));
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {
         data: results,
@@ -109,7 +112,7 @@ export const questsRouter = createTRPCRouter({
       if (!result) {
         throw serverError("NOT_FOUND", "Quest not found");
       }
-      hideQuestInformation(result, user);
+      controlShownQuestLocationInformation(result, user);
       return result;
     }),
   allianceBuilding: protectedProcedure
@@ -160,7 +163,7 @@ export const questsRouter = createTRPCRouter({
           .orderBy(asc(quest.name)),
       ]);
       if (!user) throw serverError("NOT_FOUND", "User not found");
-      events.forEach((r) => hideQuestInformation(r));
+      events.forEach((r) => controlShownQuestLocationInformation(r));
       return events.filter((e) => isAvailableUserQuests(e, user, true).check);
     }),
   missionHall: protectedProcedure
@@ -204,7 +207,7 @@ export const questsRouter = createTRPCRouter({
           .orderBy(asc(quest.name)),
       ]);
       if (!user) throw serverError("NOT_FOUND", "User not found");
-      missions.forEach((r) => hideQuestInformation(r));
+      missions.forEach((r) => controlShownQuestLocationInformation(r));
       return missions.filter((e) => isAvailableUserQuests(e, user, true).check);
     }),
   storyQuests: protectedProcedure
@@ -236,7 +239,7 @@ export const questsRouter = createTRPCRouter({
           .orderBy(asc(quest.name)),
       ]);
       if (!user) throw serverError("NOT_FOUND", "User not found");
-      quests.forEach((r) => hideQuestInformation(r));
+      quests.forEach((r) => controlShownQuestLocationInformation(r));
       return quests.filter((e) => isAvailableUserQuests(e, user).check);
     }),
   startRandom: protectedProcedure

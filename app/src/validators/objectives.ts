@@ -90,10 +90,28 @@ export const SimpleObjective = z.object({
   ...attackerFields,
 });
 
+const SECTOR_TYPES = [
+  "specific",
+  "random",
+  "from_list",
+  "user_village",
+  "current_sector",
+] as const;
+export type SectorType = (typeof SECTOR_TYPES)[number];
+export const LOCATION_TYPES = ["specific", "random"] as const;
+export type LocationType = (typeof LOCATION_TYPES)[number];
+
 const complexObjectiveFields = {
+  // Location type fields
+  sectorType: z.enum(SECTOR_TYPES).default("specific"),
+  locationType: z.enum(LOCATION_TYPES).default("specific"),
+  // Specific locations (also used once objective is instantiated from e.g. random, from_list, village, etc.)
   sector: z.coerce.number().min(0).default(0),
   longitude: z.coerce.number().min(0).default(0),
   latitude: z.coerce.number().min(0).default(0),
+  // Sector list
+  sectorList: z.array(z.string()).default([]),
+  // Generic fields
   hideLocation: z.coerce.boolean().default(false),
   completed: z.coerce.number().min(0).max(1).default(0),
   image: z.string().default(""),
@@ -146,6 +164,9 @@ export const ObjectiveTracker = z.object({
   done: z.boolean().default(false),
   value: z.coerce.number().default(0),
   collected: z.boolean().default(false),
+  sector: z.coerce.number().min(0).optional(),
+  longitude: z.coerce.number().min(0).optional(),
+  latitude: z.coerce.number().min(0).optional(),
 });
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 

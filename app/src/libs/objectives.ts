@@ -88,7 +88,7 @@ export const isObjectiveComplete = (
   const value = status?.value || 0;
   const done = status?.done || ("value" in objective && value >= objective.value);
   const canCollect = !status?.collected && done;
-  return { value, done, canCollect };
+  return { value, done, canCollect, status };
 };
 
 /**

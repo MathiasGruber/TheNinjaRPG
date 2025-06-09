@@ -19,7 +19,7 @@ import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
 import { updateUser, updateBattle } from "@/libs/combat/database";
-import { hideQuestInformation } from "@/libs/quest";
+import { controlShownQuestLocationInformation } from "@/libs/quest";
 import {
   updateVillageAnbuClan,
   updateKage,
@@ -872,7 +872,9 @@ export const initiateBattle = async (
   const background = getBackground(info.asset, activeSchema?.schema);
   // Hide some information from quests
   users.forEach((user) =>
-    user.userQuests?.forEach((q) => hideQuestInformation(q.quest, user)),
+    user.userQuests?.forEach((q) =>
+      controlShownQuestLocationInformation(q.quest, user),
+    ),
   );
   // Place attackers first
   users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
