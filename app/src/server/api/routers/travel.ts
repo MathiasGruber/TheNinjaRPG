@@ -506,7 +506,18 @@ export const travelRouter = createTRPCRouter({
         if (user.longitude !== curLongitude || user.latitude !== curLatitude) {
           return errorResponse("You have moved since you started this move");
         }
-        throw serverError("BAD_REQUEST", "Unknown error while moving");
+        throw serverError(
+          "BAD_REQUEST",
+          `Unknown error while moving. Route input: ${JSON.stringify(input)}. User information: ${JSON.stringify(
+            {
+              sector: user.sector,
+              longitude: user.longitude,
+              latitude: user.latitude,
+              status: user.status,
+              villageId: user.villageId,
+            },
+          )}`,
+        );
       }
     }),
 });
