@@ -71,7 +71,6 @@ export default function MissionHall() {
 
   // Derived
   const availableUserRanks = availableQuestLetterRanks(userData.rank);
-  const missionsLeft = MISSIONS_PER_DAY - userData.dailyMissions;
   const errandsLeft = ERRANDS_PER_DAY - userData.dailyErrands;
   const classifier = userData.isOutlaw ? "crime" : "mission";
   const aRanks = hallData?.filter(

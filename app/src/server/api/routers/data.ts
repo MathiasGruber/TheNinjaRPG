@@ -45,12 +45,11 @@ export const dataRouter = createTRPCRouter({
           count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
         })
         .from(dataBattleAction)
-        .leftJoin(jutsu, eq(dataBattleAction.contentId, jutsu.id))
+        .innerJoin(jutsu, eq(dataBattleAction.contentId, jutsu.id))
         .groupBy(jutsu.name, dataBattleAction.battleWon, dataBattleAction.battleType)
         .where(
           and(
             eq(dataBattleAction.type, "jutsu"),
-            isNotNull(jutsu.name),
             eq(dataBattleAction.battleType, input.battleType),
           ),
         );

@@ -12,10 +12,6 @@ import {
   SpriteMaterial,
   Vector3,
   BufferGeometry,
-  CircleGeometry,
-  Mesh,
-  MeshBasicMaterial,
-  DoubleSide,
   CanvasTexture,
 } from "three";
 import { IMG_AVATAR_DEFAULT, IMG_SECTOR_USER_SPRITE_MASK } from "@/drizzle/constants";
