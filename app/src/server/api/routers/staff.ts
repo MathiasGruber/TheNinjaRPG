@@ -65,6 +65,7 @@ import {
   canSeeActivityEvents,
   canEditPublicUser,
   canRestoreActivityStreak,
+  canUseMonitoringTests,
 } from "@/utils/permissions";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { canCloneUser, canClearSectors } from "@/utils/permissions";
@@ -75,15 +76,33 @@ import type { DrizzleClient } from "@/server/db";
 import { fetchSector } from "./village";
 
 export const staffRouter = createTRPCRouter({
-  throwError: protectedProcedure.output(baseServerResponse).mutation(async () => {
-    throw new Error("Test error");
-  }),
-  throwTrpcError: protectedProcedure.output(baseServerResponse).mutation(async () => {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Test error",
-    });
-  }),
+  throwError: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canUseMonitoringTests(user.role)) {
+        return errorResponse("Not allowed for you");
+      }
+      // Mutate
+      throw new Error("Test error");
+    }),
+  throwTrpcError: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canUseMonitoringTests(user.role)) {
+        return errorResponse("Not allowed for you");
+      }
+      // Mutate
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Test error",
+      });
+    }),
   unequipAllGear: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {

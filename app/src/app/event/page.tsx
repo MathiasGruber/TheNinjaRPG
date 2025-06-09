@@ -20,6 +20,7 @@ import { canSubmitNotification } from "@/utils/permissions";
 import { canModifyEventGains } from "@/utils/permissions";
 import { mutateContentSchema, type MutateContentSchema } from "@/validators/comments";
 import { changeSettingSchema, type ChangeSettingSchema } from "@/validators/misc";
+import { canUseMonitoringTests } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { GAME_SETTING_GAINS_MULTIPLIER } from "@/drizzle/constants";
 import { secondsPassed } from "@/utils/time";
@@ -49,6 +50,7 @@ const TestErrorMonitoring: React.FC = () => {
 
   // Guard
   if (!userData) return null;
+  if (!canUseMonitoringTests(userData.role)) return null;
 
   return (
     <ContentBox
