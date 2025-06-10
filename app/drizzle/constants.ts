@@ -610,7 +610,7 @@ export const FED_EVENT_ITEMS_DEFAULT = 10;
 
 // Missions config
 export const ERRANDS_PER_DAY = 9;
-export const MISSIONS_PER_DAY = 9;
+export const MISSIONS_PER_DAY = 20;
 export const ADDITIONAL_MISSION_REWARD_MULTIPLIER = 0.4;
 
 // War config

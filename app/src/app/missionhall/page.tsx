@@ -157,10 +157,10 @@ export default function MissionHall() {
                                 <p className="font-bold text-xs text-center">
                                   {mission.name}
                                 </p>
-                                {userData.dailyMissions >= 9 && userData.dailyMissions < 20 && (
+                                {userData.dailyMissions >= 9 && userData.dailyMissions < MISSIONS_PER_DAY && (
                                   <p className="text-sm text-yellow-500">40% Rewards</p>
                                 )}
-                                {userData.dailyMissions >= 20 && (
+                                {userData.dailyMissions >= MISSIONS_PER_DAY && (
                                   <p className="text-sm text-red-500">Daily Limit Reached</p>
                                 )}
                               </div>
@@ -172,8 +172,8 @@ export default function MissionHall() {
                                 Accept Mission: {mission.name}
                               </AlertDialogTitle>
                               <AlertDialogDescription>
-                                {userData.dailyMissions >= 20 ? (
-                                  "You have reached your daily mission limit of 20 missions. Please try again tomorrow."
+                                {userData.dailyMissions >= MISSIONS_PER_DAY ? (
+                                  `You have reached your daily mission limit of ${MISSIONS_PER_DAY} missions. Please try again tomorrow.`
                                 ) : (
                                   <>
                                     Are you sure you want to accept the mission &quot;
@@ -196,7 +196,7 @@ export default function MissionHall() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              {userData.dailyMissions >= 20 ? (
+                              {userData.dailyMissions >= MISSIONS_PER_DAY ? (
                                 <AlertDialogAction disabled>Daily Limit Reached</AlertDialogAction>
                               ) : (
                                 <AlertDialogAction
@@ -224,7 +224,7 @@ export default function MissionHall() {
                   <AlertDialogTrigger asChild>
                     <div
                       className={
-                        count === 0 || !isRankAllowed || (!isErrand && userData.dailyMissions >= 20)
+                        count === 0 || !isRankAllowed || (!isErrand && userData.dailyMissions >= MISSIONS_PER_DAY)
                           ? "filter grayscale"
                           : "hover:cursor-pointer hover:opacity-30"
                       }
@@ -232,10 +232,10 @@ export default function MissionHall() {
                       <Image alt="small" src={setting.image} width={256} height={256} />
                       <p className="font-bold">{setting.name}</p>
                       <p>[Random out of {count} available]</p>
-                      {!isErrand && userData.dailyMissions >= 9 && userData.dailyMissions < 20 && (
+                      {!isErrand && userData.dailyMissions >= 9 && userData.dailyMissions < MISSIONS_PER_DAY && (
                         <p className="text-sm text-yellow-500">40% Rewards</p>
                       )}
-                      {!isErrand && userData.dailyMissions >= 20 && (
+                      {!isErrand && userData.dailyMissions >= MISSIONS_PER_DAY && (
                         <p className="text-sm text-red-500">Daily Limit Reached</p>
                       )}
                     </div>
@@ -244,8 +244,8 @@ export default function MissionHall() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Accept Random Mission</AlertDialogTitle>
                       <AlertDialogDescription>
-                        {!isErrand && userData.dailyMissions >= 20 ? (
-                          "You have reached your daily mission limit of 20 missions. Please try again tomorrow."
+                        {!isErrand && userData.dailyMissions >= MISSIONS_PER_DAY ? (
+                          `You have reached your daily mission limit of ${MISSIONS_PER_DAY} missions. Please try again tomorrow.`
                         ) : (
                           <>
                             Are you sure you want to accept a random {setting.rank}-rank{" "}
@@ -266,7 +266,7 @@ export default function MissionHall() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      {!isErrand && userData.dailyMissions >= 20 ? (
+                      {!isErrand && userData.dailyMissions >= MISSIONS_PER_DAY ? (
                         <AlertDialogAction disabled>Daily Limit Reached</AlertDialogAction>
                       ) : (
                         <AlertDialogAction
