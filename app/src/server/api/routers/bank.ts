@@ -128,25 +128,41 @@ export const bankRouter = createTRPCRouter({
         data: { bank: user.bank - value },
       };
     }),
-  getGraph: protectedProcedure.query(async ({ ctx }) => {
-    const sender = alias(userData, "sender");
-    const receiver = alias(userData, "receiver");
-    const transfers = await ctx.drizzle
-      .select({
-        senderId: bankTransfers.senderId,
-        receiverId: bankTransfers.receiverId,
-        senderUsername: sender.username,
-        receiverUsername: receiver.username,
-        senderAvatar: sender.avatar,
-        receiverAvatar: receiver.avatar,
-        total: sql<number>`SUM(${bankTransfers.amount})`,
-      })
-      .from(bankTransfers)
-      .innerJoin(sender, eq(bankTransfers.senderId, sender.userId))
-      .innerJoin(receiver, eq(bankTransfers.receiverId, receiver.userId))
-      .groupBy(bankTransfers.senderId, bankTransfers.receiverId);
-    return transfers;
-  }),
+  getGraph: protectedProcedure
+    .input(
+      z
+        .object({
+          minAmount: z.number().min(1).default(100),
+          dayLimit: z.number().min(1).max(365).default(30),
+        })
+        .optional()
+        .default({}),
+    )
+    .query(async ({ ctx, input }) => {
+      const { minAmount = 100, dayLimit = 30 } = input;
+      const cutoffDate = new Date(Date.now() - dayLimit * 24 * 60 * 60 * 1000);
+
+      const sender = alias(userData, "sender");
+      const receiver = alias(userData, "receiver");
+      const transfers = await ctx.drizzle
+        .select({
+          senderId: bankTransfers.senderId,
+          receiverId: bankTransfers.receiverId,
+          senderUsername: sender.username,
+          receiverUsername: receiver.username,
+          senderAvatar: sender.avatar,
+          receiverAvatar: receiver.avatar,
+          total: sql<number>`SUM(${bankTransfers.amount})`,
+        })
+        .from(bankTransfers)
+        .innerJoin(sender, eq(bankTransfers.senderId, sender.userId))
+        .innerJoin(receiver, eq(bankTransfers.receiverId, receiver.userId))
+        .where(gte(bankTransfers.createdAt, cutoffDate))
+        .groupBy(bankTransfers.senderId, bankTransfers.receiverId)
+        .having(sql`SUM(${bankTransfers.amount}) >= ${minAmount}`)
+        .limit(50);
+      return transfers;
+    }),
   getTransfers: protectedProcedure
     .input(
       z.object({

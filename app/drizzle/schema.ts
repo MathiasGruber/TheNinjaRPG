@@ -2321,6 +2321,11 @@ export const bankTransfers = mysqlTable(
     return {
       senderIdIdx: index("BankTransfers_senderId_idx").on(table.senderId),
       receiverIdIdx: index("BankTransfers_receiverId_idx").on(table.receiverId),
+      senderReceiverIdx: index("BankTransfers_senderId_receiverId_idx").on(
+        table.senderId,
+        table.receiverId,
+      ),
+      createdAtIdx: index("BankTransfers_createdAt_idx").on(table.createdAt),
     };
   },
 );
