@@ -5,6 +5,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { REGEN_SECONDS } from "@/drizzle/constants";
 import { secondsPassed } from "@/utils/time";
 import type { UserStatus } from "@/drizzle/schema";
 
@@ -42,7 +43,7 @@ export const calcCurrent = (
     regenAt &&
     ["AWAKE", "ASLEEP", "TRAVEL"].includes(status)
   ) {
-    const minutes = secondsPassed(regenAt, timeDiff) / 60;
+    const minutes = secondsPassed(regenAt, timeDiff, false) / REGEN_SECONDS;
     if (regen >= 0) {
       current = Math.min(end, start + regen * minutes);
     } else {
@@ -50,6 +51,7 @@ export const calcCurrent = (
     }
   }
   const width = (current / end) * 100;
+
   return { current, width };
 };
 
@@ -86,7 +88,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
       }
     };
     foo();
-    const interval = setInterval(foo, 1000);
+    const interval = setInterval(foo, 250);
     return () => {
       clearInterval(interval);
     };

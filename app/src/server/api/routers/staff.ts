@@ -1,6 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { fetchBadge } from "@/routers/badge";
+import { fetchAttributes } from "@/routers/profile";
 import { eq, ne, and, desc } from "drizzle-orm";
 import {
   actionLog,
@@ -63,6 +64,8 @@ import {
   canSeeIps,
   canSeeActivityEvents,
   canEditPublicUser,
+  canRestoreActivityStreak,
+  canUseMonitoringTests,
 } from "@/utils/permissions";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { canCloneUser, canClearSectors } from "@/utils/permissions";
@@ -73,15 +76,33 @@ import type { DrizzleClient } from "@/server/db";
 import { fetchSector } from "./village";
 
 export const staffRouter = createTRPCRouter({
-  throwError: protectedProcedure.output(baseServerResponse).mutation(async () => {
-    throw new Error("Test error");
-  }),
-  throwTrpcError: protectedProcedure.output(baseServerResponse).mutation(async () => {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Test error",
-    });
-  }),
+  throwError: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canUseMonitoringTests(user.role)) {
+        return errorResponse("Not allowed for you");
+      }
+      // Mutate
+      throw new Error("Test error");
+    }),
+  throwTrpcError: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canUseMonitoringTests(user.role)) {
+        return errorResponse("Not allowed for you");
+      }
+      // Mutate
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Test error",
+      });
+    }),
   unequipAllGear: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
@@ -134,6 +155,7 @@ export const staffRouter = createTRPCRouter({
         latitude: user.latitude,
         sector: user.sector,
         avatar: user.avatar,
+        avatarLight: user.avatarLight,
         level: user.level,
         villageId: user.villageId,
         battleId: user.battleId,
@@ -228,8 +250,12 @@ export const staffRouter = createTRPCRouter({
     .input(z.object({ userId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const target = await fetchUser(ctx.drizzle, input.userId);
+      const [user, target, targetAttributes] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+        fetchAttributes(ctx.drizzle, ctx.userId),
+        fetchAttributes(ctx.drizzle, input.userId),
+      ]);
       if (!user || !target) {
         return { success: false, message: "User not found" };
       }
@@ -254,6 +280,7 @@ export const staffRouter = createTRPCRouter({
         ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, user.userId)),
         ctx.drizzle.delete(userItem).where(eq(userItem.userId, user.userId)),
         ctx.drizzle.delete(questHistory).where(eq(questHistory.userId, user.userId)),
+        ctx.drizzle.delete(userAttribute).where(eq(userAttribute.userId, user.userId)),
         ctx.drizzle
           .update(userData)
           .set({
@@ -274,6 +301,7 @@ export const staffRouter = createTRPCRouter({
             speed: target.speed,
             intelligence: target.intelligence,
             willpower: target.willpower,
+            gender: target.gender,
             ninjutsuOffence: target.ninjutsuOffence,
             ninjutsuDefence: target.ninjutsuDefence,
             genjutsuOffence: target.genjutsuOffence,
@@ -314,6 +342,15 @@ export const staffRouter = createTRPCRouter({
         await ctx.drizzle.insert(questHistory).values(
           targetQuestHistory.map((questhistory) => ({
             ...questhistory,
+            userId: ctx.userId,
+            id: nanoid(),
+          })),
+        );
+      }
+      if (targetAttributes) {
+        await ctx.drizzle.insert(userAttribute).values(
+          targetAttributes.map((attribute) => ({
+            ...attribute,
             userId: ctx.userId,
             id: nanoid(),
           })),
@@ -396,6 +433,33 @@ export const staffRouter = createTRPCRouter({
         limit: 100, // Limit to last 100 activity events
       });
       return activityEvents;
+    }),
+  // Restore user activity streak based on activity event
+  restoreUserActivityStreak: protectedProcedure
+    .input(z.object({ userId: z.string(), activityEventId: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, target, activity] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+        ctx.drizzle.query.userActivityEvent.findFirst({
+          where: eq(userActivityEvent.id, input.activityEventId),
+        }),
+      ]);
+      // Guard
+      if (!user) return errorResponse("User not found");
+      if (!target) return errorResponse("Target user not found");
+      if (!activity) return errorResponse("Activity event not found");
+      if (!canRestoreActivityStreak(user.role)) {
+        return errorResponse("Not allowed for you");
+      }
+      // Mutate
+      await ctx.drizzle
+        .update(userData)
+        .set({ activityStreak: activity.streak })
+        .where(eq(userData.userId, target.userId));
+      return { success: true, message: "Activity streak restored" };
     }),
   // Update all occurances of a user ID in the database to another userId.
   // VERY dangerous - used to e.g. link up unlinked accounts with new userIds from clerk

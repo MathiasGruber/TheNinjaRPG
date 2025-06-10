@@ -21,9 +21,7 @@ import { calcMaxItems, calcMaxEventItems } from "@/libs/item";
 import { CircleFadingArrowUp, Shirt } from "lucide-react";
 import { COST_EXTRA_ITEM_SLOT, IMG_EQUIP_SILHOUETTE } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
-import type { Item, UserItem, ItemSlot } from "@/drizzle/schema";
-
-type UserItemWithItem = UserItem & { item: Item };
+import type { Item, UserItemWithItem, UserItem, ItemSlot } from "@/drizzle/schema";
 
 export default function MyItems() {
   // State
@@ -357,7 +355,6 @@ const Character: React.FC<CharacterProps> = (props) => {
   // Collapse UserItem and Item
   const items = useritems?.map((useritem) => ({ ...useritem.item, ...useritem }));
   const equipped = items?.find((item) => item.equipped === slot);
-  const noEquipped = items?.filter((item) => item.equipped === "NONE");
 
   // tRPC utility
   const utils = api.useUtils();

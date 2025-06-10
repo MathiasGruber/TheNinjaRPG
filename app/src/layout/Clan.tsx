@@ -1425,7 +1425,6 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
   const [showActive, setShowActive] = useLocalStorage<string>("clanPageTab", "orders");
   const { userData } = useRequireInVillage("/clanhall");
   const { clanId, back_href } = props;
-  const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
 
   // Queries
   const { data: clanData } = api.clan.get.useQuery({ clanId: clanId });
@@ -1457,7 +1456,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="battles">Battles</TabsTrigger>
             <TabsTrigger value="requests">Requests</TabsTrigger>
-            <TabsTrigger value="tournaments">{groupLabel} Tournaments</TabsTrigger>
+            <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="war">War</TabsTrigger>
             {userData.isOutlaw && <TabsTrigger value="logs">Logs</TabsTrigger>}
@@ -1480,7 +1479,7 @@ export const ClanProfile: React.FC<ClanProfileProps> = (props) => {
               userData={userData}
               tournamentId={clanData.id}
               rewards={ObjectiveReward.parse({ reward_money: clanData.bank })}
-              title={`${groupLabel} Tournaments`}
+              title={`Tournaments`}
               subtitle="Initiated by leader"
               type="CLAN"
               canCreate={(isLeader || isColeader) && clanData.bank > 0}

@@ -33,6 +33,10 @@ export const canTransferJutsu = (role: UserRole) => {
   return role !== "USER";
 };
 
+export const canUseMonitoringTests = (role: UserRole) => {
+  return ["CODING-ADMIN"].includes(role);
+};
+
 export const canModifyEventGains = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
 };
@@ -82,6 +86,10 @@ export const canSeeIps = (role: UserRole) => {
 };
 
 export const canSeeActivityEvents = (role: UserRole) => {
+  return role !== "USER";
+};
+
+export const canRestoreActivityStreak = (role: UserRole) => {
   return role !== "USER";
 };
 

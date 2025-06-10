@@ -231,6 +231,7 @@ export const travelRouter = createTRPCRouter({
             sector: true,
             status: true,
             avatar: true,
+            avatarLight: true,
             level: true,
             rank: true,
             isOutlaw: true,
@@ -252,7 +253,7 @@ export const travelRouter = createTRPCRouter({
         ctx.drizzle.query.village.findFirst({
           where: and(
             eq(village.sector, user.sector),
-            inArray(village.type, ["VILLAGE", "TOWN", "HIDEOUT", "SAFEZONE"]),
+            inArray(village.type, ["VILLAGE", "OUTLAW", "TOWN", "HIDEOUT", "SAFEZONE"]),
           ),
           with: { structures: true },
         }),
@@ -394,6 +395,7 @@ export const travelRouter = createTRPCRouter({
         battleId: z.string().nullish(),
         level: z.number().int(),
         avatar: z.string().url(),
+        avatarLight: z.string().url(),
         username: z.string(),
       }),
     )
@@ -408,6 +410,7 @@ export const travelRouter = createTRPCRouter({
               username: z.string(),
               userId: z.string(),
               avatar: z.string(),
+              avatarLight: z.string(),
               sector: z.number(),
               battleId: z.string().nullish(),
               villageId: z.string().nullish(),
@@ -503,7 +506,18 @@ export const travelRouter = createTRPCRouter({
         if (user.longitude !== curLongitude || user.latitude !== curLatitude) {
           return errorResponse("You have moved since you started this move");
         }
-        throw serverError("BAD_REQUEST", "Unknown error while moving");
+        throw serverError(
+          "BAD_REQUEST",
+          `Unknown error while moving. Route input: ${JSON.stringify(input)}. User information: ${JSON.stringify(
+            {
+              sector: user.sector,
+              longitude: user.longitude,
+              latitude: user.latitude,
+              status: user.status,
+              villageId: user.villageId,
+            },
+          )}`,
+        );
       }
     }),
 });

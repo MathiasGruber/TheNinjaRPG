@@ -44,7 +44,6 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { Dialog } from "@/components/ui/dialog";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import type { GlobalMapData } from "@/libs/travel/types";
 import { useMap } from "@/hooks/map";
@@ -273,7 +272,11 @@ export const WarMap: React.FC<{
     user.villageId ?? "",
     sectorVillage?.id ?? "",
   );
-  const status = relationship?.status || (user.isOutlaw ? "ENEMY" : "NEUTRAL");
+  const status =
+    relationship?.status ||
+    (user.isOutlaw || ["TOWN", "HIDEOUT", "OUTLAW"].includes(sectorVillage?.type ?? "")
+      ? "ENEMY"
+      : "NEUTRAL");
   let textColor = "text-slate-600";
   if (status === "ALLY") textColor = "text-green-600";
   if (status === "ENEMY") textColor = "text-red-600";
@@ -359,29 +362,86 @@ export const WarMap: React.FC<{
     isLeavingAlliance ||
     isReleasingSector;
 
+  // Dialog content props
+  const dialogContentProps: DialogContentProps = {
+    user,
+    sectorVillage,
+    status,
+    textColor,
+    relationships,
+    villages,
+    targetSector,
+    structureRoute,
+    structures,
+    setStructureRoute,
+  };
+
   // What to show in the modal
   let modalTitle = "Declare War";
   let proceedLabel: string | undefined = "Declare War";
-  if (sectorVillage) {
-    if (user.isOutlaw) {
-      proceedLabel = "Start Raid";
-      modalTitle = "Raid Village";
-    } else if (status === "ALLY") {
-      proceedLabel = "Break Alliance";
-      modalTitle = "Break Alliance";
-    } else if (status === "NEUTRAL") {
-      proceedLabel = "Declare Enemy";
-      modalTitle = "Declare Enemy";
+  let onAccept: () => void = () => {};
+  let modalContent: React.ReactNode | undefined = undefined;
+  if (targetSector) {
+    if (sectorVillage) {
+      if (user.isOutlaw || ["TOWN", "HIDEOUT", "OUTLAW"].includes(sectorVillage.type)) {
+        proceedLabel = "Start Raid";
+        modalTitle = "Raid Sector";
+        modalContent = <InitiateRaidDialogContent {...dialogContentProps} />;
+        onAccept = () => {
+          declareVillageWarOrRaid({
+            targetVillageId: sectorVillage.id,
+            targetStructureRoute: structureRoute,
+          });
+        };
+      } else if (status === "ALLY" && relationship) {
+        proceedLabel = "Break Alliance";
+        modalTitle = "Break Alliance";
+        modalContent = <BreakAllianceDialogContent {...dialogContentProps} />;
+        onAccept = () => {
+          leaveAlliance({ allianceId: relationship.id });
+        };
+      } else if (status === "NEUTRAL") {
+        proceedLabel = "Declare Enemy";
+        modalTitle = "Declare Enemy";
+        modalContent = <DeclareEnemyDialogContent {...dialogContentProps} />;
+        onAccept = () => {
+          declareEnemy({ villageId: sectorVillage.id });
+        };
+      } else if (status === "ENEMY") {
+        proceedLabel = "Declare War";
+        modalTitle = "Declare War";
+        modalContent = <InitiateVillageWarDialogContent {...dialogContentProps} />;
+        onAccept = () => {
+          declareVillageWarOrRaid({
+            targetVillageId: sectorVillage.id,
+            targetStructureRoute: structureRoute,
+          });
+        };
+      }
+    } else if (ownsTargetSector && targetSector) {
+      proceedLabel = "Release Sector";
+      modalTitle = "Your Sector";
+      modalContent = <div>You own sector {targetSector}. Abandon this sector?</div>;
+      onAccept = () => {
+        releaseSector({ sector: targetSector });
+      };
+    } else if (sectorClaimed) {
+      proceedLabel = undefined;
+      modalTitle = "Sector Occupied";
+      modalContent = <div>This sector is already occupied and cannot be claimed.</div>;
+    } else if (isReserved) {
+      proceedLabel = undefined;
+      modalTitle = "Sector Reserved";
+      modalContent = <div>This sector is reserved and cannot be claimed.</div>;
+    } else {
+      modalContent = <DeclareSectorWarDialogContent {...dialogContentProps} />;
+      onAccept = () => {
+        declareSectorWar({
+          sectorId: targetSector,
+          userVillageId: user.villageId,
+        });
+      };
     }
-  } else if (ownsTargetSector) {
-    proceedLabel = "Release Sector";
-    modalTitle = "Your Sector";
-  } else if (sectorClaimed) {
-    proceedLabel = undefined;
-    modalTitle = "Sector Occupied";
-  } else if (isReserved) {
-    proceedLabel = undefined;
-    modalTitle = "Sector Reserved";
   }
 
   console.log(sectorVillage);
@@ -413,188 +473,19 @@ export const WarMap: React.FC<{
           isOpen={showModal}
           setIsOpen={setShowModal}
           proceed_label={!isLoading ? proceedLabel : undefined}
-          onAccept={() => {
-            if (sectorVillage) {
-              if (status === "ALLY" && relationship) {
-                leaveAlliance({ allianceId: relationship?.id });
-              } else if (status === "NEUTRAL") {
-                declareEnemy({ villageId: sectorVillage.id });
-              } else if (status === "ENEMY") {
-                declareVillageWarOrRaid({
-                  targetVillageId: sectorVillage.id,
-                  targetStructureRoute: structureRoute,
-                });
-              }
-            } else {
-              if (ownsTargetSector) {
-                releaseSector({ sector: targetSector });
-              } else {
-                declareSectorWar({
-                  sectorId: targetSector,
-                  userVillageId: user.villageId,
-                });
-              }
-            }
-          }}
+          onAccept={onAccept}
         >
           {isLoading && <Loader explanation="Execution Action" />}
-          {!isLoading && sectorVillage && user.isOutlaw && (
-            <div>
-              <div>
-                You have the option of initiating a raid in this sector, targeting a
-                giving structure. The cost of starting a raid is{" "}
-                {WAR_DECLARATION_COST.toLocaleString()} tokens, and each day at war
-                reduces your tokens by {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()}{" "}
-                (increasing by{" "}
-                {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}%
-                after 3 days and{" "}
-                {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
-                after 7 days). If you win, the structure level will be reduced by 1 and
-                you will received {WAR_VICTORY_TOKEN_BONUS.toLocaleString()} tokens.
-              </div>
-              <div className="space-y-2">
-                <p className="font-semibold">Select Target Structure:</p>
-                <Select value={structureRoute} onValueChange={setStructureRoute}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a structure to raid" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {structures?.map((structure) => (
-                      <SelectItem
-                        key={structure.id}
-                        value={structure.route || structure.id}
-                      >
-                        {structure.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          {!isLoading && !sectorVillage && sectorClaimed && (
-            <div>This sector is already occupied and cannot be claimed.</div>
-          )}
-          {!isLoading && !sectorVillage && !sectorClaimed && isReserved && (
-            <div>This sector is reserved and cannot be claimed.</div>
-          )}
-          {!isLoading &&
-            !sectorVillage &&
-            !sectorClaimed &&
-            !isReserved &&
-            !ownsTargetSector && (
-              <div>
-                <p>You are about to declare war on sector {targetSector}.</p>
-                <p className="py-2">
-                  This will initiate a war between your village and any village in
-                  sector {targetSector}.
-                </p>
-                <p className="py-2">
-                  The cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()}{" "}
-                  Village Tokens, and each day at war reduces your tokens by{" "}
-                  {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
-                  {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}%
-                  after 3 days and{" "}
-                  {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
-                  after 7 days).
-                </p>
-                <p>Do you confirm?</p>
-              </div>
-            )}
-          {!isLoading &&
-            !sectorVillage &&
-            !sectorClaimed &&
-            !isReserved &&
-            ownsTargetSector && (
-              <div>
-                <p>You already own sector {targetSector}.</p>
-                <p>Do you you wish to abandon this sector?</p>
-              </div>
-            )}
-          {!isLoading && sectorVillage && !user.isOutlaw && (
-            <div className="border p-4 rounded-lg text-center relative">
-              <p className="font-bold">{sectorVillage.name}</p>
-              <Image
-                src={sectorVillage.villageGraphic}
-                alt={sectorVillage.name}
-                width={100}
-                height={100}
-                className="mx-auto mb-2 aspect-square"
-              />
-              <p className={`text-sm mb-2 font-semibold ${textColor}`}>
-                {capitalizeFirstLetter(status)}
-              </p>
-              {status === "ALLY" && relationship && (
-                <p>
-                  You are about to break your alliance with {sectorVillage.name}. Are
-                  you sure?
-                </p>
-              )}
-              {status === "NEUTRAL" && (
-                <>
-                  <p>
-                    You are about to declare {sectorVillage.name} an enemy. Are you
-                    sure? The cost of declaring a village as enemy is {WAR_FUNDS_COST}{" "}
-                    village tokens.
-                  </p>
-                  {(() => {
-                    const { newEnemies, newNeutrals } = calculateEnemyConsequences(
-                      relationships,
-                      villages ?? [],
-                      user.villageId ?? "",
-                      sectorVillage.id,
-                    );
-                    return (
-                      <>
-                        {newEnemies && newEnemies.length > 0 && (
-                          <p>
-                            <span className="font-bold">Additional Enemies: </span>
-                            <span className="font-normal">
-                              {newEnemies.map((v) => v.name).join(", ")} will become
-                              enemies
-                            </span>
-                          </p>
-                        )}
-                        {newNeutrals && newNeutrals.length > 0 && (
-                          <p>
-                            <span className="font-bold">Broken Alliances: </span>
-                            <span className="font-normal">
-                              {newNeutrals.map((v) => v.name).join(", ")} will become
-                              neutral
-                            </span>
-                          </p>
-                        )}
-                      </>
-                    );
-                  })()}
-                </>
-              )}
-              {status === "ENEMY" && (
-                <>
-                  <p>
-                    You are about to declare war on {sectorVillage.name}. Are you sure?
-                    The cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()}{" "}
-                    Village Tokens, and each day at war reduces your tokens by{" "}
-                    {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
-                    {Math.floor(
-                      (WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100,
-                    )}
-                    % after 3 days and{" "}
-                    {Math.floor(
-                      (WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100,
-                    )}
-                    % after 7 days).
-                  </p>
-                </>
-              )}
-            </div>
-          )}
+          {!isLoading && modalContent}
         </Modal2>
       )}
     </div>
   );
 };
 
+/**
+ * Sector War Component
+ */
 export const SectorWar: React.FC<{
   war: FetchActiveWarsReturnType;
   user: NonNullable<UserWithRelations>;
@@ -737,6 +628,185 @@ export const SectorWar: React.FC<{
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Props passed to all dialog content components
+ */
+interface DialogContentProps {
+  status: string;
+  textColor: string;
+  relationships: VillageAlliance[];
+  targetSector: number | null;
+  user: NonNullable<UserWithRelations>;
+  villages?: Village[];
+  sectorVillage?: Village;
+  structureRoute: string;
+  structures?: VillageStructure[];
+  setStructureRoute: React.Dispatch<React.SetStateAction<string>>;
+}
+
+/**
+ * Sector Village Dialog Content, Showing the village and its status
+ */
+export const SectorVillageDialogContent: React.FC<DialogContentProps> = (props) => {
+  if (!props.sectorVillage) return null;
+  return (
+    <div>
+      <p className="font-bold">{props.sectorVillage.name}</p>
+      <Image
+        src={props.sectorVillage.villageGraphic}
+        alt={props.sectorVillage.name}
+        width={100}
+        height={100}
+        className="mx-auto mb-2 aspect-square"
+      />
+      <p className={`text-sm mb-2 font-semibold ${props.textColor}`}>
+        {capitalizeFirstLetter(props.status)}
+      </p>
+    </div>
+  );
+};
+
+/**
+ * Declare Sector War Dialog Content
+ */
+export const DeclareSectorWarDialogContent: React.FC<DialogContentProps> = (props) => {
+  return (
+    <div className="border p-4 rounded-lg text-center relative">
+      <SectorVillageDialogContent {...props} />
+      <p>You are about to declare war on sector {props.targetSector}.</p>
+      <p className="py-2">
+        This will initiate a war between your village and any village in sector{" "}
+        {props.targetSector}.
+      </p>
+      <p className="py-2">
+        The cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()} Village
+        Tokens, and each day at war reduces your tokens by{" "}
+        {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
+        {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}% after 3
+        days and {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
+        after 7 days).
+      </p>
+      <p>Do you confirm?</p>
+    </div>
+  );
+};
+
+/**
+ * Break Alliance Dialog Content
+ */
+export const BreakAllianceDialogContent: React.FC<DialogContentProps> = (props) => {
+  if (!props.sectorVillage) return null;
+  return (
+    <div className="border p-4 rounded-lg text-center relative">
+      <SectorVillageDialogContent {...props} />
+      <p>You will break your alliance with {props.sectorVillage.name}. Are you sure?</p>
+    </div>
+  );
+};
+
+/**
+ * Declare Enemy Dialog Content
+ */
+export const DeclareEnemyDialogContent: React.FC<DialogContentProps> = (props) => {
+  if (!props.sectorVillage) return null;
+  return (
+    <div className="border p-4 rounded-lg text-center relative">
+      <SectorVillageDialogContent {...props} />
+      <p>
+        You are about to declare {props.sectorVillage.name} an enemy. Are you sure? The
+        cost of declaring a village as enemy is {WAR_FUNDS_COST} village tokens.
+      </p>
+      {(() => {
+        const { newEnemies, newNeutrals } = calculateEnemyConsequences(
+          props.relationships,
+          props.villages ?? [],
+          props.user.villageId ?? "",
+          props.sectorVillage.id,
+        );
+        return (
+          <>
+            {newEnemies && newEnemies.length > 0 && (
+              <p>
+                <span className="font-bold">Additional Enemies: </span>
+                <span className="font-normal">
+                  {newEnemies.map((v) => v.name).join(", ")} will become enemies
+                </span>
+              </p>
+            )}
+            {newNeutrals && newNeutrals.length > 0 && (
+              <p>
+                <span className="font-bold">Broken Alliances: </span>
+                <span className="font-normal">
+                  {newNeutrals.map((v) => v.name).join(", ")} will become neutral
+                </span>
+              </p>
+            )}
+          </>
+        );
+      })()}
+    </div>
+  );
+};
+
+/**
+ * Initiate Village War Dialog Content
+ */
+export const InitiateVillageWarDialogContent: React.FC<DialogContentProps> = (
+  props,
+) => {
+  if (!props.sectorVillage) return null;
+  return (
+    <div className="border p-4 rounded-lg text-center relative">
+      <SectorVillageDialogContent {...props} />
+      <p>
+        You are about to declare war on {props.sectorVillage.name}. Are you sure? The
+        cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()} Village Tokens,
+        and each day at war reduces your tokens by{" "}
+        {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
+        {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}% after 3
+        days and {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
+        after 7 days).
+      </p>
+    </div>
+  );
+};
+
+/**
+ * Raid Dialog Content
+ */
+export const InitiateRaidDialogContent: React.FC<DialogContentProps> = (props) => {
+  return (
+    <div className="border p-4 rounded-lg text-center relative">
+      <SectorVillageDialogContent {...props} />
+      <div>
+        You have the option of initiating a raid in this sector, targeting a giving
+        structure. The cost of starting a raid is{" "}
+        {WAR_DECLARATION_COST.toLocaleString()} tokens, and each day at war reduces your
+        tokens by {WAR_DAILY_TOKEN_REDUCTION.toLocaleString()} (increasing by{" "}
+        {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_3_DAYS - 1) * 100)}% after 3
+        days and {Math.floor((WAR_TOKEN_REDUCTION_MULTIPLIER_AFTER_7_DAYS - 1) * 100)}%
+        after 7 days). If you win, the structure level will be reduced by 1 and you will
+        received {WAR_VICTORY_TOKEN_BONUS.toLocaleString()} tokens.
+      </div>
+      <div className="space-y-2">
+        <p className="font-semibold">Select Target Structure:</p>
+        <Select value={props.structureRoute} onValueChange={props.setStructureRoute}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select a structure to raid" />
+          </SelectTrigger>
+          <SelectContent>
+            {props.structures?.map((structure) => (
+              <SelectItem key={structure.id} value={structure.route || structure.id}>
+                {structure.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );

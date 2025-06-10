@@ -28,6 +28,7 @@ import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
 import { getUserElements } from "@/validators/user";
 import { checkJutsuElements } from "@/libs/train";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { REGEN_SECONDS } from "@/drizzle/constants";
 import {
   SHARED_COOLDOWN_TAGS,
   WAR_TOWNHALL_HP_REMOVE,
@@ -722,12 +723,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                 townhallInfo[userVillageName] = 0;
               }
               // Derived
-              const isUserClanColeader = checkCoLeader(user.userId, user.clan);
-              const isTargetClanColeader = checkCoLeader(target.userId, target.clan);
+              const isUserFactionColeader =
+                user.isOutlaw && checkCoLeader(user.userId, user.clan);
+              const isTargetFactionColeader =
+                target.isOutlaw && checkCoLeader(target.userId, target.clan);
 
               // Village wars & raids
               if (
-                ["VILLAGE_WAR", "FACTION_RAID"].includes(war.type) &&
+                ["VILLAGE_WAR", "WAR_RAID"].includes(war.type) &&
                 battleType === "COMBAT"
               ) {
                 if (didWin) {
@@ -739,7 +742,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                     townhallChangeHP += WAR_TOWNHALL_HP_ELDER_RECOVER;
                     townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ELDER_RECOVER;
                     townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                  } else if (isUserClanColeader) {
+                  } else if (isUserFactionColeader) {
                     townhallChangeHP += WAR_TOWNHALL_HP_COLEADER_RECOVER;
                     townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_COLEADER_RECOVER;
                     townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
@@ -763,7 +766,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                   } else if (target.rank === "ELDER") {
                     townhallChangeHP -= WAR_TOWNHALL_HP_ELDER_REMOVE;
                     townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                  } else if (isTargetClanColeader) {
+                  } else if (isTargetFactionColeader) {
                     townhallChangeHP -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
                     townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
                   } else if (target.anbuId) {
@@ -1216,7 +1219,7 @@ export const processUsersForBattle = (info: {
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle
     const regen = calcActiveUserRegen(user, settings);
-    const restored = (regen * secondsPassed(user.regenAt)) / 60;
+    const restored = (regen * secondsPassed(user.regenAt)) / REGEN_SECONDS;
     user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);

@@ -44,6 +44,7 @@ const config = [
       "@typescript-eslint/prefer-nullish-coalescing": "off",
       "@typescript-eslint/only-throw-error": "off",
       "@typescript-eslint/consistent-type-definitions": "off",
+      "@typescript-eslint/no-empty-function": "off",
       "@typescript-eslint/no-explicit-any": "off",
 
       "@typescript-eslint/consistent-type-imports": [

@@ -156,8 +156,10 @@ const MenuBoxProfile: React.FC = () => {
 
   const expRequired = userData && calcLevelRequirements(userData.level - 1);
   const expForNextLevel = userData && calcLevelRequirements(userData.level);
-  const expTowardsNextLevel = userData && Math.max(0, userData.experience - (expRequired ?? 0));
-  const expNeededForNextLevel = userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
+  const expTowardsNextLevel =
+    userData && Math.max(0, userData.experience - (expRequired ?? 0));
+  const expNeededForNextLevel =
+    userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
 
   return (
     <>
@@ -212,7 +214,11 @@ const MenuBoxProfile: React.FC = () => {
               total={battleUser?.maxStamina || userData?.maxStamina}
               timeDiff={timeDiff}
             />
-            {expRequired && expForNextLevel && expTowardsNextLevel && expNeededForNextLevel && expTowardsNextLevel >= expNeededForNextLevel ? (
+            {expRequired &&
+            expForNextLevel &&
+            expTowardsNextLevel &&
+            expNeededForNextLevel &&
+            expTowardsNextLevel >= expNeededForNextLevel ? (
               <LevelUpBtn />
             ) : (
               <StatusBar

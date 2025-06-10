@@ -55,6 +55,7 @@ import { activityStreakRewards } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
 import { MAX_ATTRIBUTES } from "@/drizzle/constants";
+import { REGEN_SECONDS } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
 import { isAvailableUserQuests } from "@/libs/quest";
 import {
@@ -81,7 +82,7 @@ import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { KAGE_MIN_PRESTIGE } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
-import { hideQuestInformation } from "@/libs/quest";
+import { controlShownQuestLocationInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
@@ -94,7 +95,7 @@ import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
-import type { UserQuest, Clan } from "@/drizzle/schema";
+import type { UserQuest, Clan, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 
@@ -1344,6 +1345,15 @@ export const updateNindo = async (
   return { success: true, message: "Content updated" };
 };
 
+/**
+ * Fetch a user by id
+ * @param client - The database client
+ * @param userId - The id of the user
+ * @returns The user
+ *
+ * NOTE: This function is used across the codebase. Use fetchUpdatedUser
+ * if more information is required on the user object, so that we keep this method "light"
+ */
 export const fetchUser = async (client: DrizzleClient, userId: string) => {
   const user = await client.query.userData.findFirst({
     where: eq(userData.userId, userId),
@@ -1504,6 +1514,10 @@ export const fetchUpdatedUser = async (props: {
           },
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
+        completedQuests: {
+          columns: { id: true, questId: true, completed: true },
+          where: gte(questHistory.completed, 1),
+        },
         votes: true,
       },
     }),
@@ -1544,11 +1558,6 @@ export const fetchUpdatedUser = async (props: {
       .filter((q) => q.quest)
       .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user).check);
   }
-
-  // Hide information relating to quests
-  user?.userQuests.forEach((q) => {
-    hideQuestInformation(q.quest, user);
-  });
 
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
@@ -1615,20 +1624,23 @@ export const fetchUpdatedUser = async (props: {
   // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
   // and it is mostly done to keep user updated on the overview pages
   if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
+    // Get activity rewards if any & update timers
+    const now = new Date();
+    const newDay = isDifferentDay(now, user.updatedAt);
+    const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
+    // Figure out if we're running update
     const sinceUpdate = secondsPassed(user.updatedAt);
     if (
+      newDay ||
       sinceUpdate > 300 || // Update user in database every 5 minutes only so as to reduce server load
       forceRegen || // Hard overwrite for e.g. debugging or simply ensuring updated user
       (user.villagePrestige < 0 && !user.isOutlaw) // To trigger getting kicked out of village
     ) {
-      const regen = (user.regeneration * secondsPassed(user.regenAt)) / 60;
+      const regen = (user.regeneration * secondsPassed(user.regenAt)) / REGEN_SECONDS;
       user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
       // Get activity rewards if any & update timers
-      const now = new Date();
-      const newDay = isDifferentDay(now, user.updatedAt);
-      const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
       if (newDay) {
         user.activityStreak = withinThreshold ? user.activityStreak + 1 : 1;
         rewards = activityStreakRewards(user.activityStreak);
@@ -1715,8 +1727,23 @@ export const fetchUpdatedUser = async (props: {
     }
   }
   if (user) {
-    const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+    // Get the latest quest trackers
+    const { trackers, shouldUpdateUserInDB } = getNewTrackers(user, [{ task: "any" }]);
     user.questData = trackers;
+
+    // Check if we need to update the questData in the database
+    // This happens e.g. if we have a random sector, then we need to store it for future use
+    if (shouldUpdateUserInDB) {
+      await client
+        .update(userData)
+        .set({ questData: user.questData })
+        .where(eq(userData.userId, userId));
+    }
+
+    // Hide information relating to quests
+    user?.userQuests.forEach((q) => {
+      controlShownQuestLocationInformation(q.quest, user);
+    });
   }
   return { user, settings, rewards, hasUnvotedPolls };
 };
@@ -1870,7 +1897,8 @@ export type UserWithRelations =
           })
         | null;
       loadout?: { jutsuIds: string[] } | null;
-      userQuests: UserQuest[];
+      userQuests: (UserQuest & { quest: Quest })[];
+      completedQuests: { id: string; questId: string; completed: number }[];
       votes?: UserVote | null;
     })
   | undefined;

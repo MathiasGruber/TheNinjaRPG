@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import ConceptImage from "@/layout/ConceptImage";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import {
   Form,
   FormControl,
@@ -28,7 +28,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/app/_trpc/client";
 import { conceptArtPromptSchema, conceptArtFilterSchema } from "@/validators/art";
 import { sortOptions, timeFrame } from "@/validators/art";
-import { User, Sparkles } from "lucide-react";
+import { User, Sparkles, Loader2 } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { showMutationToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -63,7 +63,6 @@ export default function ConceptArt() {
       showMutationToast(result);
       if (result.success && result.imageId) {
         promptForm.setValue("prompt", "");
-        promptForm.setValue("negative_prompt", "");
         filterForm?.setValue("only_own", true);
         filterForm?.setValue("sort", "Most Recent");
         router.push(`/conceptart/${result.imageId}`);
@@ -72,7 +71,7 @@ export default function ConceptArt() {
       }
     },
     onError: (error) => {
-      console.log(error);
+      showMutationToast({ success: false, message: error.message });
     },
   });
 
@@ -166,14 +165,19 @@ export default function ConceptArt() {
             </SelectContent>
           </Select>
           {userData && (
-            <Confirm
+            <Confirm2
               title="Create New"
               button={
                 <Button id="new-art">
-                  <Sparkles className="mr-2 h-6 w-6" />
+                  {isPending ? (
+                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-6 w-6" />
+                  )}
                   New
                 </Button>
               }
+              disabled={isPending}
               proceed_label="Create"
               onAccept={handleCreateNew}
             >
@@ -197,50 +201,23 @@ export default function ConceptArt() {
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={promptForm.control}
-                    name="negative_prompt"
+                    name="seed"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Negative Prompt</FormLabel>
+                        <FormLabel>Seed value</FormLabel>
                         <FormControl>
-                          <Input placeholder="Negative Prompt" {...field} />
+                          <Input placeholder="Seed value" type="number" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-2 gap-2">
-                    <FormField
-                      control={promptForm.control}
-                      name="guidance_scale"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Guidance scale</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Adherance" type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={promptForm.control}
-                      name="seed"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Seed value</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Seed value" type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
                 </Form>
               </div>
-            </Confirm>
+            </Confirm2>
           )}
         </div>
       }

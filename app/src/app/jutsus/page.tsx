@@ -5,7 +5,6 @@ import { Trash2, CircleFadingArrowUp, ArrowRightLeft } from "lucide-react";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ContentBox from "@/layout/ContentBox";
 import Modal2 from "@/layout/Modal2";
-import { Dialog } from "@/components/ui/dialog";
 import Loader from "@/layout/Loader";
 import LoadoutSelector from "@/layout/LoadoutSelector";
 import Confirm2 from "@/layout/Confirm2";

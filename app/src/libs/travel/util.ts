@@ -2,7 +2,22 @@ import { type MutableRefObject } from "react";
 import { Scene, WebGLRenderer, WebGL1Renderer, Raycaster } from "three";
 import { Vector2 } from "three";
 import type { OrthographicCamera, PerspectiveCamera } from "three";
-import { type Material, type BufferGeometry } from "three";
+import { type Material } from "three";
+import {
+  Group,
+  LineBasicMaterial,
+  LineSegments,
+  LinearFilter,
+  Sprite,
+  SpriteMaterial,
+  Vector3,
+  BufferGeometry,
+  CanvasTexture,
+} from "three";
+import { IMG_AVATAR_DEFAULT, IMG_SECTOR_USER_SPRITE_MASK } from "@/drizzle/constants";
+import { loadTexture } from "@/libs/threejs/util";
+import type { GlobalPoint } from "@/libs/travel/types";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 
 /**
  * Cleanup three.js scene and renderer, removing all objects, materials and geometries
@@ -79,4 +94,83 @@ export const setRaycasterFromMouse = (
   pointer.x = (event.offsetX / width) * 2 - 1;
   pointer.y = -(event.offsetY / height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
+};
+
+/**
+ * Create a user avatar sprite for the global map
+ */
+export const createUserAvatarSprite = (
+  userData: UserWithRelations,
+  sector: GlobalPoint,
+) => {
+  if (!userData) return new Group();
+
+  const group = new Group();
+
+  // Create the line connecting to the surface
+  const points = [];
+  points.push(new Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
+  points.push(new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5));
+  const lineMaterial = new LineBasicMaterial({
+    color: "#000000",
+    linewidth: 1,
+  });
+  const geometry = new BufferGeometry().setFromPoints(points);
+  const line = new LineSegments(geometry, lineMaterial);
+  group.add(line);
+
+  // Create white circular border sprite
+  const borderCanvas = document.createElement("canvas");
+  const borderSize = 64; // Size in pixels
+  borderCanvas.width = borderSize;
+  borderCanvas.height = borderSize;
+  const borderContext = borderCanvas.getContext("2d");
+
+  if (borderContext) {
+    // Clear the canvas
+    borderContext.clearRect(0, 0, borderSize, borderSize);
+
+    // Draw white circle border
+    const centerX = borderSize / 2;
+    const centerY = borderSize / 2;
+    const radius = borderSize / 2 - 2; // Leave some padding for the border
+
+    borderContext.beginPath();
+    borderContext.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    borderContext.fillStyle = "white";
+    borderContext.fill();
+  }
+
+  const borderTexture = new CanvasTexture(borderCanvas);
+  borderTexture.generateMipmaps = false;
+  borderTexture.minFilter = LinearFilter;
+
+  const borderMaterial = new SpriteMaterial({
+    map: borderTexture,
+    depthWrite: false,
+    depthTest: false,
+  });
+  const borderSprite = new Sprite(borderMaterial);
+  borderSprite.scale.set(1.2, 1.2, 1.2); // Slightly larger than avatar
+  borderSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
+  group.add(borderSprite);
+
+  // User avatar sprite
+  const alphaMap = loadTexture(IMG_SECTOR_USER_SPRITE_MASK);
+  const avatar = userData?.avatarLight || userData?.avatar || IMG_AVATAR_DEFAULT;
+  const avatarTexture = loadTexture(avatar);
+  avatarTexture.generateMipmaps = false;
+  avatarTexture.minFilter = LinearFilter;
+  const avatarMaterial = new SpriteMaterial({
+    map: avatarTexture,
+    alphaMap: alphaMap,
+    depthWrite: false,
+    depthTest: false,
+  });
+  const avatarSprite = new Sprite(avatarMaterial);
+  avatarSprite.scale.set(1, 1, 1);
+  avatarSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
+  group.add(avatarSprite);
+
+  return group;
 };

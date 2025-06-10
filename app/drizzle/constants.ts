@@ -12,6 +12,9 @@ export const ACTIVE_VOTING_SITES = [
 export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
 
+// How many seconds to regen a given regen value
+export const REGEN_SECONDS = 30;
+
 export const ContentTypes = [
   "asset",
   "ai",
@@ -28,6 +31,7 @@ export const MAP_RESERVED_SECTORS = [
   73, 72, 75, 78, 275, 279, 201, 183, 272, 264, 270, 308, 289, 259, 260, 253, 304, 307,
   283, 284, 340, 334, 330, 331, 332, 337, 342, 336, 341, 335, 113, 109, 443,
 ];
+export const MAP_TOTAL_SECTORS = 443;
 
 export const CoreVillages = [
   "Shine",
@@ -115,6 +119,7 @@ export const StructureRoutes = [
   "/battlearena",
   "/blackmarket",
   "/clanhall",
+  "/globalanbuhq",
   "/home",
   "/hospital",
   "/itemshop",
@@ -361,6 +366,7 @@ export const QuestTypes = [
   "tier",
   "daily",
   "achievement",
+  "story",
 ] as const;
 export type QuestType = (typeof QuestTypes)[number];
 export const QUESTS_CONCURRENT_LIMIT = 4;
@@ -621,7 +627,9 @@ export const FED_EVENT_ITEMS_GOLD = 25;
 export const FED_EVENT_ITEMS_DEFAULT = 10;
 
 // Missions config
+export const ERRANDS_PER_DAY = 9;
 export const MISSIONS_PER_DAY = 9;
+export const ADDITIONAL_MISSION_REWARD_MULTIPLIER = 0.4;
 
 // War config
 export const WAR_VILLAGE_MAX_SECTORS = 12;
@@ -667,7 +675,7 @@ export const WAR_STATES = [
   "DEFENDER_VICTORY",
   "DRAW",
 ] as const;
-export const WAR_TYPES = ["VILLAGE_WAR", "SECTOR_WAR", "FACTION_RAID"] as const;
+export const WAR_TYPES = ["VILLAGE_WAR", "SECTOR_WAR", "WAR_RAID"] as const;
 export type WarType = (typeof WAR_TYPES)[number];
 export type WarState = (typeof WAR_STATES)[number];
 
@@ -1100,6 +1108,8 @@ export const IMG_ICON_FORUM =
   "https://utfs.io/f/Hzww9EQvYURJTwT9cY5IU29dZYJPoOKSh5vmlqatMub3EigH";
 export const IMG_ICON_MOVE =
   "https://utfs.io/f/Hzww9EQvYURJepKSYSyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
+export const IMG_ICON_HEAL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJrtRSYfhuJPmdY8zI2ptZXAoEj1c6BMKvrQOx";
 
 export const IMG_MISSION_S =
   "https://utfs.io/f/Hzww9EQvYURJz3Ph17emvaQu94EYJs8HpxVzofny6iPtbgCZ";

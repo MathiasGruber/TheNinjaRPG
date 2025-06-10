@@ -4,26 +4,15 @@ import { sql, eq, and, isNotNull } from "drizzle-orm";
 import { userData, conceptImage, userLikes } from "@/drizzle/schema";
 import { fetchUser } from "@/routers/profile";
 import { z } from "zod";
-import { env } from "@/env/server.mjs";
+import { nanoid } from "nanoid";
 import { conceptArtFilterSchema, conceptArtPromptSchema } from "@/validators/art";
 import { getTimeFrameinSeconds } from "@/validators/art";
 import { SmileyEmotions } from "@/drizzle/constants";
-import Replicate from "replicate";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { DrizzleClient } from "../../db";
-import { syncImage, txt2imgReplicate } from "@/libs/replicate";
-
-const replicate = new Replicate({
-  auth: env.REPLICATE_API_TOKEN,
-});
+import { fastTxt2imgReplicate } from "@/libs/replicate";
 
 export const conceptartRouter = createTRPCRouter({
-  check: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const prediction = await replicate.predictions.get(input.id);
-      return syncImage(ctx.drizzle, prediction, ctx.userId);
-    }),
   toggleEmotion: protectedProcedure
     .input(z.object({ imageId: z.string(), type: z.enum(SmileyEmotions) }))
     .output(baseServerResponse)
@@ -82,7 +71,7 @@ export const conceptartRouter = createTRPCRouter({
     }),
   create: protectedProcedure
     .input(conceptArtPromptSchema)
-    .output(baseServerResponse.extend({ imageId: z.string().optional() }))
+    .output(baseServerResponse.extend({ imageId: z.string().optional().nullable() }))
     .mutation(async ({ ctx, input }) => {
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -90,32 +79,33 @@ export const conceptartRouter = createTRPCRouter({
       if (user.reputationPoints < 1) {
         return errorResponse("Not enough reputation points");
       }
-      // Mutate
-      const output = await txt2imgReplicate({
-        prompt:
-          input.prompt +
-          ", trending on ArtStation, trending on CGSociety, Intricate, High Detail, Sharp focus, dramatic, midjourney",
-        width: 576,
-        height: 768,
-        negative_prompt: input.negative_prompt,
-        guidance_scale: input.guidance_scale,
-        seed: input.seed,
+      // Generate
+      const prompt = `${input.prompt}, trending on ArtStation, trending on CGSociety, Intricate, High Detail, Sharp focus, dramatic, midjourney`;
+      const avatar = await fastTxt2imgReplicate({
+        prompt,
+        aspect_ratio: "9:16",
+        disable_safety_checker: false,
       });
+      const imageUrl = avatar.data?.ufsUrl;
+      if (!imageUrl) return errorResponse("Failed to create image");
+      // Mutate
+      const imageId = nanoid();
       await Promise.all([
         ctx.drizzle
           .update(userData)
           .set({ reputationPoints: sql`${userData.reputationPoints}- 1` })
           .where(eq(userData.userId, ctx.userId)),
         ctx.drizzle.insert(conceptImage).values({
+          id: imageId,
           userId: ctx.userId,
           prompt: input.prompt,
-          negative_prompt: input.negative_prompt,
           seed: input.seed,
-          id: output.id,
-          status: output.status,
+          status: "success",
+          image: imageUrl,
+          done: 1,
         }),
       ]);
-      return { success: true, message: "Image created", imageId: output.id };
+      return { success: true, message: "Image created", imageId };
     }),
   getAll: publicProcedure
     .input(

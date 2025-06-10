@@ -8,7 +8,12 @@ import { FED_EVENT_ITEMS_GOLD } from "@/drizzle/constants";
 import { FED_EVENT_ITEMS_DEFAULT } from "@/drizzle/constants";
 import { structureBoost } from "@/utils/village";
 import { ANBU_ITEMSHOP_DISCOUNT_PERC } from "@/drizzle/constants";
-import type { Item, UserItem, UserData, VillageStructure } from "@/drizzle/schema";
+import type {
+  Item,
+  UserItemWithItem,
+  UserData,
+  VillageStructure,
+} from "@/drizzle/schema";
 
 /**
  * Checks if an item is consumable outside of combat.
@@ -89,7 +94,7 @@ export const calcMaxItems = (user: UserData) => {
  */
 export const calcItemSellingPrice = (
   user: UserData,
-  useritem: (UserItem & { item: Item }) | undefined,
+  useritem: UserItemWithItem | undefined,
   structures: VillageStructure[] | undefined,
 ) => {
   if (!useritem) return 0;

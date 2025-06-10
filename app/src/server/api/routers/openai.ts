@@ -7,15 +7,8 @@ import {
 } from "../trpc";
 import { canChangeContent } from "@/utils/permissions";
 import { fetchUser } from "@/routers/profile";
-import {
-  fetchReplicateResult,
-  txt2imgReplicate,
-  txt2imgGPT,
-  img2model,
-  uploadToUT,
-} from "@/libs/replicate";
+import { txt2imgGPT, img2model } from "@/libs/replicate";
 import { historicalAvatar } from "@/drizzle/schema";
-import { requestBgRemoval } from "@/libs/replicate";
 import { and, gte, sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 
@@ -33,20 +26,6 @@ export const openaiRouter = createTRPCRouter({
         throw serverError("UNAUTHORIZED", "You are not allowed to change content");
       }
       const result = await img2model(input.imgUrl);
-      return { replicateId: result.id };
-    }),
-  createImgReplicate: protectedProcedure
-    .input(z.object({ prompt: z.string(), field: z.string(), removeBg: z.boolean() }))
-    .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (!canChangeContent(user.role)) {
-        throw serverError("UNAUTHORIZED", "You are not allowed to change content");
-      }
-      const result = await txt2imgReplicate({
-        prompt: input.prompt,
-        width: 512,
-        height: 512,
-      });
       return { replicateId: result.id };
     }),
   createImgGPT: protectedProcedure
@@ -102,45 +81,5 @@ export const openaiRouter = createTRPCRouter({
         });
       }
       return { success: true, message: "Image generated", url: resultUrl };
-    }),
-  removeBg: protectedProcedure
-    .input(z.object({ url: z.string(), field: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (!canChangeContent(user.role)) {
-        throw serverError("UNAUTHORIZED", "You are not allowed to change content");
-      }
-      const result = await requestBgRemoval(input.url);
-      return { replicateId: result.id, temp: result };
-    }),
-  fetchReplicateResult: protectedProcedure
-    .input(
-      z.object({ replicateId: z.string(), field: z.string(), removeBg: z.boolean() }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (!canChangeContent(user.role)) {
-        throw serverError("UNAUTHORIZED", "You are not allowed to change content");
-      }
-      const { prediction, replicateUrl } = await fetchReplicateResult(
-        input.replicateId,
-      );
-      if (
-        prediction.status == "failed" ||
-        prediction.status == "canceled" ||
-        (prediction.status == "succeeded" && !prediction.output)
-      ) {
-        return { status: "failed", url: null };
-      } else if (prediction.status == "succeeded") {
-        if (replicateUrl) {
-          const url = await uploadToUT(replicateUrl);
-          if (url) {
-            return { status: "succeeded", url };
-          }
-        }
-        return { status: "failed", url: null };
-      } else {
-        return { status: "running", url: null };
-      }
     }),
 });

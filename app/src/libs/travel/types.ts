@@ -32,6 +32,7 @@ export interface SectorUser {
   curHealth: number;
   maxHealth: number;
   avatar: string | null;
+  avatarLight: string | null;
   sector: number;
   longitude: number;
   latitude: number;

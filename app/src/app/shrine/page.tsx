@@ -16,6 +16,7 @@ import {
   WAR_SHRINE_IMAGE,
   VILLAGE_SYNDICATE_ID,
 } from "@/drizzle/constants";
+import RamenShop from "@/layout/RamenShop";
 import { type War } from "@/drizzle/schema";
 
 export default function Shrine() {
@@ -55,26 +56,32 @@ export default function Shrine() {
   // Check if there's an active war in this sector
   const activeWars = sectorData.warData;
   if (!activeWars || activeWars.length === 0) {
-    return sectorData.sectorData ? (
-      <ContentBox title="Shrine" subtitle="Sector is Claimed" back_href="/travel">
-        <div className="flex flex-col items-center">
-          <p>
-            This sector is claimed by{" "}
-            <strong>{sectorData.sectorData.village.name}</strong>. The leader of your
-            village or faction can attack the shrine to try and defeat it and claim the
-            sector.
-          </p>
-        </div>
-      </ContentBox>
-    ) : (
-      <ContentBox title="Shrine" subtitle="Unclaimed Sector" back_href="/travel">
-        <div className="flex flex-col items-center">
-          <p>
-            This sector is unclaimed. The leader of your village or faction can attack
-            the shrine to try and defeat it and claim the sector.
-          </p>
-        </div>
-      </ContentBox>
+    return (
+      <>
+        <ContentBox
+          title="Shrine"
+          subtitle={sectorData.sectorData ? "Sector is Claimed" : "Unclaimed Sector"}
+          back_href="/travel"
+        >
+          <div className="flex flex-col items-center">
+            {sectorData.sectorData ? (
+              <p>
+                {" "}
+                This sector is claimed by{" "}
+                <strong>{sectorData.sectorData.village.name}</strong>. The leader of
+                your village or faction can attack the shrine to try and defeat it and
+                claim the sector.
+              </p>
+            ) : (
+              <p>
+                This sector is unclaimed. The leader of your village or faction can
+                attack the shrine to try and defeat it and claim the sector.
+              </p>
+            )}
+          </div>
+        </ContentBox>
+        <RamenShop initialBreak />
+      </>
     );
   }
 
@@ -93,24 +100,27 @@ export default function Shrine() {
   return (
     <div className="space-y-8">
       {userWars.length > 0 && (
-        <ContentBox
-          title="Your Wars"
-          subtitle={`Sector ${userData.sector}`}
-          back_href="/travel"
-        >
-          <div className="divide-y">
-            {userWars.map((war) => (
-              <WarCard
-                key={war.id}
-                war={war}
-                villageId={userData.villageId!}
-                sector={userData.sector}
-                onAttack={() => attack({ sector: userData.sector })}
-                isAttacking={isAttacking}
-              />
-            ))}
-          </div>
-        </ContentBox>
+        <>
+          <ContentBox
+            title="Your Wars"
+            subtitle={`Sector ${userData.sector}`}
+            back_href="/travel"
+          >
+            <div className="divide-y">
+              {userWars.map((war) => (
+                <WarCard
+                  key={war.id}
+                  war={war}
+                  villageId={userData.villageId!}
+                  sector={userData.sector}
+                  onAttack={() => attack({ sector: userData.sector })}
+                  isAttacking={isAttacking}
+                />
+              ))}
+            </div>
+          </ContentBox>
+          <RamenShop />
+        </>
       )}
 
       {competingWars.length > 0 && (

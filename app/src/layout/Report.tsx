@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseHtml } from "@/utils/parse";
 
-import Modal from "./Modal";
+import Modal2 from "./Modal2";
 import RichInput from "./RichInput";
 import Post from "./Post";
 
@@ -82,8 +82,9 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
   if (showModal) {
     return (
       <form onSubmit={onSubmit}>
-        <Modal
+        <Modal2
           title="Report User"
+          isOpen={showModal}
           setIsOpen={setShowModal}
           proceed_label={userData?.isBanned ? "Stop" : "Report User"}
           onAccept={userData?.isBanned ? undefined : onSubmit}
@@ -118,7 +119,7 @@ const ReportUser: React.FC<ReportUserProps> = (props) => {
               />
             </>
           )}
-        </Modal>
+        </Modal2>
       </form>
     );
   } else {

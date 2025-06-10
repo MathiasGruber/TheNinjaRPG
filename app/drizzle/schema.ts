@@ -1566,7 +1566,8 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.userId],
     references: [userNindo.userId],
   }),
-  userQuests: many(questHistory),
+  userQuests: many(questHistory, { relationName: "userQuests" }),
+  completedQuests: many(questHistory, { relationName: "completedQuests" }),
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
@@ -1714,6 +1715,7 @@ export const userItem = mysqlTable(
 );
 export type UserItem = InferSelectModel<typeof userItem>;
 export type ItemSlot = UserItem["equipped"];
+export type UserItemWithItem = UserItem & { item: Item };
 
 export const userItemRelations = relations(userItem, ({ one }) => ({
   item: one(item, {
@@ -2161,13 +2163,16 @@ export const dataBattleAction = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     battleWon: tinyint("battleWon").notNull(),
+    count: int("count").notNull().default(1),
   },
   (table) => {
     return {
-      contentIdIdx: index("DataBattleActions_contentId_idx").on(table.contentId),
-      typeIdx: index("DataBattleActions_type").on(table.type),
-      battleWonIdx: index("DataBattleActions_battleWon").on(table.battleWon),
-      battleTypeIdx: index("DataBattleActions_battleType").on(table.battleType),
+      uniqueContentIdIdx: unique("uniqueContentId").on(
+        table.type,
+        table.contentId,
+        table.battleType,
+        table.battleWon,
+      ),
       createdAt: index("DataBattleActions_createdAt").on(table.createdAt),
     };
   },
@@ -2185,6 +2190,7 @@ export const quest = mysqlTable(
     requiredLevel: int("requiredLevel").default(1).notNull(),
     maxLevel: int("maxLevel").default(100).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
+    prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),
     tierLevel: int("tierLevel"),
     timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
     questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
@@ -2207,6 +2213,9 @@ export const quest = mysqlTable(
       requiredLevelIdx: index("Quest_requiredLevel_idx").on(table.requiredLevel),
       maxLevelIdx: index("Quest_maxLevel_idx").on(table.maxLevel),
       requiredVillageIdx: index("Quest_requiredVillage_idx").on(table.requiredVillage),
+      prerequisiteQuestIdIdx: index("Quest_prerequisiteQuestId_idx").on(
+        table.prerequisiteQuestId,
+      ),
     };
   },
 );
@@ -2251,6 +2260,12 @@ export const questHistoryRelations = relations(questHistory, ({ one }) => ({
   user: one(userData, {
     fields: [questHistory.userId],
     references: [userData.userId],
+    relationName: "userQuests",
+  }),
+  victor: one(userData, {
+    fields: [questHistory.userId],
+    references: [userData.userId],
+    relationName: "completedQuests",
   }),
   quest: one(quest, {
     fields: [questHistory.questId],

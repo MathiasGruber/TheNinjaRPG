@@ -1960,6 +1960,9 @@ export const summon = (
         } as ActionEffect;
       }
     }
+    // If return from here, summon failed
+    effect.rounds = 0;
+    return { txt: `Failed to create summon!`, color: "red" } as ActionEffect;
   } else if (effect?.rounds === 0) {
     const ai = usersState.find((u) => u.userId === effect.aiId);
     const idx = usersState.findIndex((u) => u.userId === effect.aiId);
@@ -1968,9 +1971,6 @@ export const summon = (
       return { txt: `${ai.username} was unsummoned!`, color: "red" } as ActionEffect;
     }
   }
-  // If return from here, summon failed
-  effect.rounds = 0;
-  return { txt: `Failed to create summon!`, color: "red" } as ActionEffect;
 };
 
 /** Prevent target from being stunned */

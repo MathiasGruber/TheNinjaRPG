@@ -132,10 +132,11 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
 
 interface RewardProps {
   info?: AllObjectivesType | ObjectiveRewardType | null;
+  rewardMultiplier?: number;
 }
 
 export const Reward: React.FC<RewardProps> = (props) => {
-  const info = props.info;
+  const { info, rewardMultiplier } = props;
   let rewards = `${info?.reward_money ? `${info.reward_money} Ryo` : ""}`;
   if (info?.reward_tokens) {
     rewards += `${rewards ? ", " : ""} ${info.reward_tokens} Tokens`;
@@ -154,6 +155,14 @@ export const Reward: React.FC<RewardProps> = (props) => {
       {rewards && (
         <p>
           <b>Rewards</b>: {rewards}
+          {rewardMultiplier && rewardMultiplier !== 1.0 && (
+            <>
+              <br />
+              <span className="text-sm text-red-500">
+                Will only give {rewardMultiplier * 100}% Rewards
+              </span>
+            </>
+          )}
         </p>
       )}
     </>

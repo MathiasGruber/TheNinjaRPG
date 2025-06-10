@@ -13,7 +13,7 @@ import { getUserElements } from "@/validators/user";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { LetterRank } from "@/drizzle/constants";
 import type { TrainingSpeed, BattleType } from "@/drizzle/constants";
-import type { Item, Jutsu, UserItem, JutsuRank } from "@/drizzle/schema";
+import type { UserItemWithItem, Jutsu, JutsuRank } from "@/drizzle/schema";
 import type { UserData, UserRank } from "@/drizzle/schema";
 import type { ElementName } from "@/drizzle/constants";
 
@@ -139,7 +139,7 @@ export const checkJutsuElements = (jutsu: Jutsu, userElements: Set<ElementName>)
 
 export const checkJutsuItems = (
   jutsu: Jutsu,
-  userItems: (UserItem & { item: Item })[] | undefined,
+  userItems: UserItemWithItem[] | undefined,
 ) => {
   if (jutsu.jutsuWeapon !== "NONE") {
     const equippedItem = userItems?.find(

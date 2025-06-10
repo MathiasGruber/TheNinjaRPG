@@ -18,6 +18,7 @@ import {
   Vector3,
 } from "three";
 import { IMG_MAP_WAR_ICON, IMG_MAP_QUEST_ICON } from "@/drizzle/constants";
+import { createUserAvatarSprite } from "@/libs/travel/util";
 import { MAP_RESERVED_SECTORS } from "@/drizzle/constants";
 import WebGlError from "@/layout/WebGLError";
 import alea from "alea";
@@ -33,7 +34,7 @@ import {
 import { TrackballControls } from "@/libs/threejs/TrackBallControls";
 import { useUserData } from "@/utils/UserContext";
 import { api } from "@/app/_trpc/client";
-import type { Village } from "../../drizzle/schema";
+import type { Village } from "@/drizzle/schema";
 import type { GlobalTile } from "@/libs/travel/types";
 import type { GlobalMapData } from "@/libs/travel/types";
 import type { GlobalPoint } from "@/libs/travel/types";
@@ -206,8 +207,6 @@ const Map: React.FC<MapProps> = (props) => {
       }
 
       // Next we add highlights
-      const lineColor = "#000000";
-      const lineWidth = 1;
       if (props.highlights) {
         // Loop through the highlights
         props.highlights
@@ -225,8 +224,8 @@ const Map: React.FC<MapProps> = (props) => {
               points.push(new Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
               points.push(new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5));
               const lineMaterial = new LineBasicMaterial({
-                color: lineColor,
-                linewidth: lineWidth,
+                color: "#000000",
+                linewidth: 1,
               });
               const geometry = new BufferGeometry().setFromPoints(points);
               const line = new LineSegments(geometry, lineMaterial);
@@ -275,14 +274,13 @@ const Map: React.FC<MapProps> = (props) => {
       scene.add(group_tiles);
 
       // Add tweening highlights
-      const userTweenColor = { r: 1.0, g: 0.0, b: 0.0 };
       const questTweenColor = { r: 0.8, g: 0.6, b: 0.0 };
       const highlightTweenColor = { r: 0.0, g: 0.6, b: 0.8 };
       const warTweenColor = { r: 1.0, g: 0.0, b: 0.0 }; // Red color for war zones
       const sectorsToHighlight: {
         sector: number;
-        color: typeof userTweenColor;
-        type: "quest" | "war" | "user" | "highlight";
+        color: typeof questTweenColor;
+        type: "quest" | "war" | "highlight";
       }[] = [];
 
       // Add war sectors to highlight
@@ -296,12 +294,14 @@ const Map: React.FC<MapProps> = (props) => {
         });
       }
 
+      // Add user avatar sprite instead of coloring the hexagon
+      const userSector = userData && hexasphere?.tiles[userData.sector]?.c;
+      if (userSector) {
+        const userAvatarGroup = createUserAvatarSprite(userData, userSector);
+        group_highlights.add(userAvatarGroup);
+      }
+
       if (props.userLocation && userData && !showOwnership) {
-        sectorsToHighlight.push({
-          sector: userData.sector,
-          color: userTweenColor,
-          type: "user",
-        });
         if (highlightedSector) {
           sectorsToHighlight.push({
             sector: highlightedSector,
@@ -320,11 +320,6 @@ const Map: React.FC<MapProps> = (props) => {
             }
           });
         });
-        new TWEEN.Tween(userTweenColor)
-          .to({ r: 0.0, g: 0.0, b: 0.0 }, 1000)
-          .repeat(Infinity)
-          .easing(TWEEN.Easing.Cubic.InOut)
-          .start();
         new TWEEN.Tween(questTweenColor)
           .to({ r: 0.0, g: 0.0, b: 0.0 }, 1000)
           .repeat(Infinity)
@@ -342,7 +337,7 @@ const Map: React.FC<MapProps> = (props) => {
           .start();
       }
 
-      // Highlighted GPS pins for user, quests, and sector search
+      // Highlighted GPS pins for quests, wars, and sector search
       sectorsToHighlight.forEach((highlight) => {
         const hasLabel = props.highlights?.find((h) => h.sector === highlight.sector);
         const sector = hexasphere?.tiles[highlight.sector]?.c;
@@ -352,29 +347,29 @@ const Map: React.FC<MapProps> = (props) => {
           points.push(new Vector3(sector.x / 3, sector.y / 3, sector.z / 3));
           points.push(new Vector3(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5));
           const lineMaterial = new LineBasicMaterial({
-            color: lineColor,
-            linewidth: lineWidth,
+            color: "#000000",
+            linewidth: 1,
           });
           const geometry = new BufferGeometry().setFromPoints(points);
           const line = new LineSegments(geometry, lineMaterial);
           group_highlights.add(line);
 
           if (["war", "quest"].includes(highlight.type)) {
-            // Create war icon sprite
+            // Create war/quest icon sprite
             const texture = loadTexture(
               highlight.type === "war" ? IMG_MAP_WAR_ICON : IMG_MAP_QUEST_ICON,
             );
             texture.generateMipmaps = false;
             texture.minFilter = LinearFilter;
-            const warIconMaterial = new SpriteMaterial({
+            const iconMaterial = new SpriteMaterial({
               map: texture,
               depthWrite: false,
               depthTest: false,
             });
-            const warIconSprite = new Sprite(warIconMaterial);
-            warIconSprite.scale.set(1, 1, 1); // Adjust scale as needed
-            warIconSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
-            group_highlights.add(warIconSprite);
+            const iconSprite = new Sprite(iconMaterial);
+            iconSprite.scale.set(1, 1, 1);
+            iconSprite.position.set(sector.x / 2.5, sector.y / 2.5, sector.z / 2.5);
+            group_highlights.add(iconSprite);
           } else {
             // Object
             const highlightMaterial = new MeshBasicMaterial({
@@ -390,7 +385,7 @@ const Map: React.FC<MapProps> = (props) => {
             const edges = new EdgesGeometry(highlightGeom);
             const lines = new LineSegments(
               edges,
-              new LineBasicMaterial({ color: lineColor, linewidth: lineWidth }),
+              new LineBasicMaterial({ color: "#000000", linewidth: 1 }),
             );
             Object.assign(lines.position, highlightMesh.position);
             Object.assign(lines.scale, highlightMesh.scale);
@@ -422,17 +417,11 @@ const Map: React.FC<MapProps> = (props) => {
       // Render the image
       let animationId = 0;
       function render() {
-        if (userTweenColor && userData && sectorsToHighlight.length > 0) {
+        if (sectorsToHighlight.length > 0) {
           sectorsToHighlight.forEach((highlight) => {
             const mesh = group_tiles.getObjectByName(`${highlight.sector}`);
             if (mesh) {
-              if (userData.sector === highlight.sector) {
-                (mesh as HexagonalFaceMesh).material.color.setRGB(
-                  userTweenColor.r,
-                  userTweenColor.g,
-                  userTweenColor.b,
-                );
-              } else if (highlightedSector === highlight.sector) {
+              if (highlightedSector === highlight.sector) {
                 (mesh as HexagonalFaceMesh).material.color.setRGB(
                   highlightTweenColor.r,
                   highlightTweenColor.g,
@@ -543,9 +532,6 @@ const Map: React.FC<MapProps> = (props) => {
         <ul>
           {hoverSector && (
             <>
-              <li className="flex flex-row items-center">
-                <span className="text-2xl mr-1 animate-pulse text-red-500">⬢</span> You
-              </li>
               <li className="flex flex-row items-center">
                 <span className="text-2xl mr-1 animate-pulse text-orange-500">⬢</span>{" "}
                 Quest

@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
+import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal2 from "@/layout/Modal2";
 import Countdown from "@/layout/Countdown";
 import Confirm2 from "@/layout/Confirm2";
@@ -20,9 +21,11 @@ import {
   EyeOff,
   GitMerge,
   MapPinned,
+  Cookie,
 } from "lucide-react";
 import { HousePlus } from "lucide-react";
 import { api } from "@/app/_trpc/client";
+import { ActionSelector } from "@/layout/CombatActions";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -43,12 +46,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { nonCombatConsume } from "@/libs/item";
 import { useMap } from "@/hooks/map";
 import { Input } from "@/components/ui/input";
 import { HIDEOUT_COST } from "@/drizzle/constants";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import type { GlobalTile, SectorPoint, GlobalMapData } from "@/libs/travel/types";
+import { Button } from "@/components/ui/button";
+import type { UserItemWithItem } from "@/drizzle/schema";
 
 const Map = dynamic(() => import("@/layout/Map"), { ssr: false });
 const Sector = dynamic(() => import("@/layout/Sector"), { ssr: false });
@@ -73,7 +79,6 @@ export default function Travel() {
 
   // Current and target sectors & positions
   const [currentTile, setCurrentTile] = useState<GlobalTile | null>(null);
-  const [hoverPosition, setHoverPosition] = useState<SectorPoint | null>(null);
   const [currentPosition, setCurrentPosition] = useState<SectorPoint | null>(null);
   const [targetPosition, setTargetPosition] = useState<SectorPoint | null>(null);
   const [targetSector, setTargetSector] = useState<number | null>(null);
@@ -95,6 +100,13 @@ export default function Travel() {
     }
   });
   const sectorVillage = villages?.find((v) => v.sector === userData?.sector);
+
+  // Consumable items
+  const { data: userItems } = api.item.getUserItems.useQuery(undefined, {
+    enabled: !!userData,
+  });
+  const [useritem, setUserItem] = useState<UserItemWithItem | undefined>(undefined);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   // Router for forwarding
   const router = useRouter();
@@ -191,6 +203,21 @@ export default function Travel() {
       },
     });
 
+  const { mutate: consume, isPending: isConsuming } = api.item.consume.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await utils.item.getUserItems.invalidate();
+        await utils.bloodline.getItemRolls.invalidate();
+      }
+    },
+    onSettled: () => {
+      setIsOpen(false);
+      setUserItem(undefined);
+    },
+  });
+
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);
   const isGlobal = activeTab === globalLink;
@@ -227,11 +254,9 @@ export default function Travel() {
           target={targetPosition}
           showSorrounding={showSorrounding}
           showActive={showActive}
-          hoverPosition={hoverPosition}
           setShowSorrounding={setShowSorrounding}
           setTarget={setTargetPosition}
           setPosition={setCurrentPosition}
-          setHoverPosition={setHoverPosition}
         />
       )
     );
@@ -263,7 +288,8 @@ export default function Travel() {
     currentSector && userData && activeTab === sectorLink
       ? `Sector ${currentSector} ${sectorData?.sectorData?.village ? `(${sectorData.sectorData.village.name})` : ""}`
       : "The world of Seichi";
-
+  const consumableItems = userItems?.filter((i) => nonCombatConsume(i.item, userData));
+  const shownConsumables = consumableItems?.map((ui) => ({ ...ui.item, ...ui }));
   return (
     <>
       <ContentBox
@@ -455,15 +481,57 @@ export default function Travel() {
       </ContentBox>
       <div className="flex flex-row p-1">
         {showSector && <LoadoutSelector size="small" />}
-        {hoverPosition && (
-          <>
-            <p className="grow"></p>
-            <p>
-              Target: ({hoverPosition.x}, {hoverPosition.y})
-            </p>
-          </>
-        )}
       </div>
+      {shownConsumables && shownConsumables.length > 0 && (
+        <div className="flex flex-col">
+          <p className="font-bold">Consumables</p>
+          <ActionSelector
+            className="grid-cols-6"
+            items={shownConsumables}
+            counts={shownConsumables}
+            selectedId={useritem?.id}
+            showBgColor={false}
+            showLabels={false}
+            onClick={(id) => {
+              if (id == useritem?.id) {
+                setUserItem(undefined);
+                setIsOpen(false);
+              } else {
+                setUserItem(shownConsumables?.find((item) => item.id === id));
+                setIsOpen(true);
+              }
+            }}
+          />
+          {isOpen && useritem && (
+            <Modal2
+              title="Item Details"
+              isOpen={isOpen}
+              setIsOpen={setIsOpen}
+              isValid={false}
+            >
+              <ItemWithEffects
+                item={useritem.item}
+                key={useritem.id}
+                showStatistic="item"
+              />
+              {!isConsuming && (
+                <div className="flex flex-row gap-1">
+                  {nonCombatConsume(useritem.item, userData) && (
+                    <Button
+                      variant="info"
+                      onClick={() => consume({ userItemId: useritem.id })}
+                    >
+                      <Cookie className="mr-2 h-5 w-5" />
+                      Consume
+                    </Button>
+                  )}
+                </div>
+              )}
+              {isConsuming && <Loader explanation={`Using ${useritem.item.name}`} />}
+            </Modal2>
+          )}
+        </div>
+      )}
     </>
   );
 }

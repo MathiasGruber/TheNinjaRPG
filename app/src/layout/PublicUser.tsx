@@ -25,7 +25,7 @@ import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import AvatarImage from "@/layout/Avatar";
 import ContentBox from "@/layout/ContentBox";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import Loader from "@/layout/Loader";
 import ReportUser from "@/layout/Report";
 import Post from "@/layout/Post";
@@ -60,6 +60,7 @@ import {
   canUnstuckVillage,
   canAwardReputation,
   canSeeActivityEvents,
+  canRestoreActivityStreak,
 } from "@/utils/permissions";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -299,6 +300,16 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     },
   });
 
+  const restoreActivityStreak = api.staff.restoreUserActivityStreak.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+        await utils.staff.getUserActivityEvents.invalidate();
+      }
+    },
+  });
+
   const awardMutation = api.misc.awardReputation.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -413,7 +424,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 />
               )}
             {userData && canAwardReputation(userData.role) && (
-              <Confirm
+              <Confirm2
                 title="Award Reputation Points"
                 proceed_label="Award Points"
                 button={
@@ -482,10 +493,10 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                     />
                   </form>
                 </Form>
-              </Confirm>
+              </Confirm2>
             )}
 
-            {userData && canUnstuckVillage(userData.role) && (
+            {userData && (
               <ReportUser
                 user={profile}
                 content={{
@@ -502,7 +513,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             )}
             {userData && canUnstuckVillage(userData.role) ? (
               <>
-                <Confirm
+                <Confirm2
                   title="Confirm force change user state to awake"
                   button={
                     <PersonStanding className="h-6 w-6 cursor-pointer hover:text-orange-500" />
@@ -515,7 +526,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                   Note that abuse of this feature is forbidden, it is solely intended
                   for fixing users stuck in a particular state. I.E Battle. The action
                   will be logged. Are you sure?
-                </Confirm>
+                </Confirm2>
                 <DeleteUserButton userData={profile} />
               </>
             ) : (
@@ -605,7 +616,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                   />
                 </GlowingBorder>
                 {canChange && !profile.isAi && (
-                  <Confirm
+                  <Confirm2
                     title="Confirm Deletion"
                     button={
                       <RefreshCcwDot className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer z-10 rounded-full bg-slate-300 p-1 hover:text-orange-500" />
@@ -619,7 +630,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                     abuse of this feature is forbidden, it is solely intended for
                     removing potentially inappropriate avatars. The action will be
                     logged. Are you sure?
-                  </Confirm>
+                  </Confirm2>
                 )}
               </div>
               <div className="mt-2">
@@ -822,26 +833,32 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           onValueChange={(value) => setShowActive(value)}
         >
           {userData && (
-            <TabsList className="text-center">
-              {showNindo && <TabsTrigger value="nindo">Nindo</TabsTrigger>}
-              {showCombatLogs && <TabsTrigger value="graph">Combat Graph</TabsTrigger>}
-              {showTransactions && enablePaypal && (
-                <TabsTrigger value="transactions">Transactions</TabsTrigger>
-              )}
-              {showReports && enableReports && (
-                <TabsTrigger value="reports">Reports</TabsTrigger>
-              )}
-              {showTrainingLogs && enableLogs && (
-                <TabsTrigger value="training">Training Log</TabsTrigger>
-              )}
-              {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
-              {enableHistoricalIps && (
-                <TabsTrigger value="historicalIps">IP log</TabsTrigger>
-              )}
-              {enableActivityEvents && (
-                <TabsTrigger value="activityEvents">Activity</TabsTrigger>
-              )}
-            </TabsList>
+            <div className="flex flex-col gap-1">
+              <TabsList className="text-center">
+                {showNindo && <TabsTrigger value="nindo">Nindo</TabsTrigger>}
+                {showCombatLogs && (
+                  <TabsTrigger value="graph">Combat Graph</TabsTrigger>
+                )}
+                {showTransactions && enablePaypal && (
+                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                )}
+                {showReports && enableReports && (
+                  <TabsTrigger value="reports">Reports</TabsTrigger>
+                )}
+              </TabsList>
+              <TabsList className="text-center">
+                {showTrainingLogs && enableLogs && (
+                  <TabsTrigger value="training">Training Log</TabsTrigger>
+                )}
+                {enableLogs && <TabsTrigger value="content">Content Log</TabsTrigger>}
+                {enableHistoricalIps && (
+                  <TabsTrigger value="historicalIps">IP log</TabsTrigger>
+                )}
+                {enableActivityEvents && (
+                  <TabsTrigger value="activityEvents">Activity</TabsTrigger>
+                )}
+              </TabsList>
+            </div>
           )}
 
           {/* USER NINDO */}
@@ -854,7 +871,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 topRightContent={
                   <div className="flex flex-row gap-1">
                     {canChange && (
-                      <Confirm
+                      <Confirm2
                         title="Clear User Nindo"
                         proceed_label="Done"
                         button={
@@ -864,7 +881,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                       >
                         Confirm that you wish to clear this nindo. The action will be
                         logged.
-                      </Confirm>
+                      </Confirm2>
                     )}
                   </div>
                 }
@@ -1038,6 +1055,27 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                             Created: {event.createdAt.toLocaleString()}
                           </p>
                         </div>
+                        {userData && canRestoreActivityStreak(userData.role) && (
+                          <Confirm2
+                            title="Restore Activity Streak"
+                            proceed_label="Restore Streak"
+                            button={
+                              <Button variant="secondary" size="sm">
+                                Restore Streak
+                              </Button>
+                            }
+                            onAccept={() => {
+                              restoreActivityStreak.mutate({
+                                userId: profile.userId,
+                                activityEventId: event.id,
+                              });
+                            }}
+                          >
+                            Are you sure you want to restore the activity streak to{" "}
+                            <strong>{event.streak}</strong>? This action will update the
+                            user&apos;s current activity streak.
+                          </Confirm2>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1141,7 +1179,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
   }, [userJutsu, jutsuLevelForm]);
 
   return (
-    <Confirm
+    <Confirm2
       title="Update User Data"
       proceed_label="Done"
       button={<Settings className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
@@ -1309,7 +1347,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({ userId, profile }
           </div>
         </TabsContent>
       </Tabs>
-    </Confirm>
+    </Confirm2>
   );
 };
 
@@ -1340,7 +1378,7 @@ const UpdateUserIdButton: React.FC<UpdateUserIdButtonProps> = ({
   });
 
   return (
-    <Confirm
+    <Confirm2
       title="Update User ID"
       proceed_label="Update"
       button={<IdCard className="h-6 w-6 cursor-pointer hover:text-orange-500" />}
@@ -1368,7 +1406,7 @@ const UpdateUserIdButton: React.FC<UpdateUserIdButtonProps> = ({
           />
         </form>
       </Form>
-    </Confirm>
+    </Confirm2>
   );
 };
 

@@ -128,8 +128,12 @@ export const saveUsage = async (
         return a;
       }
     }, [] as DataBattleAction[]);
+    // Upsert dataBattleActions
     if (uniqueData.length > 0) {
-      await client.insert(dataBattleAction).values(uniqueData);
+      await client
+        .insert(dataBattleAction)
+        .values(uniqueData)
+        .onDuplicateKeyUpdate({ set: { count: sql`${dataBattleAction.count} + 1` } });
     }
   }
 };
@@ -201,10 +205,6 @@ export const updateKage = async (
               .update(village)
               .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
-            client
-              .update(userData)
-              .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
-              .where(eq(userData.userId, user?.village?.kageId ?? "")),
           ]
         : []),
       ...(deleteItems.length > 0
@@ -340,7 +340,7 @@ export const updateWars = async (
                 : []),
               // Update townhall if we're in a village war
               ...(result.townhallChangeHP !== 0 &&
-              ["VILLAGE_WAR", "FACTION_RAID"].includes(w.type)
+              ["VILLAGE_WAR", "WAR_RAID"].includes(w.type)
                 ? [
                     client
                       .update(villageStructure)

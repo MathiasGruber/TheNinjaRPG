@@ -5,7 +5,7 @@ import { collapseConsequences, sortEffects } from "./util";
 import { calcApplyRatio } from "./util";
 import { calcEffectRoundInfo, isEffectActive } from "./util";
 import { nanoid } from "nanoid";
-import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier, realizeTag } from "./tags";
+import { clone, move, heal, damageBarrier, damageUser, calcDmgModifier } from "./tags";
 import {
   absorb,
   reflect,
@@ -317,7 +317,7 @@ export const applyEffects = (
           (e) =>
             e.type === "finalstand" &&
             e.targetId === target.userId &&
-            (e.fromType === "bloodline" ? (e.rounds = 1, true) : (e.rounds ?? 0) > 0),
+            (e.fromType === "bloodline" ? ((e.rounds = 1), true) : (e.rounds ?? 0) > 0),
         );
         if (finalStandEffect && target.curHealth - remainingDamage < 1) {
           const preventedDamage = remainingDamage - (target.curHealth - 1);

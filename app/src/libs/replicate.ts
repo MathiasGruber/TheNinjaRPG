@@ -1,14 +1,11 @@
 import OpenAI from "openai";
 import { fetchAttributes } from "../server/api/routers/profile";
-import { userData, historicalAvatar, conceptImage } from "@/drizzle/schema";
-import { eq, sql, and, isNotNull } from "drizzle-orm";
-import { fetchImage } from "@/routers/conceptart";
 import sharp from "sharp";
 import { UTApi, UTFile } from "uploadthing/server";
 import { env } from "@/env/server.mjs";
 import { tmpdir } from "os";
 import path from "path";
-import Replicate, { type Prediction } from "replicate";
+import Replicate from "replicate";
 import type { DrizzleClient } from "@/server/db";
 import type { UserData, UserRank } from "@/drizzle/schema";
 import { nanoid } from "nanoid";
@@ -24,6 +21,7 @@ import {
 } from "@gltf-transform/functions";
 import { MeshoptEncoder } from "meshoptimizer";
 import fs from "fs";
+import type { FileOutput } from "replicate";
 
 /**
  * Compress a gltf file
@@ -66,7 +64,7 @@ export const compressGltf = async (url: string) => {
  * @param user The user to get the prompt for
  * @returns The prompt for the avatar
  */
-export const getPrompt = async (client: DrizzleClient, user: UserData) => {
+export const getAvatarPrompt = async (client: DrizzleClient, user: UserData) => {
   const userAttributes = await fetchAttributes(client, user.userId);
   const attributes = userAttributes
     .sort((a) => (a.attribute.includes("skin") ? -1 : 1))
@@ -78,9 +76,9 @@ export const getPrompt = async (client: DrizzleClient, user: UserData) => {
       case "STUDENT":
         switch (gender) {
           case "Male":
-            return "boy";
+            return "child boy";
           case "Female":
-            return "girl";
+            return "child girl";
           default:
             return "child";
         }
@@ -134,17 +132,8 @@ export const getPrompt = async (client: DrizzleClient, user: UserData) => {
   return `${getPhenotype(
     user.rank,
     user.gender,
-  )}, ${attributes}, anime, portrait poster, soft lighting, detailed face, by stanley artgerm lau, wlop, rossdraws, concept art, looking into camera`;
+  )}, ${attributes}, anime, rossdraws portrait, stanley artgerm lau, wlop, looking into camera, interesting background`;
 };
-
-/**
- * Request new avatar from Replicate API
- */
-interface ReplicateReturn {
-  id: string;
-  output: string[] | string | null;
-  status: string;
-}
 
 /**
  * Upload file from URL to uploadthing
@@ -164,45 +153,39 @@ export const uploadToUT = async (url: string) => {
 };
 
 /**
- * Create an image from text
+ * Create a fast image from text using Replicate
+ * @param prompt - The prompt to create the image from
+ * @param disable_safety_checker - Whether to disable the safety checker
+ * @returns The URL of the image
  */
-export const txt2imgReplicate = async (config: {
+export const fastTxt2imgReplicate = async (config: {
   prompt: string;
-  width: number;
-  height: number;
-  negative_prompt?: string;
-  guidance_scale?: number;
-  seed?: number;
+  aspect_ratio?: "1:1" | "16:9" | "9:16";
+  disable_safety_checker?: boolean;
 }) => {
-  // Replicate instantiate
+  const { prompt, aspect_ratio = "1:1", disable_safety_checker = false } = config;
   const replicate = new Replicate({
     auth: env.REPLICATE_API_TOKEN,
   });
-  // Set defaults
-  const negative_prompt = config?.negative_prompt ?? "";
-  const guidance_scale = config?.guidance_scale ?? 7.5;
-  const seed = config?.seed ?? Math.floor(Math.random() * 1000000);
-  // Run repliacte
-  const output = await replicate.predictions.create({
-    version: "ed6d8bee9a278b0d7125872bddfb9dd3fc4c401426ad634d8246a660e387475b",
-    input: {
-      seed: seed,
-      width: config.width,
-      height: config.height,
-      prompt: config.prompt,
-      scheduler: "K_EULER_ANCESTRAL",
-      num_outputs: 1,
-      guidance_scale: guidance_scale,
-      safety_checker: false,
-      negative_prompt:
-        negative_prompt +
-        ", child, nsfw, porn, sex, canvas frame, cartoon, 3d, ((disfigured)), ((bad art)), ((deformed)),((extra limbs)),((close up)),((b&w)), wierd colors, blurry,  (((duplicate))), ((morbid)), ((mutilated)), [out of frame], extra fingers, mutated hands, ((poorly drawn hands)), ((poorly drawn face)), (((mutation))), (((deformed))), ((ugly)), blurry, ((bad anatomy)), (((bad proportions))), ((extra limbs)), cloned face, (((disfigured))), out of frame, ugly, extra limbs, (bad anatomy), gross proportions, (malformed limbs), ((missing arms)), ((missing legs)), (((extra arms))), (((extra legs))), mutated hands, (fused fingers), (too many fingers), (((long neck))), Photoshop, video game, ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, mutation, mutated, extra limbs, extra legs, extra arms, disfigured, deformed, cross-eye, body out of frame, blurry, bad art, bad anatomy, 3d render ENSD: 31337",
-      prompt_strength: 0.8,
-      num_inference_steps: 50,
-      webhook: `https://www.theninja-rpg.com/api/replicate`,
-    },
-  });
-  return output;
+  const input = {
+    prompt: prompt,
+    go_fast: true,
+    megapixels: "0.25",
+    num_outputs: 1,
+    aspect_ratio: aspect_ratio,
+    output_format: "webp",
+    output_quality: 50,
+    num_inference_steps: 4,
+    disable_safety_checker: disable_safety_checker,
+  };
+  const outputs = (await replicate.run("black-forest-labs/flux-schnell", {
+    input,
+  })) as FileOutput[];
+  const output = outputs?.[0];
+  if (!output) throw new Error("No output from AI model");
+  const blob = await output.blob();
+  const uploadedFile = await uploadFileFromReplicate("preview", blob, "webp");
+  return uploadedFile;
 };
 
 /**
@@ -327,142 +310,6 @@ export const uploadImageFromOpenAI = async (config: {
   return uploadedFiles;
 };
 
-/**
- * Remove background
- */
-export const requestBgRemoval = async (url: string): Promise<ReplicateReturn> => {
-  return fetch("https://api.replicate.com/v1/predictions", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
-    },
-    body: JSON.stringify({
-      version: "fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
-      input: { image: url },
-    }),
-  }).then((response) => response.json() as Promise<ReplicateReturn>);
-};
-
-/**
- * Fetches result from Replicate API
- */
-export const fetchReplicateResult = async (replicateId: string) => {
-  // Replicate instantiate
-  const replicate = new Replicate({
-    auth: env.REPLICATE_API_TOKEN,
-  });
-  const prediction = await replicate.predictions.get(replicateId);
-  let replicateUrl: string | null = null;
-  if (typeof prediction.output === "string") {
-    replicateUrl = prediction.output;
-  } else if (prediction.output && "model_file" in prediction.output) {
-    replicateUrl = (prediction.output as { model_file: string }).model_file;
-    // If this is a glb, compress it
-    if (replicateUrl.endsWith(".glb")) {
-      const compressed = await compressGltf(replicateUrl);
-      replicateUrl = compressed.localPath;
-    }
-  } else {
-    replicateUrl = (prediction.output as string[])?.[0] ?? null;
-  }
-  return { prediction, replicateUrl };
-};
-
-/**
- * Send a request to update the avatar for a user
- */
-export const requestAvatarForUser = async (client: DrizzleClient, user: UserData) => {
-  const currentProcessing = await client.query.historicalAvatar.findFirst({
-    where: and(
-      eq(historicalAvatar.userId, user.userId),
-      eq(historicalAvatar.done, 0),
-      isNotNull(historicalAvatar.replicateId),
-    ),
-  });
-  if (!currentProcessing) {
-    const prompt = await getPrompt(client, user);
-    const result = await txt2imgReplicate({ prompt: prompt, width: 512, height: 512 });
-    if (user.avatar) {
-      await client
-        .update(userData)
-        .set({ avatar: null, avatarLight: null })
-        .where(eq(userData.userId, user.userId));
-    }
-    await client.insert(historicalAvatar).values({
-      replicateId: result.id,
-      avatar: null,
-      avatarLight: null,
-      status: result.status,
-      userId: user.userId,
-    });
-  }
-  return null;
-};
-
-/**
- * Check if any avatars are unfinished. If so, check for updates, and update the avatar if it is finished
- */
-export const checkAvatar = async (client: DrizzleClient, user: UserData) => {
-  // Currently processing
-  const avatars = await client.query.historicalAvatar.findMany({
-    where: and(
-      eq(historicalAvatar.userId, user.userId),
-      eq(historicalAvatar.done, 0),
-      isNotNull(historicalAvatar.replicateId),
-    ),
-  });
-  // If none processing, request new avatar and return
-  if (avatars.length === 0 && !user.avatar) {
-    return await requestAvatarForUser(client, user);
-  }
-  // Go through processing avatars and see if any finished
-  let url = user.avatar;
-  let thumbnail = user.avatarLight;
-  for (const avatar of avatars) {
-    if (avatar.replicateId) {
-      // Get the URL on replicate for the end result
-      const { prediction, replicateUrl } = await fetchReplicateResult(
-        avatar.replicateId,
-      );
-      // If failed or canceled, rerun
-      let isDone = true;
-      if (
-        prediction.status === "failed" ||
-        prediction.status === "canceled" ||
-        (prediction.status === "succeeded" && !prediction.output)
-      ) {
-        await requestAvatarForUser(client, user);
-      } else if (prediction.status == "succeeded" && replicateUrl) {
-        url = await uploadToUT(replicateUrl);
-        if (url) {
-          thumbnail = await createThumbnail(url);
-          await client
-            .update(userData)
-            .set({ avatar: url, avatarLight: thumbnail })
-            .where(eq(userData.userId, user.userId));
-        }
-      } else {
-        isDone = false;
-      }
-      if (isDone) {
-        const thumbnail = url ? await createThumbnail(url) : null;
-        await client
-          .update(historicalAvatar)
-          .set({
-            done: 1,
-            avatar: url,
-            avatarLight: thumbnail,
-            status: prediction.status,
-          })
-          .where(eq(historicalAvatar.id, avatar.id));
-      }
-    }
-  }
-  return url;
-};
-
 interface FileEsque extends Blob {
   name: string;
 }
@@ -470,7 +317,8 @@ interface FileEsque extends Blob {
 /**
  * Create a thumbnail for the image
  */
-export const createThumbnail = async (url: string) => {
+export const createThumbnail = async (url?: string | null) => {
+  if (!url) return null;
   try {
     const res = await fetch(url);
     const blob = await res.arrayBuffer();
@@ -488,57 +336,19 @@ export const createThumbnail = async (url: string) => {
 };
 
 /**
- * Sync image with Replicate API
+ * Upload a file from a Replicate run session
+ * @param object - The Replicate object
+ * @param key - The key of the file to upload
+ * @param generationId - The generation ID
+ * @returns The uploaded files
  */
-export const syncImage = async (
-  client: DrizzleClient,
-  prediction: Prediction,
-  userId?: string,
+export const uploadFileFromReplicate = async (
+  prefix: string,
+  blob: Blob,
+  extension = "webp",
 ) => {
-  const id = prediction.id;
-  const result = await fetchImage(client, id, userId ?? "");
   const utapi = new UTApi();
-  let imageUrl: string | undefined = undefined;
-  if (prediction.status === "succeeded") {
-    const url = (prediction.output as string[])?.[0];
-    if (url) {
-      // Get image from AI service (will expire within 1 hour)
-      const res1 = await fetch(
-        "https://utfs.io/f/2138a3d6-98e1-492d-9029-e3824a40177b-3j2f18.png",
-      );
-      const watermark_blob = Buffer.from(await res1.arrayBuffer());
-      const res = await fetch(url);
-      const blob = await res.arrayBuffer();
-      const resultBuffer = await sharp(blob)
-        .composite([{ input: watermark_blob, top: 0, left: 0 }])
-        .toBuffer();
-      const watermarkedresult = new Blob([resultBuffer]) as FileEsque;
-      watermarkedresult.name = "image.png";
-      const response = await utapi.uploadFiles(watermarkedresult);
-      imageUrl = response.data?.ufsUrl;
-    } else {
-      prediction.status = "failed";
-    }
-  }
-  if (result && prediction.status !== result.status) {
-    if (prediction.status === "failed") {
-      await Promise.all([
-        client.delete(conceptImage).where(eq(conceptImage.id, id)),
-        client
-          .update(userData)
-          .set({ reputationPoints: sql`${userData.reputationPoints} + 1` })
-          .where(eq(userData.userId, result.userId)),
-      ]);
-    } else {
-      await client
-        .update(conceptImage)
-        .set({
-          status: prediction.status,
-          image: imageUrl,
-          done: prediction.status === "succeeded" ? 1 : 0,
-        })
-        .where(eq(conceptImage.id, id));
-    }
-  }
-  return result;
+  const utFiles = new File([blob], `${prefix}-${nanoid()}.${extension}`);
+  const uploadedFile = await utapi.uploadFiles(utFiles);
+  return uploadedFile;
 };
