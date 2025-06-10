@@ -2,7 +2,7 @@ import { useState } from "react";
 import Image from "next/image";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import {
   Select,
@@ -177,11 +177,12 @@ const Shop: React.FC<ShopProps> = (props) => {
                 showLabels={false}
               />
               {isOpen && item && (
-                <Modal
+                <Modal2
                   title="Confirm Purchase"
                   proceed_label={
                     isPurchasing ? undefined : canAfford ? costString : missingString
                   }
+                  isOpen={isOpen}
                   setIsOpen={setIsOpen}
                   isValid={false}
                   onAccept={() => {
@@ -226,7 +227,7 @@ const Shop: React.FC<ShopProps> = (props) => {
                     </>
                   )}
                   {isPurchasing && <Loader explanation={`Purchasing ${item.name}`} />}
-                </Modal>
+                </Modal2>
               )}
             </div>
           )}

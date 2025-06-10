@@ -273,7 +273,12 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
                 value: WAR_WINNING_BOOST_REGEN_PERC,
                 time: boostEndAt,
               })
-              .where(eq(gameSetting.name, `war-${winnerVillageId}-regen`)),
+              .where(
+                inArray(
+                  gameSetting.name,
+                  [...winningAllies, winnerVillageId].map((id) => `war-${id}-regen`),
+                ),
+              ),
             drizzleDB
               .update(gameSetting)
               .set({
