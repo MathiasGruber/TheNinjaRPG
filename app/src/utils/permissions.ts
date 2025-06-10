@@ -94,7 +94,15 @@ export const canRestoreActivityStreak = (role: UserRole) => {
 };
 
 export const canModifyUserBadges = (role: UserRole) => {
-  return ["CODING-ADMIN", "CONTENT-ADMIN", "EVENT", "CONTENT"].includes(role);
+  return [
+    "CODING-ADMIN",
+    "CONTENT-ADMIN",
+    "EVENT",
+    "CONTENT",
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+  ].includes(role);
 };
 
 export const canDeleteUsers = (role: UserRole) => {
