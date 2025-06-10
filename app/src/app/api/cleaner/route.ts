@@ -11,7 +11,7 @@ import { conversation, user2conversation, conversationComment } from "@/drizzle/
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { secondsFromNow } from "@/utils/time";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
-import { automatedModeration } from "@/drizzle/schema";
+import { automatedModeration, dailyBankInterest } from "@/drizzle/schema";
 import { paypalSubscription } from "@/drizzle/schema";
 import { historicalIp, userActivityEvent } from "@/drizzle/schema";
 
@@ -259,6 +259,16 @@ export async function GET() {
             u.federalStatus = 'NONE'
             AND ps.status = 'ACTIVE'
             AND ps.updatedAt > DATE_SUB(NOW(), INTERVAL 31 DAY)`,
+    );
+
+    // Step 34: Clear daily bank interest older than 7 days
+    await drizzleDB.execute(
+      sql`DELETE FROM ${dailyBankInterest} WHERE updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY`,
+    );
+
+    // Step 35: Clear daily bank interest older than 2 days which are already claimed
+    await drizzleDB.execute(
+      sql`DELETE FROM ${dailyBankInterest} WHERE claimed = 1 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 2 DAY`,
     );
 
     // Delete historical ips older than 90 days

@@ -1584,6 +1584,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.userId],
     references: [userVote.userId],
   }),
+  dailyBankInterest: one(dailyBankInterest, {
+    fields: [userData.userId],
+    references: [dailyBankInterest.userId],
+  }),
 }));
 
 export const userActivityEvent = mysqlTable("UserActivityEvent", {
@@ -2328,6 +2332,38 @@ export const bankTransferRelations = relations(bankTransfers, ({ one }) => ({
   }),
   receiver: one(userData, {
     fields: [bankTransfers.receiverId],
+    references: [userData.userId],
+  }),
+}));
+
+export const dailyBankInterest = mysqlTable(
+  "DailyBankInterest",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    claimed: boolean("claimed").default(false).notNull(),
+    interestPercent: int("interestPercent").notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdDateKey: unique("DailyBankInterest_userId_date_key").on(
+        table.userId,
+        table.date,
+      ),
+      userIdIdx: index("DailyBankInterest_userId_idx").on(table.userId),
+    };
+  },
+);
+export type DailyBankInterest = InferSelectModel<typeof dailyBankInterest>;
+
+export const dailyBankInterestRelations = relations(dailyBankInterest, ({ one }) => ({
+  user: one(userData, {
+    fields: [dailyBankInterest.userId],
     references: [userData.userId],
   }),
 }));

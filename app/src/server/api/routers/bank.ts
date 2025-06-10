@@ -2,9 +2,9 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { errorResponse, baseServerResponse } from "../trpc";
 import { fetchUser } from "@/routers/profile";
-import { eq, or, and, gte, sql, desc } from "drizzle-orm";
+import { eq, or, and, gte, sql, desc, sum } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
-import { userData, bankTransfers } from "@/drizzle/schema";
+import { userData, bankTransfers, dailyBankInterest } from "@/drizzle/schema";
 import { RYO_CAP } from "@/drizzle/constants";
 
 export const bankRouter = createTRPCRouter({
@@ -26,7 +26,8 @@ export const bankRouter = createTRPCRouter({
       if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.money < value) return errorResponse("Not enough money in pocket");
       if (user.isBanned) return errorResponse("You are banned");
-      if (user.status === "BATTLE") return errorResponse("Cannot access bank while in combat");
+      if (user.status === "BATTLE")
+        return errorResponse("Cannot access bank while in combat");
       // Update
       const result = await ctx.drizzle
         .update(userData)
@@ -62,7 +63,8 @@ export const bankRouter = createTRPCRouter({
       if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.bank < value) return errorResponse("Not enough money in bank");
       if (user.isBanned) return errorResponse("You are banned");
-      if (user.status === "BATTLE") return errorResponse("Cannot access bank while in combat");
+      if (user.status === "BATTLE")
+        return errorResponse("Cannot access bank while in combat");
       // Update
       const result = await ctx.drizzle
         .update(userData)
@@ -101,7 +103,8 @@ export const bankRouter = createTRPCRouter({
       if (value <= 0 && overCap) return errorResponse("Ryo cap reached");
       if (user.bank < value) return errorResponse("Not enough money in bank");
       if (user.isBanned) return errorResponse("You are banned");
-      if (user.status === "BATTLE") return errorResponse("Cannot access bank while in combat");
+      if (user.status === "BATTLE")
+        return errorResponse("Cannot access bank while in combat");
       // Update
       const result = await ctx.drizzle
         .update(userData)
@@ -173,6 +176,97 @@ export const bankRouter = createTRPCRouter({
       return {
         data: transfers,
         nextCursor: nextCursor,
+      };
+    }),
+  getPendingInterest: protectedProcedure.query(async ({ ctx }) => {
+    // Query
+    const pendingInterest = await ctx.drizzle.query.dailyBankInterest.findMany({
+      where: and(
+        eq(dailyBankInterest.userId, ctx.userId),
+        eq(dailyBankInterest.claimed, false),
+      ),
+      columns: {
+        id: true,
+        date: true,
+        amount: true,
+      },
+    });
+    // Derived
+    const totalPending = pendingInterest.reduce(
+      (sum, record) => sum + record.amount,
+      0,
+    );
+    // Return
+    return {
+      totalPending,
+      records: pendingInterest,
+    };
+  }),
+  claimInterest: protectedProcedure
+    .output(
+      baseServerResponse.extend({
+        data: z.object({ bank: z.number(), claimedAmount: z.number() }).optional(),
+      }),
+    )
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+
+      // Guard
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.status === "BATTLE")
+        return errorResponse("Cannot access bank while in combat");
+
+      // Get all pending interest
+      const pendingInterest = await ctx.drizzle.query.dailyBankInterest.findMany({
+        where: and(
+          eq(dailyBankInterest.userId, ctx.userId),
+          eq(dailyBankInterest.claimed, false),
+        ),
+      });
+
+      if (pendingInterest.length === 0) {
+        return errorResponse("No pending interest to claim");
+      }
+
+      // Calculate total amount to claim
+      const totalAmount = pendingInterest.reduce(
+        (sum, record) => sum + record.amount,
+        0,
+      );
+
+      // Check if claiming would exceed RYO_CAP
+      const finalAmount = Math.min(totalAmount, RYO_CAP - user.bank);
+
+      // Guard
+      if (finalAmount <= 0) {
+        return errorResponse("Bank already at capacity");
+      }
+
+      // Update user's bank balance and mark interest as claimed
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ bank: sql`${userData.bank} + ${finalAmount}` })
+          .where(eq(userData.userId, ctx.userId)),
+        ctx.drizzle
+          .update(dailyBankInterest)
+          .set({ claimed: true })
+          .where(
+            and(
+              eq(dailyBankInterest.userId, ctx.userId),
+              eq(dailyBankInterest.claimed, false),
+            ),
+          ),
+      ]);
+
+      return {
+        success: true,
+        message: `Successfully claimed ${finalAmount} ryo in bank interest!`,
+        data: {
+          bank: user.bank + finalAmount,
+          claimedAmount: finalAmount,
+        },
       };
     }),
 });
