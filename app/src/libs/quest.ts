@@ -491,6 +491,9 @@ export const controlShownQuestLocationInformation = (
       objective.latitude = 1337;
       objective.longitude = 1337;
       objective.sector = 1337;
+      objective.sectorType = "specific";
+      objective.sectorList = ["1337"];
+      objective.locationType = "specific";
     }
   });
 };
