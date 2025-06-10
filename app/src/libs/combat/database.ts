@@ -21,7 +21,6 @@ import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
-import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { WAR_SHRINE_HP } from "@/drizzle/constants";
 import { findWarsWithUser } from "@/libs/war";
 import type { PusherClient } from "@/libs/pusher";
@@ -127,8 +126,12 @@ export const saveUsage = async (
         return a;
       }
     }, [] as DataBattleAction[]);
+    // Upsert dataBattleActions
     if (uniqueData.length > 0) {
-      await client.insert(dataBattleAction).values(uniqueData);
+      await client
+        .insert(dataBattleAction)
+        .values(uniqueData)
+        .onDuplicateKeyUpdate({ set: { count: sql`${dataBattleAction.count} + 1` } });
     }
   }
 };

@@ -17,7 +17,7 @@ export const dataRouter = createTRPCRouter({
         .select({
           name: bloodline.name,
           battleWon: dataBattleAction.battleWon,
-          count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
+          count: sql<number>`SUM(${dataBattleAction.count})`.mapWith(Number),
         })
         .from(dataBattleAction)
         .leftJoin(bloodline, eq(dataBattleAction.contentId, bloodline.id))
@@ -42,15 +42,14 @@ export const dataRouter = createTRPCRouter({
         .select({
           name: jutsu.name,
           battleWon: dataBattleAction.battleWon,
-          count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
+          count: sql<number>`SUM(${dataBattleAction.count})`.mapWith(Number),
         })
         .from(dataBattleAction)
-        .leftJoin(jutsu, eq(dataBattleAction.contentId, jutsu.id))
+        .innerJoin(jutsu, eq(dataBattleAction.contentId, jutsu.id))
         .groupBy(jutsu.name, dataBattleAction.battleWon, dataBattleAction.battleType)
         .where(
           and(
             eq(dataBattleAction.type, "jutsu"),
-            isNotNull(jutsu.name),
             eq(dataBattleAction.battleType, input.battleType),
           ),
         );
@@ -63,7 +62,7 @@ export const dataRouter = createTRPCRouter({
         .select({
           name: item.name,
           battleWon: dataBattleAction.battleWon,
-          count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
+          count: sql<number>`SUM(${dataBattleAction.count})`.mapWith(Number),
         })
         .from(dataBattleAction)
         .leftJoin(item, eq(dataBattleAction.contentId, item.id))
@@ -84,7 +83,7 @@ export const dataRouter = createTRPCRouter({
         .select({
           name: sql<string>`CONCAT(${userData.username}, ' - lvl', ${userData.level})`,
           battleWon: dataBattleAction.battleWon,
-          count: sql<number>`COUNT(${dataBattleAction.id})`.mapWith(Number),
+          count: sql<number>`SUM(${dataBattleAction.count})`.mapWith(Number),
         })
         .from(dataBattleAction)
         .leftJoin(userData, eq(dataBattleAction.contentId, userData.userId))

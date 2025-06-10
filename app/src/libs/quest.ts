@@ -16,7 +16,10 @@ import {
   ADDITIONAL_MISSION_REWARD_MULTIPLIER,
   type LetterRank,
   type QuestType,
+  MAP_TOTAL_SECTORS,
 } from "@/drizzle/constants";
+import { SECTOR_WIDTH, SECTOR_HEIGHT } from "@/libs/travel/constants";
+import { getUnique } from "@/utils/grouping";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
 import type { Quest, UserData } from "@/drizzle/schema";
@@ -64,9 +67,9 @@ export const isLocationObjective = (
 ) => {
   if ("sector" in objective) {
     if (
-      location.sector === objective.sector &&
-      location.latitude === objective.latitude &&
-      location.longitude === objective.longitude
+      location.sector === Number(objective.sector) &&
+      location.latitude === Number(objective.latitude) &&
+      location.longitude === Number(objective.longitude)
     ) {
       return true;
     }
@@ -167,6 +170,7 @@ export const getNewTrackers = (
     contentId?: string;
   }[],
 ) => {
+  let shouldUpdateUserInDB = false;
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
@@ -191,6 +195,40 @@ export const getNewTrackers = (
           if (!status) {
             status = ObjectiveTracker.parse({ id: objective.id });
           }
+          // Figure out sector & location if not already specified
+          if ("sectorType" in objective && !status.sector) {
+            if (objective.sectorType === "specific") {
+              status.sector = objective.sector;
+            } else if (objective.sectorType === "random") {
+              status.sector = Math.floor(Math.random() * MAP_TOTAL_SECTORS);
+            } else if (objective.sectorType === "from_list") {
+              if (objective.sectorList.length === 0) {
+                status.sector = Math.floor(Math.random() * MAP_TOTAL_SECTORS);
+              } else {
+                const idx = Math.floor(Math.random() * objective.sectorList.length);
+                status.sector = Number(objective.sectorList?.[idx]);
+              }
+            } else if (objective.sectorType === "user_village") {
+              status.sector = user?.village?.sector || user.sector;
+            } else if (objective.sectorType === "current_sector") {
+              status.sector = user.sector;
+            }
+            shouldUpdateUserInDB = true;
+          }
+
+          // If locationType is not specific, update the location accordingly
+          if ("locationType" in objective && (!status.longitude || !status.latitude)) {
+            if (objective.locationType === "specific") {
+              status.longitude = objective.longitude;
+              status.latitude = objective.latitude;
+            } else if (objective.locationType === "random") {
+              status.longitude = Math.floor(Math.random() * SECTOR_WIDTH);
+              status.latitude = Math.floor(Math.random() * SECTOR_HEIGHT);
+            }
+            shouldUpdateUserInDB = true;
+          }
+
+          // If done, return status
           if (status.done) {
             return status;
           }
@@ -325,7 +363,13 @@ export const getNewTrackers = (
       }
     })
     .filter((q): q is QuestTrackerType => !!q);
-  return { trackers, notifications, consequences };
+
+  return {
+    trackers: getUnique(trackers, "id"),
+    notifications,
+    consequences,
+    shouldUpdateUserInDB,
+  };
 };
 
 export const getMissionHallSettings = (isOutlaw: boolean) => {
@@ -414,8 +458,30 @@ export const mockAchievementHistoryEntries = (
  * `hideLocation` property set to true and the user's sector does not match the objective's sector,
  * it will obfuscate the objective's location by setting its latitude, longitude, and sector to 1337.
  */
-export const hideQuestInformation = (quest?: Quest, user?: UserData) => {
+export const controlShownQuestLocationInformation = (
+  quest?: Quest,
+  user?: UserData,
+) => {
+  const tracker = user?.questData?.find((q) => q.id === quest?.id);
   quest?.content.objectives.forEach((objective) => {
+    // If we have a tracker which specifies the location, use that (e.g. from random sectors etc)
+    const status = tracker?.goals.find((goal) => goal.id === objective.id);
+    if (tracker && status) {
+      if ("sector" in status && "sector" in objective) {
+        objective.sector = status.sector!;
+        delete status.sector;
+      }
+      if ("longitude" in status && "longitude" in objective) {
+        objective.longitude = status.longitude!;
+        delete status.longitude;
+      }
+      if ("latitude" in status && "latitude" in objective) {
+        objective.latitude = status.latitude!;
+        delete status.latitude;
+      }
+    }
+
+    // If we should hide the location, hide it when the user is not in the sector
     if (
       "hideLocation" in objective &&
       objective.hideLocation &&

@@ -82,7 +82,7 @@ import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { KAGE_MIN_PRESTIGE } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
-import { hideQuestInformation } from "@/libs/quest";
+import { controlShownQuestLocationInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
@@ -1558,11 +1558,6 @@ export const fetchUpdatedUser = async (props: {
       .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user).check);
   }
 
-  // Hide information relating to quests
-  user?.userQuests.forEach((q) => {
-    hideQuestInformation(q.quest, user);
-  });
-
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
     user.regeneration = calcActiveUserRegen(user, settings);
@@ -1731,8 +1726,23 @@ export const fetchUpdatedUser = async (props: {
     }
   }
   if (user) {
-    const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+    // Get the latest quest trackers
+    const { trackers, shouldUpdateUserInDB } = getNewTrackers(user, [{ task: "any" }]);
     user.questData = trackers;
+
+    // Check if we need to update the questData in the database
+    // This happens e.g. if we have a random sector, then we need to store it for future use
+    if (shouldUpdateUserInDB) {
+      await client
+        .update(userData)
+        .set({ questData: user.questData })
+        .where(eq(userData.userId, userId));
+    }
+
+    // Hide information relating to quests
+    user?.userQuests.forEach((q) => {
+      controlShownQuestLocationInformation(q.quest, user);
+    });
   }
   return { user, settings, rewards, hasUnvotedPolls };
 };

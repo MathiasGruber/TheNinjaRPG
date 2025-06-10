@@ -486,7 +486,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               </Confirm2>
             )}
 
-            {userData && canUnstuckVillage(userData.role) && (
+            {userData && (
               <ReportUser
                 user={profile}
                 content={{

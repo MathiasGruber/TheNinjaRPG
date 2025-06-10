@@ -14,7 +14,6 @@ export async function POST(req: Request) {
   const schema = convertToOpenaiCompatibleSchema(
     ItemValidatorRawSchema.omit({ effects: true }),
   );
-  console.log(schema);
   const result = streamText({
     model: openai(OPENAI_CONTENT_MODEL),
     system: `You are a helpful assistant tasked with creating new items set in the ninja world of Seichi. 

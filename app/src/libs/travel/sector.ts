@@ -46,7 +46,7 @@ import { hasRequiredRank } from "@/libs/train";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
-import type { SectorUser, SectorPoint, GlobalTile } from "./types";
+import type { SectorUser, GlobalTile } from "./types";
 import type { SectorVillage } from "@/routers/travel";
 import type { VillageStructure } from "@/drizzle/schema";
 
@@ -60,7 +60,7 @@ export const drawQuest = (info: {
   const drawnIds = new Set<string>();
   activeObjectives
     .filter((o) => LocationTasks.find((t) => t === o.task))
-    .filter((o) => "sector" in o && o.sector === user.sector)
+    .filter((o) => "sector" in o && Number(o.sector) === user.sector)
     .map((objective) => {
       let mesh = group_quest.getObjectByName(objective.id);
       const { latitude: y, longitude: x } = objective as ComplexObjectiveFields;
