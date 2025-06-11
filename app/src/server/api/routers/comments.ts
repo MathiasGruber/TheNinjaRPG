@@ -321,7 +321,7 @@ export const commentsRouter = createTRPCRouter({
       const filteredConverations = data?.conversations
         .filter(
           (c) =>
-            !c.conversation.users
+            !c.conversation?.users
               .filter((u) => u.userData)
               .filter((u) => u.userId !== ctx.userId)
               .every((u) =>
