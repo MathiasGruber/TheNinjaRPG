@@ -20,6 +20,7 @@ import { canTrainJutsu, checkJutsuItems } from "@/libs/train";
 import { USER_CAPS } from "@/drizzle/constants";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { defineHex } from "../hexgrid";
+import { calcLevel } from "@/libs/profile";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
@@ -1302,6 +1303,9 @@ export const processUsersForBattle = (info: {
 
     // By default set iAmHere to false
     user.iAmHere = false;
+
+    // Update user level to the effective level if he had leveled up (to combat level-holding, as some things are scaled based on level)
+    user.level = calcLevel(user.experience);
 
     // Remember how much money this user had
     user.originalMoney = user.money;
