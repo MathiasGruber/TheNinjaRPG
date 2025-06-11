@@ -240,7 +240,7 @@ export const questsRouter = createTRPCRouter({
       ]);
       if (!user) throw serverError("NOT_FOUND", "User not found");
       quests.forEach((r) => controlShownQuestLocationInformation(r));
-      return quests.filter((e) => isAvailableUserQuests(e, user).check);
+      return quests.filter((e) => isAvailableUserQuests(e, user, true).check);
     }),
   startRandom: protectedProcedure
     .input(

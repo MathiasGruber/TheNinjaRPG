@@ -1555,7 +1555,7 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     user.userQuests = user.userQuests
       .filter((q) => q.quest)
-      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user).check);
+      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user, true).check);
   }
 
   if (user) {
@@ -1770,7 +1770,9 @@ export const fetchPublicUsers = async (
         return [desc(userData.tavernMessages)];
       case "Dailies":
         return [
-          desc(sql`${userData.dailyArenaFights} + ${userData.dailyMissions} + ${userData.dailyErrands}`),
+          desc(
+            sql`${userData.dailyArenaFights} + ${userData.dailyMissions} + ${userData.dailyErrands}`,
+          ),
           desc(userData.experience),
         ];
     }

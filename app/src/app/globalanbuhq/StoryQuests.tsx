@@ -9,16 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Gamepad2 } from "lucide-react";
 import Accordion from "@/layout/Accordion";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import type { UserWithRelations } from "@/server/api/routers/profile";
 import { useState, useEffect } from "react";
+import { useRequireInVillage } from "@/utils/UserContext";
 
-interface StoryQuestsProps {
-  userData: UserWithRelations;
-}
-
-export default function StoryQuests({ userData }: StoryQuestsProps) {
+export default function StoryQuests() {
   const util = api.useUtils();
   const [activeElement, setActiveElement] = useState<string>("");
+
+  const { userData } = useRequireInVillage("/globalanbuhq");
 
   const { data: storyQuests } = api.quests.storyQuests.useQuery({
     level: userData?.level ?? 0,
@@ -27,7 +25,10 @@ export default function StoryQuests({ userData }: StoryQuestsProps) {
   const { mutate: startQuest, isPending } = api.quests.startQuest.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      await util.profile.getUser.invalidate();
+      await Promise.all([
+        util.profile.getUser.invalidate(),
+        util.quests.storyQuests.invalidate(),
+      ]);
     },
   });
 

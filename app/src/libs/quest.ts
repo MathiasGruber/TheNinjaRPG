@@ -32,7 +32,7 @@ export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
   const userQuests =
     user?.userQuests
       .filter((uq) => !!uq.quest)
-      .filter((uq) => isAvailableUserQuests({ ...uq.quest, ...uq }, user).check)
+      .filter((uq) => isAvailableUserQuests({ ...uq.quest, ...uq }, user, true).check)
       .map((uq) => ({ ...uq, ...uq.quest })) ?? [];
   return userQuests;
 };
@@ -508,6 +508,8 @@ export const controlShownQuestLocationInformation = (
 export const isAvailableUserQuests = (
   questAndUserQuestInfo: {
     hidden: boolean;
+    maxAttempts: number;
+    maxCompletes: number;
     questType: QuestType;
     expiresAt?: string | null;
     requiredVillage: string | null;
@@ -521,30 +523,38 @@ export const isAvailableUserQuests = (
   },
   ignorePreviousAttempts = false,
 ) => {
+  const maxAttempts = questAndUserQuestInfo.maxAttempts;
+  const maxCompletes = questAndUserQuestInfo.maxCompletes;
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
   const expiresCheck =
     !questAndUserQuestInfo.expiresAt ||
     new Date(questAndUserQuestInfo.expiresAt) > new Date();
-  const prevCheck =
-    questAndUserQuestInfo.questType !== "event" ||
-    !questAndUserQuestInfo.previousAttempts ||
-    (questAndUserQuestInfo.previousAttempts <= 1 &&
-      questAndUserQuestInfo.completed === 0) ||
-    (ignorePreviousAttempts && questAndUserQuestInfo.previousCompletes !== 1);
   const villageCheck =
     !questAndUserQuestInfo.requiredVillage ||
     questAndUserQuestInfo.requiredVillage === user.villageId ||
     (questAndUserQuestInfo.requiredVillage === VILLAGE_SYNDICATE_ID && user.isOutlaw);
 
+  // Event specific tests
+  const eventCompletedCheck =
+    questAndUserQuestInfo.questType !== "event" ||
+    !questAndUserQuestInfo.previousCompletes ||
+    questAndUserQuestInfo.previousCompletes < maxCompletes;
+  const eventAttemptsCheck =
+    ignorePreviousAttempts ||
+    questAndUserQuestInfo.questType !== "event" ||
+    !questAndUserQuestInfo.previousAttempts ||
+    questAndUserQuestInfo.previousAttempts < maxAttempts;
+
   // Story specific checks
   const storyCompletedCheck =
     questAndUserQuestInfo.questType !== "story" ||
-    !questAndUserQuestInfo.completed ||
-    questAndUserQuestInfo.completed < 1;
+    !questAndUserQuestInfo.previousCompletes ||
+    questAndUserQuestInfo.previousCompletes < maxCompletes;
   const storyAttemptsCheck =
+    ignorePreviousAttempts ||
     questAndUserQuestInfo.questType !== "story" ||
     !questAndUserQuestInfo.previousAttempts ||
-    questAndUserQuestInfo.previousAttempts < 3;
+    questAndUserQuestInfo.previousAttempts < maxAttempts;
 
   // Check if prerequisite quest is completed
   const prerequisiteCheck =
@@ -559,7 +569,8 @@ export const isAvailableUserQuests = (
   const check =
     hideCheck &&
     expiresCheck &&
-    prevCheck &&
+    eventCompletedCheck &&
+    eventAttemptsCheck &&
     villageCheck &&
     prerequisiteCheck &&
     storyCompletedCheck &&
@@ -569,7 +580,8 @@ export const isAvailableUserQuests = (
   let message = "";
   if (!hideCheck) message += "Quest is hidden\n";
   if (!expiresCheck) message += "Quest has expired\n";
-  if (!prevCheck) message += "Quest has been attempted too many times\n";
+  if (!eventCompletedCheck) message += "Quest has been completed too many times\n";
+  if (!eventAttemptsCheck) message += "Quest has been attempted too many times\n";
   if (!villageCheck) message += "Quest is not available in your village\n";
   if (!prerequisiteCheck) message += "You must complete the prerequisite quest first\n";
   if (!storyCompletedCheck) message += "Story quest already completed\n";

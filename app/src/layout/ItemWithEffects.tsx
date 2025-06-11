@@ -519,6 +519,26 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Health Usage Reduction Per Lvl</b>: {item.healthCostReducePerLvl}
               </p>
             )}
+            {"maxAttempts" in item && item.maxAttempts > 0 && (
+              <p>
+                <b>Max Attempts</b>: {item.maxAttempts}
+              </p>
+            )}
+            {"maxCompletes" in item && item.maxCompletes > 0 && (
+              <p>
+                <b>Max Completes</b>: {item.maxCompletes}
+              </p>
+            )}
+            {"previousAttempts" in item && (item.previousAttempts as number) > 0 && (
+              <p>
+                <b>Previous Attempts</b>: {item.previousAttempts as number}
+              </p>
+            )}
+            {"previousCompletes" in item && (item.previousCompletes as number) > 0 && (
+              <p>
+                <b>Previous Completes</b>: {item.previousCompletes as number}
+              </p>
+            )}
           </div>
           {objectives.length > 0 && (
             <div className={`my-2 rounded-lg bg-poppopover p-2`}>

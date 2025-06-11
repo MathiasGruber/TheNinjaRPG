@@ -61,7 +61,10 @@ export default function MissionHall() {
   const { mutate: startQuest } = api.quests.startQuest.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      await util.profile.getUser.invalidate();
+      await Promise.all([
+        util.profile.getUser.invalidate(),
+        util.quests.missionHall.invalidate(),
+      ]);
     },
   });
 
@@ -157,11 +160,16 @@ export default function MissionHall() {
                                 <p className="font-bold text-xs text-center">
                                   {mission.name}
                                 </p>
-                                {userData.dailyMissions >= 9 && userData.dailyMissions < MISSIONS_PER_DAY && (
-                                  <p className="text-sm text-yellow-500">40% Rewards</p>
-                                )}
+                                {userData.dailyMissions >= 9 &&
+                                  userData.dailyMissions < MISSIONS_PER_DAY && (
+                                    <p className="text-sm text-yellow-500">
+                                      40% Rewards
+                                    </p>
+                                  )}
                                 {userData.dailyMissions >= MISSIONS_PER_DAY && (
-                                  <p className="text-sm text-red-500">Daily Limit Reached</p>
+                                  <p className="text-sm text-red-500">
+                                    Daily Limit Reached
+                                  </p>
                                 )}
                               </div>
                             </div>
@@ -197,7 +205,9 @@ export default function MissionHall() {
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               {userData.dailyMissions >= MISSIONS_PER_DAY ? (
-                                <AlertDialogAction disabled>Daily Limit Reached</AlertDialogAction>
+                                <AlertDialogAction disabled>
+                                  Daily Limit Reached
+                                </AlertDialogAction>
                               ) : (
                                 <AlertDialogAction
                                   onClick={() =>
@@ -224,7 +234,9 @@ export default function MissionHall() {
                   <AlertDialogTrigger asChild>
                     <div
                       className={
-                        count === 0 || !isRankAllowed || (!isErrand && userData.dailyMissions >= MISSIONS_PER_DAY)
+                        count === 0 ||
+                        !isRankAllowed ||
+                        (!isErrand && userData.dailyMissions >= MISSIONS_PER_DAY)
                           ? "filter grayscale"
                           : "hover:cursor-pointer hover:opacity-30"
                       }
@@ -232,9 +244,11 @@ export default function MissionHall() {
                       <Image alt="small" src={setting.image} width={256} height={256} />
                       <p className="font-bold">{setting.name}</p>
                       <p>[Random out of {count} available]</p>
-                      {!isErrand && userData.dailyMissions >= 9 && userData.dailyMissions < MISSIONS_PER_DAY && (
-                        <p className="text-sm text-yellow-500">40% Rewards</p>
-                      )}
+                      {!isErrand &&
+                        userData.dailyMissions >= 9 &&
+                        userData.dailyMissions < MISSIONS_PER_DAY && (
+                          <p className="text-sm text-yellow-500">40% Rewards</p>
+                        )}
                       {!isErrand && userData.dailyMissions >= MISSIONS_PER_DAY && (
                         <p className="text-sm text-red-500">Daily Limit Reached</p>
                       )}
@@ -249,14 +263,15 @@ export default function MissionHall() {
                         ) : (
                           <>
                             Are you sure you want to accept a random {setting.rank}-rank{" "}
-                            {setting.type}? You can only have one active mission at a time.
+                            {setting.type}? You can only have one active mission at a
+                            time.
                             {!isErrand && userData.dailyMissions >= 9 && (
                               <>
                                 <br />
                                 <br />
                                 <span className="text-yellow-500">
-                                  Note: You have already completed 9 missions today. This
-                                  mission will only give 40% of its normal rewards.
+                                  Note: You have already completed 9 missions today.
+                                  This mission will only give 40% of its normal rewards.
                                 </span>
                               </>
                             )}
@@ -267,7 +282,9 @@ export default function MissionHall() {
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       {!isErrand && userData.dailyMissions >= MISSIONS_PER_DAY ? (
-                        <AlertDialogAction disabled>Daily Limit Reached</AlertDialogAction>
+                        <AlertDialogAction disabled>
+                          Daily Limit Reached
+                        </AlertDialogAction>
                       ) : (
                         <AlertDialogAction
                           onClick={(e) => {

@@ -2124,6 +2124,8 @@ export const quest = mysqlTable(
     questRank: mysqlEnum("questRank", consts.LetterRanks).default("D").notNull(),
     requiredLevel: int("requiredLevel").default(1).notNull(),
     maxLevel: int("maxLevel").default(100).notNull(),
+    maxAttempts: int("maxAttempts").default(1).notNull(),
+    maxCompletes: int("maxCompletes").default(1).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
     prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),
     tierLevel: int("tierLevel"),

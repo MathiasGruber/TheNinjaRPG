@@ -19,20 +19,25 @@ type ZodCombinedQuest = ZodQuestType & ObjectiveRewardType;
  * @param data
  */
 export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
+  // Schema used
+  const schema = QuestValidator._def.schema.merge(ObjectiveReward);
+
   // Form handling
   const expires = quest.expiresAt ? quest.expiresAt.slice(0, 10) : "";
-  const start = {
+  const initialData = {
     ...quest,
     ...quest.content.reward,
     expiresAt: expires,
   };
+  const parsedStart = schema.safeParse(initialData);
+  const start = parsedStart.success ? parsedStart.data : initialData;
 
   const form = useForm<ZodCombinedQuest>({
     mode: "all",
     criteriaMode: "all",
     values: start,
     defaultValues: start,
-    resolver: zodResolver(QuestValidator._def.schema.merge(ObjectiveReward)),
+    resolver: zodResolver(schema),
   });
 
   // Query for relations
@@ -129,12 +134,17 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const formData: FormEntry<keyof ZodCombinedQuest>[] = [
     { id: "name", label: "Title", type: "text" },
     { id: "hidden", type: "boolean", label: "Hidden" },
-    { id: "consecutiveObjectives", type: "boolean", label: "Consecutive Objectives" },
+    { id: "consecutiveObjectives", type: "boolean", label: "Sequential Objectives" },
     { id: "questType", type: "str_array", values: QuestTypes },
     { id: "questRank", type: "str_array", values: LetterRanks },
     { id: "requiredLevel", type: "number" },
-    { id: "maxLevel", type: "number" },
+    { id: "maxLevel", type: "number", label: "Max Level" },
   ];
+
+  if (questType === "event" || questType === "story") {
+    formData.push({ id: "maxAttempts", type: "number", label: "Max Attempts" });
+    formData.push({ id: "maxCompletes", type: "number", label: "Max Completes" });
+  }
 
   // Add prerequisite quest if quests exist
   if (quests) {
