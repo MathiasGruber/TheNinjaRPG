@@ -506,6 +506,11 @@ export const travelRouter = createTRPCRouter({
         if (user.longitude !== curLongitude || user.latitude !== curLatitude) {
           return errorResponse("You have moved since you started this move");
         }
+        if (user.villageId !== villageId) {
+          return errorResponse(
+            "Seems like your village alliance has changed, please check profile.",
+          );
+        }
         throw serverError(
           "BAD_REQUEST",
           `Unknown error while moving. Route input: ${JSON.stringify(input)}. User information: ${JSON.stringify(
