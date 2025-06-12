@@ -1364,10 +1364,10 @@ export const drain = (
     pools.forEach((pool) => {
       const poolValue =
         pool === "Health"
-          ? target.curHealth
+          ? target.maxHealth
           : pool === "Chakra"
-            ? target.curChakra
-            : target.curStamina;
+            ? target.maxChakra
+            : target.maxStamina;
       const drainAmount =
         effect.calculation === "percentage"
           ? Math.floor((power / 100) * poolValue)

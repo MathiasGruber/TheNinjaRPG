@@ -544,7 +544,7 @@ export const DrainTag = z.object({
   ...PoolAttributes,
   type: z.literal("drain").default("drain"),
   description: msg("Drain target's pools over time"),
-  calculation: z.enum(["percentage"]).default("percentage"),
+  calculation: z.enum(["static", "percentage"]).default("percentage"),
   rounds: z.coerce.number().int().min(1).max(10).default(3),
   poolsAffected: z.array(z.enum(PoolTypes)).default(["Chakra", "Stamina", "Health"]),
 });
