@@ -63,7 +63,7 @@ export const absorb = (
   target: BattleUserState,
 ) => {
   // Prevent?
-  const { pass } = preventCheck(usersEffects, "healprevent", target);
+  const { pass } = preventCheck(usersEffects, "healprevent", target, effect);
   if (!pass) return preventResponse(effect, target, "cannot absorb health");
   // Calculate absorption
   const { power, qualifier } = getPower(effect);
@@ -1139,7 +1139,7 @@ export const heal = (
   applyTimes: number,
 ) => {
   // Prevent?
-  const { pass, preventTag } = preventCheck(usersEffects, "healprevent", target);
+  const { pass, preventTag } = preventCheck(usersEffects, "healprevent", target, effect);
   if (preventTag && preventTag.createdRound < effect.createdRound) {
     if (!pass) return preventResponse(effect, target, "cannot be healed");
   }
@@ -1304,7 +1304,7 @@ export const lifesteal = (
   target: BattleUserState,
 ) => {
   // Prevent?
-  const { pass } = preventCheck(usersEffects, "healprevent", target);
+  const { pass } = preventCheck(usersEffects, "healprevent", target, effect);
   if (!pass) return preventResponse(effect, target, "cannot steal health");
   // Calculate life steal
   const { power, qualifier } = getPower(effect);
@@ -2147,11 +2147,16 @@ const preventCheck = (
   usersEffects: UserEffect[],
   type: string,
   target: BattleUserState,
+  effect?: UserEffect, // Add optional effect parameter to check creation time
 ) => {
   const preventTag = usersEffects.find(
     (e) => e.type == type && e.targetId === target.userId && !e.castThisRound,
   );
   if (preventTag && (preventTag.rounds === undefined || preventTag.rounds > 0)) {
+    // Only prevent if the effect being checked was created after the prevent effect
+    if (effect && preventTag.createdRound >= effect.createdRound) {
+      return { pass: true, preventTag: preventTag };
+    }
     const power = preventTag.power + preventTag.level * preventTag.powerPerLevel;
     return { pass: Math.random() > power / 100, preventTag: preventTag };
   }
