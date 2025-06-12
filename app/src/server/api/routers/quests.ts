@@ -52,6 +52,7 @@ import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
+import type { UserWithRelations } from "@/routers/profile";
 import type { DrizzleClient } from "@/server/db";
 import { canEditPublicUser } from "@/utils/permissions";
 
@@ -1231,29 +1232,32 @@ export const incrementDailyQuestCounter = async (
 /** Upsert quest entry for a single user */
 export const upsertQuestEntry = async (
   client: DrizzleClient,
-  user: UserData,
+  user: NonNullable<UserWithRelations>,
   quest: Quest,
 ) => {
-  const current = await client.query.questHistory.findFirst({
+  // Fetch the current quest history entry
+  let entry = await client.query.questHistory.findFirst({
     where: and(
       eq(questHistory.questId, quest.id),
       eq(questHistory.userId, user.userId),
     ),
   });
-  if (current) {
-    const logEntry = {
+  // Promises to be executed
+  const promises: Promise<unknown>[] = [];
+  // Check if the quest has already been started
+  if (entry) {
+    const logUpdate = {
       startedAt: new Date(),
       endAt: null,
       completed: 0,
-      previousAttempts: current.previousAttempts + 1,
+      previousAttempts: entry.previousAttempts + 1,
     };
-    await client
-      .update(questHistory)
-      .set(logEntry)
-      .where(eq(questHistory.id, current.id));
-    return { ...current, ...logEntry };
+    promises.push(
+      client.update(questHistory).set(logUpdate).where(eq(questHistory.id, entry.id)),
+    );
+    entry = { ...entry, ...logUpdate };
   } else {
-    const logEntry = {
+    entry = {
       id: nanoid(),
       userId: user.userId,
       questId: quest.id,
@@ -1264,14 +1268,28 @@ export const upsertQuestEntry = async (
       previousCompletes: 0,
       previousAttempts: 1,
     };
-    await client.insert(questHistory).values(logEntry);
-    return logEntry;
+    promises.push(client.insert(questHistory).values(entry));
   }
+  // Check if the user should be updated as well, and if so, add the promise
+  user.userQuests?.push({ ...entry, quest });
+  const { trackers, shouldUpdateUserInDB } = getNewTrackers(user, [{ task: "any" }]);
+  if (shouldUpdateUserInDB) {
+    promises.push(
+      client
+        .update(userData)
+        .set({ questData: trackers })
+        .where(eq(userData.userId, user.userId)),
+    );
+  }
+  // Execute promises
+  await Promise.all(promises);
+  // Return the newest log entry
+  return entry;
 };
 
 export const insertNextQuest = async (
   client: DrizzleClient,
-  user: UserData,
+  user: NonNullable<UserWithRelations>,
   type: QuestType,
 ) => {
   const history = await fetchUncompletedQuests(client, user, type);
