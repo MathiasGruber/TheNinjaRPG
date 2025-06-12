@@ -1009,11 +1009,10 @@ export const damageUser = (
   dmgModifier: number,
   config: DmgConfig,
 ) => {
-  // Calculate the raw damage
-  const damage =
-    damageCalc(effect, origin, target, config) *
-    dmgModifier *
-    (1 - effect.barrierAbsorb);
+  // Store the raw damage before any calculations
+  const rawDamage = damageCalc(effect, origin, target, config);
+  // Calculate the final damage with modifiers
+  const damage = rawDamage * dmgModifier * (1 - effect.barrierAbsorb);
   // Find out if target has any weakness tag related to this damage effect
   // const weaknessTags =
   // Fetch types to show to the user
@@ -1032,8 +1031,8 @@ export const damageUser = (
       userId: effect.creatorId,
       targetId: effect.targetId,
       types: types,
-      ...(instant ? { damage: damage } : {}),
-      ...(residual ? { residual: damage } : {}),
+      ...(instant ? { damage: damage, rawDamage: rawDamage } : {}),
+      ...(residual ? { residual: damage, rawResidual: rawDamage } : {}),
     });
   }
   return getInfo(target, effect, "will take damage");

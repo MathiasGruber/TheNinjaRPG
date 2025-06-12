@@ -183,7 +183,9 @@ export type Consequence = {
   heal_sp?: number;
   heal_cp?: number;
   damage?: number;
+  rawDamage?: number;
   residual?: number;
+  rawResidual?: number;
   reflect?: number;
   recoil?: number;
   lifesteal_hp?: number;
