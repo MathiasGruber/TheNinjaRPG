@@ -136,7 +136,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
     const isMissionOrCrime =
       userQuest.quest.questType === "mission" || userQuest.quest.questType === "crime";
     const factor =
-      isMissionOrCrime && user.dailyMissions > MISSIONS_PER_DAY
+      isMissionOrCrime && user.dailyMissions > 9
         ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
         : 1;
     rewards.reward_money = Math.floor(rewards.reward_money * factor);
