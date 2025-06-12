@@ -2,8 +2,14 @@ import { calculateContentDiff } from "@/utils/diff";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
-import { LetterRanks, TimeFrames, QuestTypes, UserRanks } from "@/drizzle/constants";
+import {
+  LetterRanks,
+  QuestTypes,
+  UserRanks,
+  RetryQuestDelays,
+} from "@/drizzle/constants";
 import { api } from "@/app/_trpc/client";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
@@ -23,11 +29,13 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const schema = QuestValidator._def.schema.merge(ObjectiveReward);
 
   // Form handling
-  const expires = quest.expiresAt ? quest.expiresAt.slice(0, 10) : "";
+  const endsAt = quest.endsAt ? quest.endsAt.slice(0, 10) : "";
+  const startsAt = quest.startsAt ? quest.startsAt.slice(0, 10) : "";
   const initialData = {
     ...quest,
     ...quest.content.reward,
-    expiresAt: expires,
+    endsAt: endsAt,
+    startsAt: startsAt,
   };
   const parsedStart = schema.safeParse(initialData);
   const start = parsedStart.success ? parsedStart.data : initialData;
@@ -63,16 +71,15 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
         if (objective.task === "move_to_location" && data.image) {
           objective.image = data.image;
         } else if (objective.task === "collect_item") {
-          const item = items?.find((i) => i.id === objective.collect_item_id);
-          if (item) {
-            objective.image = item.image;
-            objective.item_name = item.name;
+          const subset = items?.filter((i) => objective.collectItemIds.includes(i.id));
+          if (subset && subset.length > 0) {
+            objective.image = subset?.[0]?.image || IMG_AVATAR_DEFAULT;
+            objective.item_name = subset.map((i) => i.name).join(", ");
           }
         } else if (objective.task === "defeat_opponents") {
-          const ai = ais?.find((u) => u.userId === objective.opponent_ai);
+          const ai = ais?.find((u) => objective.opponentAIs.includes(u.userId));
           if (ai?.avatar) {
             objective.image = ai.avatar;
-            objective.opponent_name = ai.username;
           }
         }
         return objective;
@@ -80,7 +87,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
       const newQuest = {
         ...quest,
         ...data,
-        expiresAt: data.expiresAt ? data.expiresAt : null,
+        endsAt: data.endsAt ? data.endsAt : null,
+        startsAt: data.startsAt ? data.startsAt : null,
         content: {
           objectives: newObjectives,
           reward: {
@@ -144,6 +152,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   if (questType === "event" || questType === "story") {
     formData.push({ id: "maxAttempts", type: "number", label: "Max Attempts" });
     formData.push({ id: "maxCompletes", type: "number", label: "Max Completes" });
+    formData.push({ id: "retryDelay", type: "str_array", values: RetryQuestDelays });
   }
 
   // Add prerequisite quest if quests exist
@@ -166,11 +175,6 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
       values: villages,
       resetButton: true,
     });
-  }
-
-  // For everything except daily, add timeframe & expiry
-  if (questType !== "daily") {
-    formData.push({ id: "timeFrame", type: "str_array", values: TimeFrames });
   }
 
   // For tiers, add tier level
@@ -222,9 +226,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   formData.push({ id: "successDescription", type: "richinput", doubleWidth: true });
 
   // Add description & image only for missions/crimes/events
-  if (["mission", "crime", "event", "exam"].includes(questType)) {
-    formData.push({ id: "expiresAt", type: "date", label: "Expires At" });
-  }
+  formData.push({ id: "endsAt", type: "date", label: "Ends At" });
+  formData.push({ id: "startsAt", type: "date", label: "Starts At" });
 
   return {
     quest,

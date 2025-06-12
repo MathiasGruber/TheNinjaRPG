@@ -4,14 +4,12 @@ import StatusBar from "@/layout/StatusBar";
 import Countdown from "@/layout/Countdown";
 import Modal from "@/layout/Modal";
 import { CircleHelp } from "lucide-react";
-import { secondsFromNow, secondsFromDate } from "@/utils/time";
 import { getObjectiveImage } from "@/libs/objectives";
 import { X, Check, Gift } from "lucide-react";
 import { hasReward } from "@/validators/objectives";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { isObjectiveComplete } from "@/libs/objectives";
-import type { TimeFrames } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType, ObjectiveRewardType } from "@/validators/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
@@ -175,23 +173,37 @@ interface EventTimerProps {
 }
 
 export const EventTimer: React.FC<EventTimerProps> = (props) => {
-  const { quest, tracker } = props;
+  const { quest } = props;
 
   // If the quest is permanent
-  if (quest.timeFrame === "all_time" && !quest.expiresAt) return <></>;
+  if (!quest.endsAt && !quest.startsAt) return <></>;
 
-  // Get the expiry time based on quest.timeFrame from now(), or expiresAt, whatever comes first:
-  const nextYear = secondsFromNow(60 * 60 * 24 * 365);
-  const expiresAt = quest.expiresAt || nextYear;
-  const expiryTime = secondsFromDate(
-    getFreqSeconds(quest.timeFrame),
-    new Date(tracker.startAt),
-  );
-  const targetDate = expiresAt < expiryTime ? new Date(expiresAt) : expiryTime;
+  const now = new Date();
+  const startDate = quest.startsAt ? new Date(quest.startsAt) : null;
+  const endDate = quest.endsAt ? new Date(quest.endsAt) : null;
 
+  // If event hasn't started yet
+  if (startDate && now < startDate) {
+    return (
+      <div>
+        <b>Starts in: </b> <Countdown targetDate={startDate} />
+      </div>
+    );
+  }
+
+  // If event has started but not ended
+  if (endDate && now < endDate) {
+    return (
+      <div>
+        <b>Time Left: </b> <Countdown targetDate={endDate} />
+      </div>
+    );
+  }
+
+  // If event has ended
   return (
     <div>
-      <b>Time Left: </b> <Countdown targetDate={targetDate} />
+      <b>Event Ended</b>
     </div>
   );
 };
@@ -207,18 +219,5 @@ const getStatusColor = (tier: number | undefined, done: boolean) => {
       return "bg-red-500";
     default:
       return "bg-blue-500";
-  }
-};
-
-const getFreqSeconds = (timeFrame: (typeof TimeFrames)[number]) => {
-  switch (timeFrame) {
-    case "daily":
-      return 60 * 60 * 24;
-    case "weekly":
-      return 60 * 60 * 24 * 7;
-    case "monthly":
-      return 60 * 60 * 24 * 30;
-    case "all_time":
-      return 60 * 60 * 24 * 365;
   }
 };

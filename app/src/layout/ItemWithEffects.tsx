@@ -194,6 +194,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       : item.updatedAt}
                   </div>
                 )}
+                {"expireFromStoreAt" in item && item.expireFromStoreAt && (
+                  <div>
+                    <b>Expires: </b>
+                    {item.expireFromStoreAt}
+                  </div>
+                )}
               </div>
             )}
             <div className="absolute right-1 flex flex-row">
@@ -474,19 +480,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Max Level</b>: {item.maxLevel}
               </p>
             )}
-            {"timeFrame" in item && item.timeFrame && (
-              <p>
-                <b>Time Frame</b>: {item.timeFrame}
-              </p>
-            )}
             {"questType" in item && item.questType && (
               <p>
                 <b>Quest Type</b>: {item.questType}
-              </p>
-            )}
-            {"expiresAt" in item && item.expiresAt && (
-              <p>
-                <b>Expires At</b>: {item.expiresAt}
               </p>
             )}
             {"content" in item && item.content && (
@@ -519,27 +515,50 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Health Usage Reduction Per Lvl</b>: {item.healthCostReducePerLvl}
               </p>
             )}
-            {"maxAttempts" in item && item.maxAttempts > 0 && (
-              <p>
-                <b>Max Attempts</b>: {item.maxAttempts}
-              </p>
-            )}
-            {"maxCompletes" in item && item.maxCompletes > 0 && (
-              <p>
-                <b>Max Completes</b>: {item.maxCompletes}
-              </p>
-            )}
-            {"previousAttempts" in item && (item.previousAttempts as number) > 0 && (
-              <p>
-                <b>Previous Attempts</b>: {item.previousAttempts as number}
-              </p>
-            )}
-            {"previousCompletes" in item && (item.previousCompletes as number) > 0 && (
-              <p>
-                <b>Previous Completes</b>: {item.previousCompletes as number}
-              </p>
-            )}
           </div>
+          {/* Show quest timing specific details for story and event quests */}
+          {"questType" in item && ["story", "event"].includes(item.questType) && (
+            <div className="my-2 grid grid-cols-2 rounded-lg bg-poppopover p-2">
+              {"maxAttempts" in item && item.maxAttempts > 0 && (
+                <p>
+                  <b>Max Attempts</b>: {item.maxAttempts}
+                </p>
+              )}
+              {"maxCompletes" in item && item.maxCompletes > 0 && (
+                <p>
+                  <b>Max Completes</b>: {item.maxCompletes}
+                </p>
+              )}
+              {"previousAttempts" in item && (item.previousAttempts as number) > 0 && (
+                <p>
+                  <b>Previous Attempts</b>: {item.previousAttempts as number}
+                </p>
+              )}
+              {"previousCompletes" in item &&
+                (item.previousCompletes as number) > 0 && (
+                  <p>
+                    <b>Previous Completes</b>: {item.previousCompletes as number}
+                  </p>
+                )}
+              {"retryDelay" in item && item.retryDelay !== "none" && (
+                <p>
+                  <b>Retry Delay</b>: {item.retryDelay}
+                </p>
+              )}
+              <div className="grid grid-cols-2 col-span-2">
+                {"startsAt" in item && item.startsAt && (
+                  <p>
+                    <b>Starts At</b>: {item.startsAt}
+                  </p>
+                )}
+                {"endsAt" in item && item.endsAt && (
+                  <p>
+                    <b>Ends At</b>: {item.endsAt}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           {objectives.length > 0 && (
             <div className={`my-2 rounded-lg bg-poppopover p-2`}>
               <p className="font-bold">Objectives</p>

@@ -24,6 +24,7 @@ import { HealTag } from "@/libs/combat/types";
 import { itemFilteringSchema } from "@/validators/item";
 import { filterRollableBloodlines } from "@/libs/bloodline";
 import { fetchBloodlines } from "@/routers/bloodline";
+import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import type { UserItemWithItem } from "@/drizzle/schema";
 import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -90,6 +91,7 @@ export const itemRouter = createTRPCRouter({
     .input(z.object({ id: z.string(), data: ItemValidator }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      setEmptyStringsToNulls(input.data);
       // Query
       const [user, entry, itemWithName] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
@@ -514,6 +516,9 @@ export const itemRouter = createTRPCRouter({
       }
       if (info.isEventItem && eventItemsCount >= calcMaxEventItems(user)) {
         return errorResponse("Event item inventory is full");
+      }
+      if (info.expireFromStoreAt && new Date(info.expireFromStoreAt) < new Date()) {
+        return errorResponse("Item has expired");
       }
       const ryoCost = Math.ceil(info.cost * input.stack * factor);
       const repsCost = Math.ceil(info.repsCost * input.stack);

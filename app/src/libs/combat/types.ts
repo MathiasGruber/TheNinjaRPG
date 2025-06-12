@@ -3,6 +3,7 @@ import { AttackMethods, AttackTargets, ItemRarities } from "@/drizzle/constants"
 import { ItemSlotTypes, ItemTypes, JutsuTypes } from "@/drizzle/constants";
 import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
 import { ElementNames } from "@/drizzle/constants";
+import { DateTimeRegExp } from "@/utils/regex";
 import { StatTypes, GeneralTypes, PoolTypes } from "@/drizzle/constants";
 import { MAX_STATS_CAP, MAX_GENS_CAP, USER_CAPS } from "@/drizzle/constants";
 import type { StatType, GeneralType, PoolType, ElementName } from "@/drizzle/constants";
@@ -854,7 +855,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "reflect",
       "robprevent",
       "sealprevent",
-      "shield", 
+      "shield",
       "stealth",
       "stunprevent",
       "summon",
@@ -1061,10 +1062,7 @@ const SuperRefineJutsu = (data: JutsuValidatorType, ctx: z.RefinementCtx) => {
 /**
  * Validator specific to effects
  */
-export const SuperRefineEffects = (
-  effects: ZodAllTags[],
-  ctx: z.RefinementCtx,
-) => {
+export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
   effects.forEach((e) => {
     if (e.type === "barrier" && e.staticAssetPath === "") {
       addIssue(ctx, "BarrierTag needs a staticAssetPath");
@@ -1165,6 +1163,10 @@ export const ItemValidatorRawSchema = z.object({
   weaponType: z.enum(WeaponTypes),
   rarity: z.enum(ItemRarities),
   slot: z.enum(ItemSlotTypes),
+  expireFromStoreAt: z
+    .string()
+    .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")
+    .nullable(),
   effects: z.array(AllTags).superRefine(SuperRefineEffects),
 });
 export const ItemValidator =

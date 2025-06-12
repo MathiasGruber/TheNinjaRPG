@@ -2,7 +2,16 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
-import { secondsFromNow } from "@/utils/time";
+import {
+  secondsFromNow,
+  secondsFromDate,
+  getTimeLeftStr,
+  secondsPassed,
+  getDaysHoursMinutesSeconds,
+  DAY_S,
+  WEEK_S,
+  MONTH_S,
+} from "@/utils/time";
 import { inArray, lte, isNull, sql, asc, gte } from "drizzle-orm";
 import { like, eq, or, and, getTableColumns } from "drizzle-orm";
 import { item, jutsu, badge, bankTransfers, clan } from "@/drizzle/schema";
@@ -43,6 +52,7 @@ import type { ObjectiveRewardType } from "@/validators/objectives";
 import type { SQL } from "drizzle-orm";
 import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
+import type { UserWithRelations } from "@/routers/profile";
 import type { DrizzleClient } from "@/server/db";
 import { canEditPublicUser } from "@/utils/permissions";
 
@@ -78,7 +88,6 @@ export const questsRouter = createTRPCRouter({
             : []),
           ...(input?.questType ? [eq(quest.questType, input.questType)] : []),
           ...(input?.rank ? [eq(quest.questRank, input.rank)] : []),
-          ...(input?.timeframe ? [eq(quest.timeFrame, input.timeframe)] : []),
           ...(input?.village ? [eq(quest.requiredVillage, input.village)] : []),
           ...(input?.userLevel
             ? [
@@ -281,6 +290,8 @@ export const questsRouter = createTRPCRouter({
               eq(quest.questRank, input.rank),
               lte(quest.requiredLevel, input.userLevel),
               gte(quest.maxLevel, input.userLevel),
+              or(isNull(quest.startsAt), gte(quest.startsAt, new Date().toISOString())),
+              or(isNull(quest.endsAt), lte(quest.endsAt, new Date().toISOString())),
               or(
                 isNull(quest.requiredVillage),
                 eq(quest.requiredVillage, input.userVillageId ?? VILLAGE_SYNDICATE_ID),
@@ -380,6 +391,32 @@ export const questsRouter = createTRPCRouter({
         return errorResponse(`Quest is not available for you: ${message}`);
       }
 
+      // Check start and end dates
+      if (questData.startsAt && questData.startsAt > new Date().toISOString()) {
+        return errorResponse(`Quest starts in the future`);
+      }
+      if (questData.endsAt && questData.endsAt < new Date().toISOString()) {
+        return errorResponse(`Quest has ended`);
+      }
+
+      // Check if it's too early wrt. retry-limits
+      if (questData.retryDelay !== "none" && prevAttempt?.endAt) {
+        let retryDate = new Date();
+        const endedDate = prevAttempt.endAt;
+        if (questData.retryDelay === "daily") {
+          retryDate = secondsFromDate(DAY_S, endedDate);
+        } else if (questData.retryDelay === "weekly") {
+          retryDate = secondsFromDate(WEEK_S, endedDate);
+        } else if (questData.retryDelay === "monthly") {
+          retryDate = secondsFromDate(MONTH_S, endedDate);
+        }
+        if (retryDate > new Date()) {
+          const msLeft = -secondsPassed(retryDate) * 1000;
+          const timeLeft = getTimeLeftStr(...getDaysHoursMinutesSeconds(msLeft));
+          return errorResponse(`You must wait ${timeLeft} to retry this quest`);
+        }
+      }
+
       // Check if user is already on this quest
       const isAlreadyOnQuest = user.userQuests?.some(
         (q) => q.questId === questData.id && !q.endAt,
@@ -404,6 +441,9 @@ export const questsRouter = createTRPCRouter({
           );
         }
       } else if (questData.questType === "event") {
+        if (!canAccessStructure(user, "/adminbuilding", sectorVillage)) {
+          return errorResponse("Must be in your allied village to start quest");
+        }
         const current = user.userQuests?.filter(
           (q) => q.quest.questType === "event" && !q.endAt,
         );
@@ -413,15 +453,6 @@ export const questsRouter = createTRPCRouter({
               .map((c) => c.quest.name)
               .join(", ")}. Abandon one to start this quest.`,
           );
-        }
-        if (!canAccessStructure(user, "/adminbuilding", sectorVillage)) {
-          return errorResponse("Must be in your allied village to start quest");
-        }
-        if (
-          prevAttempt &&
-          (prevAttempt.previousAttempts > 1 || prevAttempt.completed)
-        ) {
-          return errorResponse(`You have already attempted this quest`);
         }
       } else if (["mission", "crime"].includes(questData.questType)) {
         if (questData.questRank !== "A") {
@@ -587,7 +618,6 @@ export const questsRouter = createTRPCRouter({
         name: `New Quest - ${id}`,
         image: IMG_AVATAR_DEFAULT,
         description: "",
-        timeFrame: "all_time",
         questType: "mission",
         hidden: true,
         prerequisiteQuestId: "",
@@ -697,10 +727,11 @@ export const questsRouter = createTRPCRouter({
         userQuest?.quest.content.objectives
           .filter(
             (o) =>
-              o.task === "collect_item" && o.delete_on_complete && o.collect_item_id,
+              o.task === "collect_item" && o.delete_on_complete && o.collectItemIds,
           )
           .map((o) => CollectItem.parse(o))
-          .map((o) => o.collect_item_id!) ?? [];
+          .map((o) => o.collectItemIds)
+          .flat() ?? [];
 
       // New tier quest
       const questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
@@ -808,7 +839,7 @@ export const questsRouter = createTRPCRouter({
               const randomOpponent = objective.attackers[idx]!;
               opponent = {
                 type: "combat",
-                id: randomOpponent,
+                ids: [randomOpponent],
                 scaleStats: objective.attackers_scaled_to_user,
                 scaleGains: objective.attackers_scale_gains,
               };
@@ -832,17 +863,25 @@ export const questsRouter = createTRPCRouter({
           );
         // If succeeded in updating user, also update other things
         if (result.rowsAffected > 0) {
+          const collectedItems = collected.map(({ ids }) => ids).flat();
           await Promise.all([
             // Update collected items
-            ...(collected.map(({ id }) =>
-              ctx.drizzle.insert(userItem).values({
-                id: nanoid(),
-                userId: ctx.userId,
-                itemId: id,
-                quantity: 1,
-                equipped: "NONE",
-              }),
-            ) || []),
+            ...(collectedItems.length > 0
+              ? [
+                  ctx.drizzle.insert(userItem).values(
+                    collectedItems.map(
+                      (id) =>
+                        ({
+                          id: nanoid(),
+                          userId: ctx.userId,
+                          itemId: id,
+                          quantity: 1,
+                          equipped: "NONE",
+                        }) as const,
+                    ),
+                  ),
+                ]
+              : []),
             // Initiate battle if needed
             ...[
               opponent
@@ -853,7 +892,7 @@ export const questsRouter = createTRPCRouter({
                         latitude: user.latitude,
                         sector: user.sector,
                         userIds: [user.userId],
-                        targetIds: [opponent.id],
+                        targetIds: opponent.ids,
                         client: ctx.drizzle,
                         scaleTarget: opponent.scaleStats ? true : false,
                         asset: "ground",
@@ -1115,6 +1154,8 @@ export const fetchUncompletedQuests = async (
         lte(quest.requiredLevel, user.level),
         gte(quest.maxLevel, user.level),
         lte(quest.requiredLevel, user.level),
+        or(isNull(quest.startsAt), gte(quest.startsAt, new Date().toISOString())),
+        or(isNull(quest.endsAt), lte(quest.endsAt, new Date().toISOString())),
         ...(availableLetters.length > 0
           ? [inArray(quest.questRank, availableLetters)]
           : [eq(quest.questRank, "D")]),
@@ -1191,29 +1232,32 @@ export const incrementDailyQuestCounter = async (
 /** Upsert quest entry for a single user */
 export const upsertQuestEntry = async (
   client: DrizzleClient,
-  user: UserData,
+  user: NonNullable<UserWithRelations>,
   quest: Quest,
 ) => {
-  const current = await client.query.questHistory.findFirst({
+  // Fetch the current quest history entry
+  let entry = await client.query.questHistory.findFirst({
     where: and(
       eq(questHistory.questId, quest.id),
       eq(questHistory.userId, user.userId),
     ),
   });
-  if (current) {
-    const logEntry = {
+  // Promises to be executed
+  const promises: Promise<unknown>[] = [];
+  // Check if the quest has already been started
+  if (entry) {
+    const logUpdate = {
       startedAt: new Date(),
       endAt: null,
       completed: 0,
-      previousAttempts: current.previousAttempts + 1,
+      previousAttempts: entry.previousAttempts + 1,
     };
-    await client
-      .update(questHistory)
-      .set(logEntry)
-      .where(eq(questHistory.id, current.id));
-    return { ...current, ...logEntry };
+    promises.push(
+      client.update(questHistory).set(logUpdate).where(eq(questHistory.id, entry.id)),
+    );
+    entry = { ...entry, ...logUpdate };
   } else {
-    const logEntry = {
+    entry = {
       id: nanoid(),
       userId: user.userId,
       questId: quest.id,
@@ -1224,14 +1268,28 @@ export const upsertQuestEntry = async (
       previousCompletes: 0,
       previousAttempts: 1,
     };
-    await client.insert(questHistory).values(logEntry);
-    return logEntry;
+    promises.push(client.insert(questHistory).values(entry));
   }
+  // Check if the user should be updated as well, and if so, add the promise
+  user.userQuests?.push({ ...entry, quest });
+  const { trackers, shouldUpdateUserInDB } = getNewTrackers(user, [{ task: "any" }]);
+  if (shouldUpdateUserInDB) {
+    promises.push(
+      client
+        .update(userData)
+        .set({ questData: trackers })
+        .where(eq(userData.userId, user.userId)),
+    );
+  }
+  // Execute promises
+  await Promise.all(promises);
+  // Return the newest log entry
+  return entry;
 };
 
 export const insertNextQuest = async (
   client: DrizzleClient,
-  user: UserData,
+  user: NonNullable<UserWithRelations>,
   type: QuestType,
 ) => {
   const history = await fetchUncompletedQuests(client, user, type);

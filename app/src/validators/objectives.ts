@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { DateTimeRegExp } from "@/utils/regex";
-import { UserRanks, LetterRanks, TimeFrames, QuestTypes } from "@/drizzle/constants";
+import {
+  UserRanks,
+  LetterRanks,
+  QuestTypes,
+  RetryQuestDelays,
+} from "@/drizzle/constants";
 
 export const SimpleTasks = [
   "pvp_kills",
@@ -131,7 +136,7 @@ export const CollectItem = z.object({
   ...baseObjectiveFields,
   task: z.literal("collect_item").default("collect_item"),
   item_name: z.string().min(3).default("Secret scroll"),
-  collect_item_id: z.string().optional().nullish(),
+  collectItemIds: z.array(z.string()).default([]),
   delete_on_complete: z.coerce.boolean().default(false),
   ...complexObjectiveFields,
 });
@@ -140,8 +145,7 @@ export type CollectItemType = z.infer<typeof CollectItem>;
 export const DefeatOpponents = z.object({
   ...baseObjectiveFields,
   task: z.literal("defeat_opponents").default("defeat_opponents"),
-  opponent_name: z.string().min(3).default("Opponent"),
-  opponent_ai: z.string().min(10).optional().nullish(),
+  opponentAIs: z.array(z.string()).default([]),
   opponent_scaled_to_user: z.coerce.boolean().default(false),
   completionOutcome: z.enum(["Win", "Lose", "Flee", "Draw", "Any"]).default("Win"),
   failDescription: z.string().default("You failed to defeat the opponent"),
@@ -195,15 +199,13 @@ export const QuestValidatorRawSchema = z.object({
   requiredVillage: z.string().min(0).max(30).optional().nullish(),
   prerequisiteQuestId: z.string().min(0).max(191).optional().nullish(),
   tierLevel: z.coerce.number().min(0).max(100).nullable(),
-  timeFrame: z.enum(TimeFrames),
   questType: z.enum(QuestTypes),
   content: z.object({ objectives: z.array(AllObjectives), reward: ObjectiveReward }),
   hidden: z.coerce.boolean(),
+  retryDelay: z.enum(RetryQuestDelays).optional(),
   consecutiveObjectives: z.coerce.boolean(),
-  expiresAt: z
-    .string()
-    .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")
-    .nullable(),
+  endsAt: z.string().regex(DateTimeRegExp, "Must be of format YYYY-MM-DD").nullable(),
+  startsAt: z.string().regex(DateTimeRegExp, "Must be of format YYYY-MM-DD").nullable(),
 });
 export const QuestValidator = QuestValidatorRawSchema.superRefine((val, ctx) => {
   if (["daily", "tier"].includes(val.questType)) {

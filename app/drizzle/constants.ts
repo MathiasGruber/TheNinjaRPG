@@ -339,8 +339,8 @@ export const BattleDataEntryType = [
   "ai",
 ] as const;
 
-export const TimeFrames = ["daily", "weekly", "monthly", "all_time"] as const;
-export type TimeFrame = (typeof TimeFrames)[number];
+export const RetryQuestDelays = ["daily", "weekly", "monthly", "none"] as const;
+export type RetryQuestDelay = (typeof RetryQuestDelays)[number];
 
 export const QuestTypes = [
   "mission",
