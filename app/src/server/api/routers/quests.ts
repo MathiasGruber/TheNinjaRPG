@@ -726,10 +726,11 @@ export const questsRouter = createTRPCRouter({
         userQuest?.quest.content.objectives
           .filter(
             (o) =>
-              o.task === "collect_item" && o.delete_on_complete && o.collect_item_id,
+              o.task === "collect_item" && o.delete_on_complete && o.collectItemIds,
           )
           .map((o) => CollectItem.parse(o))
-          .map((o) => o.collect_item_id!) ?? [];
+          .map((o) => o.collectItemIds)
+          .flat() ?? [];
 
       // New tier quest
       const questTier = user.userQuests?.find((q) => q.quest.questType === "tier");
@@ -837,7 +838,7 @@ export const questsRouter = createTRPCRouter({
               const randomOpponent = objective.attackers[idx]!;
               opponent = {
                 type: "combat",
-                id: randomOpponent,
+                ids: [randomOpponent],
                 scaleStats: objective.attackers_scaled_to_user,
                 scaleGains: objective.attackers_scale_gains,
               };
@@ -861,17 +862,25 @@ export const questsRouter = createTRPCRouter({
           );
         // If succeeded in updating user, also update other things
         if (result.rowsAffected > 0) {
+          const collectedItems = collected.map(({ ids }) => ids).flat();
           await Promise.all([
             // Update collected items
-            ...(collected.map(({ id }) =>
-              ctx.drizzle.insert(userItem).values({
-                id: nanoid(),
-                userId: ctx.userId,
-                itemId: id,
-                quantity: 1,
-                equipped: "NONE",
-              }),
-            ) || []),
+            ...(collectedItems.length > 0
+              ? [
+                  ctx.drizzle.insert(userItem).values(
+                    collectedItems.map(
+                      (id) =>
+                        ({
+                          id: nanoid(),
+                          userId: ctx.userId,
+                          itemId: id,
+                          quantity: 1,
+                          equipped: "NONE",
+                        }) as const,
+                    ),
+                  ),
+                ]
+              : []),
             // Initiate battle if needed
             ...[
               opponent
@@ -882,7 +891,7 @@ export const questsRouter = createTRPCRouter({
                         latitude: user.latitude,
                         sector: user.sector,
                         userIds: [user.userId],
-                        targetIds: [opponent.id],
+                        targetIds: opponent.ids,
                         client: ctx.drizzle,
                         scaleTarget: opponent.scaleStats ? true : false,
                         asset: "ground",

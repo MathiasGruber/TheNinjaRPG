@@ -9,6 +9,7 @@ import {
   RetryQuestDelays,
 } from "@/drizzle/constants";
 import { api } from "@/app/_trpc/client";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
@@ -70,16 +71,15 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
         if (objective.task === "move_to_location" && data.image) {
           objective.image = data.image;
         } else if (objective.task === "collect_item") {
-          const item = items?.find((i) => i.id === objective.collect_item_id);
-          if (item) {
-            objective.image = item.image;
-            objective.item_name = item.name;
+          const subset = items?.filter((i) => objective.collectItemIds.includes(i.id));
+          if (subset && subset.length > 0) {
+            objective.image = subset?.[0]?.image || IMG_AVATAR_DEFAULT;
+            objective.item_name = subset.map((i) => i.name).join(", ");
           }
         } else if (objective.task === "defeat_opponents") {
-          const ai = ais?.find((u) => u.userId === objective.opponent_ai);
+          const ai = ais?.find((u) => objective.opponentAIs.includes(u.userId));
           if (ai?.avatar) {
             objective.image = ai.avatar;
-            objective.opponent_name = ai.username;
           }
         }
         return objective;

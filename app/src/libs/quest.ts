@@ -176,7 +176,7 @@ export const getNewTrackers = (
   const notifications: string[] = [];
   const consequences: {
     type: "item" | "combat";
-    id: string;
+    ids: string[];
     scaleStats?: boolean;
     scaleGains?: number;
   }[] = [];
@@ -290,33 +290,32 @@ export const getNewTrackers = (
                 } else if (
                   task === "collect_item" &&
                   "item_name" in objective &&
-                  "collect_item_id" in objective &&
-                  objective.collect_item_id
+                  "collectItemIds" in objective &&
+                  objective.collectItemIds
                 ) {
                   notifications.push(`Got ${objective.item_name} for ${quest.name}.`);
-                  consequences.push({ type: "item", id: objective.collect_item_id });
+                  consequences.push({ type: "item", ids: objective.collectItemIds });
                   status.done = true;
                 }
-                if (task === "defeat_opponents" && "opponent_ai" in objective) {
+                if (task === "defeat_opponents" && "opponentAIs" in objective) {
                   if (
-                    objective.opponent_ai &&
-                    objective.opponent_ai !== taskUpdate.contentId
+                    objective.opponentAIs &&
+                    !objective.opponentAIs.includes(taskUpdate.contentId || "1337")
                   ) {
                     notifications.push(`Attacking target for ${quest.name}.`);
                     consequences.push({
                       type: "combat",
-                      id: objective.opponent_ai,
+                      ids: objective.opponentAIs,
                       scaleStats: objective.opponent_scaled_to_user,
                       scaleGains: objective.scaleGains,
                     });
                   }
                 }
               }
-              if (status && task === "defeat_opponents" && "opponent_ai" in objective) {
+              if (status && task === "defeat_opponents" && "opponentAIs" in objective) {
                 if (
                   taskUpdate.text &&
-                  objective.opponent_ai &&
-                  objective.opponent_ai === taskUpdate.contentId
+                  objective.opponentAIs.includes(taskUpdate.contentId || "1337")
                 ) {
                   const completionOutcome = objective.completionOutcome || "Win";
                   if (completionOutcome === "Any") {

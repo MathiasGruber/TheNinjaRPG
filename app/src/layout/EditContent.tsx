@@ -884,7 +884,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Queries
   const fields = Object.keys(shownTag);
-  const hasAIs = fields.includes("attackerAIs") || fields.includes("opponent_ai");
+  const hasAIs = fields.includes("attackerAIs") || fields.includes("opponentAIs");
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
     enabled: hasAIs,
   });
@@ -898,7 +898,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   });
 
   const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
-    enabled: fields.includes("reward_items") || fields.includes("collect_item_id"),
+    enabled: fields.includes("reward_items") || fields.includes("collectItemIds"),
   });
 
   // Form for handling the specific tag
@@ -982,15 +982,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   const formData: FormEntry<Attribute>[] = attributes
     .filter(
       (value) =>
-        ![
-          "task",
-          "id",
-          "image",
-          "item_name",
-          "opponent_name",
-          "reward",
-          "completed",
-        ].includes(value),
+        !["task", "id", "image", "item_name", "reward", "completed"].includes(value),
     )
     .filter((value) => {
       return (
@@ -1011,19 +1003,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);
-      if ((value as string) === "opponent_ai" && aiData) {
-        return {
-          id: value,
-          values: aiData
-            .sort((a, b) => a.level - b.level)
-            .map((ai) => ({
-              id: ai.userId,
-              name: `lvl ${ai.level}: ${ai.username}`,
-            })),
-          multiple: false,
-          type: "db_values",
-        };
-      } else if ((value as string) === "attackers" && aiData) {
+      if (["attackers", "opponentAIs"].includes(value) && aiData) {
         return {
           id: value,
           values: aiData
@@ -1056,11 +1036,11 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           multiple: true,
           type: "db_values",
         };
-      } else if ((value as string) === "collect_item_id" && itemData) {
+      } else if ((value as string) === "collectItemIds" && itemData) {
         return {
           id: value,
           values: itemData,
-          multiple: false,
+          multiple: true,
           type: "db_values",
         };
       } else if (
