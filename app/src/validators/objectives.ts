@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { DateTimeRegExp } from "@/utils/regex";
-import { UserRanks, LetterRanks, TimeFrames, QuestTypes } from "@/drizzle/constants";
+import {
+  UserRanks,
+  LetterRanks,
+  QuestTypes,
+  RetryQuestDelays,
+} from "@/drizzle/constants";
 
 export const SimpleTasks = [
   "pvp_kills",
@@ -195,15 +200,13 @@ export const QuestValidatorRawSchema = z.object({
   requiredVillage: z.string().min(0).max(30).optional().nullish(),
   prerequisiteQuestId: z.string().min(0).max(191).optional().nullish(),
   tierLevel: z.coerce.number().min(0).max(100).nullable(),
-  timeFrame: z.enum(TimeFrames),
   questType: z.enum(QuestTypes),
   content: z.object({ objectives: z.array(AllObjectives), reward: ObjectiveReward }),
   hidden: z.coerce.boolean(),
+  retryDelay: z.enum(RetryQuestDelays).optional(),
   consecutiveObjectives: z.coerce.boolean(),
-  expiresAt: z
-    .string()
-    .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")
-    .nullable(),
+  endsAt: z.string().regex(DateTimeRegExp, "Must be of format YYYY-MM-DD").nullable(),
+  startsAt: z.string().regex(DateTimeRegExp, "Must be of format YYYY-MM-DD").nullable(),
 });
 export const QuestValidator = QuestValidatorRawSchema.superRefine((val, ctx) => {
   if (["daily", "tier"].includes(val.questType)) {

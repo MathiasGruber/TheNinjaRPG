@@ -511,7 +511,7 @@ export const isAvailableUserQuests = (
     maxAttempts: number;
     maxCompletes: number;
     questType: QuestType;
-    expiresAt?: string | null;
+    endsAt?: string | null;
     requiredVillage: string | null;
     prerequisiteQuestId?: string | null;
     previousAttempts?: number | null;
@@ -527,8 +527,8 @@ export const isAvailableUserQuests = (
   const maxCompletes = questAndUserQuestInfo.maxCompletes;
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
   const expiresCheck =
-    !questAndUserQuestInfo.expiresAt ||
-    new Date(questAndUserQuestInfo.expiresAt) > new Date();
+    !questAndUserQuestInfo.endsAt ||
+    new Date(questAndUserQuestInfo.endsAt) > new Date();
   const villageCheck =
     !questAndUserQuestInfo.requiredVillage ||
     questAndUserQuestInfo.requiredVillage === user.villageId ||

@@ -908,6 +908,7 @@ export const item = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    expireFromStoreAt: date("expireFromStoreAt", { mode: "string" }),
     effects: json("effects").$type<ZodAllTags[]>().notNull(),
     itemType: mysqlEnum("itemType", consts.ItemTypes).notNull(),
     rarity: mysqlEnum("rarity", consts.ItemRarities).notNull(),
@@ -2123,24 +2124,27 @@ export const quest = mysqlTable(
     successDescription: varchar("successDescription", { length: 5000 }),
     questRank: mysqlEnum("questRank", consts.LetterRanks).default("D").notNull(),
     requiredLevel: int("requiredLevel").default(1).notNull(),
-    maxLevel: int("maxLevel").default(100).notNull(),
-    maxAttempts: int("maxAttempts").default(1).notNull(),
-    maxCompletes: int("maxCompletes").default(1).notNull(),
-    requiredVillage: varchar("requiredVillage", { length: 191 }),
     prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),
     tierLevel: int("tierLevel"),
-    timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
     questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
     content: json("content").$type<QuestContentType>().notNull(),
     hidden: boolean("hidden").default(false).notNull(),
     consecutiveObjectives: boolean("consecutiveObjectives").default(true).notNull(),
+    requiredVillage: varchar("requiredVillage", { length: 191 }),
+    maxLevel: int("maxLevel").default(100).notNull(),
+    maxAttempts: int("maxAttempts").default(1).notNull(),
+    maxCompletes: int("maxCompletes").default(1).notNull(),
+    retryDelay: mysqlEnum("retryDelay", consts.RetryQuestDelays)
+      .default("none")
+      .notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    expiresAt: date("expiresAt", { mode: "string" }),
+    endsAt: date("endsAt", { mode: "string" }),
+    startsAt: date("startsAt", { mode: "string" }),
   },
   (table) => {
     return {

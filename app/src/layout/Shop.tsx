@@ -66,7 +66,13 @@ const Shop: React.FC<ShopProps> = (props) => {
       placeholderData: (previousData) => previousData,
     },
   );
-  const allItems = items?.pages.map((page) => page.data).flat();
+  const allItems = items?.pages
+    .map((page) => page.data)
+    .flat()
+    .filter(
+      (item) =>
+        !item.expireFromStoreAt || new Date(item.expireFromStoreAt) > new Date(),
+    );
 
   // Mutations
   const { mutate: purchase, isPending: isPurchasing } = api.item.buy.useMutation({

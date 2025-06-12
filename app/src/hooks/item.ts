@@ -21,7 +21,10 @@ import type { ZodItemType } from "@/libs/combat/types";
  */
 export const useItemEditForm = (data: Item, refetch: () => void) => {
   // Case type
-  const item = { ...data, effects: data.effects };
+  const expireFromStoreAt = data.expireFromStoreAt
+    ? data.expireFromStoreAt.slice(0, 10)
+    : "";
+  const item = { ...data, effects: data.effects, expireFromStoreAt: expireFromStoreAt };
 
   // Form handling
   const form = useForm<ZodItemType>({
@@ -100,6 +103,7 @@ export const useItemEditForm = (data: Item, refetch: () => void) => {
     { id: "isEventItem", type: "boolean" },
     { id: "inShop", type: "boolean" },
     { id: "preventBattleUsage", type: "boolean" },
+    { id: "expireFromStoreAt", type: "date", label: "Remove from store at" },
   ];
 
   return { item, effects, form, formData, setEffects, handleItemSubmit };

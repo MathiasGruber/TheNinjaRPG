@@ -2,7 +2,16 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
-import { secondsFromNow } from "@/utils/time";
+import {
+  secondsFromNow,
+  secondsFromDate,
+  getTimeLeftStr,
+  secondsPassed,
+  getDaysHoursMinutesSeconds,
+  DAY_S,
+  WEEK_S,
+  MONTH_S,
+} from "@/utils/time";
 import { inArray, lte, isNull, sql, asc, gte } from "drizzle-orm";
 import { like, eq, or, and, getTableColumns } from "drizzle-orm";
 import { item, jutsu, badge, bankTransfers, clan } from "@/drizzle/schema";
@@ -78,7 +87,6 @@ export const questsRouter = createTRPCRouter({
             : []),
           ...(input?.questType ? [eq(quest.questType, input.questType)] : []),
           ...(input?.rank ? [eq(quest.questRank, input.rank)] : []),
-          ...(input?.timeframe ? [eq(quest.timeFrame, input.timeframe)] : []),
           ...(input?.village ? [eq(quest.requiredVillage, input.village)] : []),
           ...(input?.userLevel
             ? [
@@ -281,6 +289,8 @@ export const questsRouter = createTRPCRouter({
               eq(quest.questRank, input.rank),
               lte(quest.requiredLevel, input.userLevel),
               gte(quest.maxLevel, input.userLevel),
+              or(isNull(quest.startsAt), gte(quest.startsAt, new Date().toISOString())),
+              or(isNull(quest.endsAt), lte(quest.endsAt, new Date().toISOString())),
               or(
                 isNull(quest.requiredVillage),
                 eq(quest.requiredVillage, input.userVillageId ?? VILLAGE_SYNDICATE_ID),
@@ -380,6 +390,32 @@ export const questsRouter = createTRPCRouter({
         return errorResponse(`Quest is not available for you: ${message}`);
       }
 
+      // Check start and end dates
+      if (questData.startsAt && questData.startsAt > new Date().toISOString()) {
+        return errorResponse(`Quest starts in the future`);
+      }
+      if (questData.endsAt && questData.endsAt < new Date().toISOString()) {
+        return errorResponse(`Quest has ended`);
+      }
+
+      // Check if it's too early wrt. retry-limits
+      if (questData.retryDelay !== "none" && prevAttempt?.endAt) {
+        let retryDate = new Date();
+        const endedDate = prevAttempt.endAt;
+        if (questData.retryDelay === "daily") {
+          retryDate = secondsFromDate(DAY_S, endedDate);
+        } else if (questData.retryDelay === "weekly") {
+          retryDate = secondsFromDate(WEEK_S, endedDate);
+        } else if (questData.retryDelay === "monthly") {
+          retryDate = secondsFromDate(MONTH_S, endedDate);
+        }
+        if (retryDate > new Date()) {
+          const msLeft = -secondsPassed(retryDate) * 1000;
+          const timeLeft = getTimeLeftStr(...getDaysHoursMinutesSeconds(msLeft));
+          return errorResponse(`You must wait ${timeLeft} to retry this quest`);
+        }
+      }
+
       // Check if user is already on this quest
       const isAlreadyOnQuest = user.userQuests?.some(
         (q) => q.questId === questData.id && !q.endAt,
@@ -404,6 +440,9 @@ export const questsRouter = createTRPCRouter({
           );
         }
       } else if (questData.questType === "event") {
+        if (!canAccessStructure(user, "/adminbuilding", sectorVillage)) {
+          return errorResponse("Must be in your allied village to start quest");
+        }
         const current = user.userQuests?.filter(
           (q) => q.quest.questType === "event" && !q.endAt,
         );
@@ -413,15 +452,6 @@ export const questsRouter = createTRPCRouter({
               .map((c) => c.quest.name)
               .join(", ")}. Abandon one to start this quest.`,
           );
-        }
-        if (!canAccessStructure(user, "/adminbuilding", sectorVillage)) {
-          return errorResponse("Must be in your allied village to start quest");
-        }
-        if (
-          prevAttempt &&
-          (prevAttempt.previousAttempts > 1 || prevAttempt.completed)
-        ) {
-          return errorResponse(`You have already attempted this quest`);
         }
       } else if (["mission", "crime"].includes(questData.questType)) {
         if (questData.questRank !== "A") {
@@ -587,7 +617,6 @@ export const questsRouter = createTRPCRouter({
         name: `New Quest - ${id}`,
         image: IMG_AVATAR_DEFAULT,
         description: "",
-        timeFrame: "all_time",
         questType: "mission",
         hidden: true,
         prerequisiteQuestId: "",
@@ -1115,6 +1144,8 @@ export const fetchUncompletedQuests = async (
         lte(quest.requiredLevel, user.level),
         gte(quest.maxLevel, user.level),
         lte(quest.requiredLevel, user.level),
+        or(isNull(quest.startsAt), gte(quest.startsAt, new Date().toISOString())),
+        or(isNull(quest.endsAt), lte(quest.endsAt, new Date().toISOString())),
         ...(availableLetters.length > 0
           ? [inArray(quest.questRank, availableLetters)]
           : [eq(quest.questRank, "D")]),

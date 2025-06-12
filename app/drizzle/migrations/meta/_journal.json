@@ -1576,6 +1576,13 @@
       "when": 1749631531103,
       "tag": "0224_romantic_sunspot",
       "breakpoints": false
+    },
+    {
+      "idx": 225,
+      "version": "5",
+      "when": 1749708480345,
+      "tag": "0225_lean_archangel",
+      "breakpoints": false
     }
   ]
 }

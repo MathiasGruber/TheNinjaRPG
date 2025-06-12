@@ -24,12 +24,11 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { searchQuestSchema } from "@/validators/quest";
 import { Filter } from "lucide-react";
-import { TimeFrames, LetterRanks, QuestTypes } from "@/drizzle/constants";
+import { LetterRanks, QuestTypes } from "@/drizzle/constants";
 import { allObjectiveTasks } from "@/validators/objectives";
 import Toggle from "@/components/control/Toggle";
 import { useUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
-import type { TimeFrame } from "@/drizzle/constants";
 import type { AllObjectiveTask } from "@/validators/objectives";
 import type { LetterRank } from "@/drizzle/constants";
 import type { QuestType } from "@/drizzle/constants";
@@ -46,9 +45,9 @@ const QuestFiltering: React.FC<QuestFilteringProps> = (props) => {
 
   // Destructure the state
   const { name, objectives, questType, hidden } = props.state;
-  const { rank, timeframe, userLevel, village } = props.state;
+  const { rank, userLevel, village } = props.state;
   const { setName, setObjectives, setQuestType, setHidden } = props.state;
-  const { setRank, setTimeframe, setUserLevel, setVillage } = props.state;
+  const { setRank, setUserLevel, setVillage } = props.state;
 
   // Get all villages
   const { data: villages } = api.village.getAllNames.useQuery(undefined);
@@ -169,27 +168,6 @@ const QuestFiltering: React.FC<QuestFilteringProps> = (props) => {
               </SelectContent>
             </Select>
           </div>
-          {/* TIMEFRAME */}
-          <div>
-            <Select onValueChange={(e) => setTimeframe(e as TimeFrame)}>
-              <Label htmlFor="bloodline">Timeframe</Label>
-              <SelectTrigger>
-                <SelectValue placeholder={timeframe} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key={"None"} value="None">
-                  None
-                </SelectItem>
-                <SelectContent>
-                  {TimeFrames.map((frame) => (
-                    <SelectItem key={frame} value={frame}>
-                      {frame}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* USERLEVEL */}
           <div>
@@ -261,7 +239,6 @@ export const getFilter = (state: QuestFilteringState) => {
         : undefined,
     questType: state.questType !== "None" ? state.questType : undefined,
     rank: state.rank !== "None" ? state.rank : undefined,
-    timeframe: state.timeframe !== "None" ? state.timeframe : undefined,
     userLevel: state.userLevel !== undefined ? state.userLevel : undefined,
     village: state.village !== "None" ? state.village : undefined,
     hidden: state.hidden ? state.hidden : undefined,
@@ -276,7 +253,6 @@ export const useFiltering = () => {
   const [objectives, setObjectives] = useState<string[]>([]);
   const [questType, setQuestType] = useState<QuestType | None>("None");
   const [rank, setRank] = useState<LetterRank | None>("None");
-  const [timeframe, setTimeframe] = useState<TimeFrame | None>("None");
   const [userLevel, setUserLevel] = useState<number | undefined>(undefined);
   const [village, setVillage] = useState<string>("None");
   const [hidden, setHidden] = useState<boolean | undefined>(false);
@@ -293,10 +269,8 @@ export const useFiltering = () => {
     setObjectives,
     setQuestType,
     setRank,
-    setTimeframe,
     setUserLevel,
     setVillage,
-    timeframe,
     userLevel,
     village,
   };
