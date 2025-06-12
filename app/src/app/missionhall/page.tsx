@@ -294,7 +294,9 @@ export default function MissionHall() {
                               rank: setting.rank,
                               userLevel: userData.level,
                               userSector: userData.sector,
-                              userVillageId: userData.villageId,
+                              userVillageId: userData.isOutlaw
+                              ? VILLAGE_SYNDICATE_ID
+                              : userData.villageId,
                             });
                           }}
                         >
