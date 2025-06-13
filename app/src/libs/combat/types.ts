@@ -683,7 +683,7 @@ export const StealthTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
   type: z.literal("stealth").default("stealth"),
-  description: msg("Stealth the target, only allowing basic move and heal actions"),
+  description: msg("Stealth the target, only allowing non-damaging jutsu and actions"),
 });
 
 export type StealthTagType = z.infer<typeof StealthTag>;
