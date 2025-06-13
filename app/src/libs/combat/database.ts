@@ -450,6 +450,12 @@ export const updateUser = async (
         ]);
         user.questData = trackers;
       }
+      if (curBattle.battleType === "QUEST") {
+        const { trackers } = getNewTrackers(user, [
+          { task: "random_encounter_wins", increment: 1 },
+        ]);
+        user.questData = trackers;
+      }
     }
     // Update trackers
     const { trackers, notifications } = getNewTrackers(

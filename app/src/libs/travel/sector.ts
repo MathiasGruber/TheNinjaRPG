@@ -79,7 +79,10 @@ export const drawQuest = (info: {
         markerSprite.userData.type = "marker";
         if (objective.task === "move_to_location") {
           markerSprite.material.color.setHex(0xf4e365);
-        } else if (objective.task === "collect_item") {
+        } else if (
+          objective.task === "collect_item" ||
+          objective.task === "deliver_item"
+        ) {
           markerSprite.material.color.setHex(0x6666a3);
         } else if (objective.task === "defeat_opponents") {
           markerSprite.material.color.setHex(0x9c273a);

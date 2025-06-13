@@ -25,7 +25,7 @@ import { callDiscordContent } from "@/libs/discord";
 import { LetterRanks } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { initiateBattle } from "@/routers/combat";
-import { CollectItem } from "@/validators/objectives";
+import { CollectItem, DeliverItem } from "@/validators/objectives";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
@@ -727,10 +727,16 @@ export const questsRouter = createTRPCRouter({
         userQuest?.quest.content.objectives
           .filter(
             (o) =>
-              o.task === "collect_item" && o.delete_on_complete && o.collectItemIds,
+              (o.task === "collect_item" && o.delete_on_complete && o.collectItemIds) ||
+              (o.task === "deliver_item" && o.delete_on_complete && o.deliverItemIds),
           )
-          .map((o) => CollectItem.parse(o))
-          .map((o) => o.collectItemIds)
+          .map((o) =>
+            o.task === "collect_item"
+              ? CollectItem.parse(o).collectItemIds
+              : o.task === "deliver_item"
+                ? DeliverItem.parse(o).deliverItemIds
+                : [],
+          )
           .flat() ?? [];
 
       // New tier quest
@@ -810,23 +816,38 @@ export const questsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx }) => {
       // Fetch
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
+      const [{ user }, useritems] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchUserItems(ctx.drizzle, ctx.userId),
+      ]);
       // Guard
       if (!user) {
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
       // Get updated quest information
-      const { trackers, notifications, consequences } = getNewTrackers(user, [
-        { task: "move_to_location" },
-        { task: "collect_item" },
-        { task: "defeat_opponents" },
-      ]);
+      const { trackers, notifications, consequences } = getNewTrackers(
+        { ...user, useritems },
+        [
+          { task: "move_to_location" },
+          { task: "collect_item" },
+          { task: "deliver_item" },
+          { task: "defeat_opponents" },
+        ],
+      );
       user.questData = trackers;
-      // Items collected & opponents to attack
-      const collected = consequences.filter((c) => c.type === "item");
+      // Items collected
+      const collected = consequences.filter((c) => c.type === "add_item");
+      // Items removed
+      const removed = consequences.filter((c) => c.type === "remove_item");
+      const removedUserItemIds = removed
+        .map((c) => c.ids)
+        .flat()
+        .map((id) => useritems.find((ui) => ui.itemId === id)?.id)
+        .filter(Boolean) as string[];
+      // Opponents to attack
       let opponent = consequences.find((c) => c.type === "combat");
       // If no opponent set, check if any objectives have attackers set
       const activeObjectives = getActiveObjectives(user);
@@ -880,6 +901,14 @@ export const questsRouter = createTRPCRouter({
                         }) as const,
                     ),
                   ),
+                ]
+              : []),
+            // Update removed items
+            ...(removedUserItemIds.length > 0
+              ? [
+                  ctx.drizzle
+                    .delete(userItem)
+                    .where(inArray(userItem.id, removedUserItemIds)),
                 ]
               : []),
             // Initiate battle if needed

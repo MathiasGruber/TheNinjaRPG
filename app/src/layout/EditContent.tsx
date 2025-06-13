@@ -898,7 +898,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   });
 
   const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
-    enabled: fields.includes("reward_items") || fields.includes("collectItemIds"),
+    enabled:
+      fields.includes("reward_items") ||
+      fields.includes("collectItemIds") ||
+      fields.includes("deliverItemIds"),
   });
 
   // Form for handling the specific tag
@@ -1036,7 +1039,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           multiple: true,
           type: "db_values",
         };
-      } else if ((value as string) === "collectItemIds" && itemData) {
+      } else if (["collectItemIds", "deliverItemIds"].includes(value) && itemData) {
         return {
           id: value,
           values: itemData,

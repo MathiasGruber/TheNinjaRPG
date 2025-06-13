@@ -786,6 +786,8 @@ export const IMG_REGISTRATIN_STEP8 =
 export const IMG_REGISTRATIN_STEP9 =
   "https://utfs.io/f/Hzww9EQvYURJnjHXr3mojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
 
+export const IMG_BADGE_RANDOM_ENCOUNTER_WINS =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJqyp2N4dkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
 export const IMG_BADGE_PVPKILLS =
   "https://utfs.io/f/Hzww9EQvYURJyPU0OdukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
 export const IMG_BADGE_ARENAKILLS =

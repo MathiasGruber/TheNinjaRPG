@@ -32,12 +32,14 @@ export const SimpleTasks = [
   "jutsus_mastered",
   "user_level",
   "reputation_points",
+  "random_encounter_wins",
   //"students_trained",
 ] as const;
 
 export const LocationTasks = [
   "move_to_location",
   "collect_item",
+  "deliver_item",
   "defeat_opponents",
 ] as const;
 export type LocationTasksType = (typeof LocationTasks)[number];
@@ -142,6 +144,16 @@ export const CollectItem = z.object({
 });
 export type CollectItemType = z.infer<typeof CollectItem>;
 
+export const DeliverItem = z.object({
+  ...baseObjectiveFields,
+  task: z.literal("deliver_item").default("deliver_item"),
+  item_name: z.string().min(3).default("Secret scroll"),
+  deliverItemIds: z.array(z.string()).default([]),
+  delete_on_complete: z.coerce.boolean().default(true),
+  ...complexObjectiveFields,
+});
+export type DeliverItemType = z.infer<typeof DeliverItem>;
+
 export const DefeatOpponents = z.object({
   ...baseObjectiveFields,
   task: z.literal("defeat_opponents").default("defeat_opponents"),
@@ -159,6 +171,7 @@ export const AllObjectives = z.union([
   SimpleObjective,
   MoveToObjective,
   CollectItem,
+  DeliverItem,
   DefeatOpponents,
 ]);
 export type AllObjectivesType = z.infer<typeof AllObjectives>;
@@ -226,6 +239,8 @@ export const getObjectiveSchema = (type: string) => {
     return MoveToObjective;
   } else if (type === "collect_item") {
     return CollectItem;
+  } else if (type === "deliver_item") {
+    return DeliverItem;
   } else if (type === "defeat_opponents") {
     return DefeatOpponents;
   }
@@ -236,5 +251,6 @@ export const allObjectiveSchema = z.union([
   SimpleObjective,
   MoveToObjective,
   CollectItem,
+  DeliverItem,
   DefeatOpponents,
 ]);

@@ -22,7 +22,7 @@ import { SECTOR_WIDTH, SECTOR_HEIGHT } from "@/libs/travel/constants";
 import { getUnique } from "@/utils/grouping";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
-import type { Quest, UserData } from "@/drizzle/schema";
+import type { Quest, UserData, UserItem } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
 /**
@@ -161,7 +161,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
  * @param notifications - If provided, is used to set notifications
  */
 export const getNewTrackers = (
-  user: NonNullable<UserWithRelations>,
+  user: NonNullable<UserWithRelations> & { useritems?: UserItem[] },
   tasks: {
     task: AllObjectiveTask | "any";
     increment?: number;
@@ -175,7 +175,7 @@ export const getNewTrackers = (
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
   const consequences: {
-    type: "item" | "combat";
+    type: "add_item" | "remove_item" | "combat";
     ids: string[];
     scaleStats?: boolean;
     scaleGains?: number;
@@ -294,7 +294,35 @@ export const getNewTrackers = (
                   objective.collectItemIds
                 ) {
                   notifications.push(`Got ${objective.item_name} for ${quest.name}.`);
-                  consequences.push({ type: "item", ids: objective.collectItemIds });
+                  consequences.push({
+                    type: "add_item",
+                    ids: objective.collectItemIds,
+                  });
+                  status.done = true;
+                } else if (
+                  task === "deliver_item" &&
+                  "item_name" in objective &&
+                  "deliverItemIds" in objective &&
+                  objective.deliverItemIds
+                ) {
+                  // Verify user has these items
+                  const check = objective.deliverItemIds.every((id) =>
+                    user.useritems?.some((ui) => ui.itemId === id),
+                  );
+                  if (!check) {
+                    notifications.push(
+                      `You don't have ${objective.item_name} to deliver for ${quest.name}.`,
+                    );
+                    return;
+                  }
+                  // Remove items & complete objective
+                  notifications.push(
+                    `Delivered ${objective.item_name} for ${quest.name}.`,
+                  );
+                  consequences.push({
+                    type: "remove_item",
+                    ids: objective.deliverItemIds,
+                  });
                   status.done = true;
                 }
                 if (task === "defeat_opponents" && "opponentAIs" in objective) {

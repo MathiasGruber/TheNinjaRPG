@@ -20,6 +20,7 @@ import {
   IMG_BADGE_MOVE_TO_LOCATION,
   IMG_BADGE_COLLECT_ITEM,
   IMG_BADGE_DEFEAT_OPPONENTS,
+  IMG_BADGE_RANDOM_ENCOUNTER_WINS,
 } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType } from "@/validators/objectives";
@@ -67,8 +68,12 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
       return { image: IMG_BADGE_MOVE_TO_LOCATION, title: "Travel" };
     case "collect_item":
       return { image: IMG_BADGE_COLLECT_ITEM, title: "Collect Item" };
+    case "deliver_item":
+      return { image: IMG_BADGE_COLLECT_ITEM, title: "Deliver Item" };
     case "defeat_opponents":
       return { image: IMG_BADGE_DEFEAT_OPPONENTS, title: "Defeat" };
+    case "random_encounter_wins":
+      return { image: IMG_BADGE_RANDOM_ENCOUNTER_WINS, title: "Random Encounter Wins" };
     default:
       return { image: "", title: "???" };
   }

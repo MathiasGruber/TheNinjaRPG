@@ -76,6 +76,12 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
             objective.image = subset?.[0]?.image || IMG_AVATAR_DEFAULT;
             objective.item_name = subset.map((i) => i.name).join(", ");
           }
+        } else if (objective.task === "deliver_item") {
+          const subset = items?.filter((i) => objective.deliverItemIds.includes(i.id));
+          if (subset && subset.length > 0) {
+            objective.image = subset?.[0]?.image || IMG_AVATAR_DEFAULT;
+            objective.item_name = subset.map((i) => i.name).join(", ");
+          }
         } else if (objective.task === "defeat_opponents") {
           const ai = ais?.find((u) => objective.opponentAIs.includes(u.userId));
           if (ai?.avatar) {
