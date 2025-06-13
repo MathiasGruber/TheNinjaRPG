@@ -1012,7 +1012,7 @@ export const damageUser = (
   // Store the raw damage before any calculations
   const rawDamage = damageCalc(effect, origin, target, config);
   // Calculate the final damage with modifiers
-  const damage = rawDamage * dmgModifier * (1 - effect.barrierAbsorb);
+  const damage = rawDamage * dmgModifier * (1 - (effect.barrierAbsorb ?? 0));
   // Find out if target has any weakness tag related to this damage effect
   // const weaknessTags =
   // Fetch types to show to the user
