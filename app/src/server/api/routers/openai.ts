@@ -11,6 +11,7 @@ import { txt2imgGPT, img2model } from "@/libs/replicate";
 import { historicalAvatar } from "@/drizzle/schema";
 import { and, gte, sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
+import { IMG_ORIENTATIONS } from "@/drizzle/constants";
 
 export const openaiRouter = createTRPCRouter({
   create3dModel: protectedProcedure
@@ -36,6 +37,8 @@ export const openaiRouter = createTRPCRouter({
         previousImg: z.string().optional(),
         removeBg: z.boolean(),
         relationId: z.string(),
+        size: z.enum(IMG_ORIENTATIONS),
+        maxDim: z.number(),
       }),
     )
     .output(baseServerResponse.extend({ url: z.string().url().optional().nullable() }))
@@ -68,8 +71,9 @@ export const openaiRouter = createTRPCRouter({
         previousImg: input.previousImg,
         removeBg: input.removeBg,
         userId: ctx.userId,
-        width: 256,
-        height: 256,
+        width: input.maxDim,
+        height: input.maxDim,
+        size: input.size,
       });
       // Store for future reference
       if (resultUrl) {

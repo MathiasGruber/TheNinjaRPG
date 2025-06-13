@@ -21,7 +21,7 @@ import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { HistoricalAiAvatar } from "@/app/profile/edit/page";
-import type { ContentType } from "@/drizzle/constants";
+import type { ContentType, IMG_ORIENTATION } from "@/drizzle/constants";
 
 interface ContentImageSelectorProps {
   label: string;
@@ -31,6 +31,8 @@ interface ContentImageSelectorProps {
   allowImageUpload?: boolean;
   type: ContentType;
   onUploadComplete: (url: string) => void;
+  size: IMG_ORIENTATION;
+  maxDim: number;
 }
 
 const promptFormSchema = z.object({
@@ -46,6 +48,7 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
   const utils = api.useUtils();
   const { label, imageUrl, id, prompt, allowImageUpload, type } = props;
   const { onUploadComplete } = props;
+  const { size, maxDim } = props;
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,6 +85,8 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
         prompt: data.userPrompt,
         removeBg: ["item", "ai"].includes(props.type ?? ""),
         relationId: id,
+        size: size,
+        maxDim: maxDim,
       });
     }
   };
@@ -101,6 +106,8 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
         previousImg: imageUrl,
         removeBg: ["item", "ai"].includes(props.type ?? ""),
         relationId: id,
+        size: size,
+        maxDim: maxDim,
       });
     }
   };
@@ -118,6 +125,7 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
               alt={`${id}-avatar`}
               size={100}
               hover_effect={true}
+              className={size === "square" ? "aspect-square" : "aspect-auto"}
               priority
             />
             {allowImageUpload && (
@@ -145,6 +153,7 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
                   alt={`${id}-avatar`}
                   size={300}
                   hover_effect={false}
+                  className={size === "square" ? "aspect-square" : "aspect-auto"}
                   priority
                 />
 
@@ -258,6 +267,7 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
               relationId={id}
               contentType={type}
               onUpdate={onUploadComplete}
+              size={size}
             />
           </DialogContent>
         )}

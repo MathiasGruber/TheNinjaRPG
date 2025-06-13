@@ -22,6 +22,7 @@ import {
 import { MeshoptEncoder } from "meshoptimizer";
 import fs from "fs";
 import type { FileOutput } from "replicate";
+import type { IMG_ORIENTATION } from "@/drizzle/constants";
 
 /**
  * Compress a gltf file
@@ -201,6 +202,7 @@ export const txt2imgGPT = async (config: {
   userId: string;
   width: number;
   height: number;
+  size: IMG_ORIENTATION;
 }) => {
   const client = new OpenAI();
 
@@ -218,7 +220,12 @@ export const txt2imgGPT = async (config: {
   const commonConfig = {
     background: config.removeBg ? "transparent" : "auto",
     model: "gpt-image-1",
-    size: "1024x1024",
+    size:
+      config.size === "square"
+        ? "1024x1024"
+        : config.size === "portrait"
+          ? "1024x1536"
+          : "1536x1024",
     quality: "high",
     user: config.userId,
     prompt: inputImage
@@ -300,7 +307,7 @@ export const uploadImageFromOpenAI = async (config: {
     img.data.map(async (data, i) => {
       const blob = Buffer.from(data.b64_json!, "base64");
       const resultBuffer = await sharp(blob)
-        .resize(width, height)
+        .resize({ width, height, fit: "inside" })
         .webp({ quality: 70 })
         .toBuffer();
       return new File([resultBuffer], `${prefix}-${idx}-${i}.webp`);

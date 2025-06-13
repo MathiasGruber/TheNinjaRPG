@@ -41,8 +41,8 @@ export const gameAssetRouter = createTRPCRouter({
       const results = await ctx.drizzle
         .select({ ...getTableColumns(gameAsset) })
         .from(gameAsset)
-        .innerJoin(gameAssetTag, eq(gameAsset.id, gameAssetTag.assetId))
-        .innerJoin(contentTag, eq(gameAssetTag.tagId, contentTag.id))
+        .leftJoin(gameAssetTag, eq(gameAsset.id, gameAssetTag.assetId))
+        .leftJoin(contentTag, eq(gameAssetTag.tagId, contentTag.id))
         .where(
           and(
             ...(input.name ? [like(gameAsset.name, `%${input.name}%`)] : []),

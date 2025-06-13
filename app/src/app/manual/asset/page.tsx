@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import { Button } from "@/components/ui/button";
 import { api } from "@/app/_trpc/client";
 import { FilePlus } from "lucide-react";
@@ -112,8 +112,9 @@ export default function ManualAssets() {
       />
       {isPending && <Loader explanation="Loading data" />}
       {isOpen && userData && asset && (
-        <Modal
+        <Modal2
           title="Asset Details"
+          isOpen={isOpen}
           setIsOpen={setIsOpen}
           isValid={false}
           className="max-w-3xl"
@@ -133,7 +134,7 @@ export default function ManualAssets() {
             </div>
           )}
           {isPending && <Loader explanation={`Processing ${asset.name}`} />}
-        </Modal>
+        </Modal2>
       )}
     </ContentBox>
   );

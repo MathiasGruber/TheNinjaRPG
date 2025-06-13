@@ -48,18 +48,53 @@ export const useAssetEditForm = (asset: GameAsset, refetch: () => void) => {
     control: form.control,
     name: "image",
   });
+  const type = useWatch({
+    control: form.control,
+    name: "type",
+  });
+
+  // Start with empty array
+  const formData: FormEntry<keyof ZodGameAssetType>[] = [];
+
+  // For scene backgrounds
+  if (type === "SCENE_BACKGROUND") {
+    formData.push({
+      id: "image",
+      type: "avatar",
+      href: imageUrl,
+      size: "landscape",
+      maxDim: 512,
+    });
+  } else if (type === "SCENE_CHARACTER") {
+    formData.push({
+      id: "image",
+      type: "avatar",
+      href: imageUrl,
+      size: "portrait",
+      maxDim: 512,
+    });
+  } else {
+    formData.push({ id: "image", type: "avatar", href: imageUrl, size: "square" });
+  }
 
   // Object for form values
-  const formData: FormEntry<keyof ZodGameAssetType>[] = [
+  formData.push(
     { id: "name", label: "Asset Name", type: "text" },
-    { id: "image", type: "avatar", href: imageUrl },
-    { id: "frames", type: "number", label: "Number of Frames" },
-    { id: "speed", type: "number", label: "Speed of Animation" },
     { id: "licenseDetails", type: "text", label: "License Details" },
     { id: "type", type: "str_array", values: GameAssetTypes },
-    { id: "onInitialBattleField", type: "boolean" },
     { id: "hidden", type: "boolean" },
-  ];
+  );
+
+  // For animations
+  if (type === "ANIMATION") {
+    formData.push({ id: "frames", type: "number", label: "Number of Frames" });
+    formData.push({ id: "speed", type: "number", label: "Speed of Animation" });
+  }
+
+  // For static
+  if (type === "STATIC") {
+    formData.push({ id: "onInitialBattleField", type: "boolean" });
+  }
 
   return { asset, form, formData, handleAssetSubmit };
 };

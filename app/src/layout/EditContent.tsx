@@ -40,7 +40,7 @@ import type { AllObjectivesType } from "@/validators/objectives";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { FieldValues } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
-import type { ContentType } from "@/drizzle/constants";
+import type { ContentType, IMG_ORIENTATION } from "@/drizzle/constants";
 
 export type FormDbValue = { id: string; name: string };
 export type FormEntry<K> = {
@@ -57,7 +57,7 @@ export type FormEntry<K> = {
   | { type: "boolean" }
   | { type: "animation_array"; values: readonly string[] }
   | { type: "statics_array"; values: readonly string[] }
-  | { type: "avatar"; href?: string | null }
+  | { type: "avatar"; href?: string | null; size?: IMG_ORIENTATION; maxDim?: number }
   | { type: "avatar3d"; modelUrl?: string | null; imgUrl?: string | null }
   | {
       type: "str_array";
@@ -506,6 +506,8 @@ export const EditContent = <
                           shouldDirty: true,
                         });
                       }}
+                      size={formEntry.size ?? "square"}
+                      maxDim={formEntry.maxDim ?? 256}
                     />
                   )}
                 {/* {type === "avatar3d" &&

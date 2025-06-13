@@ -9,8 +9,17 @@ export const ACTIVE_VOTING_SITES = [
   "topWebGames",
 ] as const;
 
-export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
+export const GameAssetTypes = [
+  "STATIC",
+  "ANIMATION",
+  "SCENE_BACKGROUND",
+  "SCENE_CHARACTER",
+] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
+
+// Image orientations
+export const IMG_ORIENTATIONS = ["square", "portrait", "landscape"] as const;
+export type IMG_ORIENTATION = (typeof IMG_ORIENTATIONS)[number];
 
 // How many seconds to regen a given regen value
 export const REGEN_SECONDS = 30;

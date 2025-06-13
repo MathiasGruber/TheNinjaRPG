@@ -76,7 +76,7 @@ import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import type { Village } from "@/drizzle/schema";
-import type { ContentType } from "@/drizzle/constants";
+import type { ContentType, IMG_ORIENTATION } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import {
   AiRule,
@@ -764,12 +764,14 @@ interface HistoricalAiAvatarProps {
   relationId?: string;
   contentType: ContentType;
   onUpdate?: (url: string) => void;
+  size?: IMG_ORIENTATION;
 }
 
 export const HistoricalAiAvatar: React.FC<HistoricalAiAvatarProps> = (props) => {
   // Queries & mutations
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const { data: userData } = useRequiredUserData();
+  const { size = "square" } = props;
 
   // tRPC utility
   const utils = api.useUtils();
@@ -841,6 +843,7 @@ export const HistoricalAiAvatar: React.FC<HistoricalAiAvatarProps> = (props) => 
                 alt={userData?.username ?? "User Avatar"}
                 hover_effect={true}
                 size={200}
+                className={size === "square" ? "aspect-square" : "aspect-auto"}
               />
               <Confirm2
                 title="Confirm Deletion"
