@@ -40,6 +40,7 @@ import { moderateContent } from "@/libs/moderator";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
+import type { UserData } from "@/drizzle/schema";
 
 const openai = new OpenAI();
 
@@ -198,6 +199,8 @@ export const commentsRouter = createTRPCRouter({
       if (!thread) {
         return errorResponse("Thread not found");
       }
+      const moderationResult = await checkStaffContentLanguage(user, input.comment);
+      if (!moderationResult.success) return moderationResult;
       // Mutate
       const sanitized = sanitize(input.comment);
       const createdId = nanoid();
@@ -240,6 +243,8 @@ export const commentsRouter = createTRPCRouter({
       if (user.isBanned) return errorResponse("You are banned");
       if (user.isSilenced) return errorResponse("You are silenced");
       if (!comment) return errorResponse("Comment not found");
+      const moderationResult = await checkStaffContentLanguage(user, input.comment);
+      if (!moderationResult.success) return moderationResult;
       // Mutate
       const postId = input.object_id;
       const sanitized = sanitize(input.comment);
@@ -599,21 +604,8 @@ export const commentsRouter = createTRPCRouter({
       const pusher = getServerPusher();
 
       // For staff accounts, verify the language is appropriate
-      if (user.staffAccount || user.role === "USER") {
-        const moderation = await openai.moderations.create({
-          model: "omni-moderation-latest",
-          input: input.comment,
-        });
-        const result = moderation.results?.[0];
-        if (result?.flagged) {
-          const flaggedCategories = Object.entries(result.categories)
-            .filter(([_, value]) => value)
-            .map(([key]) => key);
-          return errorResponse(
-            `Your comment was flagged for inappropriate language. Details: ${flaggedCategories.join(", ")}`,
-          );
-        }
-      }
+      const moderationResult = await checkStaffContentLanguage(user, input.comment);
+      if (!moderationResult.success) return moderationResult;
 
       // Create the content, santizied & with added quotes
       let content = input.comment;
@@ -767,6 +759,8 @@ export const commentsRouter = createTRPCRouter({
       if (user.isBanned) return errorResponse("You are banned");
       if (user.isSilenced) return errorResponse("You are silenced");
       if (!comment) return errorResponse("Comment not found");
+      const moderationResult = await checkStaffContentLanguage(user, input.comment);
+      if (!moderationResult.success) return moderationResult;
       // Mutate
       const commentId = input.object_id;
       const sanitized = sanitize(input.comment);
@@ -1009,4 +1003,29 @@ export const fetchUsersToNotify = async (
   }
 
   return notifiedUserIds;
+};
+
+/**
+ * Moderates the content of a comment
+ * @param user - The user who is posting the comment
+ * @param content - The content of the comment
+ * @returns An error response if the content is flagged, otherwise undefined
+ */
+const checkStaffContentLanguage = async (user: UserData, content: string) => {
+  if (user.staffAccount || user.role === "USER") {
+    const moderation = await openai.moderations.create({
+      model: "omni-moderation-latest",
+      input: content,
+    });
+    const result = moderation.results?.[0];
+    if (result?.flagged) {
+      const flaggedCategories = Object.entries(result.categories)
+        .filter(([_, value]) => value)
+        .map(([key]) => key);
+      return errorResponse(
+        `Your comment was flagged for inappropriate language and will not be shown to others. Details: ${flaggedCategories.join(", ")}`,
+      );
+    }
+  }
+  return { success: true, message: "Comment passed moderation" };
 };

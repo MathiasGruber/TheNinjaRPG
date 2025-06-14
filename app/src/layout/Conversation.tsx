@@ -305,11 +305,6 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     // Get previous data
     if (!userData || !conversation) return { old };
 
-    // For staff accounts, verify the language is appropriate, so no optimistic update
-    if (userData.staffAccount || userData.role === "USER") {
-      return { old };
-    }
-
     // If we're in search mode and this is a new message, don't show it unless it matches the search
     if (searchQuery && "comment" in newMessage) {
       if (!newMessage.comment.toLowerCase().includes(searchQuery.toLowerCase())) {
