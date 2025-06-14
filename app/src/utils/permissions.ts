@@ -71,6 +71,10 @@ export const canUnstuckVillage = (role: UserRole) => {
   return role !== "USER";
 };
 
+export const canSwapBloodline = (role: UserRole) => {
+  return !!role; // Allow all roles to swap bloodline
+};
+
 export const canSeeSecretData = (role: UserRole) => {
   return [
     "JR_MODERATOR",

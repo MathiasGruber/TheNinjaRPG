@@ -67,6 +67,7 @@ import { updateUserPreferencesSchema } from "@/validators/user";
 import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
+import { canSwapBloodline } from "@/utils/permissions";
 import { canSwapVillage, canEditPublicUser } from "@/utils/permissions";
 import { canClearSectors } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
@@ -75,7 +76,7 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
-import type { Village } from "@/drizzle/schema";
+import type { Bloodline, Village } from "@/drizzle/schema";
 import type { ContentType, IMG_ORIENTATION } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import {
@@ -256,6 +257,17 @@ export default function EditProfile() {
         >
           <BattleSettingsEdit userId={userData.userId} />
         </Accordion>
+        {canSwapBloodline(userData.role) && (
+          <Accordion
+            title="Swap Bloodline"
+            selectedTitle={activeElement}
+            unselectedSubtitle="Change your bloodline of choice"
+            selectedSubtitle={`You can swap your bloodline to any bloodline your character has previously possessed for ${COST_SWAP_BLOODLINE} reputation points. You have ${userData.reputationPoints} reputation points.`}
+            onClick={setActiveElement}
+          >
+            <SwapBloodline />
+          </Accordion>
+        )}
         {canSwapVillage(userData.role) && (
           <Accordion
             title="Swap Village"
@@ -959,6 +971,105 @@ const SwapVillage: React.FC = () => {
         >
           {!isSwapping && <ItemWithEffects item={village} key={village.id} />}
           {isSwapping && <Loader explanation={`Purchasing ${village.name}`} />}
+        </Modal2>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Swap bloodline
+ */
+const SwapBloodline: React.FC = () => {
+  // State
+  const { data: userData } = useRequiredUserData();
+  const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const utils = api.useUtils();
+
+  // Fetch data
+  const { data: bloodlines, isFetching } =
+    api.bloodline.getUserHistoricBloodlines.useQuery(undefined);
+
+  // Mutations
+  const { mutate: swap, isPending: isSwapping } =
+    api.bloodline.swapBloodline.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        await utils.profile.getUser.invalidate();
+      },
+      onSettled: () => {
+        document.body.style.cursor = "default";
+        setIsOpen(false);
+      },
+    });
+
+  // Only show if we have userData
+  if (!userData) {
+    return <Loader explanation="Loading profile page..." />;
+  }
+
+  // Derived data
+  const isDisabled = userData.bloodline ? false : true;
+  const canAfford = userData && userData.reputationPoints >= COST_SWAP_BLOODLINE;
+
+  // Show component
+  return (
+    <div className="mt-2">
+      {!isDisabled && !isFetching && bloodlines && (
+        <ActionSelector
+          items={bloodlines}
+          showBgColor={false}
+          showLabels={true}
+          onClick={(id) => {
+            if (id == bloodline?.id) {
+              setBloodline(undefined);
+              setIsOpen(false);
+            } else {
+              setBloodline(bloodlines?.find((b) => b.id === id));
+              setIsOpen(true);
+            }
+          }}
+        />
+      )}
+      {isFetching && <Loader explanation="Loading bloodlines" />}
+      {isDisabled && (
+        <div>
+          You do not have a bloodline currently. Go{" "}
+          <Link className="font-bold" href="/travel">
+            travel
+          </Link>{" "}
+          to the wake island location, and get one in the science building.
+        </div>
+      )}
+      {isOpen && userData && bloodline && (
+        <Modal2
+          title="Confirm Purchase"
+          proceed_label={
+            isSwapping
+              ? undefined
+              : canAfford
+                ? `Swap for ${COST_SWAP_BLOODLINE} reps`
+                : `Need ${COST_SWAP_BLOODLINE - userData.reputationPoints} reps`
+          }
+          isOpen={isOpen}
+          setIsOpen={setIsOpen}
+          isValid={false}
+          onAccept={() => {
+            if (canAfford) {
+              swap({ bloodlineId: bloodline.id });
+            } else {
+              setIsOpen(false);
+            }
+          }}
+          confirmClassName={
+            canAfford
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-red-600 text-white hover:bg-red-700"
+          }
+        >
+          {!isSwapping && <ItemWithEffects item={bloodline} key={bloodline.id} />}
+          {isSwapping && <Loader explanation={`Purchasing ${bloodline.name}`} />}
         </Modal2>
       )}
     </div>

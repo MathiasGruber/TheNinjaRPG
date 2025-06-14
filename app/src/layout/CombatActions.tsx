@@ -17,25 +17,29 @@ import type { ZodAllTags } from "@/libs/combat/types";
 interface ActionSelectorProps {
   className?: string;
   gridClassNameOverwrite?: string;
-  items?: {
-    id: string;
-    name: string;
-    image: string;
-    warning?: string;
-    rarity?: ItemRarity;
-    type?: "jutsu" | "item" | "basic" | "village" | "asset";
-    effects?: ZodAllTags[];
-    highlight?: boolean;
-    hidden?: boolean | number;
-    cooldown?: number;
-    frames?: number;
-    speed?: number;
-    lastUsedRound?: number;
-  }[];
-  counts?: {
-    id: string;
-    quantity: number;
-  }[];
+  items?:
+    | {
+        id: string;
+        name: string;
+        image: string;
+        warning?: string;
+        rarity?: ItemRarity;
+        type?: "jutsu" | "item" | "basic" | "village" | "asset";
+        effects?: ZodAllTags[];
+        highlight?: boolean;
+        hidden?: boolean | number;
+        cooldown?: number;
+        frames?: number;
+        speed?: number;
+        lastUsedRound?: number;
+      }[]
+    | null;
+  counts?:
+    | {
+        id: string;
+        quantity: number;
+      }[]
+    | null;
   currentRound?: number;
   roundFull?: boolean;
   hideBorder?: boolean;
