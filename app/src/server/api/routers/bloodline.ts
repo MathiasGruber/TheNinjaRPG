@@ -154,6 +154,9 @@ export const bloodlineRouter = createTRPCRouter({
       // Guards
       if (!user) return errorResponse("User does not exist");
       if (!line) return errorResponse("Bloodline does not exist");
+      if (user.bloodlineId === line.id) {
+        return errorResponse("You already have this bloodline");
+      }
       if (COST_SWAP_BLOODLINE > user.reputationPoints) {
         return errorResponse("Not enough reputation points");
       }
@@ -422,10 +425,13 @@ export const bloodlineRouter = createTRPCRouter({
       if (!randomBloodline) return errorResponse("No bloodlines in the pool?");
       // Update roll & user if successfull
       await Promise.all([
-        ctx.drizzle
-          .update(userData)
-          .set({ bloodlineId: randomBloodline.id })
-          .where(eq(userData.userId, ctx.userId)),
+        updateBloodline(
+          ctx.drizzle,
+          user,
+          randomBloodline,
+          0,
+          `Pity roll for ${input.rank}: ${randomBloodline.name}`,
+        ),
         ctx.drizzle
           .update(bloodlineRolls)
           .set({
@@ -433,6 +439,14 @@ export const bloodlineRouter = createTRPCRouter({
             updatedAt: new Date(),
           })
           .where(eq(bloodlineRolls.id, prevRoll.id)),
+        ctx.drizzle.insert(bloodlineRolls).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          type: "PITY",
+          bloodlineId: randomBloodline.id,
+          goal: input.rank,
+          used: 1,
+        }),
       ]);
       return {
         success: true,
@@ -440,24 +454,35 @@ export const bloodlineRouter = createTRPCRouter({
       };
     }),
   // Remove a bloodline from session user
-  removeBloodline: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await fetchUser(ctx.drizzle, ctx.userId);
-    const roll = await fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId);
-    if (!user.bloodlineId) {
-      throw serverError("PRECONDITION_FAILED", "You do not have a bloodline");
-    }
-    if (user.bloodlineId === roll?.bloodlineId) {
-      return await ctx.drizzle
-        .update(userData)
-        .set({ bloodlineId: null })
-        .where(eq(userData.userId, ctx.userId));
-    } else {
-      if (user.reputationPoints < REMOVAL_COST) {
-        throw serverError("FORBIDDEN", "You do not have enough reputation points");
+  removeBloodline: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const [user, roll] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId),
+      ]);
+      // Guard
+      if (!user.bloodlineId) {
+        throw serverError("PRECONDITION_FAILED", "You do not have a bloodline");
       }
-      await updateBloodline(ctx.drizzle, user, null, REMOVAL_COST, "Bloodline Removed");
-    }
-  }),
+      if (user.bloodlineId === roll?.bloodlineId) {
+        await updateBloodline(ctx.drizzle, user, null, 0, "Bloodline Removed");
+        return { success: true, message: "Bloodline removed for free" };
+      } else {
+        if (user.reputationPoints < REMOVAL_COST) {
+          throw serverError("FORBIDDEN", "You do not have enough reputation points");
+        }
+        await updateBloodline(
+          ctx.drizzle,
+          user,
+          null,
+          REMOVAL_COST,
+          "Bloodline Removed",
+        );
+        return { success: true, message: `Bloodline removed for ${REMOVAL_COST} reps` };
+      }
+    }),
   // Purchase a bloodline for session user
   purchaseBloodline: protectedProcedure
     .input(z.object({ bloodlineId: z.string() }))
@@ -480,13 +505,23 @@ export const bloodlineRouter = createTRPCRouter({
         return errorResponse("Bloodline does not belong to your village");
       }
       // Update
-      await ctx.drizzle
-        .update(userData)
-        .set({
-          reputationPoints: user.reputationPoints - BLOODLINE_COST[line.rank],
+      await Promise.all([
+        updateBloodline(
+          ctx.drizzle,
+          user,
+          line,
+          BLOODLINE_COST[line.rank],
+          `Bloodline Purchased: ${line.name}`,
+        ),
+        ctx.drizzle.insert(bloodlineRolls).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          type: "DIRECT",
           bloodlineId: line.id,
-        })
-        .where(eq(userData.userId, ctx.userId));
+          goal: line.rank,
+          used: 1,
+        }),
+      ]);
       return { success: true, message: "Bloodline purchased" };
     }),
 });
@@ -532,22 +567,15 @@ export const updateBloodline = async (
         ]
       : []),
     // Update user to remove bloodline
-    ...(bloodline
-      ? [
-          client
-            .update(userData)
-            .set({
-              bloodlineId: bloodline?.id,
-              reputationPoints: user.reputationPoints - repCost,
-            })
-            .where(
-              and(
-                eq(userData.userId, user.userId),
-                gte(userData.reputationPoints, repCost),
-              ),
-            ),
-        ]
-      : []),
+    client
+      .update(userData)
+      .set({
+        bloodlineId: bloodline?.id || null,
+        reputationPoints: user.reputationPoints - repCost,
+      })
+      .where(
+        and(eq(userData.userId, user.userId), gte(userData.reputationPoints, repCost)),
+      ),
     // Create a log entry for this action
     client.insert(actionLog).values({
       id: nanoid(),

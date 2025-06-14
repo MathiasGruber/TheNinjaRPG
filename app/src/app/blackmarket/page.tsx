@@ -173,7 +173,7 @@ const PityBloodlineRoll: React.FC<{ userData: NonNullable<UserWithRelations> }> 
           ) : (
             "N/A"
           )}
-          {entry.pityRolls > 0 && <div className="italic">{pityRolls} used</div>}
+          {entry.pityRolls > 0 && <div className="italic">{entry.pityRolls} used</div>}
         </div>
       ),
     };

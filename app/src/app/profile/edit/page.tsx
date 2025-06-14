@@ -262,7 +262,7 @@ export default function EditProfile() {
             title="Swap Bloodline"
             selectedTitle={activeElement}
             unselectedSubtitle="Change your bloodline of choice"
-            selectedSubtitle={`You can swap your bloodline to any bloodline your character has previously possessed for ${COST_SWAP_BLOODLINE} reputation points. You have ${userData.reputationPoints} reputation points.`}
+            selectedSubtitle={`You can swap your bloodline to any bloodline your character has previously possessed for ${COST_SWAP_BLOODLINE} reputation points. Note: Bloodlines purchased directly before 14/06/2025 have not been recorded and can therefore not be swapped. You have ${userData.reputationPoints} reputation points.`}
             onClick={setActiveElement}
           >
             <SwapBloodline />

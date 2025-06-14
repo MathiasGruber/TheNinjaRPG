@@ -1604,6 +1604,13 @@
       "when": 1749870362935,
       "tag": "0228_massive_nemesis",
       "breakpoints": false
+    },
+    {
+      "idx": 229,
+      "version": "5",
+      "when": 1749897936732,
+      "tag": "0229_lethal_supernaut",
+      "breakpoints": false
     }
   ]
 }
