@@ -200,11 +200,7 @@ export const bloodlineRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchBloodline(ctx.drizzle, input.id),
         ctx.drizzle.query.userData.findMany({
-          where: and(
-            eq(userData.bloodlineId, input.id),
-            eq(userData.isAi, false),
-            eq(userData.role, "USER"),
-          ),
+          where: and(eq(userData.bloodlineId, input.id), eq(userData.isAi, false)),
         }),
       ]);
       // Derived

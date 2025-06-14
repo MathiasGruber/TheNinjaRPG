@@ -125,7 +125,7 @@ export const jutsuRouter = createTRPCRouter({
       }
 
       // Check if user has free transfers
-      const transferCost = canTransferJutsu(user.role) ? 0 : JUTSU_TRANSFER_COST;
+      const transferCost = canTransferJutsu(user) ? 0 : JUTSU_TRANSFER_COST;
       const availFreeTransfers = getFreeTransfers(user.federalStatus);
       const usedTransfers = prevFreeTransfers.length;
       const needsReputation = usedTransfers >= availFreeTransfers;

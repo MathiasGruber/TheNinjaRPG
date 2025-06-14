@@ -1466,6 +1466,7 @@ export const userData = mysqlTable(
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
     homeType: mysqlEnum("homeType", consts.HomeTypes).default("NONE").notNull(),
+    staffAccount: boolean("staffAccount").default(false).notNull(),
   },
   (table) => {
     return {

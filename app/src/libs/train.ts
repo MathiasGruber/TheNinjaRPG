@@ -230,8 +230,9 @@ export const calcJutsuEquipLimit = (userdata: UserData) => {
     }
     return 0;
   };
-  const extraSlots =
-    userdata.role === "USER" ? userdata.extraJutsuSlots : MAX_EXTRA_JUTSU_SLOTS;
+  const extraSlots = !userdata.staffAccount
+    ? userdata.extraJutsuSlots
+    : MAX_EXTRA_JUTSU_SLOTS;
   return 1 + rankContrib(userdata.rank) + fedContrib(userdata) + extraSlots;
 };
 

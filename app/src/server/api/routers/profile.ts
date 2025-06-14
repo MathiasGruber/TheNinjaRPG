@@ -695,6 +695,7 @@ export const profileRouter = createTRPCRouter({
         return errorResponse(aiCheck.comment);
       }
       // Update database
+      console.log(input.data);
       await Promise.all([
         ctx.drizzle
           .update(userData)
@@ -1104,6 +1105,7 @@ export const profileRouter = createTRPCRouter({
             username: true,
             villageId: true,
             tavernMessages: true,
+            staffAccount: true,
           },
           with: {
             village: true,

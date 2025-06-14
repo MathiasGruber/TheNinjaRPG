@@ -45,19 +45,31 @@ export async function GET() {
       const config = [
         {
           factor: baseFactor,
-          where: and(eq(userData.federalStatus, "NONE"), eq(userData.role, "USER")),
+          where: and(
+            eq(userData.federalStatus, "NONE"),
+            eq(userData.staffAccount, false),
+          ),
         },
         {
           factor: factorNormal,
-          where: and(eq(userData.federalStatus, "NORMAL"), eq(userData.role, "USER")),
+          where: and(
+            eq(userData.federalStatus, "NORMAL"),
+            eq(userData.staffAccount, false),
+          ),
         },
         {
           factor: factorSilver,
-          where: and(eq(userData.federalStatus, "SILVER"), eq(userData.role, "USER")),
+          where: and(
+            eq(userData.federalStatus, "SILVER"),
+            eq(userData.staffAccount, false),
+          ),
         },
         {
           factor: factorGold,
-          where: or(eq(userData.federalStatus, "GOLD"), ne(userData.role, "USER")),
+          where: or(
+            eq(userData.federalStatus, "GOLD"),
+            ne(userData.staffAccount, false),
+          ),
         },
       ];
 

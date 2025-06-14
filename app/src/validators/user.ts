@@ -17,6 +17,7 @@ export const updateUserSchema = z.object({
   jutsus: z.array(z.string()).optional(),
   items: z.array(z.string()).optional(),
   reason: z.string().min(10),
+  staffAccount: z.boolean().optional(),
 });
 
 export type UpdateUserSchema = z.infer<typeof updateUserSchema>;

@@ -1,3 +1,4 @@
+import OpenAI from "openai";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { eq, or, and, sql, desc, asc, inArray, isNull, notInArray } from "drizzle-orm";
@@ -39,6 +40,8 @@ import { moderateContent } from "@/libs/moderator";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import sanitize from "@/utils/sanitize";
 import type { DrizzleClient } from "../../db";
+
+const openai = new OpenAI();
 
 export const commentsRouter = createTRPCRouter({
   /**
@@ -569,7 +572,7 @@ export const commentsRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .use(hasUserMiddleware)
     .input(mutateCommentSchema)
-    .output(baseServerResponse.extend({ commentId: z.string() }))
+    .output(baseServerResponse.extend({ commentId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Fetch data
       const [convo, user, quotes] = await Promise.all([
@@ -590,9 +593,28 @@ export const commentsRouter = createTRPCRouter({
           throw serverError("BAD_REQUEST", "Quote not found");
         }
       });
+
       // Update conversation & update user notifications
       const commentId = nanoid();
       const pusher = getServerPusher();
+
+      // For staff accounts, verify the language is appropriate
+      if (user.staffAccount || user.role === "USER") {
+        const moderation = await openai.moderations.create({
+          model: "omni-moderation-latest",
+          input: input.comment,
+        });
+        const result = moderation.results?.[0];
+        if (result?.flagged) {
+          const flaggedCategories = Object.entries(result.categories)
+            .filter(([_, value]) => value)
+            .map(([key]) => key);
+          return errorResponse(
+            `Your comment was flagged for inappropriate language. Details: ${flaggedCategories.join(", ")}`,
+          );
+        }
+      }
+
       // Create the content, santizied & with added quotes
       let content = input.comment;
       if (quotes.length > 0) {
