@@ -52,7 +52,7 @@ export type AdditionalContext = {
 export const reportFilteringSchema = z.object({
   reportedUser: z.string().optional(),
   reporterUser: z.string().optional(),
-  status: z.enum(BanStates),
+  status: z.enum(BanStates).optional(),
   startDate: z.date().optional(),
   endDate: z.date().optional(),
   system: z.string().optional(),

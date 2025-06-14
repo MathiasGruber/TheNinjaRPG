@@ -236,7 +236,7 @@ export const reportsRouter = createTRPCRouter({
                     ]),
                   ),
                 ]
-              : [eq(userReport.status, input.status)]),
+              : [input.status ? eq(userReport.status, input.status) : undefined]),
           ),
         )
         .innerJoin(

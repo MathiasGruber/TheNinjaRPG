@@ -842,37 +842,21 @@ const LookupTransaction = () => {
                 name="transactionDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col basis-1/2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full text-left font-normal text-black",
-                              !field.value && "text-muted-foreground",
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date > new Date() || date < new Date("1900-01-01")
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormControl>
+                      <Input
+                        id="purchase-date"
+                        type="date"
+                        value={
+                          field.value ? field.value.toISOString().slice(0, 10) : ""
+                        }
+                        min="1900-01-01"
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val ? new Date(val) : undefined);
+                        }}
+                      />
+                    </FormControl>
                     <FormDescription>Approx. date of purchase</FormDescription>
                     <FormMessage />
                   </FormItem>
