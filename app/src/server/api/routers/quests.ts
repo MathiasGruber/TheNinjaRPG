@@ -27,7 +27,7 @@ import { calculateContentDiff } from "@/utils/diff";
 import { initiateBattle } from "@/routers/combat";
 import { CollectItem, DeliverItem } from "@/validators/objectives";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
-import { getNewTrackers, getReward } from "@/libs/quest";
+import { getNewTrackers, getReward, verifyQuestObjectiveFlow } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { getMissionHallSettings } from "@/libs/quest";
@@ -553,9 +553,22 @@ export const questsRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       setEmptyStringsToNulls(input.data);
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const entry = await fetchQuest(ctx.drizzle, input.id);
+      // Query
+      const [user, entry] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchQuest(ctx.drizzle, input.id),
+      ]);
+      // Guards
       if (entry && canChangeContent(user.role)) {
+        // Validate objective flow before updating
+        if (entry.consecutiveObjectives) {
+          const { check, message } = verifyQuestObjectiveFlow(
+            input.data.content.objectives,
+          );
+          if (!check) {
+            return { success: false, message: `Objective flow invalid: ${message}` };
+          }
+        }
         // Prepare data for insertion into database
         const data = input.data;
         // Check we only give ranks with exams

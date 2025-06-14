@@ -87,7 +87,25 @@ export const baseObjectiveFields = {
   id: z.string(),
   description: z.string().default(""),
   successDescription: z.string().default(""),
+  nextObjectiveId: z.string().optional(),
 };
+
+// TODO: Idea for dialog objective schema
+// export const DialogObjective = z.object({
+//   id: z.string(),
+//   task: z.literal("dialog").default("dialog"),
+//   scene: z.string().default(""),
+//   text: z.string().default(""),
+//   characters: z.array(z.string()).default([]),
+//   options: z
+//     .array(
+//       z.object({
+//         text: z.string(),
+//         nextObjectiveId: z.string().optional(),
+//       }),
+//     )
+//     .default([]),
+// });
 
 export const SimpleObjective = z.object({
   ...baseObjectiveFields,

@@ -89,6 +89,7 @@ interface EditContentProps<T, K, S extends FieldValues> {
     e: React.BaseSyntheticEvent<object, any, any> | undefined,
   ) => Promise<void>;
   onEnter?: () => Promise<void>;
+  submitDisabled?: boolean;
 }
 
 /**
@@ -103,7 +104,8 @@ export const EditContent = <
   props: EditContentProps<T, K, S>,
 ) => {
   // Destructure
-  const { formData, formClassName, form, showSubmit, buttonTxt } = props;
+  const { formData, formClassName, form, showSubmit, buttonTxt, submitDisabled } =
+    props;
   const currentValues = form.getValues();
 
   // State for managing dynamic options for fields with allowAddNew
@@ -574,7 +576,12 @@ export const EditContent = <
           })}
         {showSubmit && props.onAccept && (
           <div className="col-span-2 items-center mt-3">
-            <Button id="create" className="w-full" onClick={props.onAccept}>
+            <Button
+              id="create"
+              className="w-full"
+              onClick={props.onAccept}
+              disabled={submitDisabled}
+            >
               {buttonTxt ?? "Save"}
             </Button>
           </div>
@@ -868,6 +875,7 @@ interface ObjectiveFormWrapperProps {
   fixedWidths?: "basis-32" | "basis-64" | "basis-96";
   bgColor?: "bg-slate-600" | "";
   objectives: AllObjectivesType[];
+  consecutiveObjectives: boolean;
   setObjectives: (content: AllObjectivesType[]) => void;
 }
 
@@ -1000,6 +1008,9 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       );
     })
     .filter((value) => {
+      return props.consecutiveObjectives || !["nextObjectiveId"].includes(value);
+    })
+    .filter((value) => {
       return (
         !locationType ||
         locationType === "specific" ||
@@ -1047,6 +1058,13 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           values: itemData,
           multiple: true,
           type: "db_values",
+        };
+      } else if (value === "nextObjectiveId" && props.objectives) {
+        return {
+          id: value,
+          values: [...props.objectives.map((objective) => objective.id)],
+          type: "str_array",
+          resetButton: true,
         };
       } else if (
         innerType instanceof z.ZodLiteral ||

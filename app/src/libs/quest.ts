@@ -616,3 +616,101 @@ export const isAvailableUserQuests = (
   // Returned detailed info on all the checks
   return { check, message };
 };
+
+/**
+ * Verifies that the objective flow is valid according to the following rules:
+ * - There can only be one starting objective, i.e. an objective where no other objectives point to it
+ * - All objectives must be connected to the starting objective via a chain of nextObjectiveId
+ * - All defined nextObjectiveId must be valid, i.e. point to an existing objective
+ *
+ * @param objectives - The objectives to verify.
+ * @returns A boolean indicating whether the objective flow is valid.
+ */
+export const verifyQuestObjectiveFlow = (
+  objectives: AllObjectivesType[],
+): { check: boolean; message: string } => {
+  // No objectives
+  if (!objectives || objectives.length === 0) {
+    return { check: false, message: "No objectives provided" };
+  }
+
+  const idToObjective = new Map<string, AllObjectivesType>();
+
+  // Build map and check for duplicate ids
+  for (const obj of objectives) {
+    if (idToObjective.has(obj.id)) {
+      return {
+        check: false,
+        message: `Duplicate objective id '${obj.id}' found`,
+      };
+    }
+    idToObjective.set(obj.id, obj);
+  }
+
+  const referencedIds = new Set<string>();
+
+  // Validate references while populating referencedIds
+  for (const obj of objectives) {
+    if (obj.nextObjectiveId) {
+      if (!idToObjective.has(obj.nextObjectiveId)) {
+        return {
+          check: false,
+          message: `Objective '${obj.id}' references unknown nextObjectiveId '${obj.nextObjectiveId}'`,
+        };
+      }
+      if (obj.nextObjectiveId === obj.id) {
+        return {
+          check: false,
+          message: `Objective '${obj.id}' has a self-referencing nextObjectiveId`,
+        };
+      }
+      referencedIds.add(obj.nextObjectiveId);
+    }
+  }
+
+  // Determine starting objectives
+  const startingIds = objectives
+    .map((o) => o.id)
+    .filter((id) => !referencedIds.has(id));
+
+  if (startingIds.length === 0) {
+    return { check: false, message: "No starting objective found" };
+  }
+  if (startingIds.length > 1) {
+    return {
+      check: false,
+      message: `Multiple starting objectives found: ${startingIds.join(", ")}`,
+    };
+  }
+
+  const startId = startingIds[0];
+  const visited = new Set<string>();
+  let currentId: string | undefined = startId;
+
+  // Traverse chain, detect cycles
+  while (currentId) {
+    if (visited.has(currentId)) {
+      return { check: false, message: "Cycle detected in objective chain" };
+    }
+    visited.add(currentId);
+    const currentObj = idToObjective.get(currentId);
+    if (!currentObj) {
+      // Should not happen after previous validation
+      return {
+        check: false,
+        message: `Objective '${currentId}' not found during traversal`,
+      };
+    }
+    currentId = currentObj.nextObjectiveId;
+  }
+
+  if (visited.size !== objectives.length) {
+    const unreachable = objectives.filter((o) => !visited.has(o.id)).map((o) => o.id);
+    return {
+      check: false,
+      message: `Unreachable objectives detected: ${unreachable.join(", ")}`,
+    };
+  }
+
+  return { check: true, message: "" };
+};

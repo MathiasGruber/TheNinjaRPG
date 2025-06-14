@@ -73,7 +73,7 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
     case "defeat_opponents":
       return { image: IMG_BADGE_DEFEAT_OPPONENTS, title: "Defeat" };
     case "random_encounter_wins":
-      return { image: IMG_BADGE_RANDOM_ENCOUNTER_WINS, title: "Random Encounter Wins" };
+      return { image: IMG_BADGE_RANDOM_ENCOUNTER_WINS, title: "Encounter Wins" };
     default:
       return { image: "", title: "???" };
   }
@@ -98,7 +98,7 @@ export const isObjectiveComplete = (
 
 /**
  * Checks if a quest objective is available. If the quest has consecutive objectives,
- * the previous objective must be completed before the current one is available.
+ * the previous objectives in the flow (as defined by nextObjectiveId) must be completed before the current one is available.
  *
  * @param quest - The quest object.
  * @param tracker - The quest tracker object.
@@ -110,12 +110,35 @@ export const isQuestObjectiveAvailable = (
   tracker: QuestTrackerType,
   objectiveIdx: number,
 ) => {
-  if (quest.consecutiveObjectives && objectiveIdx > 0) {
-    const prevObjective = quest.content.objectives[objectiveIdx - 1];
-    if (prevObjective) {
-      const { done } = isObjectiveComplete(tracker, prevObjective);
-      return done;
+  // If not using consecutive objectives, all are available
+  if (!quest.consecutiveObjectives) return true;
+
+  const objectives = quest.content.objectives;
+  const currentObjective = objectives[objectiveIdx];
+  if (!currentObjective) return false;
+
+  // Build a map of id -> objective
+  const idToObjective = new Map<string, AllObjectivesType>();
+  objectives.forEach((obj) => idToObjective.set(obj.id, obj));
+
+  // Find all objectives that point to the current one (i.e., whose nextObjectiveId === currentObjective.id)
+  const findPredecessor = (targetId: string): AllObjectivesType | undefined => {
+    return objectives.find((obj) => obj.nextObjectiveId === targetId);
+  };
+
+  // Recursively check if all predecessors are complete
+  const arePredecessorsComplete = (targetId: string): boolean => {
+    const predecessor = findPredecessor(targetId);
+    if (!predecessor) {
+      // No predecessor means this is the starting objective
+      return true;
     }
-  }
-  return true;
+    // Check if predecessor is complete
+    const { done } = isObjectiveComplete(tracker, predecessor);
+    if (!done) return false;
+    // Recursively check further predecessors
+    return arePredecessorsComplete(predecessor.id);
+  };
+
+  return arePredecessorsComplete(currentObjective.id);
 };
