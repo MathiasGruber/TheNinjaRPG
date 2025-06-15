@@ -8,6 +8,7 @@ import {
   UserRanks,
   RetryQuestDelays,
 } from "@/drizzle/constants";
+import { z } from "zod";
 import { api } from "@/app/_trpc/client";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
@@ -18,7 +19,11 @@ import type { ZodQuestType, QuestContentType } from "@/validators/objectives";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 
 // A merged type for quest with its rewards, so that we can show both in the same form
-type ZodCombinedQuest = ZodQuestType & ObjectiveRewardType;
+type ZodCombinedQuest = ZodQuestType &
+  ObjectiveRewardType & {
+    sceneBackground: string;
+    sceneCharacters: string[];
+  };
 
 /**
  * Hook used when creating frontend forms for editing items
@@ -26,7 +31,12 @@ type ZodCombinedQuest = ZodQuestType & ObjectiveRewardType;
  */
 export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   // Schema used
-  const schema = QuestValidator._def.schema.merge(ObjectiveReward);
+  const schema = QuestValidator._def.schema.merge(ObjectiveReward).merge(
+    z.object({
+      sceneBackground: z.string().default(""),
+      sceneCharacters: z.array(z.string()).default([]),
+    }),
+  );
 
   // Form handling
   const endsAt = quest.endsAt ? quest.endsAt.slice(0, 10) : "";
@@ -34,6 +44,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const initialData = {
     ...quest,
     ...quest.content.reward,
+    sceneBackground: quest.content.sceneBackground,
+    sceneCharacters: quest.content.sceneCharacters,
     endsAt: endsAt,
     startsAt: startsAt,
   };
@@ -55,6 +67,12 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: villages, isPending: l4 } = api.village.getAllNames.useQuery(undefined);
   const { data: badges, isPending: l5 } = api.badge.getAll.useQuery(undefined);
   const { data: quests, isPending: l6 } = api.quests.getAllNames.useQuery(undefined);
+  const { data: sceneBackgrounds, isPending: l7 } = api.gameAsset.getAllNames.useQuery({
+    type: "SCENE_BACKGROUND",
+  });
+  const { data: sceneCharacters, isPending: l8 } = api.gameAsset.getAllNames.useQuery({
+    type: "SCENE_CHARACTER",
+  });
 
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
@@ -96,6 +114,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
         endsAt: data.endsAt ? data.endsAt : null,
         startsAt: data.startsAt ? data.startsAt : null,
         content: {
+          sceneBackground: data.sceneBackground,
+          sceneCharacters: data.sceneCharacters,
           objectives: newObjectives,
           reward: {
             reward_money: data.reward_money,
@@ -132,7 +152,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4 || l5 || l6;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
 
   // Watch for changes
   const imageUrl = useWatch({
@@ -157,6 +177,19 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
     { id: "questRank", type: "str_array", values: LetterRanks },
     { id: "requiredLevel", type: "number" },
     { id: "maxLevel", type: "number", label: "Max Level" },
+    {
+      id: "sceneBackground",
+      type: "db_values",
+      values: sceneBackgrounds,
+      label: "Background (if not sequential)",
+    },
+    {
+      id: "sceneCharacters",
+      type: "db_values",
+      values: sceneCharacters,
+      multiple: true,
+      label: "Characters (if not sequential)",
+    },
   ];
 
   if (questType === "event" || questType === "story") {

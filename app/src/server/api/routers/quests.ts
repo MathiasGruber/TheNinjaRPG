@@ -635,6 +635,8 @@ export const questsRouter = createTRPCRouter({
         hidden: true,
         prerequisiteQuestId: "",
         content: {
+          sceneBackground: "",
+          sceneCharacters: [],
           objectives: [],
           reward: {
             reward_money: 0,
@@ -833,6 +835,7 @@ export const questsRouter = createTRPCRouter({
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
+          hideInformation: false,
         }),
         fetchUserItems(ctx.drizzle, ctx.userId),
       ]);
@@ -840,16 +843,15 @@ export const questsRouter = createTRPCRouter({
       if (!user) {
         throw serverError("PRECONDITION_FAILED", "User does not exist");
       }
+
       // Get updated quest information
-      const { trackers, notifications, consequences } = getNewTrackers(
-        { ...user, useritems },
-        [
+      const { trackers, notifications, consequences, shouldUpdateUserInDB } =
+        getNewTrackers({ ...user, useritems }, [
           { task: "move_to_location" },
           { task: "collect_item" },
           { task: "deliver_item" },
           { task: "defeat_opponents" },
-        ],
-      );
+        ]);
       user.questData = trackers;
       // Items collected
       const collected = consequences.filter((c) => c.type === "add_item");
@@ -884,7 +886,7 @@ export const questsRouter = createTRPCRouter({
         });
       }
       // Database updates
-      if (notifications.length > 0) {
+      if (notifications.length > 0 || shouldUpdateUserInDB) {
         // First update user to see if someone already called this function
         const result = await ctx.drizzle
           .update(userData)

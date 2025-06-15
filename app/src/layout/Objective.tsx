@@ -21,6 +21,7 @@ interface ObjectiveProps {
   checkRewards: () => void;
   tier?: number;
   grayedOut?: boolean;
+  hideFutureObjectives?: boolean;
 }
 export const Objective: React.FC<ObjectiveProps> = (props) => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -52,6 +53,10 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   ) : (
     <X className="h-10 w-10 stroke-red-500" />
   );
+
+  // If future objectives are hidden, hide future objectives
+  if (props.hideFutureObjectives && props.grayedOut && !canCollect) return null;
+
   // Show the objective
   return (
     <div className={`flex flex-row ${props.grayedOut ? "grayscale opacity-30" : ""}`}>

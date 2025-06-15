@@ -796,6 +796,13 @@ export const IMG_REGISTRATIN_STEP8 =
 export const IMG_REGISTRATIN_STEP9 =
   "https://utfs.io/f/Hzww9EQvYURJnjHXr3mojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
 
+export const IMG_SCENE_SCROLL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRceTKeq0udmODoNtpa0FMcwI4k2Eq7nJhyvj";
+export const IMG_SCENE_BACKGROUND =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJ1HAqWl6bo95WClq4K0wxZUmJcvThgdVenO3P";
+export const IMG_SCENE_CHARACTER =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF08NAw3G2iOewJtjGzvNcmEX3TBnoSfMDZPH";
+
 export const IMG_BADGE_RANDOM_ENCOUNTER_WINS =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJqyp2N4dkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
 export const IMG_BADGE_PVPKILLS =

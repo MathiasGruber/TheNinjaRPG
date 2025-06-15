@@ -87,6 +87,7 @@ export default function StoryQuests() {
                         userQuest={currentQuest}
                         tracker={currentTracker}
                         hideTitle
+                        showScene
                       />
                     </div>
                   ) : (

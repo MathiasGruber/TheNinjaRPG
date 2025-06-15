@@ -142,3 +142,18 @@ export const isQuestObjectiveAvailable = (
 
   return arePredecessorsComplete(currentObjective.id);
 };
+
+/**
+ * Returns the active objective for a quest.
+ * @param quest - The quest object.
+ * @param tracker - The quest tracker object.
+ * @returns The active objective.
+ */
+export const getActiveObjective = (quest: Quest, tracker: QuestTrackerType) => {
+  if (!quest.consecutiveObjectives) return null;
+  return quest.content.objectives.find((o, i) => {
+    const isAvailable = isQuestObjectiveAvailable(quest, tracker, i);
+    const trackerObjective = tracker.goals.find((g) => g.id === o.id);
+    return isAvailable && !trackerObjective?.done;
+  });
+};

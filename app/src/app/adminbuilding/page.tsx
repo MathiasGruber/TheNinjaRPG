@@ -117,6 +117,7 @@ export default function AdministrationBuilding() {
                         userQuest={currentQuest}
                         tracker={currentTracker}
                         hideTitle
+                        showScene
                       />
                     </div>
                   ) : (

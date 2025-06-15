@@ -217,7 +217,10 @@ export const getNewTrackers = (
           }
 
           // If locationType is not specific, update the location accordingly
-          if ("locationType" in objective && (!status.longitude || !status.latitude)) {
+          if (
+            "locationType" in objective &&
+            (status.longitude === undefined || status.latitude === undefined)
+          ) {
             if (objective.locationType === "specific") {
               status.longitude = objective.longitude;
               status.latitude = objective.latitude;
@@ -226,6 +229,14 @@ export const getNewTrackers = (
               status.latitude = Math.floor(Math.random() * SECTOR_HEIGHT);
             }
             shouldUpdateUserInDB = true;
+          }
+
+          // If we have a location on the status (i.e. instantiated for the user, overwrite objective)
+          if ("sector" in objective) {
+            if (status.longitude) objective.longitude = status.longitude;
+            if (status.latitude) objective.latitude = status.latitude;
+            if (status.sector) objective.sector = status.sector;
+            objective.locationType = "specific";
           }
 
           // If done, return status

@@ -10,17 +10,20 @@ import { fetchUser } from "@/routers/profile";
 import { canChangeContent } from "@/utils/permissions";
 import { callDiscordContent } from "@/libs/discord";
 import { calculateContentDiff } from "@/utils/diff";
-import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { GameAssetTypes, IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
 import { gameAssetSchema } from "@/validators/asset";
 import type { DrizzleClient } from "@/server/db";
 
 export const gameAssetRouter = createTRPCRouter({
-  getAllNames: publicProcedure.query(async ({ ctx }) => {
-    return await ctx.drizzle.query.gameAsset.findMany({
-      columns: { id: true, name: true, image: true },
-    });
-  }),
+  getAllNames: publicProcedure
+    .input(z.object({ type: z.enum(GameAssetTypes).optional() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.drizzle.query.gameAsset.findMany({
+        columns: { id: true, name: true, image: true },
+        where: input.type ? eq(gameAsset.type, input.type) : undefined,
+      });
+    }),
   getAllGameAssetContentTagNames: publicProcedure.query(async ({ ctx }) => {
     return await ctx.drizzle
       .selectDistinct({ name: contentTag.name })
@@ -60,6 +63,13 @@ export const gameAssetRouter = createTRPCRouter({
         data: results,
         nextCursor: nextCursor,
       };
+    }),
+  getSceneAssets: publicProcedure
+    .input(z.object({ assetIds: z.array(z.string()) }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.drizzle.query.gameAsset.findMany({
+        where: inArray(gameAsset.id, input.assetIds),
+      });
     }),
   get: publicProcedure
     .input(z.object({ id: z.string() }))

@@ -88,6 +88,8 @@ export const baseObjectiveFields = {
   description: z.string().default(""),
   successDescription: z.string().default(""),
   nextObjectiveId: z.string().optional(),
+  sceneBackground: z.string().default(""),
+  sceneCharacters: z.array(z.string()).default([]),
 };
 
 // TODO: Idea for dialog objective schema
@@ -208,6 +210,8 @@ export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 export type QuestContentType = {
   reward: ObjectiveRewardType;
   objectives: AllObjectivesType[];
+  sceneBackground: string;
+  sceneCharacters: string[];
 };
 
 export const QuestTracker = z.object({
@@ -231,7 +235,12 @@ export const QuestValidatorRawSchema = z.object({
   prerequisiteQuestId: z.string().min(0).max(191).optional().nullish(),
   tierLevel: z.coerce.number().min(0).max(100).nullable(),
   questType: z.enum(QuestTypes),
-  content: z.object({ objectives: z.array(AllObjectives), reward: ObjectiveReward }),
+  content: z.object({
+    objectives: z.array(AllObjectives),
+    reward: ObjectiveReward,
+    sceneBackground: z.string().default(""),
+    sceneCharacters: z.array(z.string()).default([]),
+  }),
   hidden: z.coerce.boolean(),
   retryDelay: z.enum(RetryQuestDelays).optional(),
   consecutiveObjectives: z.coerce.boolean(),

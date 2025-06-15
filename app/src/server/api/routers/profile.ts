@@ -1471,9 +1471,10 @@ export const fetchUpdatedUser = async (props: {
   userId: string;
   userIp?: string;
   forceRegen?: boolean;
+  hideInformation?: boolean;
 }) => {
   // Destructure
-  const { client, userId, userIp } = props;
+  const { client, userId, userIp, hideInformation = true } = props;
   let { forceRegen } = props;
   const now = new Date();
 
@@ -1742,9 +1743,11 @@ export const fetchUpdatedUser = async (props: {
     }
 
     // Hide information relating to quests
-    user?.userQuests.forEach((q) => {
-      controlShownQuestLocationInformation(q.quest, user);
-    });
+    if (hideInformation) {
+      user?.userQuests.forEach((q) => {
+        controlShownQuestLocationInformation(q.quest, user);
+      });
+    }
   }
   return { user, settings, rewards, hasUnvotedPolls };
 };

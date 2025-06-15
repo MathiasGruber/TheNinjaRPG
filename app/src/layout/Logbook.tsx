@@ -20,7 +20,11 @@ import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import {
   MISSIONS_PER_DAY,
   ADDITIONAL_MISSION_REWARD_MULTIPLIER,
+  IMG_SCENE_BACKGROUND,
+  IMG_SCENE_CHARACTER,
 } from "@/drizzle/constants";
+import { getActiveObjective } from "@/libs/objectives";
+import { cn } from "src/libs/shadui";
 import type { QuestTrackerType } from "@/validators/objectives";
 import type { UserQuest } from "@/drizzle/schema";
 import type { ArrayElement } from "@/utils/typeutils";
@@ -275,6 +279,7 @@ const LogbookHistory: React.FC = () => {
 interface LogbookEntryProps {
   userQuest: UserQuest;
   tracker: QuestTrackerType;
+  showScene?: boolean;
   hideTitle?: boolean;
 }
 
@@ -292,7 +297,7 @@ interface LogbookEntryProps {
  */
 export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   const { data: userData } = useRequiredUserData();
-  const { userQuest, tracker, hideTitle } = props;
+  const { userQuest, tracker, hideTitle, showScene } = props;
   const quest = userQuest.quest;
   const tierOrDaily = ["tier", "daily"].includes(quest.questType);
   const missionOrCrime = ["mission", "crime"].includes(quest.questType);
@@ -302,6 +307,54 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
       : 1;
   const allDone = tracker?.goals.every((g) => g.done);
   const utils = api.useUtils();
+
+  // Scene composition
+  // - If not consecutive objectives, use background & scene from quest
+  // - If consecutive objectives, use background & scene from active objective
+  // - If no background or scene, use default background & scene from quest
+  const activeObjective = getActiveObjective(quest, tracker);
+  const assetIds: string[] = [];
+  let shownText = quest.description;
+  if (quest.consecutiveObjectives) {
+    if (activeObjective?.sceneBackground) {
+      assetIds.push(activeObjective.sceneBackground);
+    } else if (quest.content.sceneBackground) {
+      console.log("Using quest background");
+      assetIds.push(quest.content.sceneBackground);
+    }
+    if (
+      activeObjective?.sceneCharacters &&
+      activeObjective.sceneCharacters.length > 0
+    ) {
+      assetIds.push(...activeObjective.sceneCharacters);
+    } else {
+      assetIds.push(...(quest.content.sceneCharacters || []));
+    }
+    if (activeObjective?.description) {
+      shownText = activeObjective.description;
+    }
+  } else {
+    if (quest.content.sceneBackground) {
+      assetIds.push(quest.content.sceneBackground);
+    }
+    assetIds.push(...(quest.content.sceneCharacters || []));
+  }
+
+  // Query to fetch the assets
+  const { data: gameAssets } = api.gameAsset.getSceneAssets.useQuery(
+    { assetIds },
+    { enabled: assetIds.length > 0 },
+  );
+
+  // Defaults for the scene
+  const background =
+    gameAssets?.filter((asset) => asset.type === "SCENE_BACKGROUND")?.[0]?.image ||
+    IMG_SCENE_BACKGROUND;
+  const characters =
+    gameAssets
+      ?.filter((asset) => asset.type === "SCENE_CHARACTER")
+      .map((asset) => asset.image) || [];
+  if (characters.length === 0) characters.push(IMG_SCENE_CHARACTER);
 
   // Mutations
   const { checkRewards } = useCheckRewards();
@@ -323,7 +376,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
 
   return (
     <Post
-      className={`${tierOrDaily ? "" : "col-span-2"} px-3`}
+      className={`${tierOrDaily ? "" : "col-span-2"} ${showScene ? "pt-0 px-0" : "px-3"}`}
       options={
         <div className="ml-3">
           <div className="mt-2 flex flex-row items-center ">
@@ -348,27 +401,60 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
     >
       <div className="flex flex-col h-full">
         {!hideTitle && (
-          <>
-            <div className="font-bold text-xl">
+          <div className={cn(showScene ? "px-3 pt-3" : "")}>
+            <div className={"font-bold text-xl"}>
               Current {capitalizeFirstLetter(quest.questType)}
             </div>
             <div className="font-bold text-sm">{quest.name}</div>
+          </div>
+        )}
+        {/* If we're not showing the scene, just show the text. Usefull when we're in the logbook */}
+        {!showScene && (
+          <>
+            <div className="pt-2">
+              <Reward
+                info={userQuest.quest.content.reward}
+                rewardMultiplier={rewardMultiplier}
+              />
+              <EventTimer quest={quest} tracker={tracker} />
+            </div>
+            {!["tier", "daily"].includes(quest.questType) && quest.description && (
+              <div>{parseHtml(quest.description)}</div>
+            )}
           </>
         )}
-        <div className="pt-2">
-          <Reward
-            info={userQuest.quest.content.reward}
-            rewardMultiplier={rewardMultiplier}
-          />
-          <EventTimer quest={quest} tracker={tracker} />
-        </div>
-        {!["tier", "daily"].includes(quest.questType) && quest.description && (
-          <div>{parseHtml(quest.description)}</div>
+        {showScene && (
+          <div className="relative">
+            <Image
+              src={background}
+              alt="SceneBackground"
+              className="w-full relative"
+              width={512}
+              height={341}
+            />
+            {characters.map((character, i) => (
+              <div key={i} className="absolute bottom-0 w-2/5">
+                <Image
+                  src={character}
+                  alt="Character"
+                  className="aspect-3 "
+                  width={341}
+                  height={512}
+                />
+              </div>
+            ))}
+            <div className="absolute bottom-3 bg-poppopover w-full max-w-[calc(100%-2rem)] translate-x-[-50%] left-[50%] max-h-1/3 min-h-10 p-2 rounded-lg overflow-y-auto border-2">
+              {shownText}
+            </div>
+          </div>
         )}
+
         <div
-          className={`grid grid-cols-1 sm:grid-cols-${
-            tierOrDaily ? "1" : "2"
-          } gap-4 pt-3`}
+          className={cn(
+            "grid grid-cols-1 gap-4 pt-3",
+            tierOrDaily ? "sm:grid-cols-1" : "sm:grid-cols-2",
+            showScene ? "px-3" : "",
+          )}
         >
           {quest.content.objectives?.map((objective, i) => (
             <Objective
@@ -376,8 +462,9 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               tracker={tracker}
               checkRewards={() => checkRewards({ questId: quest.id })}
               key={i}
-              titlePrefix={`${i + 1}. `}
+              titlePrefix={quest.consecutiveObjectives ? "Objective: " : `${i + 1}. `}
               grayedOut={!isQuestObjectiveAvailable(quest, tracker, i)}
+              hideFutureObjectives={quest.consecutiveObjectives}
             />
           ))}
         </div>

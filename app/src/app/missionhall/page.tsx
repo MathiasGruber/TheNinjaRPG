@@ -109,7 +109,7 @@ export default function MissionHall() {
       {isPending && <Loader explanation="Accepting..." />}
       {currentQuest && currentTracker && (
         <div className="p-3">
-          <LogbookEntry userQuest={currentQuest} tracker={currentTracker} />
+          <LogbookEntry userQuest={currentQuest} tracker={currentTracker} showScene />
         </div>
       )}
       {!currentQuest && !isPending && (
@@ -295,8 +295,8 @@ export default function MissionHall() {
                               userLevel: userData.level,
                               userSector: userData.sector,
                               userVillageId: userData.isOutlaw
-                              ? VILLAGE_SYNDICATE_ID
-                              : userData.villageId,
+                                ? VILLAGE_SYNDICATE_ID
+                                : userData.villageId,
                             });
                           }}
                         >

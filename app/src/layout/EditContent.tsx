@@ -914,6 +914,16 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       fields.includes("deliverItemIds"),
   });
 
+  const { data: sceneBackgrounds } = api.gameAsset.getAllNames.useQuery(
+    { type: "SCENE_BACKGROUND" },
+    { enabled: fields.includes("sceneBackground") },
+  );
+
+  const { data: sceneCharacters } = api.gameAsset.getAllNames.useQuery(
+    { type: "SCENE_CHARACTER" },
+    { enabled: fields.includes("sceneCharacters") },
+  );
+
   // Form for handling the specific tag
   const form = useForm<AllObjectivesType>({
     defaultValues: shownTag,
@@ -1056,6 +1066,19 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
         return {
           id: value,
           values: itemData,
+          multiple: true,
+          type: "db_values",
+        };
+      } else if (["sceneBackground"].includes(value) && sceneBackgrounds) {
+        return {
+          id: value,
+          values: sceneBackgrounds,
+          type: "db_values",
+        };
+      } else if (["sceneCharacters"].includes(value) && sceneCharacters) {
+        return {
+          id: value,
+          values: sceneCharacters,
           multiple: true,
           type: "db_values",
         };
