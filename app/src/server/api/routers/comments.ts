@@ -1131,7 +1131,6 @@ export const OFFENSIVE_WORDS = [
   "bitches",
   "bitchez",
   "bitchslap",
-  "black",
   "blackman",
   "blacks",
   "Bluegum",
