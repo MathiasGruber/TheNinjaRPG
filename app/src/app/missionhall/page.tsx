@@ -89,23 +89,28 @@ export default function MissionHall() {
       back_href="/village"
       padding={false}
     >
-      <Image
-        alt="welcome"
-        src={IMG_BUILDING_MISSIONHALL}
-        width={512}
-        height={195}
-        className="w-full"
-        priority={true}
-      />
-      <p className="text-center text-xl font-bold mb-4 p-3">
-        Missions are special assignments that advance the game&apos;s narrative. They
-        can only be started here at the Mission Hall.
-      </p>
-      <p className="text-center p-3 text-xl font-bold">
-        Errands [{userData.dailyErrands} / {ERRANDS_PER_DAY}] -{" "}
-        {capitalizeFirstLetter(classifier)}s [{userData.dailyMissions} /{" "}
-        {MISSIONS_PER_DAY}]
-      </p>
+      {!currentQuest && (
+        <>
+          <Image
+            alt="welcome"
+            src={IMG_BUILDING_MISSIONHALL}
+            width={512}
+            height={195}
+            className="w-full"
+            priority={true}
+          />
+          <p className="text-center text-xl font-bold mb-4 p-3">
+            Missions are special assignments that advance the game&apos;s narrative.
+            They can only be started here at the Mission Hall.
+          </p>
+          <p className="text-center p-3 text-xl font-bold">
+            Errands [{userData.dailyErrands} / {ERRANDS_PER_DAY}] -{" "}
+            {capitalizeFirstLetter(classifier)}s [{userData.dailyMissions} /{" "}
+            {MISSIONS_PER_DAY}]
+          </p>
+        </>
+      )}
+
       {isPending && <Loader explanation="Accepting..." />}
       {currentQuest && currentTracker && (
         <div className="p-3">
