@@ -77,11 +77,11 @@ export const getAvatarPrompt = async (client: DrizzleClient, user: UserData) => 
       case "STUDENT":
         switch (gender) {
           case "Male":
-            return "child boy";
+            return "teenage boy";
           case "Female":
-            return "child girl";
+            return "teenage girl";
           default:
-            return "child";
+            return "teenage";
         }
       case "GENIN":
         switch (gender) {
