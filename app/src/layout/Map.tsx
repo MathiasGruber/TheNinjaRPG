@@ -311,7 +311,8 @@ const Map: React.FC<MapProps> = (props) => {
         }
         userData.userQuests.forEach((userquest) => {
           userquest.quest.content.objectives.forEach((objective) => {
-            if ("sector" in objective && objective.sector && !objective.hideLocation) {
+            const isHidden = "hideLocation" in objective && objective.hideLocation;
+            if ("sector" in objective && objective.sector && !isHidden) {
               sectorsToHighlight.push({
                 sector: objective.sector,
                 color: questTweenColor,

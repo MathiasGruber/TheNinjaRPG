@@ -9,6 +9,7 @@ import AvatarImage from "@/layout/Avatar";
 import Modal2 from "@/layout/Modal2";
 import SliderField from "@/layout/SliderField";
 import WebGlError from "@/layout/WebGLError";
+import { LogbookEntry } from "@/layout/Logbook";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "src/components/ui/label";
 import { z } from "zod";
@@ -79,6 +80,8 @@ const Sector: React.FC<SectorProps> = (props) => {
   const [currentStructure, setCurrentStructure] = useState<VillageStructure | null>(
     null,
   );
+  const [logbookModalOpen, setLogbookModalOpen] = useState<boolean>(false);
+  const [logbookModalQuestId, setLogbookModalQuestId] = useState<string | null>(null);
 
   // References which shouldn't update
   const origin = useRef<TerrainHex | undefined>(undefined);
@@ -124,6 +127,12 @@ const Sector: React.FC<SectorProps> = (props) => {
   // Background color for the map
   const { color } = getBackgroundColor(props.tile);
 
+  // If new objective is available, then show a modal
+  const modalUserQuest = userData?.userQuests?.find(
+    (q) => q.questId === logbookModalQuestId,
+  );
+  const modalTracker = userData?.questData?.find((q) => q.id === logbookModalQuestId);
+
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
     if (mountRef.current) {
@@ -167,16 +176,30 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { mutate: checkQuest } = api.quests.checkLocationQuest.useMutation({
     onSuccess: async (result) => {
       if (result.success) {
+        // Push any notifications
         result.notifications.forEach((notification) => {
           showMutationToast({
             success: true,
             message: notification,
           });
         });
+        // Update user quest data immidiately
         if (result.questData && result.updateAt) {
           await updateUser({ questData: result.questData, updatedAt: result.updateAt });
         }
+        // Invalidate user items
         await utils.item.getUserItems.invalidate();
+      }
+      // If there are any quest ids that have been updated,
+      // let's see if we should show a modal with new objective for consecutive quests
+      if (result.questIdsUpdated && result.questIdsUpdated.length > 0) {
+        result.questIdsUpdated.forEach((questId) => {
+          const quest = userData?.userQuests?.find((q) => q.questId === questId);
+          if (quest?.quest?.consecutiveObjectives) {
+            setLogbookModalOpen(true);
+            setLogbookModalQuestId(questId);
+          }
+        });
       }
     },
   });
@@ -283,23 +306,30 @@ const Sector: React.FC<SectorProps> = (props) => {
         userData?.userQuests?.forEach((userquest) => {
           const tracker = userData.questData?.find((q) => q.id === userquest.questId);
           userquest.quest.content.objectives.forEach((objective, i) => {
+            // Check if we should check objective on backend
+            const isOnLocation = isLocationObjective(
+              {
+                sector: data.sector,
+                longitude: data.longitude,
+                latitude: data.latitude,
+              },
+              objective,
+            );
             if (
               (!tracker || isQuestObjectiveAvailable(userquest.quest, tracker, i)) &&
               // If an objective is a location objective, then check quest
-              (isLocationObjective(
-                {
-                  sector: data.sector,
-                  longitude: data.longitude,
-                  latitude: data.latitude,
-                },
-                objective,
-              ) ||
+              (isOnLocation ||
                 // If we have attackers, check for these
                 (objective.attackers &&
                   objective.attackers.length > 0 &&
                   objective.attackers_chance > 0))
             ) {
               checkQuest();
+            }
+            // For dialog objectives, check if we should show a modal
+            if (objective.task === "dialog" && isOnLocation) {
+              setLogbookModalOpen(true);
+              setLogbookModalQuestId(userquest.questId);
             }
           });
         });
@@ -755,6 +785,20 @@ const Sector: React.FC<SectorProps> = (props) => {
             setTarget({ x: longitude, y: latitude });
           }}
         />
+      )}
+      {logbookModalOpen && modalUserQuest && modalTracker && (
+        <Modal2
+          isOpen={logbookModalOpen}
+          setIsOpen={setLogbookModalOpen}
+          title="Quest Update"
+        >
+          <LogbookEntry
+            userQuest={modalUserQuest}
+            tracker={modalTracker}
+            showScene={true}
+            hideTitle={false}
+          />
+        </Modal2>
       )}
       {targetUser && (isAttacking || userData?.status === "BATTLE") && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black">

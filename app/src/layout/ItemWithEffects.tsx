@@ -563,24 +563,26 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             <div className={`my-2 rounded-lg bg-poppopover p-2`}>
               <p className="font-bold">Objectives</p>
               <div className="grid grid-cols-5 md:grid-cols-3 lg:md:grid-cols-5 gap-3 p-2">
-                {objectives.map((objective, i) => {
-                  const { image, title } = getObjectiveImage(objective);
-                  return (
-                    <div
-                      key={objective.task + i.toString()}
-                      className={`flex flex-col items-center`}
-                    >
-                      <Image
-                        className="basis-1/4"
-                        alt={objective.task}
-                        src={image}
-                        width={60}
-                        height={60}
-                      />
-                      {title}
-                    </div>
-                  );
-                })}
+                {objectives
+                  .filter((o) => o.task !== "dialog")
+                  .map((objective, i) => {
+                    const { image, title } = getObjectiveImage(objective);
+                    return (
+                      <div
+                        key={objective.task + i.toString()}
+                        className={`flex flex-col items-center`}
+                      >
+                        <Image
+                          className="basis-1/4"
+                          alt={objective.task}
+                          src={image}
+                          width={60}
+                          height={60}
+                        />
+                        {title}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           )}

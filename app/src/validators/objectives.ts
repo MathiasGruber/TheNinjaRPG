@@ -44,7 +44,7 @@ export const LocationTasks = [
 ] as const;
 export type LocationTasksType = (typeof LocationTasks)[number];
 
-export const allObjectiveTasks = [...SimpleTasks, ...LocationTasks] as const;
+export const allObjectiveTasks = [...SimpleTasks, ...LocationTasks, "dialog"] as const;
 export type AllObjectiveTask = (typeof allObjectiveTasks)[number];
 
 const rewardFields = {
@@ -90,24 +90,11 @@ export const baseObjectiveFields = {
   nextObjectiveId: z.string().optional(),
   sceneBackground: z.string().default(""),
   sceneCharacters: z.array(z.string()).default([]),
+  // Default not set, but used for e.g. dialog objectives
+  sector: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
+  latitude: z.coerce.number().optional(),
 };
-
-// TODO: Idea for dialog objective schema
-// export const DialogObjective = z.object({
-//   id: z.string(),
-//   task: z.literal("dialog").default("dialog"),
-//   scene: z.string().default(""),
-//   text: z.string().default(""),
-//   characters: z.array(z.string()).default([]),
-//   options: z
-//     .array(
-//       z.object({
-//         text: z.string(),
-//         nextObjectiveId: z.string().optional(),
-//       }),
-//     )
-//     .default([]),
-// });
 
 export const SimpleObjective = z.object({
   ...baseObjectiveFields,
@@ -147,6 +134,23 @@ const complexObjectiveFields = {
 };
 export const baseComplexObjective = z.object(complexObjectiveFields);
 export type ComplexObjectiveFields = z.infer<typeof baseComplexObjective>;
+
+// Dialog objective schema
+export const DialogObjective = z.object({
+  ...baseObjectiveFields,
+  ...rewardFields,
+  ...attackerFields,
+  task: z.literal("dialog").default("dialog"),
+  image: z.string().default(""),
+  nextObjectiveId: z
+    .array(
+      z.object({
+        text: z.string(),
+        nextObjectiveId: z.string().optional(),
+      }),
+    )
+    .default([]),
+});
 
 export const MoveToObjective = z.object({
   ...baseObjectiveFields,
@@ -193,6 +197,7 @@ export const AllObjectives = z.union([
   CollectItem,
   DeliverItem,
   DefeatOpponents,
+  DialogObjective,
 ]);
 export type AllObjectivesType = z.infer<typeof AllObjectives>;
 
@@ -204,6 +209,7 @@ export const ObjectiveTracker = z.object({
   sector: z.coerce.number().min(0).optional(),
   longitude: z.coerce.number().min(0).optional(),
   latitude: z.coerce.number().min(0).optional(),
+  selectedNextObjectiveId: z.string().optional(),
 });
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 
@@ -270,6 +276,8 @@ export const getObjectiveSchema = (type: string) => {
     return DeliverItem;
   } else if (type === "defeat_opponents") {
     return DefeatOpponents;
+  } else if (type === "dialog") {
+    return DialogObjective;
   }
   throw new Error(`Unknown objective task ${type}`);
 };

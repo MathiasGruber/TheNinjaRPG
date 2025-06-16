@@ -71,6 +71,11 @@ export type FormEntry<K> = {
       multiple?: boolean;
       current?: string;
     }
+  | {
+      type: "dialog_options";
+      values: { text: string; nextObjectiveId: string }[];
+      objectiveIds: string[];
+    }
 );
 
 interface EditContentProps<T, K, S extends FieldValues> {
@@ -159,6 +164,11 @@ export const EditContent = <
       >
         {formData
           .filter((formEntry) => formEntry.type !== "avatar3d")
+          .sort((a, b) => {
+            if (a.type === "dialog_options") return 1;
+            if (b.type === "dialog_options") return -1;
+            return 0;
+          })
           .map((formEntry) => {
             // Derived
             const id = formEntry.id;
@@ -512,65 +522,130 @@ export const EditContent = <
                       maxDim={formEntry.maxDim ?? 256}
                     />
                   )}
-                {/* {type === "avatar3d" &&
-                  "modelUrl" in formEntry &&
-                  "imgUrl" in formEntry && (
-                    <div className="flex flex-col justify-start">
-                      <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                      <br />
-                      <Model3d
-                        modelUrl={currentValues?.[id] ?? formEntry.modelUrl}
-                        imageUrl={formEntry.imgUrl}
-                        alt={id}
-                        size={100}
-                        hover_effect={true}
-                        priority
-                      />
-                      <br />
-                      {formEntry.imgUrl && props.allowImageUpload && (
-                        <div className="flex flex-row justify-center">
-                          <Button
-                            id="create"
-                            className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (formEntry.imgUrl) {
-                                create3dModel({
-                                  imgUrl: formEntry.imgUrl,
-                                  field: id,
-                                });
-                              }
-                            }}
-                          >
-                            {load ? (
-                              <Loader noPadding={true} size={25} />
-                            ) : (
-                              <RefreshCw className="mr-1 p-2 h-10 w-10" />
-                            )}
-                            AI
-                          </Button>
-                          <UploadButton
-                            endpoint="modelUploader"
-                            onClientUploadComplete={(res) => {
-                              const url = res?.[0]?.url;
-                              if (url) {
-                                form.setValue(id, url as PathValue<S, K>, {
-                                  shouldDirty: true,
-                                });
-                              }
-                            }}
-                            onUploadError={(error: Error) => {
-                              showMutationToast({
-                                success: false,
-                                message: error.message,
-                              });
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )} */}
+                {formEntry.type === "dialog_options" ? (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field, fieldState }) => {
+                      const dialogOptions: { text: string; nextObjectiveId: string }[] =
+                        Array.isArray(field.value)
+                          ? (field.value as { text: string; nextObjectiveId: string }[])
+                          : [];
+                      return (
+                        <FormItem className="flex flex-col gap-2">
+                          <FormLabel>{formEntry.label ?? id}</FormLabel>
+                          <div className="flex flex-col gap-2">
+                            {dialogOptions.map((opt, idx) => {
+                              const option: { text: string; nextObjectiveId: string } =
+                                opt;
+                              return (
+                                <div key={idx} className="flex gap-2 items-center">
+                                  <Input
+                                    className="flex-1"
+                                    placeholder="Dialog text..."
+                                    value={option.text}
+                                    onChange={(e) => {
+                                      const updated = [...dialogOptions];
+                                      updated[idx] = {
+                                        ...option,
+                                        text: e.target.value,
+                                      };
+                                      field.onChange(updated);
+                                    }}
+                                  />
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        className="min-w-[120px] flex-1"
+                                      >
+                                        {option.nextObjectiveId
+                                          ? formEntry.objectiveIds.find(
+                                              (oid) => oid === option.nextObjectiveId,
+                                            ) || "Select objective"
+                                          : "Select objective"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[200px] p-0">
+                                      <Command>
+                                        <CommandInput
+                                          placeholder="Search objectives..."
+                                          className="h-9"
+                                        />
+                                        <CommandList>
+                                          <CommandEmpty>
+                                            No objectives found.
+                                          </CommandEmpty>
+                                          <CommandGroup>
+                                            {formEntry.objectiveIds.map((oid) => (
+                                              <CommandItem
+                                                key={oid}
+                                                value={oid}
+                                                onSelect={() => {
+                                                  const updated = [...dialogOptions];
+                                                  updated[idx] = {
+                                                    ...option,
+                                                    nextObjectiveId: oid,
+                                                  };
+                                                  field.onChange(updated);
+                                                }}
+                                              >
+                                                {oid}
+                                                <Check
+                                                  className={cn(
+                                                    "ml-auto",
+                                                    oid === option.nextObjectiveId
+                                                      ? "opacity-100"
+                                                      : "opacity-0",
+                                                  )}
+                                                />
+                                              </CommandItem>
+                                            ))}
+                                          </CommandGroup>
+                                        </CommandList>
+                                      </Command>
+                                    </PopoverContent>
+                                  </Popover>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="p-1"
+                                    onClick={() => {
+                                      const updated = dialogOptions.filter(
+                                        (_, i) => i !== idx,
+                                      );
+                                      field.onChange(updated);
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full mt-2"
+                              onClick={() => {
+                                field.onChange([
+                                  ...dialogOptions,
+                                  {
+                                    text: "",
+                                    nextObjectiveId: formEntry.objectiveIds[0] ?? "",
+                                  },
+                                ]);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-1" /> Add Dialog Option
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ) : null}
               </div>
             );
           })}
@@ -1022,6 +1097,11 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .filter((value) => {
       return (
+        watchTask !== "dialog" || !["sector", "longitude", "latitude"].includes(value)
+      );
+    })
+    .filter((value) => {
+      return (
         !locationType ||
         locationType === "specific" ||
         (locationType === "random" && !["longitude", "latitude"].includes(value))
@@ -1083,12 +1163,27 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           type: "db_values",
         };
       } else if (value === "nextObjectiveId" && props.objectives) {
-        return {
-          id: value,
-          values: [...props.objectives.map((objective) => objective.id)],
-          type: "str_array",
-          resetButton: true,
-        };
+        const obejctiveIds = props.objectives.map((objective) => objective.id);
+        if (innerType instanceof z.ZodArray) {
+          // Dialog objective: nextObjectiveId is an array of {text, nextObjectiveId}
+          return {
+            id: value,
+            values: (shownTag.nextObjectiveId ?? []) as {
+              text: string;
+              nextObjectiveId: string;
+            }[],
+            doubleWidth: true,
+            type: "dialog_options",
+            objectiveIds: obejctiveIds,
+          };
+        } else {
+          return {
+            id: value,
+            values: obejctiveIds,
+            type: "str_array",
+            resetButton: true,
+          };
+        }
       } else if (
         innerType instanceof z.ZodLiteral ||
         innerType instanceof z.ZodString

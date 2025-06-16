@@ -21,7 +21,7 @@ import type { ZodQuestType, AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
 import CytoscapeComponent from "react-cytoscapejs";
 import type { ElementDefinition, Core, EventObjectNode, EventObject } from "cytoscape";
-import { getObjectiveImage } from "@/libs/objectives";
+import { getObjectiveImage, buildObjectiveEdges } from "@/libs/objectives";
 import { verifyQuestObjectiveFlow } from "@/libs/quest";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
@@ -127,7 +127,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
         <ObjectiveFormWrapper
           idx={i}
           objective={objective}
-          availableTags={allObjectiveTasks}
+          availableTags={[...allObjectiveTasks].sort()}
           objectives={objectives}
           setObjectives={setObjectives}
           consecutiveObjectives={consecutiveObjectives}
@@ -285,19 +285,7 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
         classes: obj.id === selectedObjectiveId ? "selected" : "",
       };
     });
-    let edges: ElementDefinition[] = [];
-    if (consecutiveObjectives) {
-      edges = objectives
-        .filter((obj) => obj.nextObjectiveId)
-        .map((obj) => ({
-          data: {
-            source: obj.id,
-            target: obj.nextObjectiveId!,
-            label: "",
-            id: `${obj.id}__to__${obj.nextObjectiveId}`,
-          },
-        }));
-    }
+    const edges = buildObjectiveEdges(objectives, consecutiveObjectives);
     return [...nodes, ...edges];
   }, [objectives, consecutiveObjectives, selectedObjectiveId]);
 
@@ -312,22 +300,12 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
       }
     });
     if (consecutiveObjectives) {
-      objectives
-        .filter((obj) => obj.nextObjectiveId)
-        .forEach((obj) => {
-          const edgeId = `${obj.id}__to__${obj.nextObjectiveId}`;
-          if (!cy.getElementById(edgeId).length) {
-            cy.add({
-              group: "edges",
-              data: {
-                id: edgeId,
-                source: obj.id,
-                target: obj.nextObjectiveId!,
-                label: "",
-              },
-            });
-          }
-        });
+      const edges = buildObjectiveEdges(objectives, consecutiveObjectives);
+      edges.forEach(({ data }) => {
+        if (data.id && !cy.getElementById(data.id).length) {
+          cy.add({ group: "edges", data });
+        }
+      });
     }
     cy.layout({ name: "cose", fit: true, padding: 30, randomize: true }).run();
   };

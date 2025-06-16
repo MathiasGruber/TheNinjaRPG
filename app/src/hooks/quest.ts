@@ -10,7 +10,7 @@ import {
 } from "@/drizzle/constants";
 import { z } from "zod";
 import { api } from "@/app/_trpc/client";
-import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT, IMG_BADGE_DIALOG } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
@@ -105,6 +105,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
           if (ai?.avatar) {
             objective.image = ai.avatar;
           }
+        } else if (objective.task === "dialog") {
+          objective.image = IMG_BADGE_DIALOG;
         }
         return objective;
       });

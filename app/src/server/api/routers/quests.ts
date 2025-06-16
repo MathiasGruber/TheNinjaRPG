@@ -698,7 +698,7 @@ export const questsRouter = createTRPCRouter({
       }
     }),
   checkRewards: protectedProcedure
-    .input(z.object({ questId: z.string() }))
+    .input(z.object({ questId: z.string(), nextObjectiveId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
@@ -715,6 +715,7 @@ export const questsRouter = createTRPCRouter({
       const { rewards, trackers, userQuest, resolved, successDescriptions } = getReward(
         user,
         input.questId,
+        input.nextObjectiveId,
       );
       user.questData = trackers;
 
@@ -826,6 +827,7 @@ export const questsRouter = createTRPCRouter({
         success: z.boolean(),
         notifications: z.array(z.string()),
         questData: z.array(QuestTracker).optional(),
+        questIdsUpdated: z.array(z.string()).optional(),
         updateAt: z.date().optional(),
       }),
     )
@@ -845,13 +847,18 @@ export const questsRouter = createTRPCRouter({
       }
 
       // Get updated quest information
-      const { trackers, notifications, consequences, shouldUpdateUserInDB } =
-        getNewTrackers({ ...user, useritems }, [
-          { task: "move_to_location" },
-          { task: "collect_item" },
-          { task: "deliver_item" },
-          { task: "defeat_opponents" },
-        ]);
+      const {
+        trackers,
+        notifications,
+        consequences,
+        shouldUpdateUserInDB,
+        questIdsUpdated,
+      } = getNewTrackers({ ...user, useritems }, [
+        { task: "move_to_location" },
+        { task: "collect_item" },
+        { task: "deliver_item" },
+        { task: "defeat_opponents" },
+      ]);
       user.questData = trackers;
       // Items collected
       const collected = consequences.filter((c) => c.type === "add_item");
@@ -952,11 +959,13 @@ export const questsRouter = createTRPCRouter({
             success: true,
             notifications,
             questData: user.questData,
+            questIdsUpdated,
             updateAt: new Date(),
           };
         }
       }
-      return { success: false, notifications };
+      console.log(questIdsUpdated);
+      return { success: false, notifications, questIdsUpdated };
     }),
   getUserQuests: protectedProcedure
     .input(z.object({ userId: z.string() }))

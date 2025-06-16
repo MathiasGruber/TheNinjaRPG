@@ -88,7 +88,11 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
     } else {
       img = (
         <NextImage
-          className={cn(props.className, "w-full h-full aspect-square")}
+          className={cn(
+            props.className,
+            "w-full h-full aspect-square",
+            props.roundFull ? "rounded-full" : "rounded-xl",
+          )}
           src={props.image}
           alt={props.alt}
           width={125}

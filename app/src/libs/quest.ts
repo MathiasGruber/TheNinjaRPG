@@ -12,7 +12,6 @@ import {
   IMG_MISSION_D,
   IMG_MISSION_E,
   VILLAGE_SYNDICATE_ID,
-  MISSIONS_PER_DAY,
   ADDITIONAL_MISSION_REWARD_MULTIPLIER,
   type LetterRank,
   type QuestType,
@@ -20,6 +19,7 @@ import {
 } from "@/drizzle/constants";
 import { SECTOR_WIDTH, SECTOR_HEIGHT } from "@/libs/travel/constants";
 import { getUnique } from "@/utils/grouping";
+import { isQuestComplete, findPredecessor } from "@/libs/objectives";
 import type { UserWithRelations } from "@/routers/profile";
 import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
 import type { Quest, UserData, UserItem } from "@/drizzle/schema";
@@ -80,11 +80,22 @@ export const isLocationObjective = (
 /**
  * Go through current user quests, and return updated list of questData &
  * list of rewards to award the user
+ * @param user - User with questData
+ * @param questId - Quest ID
+ * @param dialogNextObjectiveId - Requested next objective ID,
+ * @returns Rewards, trackers, userQuest, resolved, successDescriptions
  */
-export const getReward = (user: NonNullable<UserWithRelations>, questId: string) => {
+export const getReward = (
+  user: NonNullable<UserWithRelations>,
+  questId: string,
+  dialogNextObjectiveId?: string,
+) => {
   // Derived
   let rewards = ObjectiveReward.parse({});
-  const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+  const { trackers } = getNewTrackers(user, [
+    { task: "any" },
+    { task: "dialog", contentId: dialogNextObjectiveId },
+  ]);
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
   const successDescriptions: string[] = [];
   let resolved = false;
@@ -92,7 +103,7 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
   if (userQuest && !userQuest.completed) {
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
     const goals = tracker?.goals ?? [];
-    resolved = (goals.every((g) => g.done) || goals.length === 0) ?? false;
+    resolved = !tracker || isQuestComplete(userQuest.quest, tracker);
     if (resolved) {
       rewards = ObjectiveReward.parse(userQuest.quest.content.reward);
     }
@@ -174,6 +185,7 @@ export const getNewTrackers = (
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
+  const questIdsUpdated: string[] = [];
   const consequences: {
     type: "add_item" | "remove_item" | "combat";
     ids: string[];
@@ -195,6 +207,7 @@ export const getNewTrackers = (
           if (!status) {
             status = ObjectiveTracker.parse({ id: objective.id });
           }
+
           // Figure out sector & location if not already specified
           if ("sectorType" in objective && !status.sector) {
             if (objective.sectorType === "specific") {
@@ -231,12 +244,33 @@ export const getNewTrackers = (
             shouldUpdateUserInDB = true;
           }
 
+          // If a dialog, find any previous objective pointing to this one, and set the location to the same location
+          if (objective.task === "dialog") {
+            const previousObjective = findPredecessor(
+              quest.content.objectives,
+              objective.id,
+            );
+            if (
+              previousObjective &&
+              "sector" in previousObjective &&
+              "longitude" in previousObjective &&
+              "latitude" in previousObjective
+            ) {
+              status.sector = previousObjective.sector;
+              status.longitude = previousObjective.longitude;
+              status.latitude = previousObjective.latitude;
+              shouldUpdateUserInDB = true;
+            }
+          }
+
           // If we have a location on the status (i.e. instantiated for the user, overwrite objective)
           if ("sector" in objective) {
             if (status.longitude) objective.longitude = status.longitude;
             if (status.latitude) objective.latitude = status.latitude;
             if (status.sector) objective.sector = status.sector;
-            objective.locationType = "specific";
+            if ("locationType" in objective) {
+              objective.locationType = "specific";
+            }
           }
 
           // If done, return status
@@ -249,7 +283,7 @@ export const getNewTrackers = (
             return status;
           }
 
-          //Convenience
+          // Convenience
           const task = objective.task;
           const isKage = user.village?.kageId === user.userId;
 
@@ -292,6 +326,22 @@ export const getNewTrackers = (
                 if (taskUpdate.value) {
                   status.value = taskUpdate.value;
                 }
+              }
+              // Dialog objective
+              if (task === "dialog" && taskUpdate.contentId) {
+                const objectiveHasNext = objective.nextObjectiveId?.find(
+                  (next) => next.nextObjectiveId === taskUpdate.contentId,
+                );
+                if (objectiveHasNext) {
+                  status.done = true;
+                  status.selectedNextObjectiveId = taskUpdate.contentId;
+                }
+              } else if (
+                quest.consecutiveObjectives &&
+                "nextObjectiveId" in objective &&
+                typeof objective.nextObjectiveId === "string"
+              ) {
+                status.selectedNextObjectiveId = objective.nextObjectiveId;
               }
               // If objective has a location, set to completed
               if (status && isLocationObjective(user, objective)) {
@@ -395,6 +445,12 @@ export const getNewTrackers = (
           if ("value" in objective && status.value >= objective.value) {
             status.done = true;
           }
+
+          // If status is now done, then add quest id to list of updated quests
+          if (status.done) {
+            questIdsUpdated.push(quest.id);
+          }
+
           return status;
         });
         return questTracker;
@@ -407,6 +463,7 @@ export const getNewTrackers = (
     notifications,
     consequences,
     shouldUpdateUserInDB,
+    questIdsUpdated,
   };
 };
 
@@ -505,15 +562,15 @@ export const controlShownQuestLocationInformation = (
     // If we have a tracker which specifies the location, use that (e.g. from random sectors etc)
     const status = tracker?.goals.find((goal) => goal.id === objective.id);
     if (tracker && status) {
-      if ("sector" in status && "sector" in objective) {
+      if ("sector" in status) {
         objective.sector = status.sector!;
         delete status.sector;
       }
-      if ("longitude" in status && "longitude" in objective) {
+      if ("longitude" in status) {
         objective.longitude = status.longitude!;
         delete status.longitude;
       }
-      if ("latitude" in status && "latitude" in objective) {
+      if ("latitude" in status) {
         objective.latitude = status.latitude!;
         delete status.latitude;
       }
@@ -640,88 +697,132 @@ export const isAvailableUserQuests = (
 export const verifyQuestObjectiveFlow = (
   objectives: AllObjectivesType[],
 ): { check: boolean; message: string } => {
-  // No objectives
-  if (!objectives || objectives.length === 0) {
-    return { check: false, message: "No objectives provided" };
-  }
+  // Helper which normalises the various `nextObjectiveId` shapes into a flat list of ids
+  const collectNextIds = (obj: AllObjectivesType): string[] => {
+    const result: string[] = [];
+    const ref: unknown = (obj as { nextObjectiveId?: unknown }).nextObjectiveId;
 
-  const idToObjective = new Map<string, AllObjectivesType>();
-
-  // Build map and check for duplicate ids
-  for (const obj of objectives) {
-    if (idToObjective.has(obj.id)) {
-      return {
-        check: false,
-        message: `Duplicate objective id '${obj.id}' found`,
-      };
-    }
-    idToObjective.set(obj.id, obj);
-  }
-
-  const referencedIds = new Set<string>();
-
-  // Validate references while populating referencedIds
-  for (const obj of objectives) {
-    if (obj.nextObjectiveId) {
-      if (!idToObjective.has(obj.nextObjectiveId)) {
-        return {
-          check: false,
-          message: `Objective '${obj.id}' references unknown nextObjectiveId '${obj.nextObjectiveId}'`,
-        };
+    if (typeof ref === "string") {
+      result.push(ref);
+    } else if (Array.isArray(ref)) {
+      for (const branch of ref) {
+        if (branch && typeof branch === "object") {
+          const id = (branch as { nextObjectiveId?: string }).nextObjectiveId;
+          if (typeof id === "string") result.push(id);
+        }
       }
-      if (obj.nextObjectiveId === obj.id) {
-        return {
-          check: false,
-          message: `Objective '${obj.id}' has a self-referencing nextObjectiveId`,
-        };
+    }
+
+    return result;
+  };
+
+  try {
+    // ------------------------------------------------------------------
+    // 0. Basic presence check
+    // ------------------------------------------------------------------
+    if (!objectives || objectives.length === 0) {
+      throw new Error("No objectives provided");
+    }
+
+    // ------------------------------------------------------------------
+    // 1. Build quick lookup map & guard against duplicate ids
+    // ------------------------------------------------------------------
+    const idToObj = new Map<string, AllObjectivesType>();
+    for (const obj of objectives) {
+      if (idToObj.has(obj.id)) {
+        throw new Error(`Duplicate objective id '${obj.id}'`);
       }
-      referencedIds.add(obj.nextObjectiveId);
+      idToObj.set(obj.id, obj);
     }
-  }
 
-  // Determine starting objectives
-  const startingIds = objectives
-    .map((o) => o.id)
-    .filter((id) => !referencedIds.has(id));
+    // ------------------------------------------------------------------
+    // 2. Build adjacency list while validating references & special rules
+    // ------------------------------------------------------------------
+    const adjacency = new Map<string, string[]>();
+    const referencedIds = new Set<string>();
 
-  if (startingIds.length === 0) {
-    return { check: false, message: "No starting objective found" };
-  }
-  if (startingIds.length > 1) {
-    return {
-      check: false,
-      message: `Multiple starting objectives found: ${startingIds.join(", ")}`,
+    for (const obj of objectives) {
+      // Dialog objectives must expose at least one option (branch)
+      if (obj.task === "dialog") {
+        const nextRef = (obj as { nextObjectiveId?: unknown }).nextObjectiveId;
+        if (!Array.isArray(nextRef) || nextRef.length === 0) {
+          throw new Error(`Dialog objective '${obj.id}' must have at least one option`);
+        }
+      }
+
+      const neighbours = collectNextIds(obj);
+      if (neighbours.length === 0) {
+        adjacency.set(obj.id, adjacency.get(obj.id) ?? []);
+      }
+
+      for (const raw of neighbours) {
+        if (!raw) continue; // Safeguard against undefined values
+        const nextId = raw;
+        // Self-reference
+        if (nextId === obj.id) {
+          throw new Error(
+            `Objective '${obj.id}' has a self-referencing nextObjectiveId`,
+          );
+        }
+        // Unknown reference
+        if (!idToObj.has(nextId)) {
+          throw new Error(
+            `Objective '${obj.id}' references unknown nextObjectiveId '${nextId}'`,
+          );
+        }
+        referencedIds.add(nextId);
+        const list = adjacency.get(obj.id) ?? [];
+        list.push(nextId);
+        adjacency.set(obj.id, list);
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // 3. Determine unique starting objective (never referenced by others)
+    // ------------------------------------------------------------------
+    const startingIds = objectives
+      .map((o) => o.id)
+      .filter((id) => !referencedIds.has(id));
+
+    if (startingIds.length === 0) {
+      throw new Error("No starting objective found");
+    }
+    if (startingIds.length > 1) {
+      throw new Error(`Multiple starting objectives found: ${startingIds.join(", ")}`);
+    }
+    const startId = startingIds[0]!;
+
+    // ------------------------------------------------------------------
+    // 4. DFS to detect cycles & ensure reachability
+    // ------------------------------------------------------------------
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+
+    const dfs = (currentId: string): void => {
+      if (recursionStack.has(currentId)) {
+        throw new Error("Cycle detected in objective chain");
+      }
+      if (visited.has(currentId)) return;
+
+      visited.add(currentId);
+      recursionStack.add(currentId);
+
+      const neighbours = adjacency.get(currentId) ?? [];
+      for (const next of neighbours) dfs(next);
+
+      recursionStack.delete(currentId);
     };
-  }
 
-  const startId = startingIds[0];
-  const visited = new Set<string>();
-  let currentId: string | undefined = startId;
+    dfs(startId);
 
-  // Traverse chain, detect cycles
-  while (currentId) {
-    if (visited.has(currentId)) {
-      return { check: false, message: "Cycle detected in objective chain" };
+    // All objectives must be reachable from the start
+    if (visited.size !== objectives.length) {
+      const unreachable = objectives.filter((o) => !visited.has(o.id)).map((o) => o.id);
+      throw new Error(`Unreachable objectives detected: ${unreachable.join(", ")}`);
     }
-    visited.add(currentId);
-    const currentObj = idToObjective.get(currentId);
-    if (!currentObj) {
-      // Should not happen after previous validation
-      return {
-        check: false,
-        message: `Objective '${currentId}' not found during traversal`,
-      };
-    }
-    currentId = currentObj.nextObjectiveId;
-  }
 
-  if (visited.size !== objectives.length) {
-    const unreachable = objectives.filter((o) => !visited.has(o.id)).map((o) => o.id);
-    return {
-      check: false,
-      message: `Unreachable objectives detected: ${unreachable.join(", ")}`,
-    };
+    return { check: true, message: "" };
+  } catch (err) {
+    return { check: false, message: (err as Error).message };
   }
-
-  return { check: true, message: "" };
 };

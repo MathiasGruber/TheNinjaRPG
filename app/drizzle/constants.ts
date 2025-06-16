@@ -803,6 +803,8 @@ export const IMG_SCENE_BACKGROUND =
 export const IMG_SCENE_CHARACTER =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF08NAw3G2iOewJtjGzvNcmEX3TBnoSfMDZPH";
 
+export const IMG_BADGE_DIALOG =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJpIn7vsbKBAOsGCHyl3Sk0mZFrgWPUdjMJ75D";
 export const IMG_BADGE_RANDOM_ENCOUNTER_WINS =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJqyp2N4dkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
 export const IMG_BADGE_PVPKILLS =
