@@ -478,7 +478,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
           className={cn(
             "grid grid-cols-1 gap-4",
             tierOrDaily ? "sm:grid-cols-1" : "sm:grid-cols-2",
-            showScene ? "px-3" : "",
+            showScene ? "px-3 pb-3" : "",
           )}
         >
           {quest.content.objectives?.map((objective, i) => {
@@ -535,10 +535,10 @@ export const useCheckRewards = () => {
         }
         // If there is a userQuest, show the rewards
         if ("userQuest" in data && data.userQuest) {
-          const { successDescriptions, rewards, userQuest, resolved, badges } = data;
+          const { notifications, rewards, userQuest, resolved, badges } = data;
           const quest = userQuest.quest;
           const showToast =
-            successDescriptions.length > 0 ||
+            notifications.length > 0 ||
             (resolved && quest.successDescription) ||
             rewards.reward_money > 0 ||
             rewards.reward_clanpoints > 0 ||
@@ -550,9 +550,9 @@ export const useCheckRewards = () => {
             rewards.reward_items.length > 0;
           const reward = (
             <div className="flex flex-col gap-2">
-              {successDescriptions.length > 0 && (
+              {notifications.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  {successDescriptions.map((description, i) => (
+                  {notifications.map((description, i) => (
                     <div key={`objective-success-${i}`}>
                       <b>Objective {i + 1}:</b>
                       <br />

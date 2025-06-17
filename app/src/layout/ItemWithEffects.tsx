@@ -559,7 +559,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               </div>
             </div>
           )}
-          {objectives.length > 0 && (
+          {/* {objectives.length > 0 && (
             <div className={`my-2 rounded-lg bg-poppopover p-2`}>
               <p className="font-bold">Objectives</p>
               <div className="grid grid-cols-5 md:grid-cols-3 lg:md:grid-cols-5 gap-3 p-2">
@@ -585,7 +585,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                   })}
               </div>
             </div>
-          )}
+          )} */}
 
           {effects?.map((effect, i) => {
             // Get schema for parsing effect

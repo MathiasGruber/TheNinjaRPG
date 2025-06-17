@@ -462,11 +462,19 @@ export const updateUser = async (
       user,
       curBattle.usersState
         .filter((u) => u.userId !== userId)
-        .map((u) => ({
-          task: "defeat_opponents",
-          contentId: u.userId,
-          text: result.outcome,
-        })),
+        .map((u) => [
+          {
+            task: "defeat_opponents" as const,
+            contentId: u.userId,
+            text: result.outcome,
+          },
+          {
+            task: "start_battle" as const,
+            contentId: u.userId,
+            text: result.outcome,
+          },
+        ])
+        .flat(),
     );
     user.questData = trackers;
     // Add notifications to combatResult

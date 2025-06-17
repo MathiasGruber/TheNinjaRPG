@@ -22,6 +22,10 @@ import {
   IMG_BADGE_DEFEAT_OPPONENTS,
   IMG_BADGE_RANDOM_ENCOUNTER_WINS,
   IMG_BADGE_DIALOG,
+  IMG_BADGE_FAIL_QUEST,
+  IMG_BADGE_WIN_QUEST,
+  IMG_BADGE_NEW_QUEST,
+  IMG_BADGE_START_BATTLE,
 } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType } from "@/validators/objectives";
@@ -76,6 +80,14 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
       return { image: IMG_BADGE_DEFEAT_OPPONENTS, title: "Defeat" };
     case "random_encounter_wins":
       return { image: IMG_BADGE_RANDOM_ENCOUNTER_WINS, title: "Encounter Wins" };
+    case "fail_quest":
+      return { image: IMG_BADGE_FAIL_QUEST, title: "Fail Quest" };
+    case "win_quest":
+      return { image: IMG_BADGE_WIN_QUEST, title: "Win Quest" };
+    case "new_quest":
+      return { image: IMG_BADGE_NEW_QUEST, title: "New Quest" };
+    case "start_battle":
+      return { image: IMG_BADGE_START_BATTLE, title: "Start Battle" };
     case "dialog":
       return { image: IMG_BADGE_DIALOG, title: "Dialog" };
     default:

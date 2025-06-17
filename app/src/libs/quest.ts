@@ -92,12 +92,11 @@ export const getReward = (
 ) => {
   // Derived
   let rewards = ObjectiveReward.parse({});
-  const { trackers } = getNewTrackers(user, [
+  const { trackers, notifications, consequences } = getNewTrackers(user, [
     { task: "any" },
     { task: "dialog", contentId: dialogNextObjectiveId },
   ]);
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
-  const successDescriptions: string[] = [];
   let resolved = false;
   // Start mutating
   if (userQuest && !userQuest.completed) {
@@ -112,7 +111,7 @@ export const getReward = (
       if (status?.done && !status.collected) {
         status.collected = true;
         if (objective.successDescription) {
-          successDescriptions.push(objective.successDescription);
+          notifications.push(objective.successDescription);
         }
         if (objective.reward_money) {
           rewards.reward_money += objective.reward_money;
@@ -156,7 +155,20 @@ export const getReward = (
     rewards.reward_tokens = Math.floor(rewards.reward_tokens * factor);
     rewards.reward_prestige = Math.floor(rewards.reward_prestige * factor);
   }
-  return { rewards, trackers, userQuest, resolved, successDescriptions };
+  return { rewards, trackers, userQuest, resolved, notifications, consequences };
+};
+
+export type QuestConsequence = {
+  type:
+    | "add_item"
+    | "remove_item"
+    | "combat"
+    | "fail_quest"
+    | "start_quest"
+    | "update_user";
+  ids: string[];
+  scaleStats?: boolean;
+  scaleGains?: number;
 };
 
 /**
@@ -181,17 +193,11 @@ export const getNewTrackers = (
     contentId?: string;
   }[],
 ) => {
-  let shouldUpdateUserInDB = false;
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
   const questIdsUpdated: string[] = [];
-  const consequences: {
-    type: "add_item" | "remove_item" | "combat";
-    ids: string[];
-    scaleStats?: boolean;
-    scaleGains?: number;
-  }[] = [];
+  const consequences: QuestConsequence[] = [];
   const trackers = activeQuests
     .map((quest) => {
       if (quest) {
@@ -226,7 +232,7 @@ export const getNewTrackers = (
             } else if (objective.sectorType === "current_sector") {
               status.sector = user.sector;
             }
-            shouldUpdateUserInDB = true;
+            consequences.push({ type: "update_user", ids: ["location_update"] });
           }
 
           // If locationType is not specific, update the location accordingly
@@ -241,7 +247,7 @@ export const getNewTrackers = (
               status.longitude = Math.floor(Math.random() * SECTOR_WIDTH);
               status.latitude = Math.floor(Math.random() * SECTOR_HEIGHT);
             }
-            shouldUpdateUserInDB = true;
+            consequences.push({ type: "update_user", ids: ["location_update"] });
           }
 
           // If a dialog, find any previous objective pointing to this one, and set the location to the same location
@@ -259,7 +265,7 @@ export const getNewTrackers = (
               status.sector = previousObjective.sector;
               status.longitude = previousObjective.longitude;
               status.latitude = previousObjective.latitude;
-              shouldUpdateUserInDB = true;
+              consequences.push({ type: "update_user", ids: ["dialog_update"] });
             }
           }
 
@@ -314,6 +320,37 @@ export const getNewTrackers = (
             if (field) status.value = user[field];
           }
 
+          /** Helper function to put the user in combat */
+          const putInCombat = () => {
+            if (
+              "opponentAIs" in objective &&
+              objective.opponentAIs &&
+              objective.opponentAIs.length > 0 &&
+              user.status === "AWAKE"
+            ) {
+              notifications.push(`Attacking target for ${quest.name}.`);
+              consequences.push({
+                type: "combat",
+                ids: objective.opponentAIs,
+                scaleStats: objective.opponent_scaled_to_user,
+                scaleGains: objective.scaleGains,
+              });
+            }
+          };
+
+          // Instant objectives
+          if (task === "win_quest") {
+            status.done = true;
+          } else if (task === "fail_quest") {
+            consequences.push({ type: "fail_quest", ids: [quest.id] });
+            notifications.push(objective.description || `Failed: ${quest.name}`);
+          } else if (task === "new_quest" && "newQuestIds" in objective) {
+            status.done = true;
+            consequences.push({ type: "start_quest", ids: objective.newQuestIds });
+          } else if (task === "start_battle") {
+            putInCombat();
+          }
+
           // Specific updates requested by the caller
           tasks
             .filter((taskUpdate) => taskUpdate.task === task)
@@ -343,6 +380,7 @@ export const getNewTrackers = (
               ) {
                 status.selectedNextObjectiveId = objective.nextObjectiveId;
               }
+
               // If objective has a location, set to completed
               if (status && isLocationObjective(user, objective)) {
                 if (task === "move_to_location") {
@@ -387,21 +425,18 @@ export const getNewTrackers = (
                   status.done = true;
                 }
                 if (task === "defeat_opponents" && "opponentAIs" in objective) {
-                  if (
-                    objective.opponentAIs &&
-                    !objective.opponentAIs.includes(taskUpdate.contentId || "1337")
-                  ) {
-                    notifications.push(`Attacking target for ${quest.name}.`);
-                    consequences.push({
-                      type: "combat",
-                      ids: objective.opponentAIs,
-                      scaleStats: objective.opponent_scaled_to_user,
-                      scaleGains: objective.scaleGains,
-                    });
+                  if (!objective.opponentAIs.includes(taskUpdate.contentId || "1337")) {
+                    putInCombat();
                   }
                 }
               }
-              if (status && task === "defeat_opponents" && "opponentAIs" in objective) {
+
+              // Defeating specific opponents
+              if (
+                status &&
+                ["start_battle", "defeat_opponents"].includes(task) &&
+                "opponentAIs" in objective
+              ) {
                 if (
                   taskUpdate.text &&
                   objective.opponentAIs.includes(taskUpdate.contentId || "1337")
@@ -462,7 +497,6 @@ export const getNewTrackers = (
     trackers: getUnique(trackers, "id"),
     notifications,
     consequences,
-    shouldUpdateUserInDB,
     questIdsUpdated,
   };
 };
@@ -563,7 +597,7 @@ export const controlShownQuestLocationInformation = (
     const status = tracker?.goals.find((goal) => goal.id === objective.id);
     if (tracker && status) {
       if ("sector" in status) {
-        objective.sector = status.sector!;
+        objective.sector = status.sector;
         delete status.sector;
       }
       if ("longitude" in status) {

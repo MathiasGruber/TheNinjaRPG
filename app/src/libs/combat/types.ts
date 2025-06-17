@@ -25,7 +25,7 @@ export type BattleWar = War & {
 /**
  * BattleUserState is the data stored in the battle entry about a given user
  */
-export type BattleUserState = UserWithRelations & {
+export type BattleUserState = Omit<NonNullable<UserWithRelations>, "items"> & {
   jutsus: (UserJutsu & {
     jutsu: Jutsu;
     lastUsedRound: number;

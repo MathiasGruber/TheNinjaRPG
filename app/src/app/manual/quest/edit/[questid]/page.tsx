@@ -116,7 +116,6 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
         initialBreak={true}
         topRightContent={
           <div className="flex flex-row">
-            {AddObjectiveIcon}
             <FileMinus
               className="h-6 w-6 cursor-pointer hover:text-orange-500"
               onClick={() => removeObjective(i)}
@@ -182,15 +181,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
                     const newObjectives = data.content?.objectives
                       ?.map((objective) => {
                         const schema = getObjectiveSchema(objective.task);
-                        const {
-                          reward_items, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          reward_jutsus, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          reward_badges, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          reward_rank, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          attackers, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          ...rest
-                        } = objective;
-                        const parsed = schema.safeParse({ ...rest, id: nanoid() });
+                        const parsed = schema.safeParse({ ...objective, id: nanoid() });
                         if (parsed.success) {
                           return parsed.data;
                         } else {

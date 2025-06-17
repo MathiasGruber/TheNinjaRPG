@@ -36,6 +36,14 @@ export const SimpleTasks = [
   //"students_trained",
 ] as const;
 
+export const InstantTasks = [
+  "fail_quest",
+  "win_quest",
+  "new_quest",
+  "start_battle",
+] as const;
+export type InstantTasksType = (typeof InstantTasks)[number];
+
 export const LocationTasks = [
   "move_to_location",
   "collect_item",
@@ -44,7 +52,12 @@ export const LocationTasks = [
 ] as const;
 export type LocationTasksType = (typeof LocationTasks)[number];
 
-export const allObjectiveTasks = [...SimpleTasks, ...LocationTasks, "dialog"] as const;
+export const allObjectiveTasks = [
+  ...SimpleTasks,
+  ...LocationTasks,
+  ...InstantTasks,
+  "dialog",
+] as const;
 export type AllObjectiveTask = (typeof allObjectiveTasks)[number];
 
 const rewardFields = {
@@ -102,6 +115,32 @@ export const SimpleObjective = z.object({
   value: z.coerce.number().min(0).default(3),
   ...rewardFields,
   ...attackerFields,
+});
+
+export const InstantWinLoseObjective = z.object({
+  ...baseObjectiveFields,
+  task: z.enum(["fail_quest", "win_quest"]),
+  ...rewardFields,
+});
+
+export const InstantNewQuestObjective = z.object({
+  ...baseObjectiveFields,
+  task: z.literal("new_quest").default("new_quest"),
+  newQuestIds: z.array(z.string()).default([]),
+  ...rewardFields,
+});
+
+export const InstantStartBattleObjective = z.object({
+  ...baseObjectiveFields,
+  task: z.literal("start_battle").default("start_battle"),
+  opponentAIs: z.array(z.string()).default([]),
+  opponent_scaled_to_user: z.coerce.boolean().default(false),
+  completionOutcome: z.enum(["Win", "Lose", "Flee", "Draw", "Any"]).default("Win"),
+  failDescription: z.string().default("You failed to defeat the opponent"),
+  fleeDescription: z.string().default("You fled from the opponent"),
+  drawDescription: z.string().default("The battle ended in a draw"),
+  scaleGains: z.coerce.number().min(0).max(1).default(1),
+  ...rewardFields,
 });
 
 const SECTOR_TYPES = [
@@ -193,6 +232,9 @@ export const DefeatOpponents = z.object({
 
 export const AllObjectives = z.union([
   SimpleObjective,
+  InstantWinLoseObjective,
+  InstantNewQuestObjective,
+  InstantStartBattleObjective,
   MoveToObjective,
   CollectItem,
   DeliverItem,
@@ -268,6 +310,12 @@ export type ZodQuestType = z.infer<typeof QuestValidator>;
 export const getObjectiveSchema = (type: string) => {
   if (SimpleTasks.includes(type as (typeof SimpleTasks)[number])) {
     return SimpleObjective;
+  } else if (["fail_quest", "win_quest"].includes(type)) {
+    return InstantWinLoseObjective;
+  } else if (type === "new_quest") {
+    return InstantNewQuestObjective;
+  } else if (type === "start_battle") {
+    return InstantStartBattleObjective;
   } else if (type === "move_to_location") {
     return MoveToObjective;
   } else if (type === "collect_item") {

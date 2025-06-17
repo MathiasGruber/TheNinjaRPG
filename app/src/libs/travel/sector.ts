@@ -23,7 +23,6 @@ import { wallPlacements } from "./controls";
 import { groupBy } from "@/utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
 import { getActiveObjectives } from "@/libs/quest";
-import { LocationTasks } from "@/validators/objectives";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import {
   IMG_AVATAR_DEFAULT,

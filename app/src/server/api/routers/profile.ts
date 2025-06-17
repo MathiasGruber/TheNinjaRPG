@@ -41,6 +41,7 @@ import { canEditPublicUser } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
+import { handleQuestConsequences } from "@/routers/quests";
 import { fetchVillage } from "@/routers/village";
 import { getNewTrackers } from "@/libs/quest";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
@@ -301,7 +302,7 @@ export const profileRouter = createTRPCRouter({
   // Get all information on logged in user
   getUser: protectedProcedure.query(async ({ ctx }) => {
     // Query
-    const { user, settings, rewards, hasUnvotedPolls } = await fetchUpdatedUser({
+    const { user, settings, toastMessages, hasUnvotedPolls } = await fetchUpdatedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
       userIp: ctx.userIp,
@@ -309,22 +310,12 @@ export const profileRouter = createTRPCRouter({
     });
     // Figure out notifications
     const notifications: NavBarDropdownLink[] = [];
-    if (rewards) {
-      if (rewards.money > 0) {
-        notifications.push({
-          href: "/profile",
-          name: `Activity streak reward: ${rewards.money} ryo`,
-          color: "toast",
-        });
-      }
-      if (rewards.reputationPoints > 0) {
-        notifications.push({
-          href: "/profile",
-          name: `Activity streak reward: ${rewards.reputationPoints} reputation points`,
-          color: "toast",
-        });
-      }
-    }
+
+    // Add any notifications from fetching user to toasts
+    toastMessages.forEach((msg) => {
+      notifications.push({ name: msg, color: "toast", href: "/profile" });
+    });
+
     // Add notification for unvoted polls
     if (
       user &&
@@ -1506,6 +1497,7 @@ export const fetchUpdatedUser = async (props: {
         promotions: {
           limit: 1,
         },
+        items: { where: ne(userItem.equipped, "NONE") },
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
@@ -1621,7 +1613,7 @@ export const fetchUpdatedUser = async (props: {
   }
 
   // Rewards, e.g. for activity streak
-  let rewards: ReturnType<typeof activityStreakRewards> | undefined;
+  const toastMessages: string[] = [];
 
   // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
   // and it is mostly done to keep user updated on the overview pages
@@ -1645,11 +1637,17 @@ export const fetchUpdatedUser = async (props: {
       // Get activity rewards if any & update timers
       if (newDay) {
         user.activityStreak = withinThreshold ? user.activityStreak + 1 : 1;
-        rewards = activityStreakRewards(user.activityStreak);
-        if (rewards.money > 0) user.money += rewards.money;
+        const rewards = activityStreakRewards(user.activityStreak);
+        if (rewards.money > 0) {
+          user.money += rewards.money;
+          toastMessages.push(`Activity streak reward: ${rewards.money} ryo`);
+        }
         if (rewards.reputationPoints > 0) {
           user.reputationPoints += rewards.reputationPoints;
           user.reputationPointsTotal += rewards.reputationPoints;
+          toastMessages.push(
+            `Activity streak reward: ${rewards.reputationPoints} reputation points`,
+          );
         }
       }
       user.updatedAt = now;
@@ -1730,17 +1728,15 @@ export const fetchUpdatedUser = async (props: {
   }
   if (user) {
     // Get the latest quest trackers
-    const { trackers, shouldUpdateUserInDB } = getNewTrackers(user, [{ task: "any" }]);
+    const { trackers, notifications, consequences } = getNewTrackers(user, [
+      { task: "any" },
+    ]);
     user.questData = trackers;
 
-    // Check if we need to update the questData in the database
-    // This happens e.g. if we have a random sector, then we need to store it for future use
-    if (shouldUpdateUserInDB) {
-      await client
-        .update(userData)
-        .set({ questData: user.questData })
-        .where(eq(userData.userId, userId));
-    }
+    // Handle any update on quest consequences
+    toastMessages.push(
+      ...(await handleQuestConsequences(client, user, consequences, notifications)),
+    );
 
     // Hide information relating to quests
     if (hideInformation) {
@@ -1749,7 +1745,7 @@ export const fetchUpdatedUser = async (props: {
       });
     }
   }
-  return { user, settings, rewards, hasUnvotedPolls };
+  return { user, settings, toastMessages, hasUnvotedPolls };
 };
 
 export const fetchPublicUsers = async (
@@ -1894,6 +1890,7 @@ export type UserWithRelations =
       bloodline?: Bloodline | null;
       anbuSquad?: { name: string } | null;
       clan?: Clan | null;
+      items: UserItem[];
       village?:
         | (Village & {
             structures?: VillageStructure[];

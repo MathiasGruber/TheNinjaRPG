@@ -320,7 +320,8 @@ const Sector: React.FC<SectorProps> = (props) => {
               // If an objective is a location objective, then check quest
               (isOnLocation ||
                 // If we have attackers, check for these
-                (objective.attackers &&
+                ("attackers" in objective &&
+                  objective.attackers &&
                   objective.attackers.length > 0 &&
                   objective.attackers_chance > 0))
             ) {

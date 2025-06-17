@@ -803,6 +803,14 @@ export const IMG_SCENE_BACKGROUND =
 export const IMG_SCENE_CHARACTER =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF08NAw3G2iOewJtjGzvNcmEX3TBnoSfMDZPH";
 
+export const IMG_BADGE_FAIL_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJuFEUH7CyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
+export const IMG_BADGE_WIN_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJnk99IbmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+export const IMG_BADGE_NEW_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJneJSZsmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+export const IMG_BADGE_START_BATTLE =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJqZXK1HdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
 export const IMG_BADGE_DIALOG =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJpIn7vsbKBAOsGCHyl3Sk0mZFrgWPUdjMJ75D";
 export const IMG_BADGE_RANDOM_ENCOUNTER_WINS =

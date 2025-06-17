@@ -35,6 +35,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { nanoid } from "nanoid";
 import { cn } from "src/libs/shadui";
+import { InstantTasks } from "@/validators/objectives";
 import type { Path, PathValue } from "react-hook-form";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -999,6 +1000,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     { enabled: fields.includes("sceneCharacters") },
   );
 
+  const { data: quests } = api.quests.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("newQuestIds"),
+  });
+
   // Form for handling the specific tag
   const form = useForm<AllObjectivesType>({
     defaultValues: shownTag,
@@ -1097,7 +1102,14 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .filter((value) => {
       return (
-        watchTask !== "dialog" || !["sector", "longitude", "latitude"].includes(value)
+        !["fail_quest", "win_quest"].includes(watchTask) ||
+        !["nextObjectiveId"].includes(value)
+      );
+    })
+    .filter((value) => {
+      return (
+        !([...InstantTasks, "dialog"] as string[]).includes(watchTask) ||
+        !["sector", "longitude", "latitude"].includes(value)
       );
     })
     .filter((value) => {
@@ -1184,6 +1196,13 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
             resetButton: true,
           };
         }
+      } else if (([value] as string[]).includes("newQuestIds") && quests) {
+        return {
+          id: value,
+          values: quests,
+          multiple: true,
+          type: "db_values",
+        };
       } else if (
         innerType instanceof z.ZodLiteral ||
         innerType instanceof z.ZodString
