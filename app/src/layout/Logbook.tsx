@@ -355,7 +355,6 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
     gameAssets
       ?.filter((asset) => asset.type === "SCENE_CHARACTER")
       .map((asset) => asset.image) || [];
-  if (characters.length === 0) characters.push(IMG_SCENE_CHARACTER);
 
   // Mutations
   const { checkRewards, isCheckingRewards } = useCheckRewards();
