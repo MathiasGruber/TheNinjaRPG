@@ -14,7 +14,15 @@ import {
 } from "@/utils/time";
 import { inArray, lte, isNull, sql, asc, gte } from "drizzle-orm";
 import { like, eq, or, and, getTableColumns } from "drizzle-orm";
-import { item, jutsu, badge, bankTransfers, clan } from "@/drizzle/schema";
+import {
+  item,
+  jutsu,
+  badge,
+  bankTransfers,
+  clan,
+  bloodline,
+  bloodlineRolls,
+} from "@/drizzle/schema";
 import { userJutsu, userItem, userData, userBadge } from "@/drizzle/schema";
 import { quest, questHistory, actionLog, village } from "@/drizzle/schema";
 import { QuestValidator } from "@/validators/objectives";
@@ -646,6 +654,7 @@ export const questsRouter = createTRPCRouter({
             reward_tokens: 0,
             reward_prestige: 0,
             reward_jutsus: [],
+            reward_bloodlines: [],
             reward_badges: [],
             reward_items: [],
             reward_rank: "NONE",
@@ -758,7 +767,7 @@ export const questsRouter = createTRPCRouter({
         undefined;
 
       // Update database
-      const [{ items, jutsus, badges }] = await Promise.all([
+      const [{ items, jutsus, bloodlines, badges }] = await Promise.all([
         // Update rewards
         updateRewards(ctx.drizzle, user, rewards, questCounterField),
         // Update quest history
@@ -798,6 +807,7 @@ export const questsRouter = createTRPCRouter({
       // Update rewards for readability
       rewards.reward_items = items.map((i) => i.name);
       rewards.reward_jutsus = jutsus.map((i) => i.name);
+      rewards.reward_bloodlines = bloodlines.map((i) => i.name);
       rewards.reward_badges = badges.map((i) => i.name);
       return {
         success: true,
@@ -922,7 +932,7 @@ export const updateRewards = async (
   questCounterField?: QuestCounterFieldName,
 ) => {
   // Fetch names from the database
-  const [items, jutsus, badges] = await Promise.all([
+  const [items, jutsus, bloodlines, badges] = await Promise.all([
     // Fetch names from the database
     rewards.reward_items.length > 0
       ? client
@@ -940,6 +950,24 @@ export const updateRewards = async (
           )
           .where(
             and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId)),
+          )
+      : [],
+    rewards.reward_bloodlines.length > 0
+      ? client
+          .select({ id: bloodline.id, name: bloodline.name, rank: bloodline.rank })
+          .from(bloodline)
+          .leftJoin(
+            bloodlineRolls,
+            and(
+              eq(bloodline.id, bloodlineRolls.bloodlineId),
+              eq(bloodlineRolls.userId, user.userId),
+            ),
+          )
+          .where(
+            and(
+              inArray(bloodline.id, rewards.reward_bloodlines),
+              isNull(bloodlineRolls.userId),
+            ),
           )
       : [],
     rewards.reward_badges.length > 0
@@ -1004,6 +1032,23 @@ export const updateRewards = async (
           })),
         ),
     ],
+    // Insert bloodlines as bloodlineRolls
+    ...[
+      bloodlines.length > 0 &&
+        client.insert(bloodlineRolls).values(
+          bloodlines.map(
+            ({ id, rank }) =>
+              ({
+                id: nanoid(),
+                userId: user.userId,
+                type: "QUEST",
+                bloodlineId: id,
+                goal: rank,
+                used: 1,
+              }) as const,
+          ),
+        ),
+    ],
     // Insert items
     ...[
       items.length > 0 &&
@@ -1028,7 +1073,7 @@ export const updateRewards = async (
     ],
   ]);
   // Update rewards for readability
-  return { items, jutsus, badges };
+  return { items, jutsus, bloodlines, badges };
 };
 
 /**

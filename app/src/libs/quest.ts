@@ -137,6 +137,9 @@ export const getReward = (
         if (objective.reward_items) {
           rewards.reward_items.push(...objective.reward_items);
         }
+        if (objective.reward_bloodlines) {
+          rewards.reward_bloodlines = objective.reward_bloodlines;
+        }
         if (objective.reward_rank !== "NONE") {
           rewards.reward_rank = objective.reward_rank;
         }

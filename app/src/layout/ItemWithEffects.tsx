@@ -137,6 +137,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     if (questReward.reward_rank && questReward.reward_rank !== "NONE") {
       rewards.push(`rank of ${item.content.reward.reward_rank.toLowerCase()}`);
     }
+    if (questReward.reward_bloodlines) {
+      rewards.push(`${questReward.reward_bloodlines.length} bloodlines`);
+    }
     if (questReward.reward_money) {
       rewards.push(`${item.content.reward.reward_money} ryo`);
     }

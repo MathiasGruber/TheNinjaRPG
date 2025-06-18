@@ -546,6 +546,7 @@ export const useCheckRewards = () => {
             rewards.reward_prestige > 0 ||
             rewards.reward_jutsus.length > 0 ||
             rewards.reward_badges.length > 0 ||
+            rewards.reward_bloodlines.length > 0 ||
             rewards.reward_items.length > 0;
           const reward = (
             <div className="flex flex-col gap-2">
@@ -602,6 +603,12 @@ export const useCheckRewards = () => {
                   {rewards.reward_badges.length > 0 && (
                     <span>
                       <b>Badges: </b> {rewards.reward_badges.join(", ")}
+                    </span>
+                  )}
+                  {rewards.reward_bloodlines.length > 0 && (
+                    <span>
+                      <b>Swappable Bloodlines: </b>{" "}
+                      {rewards.reward_bloodlines.join(", ")}
                     </span>
                   )}
                   {rewards.reward_items.length > 0 && (

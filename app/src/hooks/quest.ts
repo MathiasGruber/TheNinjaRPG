@@ -73,6 +73,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: sceneCharacters, isPending: l8 } = api.gameAsset.getAllNames.useQuery({
     type: "SCENE_CHARACTER",
   });
+  const { data: bloodlines, isPending: l9 } =
+    api.bloodline.getAllNames.useQuery(undefined);
 
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
@@ -129,6 +131,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
             reward_badges: data.reward_badges,
             reward_items: data.reward_items,
             reward_rank: data.reward_rank,
+            reward_bloodlines: data.reward_bloodlines,
           },
         },
       };
@@ -154,7 +157,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9;
 
   // Watch for changes
   const imageUrl = useWatch({
@@ -234,6 +237,14 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   formData.push({ id: "reward_tokens", type: "number" });
   formData.push({ id: "reward_prestige", type: "number" });
   formData.push({ id: "reward_rank", type: "str_array", values: UserRanks });
+
+  if (bloodlines) {
+    formData.push({
+      id: "reward_bloodlines",
+      type: "db_values",
+      values: bloodlines,
+    });
+  }
 
   // Add items if they exist
   if (items) {

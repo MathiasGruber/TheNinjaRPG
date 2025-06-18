@@ -69,6 +69,7 @@ const rewardFields = {
   reward_rank: z.enum(UserRanks).default("NONE"),
   reward_items: z.array(z.string()).default([]),
   reward_jutsus: z.array(z.string()).default([]),
+  reward_bloodlines: z.array(z.string()).default([]),
   reward_badges: z.array(z.string()).default([]),
 };
 
@@ -85,6 +86,7 @@ export const hasReward = (reward: ObjectiveRewardType) => {
     parsedReward.reward_rank !== "NONE" ||
     parsedReward.reward_items.length > 0 ||
     parsedReward.reward_jutsus.length > 0 ||
+    parsedReward.reward_bloodlines.length > 0 ||
     parsedReward.reward_badges.length > 0
   );
 };

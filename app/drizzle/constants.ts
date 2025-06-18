@@ -528,7 +528,13 @@ export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_EXTRA_JUTSU_SLOT = 50;
 export const COST_REROLL_ELEMENT = 20;
 export const MAX_EXTRA_JUTSU_SLOTS = 2;
-export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM", "PITY", "DIRECT"] as const;
+export const BLOODLINE_ROLL_TYPES = [
+  "NATURAL",
+  "ITEM",
+  "PITY",
+  "DIRECT",
+  "QUEST",
+] as const;
 export const BLOODLINE_SWAP_COOLDOWN_HOURS = 48;
 
 // Jutsu level transfer config

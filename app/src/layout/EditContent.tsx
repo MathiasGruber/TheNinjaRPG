@@ -1004,6 +1004,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     enabled: fields.includes("newQuestIds"),
   });
 
+  const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("reward_bloodlines"),
+  });
+
   // Form for handling the specific tag
   const form = useForm<AllObjectivesType>({
     defaultValues: shownTag,
@@ -1137,6 +1141,13 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
         return {
           id: value,
           values: jutsuData,
+          multiple: true,
+          type: "db_values",
+        };
+      } else if (value === "reward_bloodlines" && bloodlines) {
+        return {
+          id: value,
+          values: bloodlines,
           multiple: true,
           type: "db_values",
         };
