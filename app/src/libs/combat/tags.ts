@@ -90,7 +90,7 @@ export const absorb = (
               ? consequence.damage * (power / 100)
               : Math.min(power, consequence.damage);
           const convert = Math.ceil(absorbAmount * ratio);
-          
+
           // Apply absorption to each pool
           pools.map((pool) => {
             switch (pool) {
@@ -1139,7 +1139,12 @@ export const heal = (
   applyTimes: number,
 ) => {
   // Prevent?
-  const { pass, preventTag } = preventCheck(usersEffects, "healprevent", target, effect);
+  const { pass, preventTag } = preventCheck(
+    usersEffects,
+    "healprevent",
+    target,
+    effect,
+  );
   if (preventTag && preventTag.createdRound < effect.createdRound) {
     if (!pass) return preventResponse(effect, target, "cannot be healed");
   }
@@ -1875,7 +1880,7 @@ export const summon = (
   if (effect.isNew && effect.castThisRound) {
     effect.isNew = false;
     if (user && "aiHp" in effect) {
-      const ai = usersState.find((u) => u.userId === effect.aiId);
+      const ai = usersState.find((u) => u.controllerId === effect.aiId);
       const obj = usersState.find(
         (u) =>
           u.username === ai?.username && u.curHealth && u.controllerId === user.userId,
