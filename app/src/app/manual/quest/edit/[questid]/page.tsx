@@ -275,6 +275,7 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
         data: {
           id: obj.id,
           label: obj.task,
+          description: obj.description ?? "",
           image,
         },
         classes: obj.id === selectedObjectiveId ? "selected" : "",
@@ -286,6 +287,15 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
 
   // Cytoscape ref and event handling
   const cyRef = useRef<Core | null>(null);
+
+  // Tooltip state & container ref
+  const [tooltipData, setTooltipData] = useState<{
+    x: number;
+    y: number;
+    task: string;
+    description: string;
+  } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Helper to update edges
   const updateEdges = (cy: Core) => {
@@ -311,6 +321,8 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
     updateEdges(cy);
     cy.removeListener("tap", "node");
     cy.removeListener("tap");
+    cy.removeListener("mouseover", "node");
+    cy.removeListener("mouseout", "node");
     cy.on("tap", "node", (event: EventObjectNode) => {
       const nodeId = event.target.id();
       setSelectedObjectiveId(nodeId);
@@ -319,6 +331,20 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
       if (event.target === cy) {
         setSelectedObjectiveId(null);
       }
+    });
+    // Tooltip handlers
+    cy.on("mouseover", "node", (event: EventObjectNode) => {
+      const node = event.target;
+      const pos = node.renderedPosition();
+      setTooltipData({
+        x: pos.x,
+        y: pos.y,
+        task: node.data("label") as string,
+        description: (node.data("description") ?? "") as string,
+      });
+    });
+    cy.on("mouseout", "node", () => {
+      setTooltipData(null);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consecutiveObjectives, objectives, setSelectedObjectiveId]);
@@ -330,7 +356,7 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
       initialBreak={true}
       topRightContent={<div className="flex flex-row">{addObjectiveIcon}</div>}
     >
-      <div className="w-full h-96">
+      <div ref={containerRef} className="w-full h-96 relative">
         <CytoscapeComponent
           cy={(cy) => {
             cyRef.current = cy;
@@ -378,6 +404,19 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
             },
           ]}
         />
+        {tooltipData && (
+          <div
+            className="absolute z-50 pointer-events-none bg-gray-900 bg-opacity-80 text-white text-xs rounded px-2 py-1"
+            style={{
+              top: tooltipData.y,
+              left: tooltipData.x,
+              transform: "translate(-50%, -120%)",
+            }}
+          >
+            <p className="font-semibold">{tooltipData.task}</p>
+            {tooltipData.description && <p>{tooltipData.description}</p>}
+          </div>
+        )}
       </div>
       {/* Alert about invalid objective flow */}
       {consecutiveObjectives && !isFlowValid && (
