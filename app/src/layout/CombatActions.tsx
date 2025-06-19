@@ -16,6 +16,7 @@ import type { ZodAllTags } from "@/libs/combat/types";
 
 interface ActionSelectorProps {
   className?: string;
+  aspectRatioClass?: string;
   gridClassNameOverwrite?: string;
   items?:
     | {
@@ -103,11 +104,15 @@ export const ActionSelector: React.FC<ActionSelectorProps> = (props) => {
               className="relative"
             >
               <ActionOption
-                className={`pr-1 h-full  ${
+                aspectRatioClass={props.aspectRatioClass}
+                className={cn(
+                  "pr-1 h-full",
                   isHighlight
                     ? "rounded-xl border-2 border-amber-500 bg-amber-300 text-black"
-                    : ""
-                } ${bgColor} ${isGreyed ? "opacity-20" : ""}`}
+                    : "",
+                  bgColor,
+                  isGreyed ? "opacity-20" : "",
+                )}
                 src={item.image}
                 isGreyed={isGreyed}
                 alt={item.name}
@@ -166,6 +171,7 @@ interface ActionOptionProps {
   cooldown?: number;
   currentRound?: number;
   lastUsedRound?: number;
+  aspectRatioClass?: string;
   onClick?: () => void;
 }
 
@@ -177,7 +183,6 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
       : 0,
     0,
   );
-
   return (
     <div
       className={`relative text-center leading-5 ${
@@ -191,7 +196,7 @@ export const ActionOption: React.FC<ActionOptionProps> = (props) => {
           image={props.src}
           alt={props.alt}
           rarity={props.rarity}
-          className=""
+          className={cn(props.aspectRatioClass)}
           roundFull={props.roundFull}
           hideBorder={props.hideBorder}
           frames={props.frames}

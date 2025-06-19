@@ -109,6 +109,13 @@ export default function ManualAssets() {
         setLastElement={setLastElement}
         gridClassNameOverwrite="grid grid-cols-3 md:grid-cols-4"
         emptyText="No assets exist yet."
+        aspectRatioClass={
+          state.type === "SCENE_BACKGROUND"
+            ? "aspect-3/2"
+            : state.type === "SCENE_CHARACTER"
+              ? "aspect-2/3"
+              : ""
+        }
       />
       {isPending && <Loader explanation="Loading data" />}
       {isOpen && userData && asset && (

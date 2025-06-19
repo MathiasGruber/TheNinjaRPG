@@ -82,6 +82,7 @@ export const useAssetEditForm = (asset: GameAsset, refetch: () => void) => {
     { id: "name", label: "Asset Name", type: "text" },
     { id: "licenseDetails", type: "text", label: "License Details" },
     { id: "type", type: "str_array", values: GameAssetTypes },
+    { id: "folder", type: "text", label: "Folder Name" },
     { id: "hidden", type: "boolean" },
   );
 

@@ -1,0 +1,1 @@
+ALTER TABLE `GameAsset` ADD `folder` varchar(191) DEFAULT '' NOT NULL;

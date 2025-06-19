@@ -89,9 +89,9 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
       img = (
         <NextImage
           className={cn(
-            props.className,
             "w-full h-full aspect-square",
             props.roundFull ? "rounded-full" : "rounded-xl",
+            props.className,
           )}
           src={props.image}
           alt={props.alt}
@@ -115,10 +115,10 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
         <div className={cn(tailwindSize)}>
           <NextImage
             className={cn(
-              props.className,
               "relative bottom-0 left-0 right-0 top-0",
               props.roundFull ? "rounded-full" : "rounded-xl",
               props.hideBorder ? "" : "border-2",
+              props.className,
             )}
             src={getRarityBackground(props.rarity)}
             alt={props.alt}
@@ -143,6 +143,7 @@ const ContentImage: React.FC<ContentImageProps> = (props) => {
             props.hideBorder ? "" : "border-2",
             "aspect-square w-full",
             tailwindSize,
+            props.className,
           )}
         >
           {img}

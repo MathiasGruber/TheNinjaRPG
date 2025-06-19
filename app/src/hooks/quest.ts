@@ -69,9 +69,11 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: quests, isPending: l6 } = api.quests.getAllNames.useQuery(undefined);
   const { data: sceneBackgrounds, isPending: l7 } = api.gameAsset.getAllNames.useQuery({
     type: "SCENE_BACKGROUND",
+    folderPrefix: true,
   });
   const { data: sceneCharacters, isPending: l8 } = api.gameAsset.getAllNames.useQuery({
     type: "SCENE_CHARACTER",
+    folderPrefix: true,
   });
   const { data: bloodlines, isPending: l9 } =
     api.bloodline.getAllNames.useQuery(undefined);

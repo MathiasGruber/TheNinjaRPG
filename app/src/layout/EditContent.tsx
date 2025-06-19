@@ -1121,12 +1121,12 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   });
 
   const { data: sceneBackgrounds } = api.gameAsset.getAllNames.useQuery(
-    { type: "SCENE_BACKGROUND" },
+    { type: "SCENE_BACKGROUND", folderPrefix: true },
     { enabled: fields.includes("sceneBackground") },
   );
 
   const { data: sceneCharacters } = api.gameAsset.getAllNames.useQuery(
-    { type: "SCENE_CHARACTER" },
+    { type: "SCENE_CHARACTER", folderPrefix: true },
     { enabled: fields.includes("sceneCharacters") },
   );
 
