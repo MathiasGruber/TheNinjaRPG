@@ -443,7 +443,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                 />
               </div>
             ))}
-            <div className="absolute bottom-6 bg-poppopover w-full max-w-[calc(100%-2rem)] translate-x-[-50%] left-[50%] max-h-1/3 min-h-10 p-2 rounded-lg overflow-y-auto border-2">
+            <div className="absolute bottom-8 bg-poppopover w-full max-w-[calc(100%-2rem)] translate-x-[-50%] left-[50%] max-h-1/3 min-h-10 p-2 rounded-lg overflow-y-auto border-2">
               {shownText}
             </div>
             {activeObjective?.task === "dialog" && (
