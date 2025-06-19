@@ -736,17 +736,17 @@ export const KAGE_MAX_DAILIES = 3;
 export const KAGE_MAX_ELDERS = 3;
 export const KAGE_MAX_WEEKLY_PRESTIGE_SEND = 6000; // Maximum weekly prestige send from elders
 export const KAGE_MIN_DAYS_IN_VILLAGE = 40; // minimum days in village to become kage
-export const KAGE_MIN_PRESTIGE = 4000; // Remove kage if below
+export const KAGE_MIN_PRESTIGE = 10000; // Remove kage if below
 export const KAGE_PRESTIGE_COST = 10000; // Cost of failed challenge
 export const KAGE_PRESTIGE_REQUIREMENT = 30000; // To challeng kage
 export const KAGE_RANK_REQUIREMENT = "JONIN";
 export const KAGE_WAR_DECLARE_COST = 10000; // Declare war cost
-export const KAGE_CHALLENGE_REJECT_COST = 500; // Cost of rejecting a challenge
-export const KAGE_CHALLENGE_ACCEPT_PRESTIGE = 200; // Kage prestige gain of accepting challenge
-export const KAGE_CHALLENGE_WIN_PRESTIGE = 500; // Kage prestige gain of winning challenge
-export const KAGE_CHALLENGE_LOSE_PRESTIGE_PER_HOUR = 300; // Kage prestige loss of not accepting challenges
+export const KAGE_CHALLENGE_REJECT_COST = 10000; // Cost of rejecting a challenge
+export const KAGE_CHALLENGE_ACCEPT_PRESTIGE = 2000; // Kage prestige gain of accepting challenge
+export const KAGE_CHALLENGE_WIN_PRESTIGE = 5000; // Kage prestige gain of winning challenge
+export const KAGE_CHALLENGE_LOSE_PRESTIGE_PER_HOUR = 500; // Kage prestige loss of not accepting challenges
 export const KAGE_CHALLENGE_OPEN_FOR_SECONDS = 60 * 60; // Time in between being able to toggle challenges
-export const KAGE_UNACCEPTED_CHALLENGE_COST = 1000; // Cost of unaccepted challenge, i.e. going to Ai vs Ai
+export const KAGE_UNACCEPTED_CHALLENGE_COST = 15000; // Cost of unaccepted challenge, i.e. going to Ai vs Ai
 export const WAR_FUNDS_COST = 10000; // Prestige cost of declaring war
 
 // Game assets
