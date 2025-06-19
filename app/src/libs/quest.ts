@@ -12,7 +12,6 @@ import {
   IMG_MISSION_D,
   IMG_MISSION_E,
   VILLAGE_SYNDICATE_ID,
-  MISSIONS_PER_DAY,
   ADDITIONAL_MISSION_REWARD_MULTIPLIER,
   type LetterRank,
   type QuestType,
@@ -20,8 +19,13 @@ import {
 } from "@/drizzle/constants";
 import { SECTOR_WIDTH, SECTOR_HEIGHT } from "@/libs/travel/constants";
 import { getUnique } from "@/utils/grouping";
+import { isQuestComplete, findPredecessor } from "@/libs/objectives";
 import type { UserWithRelations } from "@/routers/profile";
-import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
+import type {
+  AllObjectivesType,
+  AllObjectiveTask,
+  ObjectiveRewardType,
+} from "@/validators/objectives";
 import type { Quest, UserData, UserItem } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
@@ -80,55 +84,68 @@ export const isLocationObjective = (
 /**
  * Go through current user quests, and return updated list of questData &
  * list of rewards to award the user
+ * @param user - User with questData
+ * @param questId - Quest ID
+ * @param dialogNextObjectiveId - Requested next objective ID,
+ * @returns Rewards, trackers, userQuest, resolved, successDescriptions
  */
-export const getReward = (user: NonNullable<UserWithRelations>, questId: string) => {
+export const getReward = (
+  user: NonNullable<UserWithRelations>,
+  questId: string,
+  dialogNextObjectiveId?: string,
+) => {
   // Derived
-  let rewards = ObjectiveReward.parse({});
-  const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+  let rawRewards = ObjectiveReward.parse({});
+  const { trackers, notifications, consequences } = getNewTrackers(user, [
+    { task: "any" },
+    { task: "dialog", contentId: dialogNextObjectiveId },
+  ]);
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
-  const successDescriptions: string[] = [];
   let resolved = false;
   // Start mutating
   if (userQuest && !userQuest.completed) {
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
     const goals = tracker?.goals ?? [];
-    resolved = (goals.every((g) => g.done) || goals.length === 0) ?? false;
+    resolved = !tracker || isQuestComplete(userQuest.quest, tracker);
     if (resolved) {
-      rewards = ObjectiveReward.parse(userQuest.quest.content.reward);
+      rawRewards = ObjectiveReward.parse(userQuest.quest.content.reward);
     }
     userQuest.quest.content.objectives.forEach((objective) => {
       const status = goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
         status.collected = true;
         if (objective.successDescription) {
-          successDescriptions.push(objective.successDescription);
+          notifications.push(objective.successDescription);
         }
         if (objective.reward_money) {
-          rewards.reward_money += objective.reward_money;
+          rawRewards.reward_money += objective.reward_money;
         }
         if (objective.reward_clanpoints) {
-          rewards.reward_clanpoints += objective.reward_clanpoints;
+          rawRewards.reward_clanpoints += objective.reward_clanpoints;
         }
         if (objective.reward_exp) {
-          rewards.reward_exp += objective.reward_exp;
+          rawRewards.reward_exp += objective.reward_exp;
         }
         if (objective.reward_tokens) {
-          rewards.reward_tokens += objective.reward_tokens;
+          rawRewards.reward_tokens += objective.reward_tokens;
         }
         if (objective.reward_prestige) {
-          rewards.reward_prestige += objective.reward_prestige;
+          rawRewards.reward_prestige += objective.reward_prestige;
         }
         if (objective.reward_jutsus) {
-          rewards.reward_jutsus.push(...objective.reward_jutsus);
+          rawRewards.reward_jutsus.push(...objective.reward_jutsus);
         }
         if (objective.reward_badges) {
-          rewards.reward_badges.push(...objective.reward_badges);
+          rawRewards.reward_badges.push(...objective.reward_badges);
         }
         if (objective.reward_items) {
-          rewards.reward_items.push(...objective.reward_items);
+          rawRewards.reward_items.push(...objective.reward_items);
+        }
+        if (objective.reward_bloodlines) {
+          rawRewards.reward_bloodlines = objective.reward_bloodlines;
         }
         if (objective.reward_rank !== "NONE") {
-          rewards.reward_rank = objective.reward_rank;
+          rawRewards.reward_rank = objective.reward_rank;
         }
       }
     });
@@ -139,13 +156,49 @@ export const getReward = (user: NonNullable<UserWithRelations>, questId: string)
       isMissionOrCrime && user.dailyMissions > 9
         ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
         : 1;
-    rewards.reward_money = Math.floor(rewards.reward_money * factor);
-    rewards.reward_clanpoints = Math.floor(rewards.reward_clanpoints * factor);
-    rewards.reward_exp = Math.floor(rewards.reward_exp * factor);
-    rewards.reward_tokens = Math.floor(rewards.reward_tokens * factor);
-    rewards.reward_prestige = Math.floor(rewards.reward_prestige * factor);
+    rawRewards.reward_money = Math.floor(rawRewards.reward_money * factor);
+    rawRewards.reward_clanpoints = Math.floor(rawRewards.reward_clanpoints * factor);
+    rawRewards.reward_exp = Math.floor(rawRewards.reward_exp * factor);
+    rawRewards.reward_tokens = Math.floor(rawRewards.reward_tokens * factor);
+    rawRewards.reward_prestige = Math.floor(rawRewards.reward_prestige * factor);
   }
-  return { rewards, trackers, userQuest, resolved, successDescriptions };
+  // Final rewards (some need a bit pose-processing)
+  const rewards = postProcessRewards(rawRewards);
+
+  // Return results
+  return { rewards, trackers, userQuest, resolved, notifications, consequences };
+};
+
+export type GetRewardResult = ReturnType<typeof getReward>["rewards"];
+
+/**
+ * Post-process rewards to ensure that the rewards are valid
+ * @param rewards - Rewards to post-process
+ * @returns Post-processed rewards
+ */
+export const postProcessRewards = (rewards: ObjectiveRewardType) => {
+  return {
+    ...rewards,
+    reward_items: rewards.reward_items
+      .filter((reward) => {
+        return Math.random() * 100 < reward.number;
+      })
+      .map((reward) => reward.ids)
+      .flat(),
+  };
+};
+
+export type QuestConsequence = {
+  type:
+    | "add_item"
+    | "remove_item"
+    | "combat"
+    | "fail_quest"
+    | "start_quest"
+    | "update_user";
+  ids: string[];
+  scaleStats?: boolean;
+  scaleGains?: number;
 };
 
 /**
@@ -170,16 +223,11 @@ export const getNewTrackers = (
     contentId?: string;
   }[],
 ) => {
-  let shouldUpdateUserInDB = false;
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
-  const consequences: {
-    type: "add_item" | "remove_item" | "combat";
-    ids: string[];
-    scaleStats?: boolean;
-    scaleGains?: number;
-  }[] = [];
+  const questIdsUpdated: string[] = [];
+  const consequences: QuestConsequence[] = [];
   const trackers = activeQuests
     .map((quest) => {
       if (quest) {
@@ -195,6 +243,7 @@ export const getNewTrackers = (
           if (!status) {
             status = ObjectiveTracker.parse({ id: objective.id });
           }
+
           // Figure out sector & location if not already specified
           if ("sectorType" in objective && !status.sector) {
             if (objective.sectorType === "specific") {
@@ -213,11 +262,14 @@ export const getNewTrackers = (
             } else if (objective.sectorType === "current_sector") {
               status.sector = user.sector;
             }
-            shouldUpdateUserInDB = true;
+            consequences.push({ type: "update_user", ids: ["location_update"] });
           }
 
           // If locationType is not specific, update the location accordingly
-          if ("locationType" in objective && (!status.longitude || !status.latitude)) {
+          if (
+            "locationType" in objective &&
+            (status.longitude === undefined || status.latitude === undefined)
+          ) {
             if (objective.locationType === "specific") {
               status.longitude = objective.longitude;
               status.latitude = objective.latitude;
@@ -225,7 +277,36 @@ export const getNewTrackers = (
               status.longitude = Math.floor(Math.random() * SECTOR_WIDTH);
               status.latitude = Math.floor(Math.random() * SECTOR_HEIGHT);
             }
-            shouldUpdateUserInDB = true;
+            consequences.push({ type: "update_user", ids: ["location_update"] });
+          }
+
+          // If a dialog, find any previous objective pointing to this one, and set the location to the same location
+          if (objective.task === "dialog") {
+            const previousObjective = findPredecessor(
+              quest.content.objectives,
+              objective.id,
+            );
+            if (
+              previousObjective &&
+              "sector" in previousObjective &&
+              "longitude" in previousObjective &&
+              "latitude" in previousObjective
+            ) {
+              status.sector = previousObjective.sector;
+              status.longitude = previousObjective.longitude;
+              status.latitude = previousObjective.latitude;
+              consequences.push({ type: "update_user", ids: ["dialog_update"] });
+            }
+          }
+
+          // If we have a location on the status (i.e. instantiated for the user, overwrite objective)
+          if ("sector" in objective) {
+            if (status.longitude) objective.longitude = status.longitude;
+            if (status.latitude) objective.latitude = status.latitude;
+            if (status.sector) objective.sector = status.sector;
+            if ("locationType" in objective) {
+              objective.locationType = "specific";
+            }
           }
 
           // If done, return status
@@ -238,7 +319,7 @@ export const getNewTrackers = (
             return status;
           }
 
-          //Convenience
+          // Convenience
           const task = objective.task;
           const isKage = user.village?.kageId === user.userId;
 
@@ -269,6 +350,46 @@ export const getNewTrackers = (
             if (field) status.value = user[field];
           }
 
+          // If opponentAIs is in objective, get the ids
+          let opponentIds: string[] = [];
+          if ("opponentAIs" in objective) {
+            opponentIds = objective.opponentAIs
+              .flatMap((o) => Array(o.number).fill(o.ids).flat() as string[])
+              .filter((id): id is string => id !== undefined);
+          }
+
+          /** Helper function to put the user in combat */
+          const putInCombat = () => {
+            if (
+              opponentIds.length > 0 &&
+              "opponentAIs" in objective &&
+              user.status === "AWAKE"
+            ) {
+              notifications.push(
+                `Attacking ${opponentIds.length} target${opponentIds.length > 1 ? "s" : ""} for ${quest.name}.`,
+              );
+              consequences.push({
+                type: "combat",
+                ids: opponentIds,
+                scaleStats: objective.opponent_scaled_to_user,
+                scaleGains: objective.scaleGains,
+              });
+            }
+          };
+
+          // Instant objectives
+          if (task === "win_quest") {
+            status.done = true;
+          } else if (task === "fail_quest") {
+            consequences.push({ type: "fail_quest", ids: [quest.id] });
+            notifications.push(objective.description || `Failed: ${quest.name}`);
+          } else if (task === "new_quest" && "newQuestIds" in objective) {
+            status.done = true;
+            consequences.push({ type: "start_quest", ids: objective.newQuestIds });
+          } else if (task === "start_battle") {
+            putInCombat();
+          }
+
           // Specific updates requested by the caller
           tasks
             .filter((taskUpdate) => taskUpdate.task === task)
@@ -282,6 +403,23 @@ export const getNewTrackers = (
                   status.value = taskUpdate.value;
                 }
               }
+              // Dialog objective
+              if (task === "dialog" && taskUpdate.contentId) {
+                const objectiveHasNext = objective.nextObjectiveId?.find(
+                  (next) => next.nextObjectiveId === taskUpdate.contentId,
+                );
+                if (objectiveHasNext) {
+                  status.done = true;
+                  status.selectedNextObjectiveId = taskUpdate.contentId;
+                }
+              } else if (
+                quest.consecutiveObjectives &&
+                "nextObjectiveId" in objective &&
+                typeof objective.nextObjectiveId === "string"
+              ) {
+                status.selectedNextObjectiveId = objective.nextObjectiveId;
+              }
+
               // If objective has a location, set to completed
               if (status && isLocationObjective(user, objective)) {
                 if (task === "move_to_location") {
@@ -325,25 +463,23 @@ export const getNewTrackers = (
                   });
                   status.done = true;
                 }
-                if (task === "defeat_opponents" && "opponentAIs" in objective) {
-                  if (
-                    objective.opponentAIs &&
-                    !objective.opponentAIs.includes(taskUpdate.contentId || "1337")
-                  ) {
-                    notifications.push(`Attacking target for ${quest.name}.`);
-                    consequences.push({
-                      type: "combat",
-                      ids: objective.opponentAIs,
-                      scaleStats: objective.opponent_scaled_to_user,
-                      scaleGains: objective.scaleGains,
-                    });
+                if (task === "defeat_opponents" && opponentIds.length > 0) {
+                  if (!opponentIds.includes(taskUpdate.contentId || "1337")) {
+                    putInCombat();
                   }
                 }
               }
-              if (status && task === "defeat_opponents" && "opponentAIs" in objective) {
+
+              // Defeating specific opponents
+              if (
+                status &&
+                ["start_battle", "defeat_opponents"].includes(task) &&
+                "opponentAIs" in objective &&
+                opponentIds.length > 0
+              ) {
                 if (
                   taskUpdate.text &&
-                  objective.opponentAIs.includes(taskUpdate.contentId || "1337")
+                  opponentIds.includes(taskUpdate.contentId || "1337")
                 ) {
                   const completionOutcome = objective.completionOutcome || "Win";
                   if (completionOutcome === "Any") {
@@ -384,6 +520,12 @@ export const getNewTrackers = (
           if ("value" in objective && status.value >= objective.value) {
             status.done = true;
           }
+
+          // If status is now done, then add quest id to list of updated quests
+          if (status.done) {
+            questIdsUpdated.push(quest.id);
+          }
+
           return status;
         });
         return questTracker;
@@ -395,7 +537,7 @@ export const getNewTrackers = (
     trackers: getUnique(trackers, "id"),
     notifications,
     consequences,
-    shouldUpdateUserInDB,
+    questIdsUpdated,
   };
 };
 
@@ -494,15 +636,15 @@ export const controlShownQuestLocationInformation = (
     // If we have a tracker which specifies the location, use that (e.g. from random sectors etc)
     const status = tracker?.goals.find((goal) => goal.id === objective.id);
     if (tracker && status) {
-      if ("sector" in status && "sector" in objective) {
-        objective.sector = status.sector!;
+      if ("sector" in status) {
+        objective.sector = status.sector;
         delete status.sector;
       }
-      if ("longitude" in status && "longitude" in objective) {
+      if ("longitude" in status) {
         objective.longitude = status.longitude!;
         delete status.longitude;
       }
-      if ("latitude" in status && "latitude" in objective) {
+      if ("latitude" in status) {
         objective.latitude = status.latitude!;
         delete status.latitude;
       }
@@ -629,88 +771,132 @@ export const isAvailableUserQuests = (
 export const verifyQuestObjectiveFlow = (
   objectives: AllObjectivesType[],
 ): { check: boolean; message: string } => {
-  // No objectives
-  if (!objectives || objectives.length === 0) {
-    return { check: false, message: "No objectives provided" };
-  }
+  // Helper which normalises the various `nextObjectiveId` shapes into a flat list of ids
+  const collectNextIds = (obj: AllObjectivesType): string[] => {
+    const result: string[] = [];
+    const ref: unknown = (obj as { nextObjectiveId?: unknown }).nextObjectiveId;
 
-  const idToObjective = new Map<string, AllObjectivesType>();
-
-  // Build map and check for duplicate ids
-  for (const obj of objectives) {
-    if (idToObjective.has(obj.id)) {
-      return {
-        check: false,
-        message: `Duplicate objective id '${obj.id}' found`,
-      };
-    }
-    idToObjective.set(obj.id, obj);
-  }
-
-  const referencedIds = new Set<string>();
-
-  // Validate references while populating referencedIds
-  for (const obj of objectives) {
-    if (obj.nextObjectiveId) {
-      if (!idToObjective.has(obj.nextObjectiveId)) {
-        return {
-          check: false,
-          message: `Objective '${obj.id}' references unknown nextObjectiveId '${obj.nextObjectiveId}'`,
-        };
+    if (typeof ref === "string") {
+      result.push(ref);
+    } else if (Array.isArray(ref)) {
+      for (const branch of ref) {
+        if (branch && typeof branch === "object") {
+          const id = (branch as { nextObjectiveId?: string }).nextObjectiveId;
+          if (typeof id === "string") result.push(id);
+        }
       }
-      if (obj.nextObjectiveId === obj.id) {
-        return {
-          check: false,
-          message: `Objective '${obj.id}' has a self-referencing nextObjectiveId`,
-        };
+    }
+
+    return result;
+  };
+
+  try {
+    // ------------------------------------------------------------------
+    // 0. Basic presence check
+    // ------------------------------------------------------------------
+    if (!objectives || objectives.length === 0) {
+      throw new Error("No objectives provided");
+    }
+
+    // ------------------------------------------------------------------
+    // 1. Build quick lookup map & guard against duplicate ids
+    // ------------------------------------------------------------------
+    const idToObj = new Map<string, AllObjectivesType>();
+    for (const obj of objectives) {
+      if (idToObj.has(obj.id)) {
+        throw new Error(`Duplicate objective id '${obj.id}'`);
       }
-      referencedIds.add(obj.nextObjectiveId);
+      idToObj.set(obj.id, obj);
     }
-  }
 
-  // Determine starting objectives
-  const startingIds = objectives
-    .map((o) => o.id)
-    .filter((id) => !referencedIds.has(id));
+    // ------------------------------------------------------------------
+    // 2. Build adjacency list while validating references & special rules
+    // ------------------------------------------------------------------
+    const adjacency = new Map<string, string[]>();
+    const referencedIds = new Set<string>();
 
-  if (startingIds.length === 0) {
-    return { check: false, message: "No starting objective found" };
-  }
-  if (startingIds.length > 1) {
-    return {
-      check: false,
-      message: `Multiple starting objectives found: ${startingIds.join(", ")}`,
+    for (const obj of objectives) {
+      // Dialog objectives must expose at least one option (branch)
+      if (obj.task === "dialog") {
+        const nextRef = (obj as { nextObjectiveId?: unknown }).nextObjectiveId;
+        if (!Array.isArray(nextRef) || nextRef.length === 0) {
+          throw new Error(`Dialog objective '${obj.id}' must have at least one option`);
+        }
+      }
+
+      const neighbours = collectNextIds(obj);
+      if (neighbours.length === 0) {
+        adjacency.set(obj.id, adjacency.get(obj.id) ?? []);
+      }
+
+      for (const raw of neighbours) {
+        if (!raw) continue; // Safeguard against undefined values
+        const nextId = raw;
+        // Self-reference
+        if (nextId === obj.id) {
+          throw new Error(
+            `Objective '${obj.id}' has a self-referencing nextObjectiveId`,
+          );
+        }
+        // Unknown reference
+        if (!idToObj.has(nextId)) {
+          throw new Error(
+            `Objective '${obj.id}' references unknown nextObjectiveId '${nextId}'`,
+          );
+        }
+        referencedIds.add(nextId);
+        const list = adjacency.get(obj.id) ?? [];
+        list.push(nextId);
+        adjacency.set(obj.id, list);
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // 3. Determine unique starting objective (never referenced by others)
+    // ------------------------------------------------------------------
+    const startingIds = objectives
+      .map((o) => o.id)
+      .filter((id) => !referencedIds.has(id));
+
+    if (startingIds.length === 0) {
+      throw new Error("No starting objective found");
+    }
+    if (startingIds.length > 1) {
+      throw new Error(`Multiple starting objectives found: ${startingIds.join(", ")}`);
+    }
+    const startId = startingIds[0]!;
+
+    // ------------------------------------------------------------------
+    // 4. DFS to detect cycles & ensure reachability
+    // ------------------------------------------------------------------
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+
+    const dfs = (currentId: string): void => {
+      if (recursionStack.has(currentId)) {
+        throw new Error("Cycle detected in objective chain");
+      }
+      if (visited.has(currentId)) return;
+
+      visited.add(currentId);
+      recursionStack.add(currentId);
+
+      const neighbours = adjacency.get(currentId) ?? [];
+      for (const next of neighbours) dfs(next);
+
+      recursionStack.delete(currentId);
     };
-  }
 
-  const startId = startingIds[0];
-  const visited = new Set<string>();
-  let currentId: string | undefined = startId;
+    dfs(startId);
 
-  // Traverse chain, detect cycles
-  while (currentId) {
-    if (visited.has(currentId)) {
-      return { check: false, message: "Cycle detected in objective chain" };
+    // All objectives must be reachable from the start
+    if (visited.size !== objectives.length) {
+      const unreachable = objectives.filter((o) => !visited.has(o.id)).map((o) => o.id);
+      throw new Error(`Unreachable objectives detected: ${unreachable.join(", ")}`);
     }
-    visited.add(currentId);
-    const currentObj = idToObjective.get(currentId);
-    if (!currentObj) {
-      // Should not happen after previous validation
-      return {
-        check: false,
-        message: `Objective '${currentId}' not found during traversal`,
-      };
-    }
-    currentId = currentObj.nextObjectiveId;
-  }
 
-  if (visited.size !== objectives.length) {
-    const unreachable = objectives.filter((o) => !visited.has(o.id)).map((o) => o.id);
-    return {
-      check: false,
-      message: `Unreachable objectives detected: ${unreachable.join(", ")}`,
-    };
+    return { check: true, message: "" };
+  } catch (err) {
+    return { check: false, message: (err as Error).message };
   }
-
-  return { check: true, message: "" };
 };

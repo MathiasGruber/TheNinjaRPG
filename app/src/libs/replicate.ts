@@ -77,11 +77,11 @@ export const getAvatarPrompt = async (client: DrizzleClient, user: UserData) => 
       case "STUDENT":
         switch (gender) {
           case "Male":
-            return "child boy";
+            return "teenage boy";
           case "Female":
-            return "child girl";
+            return "teenage girl";
           default:
-            return "child";
+            return "teenage";
         }
       case "GENIN":
         switch (gender) {
@@ -227,6 +227,7 @@ export const txt2imgGPT = async (config: {
           ? "1024x1536"
           : "1536x1024",
     quality: "high",
+    n: 1,
     user: config.userId,
     prompt: inputImage
       ? config.prompt
@@ -254,8 +255,8 @@ export const txt2imgGPT = async (config: {
     height: config.height,
   });
 
-  // Return the URL of the image
-  return uploadedFiles?.[0]?.data?.ufsUrl ?? null;
+  // Return the URLs of the images
+  return uploadedFiles.map((file) => file.data?.ufsUrl).filter(Boolean) as string[];
 };
 /**
  * Create a 3D model from an image

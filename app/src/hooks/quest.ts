@@ -8,8 +8,9 @@ import {
   UserRanks,
   RetryQuestDelays,
 } from "@/drizzle/constants";
+import { z } from "zod";
 import { api } from "@/app/_trpc/client";
-import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT, IMG_BADGE_DIALOG } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
@@ -18,7 +19,11 @@ import type { ZodQuestType, QuestContentType } from "@/validators/objectives";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 
 // A merged type for quest with its rewards, so that we can show both in the same form
-type ZodCombinedQuest = ZodQuestType & ObjectiveRewardType;
+type ZodCombinedQuest = ZodQuestType &
+  ObjectiveRewardType & {
+    sceneBackground: string;
+    sceneCharacters: string[];
+  };
 
 /**
  * Hook used when creating frontend forms for editing items
@@ -26,7 +31,12 @@ type ZodCombinedQuest = ZodQuestType & ObjectiveRewardType;
  */
 export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   // Schema used
-  const schema = QuestValidator._def.schema.merge(ObjectiveReward);
+  const schema = QuestValidator._def.schema.merge(ObjectiveReward).merge(
+    z.object({
+      sceneBackground: z.string().default(""),
+      sceneCharacters: z.array(z.string()).default([]),
+    }),
+  );
 
   // Form handling
   const endsAt = quest.endsAt ? quest.endsAt.slice(0, 10) : "";
@@ -34,6 +44,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const initialData = {
     ...quest,
     ...quest.content.reward,
+    sceneBackground: quest.content.sceneBackground,
+    sceneCharacters: quest.content.sceneCharacters,
     endsAt: endsAt,
     startsAt: startsAt,
   };
@@ -55,6 +67,16 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: villages, isPending: l4 } = api.village.getAllNames.useQuery(undefined);
   const { data: badges, isPending: l5 } = api.badge.getAll.useQuery(undefined);
   const { data: quests, isPending: l6 } = api.quests.getAllNames.useQuery(undefined);
+  const { data: sceneBackgrounds, isPending: l7 } = api.gameAsset.getAllNames.useQuery({
+    type: "SCENE_BACKGROUND",
+    folderPrefix: true,
+  });
+  const { data: sceneCharacters, isPending: l8 } = api.gameAsset.getAllNames.useQuery({
+    type: "SCENE_CHARACTER",
+    folderPrefix: true,
+  });
+  const { data: bloodlines, isPending: l9 } =
+    api.bloodline.getAllNames.useQuery(undefined);
 
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
@@ -83,10 +105,15 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
             objective.item_name = subset.map((i) => i.name).join(", ");
           }
         } else if (objective.task === "defeat_opponents") {
-          const ai = ais?.find((u) => objective.opponentAIs.includes(u.userId));
+          const opponentIds = objective.opponentAIs
+            .flatMap((o) => Array(o.number).fill(o.ids).flat() as string[])
+            .filter((id): id is string => id !== undefined);
+          const ai = ais?.find((u) => opponentIds.includes(u.userId));
           if (ai?.avatar) {
             objective.image = ai.avatar;
           }
+        } else if (objective.task === "dialog") {
+          objective.image = IMG_BADGE_DIALOG;
         }
         return objective;
       });
@@ -96,6 +123,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
         endsAt: data.endsAt ? data.endsAt : null,
         startsAt: data.startsAt ? data.startsAt : null,
         content: {
+          sceneBackground: data.sceneBackground,
+          sceneCharacters: data.sceneCharacters,
           objectives: newObjectives,
           reward: {
             reward_money: data.reward_money,
@@ -107,6 +136,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
             reward_badges: data.reward_badges,
             reward_items: data.reward_items,
             reward_rank: data.reward_rank,
+            reward_bloodlines: data.reward_bloodlines,
           },
         },
       };
@@ -132,7 +162,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4 || l5 || l6;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9;
 
   // Watch for changes
   const imageUrl = useWatch({
@@ -157,6 +187,19 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
     { id: "questRank", type: "str_array", values: LetterRanks },
     { id: "requiredLevel", type: "number" },
     { id: "maxLevel", type: "number", label: "Max Level" },
+    {
+      id: "sceneBackground",
+      type: "db_values",
+      values: sceneBackgrounds,
+      label: "Background (if not sequential)",
+    },
+    {
+      id: "sceneCharacters",
+      type: "db_values",
+      values: sceneCharacters,
+      multiple: true,
+      label: "Characters (if not sequential)",
+    },
   ];
 
   if (questType === "event" || questType === "story") {
@@ -200,13 +243,23 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   formData.push({ id: "reward_prestige", type: "number" });
   formData.push({ id: "reward_rank", type: "str_array", values: UserRanks });
 
+  if (bloodlines) {
+    formData.push({
+      id: "reward_bloodlines",
+      type: "db_values",
+      values: bloodlines,
+    });
+  }
+
   // Add items if they exist
   if (items) {
     formData.push({
       id: "reward_items",
-      type: "db_values",
-      values: items,
+      type: "db_values_with_number",
+      values: items.sort((a, b) => a.name.localeCompare(b.name)),
       multiple: true,
+      doubleWidth: true,
+      label: "Reward Items [and drop chance%]",
     });
   }
 

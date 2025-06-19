@@ -782,7 +782,7 @@ export const initiateBattle = async (
     villages,
     relations,
     achievements,
-    users,
+    fetchedUsers,
     previousBattleResults,
   ] = await Promise.all([
     // Conditionally Fetch background schema
@@ -868,8 +868,14 @@ export const initiateBattle = async (
         ]
       : []),
   ]);
-
+  // Get background for the battle
   const background = getBackground(info.asset, activeSchema?.schema);
+
+  // Create the users array to be inserted in battle. We do it like this in case some of the targetIds are entered multiple times
+  const users = [...userIds, ...targetIds]
+    .map((id) => structuredClone(fetchedUsers.find((u) => u.userId === id)))
+    .filter(Boolean) as typeof fetchedUsers;
+
   // Hide some information from quests
   users.forEach((user) =>
     user.userQuests?.forEach((q) =>

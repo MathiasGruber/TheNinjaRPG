@@ -65,7 +65,7 @@ export const openaiRouter = createTRPCRouter({
         );
       }
       // Create image
-      const resultUrl = await txt2imgGPT({
+      const resultUrls = await txt2imgGPT({
         preprompt: input.preprompt,
         prompt: input.prompt,
         previousImg: input.previousImg,
@@ -76,14 +76,16 @@ export const openaiRouter = createTRPCRouter({
         size: input.size,
       });
       // Store for future reference
-      if (resultUrl) {
-        await ctx.drizzle.insert(historicalAvatar).values({
-          avatar: resultUrl,
-          userId: input.relationId,
-          status: "content-success",
-          done: 1,
-        });
+      if (resultUrls && resultUrls.length > 0) {
+        await ctx.drizzle.insert(historicalAvatar).values(
+          resultUrls.map((url) => ({
+            avatar: url,
+            userId: input.relationId,
+            status: "content-success",
+            done: 1,
+          })),
+        );
       }
-      return { success: true, message: "Image generated", url: resultUrl };
+      return { success: true, message: "Image generated", url: resultUrls?.[0] };
     }),
 });

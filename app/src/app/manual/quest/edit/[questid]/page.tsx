@@ -21,7 +21,7 @@ import type { ZodQuestType, AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
 import CytoscapeComponent from "react-cytoscapejs";
 import type { ElementDefinition, Core, EventObjectNode, EventObject } from "cytoscape";
-import { getObjectiveImage } from "@/libs/objectives";
+import { getObjectiveImage, buildObjectiveEdges } from "@/libs/objectives";
 import { verifyQuestObjectiveFlow } from "@/libs/quest";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
@@ -79,7 +79,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
     setObjectives([
       ...objectives,
       SimpleObjective.parse({
-        id: nanoid(),
+        id: nanoid(5),
         task: "pvp_kills",
         value: 10,
         reward: {},
@@ -116,7 +116,6 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
         initialBreak={true}
         topRightContent={
           <div className="flex flex-row">
-            {AddObjectiveIcon}
             <FileMinus
               className="h-6 w-6 cursor-pointer hover:text-orange-500"
               onClick={() => removeObjective(i)}
@@ -127,7 +126,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
         <ObjectiveFormWrapper
           idx={i}
           objective={objective}
-          availableTags={allObjectiveTasks}
+          availableTags={[...allObjectiveTasks].sort()}
           objectives={objectives}
           setObjectives={setObjectives}
           consecutiveObjectives={consecutiveObjectives}
@@ -172,6 +171,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
                       "reward_items",
                       "reward_jutsus",
                       "reward_badges",
+                      "reward_bloodlines",
                       "reward_rank",
                       "attackers",
                       "image",
@@ -182,15 +182,10 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
                     const newObjectives = data.content?.objectives
                       ?.map((objective) => {
                         const schema = getObjectiveSchema(objective.task);
-                        const {
-                          reward_items, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          reward_jutsus, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          reward_badges, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          reward_rank, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          attackers, // eslint-disable-line @typescript-eslint/no-unused-vars
-                          ...rest
-                        } = objective;
-                        const parsed = schema.safeParse({ ...rest, id: nanoid() });
+                        const parsed = schema.safeParse({
+                          ...objective,
+                          id: nanoid(5),
+                        });
                         if (parsed.success) {
                           return parsed.data;
                         } else {
@@ -280,29 +275,27 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
         data: {
           id: obj.id,
           label: obj.task,
+          description: obj.description ?? "",
           image,
         },
         classes: obj.id === selectedObjectiveId ? "selected" : "",
       };
     });
-    let edges: ElementDefinition[] = [];
-    if (consecutiveObjectives) {
-      edges = objectives
-        .filter((obj) => obj.nextObjectiveId)
-        .map((obj) => ({
-          data: {
-            source: obj.id,
-            target: obj.nextObjectiveId!,
-            label: "",
-            id: `${obj.id}__to__${obj.nextObjectiveId}`,
-          },
-        }));
-    }
+    const edges = buildObjectiveEdges(objectives, consecutiveObjectives);
     return [...nodes, ...edges];
   }, [objectives, consecutiveObjectives, selectedObjectiveId]);
 
   // Cytoscape ref and event handling
   const cyRef = useRef<Core | null>(null);
+
+  // Tooltip state & container ref
+  const [tooltipData, setTooltipData] = useState<{
+    x: number;
+    y: number;
+    task: string;
+    description: string;
+  } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Helper to update edges
   const updateEdges = (cy: Core) => {
@@ -312,22 +305,12 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
       }
     });
     if (consecutiveObjectives) {
-      objectives
-        .filter((obj) => obj.nextObjectiveId)
-        .forEach((obj) => {
-          const edgeId = `${obj.id}__to__${obj.nextObjectiveId}`;
-          if (!cy.getElementById(edgeId).length) {
-            cy.add({
-              group: "edges",
-              data: {
-                id: edgeId,
-                source: obj.id,
-                target: obj.nextObjectiveId!,
-                label: "",
-              },
-            });
-          }
-        });
+      const edges = buildObjectiveEdges(objectives, consecutiveObjectives);
+      edges.forEach(({ data }) => {
+        if (data.id && !cy.getElementById(data.id).length) {
+          cy.add({ group: "edges", data });
+        }
+      });
     }
     cy.layout({ name: "cose", fit: true, padding: 30, randomize: true }).run();
   };
@@ -338,6 +321,8 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
     updateEdges(cy);
     cy.removeListener("tap", "node");
     cy.removeListener("tap");
+    cy.removeListener("mouseover", "node");
+    cy.removeListener("mouseout", "node");
     cy.on("tap", "node", (event: EventObjectNode) => {
       const nodeId = event.target.id();
       setSelectedObjectiveId(nodeId);
@@ -346,6 +331,20 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
       if (event.target === cy) {
         setSelectedObjectiveId(null);
       }
+    });
+    // Tooltip handlers
+    cy.on("mouseover", "node", (event: EventObjectNode) => {
+      const node = event.target;
+      const pos = node.renderedPosition();
+      setTooltipData({
+        x: pos.x,
+        y: pos.y,
+        task: node.data("label") as string,
+        description: (node.data("description") ?? "") as string,
+      });
+    });
+    cy.on("mouseout", "node", () => {
+      setTooltipData(null);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consecutiveObjectives, objectives, setSelectedObjectiveId]);
@@ -357,7 +356,7 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
       initialBreak={true}
       topRightContent={<div className="flex flex-row">{addObjectiveIcon}</div>}
     >
-      <div className="w-full h-96">
+      <div ref={containerRef} className="w-full h-96 relative">
         <CytoscapeComponent
           cy={(cy) => {
             cyRef.current = cy;
@@ -369,7 +368,6 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
             {
               selector: "node",
               style: {
-                label: "data(label)",
                 "background-color": "#6366f1",
                 color: "#0000",
                 width: 40,
@@ -381,9 +379,9 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
             {
               selector: "node[label]",
               style: {
-                label: "data(label)",
+                label: "data(id)",
                 fontSize: 8,
-                color: "#0000",
+                color: "#f59e42",
               },
             },
             {
@@ -406,6 +404,19 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
             },
           ]}
         />
+        {tooltipData && (
+          <div
+            className="absolute z-50 pointer-events-none bg-gray-900 bg-opacity-80 text-white text-xs rounded px-2 py-1"
+            style={{
+              top: tooltipData.y,
+              left: tooltipData.x,
+              transform: "translate(-50%, -120%)",
+            }}
+          >
+            <p className="font-semibold">{tooltipData.task}</p>
+            {tooltipData.description && <p>{tooltipData.description}</p>}
+          </div>
+        )}
       </div>
       {/* Alert about invalid objective flow */}
       {consecutiveObjectives && !isFlowValid && (

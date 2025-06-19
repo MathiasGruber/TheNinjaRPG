@@ -23,7 +23,6 @@ import { wallPlacements } from "./controls";
 import { groupBy } from "@/utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
 import { getActiveObjectives } from "@/libs/quest";
-import { LocationTasks } from "@/validators/objectives";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import {
   IMG_AVATAR_DEFAULT,
@@ -59,7 +58,6 @@ export const drawQuest = (info: {
   const activeObjectives = getActiveObjectives(user);
   const drawnIds = new Set<string>();
   activeObjectives
-    .filter((o) => LocationTasks.find((t) => t === o.task))
     .filter((o) => "sector" in o && Number(o.sector) === user.sector)
     .map((objective) => {
       let mesh = group_quest.getObjectByName(objective.id);
@@ -86,6 +84,8 @@ export const drawQuest = (info: {
           markerSprite.material.color.setHex(0x6666a3);
         } else if (objective.task === "defeat_opponents") {
           markerSprite.material.color.setHex(0x9c273a);
+        } else if (objective.task === "dialog") {
+          markerSprite.material.color.setHex(0x6666a3);
         }
         Object.assign(markerSprite.scale, new Vector3(h, h * 1.2, 1));
         Object.assign(markerSprite.position, new Vector3(w / 2, h * 0.9, -6));

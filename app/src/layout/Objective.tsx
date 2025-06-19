@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import Countdown from "@/layout/Countdown";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import { CircleHelp } from "lucide-react";
 import { getObjectiveImage } from "@/libs/objectives";
 import { X, Check, Gift } from "lucide-react";
@@ -21,6 +21,7 @@ interface ObjectiveProps {
   checkRewards: () => void;
   tier?: number;
   grayedOut?: boolean;
+  hideIfNoRewards?: boolean | null;
 }
 export const Objective: React.FC<ObjectiveProps> = (props) => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -52,6 +53,10 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   ) : (
     <X className="h-10 w-10 stroke-red-500" />
   );
+
+  // If future objectives are hidden, hide future objectives
+  if (props.hideIfNoRewards && !canCollect) return null;
+
   // Show the objective
   return (
     <div className={`flex flex-row ${props.grayedOut ? "grayscale opacity-30" : ""}`}>
@@ -75,9 +80,13 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                 onClick={() => setModalOpen(true)}
               />
               {modalOpen && (
-                <Modal title="Objective Details" setIsOpen={() => setModalOpen(false)}>
+                <Modal2
+                  title="Objective Details"
+                  setIsOpen={() => setModalOpen(false)}
+                  isOpen={modalOpen}
+                >
                   <div dangerouslySetInnerHTML={{ __html: objective.description }} />
-                </Modal>
+                </Modal2>
               )}
             </>
           )}
@@ -102,7 +111,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
           {"sector" in parsed && (
             <div className="flex flex-row items-center">
               <div className="grow">
-                {!parsed.hideLocation && (
+                {!("hideLocation" in parsed && parsed.hideLocation) && (
                   <>
                     <div>
                       <b>Sector: </b> {parsed.sector}
@@ -112,7 +121,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                     </div>
                   </>
                 )}
-                {parsed.hideLocation && (
+                {"hideLocation" in parsed && parsed.hideLocation && (
                   <div>
                     <b>Location:</b> hidden
                   </div>

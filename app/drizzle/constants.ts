@@ -528,7 +528,13 @@ export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_EXTRA_JUTSU_SLOT = 50;
 export const COST_REROLL_ELEMENT = 20;
 export const MAX_EXTRA_JUTSU_SLOTS = 2;
-export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM", "PITY", "DIRECT"] as const;
+export const BLOODLINE_ROLL_TYPES = [
+  "NATURAL",
+  "ITEM",
+  "PITY",
+  "DIRECT",
+  "QUEST",
+] as const;
 export const BLOODLINE_SWAP_COOLDOWN_HOURS = 48;
 
 // Jutsu level transfer config
@@ -796,6 +802,23 @@ export const IMG_REGISTRATIN_STEP8 =
 export const IMG_REGISTRATIN_STEP9 =
   "https://utfs.io/f/Hzww9EQvYURJnjHXr3mojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
 
+export const IMG_SCENE_SCROLL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRceTKeq0udmODoNtpa0FMcwI4k2Eq7nJhyvj";
+export const IMG_SCENE_BACKGROUND =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJ1HAqWl6bo95WClq4K0wxZUmJcvThgdVenO3P";
+export const IMG_SCENE_CHARACTER =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF08NAw3G2iOewJtjGzvNcmEX3TBnoSfMDZPH";
+
+export const IMG_BADGE_FAIL_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJuFEUH7CyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
+export const IMG_BADGE_WIN_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJnk99IbmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+export const IMG_BADGE_NEW_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJneJSZsmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+export const IMG_BADGE_START_BATTLE =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJqZXK1HdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
+export const IMG_BADGE_DIALOG =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJpIn7vsbKBAOsGCHyl3Sk0mZFrgWPUdjMJ75D";
 export const IMG_BADGE_RANDOM_ENCOUNTER_WINS =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJqyp2N4dkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
 export const IMG_BADGE_PVPKILLS =

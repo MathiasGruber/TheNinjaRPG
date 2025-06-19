@@ -62,6 +62,7 @@ export const gameAsset = mysqlTable(
     frames: tinyint("frames").default(1).notNull(),
     speed: tinyint("speed").default(1).notNull(),
     hidden: boolean("hidden").default(true).notNull(),
+    folder: varchar("folder", { length: 191 }).default("").notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

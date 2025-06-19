@@ -10,6 +10,10 @@ export const gameAssetValidator = z.object({
   licenseDetails: z.string().min(1).max(512),
   onInitialBattleField: z.boolean(),
   hidden: z.coerce.boolean().optional(),
+  folder: z
+    .string()
+    .regex(/^[a-zA-Z0-9]*$/, "Folder name can only contain letters and numbers")
+    .optional(),
 });
 
 export type ZodGameAssetType = z.infer<typeof gameAssetValidator>;
@@ -18,6 +22,7 @@ export const gameAssetSchema = z.object({
   name: z.string().optional(),
   type: z.enum(GameAssetTypes),
   tags: z.array(z.string()).optional(),
+  folder: z.string().optional(),
 });
 
 export type GameAssetSchema = z.infer<typeof gameAssetSchema>;

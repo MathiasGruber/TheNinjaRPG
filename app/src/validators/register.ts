@@ -19,7 +19,15 @@ export const attributes = [
   "Full Beard",
   "Stubble",
 ] as const;
-export const colors = ["Black", "Brown", "Blue", "Red", "White", "Gray"] as const;
+export const colors = [
+  "Blonde",
+  "Black",
+  "Brown",
+  "Blue",
+  "Red",
+  "White",
+  "Gray",
+] as const;
 export const skin_colors = ["Light", "Dark", "Olive", "Alibino"] as const;
 export const genders = ["Male", "Female", "Other"] as const;
 export type Gender = (typeof genders)[number];

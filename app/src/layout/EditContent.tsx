@@ -35,6 +35,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { nanoid } from "nanoid";
 import { cn } from "src/libs/shadui";
+import { InstantTasks } from "@/validators/objectives";
 import type { Path, PathValue } from "react-hook-form";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { ZodAllTags } from "@/libs/combat/types";
@@ -70,6 +71,17 @@ export type FormEntry<K> = {
       values: FormDbValue[] | undefined;
       multiple?: boolean;
       current?: string;
+    }
+  | {
+      type: "db_values_with_number";
+      values: FormDbValue[] | undefined;
+      multiple?: boolean;
+      current?: string;
+    }
+  | {
+      type: "dialog_options";
+      values: { text: string; nextObjectiveId: string }[];
+      objectiveIds: string[];
     }
 );
 
@@ -159,6 +171,11 @@ export const EditContent = <
       >
         {formData
           .filter((formEntry) => formEntry.type !== "avatar3d")
+          .sort((a, b) => {
+            if (["dialog_options", "db_values_with_number"].includes(a.type)) return 1;
+            if (["dialog_options", "db_values_with_number"].includes(b.type)) return -1;
+            return 0;
+          })
           .map((formEntry) => {
             // Derived
             const id = formEntry.id;
@@ -512,65 +529,254 @@ export const EditContent = <
                       maxDim={formEntry.maxDim ?? 256}
                     />
                   )}
-                {/* {type === "avatar3d" &&
-                  "modelUrl" in formEntry &&
-                  "imgUrl" in formEntry && (
-                    <div className="flex flex-col justify-start">
-                      <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                      <br />
-                      <Model3d
-                        modelUrl={currentValues?.[id] ?? formEntry.modelUrl}
-                        imageUrl={formEntry.imgUrl}
-                        alt={id}
-                        size={100}
-                        hover_effect={true}
-                        priority
-                      />
-                      <br />
-                      {formEntry.imgUrl && props.allowImageUpload && (
-                        <div className="flex flex-row justify-center">
-                          <Button
-                            id="create"
-                            className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (formEntry.imgUrl) {
-                                create3dModel({
-                                  imgUrl: formEntry.imgUrl,
-                                  field: id,
-                                });
-                              }
-                            }}
-                          >
-                            {load ? (
-                              <Loader noPadding={true} size={25} />
-                            ) : (
-                              <RefreshCw className="mr-1 p-2 h-10 w-10" />
-                            )}
-                            AI
-                          </Button>
-                          <UploadButton
-                            endpoint="modelUploader"
-                            onClientUploadComplete={(res) => {
-                              const url = res?.[0]?.url;
-                              if (url) {
-                                form.setValue(id, url as PathValue<S, K>, {
-                                  shouldDirty: true,
-                                });
-                              }
-                            }}
-                            onUploadError={(error: Error) => {
-                              showMutationToast({
-                                success: false,
-                                message: error.message,
-                              });
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )} */}
+                {formEntry.type === "dialog_options" ? (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field }) => {
+                      const dialogOptions: { text: string; nextObjectiveId: string }[] =
+                        Array.isArray(field.value)
+                          ? (field.value as { text: string; nextObjectiveId: string }[])
+                          : [];
+                      return (
+                        <FormItem className="flex flex-col gap-2">
+                          <FormLabel>{formEntry.label ?? id}</FormLabel>
+                          <div className="flex flex-col gap-2">
+                            {dialogOptions.map((opt, idx) => {
+                              const option: { text: string; nextObjectiveId: string } =
+                                opt;
+                              return (
+                                <div key={idx} className="flex gap-2 items-center">
+                                  <Input
+                                    className="flex-1"
+                                    placeholder="Dialog text..."
+                                    value={option.text}
+                                    onChange={(e) => {
+                                      const updated = [...dialogOptions];
+                                      updated[idx] = {
+                                        ...option,
+                                        text: e.target.value,
+                                      };
+                                      field.onChange(updated);
+                                    }}
+                                  />
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        className="min-w-[120px] flex-1"
+                                      >
+                                        {option.nextObjectiveId
+                                          ? formEntry.objectiveIds.find(
+                                              (oid) => oid === option.nextObjectiveId,
+                                            ) || "Select objective"
+                                          : "Select objective"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[200px] p-0">
+                                      <Command>
+                                        <CommandInput
+                                          placeholder="Search objectives..."
+                                          className="h-9"
+                                        />
+                                        <CommandList>
+                                          <CommandEmpty>
+                                            No objectives found.
+                                          </CommandEmpty>
+                                          <CommandGroup>
+                                            {formEntry.objectiveIds.map((oid) => (
+                                              <CommandItem
+                                                key={oid}
+                                                value={oid}
+                                                onSelect={() => {
+                                                  const updated = [...dialogOptions];
+                                                  updated[idx] = {
+                                                    ...option,
+                                                    nextObjectiveId: oid,
+                                                  };
+                                                  field.onChange(updated);
+                                                }}
+                                              >
+                                                {oid}
+                                                <Check
+                                                  className={cn(
+                                                    "ml-auto",
+                                                    oid === option.nextObjectiveId
+                                                      ? "opacity-100"
+                                                      : "opacity-0",
+                                                  )}
+                                                />
+                                              </CommandItem>
+                                            ))}
+                                          </CommandGroup>
+                                        </CommandList>
+                                      </Command>
+                                    </PopoverContent>
+                                  </Popover>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="p-1"
+                                    onClick={() => {
+                                      const updated = dialogOptions.filter(
+                                        (_, i) => i !== idx,
+                                      );
+                                      field.onChange(updated);
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full mt-2"
+                              onClick={() => {
+                                field.onChange([
+                                  ...dialogOptions,
+                                  {
+                                    text: "",
+                                    nextObjectiveId: formEntry.objectiveIds[0] ?? "",
+                                  },
+                                ]);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-1" /> Add Dialog Option
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ) : null}
+                {formEntry.type === "db_values_with_number" ? (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field }) => {
+                      // Each entry: { opponentId: string, number: number }
+                      const valueArr: { ids: string[]; number: number }[] =
+                        Array.isArray(field.value) ? field.value : [];
+                      const options = (formEntry.values || []).map((v) => ({
+                        label: v.name,
+                        value: v.id,
+                      }));
+                      return (
+                        <FormItem className="flex flex-col py-4">
+                          <FormLabel>{formEntry.label ?? id}</FormLabel>
+                          <div className="flex flex-col gap-2">
+                            {valueArr.map((entry, idx) => (
+                              <div key={idx} className="flex gap-2 items-center">
+                                {/* Dropdown for db_value */}
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className="min-w-[120px] flex-1 justify-between"
+                                    >
+                                      {options.find((o) => entry.ids.includes(o.value))
+                                        ?.label || "Select Entry"}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[200px] p-0">
+                                    <Command>
+                                      <CommandInput
+                                        placeholder="Search..."
+                                        className="h-9"
+                                      />
+                                      <CommandList>
+                                        <CommandEmpty>No options found.</CommandEmpty>
+                                        <CommandGroup>
+                                          {options.map((option) => (
+                                            <CommandItem
+                                              key={option.value}
+                                              value={option.value}
+                                              onSelect={() => {
+                                                const updated = [...valueArr];
+                                                const ids = entry.ids.includes(
+                                                  option.value,
+                                                )
+                                                  ? entry.ids.filter(
+                                                      (id) => id !== option.value,
+                                                    )
+                                                  : [...entry.ids, option.value];
+                                                updated[idx] = {
+                                                  ...entry,
+                                                  ids: ids,
+                                                };
+                                                field.onChange(updated);
+                                              }}
+                                            >
+                                              {option.label}
+                                              <Check
+                                                className={cn(
+                                                  "ml-auto",
+                                                  entry.ids.includes(option.value)
+                                                    ? "opacity-100"
+                                                    : "opacity-0",
+                                                )}
+                                              />
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
+                                {/* Number input */}
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  className="w-20"
+                                  value={entry.number}
+                                  onChange={(e) => {
+                                    const updated = [...valueArr];
+                                    updated[idx] = {
+                                      ...entry,
+                                      number: Number(e.target.value),
+                                    };
+                                    field.onChange(updated);
+                                  }}
+                                />
+                                {/* Remove button */}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="p-1"
+                                  onClick={() => {
+                                    const updated = valueArr.filter(
+                                      (_, i) => i !== idx,
+                                    );
+                                    field.onChange(updated);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => {
+                                field.onChange([...valueArr, { ids: [], number: 1 }]);
+                              }}
+                              disabled={options.length === 0}
+                            >
+                              <Plus className="h-4 w-4 mr-1" /> Add Entry
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ) : null}
               </div>
             );
           })}
@@ -914,6 +1120,24 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       fields.includes("deliverItemIds"),
   });
 
+  const { data: sceneBackgrounds } = api.gameAsset.getAllNames.useQuery(
+    { type: "SCENE_BACKGROUND", folderPrefix: true },
+    { enabled: fields.includes("sceneBackground") },
+  );
+
+  const { data: sceneCharacters } = api.gameAsset.getAllNames.useQuery(
+    { type: "SCENE_CHARACTER", folderPrefix: true },
+    { enabled: fields.includes("sceneCharacters") },
+  );
+
+  const { data: quests } = api.quests.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("newQuestIds"),
+  });
+
+  const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("reward_bloodlines"),
+  });
+
   // Form for handling the specific tag
   const form = useForm<AllObjectivesType>({
     defaultValues: shownTag,
@@ -1012,6 +1236,18 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .filter((value) => {
       return (
+        !["fail_quest", "win_quest"].includes(watchTask) ||
+        !["nextObjectiveId"].includes(value)
+      );
+    })
+    .filter((value) => {
+      return (
+        !([...InstantTasks, "dialog"] as string[]).includes(watchTask) ||
+        !["sector", "longitude", "latitude"].includes(value)
+      );
+    })
+    .filter((value) => {
+      return (
         !locationType ||
         locationType === "specific" ||
         (locationType === "random" && !["longitude", "latitude"].includes(value))
@@ -1019,7 +1255,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);
-      if (["attackers", "opponentAIs"].includes(value) && aiData) {
+      if ((["attackers"] as string[]).includes(value) && aiData) {
         return {
           id: value,
           values: aiData
@@ -1028,13 +1264,45 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
               id: ai.userId,
               name: `lvl ${ai.level}: ${ai.username}`,
             })),
+          doubleWidth: true,
           multiple: true,
-          type: "db_values",
+          label: "Random Attacker AIs [and encounter chance %]",
+          type: "db_values_with_number",
+        };
+      } else if ((["opponentAIs"] as string[]).includes(value) && aiData) {
+        return {
+          id: value,
+          values: aiData
+            .sort((a, b) => a.level - b.level)
+            .map((ai) => ({
+              id: ai.userId,
+              name: `lvl ${ai.level}: ${ai.username}`,
+            })),
+          doubleWidth: true,
+          multiple: true,
+          label: "Opponent AIs [and number]",
+          type: "db_values_with_number",
+        };
+      } else if (value === "reward_items" && itemData) {
+        return {
+          id: value,
+          values: itemData.sort((a, b) => a.name.localeCompare(b.name)),
+          doubleWidth: true,
+          multiple: true,
+          label: "Reward Items [and drop chance%]",
+          type: "db_values_with_number",
         };
       } else if (value === "reward_jutsus" && jutsuData) {
         return {
           id: value,
           values: jutsuData,
+          multiple: true,
+          type: "db_values",
+        };
+      } else if (value === "reward_bloodlines" && bloodlines) {
+        return {
+          id: value,
+          values: bloodlines,
           multiple: true,
           type: "db_values",
         };
@@ -1045,13 +1313,6 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           multiple: true,
           type: "db_values",
         };
-      } else if (value === "reward_items" && itemData) {
-        return {
-          id: value,
-          values: itemData,
-          multiple: true,
-          type: "db_values",
-        };
       } else if (["collectItemIds", "deliverItemIds"].includes(value) && itemData) {
         return {
           id: value,
@@ -1059,12 +1320,47 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           multiple: true,
           type: "db_values",
         };
-      } else if (value === "nextObjectiveId" && props.objectives) {
+      } else if (["sceneBackground"].includes(value) && sceneBackgrounds) {
         return {
           id: value,
-          values: [...props.objectives.map((objective) => objective.id)],
-          type: "str_array",
-          resetButton: true,
+          values: sceneBackgrounds,
+          type: "db_values",
+        };
+      } else if (["sceneCharacters"].includes(value) && sceneCharacters) {
+        return {
+          id: value,
+          values: sceneCharacters,
+          multiple: true,
+          type: "db_values",
+        };
+      } else if (value === "nextObjectiveId" && props.objectives) {
+        const obejctiveIds = props.objectives.map((objective) => objective.id);
+        if (innerType instanceof z.ZodArray) {
+          // Dialog objective: nextObjectiveId is an array of {text, nextObjectiveId}
+          return {
+            id: value,
+            values: (shownTag.nextObjectiveId ?? []) as {
+              text: string;
+              nextObjectiveId: string;
+            }[],
+            doubleWidth: true,
+            type: "dialog_options",
+            objectiveIds: obejctiveIds,
+          };
+        } else {
+          return {
+            id: value,
+            values: obejctiveIds,
+            type: "str_array",
+            resetButton: true,
+          };
+        }
+      } else if (([value] as string[]).includes("newQuestIds") && quests) {
+        return {
+          id: value,
+          values: quests,
+          multiple: true,
+          type: "db_values",
         };
       } else if (
         innerType instanceof z.ZodLiteral ||

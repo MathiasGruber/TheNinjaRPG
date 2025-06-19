@@ -137,6 +137,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     if (questReward.reward_rank && questReward.reward_rank !== "NONE") {
       rewards.push(`rank of ${item.content.reward.reward_rank.toLowerCase()}`);
     }
+    if (questReward.reward_bloodlines) {
+      rewards.push(`${questReward.reward_bloodlines.length} bloodlines`);
+    }
     if (questReward.reward_money) {
       rewards.push(`${item.content.reward.reward_money} ryo`);
     }
@@ -559,31 +562,33 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               </div>
             </div>
           )}
-          {objectives.length > 0 && (
+          {/* {objectives.length > 0 && (
             <div className={`my-2 rounded-lg bg-poppopover p-2`}>
               <p className="font-bold">Objectives</p>
               <div className="grid grid-cols-5 md:grid-cols-3 lg:md:grid-cols-5 gap-3 p-2">
-                {objectives.map((objective, i) => {
-                  const { image, title } = getObjectiveImage(objective);
-                  return (
-                    <div
-                      key={objective.task + i.toString()}
-                      className={`flex flex-col items-center`}
-                    >
-                      <Image
-                        className="basis-1/4"
-                        alt={objective.task}
-                        src={image}
-                        width={60}
-                        height={60}
-                      />
-                      {title}
-                    </div>
-                  );
-                })}
+                {objectives
+                  .filter((o) => o.task !== "dialog")
+                  .map((objective, i) => {
+                    const { image, title } = getObjectiveImage(objective);
+                    return (
+                      <div
+                        key={objective.task + i.toString()}
+                        className={`flex flex-col items-center`}
+                      >
+                        <Image
+                          className="basis-1/4"
+                          alt={objective.task}
+                          src={image}
+                          width={60}
+                          height={60}
+                        />
+                        {title}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
-          )}
+          )} */}
 
           {effects?.map((effect, i) => {
             // Get schema for parsing effect
