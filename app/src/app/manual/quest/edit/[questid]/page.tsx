@@ -79,7 +79,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
     setObjectives([
       ...objectives,
       SimpleObjective.parse({
-        id: nanoid(),
+        id: nanoid(5),
         task: "pvp_kills",
         value: 10,
         reward: {},
@@ -182,7 +182,10 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
                     const newObjectives = data.content?.objectives
                       ?.map((objective) => {
                         const schema = getObjectiveSchema(objective.task);
-                        const parsed = schema.safeParse({ ...objective, id: nanoid() });
+                        const parsed = schema.safeParse({
+                          ...objective,
+                          id: nanoid(5),
+                        });
                         if (parsed.success) {
                           return parsed.data;
                         } else {
