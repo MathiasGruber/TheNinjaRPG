@@ -60,6 +60,15 @@ export const allObjectiveTasks = [
 ] as const;
 export type AllObjectiveTask = (typeof allObjectiveTasks)[number];
 
+export const idsWithNumberField = z
+  .array(
+    z.object({
+      ids: z.array(z.string()).default([]),
+      number: z.number(),
+    }),
+  )
+  .default([]);
+
 const rewardFields = {
   reward_money: z.coerce.number().default(0),
   reward_clanpoints: z.coerce.number().default(0),
@@ -67,7 +76,7 @@ const rewardFields = {
   reward_tokens: z.coerce.number().default(0),
   reward_prestige: z.coerce.number().default(0),
   reward_rank: z.enum(UserRanks).default("NONE"),
-  reward_items: z.array(z.string()).default([]),
+  reward_items: idsWithNumberField,
   reward_jutsus: z.array(z.string()).default([]),
   reward_bloodlines: z.array(z.string()).default([]),
   reward_badges: z.array(z.string()).default([]),
@@ -92,8 +101,7 @@ export const hasReward = (reward: ObjectiveRewardType) => {
 };
 
 export const attackerFields = {
-  attackers: z.array(z.string()).default([]),
-  attackers_chance: z.coerce.number().min(0).max(100).default(0),
+  attackers: idsWithNumberField,
   attackers_scaled_to_user: z.coerce.boolean().default(false),
   attackers_scale_gains: z.coerce.number().min(0).max(1).default(1),
 };
@@ -135,7 +143,7 @@ export const InstantNewQuestObjective = z.object({
 export const InstantStartBattleObjective = z.object({
   ...baseObjectiveFields,
   task: z.literal("start_battle").default("start_battle"),
-  opponentAIs: z.array(z.string()).default([]),
+  opponentAIs: idsWithNumberField,
   opponent_scaled_to_user: z.coerce.boolean().default(false),
   completionOutcome: z.enum(["Win", "Lose", "Flee", "Draw", "Any"]).default("Win"),
   failDescription: z.string().default("You failed to defeat the opponent"),
@@ -222,7 +230,7 @@ export type DeliverItemType = z.infer<typeof DeliverItem>;
 export const DefeatOpponents = z.object({
   ...baseObjectiveFields,
   task: z.literal("defeat_opponents").default("defeat_opponents"),
-  opponentAIs: z.array(z.string()).default([]),
+  opponentAIs: idsWithNumberField,
   opponent_scaled_to_user: z.coerce.boolean().default(false),
   completionOutcome: z.enum(["Win", "Lose", "Flee", "Draw", "Any"]).default("Win"),
   failDescription: z.string().default("You failed to defeat the opponent"),

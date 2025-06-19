@@ -21,7 +21,11 @@ import { SECTOR_WIDTH, SECTOR_HEIGHT } from "@/libs/travel/constants";
 import { getUnique } from "@/utils/grouping";
 import { isQuestComplete, findPredecessor } from "@/libs/objectives";
 import type { UserWithRelations } from "@/routers/profile";
-import type { AllObjectivesType, AllObjectiveTask } from "@/validators/objectives";
+import type {
+  AllObjectivesType,
+  AllObjectiveTask,
+  ObjectiveRewardType,
+} from "@/validators/objectives";
 import type { Quest, UserData, UserItem } from "@/drizzle/schema";
 import type { QuestTrackerType } from "@/validators/objectives";
 
@@ -91,7 +95,7 @@ export const getReward = (
   dialogNextObjectiveId?: string,
 ) => {
   // Derived
-  let rewards = ObjectiveReward.parse({});
+  let rawRewards = ObjectiveReward.parse({});
   const { trackers, notifications, consequences } = getNewTrackers(user, [
     { task: "any" },
     { task: "dialog", contentId: dialogNextObjectiveId },
@@ -104,7 +108,7 @@ export const getReward = (
     const goals = tracker?.goals ?? [];
     resolved = !tracker || isQuestComplete(userQuest.quest, tracker);
     if (resolved) {
-      rewards = ObjectiveReward.parse(userQuest.quest.content.reward);
+      rawRewards = ObjectiveReward.parse(userQuest.quest.content.reward);
     }
     userQuest.quest.content.objectives.forEach((objective) => {
       const status = goals.find((g) => g.id === objective.id);
@@ -114,34 +118,34 @@ export const getReward = (
           notifications.push(objective.successDescription);
         }
         if (objective.reward_money) {
-          rewards.reward_money += objective.reward_money;
+          rawRewards.reward_money += objective.reward_money;
         }
         if (objective.reward_clanpoints) {
-          rewards.reward_clanpoints += objective.reward_clanpoints;
+          rawRewards.reward_clanpoints += objective.reward_clanpoints;
         }
         if (objective.reward_exp) {
-          rewards.reward_exp += objective.reward_exp;
+          rawRewards.reward_exp += objective.reward_exp;
         }
         if (objective.reward_tokens) {
-          rewards.reward_tokens += objective.reward_tokens;
+          rawRewards.reward_tokens += objective.reward_tokens;
         }
         if (objective.reward_prestige) {
-          rewards.reward_prestige += objective.reward_prestige;
+          rawRewards.reward_prestige += objective.reward_prestige;
         }
         if (objective.reward_jutsus) {
-          rewards.reward_jutsus.push(...objective.reward_jutsus);
+          rawRewards.reward_jutsus.push(...objective.reward_jutsus);
         }
         if (objective.reward_badges) {
-          rewards.reward_badges.push(...objective.reward_badges);
+          rawRewards.reward_badges.push(...objective.reward_badges);
         }
         if (objective.reward_items) {
-          rewards.reward_items.push(...objective.reward_items);
+          rawRewards.reward_items.push(...objective.reward_items);
         }
         if (objective.reward_bloodlines) {
-          rewards.reward_bloodlines = objective.reward_bloodlines;
+          rawRewards.reward_bloodlines = objective.reward_bloodlines;
         }
         if (objective.reward_rank !== "NONE") {
-          rewards.reward_rank = objective.reward_rank;
+          rawRewards.reward_rank = objective.reward_rank;
         }
       }
     });
@@ -152,13 +156,36 @@ export const getReward = (
       isMissionOrCrime && user.dailyMissions > 9
         ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
         : 1;
-    rewards.reward_money = Math.floor(rewards.reward_money * factor);
-    rewards.reward_clanpoints = Math.floor(rewards.reward_clanpoints * factor);
-    rewards.reward_exp = Math.floor(rewards.reward_exp * factor);
-    rewards.reward_tokens = Math.floor(rewards.reward_tokens * factor);
-    rewards.reward_prestige = Math.floor(rewards.reward_prestige * factor);
+    rawRewards.reward_money = Math.floor(rawRewards.reward_money * factor);
+    rawRewards.reward_clanpoints = Math.floor(rawRewards.reward_clanpoints * factor);
+    rawRewards.reward_exp = Math.floor(rawRewards.reward_exp * factor);
+    rawRewards.reward_tokens = Math.floor(rawRewards.reward_tokens * factor);
+    rawRewards.reward_prestige = Math.floor(rawRewards.reward_prestige * factor);
   }
+  // Final rewards (some need a bit pose-processing)
+  const rewards = postProcessRewards(rawRewards);
+
+  // Return results
   return { rewards, trackers, userQuest, resolved, notifications, consequences };
+};
+
+export type GetRewardResult = ReturnType<typeof getReward>["rewards"];
+
+/**
+ * Post-process rewards to ensure that the rewards are valid
+ * @param rewards - Rewards to post-process
+ * @returns Post-processed rewards
+ */
+export const postProcessRewards = (rewards: ObjectiveRewardType) => {
+  return {
+    ...rewards,
+    reward_items: rewards.reward_items
+      .filter((reward) => {
+        return Math.random() * 100 < reward.number;
+      })
+      .map((reward) => reward.ids)
+      .flat(),
+  };
 };
 
 export type QuestConsequence = {
@@ -323,18 +350,27 @@ export const getNewTrackers = (
             if (field) status.value = user[field];
           }
 
+          // If opponentAIs is in objective, get the ids
+          let opponentIds: string[] = [];
+          if ("opponentAIs" in objective) {
+            opponentIds = objective.opponentAIs
+              .flatMap((o) => Array(o.number).fill(o.ids).flat() as string[])
+              .filter((id): id is string => id !== undefined);
+          }
+
           /** Helper function to put the user in combat */
           const putInCombat = () => {
             if (
+              opponentIds.length > 0 &&
               "opponentAIs" in objective &&
-              objective.opponentAIs &&
-              objective.opponentAIs.length > 0 &&
               user.status === "AWAKE"
             ) {
-              notifications.push(`Attacking target for ${quest.name}.`);
+              notifications.push(
+                `Attacking ${opponentIds.length} target${opponentIds.length > 1 ? "s" : ""} for ${quest.name}.`,
+              );
               consequences.push({
                 type: "combat",
-                ids: objective.opponentAIs,
+                ids: opponentIds,
                 scaleStats: objective.opponent_scaled_to_user,
                 scaleGains: objective.scaleGains,
               });
@@ -427,8 +463,8 @@ export const getNewTrackers = (
                   });
                   status.done = true;
                 }
-                if (task === "defeat_opponents" && "opponentAIs" in objective) {
-                  if (!objective.opponentAIs.includes(taskUpdate.contentId || "1337")) {
+                if (task === "defeat_opponents" && opponentIds.length > 0) {
+                  if (!opponentIds.includes(taskUpdate.contentId || "1337")) {
                     putInCombat();
                   }
                 }
@@ -438,11 +474,12 @@ export const getNewTrackers = (
               if (
                 status &&
                 ["start_battle", "defeat_opponents"].includes(task) &&
-                "opponentAIs" in objective
+                "opponentAIs" in objective &&
+                opponentIds.length > 0
               ) {
                 if (
                   taskUpdate.text &&
-                  objective.opponentAIs.includes(taskUpdate.contentId || "1337")
+                  opponentIds.includes(taskUpdate.contentId || "1337")
                 ) {
                   const completionOutcome = objective.completionOutcome || "Win";
                   if (completionOutcome === "Any") {

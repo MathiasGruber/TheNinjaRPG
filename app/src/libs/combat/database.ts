@@ -465,12 +465,12 @@ export const updateUser = async (
         .map((u) => [
           {
             task: "defeat_opponents" as const,
-            contentId: u.userId,
+            contentId: u.controllerId,
             text: result.outcome,
           },
           {
             task: "start_battle" as const,
-            contentId: u.userId,
+            contentId: u.controllerId,
             text: result.outcome,
           },
         ])

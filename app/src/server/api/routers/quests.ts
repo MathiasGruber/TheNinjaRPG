@@ -63,6 +63,7 @@ import type { QuestType } from "@/drizzle/constants";
 import type { UserData, Quest } from "@/drizzle/schema";
 import type { UserWithRelations } from "@/routers/profile";
 import type { DrizzleClient } from "@/server/db";
+import type { GetRewardResult } from "@/libs/quest";
 import { canEditPublicUser } from "@/utils/permissions";
 
 export const questsRouter = createTRPCRouter({
@@ -928,7 +929,7 @@ export const questsRouter = createTRPCRouter({
 export const updateRewards = async (
   client: DrizzleClient,
   user: UserData,
-  rewards: ObjectiveRewardType,
+  rewards: GetRewardResult,
   questCounterField?: QuestCounterFieldName,
 ) => {
   // Fetch names from the database
@@ -1324,18 +1325,15 @@ export const handleQuestConsequences = async (
   const activeObjectives = getActiveObjectives(user);
   if (!opponent) {
     activeObjectives.forEach((objective) => {
-      if (
-        "attackers" in objective &&
-        objective.attackers.length > 0 &&
-        objective.attackers_chance > 0
-      ) {
-        const random = Math.random();
-        if (random * 100 < objective.attackers_chance) {
-          const idx = Math.floor(Math.random() * objective.attackers.length);
-          const randomOpponent = objective.attackers[idx]!;
+      if ("attackers" in objective && objective.attackers.length > 0) {
+        const opponents = objective.attackers
+          .filter((ai) => Math.random() * 100 < ai.number)
+          .map((ai) => ai.ids)
+          .flat();
+        if (opponents.length > 0) {
           opponent = {
             type: "combat",
-            ids: [randomOpponent],
+            ids: opponents,
             scaleStats: objective.attackers_scaled_to_user,
             scaleGains: objective.attackers_scale_gains,
           };

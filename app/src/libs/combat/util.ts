@@ -58,6 +58,7 @@ import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
 import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
+import { nanoid } from "nanoid";
 
 /**
  * Check if a single tag is a shared cooldown tag
@@ -1197,6 +1198,11 @@ export const processUsersForBattle = (info: {
   const usersState = users.map((user, i) => {
     // Set controllerID and mark this user as the original
     user.controllerId = user.userId;
+
+    // If the target is an AI, update the nanoid so we do not have duplicates
+    if (user.isAi) {
+      user.userId = nanoid();
+    }
 
     // Set direction
     user.direction = i % 2 === 0 ? "right" : "left";

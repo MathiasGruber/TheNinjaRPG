@@ -73,6 +73,12 @@ export type FormEntry<K> = {
       current?: string;
     }
   | {
+      type: "db_values_with_number";
+      values: FormDbValue[] | undefined;
+      multiple?: boolean;
+      current?: string;
+    }
+  | {
       type: "dialog_options";
       values: { text: string; nextObjectiveId: string }[];
       objectiveIds: string[];
@@ -166,8 +172,8 @@ export const EditContent = <
         {formData
           .filter((formEntry) => formEntry.type !== "avatar3d")
           .sort((a, b) => {
-            if (a.type === "dialog_options") return 1;
-            if (b.type === "dialog_options") return -1;
+            if (["dialog_options", "db_values_with_number"].includes(a.type)) return 1;
+            if (["dialog_options", "db_values_with_number"].includes(b.type)) return -1;
             return 0;
           })
           .map((formEntry) => {
@@ -527,7 +533,7 @@ export const EditContent = <
                   <FormField
                     control={form.control}
                     name={id}
-                    render={({ field, fieldState }) => {
+                    render={({ field }) => {
                       const dialogOptions: { text: string; nextObjectiveId: string }[] =
                         Array.isArray(field.value)
                           ? (field.value as { text: string; nextObjectiveId: string }[])
@@ -639,6 +645,130 @@ export const EditContent = <
                               }}
                             >
                               <Plus className="h-4 w-4 mr-1" /> Add Dialog Option
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ) : null}
+                {formEntry.type === "db_values_with_number" ? (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field }) => {
+                      // Each entry: { opponentId: string, number: number }
+                      const valueArr: { ids: string[]; number: number }[] =
+                        Array.isArray(field.value) ? field.value : [];
+                      const options = (formEntry.values || []).map((v) => ({
+                        label: v.name,
+                        value: v.id,
+                      }));
+                      return (
+                        <FormItem className="flex flex-col py-4">
+                          <FormLabel>{formEntry.label ?? id}</FormLabel>
+                          <div className="flex flex-col gap-2">
+                            {valueArr.map((entry, idx) => (
+                              <div key={idx} className="flex gap-2 items-center">
+                                {/* Dropdown for db_value */}
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className="min-w-[120px] flex-1 justify-between"
+                                    >
+                                      {options.find((o) => entry.ids.includes(o.value))
+                                        ?.label || "Select Entry"}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[200px] p-0">
+                                    <Command>
+                                      <CommandInput
+                                        placeholder="Search..."
+                                        className="h-9"
+                                      />
+                                      <CommandList>
+                                        <CommandEmpty>No options found.</CommandEmpty>
+                                        <CommandGroup>
+                                          {options.map((option) => (
+                                            <CommandItem
+                                              key={option.value}
+                                              value={option.value}
+                                              onSelect={() => {
+                                                const updated = [...valueArr];
+                                                const ids = entry.ids.includes(
+                                                  option.value,
+                                                )
+                                                  ? entry.ids.filter(
+                                                      (id) => id !== option.value,
+                                                    )
+                                                  : [...entry.ids, option.value];
+                                                updated[idx] = {
+                                                  ...entry,
+                                                  ids: ids,
+                                                };
+                                                field.onChange(updated);
+                                              }}
+                                            >
+                                              {option.label}
+                                              <Check
+                                                className={cn(
+                                                  "ml-auto",
+                                                  entry.ids.includes(option.value)
+                                                    ? "opacity-100"
+                                                    : "opacity-0",
+                                                )}
+                                              />
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
+                                {/* Number input */}
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  className="w-20"
+                                  value={entry.number}
+                                  onChange={(e) => {
+                                    const updated = [...valueArr];
+                                    updated[idx] = {
+                                      ...entry,
+                                      number: Number(e.target.value),
+                                    };
+                                    field.onChange(updated);
+                                  }}
+                                />
+                                {/* Remove button */}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="p-1"
+                                  onClick={() => {
+                                    const updated = valueArr.filter(
+                                      (_, i) => i !== idx,
+                                    );
+                                    field.onChange(updated);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => {
+                                field.onChange([...valueArr, { ids: [], number: 1 }]);
+                              }}
+                              disabled={options.length === 0}
+                            >
+                              <Plus className="h-4 w-4 mr-1" /> Add Entry
                             </Button>
                           </div>
                           <FormMessage />
@@ -1125,7 +1255,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);
-      if (["attackers", "opponentAIs"].includes(value) && aiData) {
+      if ((["attackers"] as string[]).includes(value) && aiData) {
         return {
           id: value,
           values: aiData
@@ -1134,8 +1264,33 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
               id: ai.userId,
               name: `lvl ${ai.level}: ${ai.username}`,
             })),
+          doubleWidth: true,
           multiple: true,
-          type: "db_values",
+          label: "Random Attacker AIs [and encounter chance %]",
+          type: "db_values_with_number",
+        };
+      } else if ((["opponentAIs"] as string[]).includes(value) && aiData) {
+        return {
+          id: value,
+          values: aiData
+            .sort((a, b) => a.level - b.level)
+            .map((ai) => ({
+              id: ai.userId,
+              name: `lvl ${ai.level}: ${ai.username}`,
+            })),
+          doubleWidth: true,
+          multiple: true,
+          label: "Opponent AIs [and number]",
+          type: "db_values_with_number",
+        };
+      } else if (value === "reward_items" && itemData) {
+        return {
+          id: value,
+          values: itemData.sort((a, b) => a.name.localeCompare(b.name)),
+          doubleWidth: true,
+          multiple: true,
+          label: "Reward Items [and drop chance%]",
+          type: "db_values_with_number",
         };
       } else if (value === "reward_jutsus" && jutsuData) {
         return {
@@ -1155,13 +1310,6 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
         return {
           id: value,
           values: badgeData?.data,
-          multiple: true,
-          type: "db_values",
-        };
-      } else if (value === "reward_items" && itemData) {
-        return {
-          id: value,
-          values: itemData,
           multiple: true,
           type: "db_values",
         };

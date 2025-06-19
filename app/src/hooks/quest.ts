@@ -103,7 +103,10 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
             objective.item_name = subset.map((i) => i.name).join(", ");
           }
         } else if (objective.task === "defeat_opponents") {
-          const ai = ais?.find((u) => objective.opponentAIs.includes(u.userId));
+          const opponentIds = objective.opponentAIs
+            .flatMap((o) => Array(o.number).fill(o.ids).flat() as string[])
+            .filter((id): id is string => id !== undefined);
+          const ai = ais?.find((u) => opponentIds.includes(u.userId));
           if (ai?.avatar) {
             objective.image = ai.avatar;
           }
@@ -250,9 +253,11 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   if (items) {
     formData.push({
       id: "reward_items",
-      type: "db_values",
-      values: items,
+      type: "db_values_with_number",
+      values: items.sort((a, b) => a.name.localeCompare(b.name)),
       multiple: true,
+      doubleWidth: true,
+      label: "Reward Items [and drop chance%]",
     });
   }
 

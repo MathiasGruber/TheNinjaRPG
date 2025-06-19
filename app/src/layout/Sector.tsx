@@ -322,8 +322,7 @@ const Sector: React.FC<SectorProps> = (props) => {
                 // If we have attackers, check for these
                 ("attackers" in objective &&
                   objective.attackers &&
-                  objective.attackers.length > 0 &&
-                  objective.attackers_chance > 0))
+                  objective.attackers.length > 0))
             ) {
               checkQuest();
             }
