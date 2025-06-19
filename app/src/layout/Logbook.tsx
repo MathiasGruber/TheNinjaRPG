@@ -443,33 +443,39 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                 />
               </div>
             ))}
-            <div className="absolute bottom-8 bg-poppopover w-full max-w-[calc(100%-2rem)] translate-x-[-50%] left-[50%] max-h-1/3 min-h-10 p-2 rounded-lg overflow-y-auto border-2">
-              {shownText}
-            </div>
-            {activeObjective?.task === "dialog" && (
-              <div className="absolute bottom-1 right-4 flex flex-row gap-2">
-                {activeObjective.nextObjectiveId.map((entry) => (
-                  <div key={entry.nextObjectiveId}>
-                    <div
-                      className="bg-popover px-3 py-1 border-2 rounded-lg hover:bg-poppopover cursor-pointer"
-                      onClick={() =>
-                        !isCheckingRewards &&
-                        checkRewards({
-                          questId: quest.id,
-                          nextObjectiveId: entry.nextObjectiveId,
-                        })
-                      }
-                    >
-                      {isCheckingRewards ? (
-                        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                      ) : (
-                        entry.text
-                      )}
-                    </div>
-                  </div>
-                ))}
+            {/* Bottom dialog area */}
+            <div className="absolute inset-x-0 bottom-0 flex flex-col items-center pointer-events-none">
+              {/* Shown text */}
+              <div className="bg-poppopover w-full max-w-[calc(100%-2rem)] max-h-1/3 min-h-10 p-2 rounded-lg overflow-y-auto border-2 mb-2 pointer-events-auto">
+                {shownText}
               </div>
-            )}
+
+              {/* Dialog options */}
+              {activeObjective?.task === "dialog" && (
+                <div className="flex flex-row flex-wrap justify-end gap-2 w-full max-w-[calc(100%-2rem)] pr-4 pb-1 pointer-events-auto">
+                  {activeObjective.nextObjectiveId.map((entry) => (
+                    <div key={entry.nextObjectiveId}>
+                      <div
+                        className="bg-popover px-3 py-1 border-2 rounded-lg hover:bg-poppopover cursor-pointer whitespace-nowrap"
+                        onClick={() =>
+                          !isCheckingRewards &&
+                          checkRewards({
+                            questId: quest.id,
+                            nextObjectiveId: entry.nextObjectiveId,
+                          })
+                        }
+                      >
+                        {isCheckingRewards ? (
+                          <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                        ) : (
+                          entry.text
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
