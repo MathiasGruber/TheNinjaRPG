@@ -552,7 +552,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const showTravelBtn = battleType === "QUEST";
   const arenaOpponentId = battle.current?.usersState.find(
     (u) => u.userId !== suid && !u.isSummon && u.isAi,
-  )?.userId;
+  )?.controllerId;
   const initiveWinner = battle.current?.usersState.find(
     (u) => u.userId === battle.current?.activeUserId,
   );
