@@ -86,6 +86,10 @@ export const useAssetEditForm = (asset: GameAsset, refetch: () => void) => {
     { id: "hidden", type: "boolean" },
   );
 
+  if (type === "MUSIC") {
+    formData.push({ id: "url", type: "text", label: "Music URL" });
+  }
+
   // For animations
   if (type === "ANIMATION") {
     formData.push({ id: "frames", type: "number", label: "Number of Frames" });

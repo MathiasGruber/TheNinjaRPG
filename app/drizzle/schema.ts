@@ -59,6 +59,7 @@ export const gameAsset = mysqlTable(
     name: varchar("name", { length: 191 }).notNull(),
     type: mysqlEnum("type", consts.GameAssetTypes).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
+    url: varchar("url", { length: 191 }).notNull(),
     frames: tinyint("frames").default(1).notNull(),
     speed: tinyint("speed").default(1).notNull(),
     hidden: boolean("hidden").default(true).notNull(),
