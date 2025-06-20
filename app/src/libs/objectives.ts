@@ -134,6 +134,39 @@ export const findPredecessor = (
 };
 
 /**
+ * Finds the predecessor objective for a given target objective id, and checks if it is completed.
+ * @param objectives - The list of all objectives.
+ * @param targetId - The id of the objective whose predecessor to find.
+ * @param tracker - The quest tracker object.
+ * @returns The predecessor objective, or undefined if none exists.
+ */
+export const findCompletedPredecessor = (
+  objectives: AllObjectivesType[],
+  targetId: string,
+  tracker: QuestTrackerType,
+): AllObjectivesType | undefined => {
+  return objectives.find((obj) => {
+    // An objective cannot be its own predecessor
+    if (obj.id === targetId) return false;
+
+    // Check if it is a predecessor
+    let isPredecessor = false;
+    if (obj.task === "dialog" && Array.isArray(obj.nextObjectiveId)) {
+      isPredecessor = obj.nextObjectiveId.some(
+        (entry) => entry.nextObjectiveId === targetId,
+      );
+    } else if ("nextObjectiveId" in obj && typeof obj.nextObjectiveId === "string") {
+      isPredecessor = obj.nextObjectiveId === targetId;
+    }
+    if (!isPredecessor) return false;
+
+    // Check if predecessor is complete
+    const status = tracker.goals.find((goal) => goal.id === obj.id);
+    return status?.done;
+  });
+};
+
+/**
  * Checks if a quest is complete.
  * @param quest - The quest object.
  * @param tracker - The quest tracker object.

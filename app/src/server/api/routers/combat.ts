@@ -454,10 +454,10 @@ export const combatRouter = createTRPCRouter({
           try {
             newBattle.version = newBattle.version + nActions;
             await updateBattle(db, result, suid, newBattle, battle.version);
-            const [logEntries] = await Promise.all([
+            const [logEntries, { updatedQuestIds }] = await Promise.all([
               createAction(db, newBattle, history),
-              saveUsage(db, newBattle, result, suid),
               updateUser(db, pusher, newBattle, result, suid),
+              saveUsage(db, newBattle, result, suid),
               updateKage(db, newBattle, result, suid),
               updateClanLeaders(db, newBattle, result, suid),
               updateVillageAnbuClan(db, newBattle, result, suid),
@@ -479,10 +479,11 @@ export const combatRouter = createTRPCRouter({
 
             // Return the new battle + result state if applicable
             return {
-              updateClient: true,
-              battle: newMaskedBattle,
               result: result,
+              updateClient: true,
               logEntries: logEntries,
+              battle: newMaskedBattle,
+              updatedQuestIds: updatedQuestIds,
             };
           } catch (e) {
             console.log("Battle error: ", e);

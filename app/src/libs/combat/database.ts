@@ -434,6 +434,7 @@ export const updateUser = async (
   result: CombatResult | null,
   userId: string,
 ) => {
+  const updatedQuestIds: string[] = [];
   const user = curBattle.usersState.find((u) => u.userId === userId);
   if (result && user) {
     // Update quest tracker with battle result
@@ -458,7 +459,7 @@ export const updateUser = async (
       }
     }
     // Update trackers
-    const { trackers, notifications } = getNewTrackers(
+    const { trackers, notifications, questIdsUpdated } = getNewTrackers(
       user,
       curBattle.usersState
         .filter((u) => u.userId !== userId)
@@ -476,6 +477,7 @@ export const updateUser = async (
         ])
         .flat(),
     );
+    updatedQuestIds.push(...questIdsUpdated);
     user.questData = trackers;
     // Add notifications to combatResult
     result.notifications.push(...notifications);
@@ -592,4 +594,5 @@ export const updateUser = async (
       });
     }
   }
+  return { updatedQuestIds };
 };

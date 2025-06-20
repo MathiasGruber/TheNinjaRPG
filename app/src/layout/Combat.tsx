@@ -31,6 +31,8 @@ import type { CombatAction } from "@/libs/combat/types";
 import type { BattleState } from "@/libs/combat/types";
 import type { TerrainHex } from "@/libs/hexgrid";
 import { useLocalStorage } from "@/hooks/localstorage";
+import Modal2 from "@/layout/Modal2";
+import { LogbookEntry } from "@/layout/Logbook";
 
 interface CombatProps {
   action?: CombatAction | undefined;
@@ -47,6 +49,8 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // State
   const [isInLobby, setIsInLobby] = useState<boolean>(true);
+  const [logbookModalOpen, setLogbookModalOpen] = useState<boolean>(false);
+  const [logbookModalQuestId, setLogbookModalQuestId] = useState<string | null>(null);
 
   // References which shouldn't update
   const [webglError, setWebglError] = useState<boolean>(false);
@@ -154,6 +158,16 @@ const Combat: React.FC<CombatProps> = (props) => {
             title: "Quest Update",
             message: notification,
           });
+        });
+      }
+      // Check for quest updates
+      if (data.updatedQuestIds && data.updatedQuestIds.length > 0) {
+        data.updatedQuestIds.forEach((questId) => {
+          const quest = userData?.userQuests?.find((q) => q.questId === questId);
+          if (quest?.quest?.consecutiveObjectives) {
+            setLogbookModalOpen(true);
+            setLogbookModalQuestId(questId);
+          }
         });
       }
       // Update battle history
@@ -556,6 +570,10 @@ const Combat: React.FC<CombatProps> = (props) => {
   const initiveWinner = battle.current?.usersState.find(
     (u) => u.userId === battle.current?.activeUserId,
   );
+  const modalUserQuest = userData?.userQuests?.find(
+    (q) => q.questId === logbookModalQuestId,
+  );
+  const modalTracker = userData?.questData?.find((q) => q.id === logbookModalQuestId);
   const toHospital = result && result.curHealth <= 0 && battleType !== "SPARRING";
   return (
     <>
@@ -763,6 +781,20 @@ const Combat: React.FC<CombatProps> = (props) => {
             </Button>
           </div>
         </div>
+      )}
+      {logbookModalOpen && modalUserQuest && modalTracker && (
+        <Modal2
+          isOpen={logbookModalOpen}
+          setIsOpen={setLogbookModalOpen}
+          title="Quest Update"
+        >
+          <LogbookEntry
+            userQuest={modalUserQuest}
+            tracker={modalTracker}
+            showScene={true}
+            hideTitle={false}
+          />
+        </Modal2>
       )}
     </>
   );

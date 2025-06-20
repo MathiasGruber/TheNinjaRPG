@@ -19,7 +19,7 @@ import {
 } from "@/drizzle/constants";
 import { SECTOR_WIDTH, SECTOR_HEIGHT } from "@/libs/travel/constants";
 import { getUnique } from "@/utils/grouping";
-import { isQuestComplete, findPredecessor } from "@/libs/objectives";
+import { isQuestComplete, findCompletedPredecessor } from "@/libs/objectives";
 import type { UserWithRelations } from "@/routers/profile";
 import type {
   AllObjectivesType,
@@ -55,6 +55,15 @@ export const getActiveObjectives = (user: NonNullable<UserWithRelations>) => {
       }
       const goal = tracker?.goals.find((g) => g.id === objective.id);
       if (goal && goal.done === false) {
+        if (goal.sector !== objective.sector) {
+          objective.sector = goal.sector;
+        }
+        if (goal.longitude !== objective.longitude) {
+          objective.longitude = goal.longitude;
+        }
+        if (goal.latitude !== objective.latitude) {
+          objective.latitude = goal.latitude;
+        }
         activeObjectives.push(objective);
       }
     });
@@ -244,8 +253,7 @@ export const getNewTrackers = (
             status = ObjectiveTracker.parse({ id: objective.id });
           }
 
-          // Figure out sector & location if not already specified
-          if ("sectorType" in objective && !status.sector) {
+          if ("sectorType" in objective && status.sector === undefined) {
             if (objective.sectorType === "specific") {
               status.sector = objective.sector;
             } else if (objective.sectorType === "random") {
@@ -262,7 +270,9 @@ export const getNewTrackers = (
             } else if (objective.sectorType === "current_sector") {
               status.sector = user.sector;
             }
-            consequences.push({ type: "update_user", ids: ["location_update"] });
+            if (status.sector !== undefined) {
+              consequences.push({ type: "update_user", ids: ["location_update"] });
+            }
           }
 
           // If locationType is not specific, update the location accordingly
@@ -277,33 +287,38 @@ export const getNewTrackers = (
               status.longitude = Math.floor(Math.random() * SECTOR_WIDTH);
               status.latitude = Math.floor(Math.random() * SECTOR_HEIGHT);
             }
-            consequences.push({ type: "update_user", ids: ["location_update"] });
+            if (status.longitude !== undefined && status.latitude !== undefined) {
+              consequences.push({ type: "update_user", ids: ["location_update"] });
+            }
           }
 
           // If a dialog, find any previous objective pointing to this one, and set the location to the same location
-          if (objective.task === "dialog") {
-            const previousObjective = findPredecessor(
-              quest.content.objectives,
-              objective.id,
-            );
-            if (
-              previousObjective &&
-              "sector" in previousObjective &&
-              "longitude" in previousObjective &&
-              "latitude" in previousObjective
-            ) {
+          const previousObjective = findCompletedPredecessor(
+            quest.content.objectives,
+            objective.id,
+            questTracker,
+          );
+
+          if (previousObjective) {
+            if (!status.sector && "sector" in previousObjective) {
               status.sector = previousObjective.sector;
+              consequences.push({ type: "update_user", ids: [`sector_update`] });
+            }
+            if (!status.longitude && "longitude" in previousObjective) {
               status.longitude = previousObjective.longitude;
+              consequences.push({ type: "update_user", ids: [`longitude_update`] });
+            }
+            if (!status.latitude && "latitude" in previousObjective) {
               status.latitude = previousObjective.latitude;
-              consequences.push({ type: "update_user", ids: ["dialog_update"] });
+              consequences.push({ type: "update_user", ids: [`latitude_update`] });
             }
           }
 
           // If we have a location on the status (i.e. instantiated for the user, overwrite objective)
           if ("sector" in objective) {
-            if (status.longitude) objective.longitude = status.longitude;
-            if (status.latitude) objective.latitude = status.latitude;
-            if (status.sector) objective.sector = status.sector;
+            if (status.longitude !== undefined) objective.longitude = status.longitude;
+            if (status.latitude !== undefined) objective.latitude = status.latitude;
+            if (status.sector !== undefined) objective.sector = status.sector;
             if ("locationType" in objective) {
               objective.locationType = "specific";
             }
@@ -638,15 +653,12 @@ export const controlShownQuestLocationInformation = (
     if (tracker && status) {
       if ("sector" in status) {
         objective.sector = status.sector;
-        delete status.sector;
       }
       if ("longitude" in status) {
         objective.longitude = status.longitude!;
-        delete status.longitude;
       }
       if ("latitude" in status) {
         objective.latitude = status.latitude!;
-        delete status.latitude;
       }
     }
 
@@ -657,6 +669,11 @@ export const controlShownQuestLocationInformation = (
       user?.sector !== objective.sector &&
       !canChangeContent(user?.role || "USER")
     ) {
+      if (status) {
+        delete status.sector;
+        delete status.longitude;
+        delete status.latitude;
+      }
       objective.latitude = 1337;
       objective.longitude = 1337;
       objective.sector = 1337;
