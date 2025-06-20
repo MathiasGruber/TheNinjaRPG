@@ -1,0 +1,4 @@
+ALTER TABLE `GameAsset` MODIFY COLUMN `type` enum('STATIC','ANIMATION','SCENE_BACKGROUND','SCENE_CHARACTER','MUSIC') NOT NULL;
+ALTER TABLE `GameAsset` ADD `url` varchar(191) NULL;
+UPDATE `GameAsset` SET `url` = `image`;
+ALTER TABLE `GameAsset` MODIFY `url` varchar(191) NOT NULL;

@@ -60,6 +60,7 @@ import {
   IMG_LAYOUT_SCROLLBOTTOM_DECOR,
   IMG_LAYOUT_USERSBANNER_TOP,
   IMG_LAYOUT_USERSBANNER_BOTTOM,
+  MUSIC_DEFAULT,
 } from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -98,6 +99,23 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
     }
     return "light";
   });
+
+  const [localAudioOn, setLocalAudioOn] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("audioOn");
+      return saved !== null ? (JSON.parse(saved) as boolean) : true;
+    }
+    return true;
+  });
+
+  const toggleLocalAudio = () => {
+    setLocalAudioOn((prev) => {
+      const newState = !prev;
+      localStorage.setItem("audioOn", JSON.stringify(newState));
+      return newState;
+    });
+  };
+
   const pathname = usePathname();
 
   // Derived data for layout
@@ -283,21 +301,22 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
       >
         <Bell className="h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 ml-2 p-1" />
       </Link>
-      {userData && (
-        <div
-          className="hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1"
-          onClick={() => toggleAudioMutation()}
-          aria-label="Toggle Audio"
-        >
-          {userData.audioOn ? (
+      <div
+        className="hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1"
+        onClick={userData ? () => toggleAudioMutation() : toggleLocalAudio}
+        aria-label="Toggle Audio"
+      >
+        {(userData ? userData.audioOn : localAudioOn) ? (
+          <>
             <Volume2 className="h-5 w-5" />
-          ) : (
-            <VolumeX className="h-5 w-5" />
-          )}
-        </div>
-      )}
+            <audio autoPlay loop src={MUSIC_DEFAULT}></audio>
+          </>
+        ) : (
+          <VolumeX className="h-5 w-5" />
+        )}
+      </div>
       <Eclipse
-        className={`hover:cursor-pointer h-7 w-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${theme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
+        className={`hover:cursor-pointer h-7 w-7 min-w-7 min-h-7 hover:text-black hover:bg-blue-300 text-slate-700 bg-blue-100 bg-opacity-80 rounded-full mx-1 p-1 ${theme === "light" ? "bg-yellow-100" : "bg-blue-100"}`}
         onClick={() => {
           if (!theme || theme === "light") {
             localStorage.setItem("theme", "dark");

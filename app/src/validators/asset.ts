@@ -10,6 +10,7 @@ export const gameAssetValidator = z.object({
   licenseDetails: z.string().min(1).max(512),
   onInitialBattleField: z.boolean(),
   hidden: z.coerce.boolean().optional(),
+  url: z.string().url().optional(),
   folder: z
     .string()
     .regex(/^[a-zA-Z0-9]*$/, "Folder name can only contain letters and numbers")

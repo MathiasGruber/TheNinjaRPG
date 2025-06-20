@@ -148,6 +148,7 @@ export const gameAssetRouter = createTRPCRouter({
         name: "Placeholder",
         type: "STATIC",
         image: IMG_AVATAR_DEFAULT,
+        url: IMG_AVATAR_DEFAULT,
         createdByUserId: ctx.userId,
       });
       return { success: true, message: id };
