@@ -518,7 +518,7 @@ const JutsuFiltering: React.FC<JutsuFilteringProps> = (props) => {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent>
+      <PopoverContent className="min-w-96">
         {/* MAIN FILTERS GRID */}
         <div className="grid grid-cols-2 gap-1 gap-x-3">
           {/* Name */}
