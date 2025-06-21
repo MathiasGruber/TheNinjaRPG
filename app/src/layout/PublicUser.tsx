@@ -87,6 +87,7 @@ import {
 import { canCloneUser } from "@/utils/permissions";
 import type { Jutsu } from "@/drizzle/schema";
 import { NewConversationPrompt } from "@/app/inbox/page";
+import Table from "@/layout/Table";
 
 interface PublicUserComponentProps {
   userId: string;
@@ -105,6 +106,7 @@ interface PublicUserComponentProps {
   showMarriages?: boolean;
   showHistoricalIps?: boolean;
   showActivityEvents?: boolean;
+  showBloodlineHistory?: boolean;
 }
 
 const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
@@ -125,6 +127,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     showMarriages,
     showHistoricalIps,
     showActivityEvents,
+    showBloodlineHistory,
   } = props;
   // Get state
   const [showActive, setShowActive] = useLocalStorage<string>("pDetails", "nindo");
@@ -137,6 +140,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   const enableHistoricalIps = showHistoricalIps && userData && canSeeIps(userData.role);
   const enableActivityEvents =
     showActivityEvents && userData && canSeeActivityEvents(userData.role);
+  const enableBloodlineHistory = showBloodlineHistory && canSeeSecrets;
 
   // Two-level filtering
   const state = useFiltering();
@@ -174,6 +178,12 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     { userId: userId },
     {},
   );
+
+  const { data: bloodlineHistory, isPending: isPendingBloodlineHistory } =
+    api.logs.getBloodlineHistory.useQuery(
+      { userId: userId },
+      { enabled: !!enableBloodlineHistory },
+    );
 
   // Forms
   const form = useForm<z.infer<typeof awardSchema>>({
@@ -813,7 +823,8 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         showTrainingLogs ||
         enableLogs ||
         enableHistoricalIps ||
-        enableActivityEvents) && (
+        enableActivityEvents ||
+        enableBloodlineHistory) && (
         <Tabs
           defaultValue={showActive}
           className="flex flex-col items-center justify-center mt-3"
@@ -843,6 +854,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 )}
                 {enableActivityEvents && (
                   <TabsTrigger value="activityEvents">Activity</TabsTrigger>
+                )}
+                {enableBloodlineHistory && (
+                  <TabsTrigger value="bloodlineHistory">Bloodlines</TabsTrigger>
                 )}
               </TabsList>
             </div>
@@ -1066,6 +1080,54 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                       </div>
                     ))}
                   </div>
+                )}
+              </ContentBox>
+            </TabsContent>
+          )}
+          {/* USER BLOODLINE HISTORY */}
+          {enableBloodlineHistory && (
+            <TabsContent value="bloodlineHistory">
+              <ContentBox
+                title="Bloodline History"
+                subtitle="All bloodlines this user has had"
+                initialBreak={true}
+                padding={false}
+              >
+                {isPendingBloodlineHistory && (
+                  <Loader explanation="Fetching Bloodline History" />
+                )}
+                {bloodlineHistory?.length === 0 && <p>No bloodline history found</p>}
+                {bloodlineHistory && bloodlineHistory.length > 0 && (
+                  <Table
+                    data={bloodlineHistory}
+                    columns={[
+                      {
+                        key: "image",
+                        header: "Image",
+                        type: "avatar",
+                      },
+                      {
+                        key: "name",
+                        header: "Name",
+                        type: "string",
+                      },
+                      {
+                        key: "rank",
+                        header: "Rank",
+                        type: "capitalized",
+                      },
+                      {
+                        key: "type",
+                        header: "Roll Type",
+                        type: "capitalized",
+                      },
+                      {
+                        key: "createdAt",
+                        header: "Date",
+                        type: "date",
+                      },
+                    ]}
+                  />
                 )}
               </ContentBox>
             </TabsContent>

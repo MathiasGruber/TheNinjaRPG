@@ -33,7 +33,6 @@ import { callDiscordContent } from "@/libs/discord";
 import { LetterRanks } from "@/drizzle/constants";
 import { calculateContentDiff } from "@/utils/diff";
 import { initiateBattle } from "@/routers/combat";
-import { CollectItem, DeliverItem } from "@/validators/objectives";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
 import { getNewTrackers, getReward, verifyQuestObjectiveFlow } from "@/libs/quest";
 import { getActiveObjectives } from "@/libs/quest";

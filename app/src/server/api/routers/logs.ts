@@ -1,8 +1,14 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "../trpc";
-import { eq, ne, and, like, inArray } from "drizzle-orm";
+import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
+import { eq, ne, and, like, inArray, isNotNull } from "drizzle-orm";
 import { extractValueFromJson } from "@/utils/regex";
-import { actionLog, village, bloodline, userData } from "@/drizzle/schema";
+import {
+  actionLog,
+  village,
+  bloodline,
+  userData,
+  bloodlineRolls,
+} from "@/drizzle/schema";
 import { actionLogSchema } from "@/validators/logs";
 import { fetchUser } from "@/routers/profile";
 import { canSeeSecretData } from "@/utils/permissions";
@@ -110,5 +116,35 @@ export const logsRouter = createTRPCRouter({
         })),
         nextCursor: nextCursor,
       };
+    }),
+  getBloodlineHistory: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!user || !canSeeSecretData(user.role)) {
+        return [];
+      }
+      // Get bloodline history
+      const userRolls = await ctx.drizzle.query.bloodlineRolls.findMany({
+        where: and(
+          eq(bloodlineRolls.userId, input.userId),
+          isNotNull(bloodlineRolls.bloodlineId),
+        ),
+        with: { bloodline: true },
+        orderBy: (table, { desc }) => desc(table.createdAt),
+      });
+
+      return userRolls
+        .map((roll) => {
+          if (!roll.bloodline) return null;
+          return {
+            ...roll.bloodline,
+            type: roll.type,
+            createdAt: roll.createdAt,
+          };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
     }),
 });
