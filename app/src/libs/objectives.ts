@@ -23,6 +23,7 @@ import {
   IMG_BADGE_RANDOM_ENCOUNTER_WINS,
   IMG_BADGE_DIALOG,
   IMG_BADGE_FAIL_QUEST,
+  IMG_BADGE_RESET_QUEST,
   IMG_BADGE_WIN_QUEST,
   IMG_BADGE_NEW_QUEST,
   IMG_BADGE_START_BATTLE,
@@ -82,6 +83,8 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
       return { image: IMG_BADGE_RANDOM_ENCOUNTER_WINS, title: "Encounter Wins" };
     case "fail_quest":
       return { image: IMG_BADGE_FAIL_QUEST, title: "Fail Quest" };
+    case "reset_quest":
+      return { image: IMG_BADGE_RESET_QUEST, title: "Reset Quest" };
     case "win_quest":
       return { image: IMG_BADGE_WIN_QUEST, title: "Win Quest" };
     case "new_quest":

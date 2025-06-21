@@ -1300,6 +1300,11 @@ export const handleQuestConsequences = async (
   consequences: QuestConsequence[],
   notifications: string[],
 ) => {
+  // Quests reset
+  const resetQuestIds = consequences
+    .filter((c) => c.type === "reset_quest")
+    .map((c) => c.ids)
+    .flat();
   // Quests ended
   const endedQuestIds = consequences
     .filter((c) => c.type === "fail_quest")
@@ -1342,6 +1347,10 @@ export const handleQuestConsequences = async (
       }
       if (opponent) return;
     });
+  }
+  // If quests were reset, update the user's quest data
+  if (resetQuestIds.length > 0 && user.questData) {
+    user.questData = user.questData.filter((t) => !resetQuestIds.includes(t.id));
   }
   // Database updates
   if (notifications.length > 0 || consequences.length > 0) {

@@ -204,6 +204,7 @@ export type QuestConsequence = {
     | "combat"
     | "fail_quest"
     | "start_quest"
+    | "reset_quest"
     | "update_user";
   ids: string[];
   scaleStats?: boolean;
@@ -395,6 +396,11 @@ export const getNewTrackers = (
           // Instant objectives
           if (task === "win_quest") {
             status.done = true;
+          } else if (task === "reset_quest") {
+            consequences.push({ type: "reset_quest", ids: [quest.id] });
+            notifications.push(
+              objective.description || `Quest ${quest.name} has been reset.`,
+            );
           } else if (task === "fail_quest") {
             consequences.push({ type: "fail_quest", ids: [quest.id] });
             notifications.push(objective.description || `Failed: ${quest.name}`);

@@ -810,6 +810,8 @@ export const IMG_SCENE_BACKGROUND =
 export const IMG_SCENE_CHARACTER =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF08NAw3G2iOewJtjGzvNcmEX3TBnoSfMDZPH";
 
+export const IMG_BADGE_RESET_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJeCQbfYiyV3OvUJQExAi0bGoIZDF74LqSnHRd";
 export const IMG_BADGE_FAIL_QUEST =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJuFEUH7CyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
 export const IMG_BADGE_WIN_QUEST =

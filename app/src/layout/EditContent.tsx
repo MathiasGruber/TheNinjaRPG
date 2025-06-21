@@ -1236,7 +1236,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .filter((value) => {
       return (
-        !["fail_quest", "win_quest"].includes(watchTask) ||
+        !["fail_quest", "win_quest", "reset_quest"].includes(watchTask) ||
         !["nextObjectiveId"].includes(value)
       );
     })
