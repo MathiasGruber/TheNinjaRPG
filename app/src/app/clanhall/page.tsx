@@ -118,18 +118,24 @@ export default function Clans() {
                       <FormField
                         control={createForm.control}
                         name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Title</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder={`Name of the new ${groupLabel.toLowerCase()}`}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                        render={({ field }) => {
+                          return (
+                            <FormItem>
+                              <FormLabel>Title</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder={`Name of the new ${groupLabel.toLowerCase()}`}
+                                  {...field}
+                                />
+                              </FormControl>
+                              {createForm?.formState?.errors?.name?.message && (
+                                <FormMessage>
+                                  {createForm.formState.errors.name.message}
+                                </FormMessage>
+                              )}
+                            </FormItem>
+                          );
+                        }}
                       />
                     </form>
                   </Form>
