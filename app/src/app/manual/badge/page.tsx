@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { Button } from "@/components/ui/button";
 import { ActionSelector } from "@/layout/CombatActions";
@@ -92,8 +92,9 @@ export default function ManualBadges() {
         emptyText="No badges exist yet."
       />
       {isOpen && userData && badge && (
-        <Modal
+        <Modal2
           title="Badge Details"
+          isOpen={isOpen}
           setIsOpen={setIsOpen}
           isValid={false}
           className="max-w-3xl"
@@ -113,7 +114,7 @@ export default function ManualBadges() {
             </div>
           )}
           {isPending && <Loader explanation={`Processing ${badge.name}`} />}
-        </Modal>
+        </Modal2>
       )}
     </ContentBox>
   );

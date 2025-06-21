@@ -31,7 +31,7 @@ import { Progress } from "@/components/ui/progress";
 import { ACTIVE_VOTING_SITES } from "@/drizzle/constants";
 import { getVotingLink } from "@/libs/voting";
 import { CheckCircle2, ExternalLink, Loader2, Trophy } from "lucide-react";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import { canReviewLinkPromotions } from "@/utils/permissions";
 import type { ArrayElement } from "@/utils/typeutils";
 
@@ -158,7 +158,7 @@ export default function Recruit() {
     ) : null,
     actions:
       !promotion.reviewed && canReviewLinkPromotions(userData?.role) ? (
-        <Confirm
+        <Confirm2
           title="Review Link Promotion"
           button={<Button>Review</Button>}
           proceed_label="Award Points"
@@ -194,7 +194,7 @@ export default function Recruit() {
               />
             </form>
           </Form>
-        </Confirm>
+        </Confirm2>
       ) : null,
   }));
   type User = ArrayElement<typeof allUsers>;

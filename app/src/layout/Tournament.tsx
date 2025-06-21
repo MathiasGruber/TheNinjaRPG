@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import { api } from "@/app/_trpc/client";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import AvatarImage from "@/layout/Avatar";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
@@ -125,7 +125,7 @@ const Tournament: React.FC<TournamentProps> = (props) => {
       topRightContent={
         <>
           {data && props.canJoin && (
-            <Confirm
+            <Confirm2
               title="Join tournament"
               proceed_label="Join"
               button={
@@ -140,10 +140,10 @@ const Tournament: React.FC<TournamentProps> = (props) => {
               }}
             >
               Do you wish to join this tournament?
-            </Confirm>
+            </Confirm2>
           )}
           {!data && props.canCreate && (
-            <Confirm
+            <Confirm2
               title="Create new tournament"
               proceed_label="Create"
               button={
@@ -222,7 +222,7 @@ const Tournament: React.FC<TournamentProps> = (props) => {
                   </div>
                 </form>
               </Form>
-            </Confirm>
+            </Confirm2>
           )}
         </>
       }
