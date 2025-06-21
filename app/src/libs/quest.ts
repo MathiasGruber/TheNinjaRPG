@@ -301,15 +301,15 @@ export const getNewTrackers = (
           );
 
           if (previousObjective) {
-            if (!status.sector && "sector" in previousObjective) {
+            if (status.sector === undefined && "sector" in previousObjective) {
               status.sector = previousObjective.sector;
               consequences.push({ type: "update_user", ids: [`sector_update`] });
             }
-            if (!status.longitude && "longitude" in previousObjective) {
+            if (status.longitude === undefined && "longitude" in previousObjective) {
               status.longitude = previousObjective.longitude;
               consequences.push({ type: "update_user", ids: [`longitude_update`] });
             }
-            if (!status.latitude && "latitude" in previousObjective) {
+            if (status.latitude === undefined && "latitude" in previousObjective) {
               status.latitude = previousObjective.latitude;
               consequences.push({ type: "update_user", ids: [`latitude_update`] });
             }
