@@ -888,7 +888,7 @@ export const IMG_VILLAGE_FACTION =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJyODt1NukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
 
 export const IMG_MUSIC_DEFAULT =
-  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJQCH0mJjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRNA7r30udmODoNtpa0FMcwI4k2Eq7nJhyvjl";
 
 export const IMG_RARITY_RARE =
   "https://utfs.io/f/Hzww9EQvYURJvSyOMsEmSnXwslYEpV1yOeNL8gMtqhjPdf36";
@@ -1185,7 +1185,7 @@ export const IMG_BATTLEFIELD_STAR =
   "https://utfs.io/f/Hzww9EQvYURJuGvcEjCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
 
 export const MUSIC_DEFAULT =
-  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJQrZxRKjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJQCH0mJjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
 
 export const HomeTypes = [
   "NONE",
