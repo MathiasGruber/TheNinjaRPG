@@ -25,7 +25,7 @@ import { secondsFromDate } from "@/utils/time";
 import { useAtomValue } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
 import { calcLevelRequirements } from "@/libs/profile";
-import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import { DISCORD_INVITE_URL, MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { cn } from "src/libs/shadui";
 import {
   IMG_ICON_DISCORD,
@@ -47,7 +47,7 @@ import { useFiltering, getFilter } from "@/layout/JutsuFiltering";
  */
 export const socials = [
   {
-    url: "https://discord.gg/QPgKtJVvwq",
+    url: DISCORD_INVITE_URL,
     image: IMG_ICON_DISCORD,
     alt: "Discord",
   },

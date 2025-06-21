@@ -755,6 +755,9 @@ export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";
 export const ID_ANIMATION_HIT = "oh4kVNrAwF";
 export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
+// Discord
+export const DISCORD_INVITE_URL = "https://discord.gg/eNtgPdAh7j";
+
 // Draco files (see https://github.com/google/draco/tree/main/javascript)
 export const DRACO_DECODER_URL =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF0eCaMuG2iOewJtjGzvNcmEX3TBnoSfMDZPH";

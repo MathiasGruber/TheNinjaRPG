@@ -2,6 +2,7 @@ import React from "react";
 import ContentBox from "@/layout/ContentBox";
 import Link from "next/link";
 import { SiGithub, SiDiscord } from "@icons-pack/react-simple-icons";
+import { DISCORD_INVITE_URL } from "@/drizzle/constants";
 
 export default function BugReport() {
   const link_t3 = (
@@ -36,7 +37,7 @@ export default function BugReport() {
         improve the game.
         <div className="flex flex-row justify-center space-x-5 p-5">
           <Link
-            href="https://discord.gg/grPmTr4z9C"
+            href={DISCORD_INVITE_URL}
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
             <SiDiscord className="text-black dark:text-white" size={100} />
