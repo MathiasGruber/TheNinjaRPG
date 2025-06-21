@@ -444,7 +444,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               </div>
             ))}
             {/* Bottom dialog area */}
-            <div className="absolute inset-x-0 bottom-0 flex flex-col items-center pointer-events-none">
+            <div className="absolute inset-x-0 bottom-0 flex flex-col items-center pointer-events-none max-h-1/3">
               {/* Shown text */}
               <div className="bg-poppopover w-full max-w-[calc(100%-2rem)] max-h-1/3 min-h-10 p-2 rounded-lg overflow-y-auto border-2 mb-2 pointer-events-auto">
                 {shownText}
