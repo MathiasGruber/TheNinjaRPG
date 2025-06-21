@@ -143,6 +143,7 @@ export const InstantNewQuestObjective = z.object({
 
 export const InstantStartBattleObjective = z.object({
   ...baseObjectiveFields,
+  failObjectiveId: z.string().optional(),
   task: z.literal("start_battle").default("start_battle"),
   opponentAIs: idsWithNumberField,
   opponent_scaled_to_user: z.coerce.boolean().default(false),
@@ -230,6 +231,7 @@ export type DeliverItemType = z.infer<typeof DeliverItem>;
 
 export const DefeatOpponents = z.object({
   ...baseObjectiveFields,
+  failObjectiveId: z.string().optional(),
   task: z.literal("defeat_opponents").default("defeat_opponents"),
   opponentAIs: idsWithNumberField,
   opponent_scaled_to_user: z.coerce.boolean().default(false),

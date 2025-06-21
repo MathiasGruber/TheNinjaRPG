@@ -402,6 +402,13 @@ const ObjectiveFlowGraph: React.FC<ObjectiveFlowGraphProps> = ({
                 "curve-style": "bezier",
               },
             },
+            {
+              selector: "edge.fail-edge",
+              style: {
+                "line-color": "#ef4444",
+                "target-arrow-color": "#ef4444",
+              },
+            },
           ]}
         />
         {tooltipData && (

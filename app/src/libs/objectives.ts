@@ -126,6 +126,9 @@ export const findPredecessor = (
   targetId: string,
 ): AllObjectivesType | undefined => {
   return objectives.find((obj) => {
+    if ((obj as { failObjectiveId?: string }).failObjectiveId === targetId) {
+      return true;
+    }
     if (obj.task === "dialog" && Array.isArray(obj.nextObjectiveId)) {
       return obj.nextObjectiveId.some(
         (entry: { nextObjectiveId?: string }) => entry.nextObjectiveId === targetId,
@@ -160,6 +163,8 @@ export const findCompletedPredecessor = (
       );
     } else if ("nextObjectiveId" in obj && typeof obj.nextObjectiveId === "string") {
       isPredecessor = obj.nextObjectiveId === targetId;
+    } else if ("failObjectiveId" in obj && typeof obj.failObjectiveId === "string") {
+      isPredecessor = obj.failObjectiveId === targetId;
     }
     if (!isPredecessor) return false;
 
@@ -307,23 +312,43 @@ export const buildObjectiveEdges = (
           },
         });
       });
-      return;
+    } else {
+      // Non-dialog objectives – expect a single string id
+      const nextId = (obj as { nextObjectiveId?: string }).nextObjectiveId;
+      if (nextId && validIds.has(nextId)) {
+        const edgeId = `${obj.id}__to__${nextId}`;
+        if (!seen.has(edgeId)) {
+          seen.add(edgeId);
+          edges.push({
+            data: {
+              id: edgeId,
+              source: obj.id,
+              target: nextId,
+              label: "",
+            },
+          });
+        }
+      }
     }
 
-    // Non-dialog objectives – expect a single string id
-    const nextId = (obj as { nextObjectiveId?: string }).nextObjectiveId;
-    if (!nextId || !validIds.has(nextId)) return;
-    const edgeId = `${obj.id}__to__${nextId}`;
-    if (seen.has(edgeId)) return;
-    seen.add(edgeId);
-    edges.push({
-      data: {
-        id: edgeId,
-        source: obj.id,
-        target: nextId,
-        label: "",
-      },
-    });
+    // Handle Fail Edges
+    if ("failObjectiveId" in obj && obj.failObjectiveId) {
+      const failId = obj.failObjectiveId;
+      if (failId && validIds.has(failId)) {
+        const edgeId = `${obj.id}__fail_to__${failId}`;
+        if (!seen.has(edgeId)) {
+          seen.add(edgeId);
+          edges.push({
+            data: {
+              id: edgeId,
+              source: obj.id,
+              target: failId,
+            },
+            classes: "fail-edge",
+          });
+        }
+      }
+    }
   });
 
   return edges;

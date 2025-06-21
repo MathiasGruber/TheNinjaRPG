@@ -398,9 +398,6 @@ export const getNewTrackers = (
             status.done = true;
           } else if (task === "reset_quest") {
             consequences.push({ type: "reset_quest", ids: [quest.id] });
-            notifications.push(
-              objective.description || `Quest ${quest.name} has been reset.`,
-            );
           } else if (task === "fail_quest") {
             consequences.push({ type: "fail_quest", ids: [quest.id] });
             notifications.push(objective.description || `Failed: ${quest.name}`);
@@ -436,7 +433,8 @@ export const getNewTrackers = (
               } else if (
                 quest.consecutiveObjectives &&
                 "nextObjectiveId" in objective &&
-                typeof objective.nextObjectiveId === "string"
+                typeof objective.nextObjectiveId === "string" &&
+                !status.selectedNextObjectiveId
               ) {
                 status.selectedNextObjectiveId = objective.nextObjectiveId;
               }
@@ -534,6 +532,10 @@ export const getNewTrackers = (
                     if (completionOutcome === "Flee") {
                       status.done = true;
                     }
+                  }
+                  if (!status.done && "failObjectiveId" in objective) {
+                    status.selectedNextObjectiveId = objective.failObjectiveId;
+                    status.done = true;
                   }
                 }
               }

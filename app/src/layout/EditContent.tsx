@@ -1232,7 +1232,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       );
     })
     .filter((value) => {
-      return props.consecutiveObjectives || !["nextObjectiveId"].includes(value);
+      return (
+        props.consecutiveObjectives ||
+        !["nextObjectiveId", "failObjectiveId"].includes(value)
+      );
     })
     .filter((value) => {
       return (
@@ -1355,6 +1358,14 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
             resetButton: true,
           };
         }
+      } else if (["failObjectiveId"].includes(value) && props.objectives) {
+        const obejctiveIds = props.objectives.map((objective) => objective.id);
+        return {
+          id: value,
+          values: obejctiveIds,
+          type: "str_array",
+          resetButton: true,
+        };
       } else if (([value] as string[]).includes("newQuestIds") && quests) {
         return {
           id: value,
