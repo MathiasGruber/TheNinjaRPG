@@ -349,6 +349,7 @@ const Character: React.FC<CharacterProps> = (props) => {
   const [slot, setSlot] = useState<ItemSlot | undefined>(undefined);
   const [item, setItem] = useState<(UserItem & Item) | undefined>(undefined);
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [showItemDetails, setShowItemDetails] = useState<boolean>(false);
 
   // The item on the current slot
 
@@ -359,10 +360,18 @@ const Character: React.FC<CharacterProps> = (props) => {
   // tRPC utility
   const utils = api.useUtils();
 
-  // Open modal for equipping
+  // Open modal for equipping or show item details
   const act = (slot: ItemSlot) => {
     setSlot(slot);
-    setIsOpen(true);
+    const equippedItem = items?.find((item) => item.equipped === slot);
+    if (equippedItem) {
+      // Show item details if there's an equipped item
+      setItem(equippedItem);
+      setShowItemDetails(true);
+    } else {
+      // Show item selection if slot is empty
+      setIsOpen(true);
+    }
   };
 
   // Mutations
@@ -376,6 +385,7 @@ const Character: React.FC<CharacterProps> = (props) => {
     onSettled: () => {
       document.body.style.cursor = "default";
       setIsOpen(false);
+      setShowItemDetails(false);
       setItem(undefined);
     },
   });
@@ -445,6 +455,25 @@ const Character: React.FC<CharacterProps> = (props) => {
             ) : (
               <Loader explanation={`Swapping ${item?.name}`} />
             )}
+          </Modal2>
+        )}
+        {showItemDetails && item && (
+          <Modal2
+            title="Item Details"
+            isOpen={showItemDetails}
+            setIsOpen={setShowItemDetails}
+            isValid={false}
+            proceed_label="Unequip"
+            onAccept={() => {
+              equip({ userItemId: item.id, slot: slot! });
+            }}
+          >
+            <ItemWithEffects
+              item={item}
+              key={item.id}
+              showStatistic="item"
+            />
+            {isEquipping && <Loader explanation={`Unequipping ${item.name}`} />}
           </Modal2>
         )}
       </div>
