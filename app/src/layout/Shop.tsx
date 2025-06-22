@@ -165,12 +165,12 @@ const Shop: React.FC<ShopProps> = (props) => {
                       }
                     }}
                   >
-                    <div className="w-12 h-12">
+                    <div className="w-12 h-12 flex-shrink-0">
                       <ContentImage
                         image={clickedItem.image}
                         alt={clickedItem.name}
                         rarity={clickedItem.rarity}
-                        className="w-full h-full"
+                        className="w-12 h-12"
                       />
                     </div>
                     <div className="flex flex-col items-center mt-1">
