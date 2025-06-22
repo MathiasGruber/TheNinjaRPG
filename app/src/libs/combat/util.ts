@@ -1522,6 +1522,19 @@ export const processUsersForBattle = (info: {
           items.push(useritem);
         }
       });
+    
+    // Ensure keystone items are always included for display, even if they were filtered out above
+    const keystoneItems = user.items.filter((useritem) => 
+      useritem.item && 
+      useritem.item.itemType === "KEYSTONE" && 
+      useritem.equipped === "KEYSTONE" &&
+      !items.some((item) => item.id === useritem.id)
+    );
+    keystoneItems.forEach((useritem) => {
+      useritem.lastUsedRound = -useritem.item.cooldown;
+      items.push(useritem);
+    });
+    
     user.items = items;
 
     // Base values
