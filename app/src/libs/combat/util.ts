@@ -1522,20 +1522,15 @@ export const processUsersForBattle = (info: {
           items.push(useritem);
         }
       });
-    
-    // Ensure keystone items are always included for display, even if they were filtered out above
-    const keystoneItems = user.items.filter((useritem) => 
+    user.items = items;
+
+    // Store keystone name for display purposes
+    const keystoneItem = user.items.find((useritem) => 
       useritem.item && 
       useritem.item.itemType === "KEYSTONE" && 
-      useritem.equipped === "KEYSTONE" &&
-      !items.some((item) => item.id === useritem.id)
+      useritem.equipped === "KEYSTONE"
     );
-    keystoneItems.forEach((useritem) => {
-      useritem.lastUsedRound = -useritem.item.cooldown;
-      items.push(useritem);
-    });
-    
-    user.items = items;
+    user.keystoneName = keystoneItem?.item.name || null;
 
     // Base values
     user.fledBattle = false;

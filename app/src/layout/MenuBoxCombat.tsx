@@ -111,23 +111,10 @@ const MenuBoxCombat: React.FC = () => {
           </PopoverContent>
         </Popover>
       )}
-      {keystoneItem && (
-        <Popover>
-          <PopoverTrigger>
-            <div className="flex flex-row items-center hover:text-orange-500 hover:cursor-pointer">
-              <Gem className="h-6 w-6 mr-2" /> {keystoneItem.item.name}
-            </div>
-          </PopoverTrigger>
-          <PopoverContent>
-            <div className="max-w-[320px]">
-              <ItemWithEffects
-                item={keystoneItem.item}
-                key={keystoneItem.id}
-                hideDetails
-              />
-            </div>
-          </PopoverContent>
-        </Popover>
+      {battleUser?.keystoneName && (
+        <div className="flex flex-row items-center">
+          <Gem className="h-6 w-6 mr-2" /> {battleUser.keystoneName}
+        </div>
       )}
       <hr className="my-2" />
       {action && (

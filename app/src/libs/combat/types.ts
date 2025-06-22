@@ -63,6 +63,7 @@ export type BattleUserState = Omit<NonNullable<UserWithRelations>, "items"> & {
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
   hex?: TerrainHex;
   clan?: Clan | null;
+  keystoneName?: string | null;
 };
 
 // Create type for battle, which contains information on user current state
