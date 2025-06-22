@@ -27,6 +27,7 @@ export default async function PublicProfile(props: {
       showMarriages
       showHistoricalIps
       showActivityEvents
+      showBloodlineHistory
     />
   );
 }

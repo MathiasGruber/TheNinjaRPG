@@ -467,14 +467,16 @@ export const clanRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, villageData, clans, villageWithName] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchVillage(ctx.drizzle, input.villageId),
-        fetchClans(ctx.drizzle, input.villageId),
-        ctx.drizzle.query.village.findFirst({
-          where: eq(village.name, input.name),
-        }),
-      ]);
+      const [user, villageData, clans, clanWithName, villageWithName] =
+        await Promise.all([
+          fetchUser(ctx.drizzle, ctx.userId),
+          fetchVillage(ctx.drizzle, input.villageId),
+          fetchClans(ctx.drizzle, input.villageId),
+          fetchClanByName(ctx.drizzle, input.name),
+          ctx.drizzle.query.village.findFirst({
+            where: eq(village.name, input.name),
+          }),
+        ]);
       // Derived
       const villageId = villageData?.id;
       const structure = villageData?.structures.find((s) => s.route === "/clanhall");
@@ -484,6 +486,8 @@ export const clanRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!villageData) return errorResponse(`${locationLabel} not found`);
       if (!structure) return errorResponse(`${groupLabel} hall not found`);
+      if (clanWithName)
+        return errorResponse("Clan name already exists, please pick another.");
       if (villageWithName) return errorResponse("Name taken by village/faction");
       if (villageId !== user.villageId) return errorResponse(`Wrong ${locationLabel}`);
       if (clans.find((c) => c.name === input.name)) return errorResponse("Name taken");
@@ -1660,3 +1664,15 @@ export const fetchClanByLeader = async (client: DrizzleClient, leaderId: string)
 };
 
 export type ClanRouter = inferRouterOutputs<typeof clanRouter>;
+
+/**
+ * Fetches a clan by its name.
+ * @param client - The Drizzle client instance.
+ * @param name - The name of the clan to fetch.
+ * @returns - A promise that resolves to the fetched clan, or null if not found.
+ */
+export const fetchClanByName = async (client: DrizzleClient, name: string) => {
+  return await client.query.clan.findFirst({
+    where: eq(clan.name, name),
+  });
+};

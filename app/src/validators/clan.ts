@@ -17,6 +17,9 @@ export const clanCreateSchema = z.object({
     .trim()
     .min(3)
     .max(88)
+    .regex(new RegExp("^[a-zA-Z0-9_]+$"), {
+      message: "Alphanumeric, no spaces",
+    })
     .refine(
       (name) =>
         !bannedNames.some((banned) => banned.toLowerCase() === name.toLowerCase()),

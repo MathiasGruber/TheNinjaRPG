@@ -313,7 +313,7 @@ export default function Bank() {
       {pendingInterest && pendingInterest.totalPending > 0 && (
         <ContentBox
           title="Pending Interest"
-          subtitle={`Interest older than 7 days are discarded!`}
+          subtitle={`Interest older than 7-8 days are discarded!`}
           initialBreak={true}
           padding={false}
         >

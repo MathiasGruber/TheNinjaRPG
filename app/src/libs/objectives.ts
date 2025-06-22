@@ -23,6 +23,7 @@ import {
   IMG_BADGE_RANDOM_ENCOUNTER_WINS,
   IMG_BADGE_DIALOG,
   IMG_BADGE_FAIL_QUEST,
+  IMG_BADGE_RESET_QUEST,
   IMG_BADGE_WIN_QUEST,
   IMG_BADGE_NEW_QUEST,
   IMG_BADGE_START_BATTLE,
@@ -82,6 +83,8 @@ export const getObjectiveImage = (objective: AllObjectivesType) => {
       return { image: IMG_BADGE_RANDOM_ENCOUNTER_WINS, title: "Encounter Wins" };
     case "fail_quest":
       return { image: IMG_BADGE_FAIL_QUEST, title: "Fail Quest" };
+    case "reset_quest":
+      return { image: IMG_BADGE_RESET_QUEST, title: "Reset Quest" };
     case "win_quest":
       return { image: IMG_BADGE_WIN_QUEST, title: "Win Quest" };
     case "new_quest":
@@ -123,6 +126,9 @@ export const findPredecessor = (
   targetId: string,
 ): AllObjectivesType | undefined => {
   return objectives.find((obj) => {
+    if ((obj as { failObjectiveId?: string }).failObjectiveId === targetId) {
+      return true;
+    }
     if (obj.task === "dialog" && Array.isArray(obj.nextObjectiveId)) {
       return obj.nextObjectiveId.some(
         (entry: { nextObjectiveId?: string }) => entry.nextObjectiveId === targetId,
@@ -130,6 +136,41 @@ export const findPredecessor = (
     } else {
       return (obj as { nextObjectiveId?: string }).nextObjectiveId === targetId;
     }
+  });
+};
+
+/**
+ * Finds the predecessor objective for a given target objective id, and checks if it is completed.
+ * @param objectives - The list of all objectives.
+ * @param targetId - The id of the objective whose predecessor to find.
+ * @param tracker - The quest tracker object.
+ * @returns The predecessor objective, or undefined if none exists.
+ */
+export const findCompletedPredecessor = (
+  objectives: AllObjectivesType[],
+  targetId: string,
+  tracker: QuestTrackerType,
+): AllObjectivesType | undefined => {
+  return objectives.find((obj) => {
+    // An objective cannot be its own predecessor
+    if (obj.id === targetId) return false;
+
+    // Check if it is a predecessor
+    let isPredecessor = false;
+    if (obj.task === "dialog" && Array.isArray(obj.nextObjectiveId)) {
+      isPredecessor = obj.nextObjectiveId.some(
+        (entry) => entry.nextObjectiveId === targetId,
+      );
+    } else if ("nextObjectiveId" in obj && typeof obj.nextObjectiveId === "string") {
+      isPredecessor = obj.nextObjectiveId === targetId;
+    } else if ("failObjectiveId" in obj && typeof obj.failObjectiveId === "string") {
+      isPredecessor = obj.failObjectiveId === targetId;
+    }
+    if (!isPredecessor) return false;
+
+    // Check if predecessor is complete
+    const status = tracker.goals.find((goal) => goal.id === obj.id);
+    return status?.done;
   });
 };
 
@@ -271,23 +312,43 @@ export const buildObjectiveEdges = (
           },
         });
       });
-      return;
+    } else {
+      // Non-dialog objectives – expect a single string id
+      const nextId = (obj as { nextObjectiveId?: string }).nextObjectiveId;
+      if (nextId && validIds.has(nextId)) {
+        const edgeId = `${obj.id}__to__${nextId}`;
+        if (!seen.has(edgeId)) {
+          seen.add(edgeId);
+          edges.push({
+            data: {
+              id: edgeId,
+              source: obj.id,
+              target: nextId,
+              label: "",
+            },
+          });
+        }
+      }
     }
 
-    // Non-dialog objectives – expect a single string id
-    const nextId = (obj as { nextObjectiveId?: string }).nextObjectiveId;
-    if (!nextId || !validIds.has(nextId)) return;
-    const edgeId = `${obj.id}__to__${nextId}`;
-    if (seen.has(edgeId)) return;
-    seen.add(edgeId);
-    edges.push({
-      data: {
-        id: edgeId,
-        source: obj.id,
-        target: nextId,
-        label: "",
-      },
-    });
+    // Handle Fail Edges
+    if ("failObjectiveId" in obj && obj.failObjectiveId) {
+      const failId = obj.failObjectiveId;
+      if (failId && validIds.has(failId)) {
+        const edgeId = `${obj.id}__fail_to__${failId}`;
+        if (!seen.has(edgeId)) {
+          seen.add(edgeId);
+          edges.push({
+            data: {
+              id: edgeId,
+              source: obj.id,
+              target: failId,
+            },
+            classes: "fail-edge",
+          });
+        }
+      }
+    }
   });
 
   return edges;

@@ -2,7 +2,7 @@
 
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import BanInfo from "@/layout/BanInfo";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import {
@@ -150,7 +150,7 @@ export default function ANBU() {
       topRightContent={
         canCreateMore &&
         (isKage || isElder) && (
-          <Confirm
+          <Confirm2
             title="Create a new squad"
             proceed_label="Submit"
             button={
@@ -189,7 +189,7 @@ export default function ANBU() {
                 />
               </form>
             </Form>
-          </Confirm>
+          </Confirm2>
         )
       }
     >

@@ -9,7 +9,7 @@ import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import RichInput from "@/layout/RichInput";
 import Post from "@/layout/Post";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import {
   Form,
   FormControl,
@@ -124,7 +124,7 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
             {isPending && <Loader></Loader>}
             {userData && !userData.isBanned && !userData.isSilenced && !isPending && (
               <div className="flex flex-row items-center">
-                <Confirm
+                <Confirm2
                   title="Create a new thread"
                   proceed_label="Submit"
                   button={<Button id="create">New Thread</Button>}
@@ -156,7 +156,7 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
                       />
                     </form>
                   </Form>
-                </Confirm>
+                </Confirm2>
               </div>
             )}
           </>
@@ -223,7 +223,7 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
                       <div className="mt-2 flex flex-row items-center ">
                         {userData && canModerate(userData.role) ? (
                           <>
-                            <Confirm
+                            <Confirm2
                               title={`Confirm ${pinAction}ning thread`}
                               button={MyBookmark}
                               onAccept={(e) => {
@@ -235,8 +235,8 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
                               }}
                             >
                               You are about to {pinAction} a thread. Are you sure?
-                            </Confirm>
-                            <Confirm
+                            </Confirm2>
+                            <Confirm2
                               title={`Confirm ${lockAction}ing thread`}
                               button={MyLockIcon}
                               onAccept={(e) => {
@@ -248,8 +248,8 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
                               }}
                             >
                               You are about to {lockAction} a thread. Are you sure?
-                            </Confirm>
-                            <Confirm
+                            </Confirm2>
+                            <Confirm2
                               title={`Confirm deleting thread`}
                               button={MyDeleteIcon}
                               onAccept={(e) => {
@@ -258,7 +258,7 @@ export default function Board(props: { params: Promise<{ boardid: string }> }) {
                               }}
                             >
                               You are about to delete a thread. Are you sure?
-                            </Confirm>
+                            </Confirm2>
                           </>
                         ) : (
                           <>

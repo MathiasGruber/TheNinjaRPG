@@ -60,6 +60,7 @@ export async function GET() {
           gt(mainTransaction.reputationPoints, 0),
           gt(mainTransaction.amount, 0),
           eq(mainTransaction.type, "REP_PURCHASE"),
+          isNotNull(mainTransaction.invoiceId),
           isNotNull(buyerUser.recruiterId),
           isNull(refTransaction.id),
         ),

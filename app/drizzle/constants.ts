@@ -755,6 +755,9 @@ export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";
 export const ID_ANIMATION_HIT = "oh4kVNrAwF";
 export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
+// Discord invite link
+export const DISCORD_INVITE_URL = "https://discord.gg/eNtgPdAh7j";
+
 // Draco files (see https://github.com/google/draco/tree/main/javascript)
 export const DRACO_DECODER_URL =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF0eCaMuG2iOewJtjGzvNcmEX3TBnoSfMDZPH";
@@ -810,6 +813,8 @@ export const IMG_SCENE_BACKGROUND =
 export const IMG_SCENE_CHARACTER =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF08NAw3G2iOewJtjGzvNcmEX3TBnoSfMDZPH";
 
+export const IMG_BADGE_RESET_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJeCQbfYiyV3OvUJQExAi0bGoIZDF74LqSnHRd";
 export const IMG_BADGE_FAIL_QUEST =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJuFEUH7CyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
 export const IMG_BADGE_WIN_QUEST =
@@ -1183,7 +1188,7 @@ export const IMG_BATTLEFIELD_STAR =
   "https://utfs.io/f/Hzww9EQvYURJuGvcEjCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
 
 export const MUSIC_DEFAULT =
-  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJQrZxRKjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJQCH0mJjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
 
 export const HomeTypes = [
   "NONE",

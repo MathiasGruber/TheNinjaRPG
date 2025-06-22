@@ -4,12 +4,12 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
 import NavTabs from "@/layout/NavTabs";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import AvatarImage from "@/layout/Avatar";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import PublicUserComponent from "@/layout/PublicUser";
@@ -248,7 +248,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
                     size={100}
                   />
                   {user.rank === "GENIN" && (
-                    <Confirm
+                    <Confirm2
                       title="Remove Student"
                       button={
                         <XCircle className="absolute right-[13%] top-[3%] h-9 w-9 cursor-pointer rounded-full bg-slate-300 p-1 hover:text-orange-500" />
@@ -259,7 +259,7 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
                       }}
                     >
                       You are about to remove this user as your student. Confirm?
-                    </Confirm>
+                    </Confirm2>
                   )}
                   <div>
                     <div className="font-bold">{user.username}</div>
@@ -744,9 +744,10 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
               setLastElement={setLastElement}
             />
             {isOpen && jutsu && (
-              <Modal
+              <Modal2
                 title="Confirm Purchase"
                 proceed_label={proceed_label}
+                isOpen={isOpen}
                 setIsOpen={setIsOpen}
                 isValid={false}
                 onAccept={() => {
@@ -773,7 +774,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                   )}
                   {isPending && <Loader explanation={`Training ${jutsu.name}`} />}
                 </div>
-              </Modal>
+              </Modal2>
             )}
           </div>
         )}

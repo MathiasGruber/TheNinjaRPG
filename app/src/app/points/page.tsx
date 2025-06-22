@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Table from "@/layout/Table";
 import SliderField from "@/layout/SliderField";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import UserSearchSelect from "@/layout/UserSearchSelect";
@@ -26,7 +26,7 @@ import { buyRepsSchema } from "@/validators/points";
 import { searchPaypalTransactionSchema } from "@/validators/points";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { nanoid } from "nanoid";
-import { Check, ChevronsUp, Search, CalendarDays } from "lucide-react";
+import { Check, ChevronsUp, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { sendGTMEvent } from "@next/third-parties/google";
 import { MAX_REPS_PER_MONTH } from "@/drizzle/constants";
@@ -437,7 +437,7 @@ const PayPalSubscriptionButton = (props: {
           <Check className="absolute top-0 right-0 h-8 w-8 rounded-full bg-green-500 p-1" />
         )}
         {hasSubscription && canUpgrade && (
-          <Confirm
+          <Confirm2
             title="Confirm Upgrade"
             button={
               <ChevronsUp className="absolute top-0 right-0 h-8 w-8 rounded-full bg-blue-500 p-1 cursor-pointer hover:bg-green-500" />
@@ -453,7 +453,7 @@ const PayPalSubscriptionButton = (props: {
             character. Note that this action is permanent and will cost {upgradeCost}{" "}
             reputation points. You currently have {userData?.reputationPoints}{" "}
             reputation points. Are you sure?
-          </Confirm>
+          </Confirm2>
         )}
       </div>
       <div>
@@ -526,7 +526,7 @@ const PayPalSubscriptionButton = (props: {
         )}
       </div>
       {!hasSubscription && (
-        <Confirm
+        <Confirm2
           title="Confirm Upgrade"
           button={
             <div className="bg-amber-200 text-black border-2 border-black p-2 mt-2 rounded-lg text-center hover:cursor-pointer hover:bg-orange-200">
@@ -556,7 +556,7 @@ const PayPalSubscriptionButton = (props: {
         >
           You are about to purchase a federal subscription with reputation points. You
           currently have {userData?.reputationPoints} reputation points. Are you sure?
-        </Confirm>
+        </Confirm2>
       )}
     </div>
   );

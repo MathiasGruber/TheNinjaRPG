@@ -61,6 +61,7 @@ import {
   IMG_LAYOUT_USERSBANNER_TOP,
   IMG_LAYOUT_USERSBANNER_BOTTOM,
   MUSIC_DEFAULT,
+  DISCORD_INVITE_URL,
 } from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import type { UserWithRelations } from "@/server/api/routers/profile";
@@ -179,7 +180,7 @@ const LayoutCore4: React.FC<LayoutProps> = (props) => {
             />
           </Link>
           <Link
-            href="https://discord.gg/grPmTr4z9C"
+            href={DISCORD_INVITE_URL}
             className="flex flex-col items-center font-bold hover:opacity-50"
           >
             <SiDiscord

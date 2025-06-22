@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DISCORD_INVITE_URL } from "@/drizzle/constants";
 
 export const forumText = (
   <>
@@ -24,7 +25,7 @@ export const forumText = (
       </Link>{" "}
       for detailed guides and instructions on mastering every aspect of{" "}
       <strong>The Ninja RPG</strong>. Stay connected with our vibrant{" "}
-      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+      <Link className="font-bold" href={DISCORD_INVITE_URL}>
         Discord community
       </Link>{" "}
       for real-time discussions, announcements, and exclusive events. For the latest
@@ -86,7 +87,7 @@ export const publicUserText = (username: string) => {
       </Link>
       , your guide to mastering everything from battle mechanics and skill trees to
       mission strategies and crafting. Join the vibrant{" "}
-      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+      <Link className="font-bold" href={DISCORD_INVITE_URL}>
         Discord community
       </Link>
       , where ninjas from across the globe come together to discuss game updates, share
@@ -145,7 +146,7 @@ export const bloodlineText = (name: string) => {
       </Link>{" "}
       is your go-to source for advanced skill mechanics and mission strategies. You can
       also join our vibrant{" "}
-      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+      <Link className="font-bold" href={DISCORD_INVITE_URL}>
         {" "}
         Discord community{" "}
       </Link>{" "}
@@ -198,7 +199,7 @@ export const jutsuText = (name: string) => {
         game manual{" "}
       </Link>{" "}
       covers everything from skill trees to mission tactics, while our lively{" "}
-      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+      <Link className="font-bold" href={DISCORD_INVITE_URL}>
         {" "}
         Discord community{" "}
       </Link>{" "}
@@ -252,7 +253,7 @@ export const itemText = (name: string) => {
       </Link>{" "}
       offers a comprehensive overview of equipment mechanics, skill trees, and mission
       strategies. Join our bustling{" "}
-      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+      <Link className="font-bold" href={DISCORD_INVITE_URL}>
         {" "}
         Discord community{" "}
       </Link>{" "}
@@ -307,7 +308,7 @@ export const aiText = (name: string) => {
       </Link>{" "}
       provides a comprehensive guide to mechanics, skill trees, and mission approaches,
       while our bustling{" "}
-      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+      <Link className="font-bold" href={DISCORD_INVITE_URL}>
         {" "}
         Discord community{" "}
       </Link>{" "}
@@ -353,7 +354,7 @@ export const changelogText = () => {
       our game&apos;s rich history. This transparency ensures you&apos;re always
       informed about how The Ninja RPG evolves and grows. <br /> <br />
       Want to stay even more connected to these developments? Join our active{" "}
-      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+      <Link className="font-bold" href={DISCORD_INVITE_URL}>
         Discord community
       </Link>{" "}
       for real-time discussions about updates and changes. For technical details and
@@ -409,7 +410,7 @@ export const battleCalcText = () => {
       </Link>{" "}
       provides comprehensive details about combat formulas and strategies. Join our
       thriving{" "}
-      <Link className="font-bold" href="https://discord.gg/grPmTr4z9C">
+      <Link className="font-bold" href={DISCORD_INVITE_URL}>
         Discord community
       </Link>{" "}
       to discuss builds and tactics with fellow ninjas. Found something interesting?
