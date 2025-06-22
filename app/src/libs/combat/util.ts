@@ -1512,6 +1512,11 @@ export const processUsersForBattle = (info: {
               userEffects.push(realized);
             });
           }
+          // Add equipped keystone items to the items array for display purposes
+          if (itemType === "KEYSTONE" && useritem.equipped === "KEYSTONE") {
+            useritem.lastUsedRound = -useritem.item.cooldown;
+            items.push(useritem);
+          }
         } else {
           useritem.lastUsedRound = -useritem.item.cooldown;
           items.push(useritem);
