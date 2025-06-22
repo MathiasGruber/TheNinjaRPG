@@ -1483,6 +1483,15 @@ export const processUsersForBattle = (info: {
 
     // Add item effects
     const items: (UserItem & { item: Item; lastUsedRound: number })[] = [];
+    
+    // Store keystone name for display purposes (before filtering items)
+    const keystoneItem = user.items.find((useritem) => 
+      useritem.item && 
+      useritem.item.itemType === "KEYSTONE" && 
+      useritem.equipped === "KEYSTONE"
+    );
+    user.keystoneName = keystoneItem?.item.name || null;
+    
     user.items
       .filter((useritem) => useritem.item && !useritem.item.preventBattleUsage)
       .forEach((useritem) => {
@@ -1518,14 +1527,6 @@ export const processUsersForBattle = (info: {
         }
       });
     user.items = items;
-
-    // Store keystone name for display purposes
-    const keystoneItem = user.items.find((useritem) => 
-      useritem.item && 
-      useritem.item.itemType === "KEYSTONE" && 
-      useritem.equipped === "KEYSTONE"
-    );
-    user.keystoneName = keystoneItem?.item.name || null;
 
     // Base values
     user.fledBattle = false;

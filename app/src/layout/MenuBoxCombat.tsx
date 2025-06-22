@@ -28,9 +28,6 @@ const MenuBoxCombat: React.FC = () => {
   // Guard
   if (!battleUser) return null;
 
-  // Find equipped keystone item
-  const keystoneItem = battleUser.items?.find((item) => item.equipped === "KEYSTONE");
-
   return (
     <>
       <SideBannerTitle>

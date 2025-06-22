@@ -559,7 +559,7 @@ export const insertAction = (info: {
       // If this was an item, check if we should destroy on use
       if (action.type === "item") {
         const useritem = user.items.find((i) => i.item.id === action.id);
-        if (useritem && useritem.item.destroyOnUse) {
+        if (useritem && useritem.item.destroyOnUse && battle.battleType !== "SPARRING") {
           useritem.quantity -= 1;
         }
       }
