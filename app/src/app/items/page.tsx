@@ -504,13 +504,20 @@ const Equip: React.FC<EquipProps> = (props) => {
       onClick={() => props.act(props.slot)}
     >
       {item ? (
-        <ContentImage
-          image={item.image}
-          hideBorder={true}
-          alt={item.name}
-          rarity={item.rarity}
-          className=""
-        />
+        <>
+          <ContentImage
+            image={item.image}
+            hideBorder={true}
+            alt={item.name}
+            rarity={item.rarity}
+            className=""
+          />
+          {item.quantity > 1 && (
+            <div className="absolute bottom-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-amber-300 bg-slate-300 text-black text-base font-bold">
+              {item.quantity}
+            </div>
+          )}
+        </>
       ) : (
         <p className="opacity-100">{props.txt}</p>
       )}
