@@ -40,9 +40,6 @@ export class ActionSprite extends Sprite {
   /** Back-pointer to the action currently driving this sprite (§ SpriteMixer.update) */
   public currentAction?: Action;
 
-  // Override material property to be properly typed
-  declare public material: SpriteMaterial;
-
   constructor(texture: Texture, tilesHoriz: number, tilesVert: number) {
     /* prepare atlas texture */
     texture.wrapS = texture.wrapT = RepeatWrapping;

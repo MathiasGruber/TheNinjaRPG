@@ -1,8 +1,9 @@
 import * as React from "react";
 import { cn } from "src/libs/shadui";
 
-import { Check, X, ChevronsUpDown } from "lucide-react";
+import { Check, X, ChevronsUpDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Command,
   CommandEmpty,
@@ -24,6 +25,8 @@ interface MultiSelectProps {
   onChange: React.Dispatch<React.SetStateAction<string[]>>;
   className?: string;
   isDirty?: boolean;
+  allowAddNew?: boolean;
+  onAddNewOption?: (newOption: OptionType) => void;
 }
 
 function MultiSelect({
@@ -32,12 +35,27 @@ function MultiSelect({
   onChange,
   className,
   isDirty,
+  allowAddNew,
+  onAddNewOption,
   ...props
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [newItemInput, setNewItemInput] = React.useState("");
 
   const handleUnselect = (item: string) => {
     onChange(selected.filter((i) => i !== item));
+  };
+
+  const addNewItem = () => {
+    if (
+      newItemInput.trim() &&
+      !options.find((opt) => opt.value === newItemInput.trim())
+    ) {
+      const newOption = { label: newItemInput.trim(), value: newItemInput.trim() };
+      onAddNewOption?.(newOption);
+      onChange([...selected, newItemInput.trim()]);
+      setNewItemInput("");
+    }
   };
 
   return (
@@ -113,6 +131,32 @@ function MultiSelect({
               </CommandItem>
             ))}
           </CommandGroup>
+          {allowAddNew && (
+            <div className="p-2 border-t">
+              <div className="flex items-center space-x-2">
+                <Input
+                  placeholder="Add new option..."
+                  value={newItemInput}
+                  onChange={(e) => setNewItemInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addNewItem();
+                    }
+                  }}
+                  className="h-8"
+                />
+                <Button
+                  size="sm"
+                  onClick={addNewItem}
+                  disabled={!newItemInput.trim()}
+                  className="h-8 w-8 p-0"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </Command>
       </PopoverContent>
     </Popover>

@@ -298,8 +298,10 @@ const Conversation: React.FC<ConversationProps> = (props) => {
   ) => {
     // We are active
     setQuietTime(secondsFromNow(CONVERSATION_QUIET_MINS * 60));
+
     // Bookkeeping of old and new
     let old = utils.comments.getConversationComments.getInfiniteData();
+
     // Get previous data
     if (!userData || !conversation) return { old };
 
@@ -385,19 +387,23 @@ const Conversation: React.FC<ConversationProps> = (props) => {
         return await optimisticConversationUpdate(newMessage);
       },
       onSuccess: (data, _newComment, context) => {
-        if (conversation) reset({ object_id: conversation.id, comment: "" });
-        setEditorKey((prev) => prev + 1);
-        if (data.commentId) {
-          // Update the ID of the latest message without a current ID
-          if (!context?.old) return;
-          const newComment = { ...context.old };
-          if (newComment?.pages?.[0]?.data?.[0]) {
-            newComment.pages[0].data[0].id = data.commentId;
-            utils.comments.getConversationComments.setInfiniteData(
-              queryKey,
-              newComment,
-            );
+        if (data.success) {
+          if (conversation) reset({ object_id: conversation.id, comment: "" });
+          setEditorKey((prev) => prev + 1);
+          if (data.commentId) {
+            // Update the ID of the latest message without a current ID
+            if (!context?.old) return;
+            const newComment = { ...context.old };
+            if (newComment?.pages?.[0]?.data?.[0]) {
+              newComment.pages[0].data[0].id = data.commentId;
+              utils.comments.getConversationComments.setInfiniteData(
+                queryKey,
+                newComment,
+              );
+            }
           }
+        } else {
+          showMutationToast({ success: false, message: data.message });
         }
       },
       onError: (error, _newComment, context) => {

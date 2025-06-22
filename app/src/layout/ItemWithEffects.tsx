@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import ContentImage from "@/layout/ContentImage";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import { parseHtml } from "@/utils/parse";
 import ElementImage from "@/layout/ElementImage";
 import { canChangeCombatBgScheme, canChangeContent } from "@/utils/permissions";
@@ -137,6 +137,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     if (questReward.reward_rank && questReward.reward_rank !== "NONE") {
       rewards.push(`rank of ${item.content.reward.reward_rank.toLowerCase()}`);
     }
+    if (questReward.reward_bloodlines) {
+      rewards.push(`${questReward.reward_bloodlines.length} bloodlines`);
+    }
     if (questReward.reward_money) {
       rewards.push(`${item.content.reward.reward_money} ryo`);
     }
@@ -194,6 +197,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       : item.updatedAt}
                   </div>
                 )}
+                {"expireFromStoreAt" in item && item.expireFromStoreAt && (
+                  <div>
+                    <b>Expires: </b>
+                    {item.expireFromStoreAt}
+                  </div>
+                )}
               </div>
             )}
             <div className="absolute right-1 flex flex-row">
@@ -208,7 +217,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               {showEdit && userData && canChangeContent(userData.role) && (
                 <>
                   {showCopy === "quest" && (
-                    <Confirm
+                    <Confirm2
                       title="Clone Quest"
                       button={
                         <Copy className="h-6 w-6 hover:text-popover-foreground/50" />
@@ -220,10 +229,10 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                     >
                       This will create a copy of this quest. You will be redirected to
                       edit the new quest.
-                    </Confirm>
+                    </Confirm2>
                   )}
                   {showCopy === "ai" && (
-                    <Confirm
+                    <Confirm2
                       title="Clone AI"
                       button={
                         <Copy className="h-6 w-6 hover:text-popover-foreground/50" />
@@ -235,10 +244,10 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                     >
                       This will create a copy of this AI. You will be redirected to edit
                       the new AI.
-                    </Confirm>
+                    </Confirm2>
                   )}
                   {show3d && "avatar" in item && "avatar3d" in item && item.avatar3d ? (
-                    <Confirm
+                    <Confirm2
                       title="3d Model"
                       button={
                         <Box className="h-6 w-6 hover:text-popover-foreground/50 hover:cursor-pointer" />
@@ -250,13 +259,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                         alt={item.name}
                         size={100}
                       />
-                    </Confirm>
+                    </Confirm2>
                   ) : undefined}
                   <Link href={`/manual/${showEdit}/edit/${item.id}`}>
                     <SquarePen className="h-6 w-6 hover:text-popover-foreground/50" />
                   </Link>
                   {onDelete && canChangeCombatBgScheme(userData.role) && (
-                    <Confirm
+                    <Confirm2
                       title="Confirm Deletion"
                       button={
                         <Trash2 className="h-6 w-6 hover:text-popover-foreground/50 hover:cursor-pointer" />
@@ -267,7 +276,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                       }}
                     >
                       You are about to delete this. Are you sure?
-                    </Confirm>
+                    </Confirm2>
                   )}
                 </>
               )}
@@ -437,11 +446,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Method</b>: {item.method.toLowerCase()}
               </p>
             )}
-            {"direction" in item && typeof item.direction === "string" && item.direction && (
-              <p>
-                <b>Direction</b>: {item.direction.toLowerCase()}
-              </p>
-            )}
+            {"direction" in item &&
+              typeof item.direction === "string" &&
+              item.direction && (
+                <p>
+                  <b>Direction</b>: {item.direction.toLowerCase()}
+                </p>
+              )}
             {"weaponType" in item && item.weaponType && (
               <p>
                 <b>Weapon</b>: {item.weaponType.toLowerCase()}
@@ -472,19 +483,9 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Max Level</b>: {item.maxLevel}
               </p>
             )}
-            {"timeFrame" in item && item.timeFrame && (
-              <p>
-                <b>Time Frame</b>: {item.timeFrame}
-              </p>
-            )}
             {"questType" in item && item.questType && (
               <p>
                 <b>Quest Type</b>: {item.questType}
-              </p>
-            )}
-            {"expiresAt" in item && item.expiresAt && (
-              <p>
-                <b>Expires At</b>: {item.expiresAt}
               </p>
             )}
             {"content" in item && item.content && (
@@ -518,31 +519,76 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               </p>
             )}
           </div>
-          {objectives.length > 0 && (
-            <div className={`my-2 rounded-lg bg-poppopover p-2`}>
-              <p className="font-bold">Objectives</p>
-              <div className="grid grid-cols-5 md:grid-cols-3 lg:md:grid-cols-5 gap-3 p-2">
-                {objectives.map((objective, i) => {
-                  const { image, title } = getObjectiveImage(objective);
-                  return (
-                    <div
-                      key={objective.task + i.toString()}
-                      className={`flex flex-col items-center`}
-                    >
-                      <Image
-                        className="basis-1/4"
-                        alt={objective.task}
-                        src={image}
-                        width={60}
-                        height={60}
-                      />
-                      {title}
-                    </div>
-                  );
-                })}
+          {/* Show quest timing specific details for story and event quests */}
+          {"questType" in item && ["story", "event"].includes(item.questType) && (
+            <div className="my-2 grid grid-cols-2 rounded-lg bg-poppopover p-2">
+              {"maxAttempts" in item && item.maxAttempts > 0 && (
+                <p>
+                  <b>Max Attempts</b>: {item.maxAttempts}
+                </p>
+              )}
+              {"maxCompletes" in item && item.maxCompletes > 0 && (
+                <p>
+                  <b>Max Completes</b>: {item.maxCompletes}
+                </p>
+              )}
+              {"previousAttempts" in item && (item.previousAttempts as number) > 0 && (
+                <p>
+                  <b>Previous Attempts</b>: {item.previousAttempts as number}
+                </p>
+              )}
+              {"previousCompletes" in item &&
+                (item.previousCompletes as number) > 0 && (
+                  <p>
+                    <b>Previous Completes</b>: {item.previousCompletes as number}
+                  </p>
+                )}
+              {"retryDelay" in item && item.retryDelay !== "none" && (
+                <p>
+                  <b>Retry Delay</b>: {item.retryDelay}
+                </p>
+              )}
+              <div className="grid grid-cols-2 col-span-2">
+                {"startsAt" in item && item.startsAt && (
+                  <p>
+                    <b>Starts At</b>: {item.startsAt}
+                  </p>
+                )}
+                {"endsAt" in item && item.endsAt && (
+                  <p>
+                    <b>Ends At</b>: {item.endsAt}
+                  </p>
+                )}
               </div>
             </div>
           )}
+          {/* {objectives.length > 0 && (
+            <div className={`my-2 rounded-lg bg-poppopover p-2`}>
+              <p className="font-bold">Objectives</p>
+              <div className="grid grid-cols-5 md:grid-cols-3 lg:md:grid-cols-5 gap-3 p-2">
+                {objectives
+                  .filter((o) => o.task !== "dialog")
+                  .map((objective, i) => {
+                    const { image, title } = getObjectiveImage(objective);
+                    return (
+                      <div
+                        key={objective.task + i.toString()}
+                        className={`flex flex-col items-center`}
+                      >
+                        <Image
+                          className="basis-1/4"
+                          alt={objective.task}
+                          src={image}
+                          width={60}
+                          height={60}
+                        />
+                        {title}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )} */}
 
           {effects?.map((effect, i) => {
             // Get schema for parsing effect

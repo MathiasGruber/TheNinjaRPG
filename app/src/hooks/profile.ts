@@ -71,6 +71,7 @@ export const useUserEditForm = (userId: string, user: UpdateUserSchema) => {
     { id: "rank", type: "str_array", values: UserRanks },
     { id: "bloodlineId", type: "db_values", values: lines, resetButton: true },
     { id: "villageId", type: "db_values", values: villages, resetButton: true },
+    { id: "staffAccount", type: "boolean", label: "Staff Benefits" },
     {
       id: "jutsus",
       type: "db_values",

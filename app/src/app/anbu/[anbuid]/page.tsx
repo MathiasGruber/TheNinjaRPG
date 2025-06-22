@@ -6,7 +6,7 @@ import BanInfo from "@/layout/BanInfo";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import RichInput from "@/layout/RichInput";
 import AvatarImage from "@/layout/Avatar";
@@ -177,7 +177,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
     kickBtn: (
       <div className="flex flex-row gap-1">
         {member.userId !== userId && (
-          <Confirm
+          <Confirm2
             title="Kick Member"
             proceed_label="Submit"
             button={
@@ -189,10 +189,10 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
             onAccept={() => kick({ squadId, memberId: member.userId })}
           >
             Confirm that you want to kick this member from the squad.
-          </Confirm>
+          </Confirm2>
         )}
         {(isKage || isElder) && (
-          <Confirm
+          <Confirm2
             title="Promote Member"
             proceed_label="Submit"
             button={
@@ -204,7 +204,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
             onAccept={() => promote({ squadId, memberId: member.userId })}
           >
             Confirm that you want to promote this member to leader of the squad.
-          </Confirm>
+          </Confirm2>
         )}
       </div>
     ),
@@ -231,7 +231,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
       topRightContent={
         <div className="flex flex-row items-center gap-1">
           {isLeader && (
-            <Confirm
+            <Confirm2
               title="Rename Squad"
               proceed_label="Submit"
               button={
@@ -284,7 +284,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
                   />
                 </form>
               </Form>
-            </Confirm>
+            </Confirm2>
           )}
           {inSquad && (
             <Button id="send" onClick={() => leave({ squadId })}>
@@ -293,7 +293,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
             </Button>
           )}
           {(isKage || isElder) && (
-            <Confirm
+            <Confirm2
               title="Disband Squad"
               proceed_label="Submit"
               button={
@@ -307,7 +307,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
             >
               Confirm that you want to disband this entire squad. Everyone will be
               removed from the squad!
-            </Confirm>
+            </Confirm2>
           )}
         </div>
       }
@@ -376,7 +376,7 @@ const AnbuOrders: React.FC<AnbuOrdersProps> = (props) => {
       topRightContent={
         <div>
           {canPost && (
-            <Confirm
+            <Confirm2
               title="Update Orders"
               proceed_label="Submit"
               button={<Button id="create">Edit</Button>}
@@ -390,7 +390,7 @@ const AnbuOrders: React.FC<AnbuOrdersProps> = (props) => {
                 control={control}
                 error={errors.content?.message}
               />
-            </Confirm>
+            </Confirm2>
           )}
         </div>
       }

@@ -21,7 +21,6 @@ import { updateUserOnMap } from "@/libs/pusher";
 import { JUTSU_XP_TO_LEVEL } from "@/drizzle/constants";
 import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
-import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { WAR_SHRINE_HP } from "@/drizzle/constants";
 import { findWarsWithUser } from "@/libs/war";
 import type { PusherClient } from "@/libs/pusher";
@@ -127,8 +126,12 @@ export const saveUsage = async (
         return a;
       }
     }, [] as DataBattleAction[]);
+    // Upsert dataBattleActions
     if (uniqueData.length > 0) {
-      await client.insert(dataBattleAction).values(uniqueData);
+      await client
+        .insert(dataBattleAction)
+        .values(uniqueData)
+        .onDuplicateKeyUpdate({ set: { count: sql`${dataBattleAction.count} + 1` } });
     }
   }
 };
@@ -200,10 +203,6 @@ export const updateKage = async (
               .update(village)
               .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
               .where(eq(village.id, user.villageId)),
-            client
-              .update(userData)
-              .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
-              .where(eq(userData.userId, user?.village?.kageId ?? "")),
           ]
         : []),
       ...(deleteItems.length > 0
@@ -339,7 +338,7 @@ export const updateWars = async (
                 : []),
               // Update townhall if we're in a village war
               ...(result.townhallChangeHP !== 0 &&
-              ["VILLAGE_WAR", "FACTION_RAID"].includes(w.type)
+              ["VILLAGE_WAR", "WAR_RAID"].includes(w.type)
                 ? [
                     client
                       .update(villageStructure)
@@ -435,6 +434,7 @@ export const updateUser = async (
   result: CombatResult | null,
   userId: string,
 ) => {
+  const updatedQuestIds: string[] = [];
   const user = curBattle.usersState.find((u) => u.userId === userId);
   if (result && user) {
     // Update quest tracker with battle result
@@ -451,18 +451,33 @@ export const updateUser = async (
         ]);
         user.questData = trackers;
       }
+      if (curBattle.battleType === "QUEST") {
+        const { trackers } = getNewTrackers(user, [
+          { task: "random_encounter_wins", increment: 1 },
+        ]);
+        user.questData = trackers;
+      }
     }
     // Update trackers
-    const { trackers, notifications } = getNewTrackers(
+    const { trackers, notifications, questIdsUpdated } = getNewTrackers(
       user,
       curBattle.usersState
         .filter((u) => u.userId !== userId)
-        .map((u) => ({
-          task: "defeat_opponents",
-          contentId: u.userId,
-          text: result.outcome,
-        })),
+        .map((u) => [
+          {
+            task: "defeat_opponents" as const,
+            contentId: u.controllerId,
+            text: result.outcome,
+          },
+          {
+            task: "start_battle" as const,
+            contentId: u.controllerId,
+            text: result.outcome,
+          },
+        ])
+        .flat(),
     );
+    updatedQuestIds.push(...questIdsUpdated);
     user.questData = trackers;
     // Add notifications to combatResult
     result.notifications.push(...notifications);
@@ -579,4 +594,5 @@ export const updateUser = async (
       });
     }
   }
+  return { updatedQuestIds };
 };

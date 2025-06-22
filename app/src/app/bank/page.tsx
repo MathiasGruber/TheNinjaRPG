@@ -12,7 +12,14 @@ import { useInfinitePagination } from "@/libs/pagination";
 import { getSearchValidator } from "@/validators/register";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
-import { Coins, Landmark, ChevronsUp, ChevronsRight, ChevronsLeft } from "lucide-react";
+import {
+  Coins,
+  Landmark,
+  ChevronsUp,
+  ChevronsRight,
+  ChevronsLeft,
+  Gift,
+} from "lucide-react";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,6 +58,12 @@ export default function Bank() {
   // Current interest
   const boost = structureBoost("bankInterestPerLvl", userData?.village?.structures);
   const interest = calcBankInterest(boost);
+
+  // Pending interest query
+  const { data: pendingInterest, refetch: refetchPendingInterest } =
+    api.bank.getPendingInterest.useQuery(undefined, {
+      enabled: !!userData,
+    });
 
   // Schemas
   const fromPocketSchema = z.object({
@@ -106,6 +119,18 @@ export default function Bank() {
           bank: data.data.bank,
         });
         toUserForm.reset();
+      }
+    },
+  });
+
+  const { mutate: claimInterest, isPending: l4 } = api.bank.claimInterest.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success && data.data) {
+        await updateUser({
+          bank: data.data.bank,
+        });
+        await refetchPendingInterest();
       }
     },
   });
@@ -204,7 +229,7 @@ export default function Bank() {
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Bank" />;
   if (userData.isBanned) return <BanInfo />;
-  if (l1 || l2 || l3) return <Loader explanation="Transferring money" />;
+  if (l1 || l2 || l3 || l4) return <Loader explanation="Processing bank transaction" />;
 
   return (
     <>
@@ -285,6 +310,32 @@ export default function Bank() {
           </div>
         </div>
       </ContentBox>
+      {pendingInterest && pendingInterest.totalPending > 0 && (
+        <ContentBox
+          title="Pending Interest"
+          subtitle={`Interest older than 7-8 days are discarded!`}
+          initialBreak={true}
+          padding={false}
+        >
+          <div className="w-full flex flex-col items-center p-4">
+            <Gift className="h-16 w-16 mb-2" />
+            <p className="text-lg mb-2">
+              You have {pendingInterest.totalPending} ryo in unclaimed interest!
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              From {pendingInterest.records.length} day(s) of bank interest
+            </p>
+            <Button
+              onClick={() => claimInterest()}
+              className="w-full"
+              animation="pulse"
+            >
+              <Gift className="h-5 w-5 mr-2" />
+              Claim Interest
+            </Button>
+          </div>
+        </ContentBox>
+      )}
       <ContentBox
         title="Transfer"
         subtitle="Bank to Bank Transfers"

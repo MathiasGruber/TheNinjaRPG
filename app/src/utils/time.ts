@@ -2,6 +2,8 @@ import type { TimeUnit } from "@/drizzle/constants";
 
 /**
  * Get game time which is the UTC HH:MM:SS timestring
+ *
+ * @returns The game time
  */
 export const getGameTime = () => {
   const now = new Date();
@@ -13,6 +15,8 @@ export const getGameTime = () => {
 
 /**
  * Get time since last reset which is in YYYY-MM-DDTHH:mm:ss.sssZ format
+ *
+ * @returns The time since last reset
  */
 export const getTimeOfLastReset = () => {
   const date = new Date();
@@ -29,16 +33,26 @@ export const getTimeOfLastReset = () => {
 
 /**
  * Number of seconds passed since the given date
+ *
+ * @param date - The date to calculate the seconds passed since
+ * @param timeDiff - The time difference in milliseconds
+ * @param floor - Whether to floor the result
+ * @returns The number of seconds passed since the given date
  */
-export const secondsPassed = (date: Date, timeDiff?: number) => {
+export const secondsPassed = (date: Date, timeDiff?: number, floor = true) => {
   let now = new Date().getTime();
   if (timeDiff) now = now - timeDiff;
   const parsedDate = date instanceof Date ? date : new Date(date);
-  return Math.floor((now - parsedDate.getTime()) / 1000);
+  const rawPassedValue = (now - parsedDate.getTime()) / 1000;
+  return floor ? Math.floor(rawPassedValue) : rawPassedValue;
 };
 
 /**
  * Current date plus the given number of seconds
+ *
+ * @param seconds - The number of seconds to add
+ * @param date - The date to add the seconds to
+ * @returns The date plus the given number of seconds
  */
 export const secondsFromDate = (seconds: number, date: Date) => {
   return new Date(date.getTime() + seconds * 1000);

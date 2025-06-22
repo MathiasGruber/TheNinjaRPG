@@ -138,6 +138,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
             showSubmit={true}
             buttonTxt="Save to Database"
             type="item"
+            relationId={item.id}
             allowImageUpload={true}
             onAccept={handleItemSubmit}
           />

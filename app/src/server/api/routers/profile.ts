@@ -36,10 +36,12 @@ import {
 } from "@/drizzle/schema";
 import { canSeeSecretData, canDeleteUsers, canSeeIps } from "@/utils/permissions";
 import { canChangeContent, canModerateRoles } from "@/utils/permissions";
+import { canInteractWithPolls } from "@/utils/permissions";
 import { canEditPublicUser } from "@/utils/permissions";
 import { usernameSchema } from "@/validators/register";
 import { insertNextQuest } from "@/routers/quests";
 import { fetchClan, removeFromClan } from "@/routers/clan";
+import { handleQuestConsequences } from "@/routers/quests";
 import { fetchVillage } from "@/routers/village";
 import { getNewTrackers } from "@/libs/quest";
 import { mockAchievementHistoryEntries } from "@/libs/quest";
@@ -54,6 +56,7 @@ import { activityStreakRewards } from "@/libs/profile";
 import { calcHP, calcSP, calcCP } from "@/libs/profile";
 import { COST_CHANGE_USERNAME } from "@/drizzle/constants";
 import { MAX_ATTRIBUTES } from "@/drizzle/constants";
+import { REGEN_SECONDS } from "@/drizzle/constants";
 import { createStatSchema } from "@/libs/combat/types";
 import { isAvailableUserQuests } from "@/libs/quest";
 import {
@@ -80,7 +83,7 @@ import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { KAGE_MIN_PRESTIGE } from "@/drizzle/constants";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
-import { hideQuestInformation } from "@/libs/quest";
+import { controlShownQuestLocationInformation } from "@/libs/quest";
 import { getPublicUsersSchema } from "@/validators/user";
 import { createThumbnail } from "@/libs/replicate";
 import sanitize from "@/utils/sanitize";
@@ -93,7 +96,7 @@ import type { GetPublicUsersSchema } from "@/validators/user";
 import type { UserJutsu, UserItem } from "@/drizzle/schema";
 import type { UserData, Bloodline } from "@/drizzle/schema";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
-import type { UserQuest, Clan } from "@/drizzle/schema";
+import type { UserQuest, Clan, Quest } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import type { NavBarDropdownLink } from "@/libs/menus";
 
@@ -299,7 +302,7 @@ export const profileRouter = createTRPCRouter({
   // Get all information on logged in user
   getUser: protectedProcedure.query(async ({ ctx }) => {
     // Query
-    const { user, settings, rewards, hasUnvotedPolls } = await fetchUpdatedUser({
+    const { user, settings, toastMessages, hasUnvotedPolls } = await fetchUpdatedUser({
       client: ctx.drizzle,
       userId: ctx.userId,
       userIp: ctx.userIp,
@@ -307,24 +310,19 @@ export const profileRouter = createTRPCRouter({
     });
     // Figure out notifications
     const notifications: NavBarDropdownLink[] = [];
-    if (rewards) {
-      if (rewards.money > 0) {
-        notifications.push({
-          href: "/profile",
-          name: `Activity streak reward: ${rewards.money} ryo`,
-          color: "toast",
-        });
-      }
-      if (rewards.reputationPoints > 0) {
-        notifications.push({
-          href: "/profile",
-          name: `Activity streak reward: ${rewards.reputationPoints} reputation points`,
-          color: "toast",
-        });
-      }
-    }
+
+    // Add any notifications from fetching user to toasts
+    toastMessages.forEach((msg) => {
+      notifications.push({ name: msg, color: "toast", href: "/profile" });
+    });
+
     // Add notification for unvoted polls
-    if (hasUnvotedPolls && hasUnvotedPolls.length > 0) {
+    if (
+      user &&
+      hasUnvotedPolls &&
+      hasUnvotedPolls.length > 0 &&
+      canInteractWithPolls(user.rank)
+    ) {
       notifications.push({
         href: "/manual/polls",
         name: "Unvoted Polls",
@@ -688,6 +686,7 @@ export const profileRouter = createTRPCRouter({
         return errorResponse(aiCheck.comment);
       }
       // Update database
+      console.log(input.data);
       await Promise.all([
         ctx.drizzle
           .update(userData)
@@ -1097,6 +1096,7 @@ export const profileRouter = createTRPCRouter({
             username: true,
             villageId: true,
             tavernMessages: true,
+            staffAccount: true,
           },
           with: {
             village: true,
@@ -1176,7 +1176,7 @@ export const profileRouter = createTRPCRouter({
       ctx.drizzle
         .select({ count: count() })
         .from(userData)
-        .where(gte(userData.updatedAt, secondsFromNow(-300))),
+        .where(gte(userData.updatedAt, secondsFromNow(-1800))), // 30 minutes = 1800 seconds
       ctx.drizzle
         .select({ count: count() })
         .from(userData)
@@ -1337,6 +1337,15 @@ export const updateNindo = async (
   return { success: true, message: "Content updated" };
 };
 
+/**
+ * Fetch a user by id
+ * @param client - The database client
+ * @param userId - The id of the user
+ * @returns The user
+ *
+ * NOTE: This function is used across the codebase. Use fetchUpdatedUser
+ * if more information is required on the user object, so that we keep this method "light"
+ */
 export const fetchUser = async (client: DrizzleClient, userId: string) => {
   const user = await client.query.userData.findFirst({
     where: eq(userData.userId, userId),
@@ -1453,9 +1462,10 @@ export const fetchUpdatedUser = async (props: {
   userId: string;
   userIp?: string;
   forceRegen?: boolean;
+  hideInformation?: boolean;
 }) => {
   // Destructure
-  const { client, userId, userIp } = props;
+  const { client, userId, userIp, hideInformation = true } = props;
   let { forceRegen } = props;
   const now = new Date();
 
@@ -1487,6 +1497,7 @@ export const fetchUpdatedUser = async (props: {
         promotions: {
           limit: 1,
         },
+        items: { where: ne(userItem.equipped, "NONE") },
         userQuests: {
           where: or(
             and(isNull(questHistory.endAt), eq(questHistory.completed, 0)),
@@ -1496,6 +1507,10 @@ export const fetchUpdatedUser = async (props: {
             quest: true,
           },
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
+        },
+        completedQuests: {
+          columns: { id: true, questId: true, completed: true },
+          where: gte(questHistory.completed, 1),
         },
         votes: true,
       },
@@ -1535,13 +1550,8 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     user.userQuests = user.userQuests
       .filter((q) => q.quest)
-      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user).check);
+      .filter((q) => isAvailableUserQuests({ ...q.quest, ...q }, user, true).check);
   }
-
-  // Hide information relating to quests
-  user?.userQuests.forEach((q) => {
-    hideQuestInformation(q.quest, user);
-  });
 
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
@@ -1603,32 +1613,41 @@ export const fetchUpdatedUser = async (props: {
   }
 
   // Rewards, e.g. for activity streak
-  let rewards: ReturnType<typeof activityStreakRewards> | undefined;
+  const toastMessages: string[] = [];
 
   // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
   // and it is mostly done to keep user updated on the overview pages
   if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
+    // Get activity rewards if any & update timers
+    const now = new Date();
+    const newDay = isDifferentDay(now, user.updatedAt);
+    const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
+    // Figure out if we're running update
     const sinceUpdate = secondsPassed(user.updatedAt);
     if (
+      newDay ||
       sinceUpdate > 300 || // Update user in database every 5 minutes only so as to reduce server load
       forceRegen || // Hard overwrite for e.g. debugging or simply ensuring updated user
       (user.villagePrestige < 0 && !user.isOutlaw) // To trigger getting kicked out of village
     ) {
-      const regen = (user.regeneration * secondsPassed(user.regenAt)) / 60;
+      const regen = (user.regeneration * secondsPassed(user.regenAt)) / REGEN_SECONDS;
       user.curHealth = Math.min(user.curHealth + regen, user.maxHealth);
       user.curStamina = Math.min(user.curStamina + regen, user.maxStamina);
       user.curChakra = Math.min(user.curChakra + regen, user.maxChakra);
       // Get activity rewards if any & update timers
-      const now = new Date();
-      const newDay = isDifferentDay(now, user.updatedAt);
-      const withinThreshold = secondsPassed(user.updatedAt) < 36 * 3600;
       if (newDay) {
         user.activityStreak = withinThreshold ? user.activityStreak + 1 : 1;
-        rewards = activityStreakRewards(user.activityStreak);
-        if (rewards.money > 0) user.money += rewards.money;
+        const rewards = activityStreakRewards(user.activityStreak);
+        if (rewards.money > 0) {
+          user.money += rewards.money;
+          toastMessages.push(`Activity streak reward: ${rewards.money} ryo`);
+        }
         if (rewards.reputationPoints > 0) {
           user.reputationPoints += rewards.reputationPoints;
           user.reputationPointsTotal += rewards.reputationPoints;
+          toastMessages.push(
+            `Activity streak reward: ${rewards.reputationPoints} reputation points`,
+          );
         }
       }
       user.updatedAt = now;
@@ -1708,10 +1727,25 @@ export const fetchUpdatedUser = async (props: {
     }
   }
   if (user) {
-    const { trackers } = getNewTrackers(user, [{ task: "any" }]);
+    // Get the latest quest trackers
+    const { trackers, notifications, consequences } = getNewTrackers(user, [
+      { task: "any" },
+    ]);
     user.questData = trackers;
+
+    // Handle any update on quest consequences
+    toastMessages.push(
+      ...(await handleQuestConsequences(client, user, consequences, notifications)),
+    );
+
+    // Hide information relating to quests
+    if (hideInformation) {
+      user?.userQuests.forEach((q) => {
+        controlShownQuestLocationInformation(q.quest, user);
+      });
+    }
   }
-  return { user, settings, rewards, hasUnvotedPolls };
+  return { user, settings, toastMessages, hasUnvotedPolls };
 };
 
 export const fetchPublicUsers = async (
@@ -1729,14 +1763,19 @@ export const fetchPublicUsers = async (
         return [desc(userData.level), desc(userData.experience)];
       case "PvP":
         return [desc(userData.pvpStreak), desc(userData.experience)];
-      case "Weakest":
-        return [asc(userData.level), asc(userData.experience)];
       case "Staff":
         return [desc(userData.tavernMessages)];
       case "Outlaws":
         return [desc(userData.villagePrestige)];
       case "Community":
         return [desc(userData.tavernMessages)];
+      case "Dailies":
+        return [
+          desc(
+            sql`${userData.dailyArenaFights} + ${userData.dailyMissions} + ${userData.dailyErrands}`,
+          ),
+          desc(userData.experience),
+        ];
     }
   };
   const [users, user] = await Promise.all([
@@ -1786,6 +1825,9 @@ export const fetchPublicUsers = async (
         username: true,
         villagePrestige: true,
         tavernMessages: true,
+        dailyArenaFights: true,
+        dailyMissions: true,
+        dailyErrands: true,
       },
       // If AI, also include relations information
       with: {
@@ -1848,6 +1890,7 @@ export type UserWithRelations =
       bloodline?: Bloodline | null;
       anbuSquad?: { name: string } | null;
       clan?: Clan | null;
+      items: UserItem[];
       village?:
         | (Village & {
             structures?: VillageStructure[];
@@ -1856,7 +1899,8 @@ export type UserWithRelations =
           })
         | null;
       loadout?: { jutsuIds: string[] } | null;
-      userQuests: UserQuest[];
+      userQuests: (UserQuest & { quest: Quest })[];
+      completedQuests: { id: string; questId: string; completed: number }[];
       votes?: UserVote | null;
     })
   | undefined;

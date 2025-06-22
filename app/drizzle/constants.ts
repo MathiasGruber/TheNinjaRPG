@@ -9,13 +9,39 @@ export const ACTIVE_VOTING_SITES = [
   "topWebGames",
 ] as const;
 
-export const GameAssetTypes = ["STATIC", "ANIMATION"] as const;
+export const GameAssetTypes = [
+  "STATIC",
+  "ANIMATION",
+  "SCENE_BACKGROUND",
+  "SCENE_CHARACTER",
+  "MUSIC",
+] as const;
 export type GameAssetType = (typeof GameAssetTypes)[number];
+
+// Image orientations
+export const IMG_ORIENTATIONS = ["square", "portrait", "landscape"] as const;
+export type IMG_ORIENTATION = (typeof IMG_ORIENTATIONS)[number];
+
+// How many seconds to regen a given regen value
+export const REGEN_SECONDS = 30;
+
+export const ContentTypes = [
+  "asset",
+  "ai",
+  "badge",
+  "bloodline",
+  "item",
+  "jutsu",
+  "quest",
+  "user",
+] as const;
+export type ContentType = (typeof ContentTypes)[number];
 
 export const MAP_RESERVED_SECTORS = [
   73, 72, 75, 78, 275, 279, 201, 183, 272, 264, 270, 308, 289, 259, 260, 253, 304, 307,
   283, 284, 340, 334, 330, 331, 332, 337, 342, 336, 341, 335, 113, 109, 443,
 ];
+export const MAP_TOTAL_SECTORS = 443;
 
 export const CoreVillages = [
   "Shine",
@@ -43,6 +69,7 @@ export const SHARED_COOLDOWN_TAGS = [
   "cleanseprevent",
   "clearprevent",
   "seal",
+  "increasepoolcost",
 ] as const;
 
 export const LOG_TYPES = [
@@ -89,6 +116,8 @@ export const ItemSlotTypes = [
   "FEET",
   "HAND",
   "ITEM",
+  "WAIST",
+  "KEYSTONE",
   "NONE",
 ] as const;
 
@@ -100,6 +129,7 @@ export const StructureRoutes = [
   "/battlearena",
   "/blackmarket",
   "/clanhall",
+  "/globalanbuhq",
   "/home",
   "/hospital",
   "/itemshop",
@@ -119,6 +149,8 @@ export const ItemSlots = [
   "FEET",
   "HAND_1",
   "HAND_2",
+  "WAIST",
+  "KEYSTONE",
   "ITEM_1",
   "ITEM_2",
   "ITEM_3",
@@ -187,6 +219,7 @@ export const ItemTypes = [
   "ARMOR",
   "ACCESSORY",
   "MATERIAL",
+  "KEYSTONE",
   "OTHER",
 ] as const;
 export type ItemType = (typeof ItemTypes)[number];
@@ -316,8 +349,8 @@ export const BattleDataEntryType = [
   "ai",
 ] as const;
 
-export const TimeFrames = ["daily", "weekly", "monthly", "all_time"] as const;
-export type TimeFrame = (typeof TimeFrames)[number];
+export const RetryQuestDelays = ["daily", "weekly", "monthly", "none"] as const;
+export type RetryQuestDelay = (typeof RetryQuestDelays)[number];
 
 export const QuestTypes = [
   "mission",
@@ -328,6 +361,7 @@ export const QuestTypes = [
   "tier",
   "daily",
   "achievement",
+  "story",
 ] as const;
 export type QuestType = (typeof QuestTypes)[number];
 export const QUESTS_CONCURRENT_LIMIT = 4;
@@ -488,14 +522,21 @@ export const KILLING_NOTORIETY_GAIN = 5;
 export const COST_CHANGE_USERNAME = 5;
 export const COST_CUSTOM_TITLE = 5;
 export const COST_CHANGE_GENDER = 5;
-export const COST_SWAP_BLOODLINE = 0;
+export const COST_SWAP_BLOODLINE = 50;
 export const COST_SWAP_VILLAGE = 0;
 export const COST_RESET_STATS = 15;
 export const COST_EXTRA_ITEM_SLOT = 10;
 export const COST_EXTRA_JUTSU_SLOT = 50;
 export const COST_REROLL_ELEMENT = 20;
 export const MAX_EXTRA_JUTSU_SLOTS = 2;
-export const BLOODLINE_ROLL_TYPES = ["NATURAL", "ITEM"] as const;
+export const BLOODLINE_ROLL_TYPES = [
+  "NATURAL",
+  "ITEM",
+  "PITY",
+  "DIRECT",
+  "QUEST",
+] as const;
+export const BLOODLINE_SWAP_COOLDOWN_HOURS = 48;
 
 // Jutsu level transfer config
 export const JUTSU_TRANSFER_DAYS = 20;
@@ -585,11 +626,14 @@ export const FED_EVENT_ITEMS_GOLD = 25;
 export const FED_EVENT_ITEMS_DEFAULT = 10;
 
 // Missions config
-export const MISSIONS_PER_DAY = 9;
+export const ERRANDS_PER_DAY = 9;
+export const MISSIONS_PER_DAY = 20;
+export const ADDITIONAL_MISSION_REWARD_MULTIPLIER = 0.4;
 
 // War config
 export const WAR_VILLAGE_MAX_SECTORS = 12;
 export const WAR_FACTION_MAX_SECTORS = 6;
+export const WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE = 10000;
 export const WAR_TOWNHALL_HP_REMOVE = 5;
 export const WAR_TOWNHALL_HP_RECOVER = 2;
 export const WAR_TOWNHALL_HP_ANBU_REMOVE = 10;
@@ -622,13 +666,15 @@ export const WAR_SECTORWAR_PVP_SHRINE_REDUCE = 5; // Killing a player in a secto
 export const WAR_SECTORWAR_PVP_SHRINE_RECOVER = 7; // Shrine hp remove per day
 export const WAR_SHRINE_IMAGE =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJgLihSncU9cpECTimBdjaqbNn7vQsxGR1wLk4";
+export const WAR_RAMEN_IMAGE =
+  "https://utfs.io/f/6407eedd-9382-41e9-b27d-eb02afe87ce9-srb0e7.webp";
 export const WAR_STATES = [
   "ACTIVE",
   "ATTACKER_VICTORY",
   "DEFENDER_VICTORY",
   "DRAW",
 ] as const;
-export const WAR_TYPES = ["VILLAGE_WAR", "SECTOR_WAR", "FACTION_RAID"] as const;
+export const WAR_TYPES = ["VILLAGE_WAR", "SECTOR_WAR", "WAR_RAID"] as const;
 export type WarType = (typeof WAR_TYPES)[number];
 export type WarState = (typeof WAR_STATES)[number];
 
@@ -709,6 +755,9 @@ export const ID_ANIMATION_SMOKE = "gkYHdSzsHu";
 export const ID_ANIMATION_HIT = "oh4kVNrAwF";
 export const ID_ANIMATION_HEAL = "I9aYhT5wMB";
 
+// Discord invite link
+export const DISCORD_INVITE_URL = "https://discord.gg/eNtgPdAh7j";
+
 // Draco files (see https://github.com/google/draco/tree/main/javascript)
 export const DRACO_DECODER_URL =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF0eCaMuG2iOewJtjGzvNcmEX3TBnoSfMDZPH";
@@ -757,6 +806,27 @@ export const IMG_REGISTRATIN_STEP8 =
 export const IMG_REGISTRATIN_STEP9 =
   "https://utfs.io/f/Hzww9EQvYURJnjHXr3mojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
 
+export const IMG_SCENE_SCROLL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRceTKeq0udmODoNtpa0FMcwI4k2Eq7nJhyvj";
+export const IMG_SCENE_BACKGROUND =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJ1HAqWl6bo95WClq4K0wxZUmJcvThgdVenO3P";
+export const IMG_SCENE_CHARACTER =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJF08NAw3G2iOewJtjGzvNcmEX3TBnoSfMDZPH";
+
+export const IMG_BADGE_RESET_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJeCQbfYiyV3OvUJQExAi0bGoIZDF74LqSnHRd";
+export const IMG_BADGE_FAIL_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJuFEUH7CyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
+export const IMG_BADGE_WIN_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJnk99IbmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+export const IMG_BADGE_NEW_QUEST =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJneJSZsmojJ0EqeDCvBrNmZaXVdY97gSpOWiA";
+export const IMG_BADGE_START_BATTLE =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJqZXK1HdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
+export const IMG_BADGE_DIALOG =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJpIn7vsbKBAOsGCHyl3Sk0mZFrgWPUdjMJ75D";
+export const IMG_BADGE_RANDOM_ENCOUNTER_WINS =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJqyp2N4dkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn";
 export const IMG_BADGE_PVPKILLS =
   "https://utfs.io/f/Hzww9EQvYURJyPU0OdukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
 export const IMG_BADGE_ARENAKILLS =
@@ -819,6 +889,9 @@ export const IMG_BG_ICE =
 
 export const IMG_VILLAGE_FACTION =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJyODt1NukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp";
+
+export const IMG_MUSIC_DEFAULT =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJRNA7r30udmODoNtpa0FMcwI4k2Eq7nJhyvjl";
 
 export const IMG_RARITY_RARE =
   "https://utfs.io/f/Hzww9EQvYURJvSyOMsEmSnXwslYEpV1yOeNL8gMtqhjPdf36";
@@ -1059,6 +1132,8 @@ export const IMG_ICON_FORUM =
   "https://utfs.io/f/Hzww9EQvYURJTwT9cY5IU29dZYJPoOKSh5vmlqatMub3EigH";
 export const IMG_ICON_MOVE =
   "https://utfs.io/f/Hzww9EQvYURJepKSYSyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
+export const IMG_ICON_HEAL =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJrtRSYfhuJPmdY8zI2ptZXAoEj1c6BMKvrQOx";
 
 export const IMG_MISSION_S =
   "https://utfs.io/f/Hzww9EQvYURJz3Ph17emvaQu94EYJs8HpxVzofny6iPtbgCZ";
@@ -1112,10 +1187,13 @@ export const IMG_BATTLEFIELD_TOMBSTONE =
 export const IMG_BATTLEFIELD_STAR =
   "https://utfs.io/f/Hzww9EQvYURJuGvcEjCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b";
 
+export const MUSIC_DEFAULT =
+  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJQCH0mJjhzBPya1rwfCIqOTU0cV5xgsMeo3u2";
+
 export const HomeTypes = [
   "NONE",
-  "ONE_BED_APARTMENT",
   "STUDIO_APARTMENT",
+  "ONE_BED_APARTMENT",
   "TWO_BED_HOUSE",
   "TOWN_HOUSE",
   "SMALL_MANSION",

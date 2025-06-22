@@ -3,6 +3,7 @@ import { AttackMethods, AttackTargets, ItemRarities } from "@/drizzle/constants"
 import { ItemSlotTypes, ItemTypes, JutsuTypes } from "@/drizzle/constants";
 import { LetterRanks, UserRanks, WeaponTypes } from "@/drizzle/constants";
 import { ElementNames } from "@/drizzle/constants";
+import { DateTimeRegExp } from "@/utils/regex";
 import { StatTypes, GeneralTypes, PoolTypes } from "@/drizzle/constants";
 import { MAX_STATS_CAP, MAX_GENS_CAP, USER_CAPS } from "@/drizzle/constants";
 import type { StatType, GeneralType, PoolType, ElementName } from "@/drizzle/constants";
@@ -24,7 +25,7 @@ export type BattleWar = War & {
 /**
  * BattleUserState is the data stored in the battle entry about a given user
  */
-export type BattleUserState = UserWithRelations & {
+export type BattleUserState = Omit<NonNullable<UserWithRelations>, "items"> & {
   jutsus: (UserJutsu & {
     jutsu: Jutsu;
     lastUsedRound: number;
@@ -183,7 +184,9 @@ export type Consequence = {
   heal_sp?: number;
   heal_cp?: number;
   damage?: number;
+  rawDamage?: number;
   residual?: number;
+  rawResidual?: number;
   reflect?: number;
   recoil?: number;
   lifesteal_hp?: number;
@@ -544,7 +547,7 @@ export const DrainTag = z.object({
   ...PoolAttributes,
   type: z.literal("drain").default("drain"),
   description: msg("Drain target's pools over time"),
-  calculation: z.enum(["percentage"]).default("percentage"),
+  calculation: z.enum(["static", "percentage"]).default("percentage"),
   rounds: z.coerce.number().int().min(1).max(10).default(3),
   poolsAffected: z.array(z.enum(PoolTypes)).default(["Chakra", "Stamina", "Health"]),
 });
@@ -575,7 +578,7 @@ export type ShieldTagType = z.infer<typeof ShieldTag>;
 export const FinalStandTag = z.object({
   ...BaseAttributes,
   type: z.literal("finalstand").default("finalstand"),
-  description: msg("%user cannot be reduced below 1 HP"),
+  description: msg("User cannot be reduced below 1 HP"),
   power: z.coerce.number().min(0).max(100).default(100),
   powerPerLevel: z.coerce.number().min(0).max(1).default(0),
 });
@@ -680,7 +683,7 @@ export const StealthTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
   type: z.literal("stealth").default("stealth"),
-  description: msg("Stealth the target, only allowing basic move and heal actions"),
+  description: msg("Stealth the target, only allowing non-damaging jutsu and actions"),
 });
 
 export type StealthTagType = z.infer<typeof StealthTag>;
@@ -838,24 +841,24 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
     [
       "absorb",
       // "clearprevent",
-      "stealth",
       "debuffprevent",
       "decreasedamagetaken",
       "decreasepoolcost",
       "heal",
-      "lifesteal",
       "increasedamagegiven",
       "increaseheal",
       "increasestat",
+      "lifesteal",
       "move",
       "moveprevent",
       "onehitkillprevent",
       "reflect",
       "robprevent",
       "sealprevent",
+      "shield",
+      "stealth",
       "stunprevent",
       "summon",
-      "shield",
     ].includes(tag.type)
   ) {
     return true;
@@ -872,64 +875,35 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
 export const isNegativeUserEffect = (tag: ZodAllTags) => {
   if (
     [
-      // "cleanseprevent",
       "buffprevent",
-      "decreasedamagegiven",
-      "drain",
-      "increasedamagetaken",
-      "decreaseheal",
-      "increasepoolcost",
-      "decreasestat",
+      // "cleanseprevent",
       "clear",
       "damage",
+      "decreasedamagegiven",
+      "decreaseheal",
+      "decreasestat",
+      "drain",
+      "elementalseal",
+      "flee",
+      "fleeprevent",
+      "healprevent",
+      "increasedamagetaken",
+      "increasepoolcost",
       "moveprevent",
+      "onehitkill",
       "pierce",
       "poison",
       "recoil",
-      "flee",
-      "fleeprevent",
-      "onehitkill",
       "rob",
       "seal",
       "summonprevent",
       "weakness",
-      "healprevent",
-      "elementalseal",
     ].includes(tag.type)
   ) {
     return true;
   }
   return false;
 };
-
-const BloodlineTags = z.union([
-  AbsorbTag.default({}),
-  CleansePreventTag.default({}),
-  ClearPreventTag.default({}),
-  DamageTag.default({}),
-  DecreaseDamageGivenTag.default({}),
-  DecreaseDamageTakenTag.default({}),
-  DecreaseHealGivenTag.default({}),
-  DecreasePoolCostTag.default({}),
-  DecreaseStatTag.default({}),
-  HealTag.default({}),
-  IncreaseDamageGivenTag.default({}),
-  IncreaseDamageTakenTag.default({}),
-  IncreaseHealGivenTag.default({}),
-  IncreasePoolCostTag.default({}),
-  IncreaseStatTag.default({}),
-  LifeStealTag.default({}),
-  PierceTag.default({}),
-  RecoilTag.default({}),
-  ReflectTag.default({}),
-  RobPreventTag.default({}),
-  SealPreventTag.default({}),
-  StunPreventTag.default({}),
-]);
-export type ZodBloodlineTags = z.infer<typeof BloodlineTags>;
-export const bloodlineTypes = BloodlineTags._def.options.map(
-  (o) => o._def.innerType.shape.type._def.innerType._def.value,
-);
 
 /** Based on type name, get the zod schema for validation of that tag */
 export const getTagSchema = (type: ZodAllTags["type"]) => {
@@ -1088,10 +1062,7 @@ const SuperRefineJutsu = (data: JutsuValidatorType, ctx: z.RefinementCtx) => {
 /**
  * Validator specific to effects
  */
-export const SuperRefineEffects = (
-  effects: ZodAllTags[] | ZodBloodlineTags[],
-  ctx: z.RefinementCtx,
-) => {
+export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
   effects.forEach((e) => {
     if (e.type === "barrier" && e.staticAssetPath === "") {
       addIssue(ctx, "BarrierTag needs a staticAssetPath");
@@ -1155,7 +1126,7 @@ export const BloodlineValidator = z.object({
   statClassification: z.enum(StatTypes),
   villageId: z.string().nullable(),
   hidden: z.coerce.boolean().optional(),
-  effects: z.array(BloodlineTags).superRefine(SuperRefineEffects),
+  effects: z.array(AllTags).superRefine(SuperRefineEffects),
 });
 export type ZodBloodlineType = z.infer<typeof BloodlineValidator>;
 
@@ -1193,6 +1164,10 @@ export const ItemValidatorRawSchema = z.object({
   rarity: z.enum(ItemRarities),
   slot: z.enum(ItemSlotTypes),
   requiredLevel: z.coerce.number().int().min(1).max(100).default(1),
+  expireFromStoreAt: z
+    .string()
+    .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")
+    .nullable(),
   effects: z.array(AllTags).superRefine(SuperRefineEffects),
 });
 export const ItemValidator =

@@ -1,7 +1,8 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { fetchBadge } from "@/routers/badge";
-import { eq, and, desc } from "drizzle-orm";
+import { fetchAttributes } from "@/routers/profile";
+import { eq, ne, and, desc } from "drizzle-orm";
 import {
   actionLog,
   aiProfile,
@@ -29,6 +30,7 @@ import {
   questHistory,
   reportLog,
   ryoTrade,
+  sector,
   supportReview,
   trainingLog,
   user2conversation,
@@ -51,8 +53,9 @@ import {
   village,
   userActivityEvent,
 } from "@/drizzle/schema";
-import { fetchUser } from "@/routers/profile";
+import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
+import { fetchVillages } from "@/routers/village";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import {
@@ -60,23 +63,65 @@ import {
   canModifyUserBadges,
   canSeeIps,
   canSeeActivityEvents,
+  canEditPublicUser,
+  canRestoreActivityStreak,
+  canUseMonitoringTests,
 } from "@/utils/permissions";
-import { canCloneUser } from "@/utils/permissions";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
+import { canCloneUser, canClearSectors } from "@/utils/permissions";
 import { TRPCError } from "@trpc/server";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { UserStatus } from "@/drizzle/constants";
 import type { DrizzleClient } from "@/server/db";
+import { fetchSector } from "./village";
 
 export const staffRouter = createTRPCRouter({
-  throwError: protectedProcedure.output(baseServerResponse).mutation(async () => {
-    throw new Error("Test error");
-  }),
-  throwTrpcError: protectedProcedure.output(baseServerResponse).mutation(async () => {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Test error",
-    });
-  }),
+  throwError: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canUseMonitoringTests(user.role)) {
+        return errorResponse("Not allowed for you");
+      }
+      // Mutate
+      throw new Error("Test error");
+    }),
+  throwTrpcError: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canUseMonitoringTests(user.role)) {
+        return errorResponse("Not allowed for you");
+      }
+      // Mutate
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Test error",
+      });
+    }),
+  unequipAllGear: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!canEditPublicUser(user)) {
+        return errorResponse("You do not have permission to unequip all gear");
+      }
+      // Update all equipped items to set equipped = 'NONE' for all users
+      await ctx.drizzle
+        .update(userItem)
+        .set({ equipped: "NONE" })
+        .where(ne(userItem.equipped, "NONE"));
+      return {
+        success: true,
+        message: `All gear has been unequipped for all users.`,
+      };
+    }),
   forceAwake: protectedProcedure
     .output(baseServerResponse)
     .input(z.object({ userId: z.string() }))
@@ -110,6 +155,7 @@ export const staffRouter = createTRPCRouter({
         latitude: user.latitude,
         sector: user.sector,
         avatar: user.avatar,
+        avatarLight: user.avatarLight,
         level: user.level,
         villageId: user.villageId,
         battleId: user.battleId,
@@ -204,8 +250,12 @@ export const staffRouter = createTRPCRouter({
     .input(z.object({ userId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
-      const target = await fetchUser(ctx.drizzle, input.userId);
+      const [user, target, targetAttributes] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+        fetchAttributes(ctx.drizzle, ctx.userId),
+        fetchAttributes(ctx.drizzle, input.userId),
+      ]);
       if (!user || !target) {
         return { success: false, message: "User not found" };
       }
@@ -230,6 +280,7 @@ export const staffRouter = createTRPCRouter({
         ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, user.userId)),
         ctx.drizzle.delete(userItem).where(eq(userItem.userId, user.userId)),
         ctx.drizzle.delete(questHistory).where(eq(questHistory.userId, user.userId)),
+        ctx.drizzle.delete(userAttribute).where(eq(userAttribute.userId, user.userId)),
         ctx.drizzle
           .update(userData)
           .set({
@@ -250,6 +301,7 @@ export const staffRouter = createTRPCRouter({
             speed: target.speed,
             intelligence: target.intelligence,
             willpower: target.willpower,
+            gender: target.gender,
             ninjutsuOffence: target.ninjutsuOffence,
             ninjutsuDefence: target.ninjutsuDefence,
             genjutsuOffence: target.genjutsuOffence,
@@ -295,6 +347,15 @@ export const staffRouter = createTRPCRouter({
           })),
         );
       }
+      if (targetAttributes) {
+        await ctx.drizzle.insert(userAttribute).values(
+          targetAttributes.map((attribute) => ({
+            ...attribute,
+            userId: ctx.userId,
+            id: nanoid(),
+          })),
+        );
+      }
       return { success: true, message: "User copied" };
     }),
   getUserHistoricalIps: protectedProcedure
@@ -317,6 +378,42 @@ export const staffRouter = createTRPCRouter({
       });
       return historicalIps;
     }),
+  releaseSector: protectedProcedure
+    .input(z.object({ sector: z.number().int() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const [sectorData, { user }, villages] = await Promise.all([
+        fetchSector(ctx.drizzle, input.sector),
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchVillages(ctx.drizzle),
+      ]);
+
+      // Guards
+      if (!user) return errorResponse("Could not find user");
+      if (!sectorData?.village) return errorResponse("Sector not found");
+      if (!canClearSectors(user.role)) return errorResponse("Not allowed for you");
+      if (villages?.find((v) => v.sector === input.sector)) {
+        return errorResponse("Cannot clear sector with village/town/hideout in it");
+      }
+
+      // Mutate
+      await Promise.all([
+        ctx.drizzle.delete(sector).where(eq(sector.sector, input.sector)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "war",
+          changes: [`Released sector ${input.sector} from ${sectorData.village.name}`],
+          relatedId: sectorData.villageId,
+          relatedMsg: `Released sector ${input.sector}`,
+          relatedImage: IMG_AVATAR_DEFAULT,
+        }),
+      ]);
+
+      // Return
+      return { success: true, message: "You have released the sector" };
+    }),
   getUserActivityEvents: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -336,6 +433,33 @@ export const staffRouter = createTRPCRouter({
         limit: 100, // Limit to last 100 activity events
       });
       return activityEvents;
+    }),
+  // Restore user activity streak based on activity event
+  restoreUserActivityStreak: protectedProcedure
+    .input(z.object({ userId: z.string(), activityEventId: z.number() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, target, activity] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+        ctx.drizzle.query.userActivityEvent.findFirst({
+          where: eq(userActivityEvent.id, input.activityEventId),
+        }),
+      ]);
+      // Guard
+      if (!user) return errorResponse("User not found");
+      if (!target) return errorResponse("Target user not found");
+      if (!activity) return errorResponse("Activity event not found");
+      if (!canRestoreActivityStreak(user.role)) {
+        return errorResponse("Not allowed for you");
+      }
+      // Mutate
+      await ctx.drizzle
+        .update(userData)
+        .set({ activityStreak: activity.streak })
+        .where(eq(userData.userId, target.userId));
+      return { success: true, message: "Activity streak restored" };
     }),
   // Update all occurances of a user ID in the database to another userId.
   // VERY dangerous - used to e.g. link up unlinked accounts with new userIds from clerk

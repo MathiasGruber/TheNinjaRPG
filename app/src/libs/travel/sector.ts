@@ -23,9 +23,12 @@ import { wallPlacements } from "./controls";
 import { groupBy } from "@/utils/grouping";
 import { defineHex, findHex } from "../hexgrid";
 import { getActiveObjectives } from "@/libs/quest";
-import { LocationTasks } from "@/validators/objectives";
 import { findVillageUserRelationship } from "@/utils/alliance";
-import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import {
+  IMG_AVATAR_DEFAULT,
+  MEDNIN_MIN_RANK,
+  RANKS_RESTRICTED_FROM_PVP,
+} from "@/drizzle/constants";
 import {
   IMG_SECTOR_INFO,
   IMG_SECTOR_ATTACK,
@@ -36,11 +39,13 @@ import {
   IMG_SECTOR_USERSPRITE_RIGHT,
   IMG_SECTOR_VS_ICON,
   IMG_SECTOR_WALL_STONE_TOWER,
+  IMG_ICON_HEAL,
 } from "@/drizzle/constants";
+import { hasRequiredRank } from "@/libs/train";
 import type { ComplexObjectiveFields } from "@/validators/objectives";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { TerrainHex, PathCalculator, HexagonalFaceMesh } from "../hexgrid";
-import type { SectorUser, SectorPoint, GlobalTile } from "./types";
+import type { SectorUser, GlobalTile } from "./types";
 import type { SectorVillage } from "@/routers/travel";
 import type { VillageStructure } from "@/drizzle/schema";
 
@@ -53,8 +58,7 @@ export const drawQuest = (info: {
   const activeObjectives = getActiveObjectives(user);
   const drawnIds = new Set<string>();
   activeObjectives
-    .filter((o) => LocationTasks.find((t) => t === o.task))
-    .filter((o) => "sector" in o && o.sector === user.sector)
+    .filter((o) => "sector" in o && Number(o.sector) === user.sector)
     .map((objective) => {
       let mesh = group_quest.getObjectByName(objective.id);
       const { latitude: y, longitude: x } = objective as ComplexObjectiveFields;
@@ -73,10 +77,15 @@ export const drawQuest = (info: {
         markerSprite.userData.type = "marker";
         if (objective.task === "move_to_location") {
           markerSprite.material.color.setHex(0xf4e365);
-        } else if (objective.task === "collect_item") {
+        } else if (
+          objective.task === "collect_item" ||
+          objective.task === "deliver_item"
+        ) {
           markerSprite.material.color.setHex(0x6666a3);
         } else if (objective.task === "defeat_opponents") {
           markerSprite.material.color.setHex(0x9c273a);
+        } else if (objective.task === "dialog") {
+          markerSprite.material.color.setHex(0x6666a3);
         }
         Object.assign(markerSprite.scale, new Vector3(h, h * 1.2, 1));
         Object.assign(markerSprite.position, new Vector3(w / 2, h * 0.9, -6));
@@ -245,7 +254,8 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
 
   // Avatar Sprite
   const alphaMap = loadTexture(IMG_SECTOR_USER_SPRITE_MASK);
-  const map = loadTexture(userData.avatar ? `${userData.avatar}?1=1` : "");
+  const avatar = userData?.avatarLight || userData?.avatar || IMG_AVATAR_DEFAULT;
+  const map = loadTexture(avatar);
   map.generateMipmaps = false;
   map.minFilter = LinearFilter;
   const material = new SpriteMaterial({ map: map, alphaMap: alphaMap });
@@ -267,6 +277,18 @@ export const createUserSprite = (userData: SectorUser, hex: TerrainHex) => {
     attackSprite.name = `${userData.userId}-attack`;
     group.add(attackSprite);
   }
+
+  // Heal button
+  const heal = loadTexture(IMG_ICON_HEAL);
+  const healMat = new SpriteMaterial({ map: heal, depthTest: false });
+  const healSprite = new Sprite(healMat);
+  healSprite.visible = false;
+  healSprite.userData.userId = userData.userId;
+  healSprite.userData.type = "heal";
+  Object.assign(healSprite.scale, new Vector3(h * 0.7, h * 0.7, 1));
+  Object.assign(healSprite.position, new Vector3(w, h * 0.5, -5));
+  healSprite.name = `${userData.userId}-heal`;
+  group.add(healSprite);
 
   // Info button
   const info = loadTexture(IMG_SECTOR_INFO);
@@ -658,7 +680,8 @@ export const intersectUsers = (info: {
         const user = users.filter(Boolean).find((u) => u.userId === userId);
         if (user) {
           const attack = userMesh?.children[3] as Sprite;
-          const details = userMesh?.children[4] as Sprite;
+          const heal = userMesh?.children[4] as Sprite;
+          const details = userMesh?.children[5] as Sprite;
           const relationship =
             userData.village &&
             findVillageUserRelationship(userData.village, user.villageId);
@@ -666,8 +689,15 @@ export const intersectUsers = (info: {
             user.villageId === userData.villageId || relationship?.status === "ALLY";
           const showAttack =
             !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (allyAttack || !isAlly);
+          const showHeal =
+            user.curHealth < user.maxHealth &&
+            hasRequiredRank(userData.rank, MEDNIN_MIN_RANK);
+
           if (attack && userData.userId !== userId && showAttack) {
             attack.visible = true;
+          }
+          if (heal && userData.userId !== userId && showHeal) {
+            heal.visible = true;
           }
           if (details) details.visible = true;
           if (document.body.style.cursor !== "wait") {
@@ -683,6 +713,8 @@ export const intersectUsers = (info: {
     if (!newUserTooltips.has(userId)) {
       const attackSprite = group_users.getObjectByName(`${userId}-attack`);
       if (attackSprite) attackSprite.visible = false;
+      const healSprite = group_users.getObjectByName(`${userId}-heal`);
+      if (healSprite) healSprite.visible = false;
       const infoSprite = group_users.getObjectByName(`${userId}-info`);
       if (infoSprite) infoSprite.visible = false;
     }
@@ -701,8 +733,6 @@ export const intersectTiles = (info: {
   pathFinder: PathCalculator;
   origin: TerrainHex;
   currentHighlights: Set<string>;
-  hoverPosition: SectorPoint | null;
-  setHoverPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }) => {
   const { group_tiles, raycaster, origin, pathFinder, currentHighlights } = info;
   const intersects = raycaster.intersectObjects(group_tiles.children);
@@ -712,14 +742,6 @@ export const intersectTiles = (info: {
     // Fetch the shortest path on the map using A*
     const target = intersected.userData.tile;
     const shortestPath = origin && pathFinder.getShortestPath(origin, target);
-    // Update hover position
-    if (
-      info.hoverPosition &&
-      info.hoverPosition.x !== target.col &&
-      info.hoverPosition.y !== target.row
-    ) {
-      info.setHoverPosition({ x: target.col, y: target.row });
-    }
     // Highlight the path
     void shortestPath?.forEach((tile) => {
       const mesh = group_tiles.getObjectByName(

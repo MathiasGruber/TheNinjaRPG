@@ -20,6 +20,7 @@ import { initiateBattle } from "@/routers/combat";
 import { fetchSectorVillage } from "@/routers/village";
 import { findRelationship } from "@/utils/alliance";
 import { structureBoost } from "@/utils/village";
+import { groupBy } from "@/utils/grouping";
 import {
   ROBBING_SUCCESS_CHANCE,
   ROBBING_STOLLEN_AMOUNT,
@@ -230,6 +231,7 @@ export const travelRouter = createTRPCRouter({
             sector: true,
             status: true,
             avatar: true,
+            avatarLight: true,
             level: true,
             rank: true,
             isOutlaw: true,
@@ -251,7 +253,7 @@ export const travelRouter = createTRPCRouter({
         ctx.drizzle.query.village.findFirst({
           where: and(
             eq(village.sector, user.sector),
-            inArray(village.type, ["VILLAGE", "TOWN", "HIDEOUT", "SAFEZONE"]),
+            inArray(village.type, ["VILLAGE", "OUTLAW", "TOWN", "HIDEOUT", "SAFEZONE"]),
           ),
           with: { structures: true },
         }),
@@ -354,6 +356,24 @@ export const travelRouter = createTRPCRouter({
         .where(and(eq(userData.userId, ctx.userId), eq(userData.status, "TRAVEL")));
       return { success: true, message: "OK" };
     }),
+  // Get all sector ownership
+  getAllSectors: protectedProcedure.query(async ({ ctx }) => {
+    const allSectors = await ctx.drizzle.query.sector.findMany({
+      columns: {
+        sector: true,
+        villageId: true,
+      },
+    });
+    const groupedSectors = groupBy(allSectors, "villageId");
+    const converted = [...groupedSectors.keys()].map((key) => {
+      const sectors = groupedSectors.get(key) || [];
+      return {
+        villageId: key,
+        sectors: sectors.map((s) => s.sector),
+      };
+    });
+    return converted;
+  }),
   // Move user to new local location
   moveInSector: protectedProcedure
     .input(
@@ -375,6 +395,7 @@ export const travelRouter = createTRPCRouter({
         battleId: z.string().nullish(),
         level: z.number().int(),
         avatar: z.string().url(),
+        avatarLight: z.string().url(),
         username: z.string(),
       }),
     )
@@ -389,6 +410,7 @@ export const travelRouter = createTRPCRouter({
               username: z.string(),
               userId: z.string(),
               avatar: z.string(),
+              avatarLight: z.string(),
               sector: z.number(),
               battleId: z.string().nullish(),
               villageId: z.string().nullish(),
@@ -484,7 +506,23 @@ export const travelRouter = createTRPCRouter({
         if (user.longitude !== curLongitude || user.latitude !== curLatitude) {
           return errorResponse("You have moved since you started this move");
         }
-        throw serverError("BAD_REQUEST", "Unknown error while moving");
+        if (user.villageId !== villageId) {
+          return errorResponse(
+            "Seems like your village alliance has changed, please check profile.",
+          );
+        }
+        throw serverError(
+          "BAD_REQUEST",
+          `Unknown error while moving. Route input: ${JSON.stringify(input)}. User information: ${JSON.stringify(
+            {
+              sector: user.sector,
+              longitude: user.longitude,
+              latitude: user.latitude,
+              status: user.status,
+              villageId: user.villageId,
+            },
+          )}`,
+        );
       }
     }),
 });

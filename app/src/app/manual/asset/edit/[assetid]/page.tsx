@@ -8,7 +8,7 @@ import { useEffect, use } from "react";
 import { EditContent } from "@/layout/EditContent";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canChangeContent } from "@/utils/permissions";
-import { useAssetEditForm } from "@/libs/asset";
+import { useAssetEditForm } from "@/hooks/asset";
 import { gameAssetValidator } from "@/validators/asset";
 import type { GameAsset } from "@/drizzle/schema";
 
@@ -69,6 +69,7 @@ const SingleEditAsset: React.FC<SingleEditAssetProps> = (props) => {
           showSubmit={true}
           buttonTxt="Save to Database"
           type="asset"
+          relationId={asset.id}
           allowImageUpload={true}
           onAccept={handleAssetSubmit}
         />

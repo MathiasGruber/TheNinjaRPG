@@ -104,9 +104,12 @@ export const updateUserOnMap = async (
     latitude: number;
     username: string;
     avatar: string | null;
+    avatarLight: string | null;
     location: string | null;
     villageId?: string | null;
     battleId?: string | null;
+    curHealth?: number;
+    maxHealth?: number;
     level: number;
     status: UserStatus;
   },
@@ -116,6 +119,7 @@ export const updateUserOnMap = async (
     longitude: user.longitude,
     latitude: user.latitude,
     avatar: user.avatar,
+    avatarLight: user.avatarLight,
     username: user.username,
     sector: user.sector,
     status: user.status,
@@ -123,5 +127,7 @@ export const updateUserOnMap = async (
     villageId: user?.villageId ?? null,
     battleId: user?.battleId ?? null,
     level: user.level,
+    ...(user.curHealth ? { curHealth: user.curHealth } : {}),
+    ...(user.maxHealth ? { maxHealth: user.maxHealth } : {}),
   });
 };

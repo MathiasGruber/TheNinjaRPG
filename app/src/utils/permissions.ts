@@ -1,5 +1,5 @@
 import { UserRoles } from "@/drizzle/constants";
-import type { UserData, UserReport } from "@/drizzle/schema";
+import type { UserData, UserRank, UserReport } from "@/drizzle/schema";
 import type { UserRole } from "@/drizzle/constants";
 
 export const canChangeContent = (role: UserRole) => {
@@ -29,8 +29,13 @@ export const canSubmitNotification = (role: UserRole) => {
   ].includes(role);
 };
 
-export const canTransferJutsu = (role: UserRole) => {
-  return role !== "USER";
+export const canTransferJutsu = (user?: UserData) => {
+  if (!user) return false;
+  return user.role !== "USER" || user.staffAccount;
+};
+
+export const canUseMonitoringTests = (role: UserRole) => {
+  return ["CODING-ADMIN"].includes(role);
 };
 
 export const canModifyEventGains = (role: UserRole) => {
@@ -67,6 +72,10 @@ export const canUnstuckVillage = (role: UserRole) => {
   return role !== "USER";
 };
 
+export const canSwapBloodline = (role: UserRole) => {
+  return !!role; // Allow all roles to swap bloodline
+};
+
 export const canSeeSecretData = (role: UserRole) => {
   return [
     "JR_MODERATOR",
@@ -85,8 +94,20 @@ export const canSeeActivityEvents = (role: UserRole) => {
   return role !== "USER";
 };
 
+export const canRestoreActivityStreak = (role: UserRole) => {
+  return role !== "USER";
+};
+
 export const canModifyUserBadges = (role: UserRole) => {
-  return ["CODING-ADMIN", "CONTENT-ADMIN", "EVENT", "CONTENT"].includes(role);
+  return [
+    "CODING-ADMIN",
+    "CONTENT-ADMIN",
+    "EVENT",
+    "CONTENT",
+    "MODERATOR-ADMIN",
+    "HEAD_MODERATOR",
+    "MODERATOR",
+  ].includes(role);
 };
 
 export const canDeleteUsers = (role: UserRole) => {
@@ -291,4 +312,12 @@ export const canViewFullBattleLog = (role: UserRole) => {
 
 export const canCloneUser = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN"].includes(role);
+};
+
+export const canInteractWithPolls = (rank: UserRank) => {
+  return rank !== "STUDENT";
+};
+
+export const canClearSectors = (role: UserRole) => {
+  return ["CODING-ADMIN", "CONTENT-ADMIN", "CONTENT", "EVENT"].includes(role);
 };

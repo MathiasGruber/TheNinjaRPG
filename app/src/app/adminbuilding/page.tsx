@@ -39,7 +39,10 @@ export default function AdministrationBuilding() {
   const { mutate: startQuest, isPending } = api.quests.startQuest.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      await util.profile.getUser.invalidate();
+      await Promise.all([
+        util.profile.getUser.invalidate(),
+        util.quests.allianceBuilding.invalidate(),
+      ]);
     },
   });
 
@@ -114,6 +117,7 @@ export default function AdministrationBuilding() {
                         userQuest={currentQuest}
                         tracker={currentTracker}
                         hideTitle
+                        showScene
                       />
                     </div>
                   ) : (

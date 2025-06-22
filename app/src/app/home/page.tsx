@@ -6,7 +6,7 @@ import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import BanInfo from "@/layout/BanInfo";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import { ActionSelector } from "@/layout/CombatActions";
 import {
@@ -32,9 +32,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { UserItem, Item } from "@/drizzle/schema";
-
-type UserItemWithItem = UserItem & { item: Item };
+import type { UserItemWithItem } from "@/drizzle/schema";
 
 export default function HomePage() {
   const { userData, sectorVillage, access, ownVillage, updateUser } =
@@ -426,8 +424,9 @@ export default function HomePage() {
 
             {/* Stored Items Modal */}
             {isModalOpen && selectedItem && (
-              <Modal
+              <Modal2
                 title="Item Details"
+                isOpen={isModalOpen}
                 setIsOpen={setIsModalOpen}
                 isValid={false}
                 proceed_label={
@@ -447,7 +446,7 @@ export default function HomePage() {
                 {isTogglingStoreItem && (
                   <Loader explanation={`Moving ${selectedItem.item.name}`} />
                 )}
-              </Modal>
+              </Modal2>
             )}
           </ContentBox>
         </>

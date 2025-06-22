@@ -5,6 +5,7 @@ import { getInfiniteThreads } from "@/routers/forum";
 import { fetchUser } from "@/routers/profile";
 import { drizzleDB } from "@/server/db";
 import { IMG_BUILDING_GLOBALANBU } from "@/drizzle/constants";
+import StoryQuests from "./StoryQuests";
 
 export default async function GlobalAnbuHQ() {
   // Session information
@@ -24,12 +25,15 @@ export default async function GlobalAnbuHQ() {
 
   // Show board
   return (
-    <FancyForumThreads
-      board_name="ANBU HQ"
-      canPost={canPost}
-      back_href="/village"
-      image={IMG_BUILDING_GLOBALANBU}
-      initialData={initialNews}
-    />
+    <>
+      <FancyForumThreads
+        board_name="ANBU HQ"
+        canPost={canPost}
+        back_href="/village"
+        image={IMG_BUILDING_GLOBALANBU}
+        initialData={initialNews}
+      />
+      {userData && <StoryQuests />}
+    </>
   );
 }

@@ -75,6 +75,7 @@ export const homeRouter = createTRPCRouter({
         latitude: user.latitude,
         sector: newStatus === "AWAKE" ? user.sector : -1,
         avatar: user.avatar,
+        avatarLight: user.avatarLight,
         level: user.level,
         villageId: user.villageId,
         battleId: user.battleId,
@@ -82,6 +83,8 @@ export const homeRouter = createTRPCRouter({
         status: newStatus,
         location: "",
         userId: ctx.userId,
+        curHealth: user.curHealth,
+        maxHealth: user.maxHealth,
       };
       const pusher = getServerPusher();
       void updateUserOnMap(pusher, user.sector, output);

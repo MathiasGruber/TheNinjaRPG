@@ -108,7 +108,7 @@ export async function GET() {
             lastTokenReductionAt: now,
           })
           .where(eq(war.id, activeWar.id)),
-        ...(activeWar.type === "VILLAGE_WAR"
+        ...(["VILLAGE_WAR", "WAR_RAID"].includes(activeWar.type)
           ? [
               drizzleDB
                 .update(villageStructure)

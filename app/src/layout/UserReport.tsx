@@ -7,7 +7,7 @@ import { parseHtml } from "@/utils/parse";
 import { MessagesSquare, Rocket, ShieldAlert } from "lucide-react";
 import { EarOff, Ban, Eraser } from "lucide-react";
 import ContentBox from "@/layout/ContentBox";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import Countdown from "@/layout/Countdown";
 import RichInput from "@/layout/RichInput";
 import SliderField from "@/layout/SliderField";
@@ -298,7 +298,7 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
             {!isPending && (
               <div className="flex flex-row-reverse gap-1 mt-2">
                 {canComment && (
-                  <Confirm
+                  <Confirm2
                     title="Confirm Posting Comment"
                     button={
                       <Button id="submit_comment">
@@ -312,10 +312,10 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
                   >
                     You are about to post a comment on this report. Please note that
                     this comment can not be edited or deleted afterwards
-                  </Confirm>
+                  </Confirm2>
                 )}
                 {!canModerate && canEscalate && (
-                  <Confirm
+                  <Confirm2
                     title="Confirm Escalating Report"
                     button={
                       <Button id="submit_comment">
@@ -330,10 +330,10 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
                     this if you feel strongly the decision is wrong, and know that if
                     you do not have good reason for escalating, it may result in further
                     extension of the ban.
-                  </Confirm>
+                  </Confirm2>
                 )}
                 {canModerate && canSilence && (
-                  <Confirm
+                  <Confirm2
                     title="Confirm Silencing User"
                     button={
                       <Button id="submit_resolve" variant="destructive">
@@ -348,10 +348,10 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
                     You are about to silence the user. Please note that the comment and
                     decision can not be edited or deleted. You can unsilence the person
                     by posting another comment and &rdquo;Clear&rdquo; the report.
-                  </Confirm>
+                  </Confirm2>
                 )}
                 {canModerate && canBan && (
-                  <Confirm
+                  <Confirm2
                     title="Confirm Banning User"
                     button={
                       <Button id="submit_resolve" variant="destructive">
@@ -366,10 +366,10 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
                     You are about to ban the user. Please note that the comment and
                     decision can not be edited or deleted. You can unban the person by
                     posting another comment and &rdquo;Clear&rdquo; the report.
-                  </Confirm>
+                  </Confirm2>
                 )}
                 {canModerate && canWarn && (
-                  <Confirm
+                  <Confirm2
                     title="Confirm Warning"
                     button={
                       <Button id="submit_resolve" className="bg-orange-400">
@@ -383,10 +383,10 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
                   >
                     You are about to warn this user. Please note that the comment and
                     decision can not be edited or deleted.
-                  </Confirm>
+                  </Confirm2>
                 )}
                 {canModerate && canClear && (
-                  <Confirm
+                  <Confirm2
                     title="Confirm Clearing Report"
                     button={
                       <Button id="submit_resolve" className="bg-green-600">
@@ -400,13 +400,13 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
                   >
                     You are about to clear the report. Please note that the comment and
                     decision can not be edited or deleted.
-                  </Confirm>
+                  </Confirm2>
                 )}
               </div>
             )}
           </div>
         </form>
-        {allComments?.map((comment, i) => (
+        {allComments?.map((comment) => (
           <div key={comment.id}>
             <CommentOnReport
               title={reportCommentExplain(comment.decision)}

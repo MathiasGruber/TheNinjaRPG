@@ -6,9 +6,10 @@ import Link from "next/link";
 import Image from "next/image";
 import alea from "alea";
 import AvatarImage from "@/layout/Avatar";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import SliderField from "@/layout/SliderField";
 import WebGlError from "@/layout/WebGLError";
+import { LogbookEntry } from "@/layout/Logbook";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "src/components/ui/label";
 import { z } from "zod";
@@ -34,7 +35,7 @@ import { sleep } from "@/utils/time";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import { SECTOR_LENGTH_TO_WIDTH } from "@/libs/travel/constants";
-import { RANKS_RESTRICTED_FROM_PVP } from "@/drizzle/constants";
+import { RANKS_RESTRICTED_FROM_PVP, MEDNIN_MIN_RANK } from "@/drizzle/constants";
 import { WAR_SHRINE_IMAGE } from "@/drizzle/constants";
 import {
   IMG_SECTOR_INFO,
@@ -49,6 +50,8 @@ import type { GlobalTile, SectorPoint, SectorUser } from "@/libs/travel/types";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { VillageStructure } from "@/drizzle/schema";
 import { createGenericStructure } from "@/libs/travel/sector";
+import { hasRequiredRank } from "@/libs/train";
+import HealingPopover from "@/layout/HealingPopover";
 
 interface SectorProps {
   sector: number;
@@ -56,21 +59,20 @@ interface SectorProps {
   target: SectorPoint | null;
   showSorrounding: boolean;
   showActive: boolean;
-  hoverPosition: SectorPoint | null;
   setShowSorrounding: React.Dispatch<React.SetStateAction<boolean>>;
   setTarget: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
   setPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
-  setHoverPosition: React.Dispatch<React.SetStateAction<SectorPoint | null>>;
 }
 
 const Sector: React.FC<SectorProps> = (props) => {
   // Incoming props
-  const { sector, target, showActive, hoverPosition } = props;
-  const { setTarget, setPosition, setHoverPosition } = props;
+  const { sector, target, showActive } = props;
+  const { setTarget, setPosition } = props;
 
   // State pertaining to the sector
   const [webglError, setWebglError] = useState<boolean>(false);
   const [targetUser, setTargetUser] = useState<SectorUser | null>(null);
+  const [healTargetUser, setHealTargetUser] = useState<SectorUser | null>(null);
   const [moves, setMoves] = useState(0);
   const [sorrounding, setSorrounding] = useState<SectorUser[]>([]);
   const [allyAttack, setAllyAttack] = useLocalStorage<boolean>("friendlyAttack", false);
@@ -78,6 +80,8 @@ const Sector: React.FC<SectorProps> = (props) => {
   const [currentStructure, setCurrentStructure] = useState<VillageStructure | null>(
     null,
   );
+  const [logbookModalOpen, setLogbookModalOpen] = useState<boolean>(false);
+  const [logbookModalQuestId, setLogbookModalQuestId] = useState<string | null>(null);
 
   // References which shouldn't update
   const origin = useRef<TerrainHex | undefined>(undefined);
@@ -105,16 +109,14 @@ const Sector: React.FC<SectorProps> = (props) => {
   const structures = villageData?.structures || [];
 
   // If we're in an active sector war, then we add a shrine to the center of the sector
-  if (data?.warData) {
-    const shrine = createGenericStructure({
-      name: "Sector Shrine",
-      route: "/shrine",
-      image: WAR_SHRINE_IMAGE,
-      longitude: 10,
-      latitude: 5,
-    });
-    structures.push(shrine);
-  }
+  const shrine = createGenericStructure({
+    name: "Sector Shrine",
+    route: "/shrine",
+    image: WAR_SHRINE_IMAGE,
+    longitude: 10,
+    latitude: 5,
+  });
+  structures.push(shrine);
 
   // Router for forwarding
   const router = useRouter();
@@ -124,6 +126,12 @@ const Sector: React.FC<SectorProps> = (props) => {
 
   // Background color for the map
   const { color } = getBackgroundColor(props.tile);
+
+  // If new objective is available, then show a modal
+  const modalUserQuest = userData?.userQuests?.find(
+    (q) => q.questId === logbookModalQuestId,
+  );
+  const modalTracker = userData?.questData?.find((q) => q.id === logbookModalQuestId);
 
   // Update mouse position on mouse move
   const onDocumentMouseMove = (event: MouseEvent) => {
@@ -168,16 +176,30 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { mutate: checkQuest } = api.quests.checkLocationQuest.useMutation({
     onSuccess: async (result) => {
       if (result.success) {
+        // Push any notifications
         result.notifications.forEach((notification) => {
           showMutationToast({
             success: true,
             message: notification,
           });
         });
+        // Update user quest data immidiately
         if (result.questData && result.updateAt) {
           await updateUser({ questData: result.questData, updatedAt: result.updateAt });
         }
+        // Invalidate user items
         await utils.item.getUserItems.invalidate();
+      }
+      // If there are any quest ids that have been updated,
+      // let's see if we should show a modal with new objective for consecutive quests
+      if (result.questIdsUpdated && result.questIdsUpdated.length > 0) {
+        result.questIdsUpdated.forEach((questId) => {
+          const quest = userData?.userQuests?.find((q) => q.questId === questId);
+          if (quest?.quest?.consecutiveObjectives) {
+            setLogbookModalOpen(true);
+            setLogbookModalQuestId(questId);
+          }
+        });
       }
     },
   });
@@ -284,23 +306,30 @@ const Sector: React.FC<SectorProps> = (props) => {
         userData?.userQuests?.forEach((userquest) => {
           const tracker = userData.questData?.find((q) => q.id === userquest.questId);
           userquest.quest.content.objectives.forEach((objective, i) => {
+            // Check if we should check objective on backend
+            const isOnLocation = isLocationObjective(
+              {
+                sector: data.sector,
+                longitude: data.longitude,
+                latitude: data.latitude,
+              },
+              objective,
+            );
             if (
               (!tracker || isQuestObjectiveAvailable(userquest.quest, tracker, i)) &&
               // If an objective is a location objective, then check quest
-              (isLocationObjective(
-                {
-                  sector: data.sector,
-                  longitude: data.longitude,
-                  latitude: data.latitude,
-                },
-                objective,
-              ) ||
+              (isOnLocation ||
                 // If we have attackers, check for these
-                (objective.attackers &&
-                  objective.attackers.length > 0 &&
-                  objective.attackers_chance > 0))
+                ("attackers" in objective &&
+                  objective.attackers &&
+                  objective.attackers.length > 0))
             ) {
               checkQuest();
+            }
+            // For dialog objectives, check if we should show a modal
+            if (objective.task === "dialog" && isOnLocation) {
+              setLogbookModalOpen(true);
+              setLogbookModalQuestId(userquest.questId);
             }
           });
         });
@@ -366,7 +395,20 @@ const Sector: React.FC<SectorProps> = (props) => {
     showUsers.current = showActive;
   }, [showActive]);
 
-  // This is where the actua
+  // Clear heal target if user moves away or target moves away
+  useEffect(() => {
+    if (healTargetUser && userData && origin.current) {
+      const isOnSameTile =
+        healTargetUser.longitude === origin.current.col &&
+        healTargetUser.latitude === origin.current.row;
+
+      if (!isOnSameTile) {
+        setHealTargetUser(null);
+      }
+    }
+  }, [healTargetUser, userData, sorrounding]);
+
+  // This is where the actual movement happens
   useEffect(() => {
     if (target && origin.current && pathFinder.current && userData && userData.avatar) {
       // Check user status
@@ -379,6 +421,10 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Guards
       if (!targetHex) return;
       if (target.x === origin.current.col && target.y === origin.current.row) return;
+      // Clear heal target if moving away
+      if (healTargetUser) {
+        setHealTargetUser(null);
+      }
       // Get shortest path
       if (!isMoving) {
         document.body.style.cursor = "wait";
@@ -389,6 +435,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           latitude: targetHex.row,
           sector: sector,
           avatar: userData.avatar,
+          avatarLight: userData.avatarLight || userData.avatar,
           villageId: userData.villageId,
           battleId: userData.battleId,
           username: userData.username,
@@ -565,6 +612,21 @@ const Sector: React.FC<SectorProps> = (props) => {
                 }
               }
               return false;
+            } else if (showUsers.current && i.object.userData.type === "heal") {
+              const target = users.current?.find(
+                (u) => u.userId === i.object.userData.userId,
+              );
+              if (target) {
+                if (
+                  target.longitude === origin.current?.col &&
+                  target.latitude === origin.current?.row
+                ) {
+                  setHealTargetUser(target);
+                } else {
+                  setTarget({ x: target.longitude, y: target.latitude });
+                }
+              }
+              return false;
             } else if (showUsers.current && i.object.userData.type === "info") {
               const userId = i.object.userData.userId as string;
               void router.push(`/userid/${userId}`);
@@ -628,8 +690,6 @@ const Sector: React.FC<SectorProps> = (props) => {
             pathFinder: pathFinder.current,
             origin: origin.current,
             currentHighlights: highlights,
-            hoverPosition: hoverPosition,
-            setHoverPosition: setHoverPosition,
           });
         }
 
@@ -690,7 +750,6 @@ const Sector: React.FC<SectorProps> = (props) => {
       )}
       {props.showSorrounding && sorrounding && userData && origin.current && (
         <SorroundingUsers
-          userData={userData}
           setIsOpen={props.setShowSorrounding}
           users={sorrounding}
           userId={userData.userId}
@@ -727,6 +786,20 @@ const Sector: React.FC<SectorProps> = (props) => {
           }}
         />
       )}
+      {logbookModalOpen && modalUserQuest && modalTracker && (
+        <Modal2
+          isOpen={logbookModalOpen}
+          setIsOpen={setLogbookModalOpen}
+          title="Quest Update"
+        >
+          <LogbookEntry
+            userQuest={modalUserQuest}
+            tracker={modalTracker}
+            showScene={true}
+            hideTitle={false}
+          />
+        </Modal2>
+      )}
       {targetUser && (isAttacking || userData?.status === "BATTLE") && (
         <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black">
           <div className="m-auto text-center text-white">
@@ -743,6 +816,22 @@ const Sector: React.FC<SectorProps> = (props) => {
           </div>
         </div>
       )}
+      {healTargetUser && userData && origin.current && (
+        <div className="pointer-events-auto absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <HealingPopover
+            targetUser={healTargetUser}
+            side="top"
+            open={!!healTargetUser}
+            onOpenChange={(open) => {
+              if (!open) {
+                setHealTargetUser(null);
+              }
+            }}
+            onHealComplete={() => setHealTargetUser(null)}
+            trigger={<div className="w-1 h-1 opacity-0" />}
+          />
+        </div>
+      )}
     </>
   );
 };
@@ -750,7 +839,6 @@ const Sector: React.FC<SectorProps> = (props) => {
 export default Sector;
 
 interface SorroundingUsersProps {
-  userData: NonNullable<UserWithRelations>;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   userId: string;
   hex: TerrainHex;
@@ -766,7 +854,8 @@ interface SorroundingUsersProps {
 
 const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   // Min level to show
-  const { userData, storedLvl, setStoredLvl } = props;
+  const { data: userData } = useRequiredUserData();
+  const { storedLvl, setStoredLvl } = props;
 
   // Query
   const { data } = api.village.getAll.useQuery(undefined);
@@ -801,18 +890,22 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedLevel]);
 
+  if (!userData) return null;
+
   return (
-    <Modal
+    <Modal2
+      isOpen={true}
       title={`Scouting. Your position: [${props.hex.col}, ${props.hex.row}]`}
       setIsOpen={props.setIsOpen}
       isValid={false}
+      className="md:max-w-[calc(100%-2rem)]"
     >
       {users.length === 0 && (
         <p className="text-red-500">
           No awake users above level {watchedLevel} in this sector
         </p>
       )}
-      <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10 pb-3">
+      <div className="grid grid-cols-3 gap-4 text-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10  xl:grid-cols-14 pb-3">
         {users.map((user, i) => {
           // Derived
           const sameHex =
@@ -828,41 +921,48 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
           const showAttack =
             !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) &&
             (props.allyAttack || !isAlly);
+
           // Show user
           return (
-            <div key={i} className="relative">
-              <div className="absolute right-0 top-0 z-50 w-1/3 hover:opacity-80 hover:cursor-pointer">
-                {showAttack && sameHex && (
-                  <Image
-                    src={IMG_SECTOR_ATTACK}
-                    onClick={() => props.attackUser(user.userId)}
-                    width={40}
-                    height={40}
-                    alt={`Attack-${user.userId}`}
-                  />
-                )}
-                {!sameHex && (
-                  <Image
-                    src={IMG_ICON_MOVE}
-                    onClick={() => props.move(user.longitude, user.latitude)}
-                    width={40}
-                    height={40}
-                    alt={`Attack-${user.userId}`}
-                  />
-                )}
-              </div>
-              <div className="absolute left-0 top-0 z-50 w-1/3 hover:opacity-80  hover:cursor-pointer">
-                <Link href={`/userid/${user.userId}`}>
-                  <Image
-                    src={IMG_SECTOR_INFO}
-                    width={40}
-                    height={40}
-                    alt={`Info-${user.userId}`}
-                  />
-                </Link>
-              </div>
+            <div key={i}>
+              <div className="relative">
+                <div className="absolute right-0 top-0 z-50 hover:opacity-80 hover:cursor-pointer max-w-1/3">
+                  {showAttack && sameHex && (
+                    <Image
+                      src={IMG_SECTOR_ATTACK}
+                      onClick={() => props.attackUser(user.userId)}
+                      width={40}
+                      height={40}
+                      alt={`Attack-${user.userId}`}
+                    />
+                  )}
 
-              <div className="p-3 relative">
+                  {!sameHex && (
+                    <Image
+                      src={IMG_ICON_MOVE}
+                      onClick={() => props.move(user.longitude, user.latitude)}
+                      width={40}
+                      height={40}
+                      alt={`Move-${user.userId}`}
+                    />
+                  )}
+                </div>
+                <div className="absolute left-0 top-0 z-50 hover:opacity-80  hover:cursor-pointer max-w-1/3">
+                  <Link href={`/userid/${user.userId}`}>
+                    <Image
+                      src={IMG_SECTOR_INFO}
+                      width={40}
+                      height={40}
+                      alt={`Info-${user.userId}`}
+                    />
+                  </Link>
+                </div>
+                <div className="absolute left-0 bottom-0 z-50 hover:opacity-80  hover:cursor-pointer max-w-1/3">
+                  {user.curHealth < user.maxHealth &&
+                    hasRequiredRank(userData.rank, MEDNIN_MIN_RANK) && (
+                      <HealingPopover targetUser={user} side="top" />
+                    )}
+                </div>
                 <AvatarImage
                   href={user.avatar}
                   userId={user.userId}
@@ -870,6 +970,8 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                   size={512}
                   priority
                 />
+              </div>
+              <div className="relative">
                 {sameHex && userData.isOutlaw && (
                   <div className="absolute right-0 bottom-0 z-50 w-1/3 hover:opacity-80  hover:cursor-pointer">
                     <Image
@@ -896,10 +998,12 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                 )}
               </div>
               <p>{user.username}</p>
-              <p className="text-white text-xs">
+              <p className="text-xs">
                 Lvl. {user.level} [{user.longitude}, {user.latitude}]
               </p>
-              <p style={{ color: villageColor }}>{villageName}</p>
+              <p style={{ color: villageColor }} className="font-bold">
+                {villageName}
+              </p>
             </div>
           );
         })}
@@ -927,6 +1031,6 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
           <Label>Attack button on allies</Label>
         </div>
       </div>
-    </Modal>
+    </Modal2>
   );
 };

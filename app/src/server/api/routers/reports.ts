@@ -2,8 +2,8 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { alias } from "drizzle-orm/mysql-core";
 import { getTableColumns, sql } from "drizzle-orm";
-import { eq, and, gte, ne, gt, lte, like, inArray, desc } from "drizzle-orm";
-import { reportLog } from "@/drizzle/schema";
+import { eq, and, gte, ne, lte, like, inArray, desc } from "drizzle-orm";
+import { historicalAvatar, reportLog } from "@/drizzle/schema";
 import { forumPost, conversationComment, userNindo } from "@/drizzle/schema";
 import { userReport, userReportComment, userData, userReview } from "@/drizzle/schema";
 import { automatedModeration } from "@/drizzle/schema";
@@ -11,7 +11,6 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { serverError, baseServerResponse, errorResponse } from "../trpc";
 import { userReportSchema } from "@/validators/reports";
 import { reportCommentSchema } from "@/validators/reports";
-import { requestAvatarForUser } from "@/libs/replicate";
 import { canModerateReports } from "@/utils/permissions";
 import { canBanUsers } from "@/utils/permissions";
 import { canSilenceUsers } from "@/utils/permissions";
@@ -33,6 +32,7 @@ import { getAdditionalContext } from "@/libs/moderator";
 import sanitize from "@/utils/sanitize";
 import { canModerateRoles } from "@/utils/permissions";
 import { reportFilteringSchema } from "@/validators/reports";
+import { createUserAvatar } from "@/routers/avatar";
 import type { AutomoderationCategory } from "@/drizzle/constants";
 import type { BanState } from "@/drizzle/constants";
 import type { ReportCommentSchema } from "@/validators/reports";
@@ -236,7 +236,7 @@ export const reportsRouter = createTRPCRouter({
                     ]),
                   ),
                 ]
-              : [eq(userReport.status, input.status)]),
+              : [input.status ? eq(userReport.status, input.status) : undefined]),
           ),
         )
         .innerJoin(
@@ -270,46 +270,16 @@ export const reportsRouter = createTRPCRouter({
   // Get user report
   getBan: protectedProcedure.query(async ({ ctx }) => {
     // Selector statement
-    const [user, banReport, silenceReport] = await Promise.all([
+    const [user, allReports] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),
-      ctx.drizzle.query.userReport.findFirst({
+      ctx.drizzle.query.userReport.findMany({
         where: and(
-          eq(userReport.status, "BAN_ACTIVATED"),
+          inArray(userReport.status, [
+            "BAN_ACTIVATED",
+            "SILENCE_ACTIVATED",
+            "OFFICIAL_WARNING",
+          ]),
           eq(userReport.reportedUserId, ctx.userId),
-          gt(userReport.banEnd, new Date()),
-        ),
-        with: {
-          reporterUser: {
-            columns: {
-              userId: true,
-              username: true,
-              avatar: true,
-              rank: true,
-              isOutlaw: true,
-              level: true,
-              role: true,
-              federalStatus: true,
-            },
-          },
-          reportedUser: {
-            columns: {
-              userId: true,
-              username: true,
-              avatar: true,
-              rank: true,
-              isOutlaw: true,
-              level: true,
-              role: true,
-              federalStatus: true,
-            },
-          },
-        },
-      }),
-      ctx.drizzle.query.userReport.findFirst({
-        where: and(
-          eq(userReport.status, "SILENCE_ACTIVATED"),
-          eq(userReport.reportedUserId, ctx.userId),
-          gt(userReport.banEnd, new Date()),
         ),
         with: {
           reporterUser: {
@@ -340,6 +310,17 @@ export const reportsRouter = createTRPCRouter({
       }),
     ]);
 
+    const banReport = allReports?.find(
+      (r) => r.status === "BAN_ACTIVATED" && r.banEnd && r.banEnd > new Date(),
+    );
+    const silenceReport = allReports?.find(
+      (r) => r.status === "SILENCE_ACTIVATED" && r.banEnd && r.banEnd > new Date(),
+    );
+    const warningReport = user.isWarned
+      ? allReports?.find((r) => r.status === "OFFICIAL_WARNING")
+      : null;
+    console.log(warningReport);
+
     // If user can not see secret data, hide reporter
     if (!canSeeSecretData(user.role)) {
       if (banReport) {
@@ -347,6 +328,9 @@ export const reportsRouter = createTRPCRouter({
       }
       if (silenceReport) {
         silenceReport.reporterUser = null;
+      }
+      if (warningReport) {
+        warningReport.reporterUser = null;
       }
     }
 
@@ -360,13 +344,24 @@ export const reportsRouter = createTRPCRouter({
 
     // Unban user if ban no longer active
     if (!banReport && user.isBanned) {
+      console.log("Unbanning user", banReport);
       await ctx.drizzle
         .update(userData)
         .set({ isBanned: false })
         .where(eq(userData.userId, ctx.userId));
     }
-    return banReport ?? silenceReport ?? null;
+    return warningReport ?? banReport ?? silenceReport ?? null;
   }),
+  // Accept warning
+  acceptWarning: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      await ctx.drizzle
+        .update(userData)
+        .set({ isWarned: false })
+        .where(eq(userData.userId, ctx.userId));
+      return { success: true, message: "Warning accepted" };
+    }),
   // Get a single report
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -572,6 +567,7 @@ export const reportsRouter = createTRPCRouter({
       ]);
       // Guard
       const hasModRights = canModerateReports(user, report);
+      if (!report.reportedUserId) return errorResponse("No user to warn");
       if (!hasModRights) return errorResponse("No permission to warn");
       if (!canWarnUsers(user)) return errorResponse("You cannot warn users");
       // Update
@@ -585,6 +581,10 @@ export const reportsRouter = createTRPCRouter({
             banEnd: null,
           })
           .where(eq(userReport.id, input.object_id)),
+        ctx.drizzle
+          .update(userData)
+          .set({ isWarned: true })
+          .where(eq(userData.userId, report.reportedUserId ?? "")),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -708,7 +708,13 @@ export const reportsRouter = createTRPCRouter({
       // Guard
       if (!canClearUserNindo(user)) return errorResponse("You cannot clear nindos");
       // Mutate
-      void requestAvatarForUser(ctx.drizzle, target);
+      const { avatarUrl, thumbnailUrl } = await createUserAvatar(
+        ctx.drizzle,
+        target,
+        false,
+      );
+      if (!avatarUrl) return errorResponse("Failed to create avatar");
+      // Mutate
       await Promise.all([
         ctx.drizzle.insert(reportLog).values({
           id: nanoid(),
@@ -718,8 +724,15 @@ export const reportsRouter = createTRPCRouter({
         }),
         ctx.drizzle
           .update(userData)
-          .set({ avatar: null, avatarLight: null })
+          .set({ avatar: avatarUrl, avatarLight: thumbnailUrl ?? null })
           .where(eq(userData.userId, input.userId)),
+        ctx.drizzle.insert(historicalAvatar).values({
+          userId: input.userId,
+          avatar: avatarUrl,
+          avatarLight: thumbnailUrl ?? null,
+          status: "success",
+          done: 1,
+        }),
       ]);
       return { success: true, message: "Avatar update request sent" };
     }),

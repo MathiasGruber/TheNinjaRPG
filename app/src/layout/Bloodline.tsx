@@ -1,11 +1,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { FlaskConical, Scissors, Star } from "lucide-react";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import NavTabs from "@/layout/NavTabs";
 import BloodFiltering, { useFiltering, getFilter } from "@/layout/BloodlineFiltering";
 import { Button } from "@/components/ui/button";
@@ -127,7 +127,7 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
       )}
       {isFetching && <Loader explanation="Loading bloodlines" />}
       {isOpen && userData && bloodline && (
-        <Modal
+        <Modal2
           title="Confirm Purchase"
           proceed_label={
             isPurchasing
@@ -136,6 +136,7 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
                 ? `Buy for ${cost} reps`
                 : `Need ${cost - userData.reputationPoints} reps`
           }
+          isOpen={isOpen}
           setIsOpen={setIsOpen}
           isValid={false}
           onAccept={() => {
@@ -153,7 +154,7 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
         >
           {!isPurchasing && <ItemWithEffects item={bloodline} key={bloodline.id} />}
           {isPurchasing && <Loader explanation={`Purchasing ${bloodline.name}`} />}
-        </Modal>
+        </Modal2>
       )}
     </ContentBox>
   );
@@ -179,8 +180,11 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
   // Mutations
   const { mutate: remove, isPending: isRemoving } =
     api.bloodline.removeBloodline.useMutation({
-      onSuccess: async () => {
-        await utils.profile.getUser.invalidate();
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await utils.profile.getUser.invalidate();
+        }
       },
     });
 
@@ -198,7 +202,7 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
       {!isFetching && data && userData && (
         <>
           <ItemWithEffects item={data} key={data.id} />
-          <Confirm
+          <Confirm2
             title="Bloodline Removal"
             proceed_label={
               canAfford
@@ -221,7 +225,7 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
               Confirm using <b>{REMOVAL_COST} reputation points</b> to have the doctors
               at the hospital remove your bloodline.
             </p>
-          </Confirm>
+          </Confirm2>
         </>
       )}
     </ContentBox>
@@ -251,7 +255,7 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
   return (
     <div className="p-3">
       {isRolling && <Loader explanation="Rolling bloodline" />}
-      <Confirm
+      <Confirm2
         title="Confirm Roll - Check Genetics"
         proceed_label="Roll"
         isValid={!isRolling}
@@ -282,7 +286,7 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
           event a bloodline would be rewarded, if no bloodline would be rewarded your
           previous bloodline will not be removed.
         </p>
-      </Confirm>
+      </Confirm2>
     </div>
   );
 };

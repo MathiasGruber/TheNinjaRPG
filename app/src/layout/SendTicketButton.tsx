@@ -26,6 +26,7 @@ import { type TicketType, TicketTypes } from "@/validators/misc";
 import ChatBox from "@/layout/ChatBox";
 import { Button } from "@/components/ui/button";
 import { useUserData } from "@/utils/UserContext";
+import { DISCORD_INVITE_URL } from "@/drizzle/constants";
 
 interface SendTicketBtnProps {
   children?: React.ReactNode;
@@ -162,7 +163,7 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
             Ticket created. Go to Discord to see response in &quot;bug reports&quot;
             section
             <Link
-              href="https://discord.gg/grPmTr4z9C"
+              href={DISCORD_INVITE_URL}
               className="flex flex-col items-center font-bold hover:opacity-50"
             >
               <SiDiscord className="text-black dark:text-white" size={100} />
@@ -213,7 +214,7 @@ const SendTicketBtn: React.FC<SendTicketBtnProps> = (props) => {
               <p>
                 4. Alternatively, you may sign on to our{" "}
                 <Link
-                  href="https://discord.gg/grPmTr4z9C"
+                  href={DISCORD_INVITE_URL}
                   className="font-bold hover:text-orange-700 text-orange-500"
                 >
                   Discord

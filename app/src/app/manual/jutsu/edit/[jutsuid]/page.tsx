@@ -139,6 +139,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
             showSubmit={true}
             buttonTxt="Save to Database"
             type="jutsu"
+            relationId={jutsu.id}
             allowImageUpload={true}
             onAccept={handleJutsuSubmit}
           />

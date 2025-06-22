@@ -25,7 +25,7 @@ import { secondsFromDate } from "@/utils/time";
 import { useAtomValue } from "jotai";
 import { userBattleAtom } from "@/utils/UserContext";
 import { calcLevelRequirements } from "@/libs/profile";
-import { MISSIONS_PER_DAY } from "@/drizzle/constants";
+import { DISCORD_INVITE_URL, MISSIONS_PER_DAY } from "@/drizzle/constants";
 import { cn } from "src/libs/shadui";
 import {
   IMG_ICON_DISCORD,
@@ -47,7 +47,7 @@ import { useFiltering, getFilter } from "@/layout/JutsuFiltering";
  */
 export const socials = [
   {
-    url: "https://discord.gg/QPgKtJVvwq",
+    url: DISCORD_INVITE_URL,
     image: IMG_ICON_DISCORD,
     alt: "Discord",
   },
@@ -156,8 +156,10 @@ const MenuBoxProfile: React.FC = () => {
 
   const expRequired = userData && calcLevelRequirements(userData.level - 1);
   const expForNextLevel = userData && calcLevelRequirements(userData.level);
-  const expTowardsNextLevel = userData && Math.max(0, userData.experience - (expRequired ?? 0));
-  const expNeededForNextLevel = userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
+  const expTowardsNextLevel =
+    userData && Math.max(0, userData.experience - (expRequired ?? 0));
+  const expNeededForNextLevel =
+    userData && Math.max(1, (expForNextLevel ?? 0) - (expRequired ?? 0));
 
   return (
     <>
@@ -212,7 +214,11 @@ const MenuBoxProfile: React.FC = () => {
               total={battleUser?.maxStamina || userData?.maxStamina}
               timeDiff={timeDiff}
             />
-            {expRequired && expForNextLevel && expTowardsNextLevel && expNeededForNextLevel && expTowardsNextLevel >= expNeededForNextLevel ? (
+            {expRequired &&
+            expForNextLevel &&
+            expTowardsNextLevel &&
+            expNeededForNextLevel &&
+            expTowardsNextLevel >= expNeededForNextLevel ? (
               <LevelUpBtn />
             ) : (
               <StatusBar
@@ -606,6 +612,12 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
         case "recoil":
           insert(image, "text-red-500", `↓ Dmg recoil`, true, e);
           break;
+        case "drain":
+          insert(image, "text-purple-500", `↓ Draining`, true, e);
+          break;
+        case "poison":
+          insert(image, "text-purple-500", `↓ Poisoned`, true, e);
+          break;
         case "lifesteal":
           insert(image, "text-green-500", `↑ Steal life`, true, e);
           break;
@@ -650,6 +662,9 @@ const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({ effects, userId }) 
           break;
         case "stealth":
           insert(image, "text-blue-500", `- Stealthed`, false, e);
+          break;
+        case "finalstand":
+          insert(image, "text-orange-500", `- Final Stand`, false, e);
           break;
         case "clear":
           insert(image, "text-red-500", `↓ Clearing positive effects`, false, e);

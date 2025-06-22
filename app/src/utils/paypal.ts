@@ -9,7 +9,7 @@ import type { FederalStatus } from "@/drizzle/schema";
 import type { UserData } from "@/drizzle/schema";
 
 export const getUserFederalStatus = (user: UserData) => {
-  if (user.role !== "USER") {
+  if (user.staffAccount) {
     return "GOLD";
   } else {
     return user.federalStatus;

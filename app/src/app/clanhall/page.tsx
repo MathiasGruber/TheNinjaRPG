@@ -2,7 +2,7 @@
 
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import {
   Form,
   FormControl,
@@ -91,7 +91,7 @@ export default function Clans() {
         topRightContent={
           <>
             {hasRequiredRank(userData.rank, CLAN_RANK_REQUIREMENT) && !inClan && (
-              <Confirm
+              <Confirm2
                 title={`Create new ${groupLabel}`}
                 proceed_label={proceedLabel}
                 button={
@@ -118,23 +118,29 @@ export default function Clans() {
                       <FormField
                         control={createForm.control}
                         name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Title</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder={`Name of the new ${groupLabel.toLowerCase()}`}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                        render={({ field }) => {
+                          return (
+                            <FormItem>
+                              <FormLabel>Title</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder={`Name of the new ${groupLabel.toLowerCase()}`}
+                                  {...field}
+                                />
+                              </FormControl>
+                              {createForm?.formState?.errors?.name?.message && (
+                                <FormMessage>
+                                  {createForm.formState.errors.name.message}
+                                </FormMessage>
+                              )}
+                            </FormItem>
+                          );
+                        }}
                       />
                     </form>
                   </Form>
                 )}
-              </Confirm>
+              </Confirm2>
             )}
           </>
         }

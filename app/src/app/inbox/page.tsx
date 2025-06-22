@@ -6,7 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Conversation from "@/layout/Conversation";
 import RichInput from "@/layout/RichInput";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import Loader from "@/layout/Loader";
 import AvatarImage from "@/layout/Avatar";
 import ContentBox from "@/layout/ContentBox";
@@ -284,7 +284,7 @@ export const NewConversationPrompt: React.FC<NewConversationPromptProps> = (prop
         </Button>
       )}
       {userData && !userData.isBanned && !userData.isSilenced && (
-        <Confirm
+        <Confirm2
           title="Create a new conversation"
           proceed_label="Submit"
           isValid={create.formState.isValid}
@@ -321,7 +321,7 @@ export const NewConversationPrompt: React.FC<NewConversationPromptProps> = (prop
               error={create.formState.errors.comment?.message}
             />
           </Form>
-        </Confirm>
+        </Confirm2>
       )}
     </div>
   );

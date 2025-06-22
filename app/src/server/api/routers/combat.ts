@@ -19,7 +19,7 @@ import { calcBattleResult, maskBattle, alignBattle } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/libs/combat/util";
 import { createAction, saveUsage } from "@/libs/combat/database";
 import { updateUser, updateBattle } from "@/libs/combat/database";
-import { hideQuestInformation } from "@/libs/quest";
+import { controlShownQuestLocationInformation } from "@/libs/quest";
 import {
   updateVillageAnbuClan,
   updateKage,
@@ -454,10 +454,10 @@ export const combatRouter = createTRPCRouter({
           try {
             newBattle.version = newBattle.version + nActions;
             await updateBattle(db, result, suid, newBattle, battle.version);
-            const [logEntries] = await Promise.all([
+            const [logEntries, { updatedQuestIds }] = await Promise.all([
               createAction(db, newBattle, history),
-              saveUsage(db, newBattle, result, suid),
               updateUser(db, pusher, newBattle, result, suid),
+              saveUsage(db, newBattle, result, suid),
               updateKage(db, newBattle, result, suid),
               updateClanLeaders(db, newBattle, result, suid),
               updateVillageAnbuClan(db, newBattle, result, suid),
@@ -479,10 +479,11 @@ export const combatRouter = createTRPCRouter({
 
             // Return the new battle + result state if applicable
             return {
-              updateClient: true,
-              battle: newMaskedBattle,
               result: result,
+              updateClient: true,
               logEntries: logEntries,
+              battle: newMaskedBattle,
+              updatedQuestIds: updatedQuestIds,
             };
           } catch (e) {
             console.log("Battle error: ", e);
@@ -782,7 +783,7 @@ export const initiateBattle = async (
     villages,
     relations,
     achievements,
-    users,
+    fetchedUsers,
     previousBattleResults,
   ] = await Promise.all([
     // Conditionally Fetch background schema
@@ -837,6 +838,10 @@ export const initiateBattle = async (
           ),
           with: { quest: true },
         },
+        completedQuests: {
+          columns: { id: true, questId: true, completed: true },
+          where: gte(questHistory.completed, 1),
+        },
         aiProfile: true,
       },
       where: or(inArray(userData.userId, userIds), inArray(userData.userId, targetIds)),
@@ -864,11 +869,19 @@ export const initiateBattle = async (
         ]
       : []),
   ]);
-
+  // Get background for the battle
   const background = getBackground(info.asset, activeSchema?.schema);
+
+  // Create the users array to be inserted in battle. We do it like this in case some of the targetIds are entered multiple times
+  const users = [...userIds, ...targetIds]
+    .map((id) => structuredClone(fetchedUsers.find((u) => u.userId === id)))
+    .filter(Boolean) as typeof fetchedUsers;
+
   // Hide some information from quests
   users.forEach((user) =>
-    user.userQuests?.forEach((q) => hideQuestInformation(q.quest, user)),
+    user.userQuests?.forEach((q) =>
+      controlShownQuestLocationInformation(q.quest, user),
+    ),
   );
   // Place attackers first
   users.sort((a) => (userIds.includes(a.userId) ? -1 : 1));
@@ -978,8 +991,10 @@ export const initiateBattle = async (
   }
 
   // If there are any summonAIs defined, then add them to usersState, but disable them
-  if (allSummons.length > 0) {
-    const uniqueSummons = [...new Set(allSummons)];
+  let summonsToProcess = [...new Set(allSummons)];
+  const processedSummonIds = new Set<string>();
+
+  while (summonsToProcess.length > 0) {
     const summons = await client.query.userData.findMany({
       with: {
         bloodline: true,
@@ -994,22 +1009,34 @@ export const initiateBattle = async (
         },
         aiProfile: true,
       },
-      where: inArray(userData.userId, uniqueSummons),
+      where: inArray(userData.userId, summonsToProcess),
     });
-    const { userEffects: summonEffects, usersState: summonState } =
-      processUsersForBattle({
-        users: summons as BattleUserState[],
-        settings: settings,
-        relations: relations,
-        wars: activeWars,
-        villages: villages,
-        defaultProfile: defaultProfile,
-        battleType: battleType,
-        hide: true,
-      });
+
+    // Add summons to processed list
+    summonsToProcess.forEach((s) => processedSummonIds.add(s));
+
+    const {
+      userEffects: summonEffects,
+      usersState: summonState,
+      allSummons: newSummons,
+    } = processUsersForBattle({
+      users: summons as BattleUserState[],
+      settings: settings,
+      relations: relations,
+      wars: activeWars,
+      villages: villages,
+      defaultProfile: defaultProfile,
+      battleType: battleType,
+      hide: true,
+    });
     summonState.map((u) => (u.isSummon = true));
     userEffects.push(...summonEffects);
     usersState.push(...summonState);
+
+    // Filter out already processed summons and update the list for next iteration
+    summonsToProcess = [...new Set(newSummons)].filter(
+      (s) => !processedSummonIds.has(s),
+    );
   }
 
   // Starting ground effects

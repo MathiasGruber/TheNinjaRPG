@@ -42,17 +42,20 @@ export const findWarsWithUser = (
       w.defenderVillageId === userVillageId && w.attackerVillageId === targetVillageId;
     // Check if the user is an ally of the war
     const check3 =
-      w.attackerVillageId === targetVillageId &&
+      targetVillageId &&
+      [w.attackerVillageId, w.defenderVillageId].includes(targetVillageId) &&
       w.warAllies.some(
         (wa) =>
           wa.villageId === userVillageId && wa.supportVillageId !== targetVillageId,
       );
     const check4 =
-      w.defenderVillageId === targetVillageId &&
+      userVillageId &&
+      [w.attackerVillageId, w.defenderVillageId].includes(userVillageId) &&
       w.warAllies.some(
         (wa) =>
-          wa.villageId === userVillageId && wa.supportVillageId !== targetVillageId,
+          wa.villageId === targetVillageId && wa.supportVillageId !== userVillageId,
       );
+
     // Return true if any of the checks are true
     return check1 || check2 || check3 || check4;
   });
@@ -176,7 +179,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
   }
 
   let notificationContent = "";
-  if (["VILLAGE_WAR", "FACTION_RAID"].includes(activeWar.type)) {
+  if (["VILLAGE_WAR", "WAR_RAID"].includes(activeWar.type)) {
     notificationContent = `War between ${activeWar.attackerVillage.name} and ${activeWar.defenderVillage.name} has ended. `;
     if (isDraw) {
       notificationContent += `The result was a draw.`;
@@ -231,7 +234,7 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
         ]
       : []),
     // Handle village wars
-    ...(["VILLAGE_WAR", "FACTION_RAID"].includes(activeWar.type)
+    ...(["VILLAGE_WAR", "WAR_RAID"].includes(activeWar.type)
       ? isDraw
         ? [
             drizzleDB
@@ -270,7 +273,12 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
                 value: WAR_WINNING_BOOST_REGEN_PERC,
                 time: boostEndAt,
               })
-              .where(eq(gameSetting.name, `war-${winnerVillageId}-regen`)),
+              .where(
+                inArray(
+                  gameSetting.name,
+                  [...winningAllies, winnerVillageId].map((id) => `war-${id}-regen`),
+                ),
+              ),
             drizzleDB
               .update(gameSetting)
               .set({
@@ -292,12 +300,12 @@ export const handleWarEnd = async (activeWar: FetchActiveWarsReturnType) => {
                 lastUpgradedAt: structureUpgradeBlock,
               })
               .where(
-                activeWar.type === "FACTION_RAID"
-                  ? and(
-                      eq(villageStructure.villageId, loserVillageId),
-                      eq(villageStructure.route, activeWar.targetStructureRoute),
-                    )
-                  : eq(villageStructure.route, activeWar.targetStructureRoute),
+                and(
+                  eq(villageStructure.villageId, loserVillageId),
+                  ...(activeWar.type === "WAR_RAID"
+                    ? [eq(villageStructure.route, activeWar.targetStructureRoute)]
+                    : []),
+                ),
               ),
           ]
       : []),

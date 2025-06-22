@@ -76,9 +76,6 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, user } = useUser();
   const userId = user?.id;
 
-  // Listen on user channel for live updates on things
-  const pusher = usePusherHandler(userId);
-
   // tRPC utility
   const utils = api.useUtils();
 
@@ -88,6 +85,9 @@ export function UserContextProvider(props: { children: React.ReactNode }) {
     retry: false,
     refetchInterval: 300000,
   });
+
+  // Listen on user channel for live updates on things
+  const pusher = usePusherHandler(userId, data?.userData);
 
   // Optimistic user info update function
   const updateUser = async (updatedData: Partial<UserWithRelations>) => {

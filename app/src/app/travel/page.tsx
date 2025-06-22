@@ -8,9 +8,10 @@ import dynamic from "next/dynamic";
 import Loader from "@/layout/Loader";
 import ContentBox from "@/layout/ContentBox";
 import NavTabs from "@/layout/NavTabs";
-import Modal from "@/layout/Modal";
+import ItemWithEffects from "@/layout/ItemWithEffects";
+import Modal2 from "@/layout/Modal2";
 import Countdown from "@/layout/Countdown";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import LoadoutSelector from "@/layout/LoadoutSelector";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -20,9 +21,11 @@ import {
   EyeOff,
   GitMerge,
   MapPinned,
+  Cookie,
 } from "lucide-react";
 import { HousePlus } from "lucide-react";
 import { api } from "@/app/_trpc/client";
+import { ActionSelector } from "@/layout/CombatActions";
 import { isAtEdge, findNearestEdge } from "@/libs/travel/controls";
 import { calcGlobalTravelTime } from "@/libs/travel/controls";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -37,12 +40,21 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { nonCombatConsume } from "@/libs/item";
 import { useMap } from "@/hooks/map";
 import { Input } from "@/components/ui/input";
 import { HIDEOUT_COST } from "@/drizzle/constants";
 import { VILLAGE_REDUCED_GAINS_DAYS } from "@/drizzle/constants";
 import { VILLAGE_LEAVE_REQUIRED_RANK } from "@/drizzle/constants";
 import type { GlobalTile, SectorPoint, GlobalMapData } from "@/libs/travel/types";
+import { Button } from "@/components/ui/button";
+import type { UserItemWithItem } from "@/drizzle/schema";
 
 const Map = dynamic(() => import("@/layout/Map"), { ssr: false });
 const Sector = dynamic(() => import("@/layout/Sector"), { ssr: false });
@@ -67,7 +79,6 @@ export default function Travel() {
 
   // Current and target sectors & positions
   const [currentTile, setCurrentTile] = useState<GlobalTile | null>(null);
-  const [hoverPosition, setHoverPosition] = useState<SectorPoint | null>(null);
   const [currentPosition, setCurrentPosition] = useState<SectorPoint | null>(null);
   const [targetPosition, setTargetPosition] = useState<SectorPoint | null>(null);
   const [targetSector, setTargetSector] = useState<number | null>(null);
@@ -89,6 +100,13 @@ export default function Travel() {
     }
   });
   const sectorVillage = villages?.find((v) => v.sector === userData?.sector);
+
+  // Consumable items
+  const { data: userItems } = api.item.getUserItems.useQuery(undefined, {
+    enabled: !!userData,
+  });
+  const [useritem, setUserItem] = useState<UserItemWithItem | undefined>(undefined);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   // Router for forwarding
   const router = useRouter();
@@ -185,6 +203,21 @@ export default function Travel() {
       },
     });
 
+  const { mutate: consume, isPending: isConsuming } = api.item.consume.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getUser.invalidate();
+        await utils.item.getUserItems.invalidate();
+        await utils.bloodline.getItemRolls.invalidate();
+      }
+    },
+    onSettled: () => {
+      setIsOpen(false);
+      setUserItem(undefined);
+    },
+  });
+
   // Convenience variables
   const onEdge = isAtEdge(currentPosition);
   const isGlobal = activeTab === globalLink;
@@ -221,11 +254,9 @@ export default function Travel() {
           target={targetPosition}
           showSorrounding={showSorrounding}
           showActive={showActive}
-          hoverPosition={hoverPosition}
           setShowSorrounding={setShowSorrounding}
           setTarget={setTargetPosition}
           setPosition={setCurrentPosition}
-          setHoverPosition={setHoverPosition}
         />
       )
     );
@@ -255,9 +286,10 @@ export default function Travel() {
   const joinVillageBtn = userData.isOutlaw && canJoin && sectorVillage?.joinable;
   const subtitle =
     currentSector && userData && activeTab === sectorLink
-      ? `Sector ${currentSector} ${sectorData?.sectorData ? `(${sectorData.sectorData.village.name})` : ""}`
+      ? `Sector ${currentSector} ${sectorData?.sectorData?.village ? `(${sectorData.sectorData.village.name})` : ""}`
       : "The world of Seichi";
-
+  const consumableItems = userItems?.filter((i) => nonCombatConsume(i.item, userData));
+  const shownConsumables = consumableItems?.map((ui) => ({ ...ui.item, ...ui }));
   return (
     <>
       <ContentBox
@@ -321,14 +353,21 @@ export default function Travel() {
                     </div>
                   </PopoverContent>
                 </Popover>
-                <MapPinned
-                  className={`h-7 w-7 mr-2 ${showOwnership ? "fill-orange-500" : ""}`}
-                  onClick={() => setShowOwnership(!showOwnership)}
-                />
+                <TooltipProvider delayDuration={50}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <MapPinned
+                        className={`h-7 w-7 mr-2 ${showOwnership ? "text-orange-500" : ""}`}
+                        onClick={() => setShowOwnership(!showOwnership)}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>Show sector ownerships and factions</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </>
             )}
             {joinVillageBtn && (
-              <Confirm
+              <Confirm2
                 title={`Join Village [${sectorVillage.name}]`}
                 proceed_label="Submit"
                 button={<GitMerge className={`h-7 w-7 mx-1 hover:text-orange-500`} />}
@@ -337,10 +376,10 @@ export default function Travel() {
                 Do you confirm that you wish to join {sectorVillage.name}? Please be
                 aware that if you join this village your training benefits & regen will
                 be reduced for {VILLAGE_REDUCED_GAINS_DAYS} days.
-              </Confirm>
+              </Confirm2>
             )}
             {canCreateHideout && (
-              <Confirm
+              <Confirm2
                 title="Purchase Hideout"
                 proceed_label={canAffordHideout ? "Submit" : "Not enough ryo"}
                 button={<HousePlus className={`h-7 w-7 mx-1 hover:text-orange-500`} />}
@@ -358,7 +397,7 @@ export default function Travel() {
                 syndicate of outlaws. The purchase costs <b>{HIDEOUT_COST} ryo</b>, and
                 the faction currently has <b>{userData?.clan?.bank} ryo</b>. Do you want
                 to create your faction hideout in this sector?
-              </Confirm>
+              </Confirm2>
             )}
 
             <NavTabs
@@ -386,8 +425,9 @@ export default function Travel() {
         {showSector && SectorComponent}
         {!villages && <Loader explanation="Loading data" />}
         {showModal && globe && userData && targetSector && (
-          <Modal
+          <Modal2
             title="World Travel"
+            isOpen={showModal}
             setIsOpen={setShowModal}
             proceed_label={!isStartingTravel ? "Travel" : undefined}
             isValid={false}
@@ -419,7 +459,7 @@ export default function Travel() {
                 Do you confirm?
               </div>
             )}
-          </Modal>
+          </Modal2>
         )}
         {userData?.travelFinishAt && (
           <div className="absolute bottom-0 left-0 right-0 top-0 z-20 m-auto flex flex-col justify-center bg-black opacity-90">
@@ -441,15 +481,57 @@ export default function Travel() {
       </ContentBox>
       <div className="flex flex-row p-1">
         {showSector && <LoadoutSelector size="small" />}
-        {hoverPosition && (
-          <>
-            <p className="grow"></p>
-            <p>
-              Target: ({hoverPosition.x}, {hoverPosition.y})
-            </p>
-          </>
-        )}
       </div>
+      {shownConsumables && shownConsumables.length > 0 && (
+        <div className="flex flex-col">
+          <p className="font-bold">Consumables</p>
+          <ActionSelector
+            className="grid-cols-6"
+            items={shownConsumables}
+            counts={shownConsumables}
+            selectedId={useritem?.id}
+            showBgColor={false}
+            showLabels={false}
+            onClick={(id) => {
+              if (id == useritem?.id) {
+                setUserItem(undefined);
+                setIsOpen(false);
+              } else {
+                setUserItem(shownConsumables?.find((item) => item.id === id));
+                setIsOpen(true);
+              }
+            }}
+          />
+          {isOpen && useritem && (
+            <Modal2
+              title="Item Details"
+              isOpen={isOpen}
+              setIsOpen={setIsOpen}
+              isValid={false}
+            >
+              <ItemWithEffects
+                item={useritem.item}
+                key={useritem.id}
+                showStatistic="item"
+              />
+              {!isConsuming && (
+                <div className="flex flex-row gap-1">
+                  {nonCombatConsume(useritem.item, userData) && (
+                    <Button
+                      variant="info"
+                      onClick={() => consume({ userItemId: useritem.id })}
+                    >
+                      <Cookie className="mr-2 h-5 w-5" />
+                      Consume
+                    </Button>
+                  )}
+                </div>
+              )}
+              {isConsuming && <Loader explanation={`Using ${useritem.item.name}`} />}
+            </Modal2>
+          )}
+        </div>
+      )}
     </>
   );
 }

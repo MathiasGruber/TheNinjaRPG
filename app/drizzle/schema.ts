@@ -59,9 +59,11 @@ export const gameAsset = mysqlTable(
     name: varchar("name", { length: 191 }).notNull(),
     type: mysqlEnum("type", consts.GameAssetTypes).notNull(),
     image: varchar("image", { length: 191 }).notNull(),
+    url: varchar("url", { length: 191 }).notNull(),
     frames: tinyint("frames").default(1).notNull(),
     speed: tinyint("speed").default(1).notNull(),
     hidden: boolean("hidden").default(true).notNull(),
+    folder: varchar("folder", { length: 191 }).default("").notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -908,6 +910,7 @@ export const item = mysqlTable(
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    expireFromStoreAt: date("expireFromStoreAt", { mode: "string" }),
     effects: json("effects").$type<ZodAllTags[]>().notNull(),
     itemType: mysqlEnum("itemType", consts.ItemTypes).notNull(),
     rarity: mysqlEnum("rarity", consts.ItemRarities).notNull(),
@@ -1399,6 +1402,7 @@ export const userData = mysqlTable(
     travelFinishAt: datetime("travelFinishAt", { mode: "date", fsp: 3 }),
     isBanned: boolean("isBanned").default(false).notNull(),
     isSilenced: boolean("isSilenced").default(false).notNull(),
+    isWarned: boolean("isWarned").default(false).notNull(),
     role: mysqlEnum("role", consts.UserRoles).default("USER").notNull(),
     battleId: varchar("battleId", { length: 191 }),
     isAi: boolean("isAi").default(false).notNull(),
@@ -1466,6 +1470,7 @@ export const userData = mysqlTable(
     audioOn: boolean("audioOn").default(true).notNull(),
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
     homeType: mysqlEnum("homeType", consts.HomeTypes).default("NONE").notNull(),
+    staffAccount: boolean("staffAccount").default(false).notNull(),
   },
   (table) => {
     return {
@@ -1543,7 +1548,8 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
     fields: [userData.userId],
     references: [userNindo.userId],
   }),
-  userQuests: many(questHistory),
+  userQuests: many(questHistory, { relationName: "userQuests" }),
+  completedQuests: many(questHistory, { relationName: "completedQuests" }),
   conversations: many(user2conversation),
   items: many(userItem),
   jutsus: many(userJutsu),
@@ -1583,6 +1589,10 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   votes: one(userVote, {
     fields: [userData.userId],
     references: [userVote.userId],
+  }),
+  dailyBankInterest: one(dailyBankInterest, {
+    fields: [userData.userId],
+    references: [dailyBankInterest.userId],
   }),
 }));
 
@@ -1686,6 +1696,7 @@ export const userItem = mysqlTable(
 );
 export type UserItem = InferSelectModel<typeof userItem>;
 export type ItemSlot = UserItem["equipped"];
+export type UserItemWithItem = UserItem & { item: Item };
 
 export const userItemRelations = relations(userItem, ({ one }) => ({
   item: one(item, {
@@ -2093,13 +2104,16 @@ export const dataBattleAction = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     battleWon: tinyint("battleWon").notNull(),
+    count: int("count").notNull().default(1),
   },
   (table) => {
     return {
-      contentIdIdx: index("DataBattleActions_contentId_idx").on(table.contentId),
-      typeIdx: index("DataBattleActions_type").on(table.type),
-      battleWonIdx: index("DataBattleActions_battleWon").on(table.battleWon),
-      battleTypeIdx: index("DataBattleActions_battleType").on(table.battleType),
+      uniqueContentIdIdx: unique("uniqueContentId").on(
+        table.type,
+        table.contentId,
+        table.battleType,
+        table.battleWon,
+      ),
       createdAt: index("DataBattleActions_createdAt").on(table.createdAt),
     };
   },
@@ -2115,21 +2129,27 @@ export const quest = mysqlTable(
     successDescription: varchar("successDescription", { length: 5000 }),
     questRank: mysqlEnum("questRank", consts.LetterRanks).default("D").notNull(),
     requiredLevel: int("requiredLevel").default(1).notNull(),
-    maxLevel: int("maxLevel").default(100).notNull(),
-    requiredVillage: varchar("requiredVillage", { length: 191 }),
+    prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),
     tierLevel: int("tierLevel"),
-    timeFrame: mysqlEnum("timeFrame", consts.TimeFrames).notNull(),
     questType: mysqlEnum("questType", consts.QuestTypes).notNull(),
     content: json("content").$type<QuestContentType>().notNull(),
     hidden: boolean("hidden").default(false).notNull(),
     consecutiveObjectives: boolean("consecutiveObjectives").default(true).notNull(),
+    requiredVillage: varchar("requiredVillage", { length: 191 }),
+    maxLevel: int("maxLevel").default(100).notNull(),
+    maxAttempts: int("maxAttempts").default(1).notNull(),
+    maxCompletes: int("maxCompletes").default(1).notNull(),
+    retryDelay: mysqlEnum("retryDelay", consts.RetryQuestDelays)
+      .default("none")
+      .notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    expiresAt: date("expiresAt", { mode: "string" }),
+    endsAt: date("endsAt", { mode: "string" }),
+    startsAt: date("startsAt", { mode: "string" }),
   },
   (table) => {
     return {
@@ -2139,6 +2159,9 @@ export const quest = mysqlTable(
       requiredLevelIdx: index("Quest_requiredLevel_idx").on(table.requiredLevel),
       maxLevelIdx: index("Quest_maxLevel_idx").on(table.maxLevel),
       requiredVillageIdx: index("Quest_requiredVillage_idx").on(table.requiredVillage),
+      prerequisiteQuestIdIdx: index("Quest_prerequisiteQuestId_idx").on(
+        table.prerequisiteQuestId,
+      ),
     };
   },
 );
@@ -2183,6 +2206,12 @@ export const questHistoryRelations = relations(questHistory, ({ one }) => ({
   user: one(userData, {
     fields: [questHistory.userId],
     references: [userData.userId],
+    relationName: "userQuests",
+  }),
+  victor: one(userData, {
+    fields: [questHistory.userId],
+    references: [userData.userId],
+    relationName: "completedQuests",
   }),
   quest: one(quest, {
     fields: [questHistory.questId],
@@ -2303,6 +2332,11 @@ export const bankTransfers = mysqlTable(
     return {
       senderIdIdx: index("BankTransfers_senderId_idx").on(table.senderId),
       receiverIdIdx: index("BankTransfers_receiverId_idx").on(table.receiverId),
+      senderReceiverIdx: index("BankTransfers_senderId_receiverId_idx").on(
+        table.senderId,
+        table.receiverId,
+      ),
+      createdAtIdx: index("BankTransfers_createdAt_idx").on(table.createdAt),
     };
   },
 );
@@ -2314,6 +2348,38 @@ export const bankTransferRelations = relations(bankTransfers, ({ one }) => ({
   }),
   receiver: one(userData, {
     fields: [bankTransfers.receiverId],
+    references: [userData.userId],
+  }),
+}));
+
+export const dailyBankInterest = mysqlTable(
+  "DailyBankInterest",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    claimed: boolean("claimed").default(false).notNull(),
+    interestPercent: int("interestPercent").notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      userIdDateKey: unique("DailyBankInterest_userId_date_key").on(
+        table.userId,
+        table.date,
+      ),
+      userIdIdx: index("DailyBankInterest_userId_idx").on(table.userId),
+    };
+  },
+);
+export type DailyBankInterest = InferSelectModel<typeof dailyBankInterest>;
+
+export const dailyBankInterestRelations = relations(dailyBankInterest, ({ one }) => ({
+  user: one(userData, {
+    fields: [dailyBankInterest.userId],
     references: [userData.userId],
   }),
 }));

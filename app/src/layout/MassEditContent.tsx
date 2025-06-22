@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import Loader from "@/layout/Loader";
 import {
   Select,
@@ -188,7 +188,13 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
 
   if (showModal) {
     return (
-      <Modal title={props.title} setIsOpen={setShowModal} onAccept={props.onAccept}>
+      <Modal2
+        title={props.title}
+        isOpen={showModal}
+        setIsOpen={setShowModal}
+        onAccept={props.onAccept}
+        className="md:max-w-[calc(100%-2rem)]"
+      >
         {["jutsu", "bloodline", "item"].includes(props.type) && (
           <div className="flex flex-col">
             <Select
@@ -305,7 +311,7 @@ const MassEditContent: React.FC<MassEditContentProps> = (props) => {
             })}
           </div>
         )}
-      </Modal>
+      </Modal2>
     );
   } else {
     return (
@@ -348,6 +354,7 @@ const MassEditQuestRow: React.FC<MassEditQuestRowProps> = (props) => {
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.quest.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"
@@ -388,6 +395,7 @@ const MassEditJutsuRow: React.FC<MassEditJutsuRowProps> = (props) => {
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.jutsu.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"
@@ -440,6 +448,7 @@ const MassEditBloodlineRow: React.FC<MassEditBloodlineRowProps> = (props) => {
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.bloodline.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"
@@ -494,6 +503,7 @@ const MassEditItemRow: React.FC<MassEditItemRowProps> = (props) => {
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.item.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"
@@ -542,6 +552,7 @@ const MassEditBackgroundSchemaRow: React.FC<MassEditBackgroundSchemaRowProps> = 
         formData={formData}
         formClassName="flex flex-row w-screen"
         showSubmit={false}
+        relationId={props.backgroundSchema.id}
         buttonTxt="Save to Database"
         allowImageUpload={false}
         fixedWidths="basis-96"

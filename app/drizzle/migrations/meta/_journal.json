@@ -1513,6 +1513,139 @@
       "when": 1748499496947,
       "tag": "0215_tricky_hannibal_king",
       "breakpoints": false
+    },
+    {
+      "idx": 216,
+      "version": "5",
+      "when": 1748606647762,
+      "tag": "0216_medical_adam_destine",
+      "breakpoints": false
+    },
+    {
+      "idx": 217,
+      "version": "5",
+      "when": 1748609362011,
+      "tag": "0217_giant_champions",
+      "breakpoints": false
+    },
+    {
+      "idx": 218,
+      "version": "5",
+      "when": 1748621915000,
+      "tag": "0218_square_captain_midlands",
+      "breakpoints": false
+    },
+    {
+      "idx": 219,
+      "version": "5",
+      "when": 1749019679809,
+      "tag": "0219_shallow_lockjaw",
+      "breakpoints": false
+    },
+    {
+      "idx": 220,
+      "version": "5",
+      "when": 1749213863010,
+      "tag": "0220_left_warlock",
+      "breakpoints": false
+    },
+    {
+      "idx": 221,
+      "version": "5",
+      "when": 1749471257188,
+      "tag": "0221_cold_captain_midlands",
+      "breakpoints": false
+    },
+    {
+      "idx": 222,
+      "version": "5",
+      "when": 1749549855186,
+      "tag": "0222_strange_iron_patriot",
+      "breakpoints": false
+    },
+    {
+      "idx": 223,
+      "version": "5",
+      "when": 1749559732256,
+      "tag": "0223_luxuriant_infant_terrible",
+      "breakpoints": false
+    },
+    {
+      "idx": 224,
+      "version": "5",
+      "when": 1749631531103,
+      "tag": "0224_romantic_sunspot",
+      "breakpoints": false
+    },
+    {
+      "idx": 225,
+      "version": "5",
+      "when": 1749708480345,
+      "tag": "0225_lean_archangel",
+      "breakpoints": false
+    },
+    {
+      "idx": 226,
+      "version": "5",
+      "when": 1749713186886,
+      "tag": "0226_married_stature",
+      "breakpoints": false
+    },
+    {
+      "idx": 227,
+      "version": "5",
+      "when": 1749819710425,
+      "tag": "0227_early_gorgon",
+      "breakpoints": false
+    },
+    {
+      "idx": 228,
+      "version": "5",
+      "when": 1749870362935,
+      "tag": "0228_massive_nemesis",
+      "breakpoints": false
+    },
+    {
+      "idx": 229,
+      "version": "5",
+      "when": 1749897936732,
+      "tag": "0229_lethal_supernaut",
+      "breakpoints": false
+    },
+    {
+      "idx": 230,
+      "version": "5",
+      "when": 1749903441934,
+      "tag": "0230_bouncy_morph",
+      "breakpoints": false
+    },
+    {
+      "idx": 231,
+      "version": "5",
+      "when": 1750183550210,
+      "tag": "0231_shallow_makkari",
+      "breakpoints": false
+    },
+    {
+      "idx": 232,
+      "version": "5",
+      "when": 1750248297481,
+      "tag": "0232_orange_metal_master",
+      "breakpoints": false
+    },
+    {
+      "idx": 233,
+      "version": "5",
+      "when": 1750345524307,
+      "tag": "0233_eager_machine_man",
+      "breakpoints": false
+    },
+    {
+      "idx": 234,
+      "version": "5",
+      "when": 1750397653343,
+      "tag": "0234_breezy_colossus",
+      "breakpoints": false
     }
   ]
 }

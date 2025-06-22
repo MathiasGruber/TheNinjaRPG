@@ -364,7 +364,12 @@ export const clanRouter = createTRPCRouter({
       }
       // Mutate
       await insertRequest(ctx.drizzle, user.userId, fetchedClan.leaderId, "CLAN");
-      void pusher.trigger(fetchedClan.leaderId, "event", { type: "clan" });
+      void pusher.trigger(fetchedClan.id, "event", {
+        type: "userMessage",
+        message: `${user.username} requested to join your ${user.isOutlaw ? "faction" : "clan"}`,
+        route: `/clanhall`,
+        routeText: `To ${user.isOutlaw ? "faction" : "clan"}`,
+      });
       // Create
       return {
         success: true,
@@ -396,7 +401,6 @@ export const clanRouter = createTRPCRouter({
       if (request.status !== "PENDING") {
         return errorResponse("You can only cancel pending requests");
       }
-      void pusher.trigger(request.receiverId, "event", { type: "clan" });
       return await updateRequestState(ctx.drizzle, input.id, "CANCELLED", "CLAN");
     }),
   acceptRequest: protectedProcedure
@@ -449,7 +453,12 @@ export const clanRouter = createTRPCRouter({
           })
           .where(eq(userData.userId, requester.userId)),
       ]);
-      void pusher.trigger(request.senderId, "event", { type: "clan" });
+      void pusher.trigger(request.senderId, "event", {
+        type: "userMessage",
+        message: `You have been accepted to ${groupLabel}`,
+        route: `/clanhall`,
+        routeText: `To ${groupLabel}`,
+      });
       // Create
       return { success: true, message: "Request accepted" };
     }),
@@ -458,14 +467,16 @@ export const clanRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
-      const [user, villageData, clans, villageWithName] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchVillage(ctx.drizzle, input.villageId),
-        fetchClans(ctx.drizzle, input.villageId),
-        ctx.drizzle.query.village.findFirst({
-          where: eq(village.name, input.name),
-        }),
-      ]);
+      const [user, villageData, clans, clanWithName, villageWithName] =
+        await Promise.all([
+          fetchUser(ctx.drizzle, ctx.userId),
+          fetchVillage(ctx.drizzle, input.villageId),
+          fetchClans(ctx.drizzle, input.villageId),
+          fetchClanByName(ctx.drizzle, input.name),
+          ctx.drizzle.query.village.findFirst({
+            where: eq(village.name, input.name),
+          }),
+        ]);
       // Derived
       const villageId = villageData?.id;
       const structure = villageData?.structures.find((s) => s.route === "/clanhall");
@@ -475,6 +486,8 @@ export const clanRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!villageData) return errorResponse(`${locationLabel} not found`);
       if (!structure) return errorResponse(`${groupLabel} hall not found`);
+      if (clanWithName)
+        return errorResponse("Clan name already exists, please pick another.");
       if (villageWithName) return errorResponse("Name taken by village/faction");
       if (villageId !== user.villageId) return errorResponse(`Wrong ${locationLabel}`);
       if (clans.find((c) => c.name === input.name)) return errorResponse("Name taken");
@@ -634,6 +647,7 @@ export const clanRouter = createTRPCRouter({
       const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
       const canEdit = canEditClans(user.role);
       const isMemberLeader = input.memberId === fetchedClan?.leaderId;
+      const hadHideout = ["HIDEOUT", "TOWN"].includes(fetchedClan.village?.type ?? "");
       // Guards
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
@@ -681,7 +695,17 @@ export const clanRouter = createTRPCRouter({
         );
       }
       // Mutate
-      await ctx.drizzle.update(clan).set(updateData).where(eq(clan.id, fetchedClan.id));
+      await Promise.all([
+        ctx.drizzle.update(clan).set(updateData).where(eq(clan.id, fetchedClan.id)),
+        ...(isMemberColeader && hadHideout
+          ? [
+              ctx.drizzle
+                .update(village)
+                .set({ kageId: input.memberId })
+                .where(eq(village.id, fetchedClan.villageId)),
+            ]
+          : []),
+      ]);
       // Create
       return { success: true, message: "Member promoted" };
     }),
@@ -1255,15 +1279,19 @@ export const clanRouter = createTRPCRouter({
     .input(z.object({ clanId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Query
       const [user, fetchedClan] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchClan(ctx.drizzle, input.clanId),
       ]);
+      // Guard
       if (!fetchedClan) return errorResponse("Faction not found");
       if (!user) return errorResponse("User not found");
       if (!canEditClans(user.role)) return errorResponse("Permission denied");
-      if (user.clanId) return errorResponse("Already in a faction");
-
+      if (user.clanId && user.clanId !== fetchedClan.id) {
+        return errorResponse("Already in a faction");
+      }
+      // Update
       await Promise.all([
         ctx.drizzle
           .update(userData)
@@ -1273,6 +1301,14 @@ export const clanRouter = createTRPCRouter({
           .update(clan)
           .set({ leaderId: user.userId })
           .where(eq(clan.id, fetchedClan.id)),
+        ...(["HIDEOUT", "TOWN"].includes(fetchedClan.village?.type ?? "")
+          ? [
+              ctx.drizzle
+                .update(village)
+                .set({ kageId: user.userId })
+                .where(eq(village.id, fetchedClan.villageId)),
+            ]
+          : []),
       ]);
 
       return {
@@ -1628,3 +1664,15 @@ export const fetchClanByLeader = async (client: DrizzleClient, leaderId: string)
 };
 
 export type ClanRouter = inferRouterOutputs<typeof clanRouter>;
+
+/**
+ * Fetches a clan by its name.
+ * @param client - The Drizzle client instance.
+ * @param name - The name of the clan to fetch.
+ * @returns - A promise that resolves to the fetched clan, or null if not found.
+ */
+export const fetchClanByName = async (client: DrizzleClient, name: string) => {
+  return await client.query.clan.findFirst({
+    where: eq(clan.name, name),
+  });
+};

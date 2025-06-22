@@ -1,8 +1,8 @@
 import { type ReactNode } from "react";
 import Image from "next/image";
-import { Atom, Bug, User, Globe2, BookOpenText, Users } from "lucide-react";
+import { Atom, Bug, User, Globe2, BookOpenText } from "lucide-react";
 import { Paintbrush, MessagesSquare, Newspaper, Scale, Receipt } from "lucide-react";
-import { Inbox, Flag } from "lucide-react";
+import { Inbox, Flag, ShieldHalf } from "lucide-react";
 import { calcIsInVillage } from "./travel/controls";
 import { api } from "@/app/_trpc/client";
 import { findVillageUserRelationship } from "@/utils/alliance";
@@ -62,10 +62,22 @@ export const useGameMenu = (userData: UserWithRelations) => {
   const pathname = usePathname();
   const systems: NavBarDropdownLink[] = [
     {
+      id: "tutorial-profile",
+      href: "/profile",
+      name: "Profile",
+      icon: <User key="profile" className="h-6 w-6" />,
+    },
+    {
       id: "tutorial-tavern",
       href: "/tavern",
       name: "Tavern",
-      icon: <Users key="tavern" className="h-6 w-6" />,
+      icon: <MessagesSquare key="tavern" className="h-6 w-6" />,
+    },
+    {
+      id: "tutorial-users",
+      href: "/users",
+      name: "Users",
+      icon: <BookOpenText key="users" className="h-6 w-6" />,
     },
     {
       id: "tutorial-inbox",
@@ -74,10 +86,11 @@ export const useGameMenu = (userData: UserWithRelations) => {
       icon: <Inbox key="inbox" className="h-6 w-6" />,
     },
     {
-      id: "tutorial-users",
-      href: "/users",
-      name: "Users",
-      icon: <BookOpenText key="users" className="h-6 w-6" />,
+      id: "tutorial-jutsus",
+      href: "/jutsus",
+      name: "Jutsus",
+      requireAwake: false,
+      icon: <Atom key="jutsus" className="h-6 w-6" />,
     },
     {
       id: "tutorial-reports",
@@ -92,25 +105,25 @@ export const useGameMenu = (userData: UserWithRelations) => {
       requireAwake: true,
       icon: <Globe2 key="travel" className="h-6 w-6" />,
     },
+
     {
-      href: "/jutsus",
-      id: "tutorial-jutsus",
-      name: "Jutsus",
-      requireAwake: false,
-      icon: <Atom key="jutsus" className="h-6 w-6" />,
+      id: "tutorial-points",
+      href: "/points",
+      name: "Points",
+      icon: <Receipt key="travel" className="h-6 w-6" />,
     },
     {
       href: "/items",
       id: "tutorial-items",
       name: "Items",
       requireAwake: false,
-      icon: <User key="items" className="h-6 w-6" />,
+      icon: <ShieldHalf key="items" className="h-6 w-6" />,
     },
     {
-      id: "tutorial-points",
-      href: "/points",
-      name: "Points",
-      icon: <Receipt key="travel" className="h-6 w-6" />,
+      id: "tutorial-rules",
+      href: "/rules",
+      name: "Rules",
+      icon: <Scale key="rules" className="h-6 w-6" />,
     },
   ];
 
@@ -146,7 +159,6 @@ export const useGameMenu = (userData: UserWithRelations) => {
     const relationship = findVillageUserRelationship(sector, userVillage);
     const isAllied = relationship?.status === "ALLY";
     const isSafezone = sector.type === "SAFEZONE";
-
     // Is in village
     if ((inVillage && (ownSector || isAllied)) || userData.isOutlaw || isSafezone) {
       // Check if user is standing on a village structure
@@ -158,8 +170,7 @@ export const useGameMenu = (userData: UserWithRelations) => {
                 s.longitude === userData.longitude && s.latitude === userData.latitude,
             )
           : undefined;
-      const name =
-        structure?.name || (ownSector ? sector.mapName || sector.name : "Unknown");
+      const name = structure?.name || sector.mapName || sector.name;
       // Set the location
       location = {
         id: "tutorial-village",

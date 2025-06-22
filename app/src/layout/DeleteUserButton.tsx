@@ -1,6 +1,6 @@
 import React from "react";
 import { useRouter } from "next/navigation";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import Countdown from "@/layout/Countdown";
 import Loader from "@/layout/Loader";
 import { api } from "@/app/_trpc/client";
@@ -71,7 +71,7 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
   }
 
   return (
-    <Confirm
+    <Confirm2
       title="Confirm Deletion"
       button={
         <Trash2
@@ -127,7 +127,7 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
           </Button>
         )}
       </span>
-    </Confirm>
+    </Confirm2>
   );
 };
 

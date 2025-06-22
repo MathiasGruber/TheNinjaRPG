@@ -18,7 +18,7 @@ import { structureBoost } from "@/utils/village";
 import { isKage } from "@/utils/kage";
 import { findRelationship } from "@/utils/alliance";
 import { canAlly, canEnemy, canSurrender } from "@/utils/alliance";
-import { COST_SWAP_VILLAGE } from "@/drizzle/constants";
+import { COST_SWAP_VILLAGE, IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { ALLIANCEHALL_LONG, ALLIANCEHALL_LAT } from "@/libs/travel/constants";
 import { KAGE_WAR_DECLARE_COST } from "@/drizzle/constants";
 import { UserRequestTypes } from "@/drizzle/constants";
@@ -106,28 +106,50 @@ export const villageRouter = createTRPCRouter({
       return { villageData, sectorCount, defendedChallenges };
     }),
   // Get sector ownership
-  getSectorOwnerships: publicProcedure.query(async ({ ctx }) => {
-    const [sectors, colors, sectorWars] = await Promise.all([
-      ctx.drizzle.query.sector.findMany({
-        columns: {
-          sector: true,
-          villageId: true,
-        },
-        where: ne(sector.villageId, VILLAGE_SYNDICATE_ID),
-      }),
-      ctx.drizzle.query.village.findMany({
-        columns: {
-          id: true,
-          hexColor: true,
-        },
-      }),
-      ctx.drizzle.query.war.findMany({
-        columns: { sector: true },
-        where: and(eq(war.status, "ACTIVE"), eq(war.type, "SECTOR_WAR")),
-      }),
-    ]);
-    return { sectors, colors, wars: sectorWars };
-  }),
+  getSectorOwnerships: protectedProcedure
+    .input(z.object({ onlyOwnWar: z.boolean() }))
+    .query(async ({ ctx, input }) => {
+      const [user, sectors, colors, sectorWars] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.sector.findMany({
+          columns: {
+            sector: true,
+            villageId: true,
+          },
+          where: ne(sector.villageId, VILLAGE_SYNDICATE_ID),
+        }),
+        ctx.drizzle.query.village.findMany({
+          columns: {
+            id: true,
+            hexColor: true,
+          },
+        }),
+        ctx.drizzle.query.war.findMany({
+          columns: {
+            sector: true,
+            attackerVillageId: true,
+            defenderVillageId: true,
+          },
+          with: {
+            warAllies: {
+              columns: {
+                villageId: true,
+              },
+            },
+          },
+          where: and(eq(war.status, "ACTIVE"), eq(war.type, "SECTOR_WAR")),
+        }),
+      ]);
+      const returnedWars = input.onlyOwnWar
+        ? sectorWars.filter(
+            (war) =>
+              war.attackerVillageId === user.villageId ||
+              war.defenderVillageId === user.villageId ||
+              war.warAllies.some((ally) => ally.villageId === user.villageId),
+          )
+        : sectorWars;
+      return { sectors, colors, wars: returnedWars };
+    }),
   // Buying food in ramen shop
   buyFood: protectedProcedure
     .input(z.object({ ramen: z.enum(ramenOptions), villageId: z.string().nullish() }))
@@ -163,15 +185,14 @@ export const villageRouter = createTRPCRouter({
       if (user.status !== "AWAKE") return errorResponse("You must be awake");
       if (user.money < cost) return errorResponse("You don't have enough money");
       if (user.isBanned) return errorResponse("You are banned");
-      if (!sectorVillage) return errorResponse("Village does not exist");
-      if (!user.isOutlaw && !canAccessStructure(user, "/ramenshop", sectorVillage)) {
-        return errorResponse("Must be in your allied village to buy ramen");
+      if (
+        user.isOutlaw &&
+        sectorVillage &&
+        !canAccessStructure(user, "/ramenshop", sectorVillage)
+      ) {
+        return errorResponse("This is not a safe area for you to eat ramen");
       }
       // Mutate with guard
-      const newHealth = Math.min(
-        user.maxHealth,
-        user.curHealth + (user.maxHealth * healPercentage) / 100,
-      );
       const newStamina = Math.min(
         user.maxStamina,
         user.curStamina + (user.maxStamina * healPercentage) / 100,
@@ -184,7 +205,6 @@ export const villageRouter = createTRPCRouter({
         .update(userData)
         .set({
           money: user.money - cost,
-          curHealth: newHealth,
           curStamina: newStamina,
           curChakra: newChakra,
         })
@@ -194,9 +214,8 @@ export const villageRouter = createTRPCRouter({
       } else {
         return {
           success: true,
-          message: `You have bought food and healed to ${Math.floor(newHealth)}HP, ${Math.floor(newStamina)}SP, and ${Math.floor(newChakra)}CP`,
+          message: `You have bought food and healed to ${Math.floor(newStamina)}SP and ${Math.floor(newChakra)}CP`,
           cost,
-          newHealth,
           newStamina,
           newChakra,
         };
@@ -528,6 +547,46 @@ export const villageRouter = createTRPCRouter({
       await upsertAllianceStatus(ctx.drizzle, relationships, aId, bId, "NEUTRAL");
       // Return
       return { success: true, message: "You have left the alliance" };
+    }),
+  releaseSector: protectedProcedure
+    .input(z.object({ sector: z.number().int() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetches
+      const [sectorData, { user }, villages] = await Promise.all([
+        fetchSector(ctx.drizzle, input.sector),
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        fetchVillages(ctx.drizzle),
+      ]);
+      // Derived
+      const villageId = user?.villageId;
+
+      // Guards
+      if (!user) return errorResponse("Could not find user");
+      if (!isKage(user)) return errorResponse("You are not in charge");
+      if (!villageId) return errorResponse("Not in this village");
+      if (!sectorData) return errorResponse("Sector not found");
+      if (sectorData.villageId !== villageId) return errorResponse("Not your sector");
+      if (villages?.find((v) => v.sector === input.sector)) {
+        return errorResponse("Cannot clear sector with village/town/hideout in it");
+      }
+
+      // Mutate
+      await Promise.all([
+        ctx.drizzle.delete(sector).where(eq(sector.sector, input.sector)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "war",
+          changes: [`Released sector ${input.sector} from ${sectorData.village.name}`],
+          relatedId: villageId,
+          relatedMsg: `Released sector ${input.sector}`,
+          relatedImage: IMG_AVATAR_DEFAULT,
+        }),
+      ]);
+
+      // Return
+      return { success: true, message: "You have released the sector" };
     }),
   declareEnemy: protectedProcedure
     .input(z.object({ villageId: z.string() }))

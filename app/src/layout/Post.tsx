@@ -4,6 +4,7 @@ import Link from "next/link";
 import { showUserRank } from "@/libs/profile";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import type { UserRank, UserRole, FederalStatus } from "@/drizzle/constants";
+import { cn } from "src/libs/shadui";
 
 export interface PostProps {
   user?: {
@@ -139,7 +140,13 @@ const Post: React.FC<PostProps> = (props) => {
           </span>
         )}
         {props.user.villageKageId && props.user.villageKageId === props.user.userId && (
-          <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Kage</span>
+          <>
+            {props.user?.isOutlaw ? (
+              <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Daimyo</span>
+            ) : (
+              <span className="bg-slate-300 p-1 m-1 rounded-md text-black">Kage</span>
+            )}
+          </>
         )}
         {props.user?.role !== "USER" && (
           <span
@@ -172,11 +179,12 @@ const Post: React.FC<PostProps> = (props) => {
 
   return (
     <div
-      className={`relative mb-3 flex flex-row ${
-        props.align_middle ? "items-center" : ""
-      } rounded-lg border ${color} px-1 py-3 shadow ${props.hover_effect ? hover : ""} ${
-        props.className ? props.className : ""
-      }`}
+      className={cn(
+        `relative mb-3 flex flex-row rounded-lg border ${color} px-1 py-3 shadow`,
+        props.align_middle ? "items-center" : "",
+        props.hover_effect ? hover : "",
+        props.className,
+      )}
       onMouseEnter={props.onMouseEnter}
       onMouseLeave={props.onMouseLeave}
     >

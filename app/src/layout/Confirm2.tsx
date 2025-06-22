@@ -3,7 +3,6 @@
  * This is a replacement for the Confirm component, which will be deprecated.
  */
 import React, { useState } from "react";
-import { Dialog } from "@/components/ui/dialog";
 import Modal2 from "./Modal2";
 
 interface Confirm2Props {
@@ -12,7 +11,7 @@ interface Confirm2Props {
   className?: string;
   children: string | React.ReactNode;
   confirmClassName?: string;
-  proceed_label?: string;
+  proceed_label?: string | null;
   isValid?: boolean;
   disabled?: boolean;
   onAccept?: (
@@ -41,20 +40,21 @@ const Confirm2: React.FC<Confirm2Props> = (props) => {
       </span>
 
       {showModal && (
-        <Dialog open={showModal} onOpenChange={setShowModal}>
-          <Modal2
-            title={props.title}
-            setIsOpen={setShowModal}
-            proceed_label={props.proceed_label ? props.proceed_label : "Proceed"}
-            confirmClassName={props.confirmClassName}
-            onAccept={props.onAccept}
-            className={props.className}
-            isValid={props.isValid}
-            onClose={props.onClose}
-          >
-            {props.children}
-          </Modal2>
-        </Dialog>
+        <Modal2
+          title={props.title}
+          isOpen={showModal}
+          setIsOpen={setShowModal}
+          proceed_label={
+            props.proceed_label !== undefined ? props.proceed_label : "Proceed"
+          }
+          confirmClassName={props.confirmClassName}
+          onAccept={props.onAccept}
+          className={props.className}
+          isValid={props.isValid}
+          onClose={props.onClose}
+        >
+          {props.children}
+        </Modal2>
       )}
     </>
   );

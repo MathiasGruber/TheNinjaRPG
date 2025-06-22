@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ContentBox from "@/layout/ContentBox";
 import BanInfo from "@/layout/BanInfo";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import Loader from "@/layout/Loader";
 import Countdown from "@/layout/Countdown";
 import NavTabs from "@/layout/NavTabs";
@@ -74,11 +74,7 @@ export default function TownHall() {
   } else if (tab === "Elders") {
     return <ElderHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Wars") {
-    return userData.isOutlaw ? (
-      <WarRoom user={userData} navTabs={NavBarBlock} />
-    ) : (
-      <WarRoom user={userData} navTabs={NavBarBlock} />
-    );
+    return <WarRoom user={userData} navTabs={NavBarBlock} />;
   }
 }
 
@@ -873,7 +869,7 @@ const AllianceBlock: React.FC<{
         </Button>
       )}
       {!isOutlaw && isKage && !sameVillage && enemy.success && (
-        <Confirm
+        <Confirm2
           title="Confirm Enemy Declaration"
           button={
             <Button className="absolute top-1 right-1 px-1" variant="ghost">
@@ -905,7 +901,7 @@ const AllianceBlock: React.FC<{
               </span>
             </p>
           )}
-        </Confirm>
+        </Confirm2>
       )}
       {!isOutlaw && isKage && status === "ENEMY" && (
         <Button

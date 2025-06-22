@@ -115,7 +115,7 @@ const ContentSecurityPolicy = `
   child-src 'self' *.doubleclick.net *.paypal.com ghbtns.com *.youtube.com *.widgetbot.io *.cookiebot.com *.termly.io *.googletagmanager.com https://fastsvr.com https://www.facebook.com/;
   style-src 'self' 'unsafe-inline' *.googleapis.com *.tiny.cloud;
   img-src * blob: data:;
-  media-src 'none';
+  media-src 'none' https://ui0arpl8sm.ufs.sh;
   connect-src *;
   font-src 'self';
   worker-src 'self' blob:;

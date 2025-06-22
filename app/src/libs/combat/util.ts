@@ -1,11 +1,11 @@
 import { publicState, allState } from "./constants";
-import { getPower } from "./tags";
+import { realizeTag, getPower } from "./tags";
 import { randomInt } from "@/utils/math";
 import { availableUserActions, getBasicActions } from "./actions";
 import { calcActiveUser } from "./actions";
 import { stillInBattle } from "./actions";
 import { secondsPassed } from "@/utils/time";
-import { realizeTag, checkFriendlyFire } from "./process";
+import { checkFriendlyFire } from "./process";
 import { KAGE_PRESTIGE_COST, FRIENDLY_PRESTIGE_COST } from "@/drizzle/constants";
 import { KAGE_CHALLENGE_WIN_PRESTIGE } from "@/drizzle/constants";
 import { calcIsInVillage } from "@/libs/travel/controls";
@@ -20,11 +20,14 @@ import { canTrainJutsu, checkJutsuItems } from "@/libs/train";
 import { USER_CAPS } from "@/drizzle/constants";
 import { Orientation, Grid, rectangle } from "honeycomb-grid";
 import { defineHex } from "../hexgrid";
+import { calcLevel } from "@/libs/profile";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { COMBAT_HEIGHT, COMBAT_WIDTH } from "./constants";
 import { KILLING_NOTORIETY_GAIN } from "@/drizzle/constants";
 import { findWarsWithUser } from "@/libs/war";
 import { STREAK_LEVEL_DIFF } from "@/drizzle/constants";
+import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { REGEN_SECONDS } from "@/drizzle/constants";
 import {
   SHARED_COOLDOWN_TAGS,
   WAR_TOWNHALL_HP_REMOVE,
@@ -55,6 +58,7 @@ import type { GroundEffect, UserEffect, BattleEffect } from "@/libs/combat/types
 import type { Battle, VillageAlliance, Village, GameSetting } from "@/drizzle/schema";
 import type { Item, UserItem, AiProfile } from "@/drizzle/schema";
 import type { BattleType } from "@/drizzle/constants";
+import { nanoid } from "nanoid";
 
 /**
  * Check if a single tag is a shared cooldown tag
@@ -623,7 +627,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
 
       // Include money stolen during combat
       if (battleType === "COMBAT" && user.moneyStolen) {
-        if (user.moneyStolen > 0 && outcome === "Lost") {
+        if (user.moneyStolen > 0 && outcome !== "Won") {
           user.moneyStolen = 0;
         } else if (user.moneyStolen < 0 && outcome === "Won") {
           user.moneyStolen = 0;
@@ -684,7 +688,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       const shrineInfo: Record<number, number> = {};
       let townhallChangeHP = 0;
       let shrineChangeHp = 0;
-      if (!allOpponentsFled && !user.fledBattle) {
+      if (!user.fledBattle) {
         targets
           .filter((t) => !t.isSummon)
           .filter((t) => t.villageId !== vilId)
@@ -717,12 +721,14 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                 townhallInfo[userVillageName] = 0;
               }
               // Derived
-              const isUserClanColeader = checkCoLeader(user.userId, user.clan);
-              const isTargetClanColeader = checkCoLeader(target.userId, target.clan);
+              const isUserFactionColeader =
+                user.isOutlaw && checkCoLeader(user.userId, user.clan);
+              const isTargetFactionColeader =
+                target.isOutlaw && checkCoLeader(target.userId, target.clan);
 
               // Village wars & raids
               if (
-                ["VILLAGE_WAR", "FACTION_RAID"].includes(war.type) &&
+                ["VILLAGE_WAR", "WAR_RAID"].includes(war.type) &&
                 battleType === "COMBAT"
               ) {
                 if (didWin) {
@@ -734,7 +740,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                     townhallChangeHP += WAR_TOWNHALL_HP_ELDER_RECOVER;
                     townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_ELDER_RECOVER;
                     townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                  } else if (isUserClanColeader) {
+                  } else if (isUserFactionColeader) {
                     townhallChangeHP += WAR_TOWNHALL_HP_COLEADER_RECOVER;
                     townhallInfo[userVillageName]! += WAR_TOWNHALL_HP_COLEADER_RECOVER;
                     townhallInfo[targetVillageName]! -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
@@ -758,7 +764,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
                   } else if (target.rank === "ELDER") {
                     townhallChangeHP -= WAR_TOWNHALL_HP_ELDER_REMOVE;
                     townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_ELDER_REMOVE;
-                  } else if (isTargetClanColeader) {
+                  } else if (isTargetFactionColeader) {
                     townhallChangeHP -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
                     townhallInfo[userVillageName]! -= WAR_TOWNHALL_HP_COLEADER_REMOVE;
                   } else if (target.anbuId) {
@@ -808,8 +814,16 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
             });
           });
       }
+
+      // Scale everything based on reward scaling
       shrineChangeHp *= battle.rewardScaling;
       townhallChangeHP *= battle.rewardScaling;
+      Object.keys(shrineInfo).forEach((sector) => {
+        shrineInfo[sector as unknown as number]! *= battle.rewardScaling;
+      });
+      Object.keys(townhallInfo).forEach((name) => {
+        townhallInfo[name]! *= battle.rewardScaling;
+      });
 
       // Adjust shrine & townhall datamage based on level different
       const maxTargetLevel = Math.max(...targets.map((t) => t.level), 0);
@@ -1185,11 +1199,19 @@ export const processUsersForBattle = (info: {
     // Set controllerID and mark this user as the original
     user.controllerId = user.userId;
 
+    // If the target is an AI, update the nanoid so we do not have duplicates
+    if (user.isAi) {
+      user.userId = nanoid();
+    }
+
     // Set direction
     user.direction = i % 2 === 0 ? "right" : "left";
 
     // Set the updated at to now, so that action bar starts at 0
     user.updatedAt = new Date();
+
+    // If no village, set to syndicate
+    user.villageId = user.villageId || VILLAGE_SYNDICATE_ID;
 
     // Set all users to not be agressors by default
     user.isAggressor = false;
@@ -1200,7 +1222,7 @@ export const processUsersForBattle = (info: {
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle
     const regen = calcActiveUserRegen(user, settings);
-    const restored = (regen * secondsPassed(user.regenAt)) / 60;
+    const restored = (regen * secondsPassed(user.regenAt)) / REGEN_SECONDS;
     user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);
@@ -1287,6 +1309,9 @@ export const processUsersForBattle = (info: {
 
     // By default set iAmHere to false
     user.iAmHere = false;
+
+    // Update user level to the effective level if he had leveled up (to combat level-holding, as some things are scaled based on level)
+    user.level = calcLevel(user.experience);
 
     // Remember how much money this user had
     user.originalMoney = user.money;
@@ -1466,7 +1491,11 @@ export const processUsersForBattle = (info: {
         effects
           .filter((e) => e.type === "summon")
           .forEach((e) => "aiId" in e && allSummons.push(e.aiId));
-        if (itemType === "ARMOR" || itemType === "ACCESSORY") {
+        if (
+          itemType === "ARMOR" ||
+          itemType === "ACCESSORY" ||
+          itemType === "KEYSTONE"
+        ) {
           if (useritem.item.effects && useritem.equipped !== "NONE") {
             effects.forEach((effect) => {
               const realized = realizeTag({

@@ -2,8 +2,15 @@ import { calculateContentDiff } from "@/utils/diff";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { QuestValidator, ObjectiveReward } from "@/validators/objectives";
-import { LetterRanks, TimeFrames, QuestTypes, UserRanks } from "@/drizzle/constants";
+import {
+  LetterRanks,
+  QuestTypes,
+  UserRanks,
+  RetryQuestDelays,
+} from "@/drizzle/constants";
+import { z } from "zod";
 import { api } from "@/app/_trpc/client";
+import { IMG_AVATAR_DEFAULT, IMG_BADGE_DIALOG } from "@/drizzle/constants";
 import { showMutationToast, showFormErrorsToast } from "@/libs/toast";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { Quest } from "@/drizzle/schema";
@@ -12,27 +19,45 @@ import type { ZodQuestType, QuestContentType } from "@/validators/objectives";
 import type { ObjectiveRewardType } from "@/validators/objectives";
 
 // A merged type for quest with its rewards, so that we can show both in the same form
-type ZodCombinedQuest = ZodQuestType & ObjectiveRewardType;
+type ZodCombinedQuest = ZodQuestType &
+  ObjectiveRewardType & {
+    sceneBackground: string;
+    sceneCharacters: string[];
+  };
 
 /**
  * Hook used when creating frontend forms for editing items
  * @param data
  */
 export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
+  // Schema used
+  const schema = QuestValidator._def.schema.merge(ObjectiveReward).merge(
+    z.object({
+      sceneBackground: z.string().default(""),
+      sceneCharacters: z.array(z.string()).default([]),
+    }),
+  );
+
   // Form handling
-  const expires = quest.expiresAt ? quest.expiresAt.slice(0, 10) : "";
-  const start = {
+  const endsAt = quest.endsAt ? quest.endsAt.slice(0, 10) : "";
+  const startsAt = quest.startsAt ? quest.startsAt.slice(0, 10) : "";
+  const initialData = {
     ...quest,
     ...quest.content.reward,
-    expiresAt: expires,
+    sceneBackground: quest.content.sceneBackground,
+    sceneCharacters: quest.content.sceneCharacters,
+    endsAt: endsAt,
+    startsAt: startsAt,
   };
+  const parsedStart = schema.safeParse(initialData);
+  const start = parsedStart.success ? parsedStart.data : initialData;
 
   const form = useForm<ZodCombinedQuest>({
     mode: "all",
     criteriaMode: "all",
     values: start,
     defaultValues: start,
-    resolver: zodResolver(QuestValidator._def.schema.merge(ObjectiveReward)),
+    resolver: zodResolver(schema),
   });
 
   // Query for relations
@@ -41,6 +66,17 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   const { data: ais, isPending: l3 } = api.profile.getAllAiNames.useQuery(undefined);
   const { data: villages, isPending: l4 } = api.village.getAllNames.useQuery(undefined);
   const { data: badges, isPending: l5 } = api.badge.getAll.useQuery(undefined);
+  const { data: quests, isPending: l6 } = api.quests.getAllNames.useQuery(undefined);
+  const { data: sceneBackgrounds, isPending: l7 } = api.gameAsset.getAllNames.useQuery({
+    type: "SCENE_BACKGROUND",
+    folderPrefix: true,
+  });
+  const { data: sceneCharacters, isPending: l8 } = api.gameAsset.getAllNames.useQuery({
+    type: "SCENE_CHARACTER",
+    folderPrefix: true,
+  });
+  const { data: bloodlines, isPending: l9 } =
+    api.bloodline.getAllNames.useQuery(undefined);
 
   // Mutation for updating item
   const { mutate: updateQuest } = api.quests.update.useMutation({
@@ -57,25 +93,38 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
         if (objective.task === "move_to_location" && data.image) {
           objective.image = data.image;
         } else if (objective.task === "collect_item") {
-          const item = items?.find((i) => i.id === objective.collect_item_id);
-          if (item) {
-            objective.image = item.image;
-            objective.item_name = item.name;
+          const subset = items?.filter((i) => objective.collectItemIds.includes(i.id));
+          if (subset && subset.length > 0) {
+            objective.image = subset?.[0]?.image || IMG_AVATAR_DEFAULT;
+            objective.item_name = subset.map((i) => i.name).join(", ");
+          }
+        } else if (objective.task === "deliver_item") {
+          const subset = items?.filter((i) => objective.deliverItemIds.includes(i.id));
+          if (subset && subset.length > 0) {
+            objective.image = subset?.[0]?.image || IMG_AVATAR_DEFAULT;
+            objective.item_name = subset.map((i) => i.name).join(", ");
           }
         } else if (objective.task === "defeat_opponents") {
-          const ai = ais?.find((u) => u.userId === objective.opponent_ai);
+          const opponentIds = objective.opponentAIs
+            .flatMap((o) => Array(o.number).fill(o.ids).flat() as string[])
+            .filter((id): id is string => id !== undefined);
+          const ai = ais?.find((u) => opponentIds.includes(u.userId));
           if (ai?.avatar) {
             objective.image = ai.avatar;
-            objective.opponent_name = ai.username;
           }
+        } else if (objective.task === "dialog") {
+          objective.image = IMG_BADGE_DIALOG;
         }
         return objective;
       });
       const newQuest = {
         ...quest,
         ...data,
-        expiresAt: data.expiresAt ? data.expiresAt : null,
+        endsAt: data.endsAt ? data.endsAt : null,
+        startsAt: data.startsAt ? data.startsAt : null,
         content: {
+          sceneBackground: data.sceneBackground,
+          sceneCharacters: data.sceneCharacters,
           objectives: newObjectives,
           reward: {
             reward_money: data.reward_money,
@@ -87,6 +136,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
             reward_badges: data.reward_badges,
             reward_items: data.reward_items,
             reward_rank: data.reward_rank,
+            reward_bloodlines: data.reward_bloodlines,
           },
         },
       };
@@ -112,7 +162,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4 || l5;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9;
 
   // Watch for changes
   const imageUrl = useWatch({
@@ -123,17 +173,52 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
     control: form.control,
     name: "questType",
   });
+  const consecutiveObjectives = useWatch({
+    control: form.control,
+    name: "consecutiveObjectives",
+  });
 
   // Object for form values
   const formData: FormEntry<keyof ZodCombinedQuest>[] = [
     { id: "name", label: "Title", type: "text" },
     { id: "hidden", type: "boolean", label: "Hidden" },
-    { id: "consecutiveObjectives", type: "boolean", label: "Consecutive Objectives" },
+    { id: "consecutiveObjectives", type: "boolean", label: "Sequential Objectives" },
     { id: "questType", type: "str_array", values: QuestTypes },
     { id: "questRank", type: "str_array", values: LetterRanks },
     { id: "requiredLevel", type: "number" },
-    { id: "maxLevel", type: "number" },
+    { id: "maxLevel", type: "number", label: "Max Level" },
+    {
+      id: "sceneBackground",
+      type: "db_values",
+      values: sceneBackgrounds,
+      label: "Background (if not sequential)",
+    },
+    {
+      id: "sceneCharacters",
+      type: "db_values",
+      values: sceneCharacters,
+      multiple: true,
+      label: "Characters (if not sequential)",
+    },
   ];
+
+  if (questType === "event" || questType === "story") {
+    formData.push({ id: "maxAttempts", type: "number", label: "Max Attempts" });
+    formData.push({ id: "maxCompletes", type: "number", label: "Max Completes" });
+    formData.push({ id: "retryDelay", type: "str_array", values: RetryQuestDelays });
+  }
+
+  // Add prerequisite quest if quests exist
+  if (quests) {
+    formData.push({
+      id: "prerequisiteQuestId",
+      type: "db_values",
+      values: quests.filter((q) => q.id !== quest.id), // Don't allow self-reference
+      resetButton: true,
+      label: "Prerequisite Quest",
+      searchable: true,
+    });
+  }
 
   // Add villages if they exist
   if (villages) {
@@ -143,11 +228,6 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
       values: villages,
       resetButton: true,
     });
-  }
-
-  // For everything except daily, add timeframe & expiry
-  if (questType !== "daily") {
-    formData.push({ id: "timeFrame", type: "str_array", values: TimeFrames });
   }
 
   // For tiers, add tier level
@@ -163,13 +243,23 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   formData.push({ id: "reward_prestige", type: "number" });
   formData.push({ id: "reward_rank", type: "str_array", values: UserRanks });
 
+  if (bloodlines) {
+    formData.push({
+      id: "reward_bloodlines",
+      type: "db_values",
+      values: bloodlines,
+    });
+  }
+
   // Add items if they exist
   if (items) {
     formData.push({
       id: "reward_items",
-      type: "db_values",
-      values: items,
+      type: "db_values_with_number",
+      values: items.sort((a, b) => a.name.localeCompare(b.name)),
       multiple: true,
+      doubleWidth: true,
+      label: "Reward Items [and drop chance%]",
     });
   }
 
@@ -199,9 +289,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
   formData.push({ id: "successDescription", type: "richinput", doubleWidth: true });
 
   // Add description & image only for missions/crimes/events
-  if (["mission", "crime", "event", "exam"].includes(questType)) {
-    formData.push({ id: "expiresAt", type: "date", label: "Expires At" });
-  }
+  formData.push({ id: "endsAt", type: "date", label: "Ends At" });
+  formData.push({ id: "startsAt", type: "date", label: "Starts At" });
 
   return {
     quest,
@@ -209,6 +298,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => void) => {
     form,
     formData,
     loading,
+    consecutiveObjectives,
     setObjectives,
     handleQuestSubmit,
   };

@@ -11,7 +11,7 @@ import { conversation, user2conversation, conversationComment } from "@/drizzle/
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { secondsFromNow } from "@/utils/time";
 import { updateGameSetting, checkGameTimer } from "@/libs/gamesettings";
-import { automatedModeration } from "@/drizzle/schema";
+import { automatedModeration, dailyBankInterest } from "@/drizzle/schema";
 import { paypalSubscription } from "@/drizzle/schema";
 import { historicalIp, userActivityEvent } from "@/drizzle/schema";
 
@@ -135,10 +135,10 @@ export async function GET() {
 
     // Step 13: Bank transfers from deleted users
     await drizzleDB.execute(
-      sql`DELETE FROM ${bankTransfers} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.senderId)`,
+      sql`DELETE a FROM ${bankTransfers} a LEFT JOIN ${userData} b ON a.senderId = b.userId WHERE b.userId IS NULL`,
     );
     await drizzleDB.execute(
-      sql`DELETE FROM ${bankTransfers} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.receiverId)`,
+      sql`DELETE a FROM ${bankTransfers} a LEFT JOIN ${userData} b ON a.receiverId = b.userId WHERE b.userId IS NULL`,
     );
 
     // Step 14: Clear users older than 60 days
@@ -149,48 +149,48 @@ export async function GET() {
       sql`DELETE FROM ${userData} WHERE experience < 10000 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY AND reputationPointsTotal <= 5`,
     );
 
-    // Step 15: Clear bloodline rolls older than 1 day
+    // Step 15: Clear bloodline rolls without a user
     await drizzleDB.execute(
-      sql`DELETE FROM ${bloodlineRolls} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${bloodlineRolls} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
 
-    // Step 16: Clear concept rolls older than 1 day
+    // Step 16: Clear concept images without a user
     await drizzleDB.execute(
-      sql`DELETE FROM ${conceptImage} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${conceptImage} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
 
-    // Step 17: Clear forums older than 1 day
+    // Step 17: Clear forums without a user
     await drizzleDB.execute(
-      sql`DELETE FROM ${forumThread} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${forumThread} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
     await drizzleDB.execute(
-      sql`DELETE FROM ${forumPost} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${forumPost} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
     await drizzleDB.execute(
-      sql`DELETE FROM ${forumPost} a WHERE NOT EXISTS (SELECT id FROM ${forumThread} b WHERE b.id = a.threadId)`,
+      sql`DELETE a FROM ${forumPost} a LEFT JOIN ${forumThread} b ON a.threadId = b.id WHERE b.id IS NULL`,
     );
 
     // Step 18: Historical avatars
     await drizzleDB.execute(
-      sql`DELETE FROM ${historicalAvatar} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${historicalAvatar} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
 
     // Step 19: Historical avatars
     await drizzleDB.execute(
-      sql`DELETE FROM ${questHistory} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${questHistory} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
 
     // Step 20: User attributes
     await drizzleDB.execute(
-      sql`DELETE FROM ${userAttribute} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${userAttribute} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
 
     // Step 21: User jutsu & items
     await drizzleDB.execute(
-      sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${userJutsu} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
     await drizzleDB.execute(
-      sql`DELETE FROM ${userItem} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
+      sql`DELETE a FROM ${userItem} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
     );
 
     // Step 22: Clear training log entries
@@ -248,6 +248,27 @@ export async function GET() {
       sql`UPDATE ${userData} u SET u.federalStatus = 'NONE' WHERE u.federalStatus != 'NONE' AND NOT EXISTS (
         SELECT 1 FROM ${paypalSubscription} p WHERE p.affectedUserId = u.userId AND p.updatedAt >= CURRENT_TIMESTAMP(3) - INTERVAL 31 DAY
       )`,
+    );
+
+    // Step 33: Activate users with active subscriptions
+    await drizzleDB.execute(
+      sql`UPDATE ${userData} u
+          INNER JOIN ${paypalSubscription} ps ON u.userId = ps.affectedUserId
+          SET u.federalStatus = ps.federalStatus
+          WHERE 
+            u.federalStatus = 'NONE'
+            AND ps.status = 'ACTIVE'
+            AND ps.updatedAt > DATE_SUB(NOW(), INTERVAL 31 DAY)`,
+    );
+
+    // Step 34: Clear daily bank interest older than 7 days
+    await drizzleDB.execute(
+      sql`DELETE FROM ${dailyBankInterest} WHERE updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY`,
+    );
+
+    // Step 35: Clear daily bank interest older than 2 days which are already claimed
+    await drizzleDB.execute(
+      sql`DELETE FROM ${dailyBankInterest} WHERE claimed = 1 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 2 DAY`,
     );
 
     // Delete historical ips older than 90 days

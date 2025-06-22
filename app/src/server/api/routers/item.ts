@@ -24,6 +24,8 @@ import { HealTag } from "@/libs/combat/types";
 import { itemFilteringSchema } from "@/validators/item";
 import { filterRollableBloodlines } from "@/libs/bloodline";
 import { fetchBloodlines } from "@/routers/bloodline";
+import { setEmptyStringsToNulls } from "@/utils/typeutils";
+import type { UserItemWithItem } from "@/drizzle/schema";
 import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -89,6 +91,7 @@ export const itemRouter = createTRPCRouter({
     .input(z.object({ id: z.string(), data: ItemValidator }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      setEmptyStringsToNulls(input.data);
       // Query
       const [user, entry, itemWithName] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
@@ -326,32 +329,18 @@ export const itemRouter = createTRPCRouter({
         }
       }
       // Mutate
-      if (doEquip) {
-        const userItemInSlot = useritems.find(
-          (ui) => ui.equipped === newEquipSlot && ui.id !== useritem.id,
-        );
-        await Promise.all([
-          ctx.drizzle
-            .update(userItem)
-            .set({ equipped: newEquipSlot })
-            .where(eq(userItem.id, useritem.id)),
-          ...(userItemInSlot
-            ? [
-                ctx.drizzle
-                  .update(userItem)
-                  .set({ equipped: "NONE" })
-                  .where(eq(userItem.id, userItemInSlot.id)),
-              ]
-            : []),
-        ]);
-        return { success: true, message: `Equipped ${info.name}` };
-      } else {
-        await ctx.drizzle
-          .update(userItem)
-          .set({ equipped: "NONE" })
-          .where(eq(userItem.id, useritem.id));
-        return { success: true, message: `Unequipped ${info.name}` };
+      const result = await toggleEquipItem(
+        ctx.drizzle,
+        input.userItemId,
+        useritems,
+        input.slot,
+      );
+      // Execute any promises
+      if (result.success && result.promises.length > 0) {
+        await Promise.all(result.promises);
+        return { success: true, message: result.message };
       }
+      return result;
     }),
   // Consume item
   consume: protectedProcedure
@@ -555,6 +544,8 @@ export const itemRouter = createTRPCRouter({
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");
       if (input.stack > 1 && !item.canStack) return errorResponse("Item cannot stack");
+      if (input.stack > 1 && input.stack > info.stackSize)
+        return errorResponse("You can not buy a stack with this many items");
       if (!info.inShop) return errorResponse("Item is not for sale");
       if (user.isBanned) return errorResponse("You are banned");
       if (info.hidden && !canChangeContent(user.role)) {
@@ -565,6 +556,9 @@ export const itemRouter = createTRPCRouter({
       }
       if (info.isEventItem && eventItemsCount >= calcMaxEventItems(user)) {
         return errorResponse("Event item inventory is full");
+      }
+      if (info.expireFromStoreAt && new Date(info.expireFromStoreAt) < new Date()) {
+        return errorResponse("Item has expired");
       }
       const ryoCost = Math.ceil(info.cost * input.stack * factor);
       const repsCost = Math.ceil(info.repsCost * input.stack);
@@ -610,6 +604,59 @@ export const itemRouter = createTRPCRouter({
       });
       return { success: true, message: `You bought ${info.name}` };
     }),
+  // Auto-equip optimal items based on cost
+  autoEquipOptimal: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Fetch user items
+      const useritems = await fetchUserItems(ctx.drizzle, ctx.userId);
+
+      // Get unequipped items that are not stored at home, sorted by cost (descending)
+      const unequippedItems = useritems
+        .filter((ui) => ui.equipped === "NONE" && !ui.storedAtHome)
+        .sort((a, b) => b.item.cost - a.item.cost);
+      let availableSlots = ItemSlots.filter(
+        (slot) => !useritems.find((ui) => ui.equipped === slot),
+      );
+
+      // Guard
+      if (unequippedItems.length === 0) {
+        return errorResponse("No unequipped items available");
+      }
+      if (availableSlots.length === 0) {
+        return errorResponse("No available slots to equip items");
+      }
+
+      // Try to equip each unequipped item
+      const updatePromises = [];
+      let nEquipped = 0;
+      for (const useritem of unequippedItems) {
+        const slot = availableSlots.find((slot) => slot.includes(useritem.item.slot));
+        if (slot) {
+          const result = await toggleEquipItem(
+            ctx.drizzle,
+            useritem.id,
+            useritems,
+            slot,
+          );
+          if (result.success) {
+            nEquipped++;
+            updatePromises.push(...result.promises);
+            availableSlots = availableSlots.filter((s) => s !== slot);
+          }
+        }
+      }
+
+      // Execute all updates
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+      }
+
+      return {
+        success: true,
+        message: `Equipped ${nEquipped} item${nEquipped === 1 ? "" : "s"}`,
+      };
+    }),
 });
 
 /**
@@ -639,4 +686,93 @@ export const fetchUserItem = async (
     where: and(eq(userItem.userId, userId), eq(userItem.id, userItemId)),
     with: { item: true },
   });
+};
+
+/**
+ * @param client - The database client
+ * @param userItemId - The ID of the user item to toggle
+ * @param useritems - The user items to toggle
+ * @param slot - The slot to toggle (optional)
+ * @returns A promise that resolves to the result of the toggle
+ */
+export const toggleEquipItem = async (
+  client: DrizzleClient,
+  userItemId: string,
+  useritems: UserItemWithItem[],
+  slot?: ItemSlot,
+) => {
+  const useritem = useritems.find((i) => i.id === userItemId);
+  // Definitions & Guard
+  if (!useritem) {
+    return { success: false, message: "User item not found", promises: [] };
+  }
+  if (useritem.storedAtHome) {
+    return { success: false, message: "Fetch at home first", promises: [] };
+  }
+  const doEquip = !useritem.equipped || useritem.equipped !== slot;
+  const info = useritem.item;
+  const instances = useritems.filter(
+    (ui) => ui.itemId === info.id && ui.equipped !== "NONE",
+  );
+  const instancesEquipped = instances.length;
+  if (doEquip && instancesEquipped >= info.maxEquips) {
+    return {
+      success: false,
+      message: `No more than ${info.maxEquips} instances. Already have ${instancesEquipped} equipped.`,
+      promises: [],
+    };
+  }
+  // Determine equipment slot (first empty slots, then any slot)
+  let newEquipSlot = slot;
+  if (newEquipSlot === undefined) {
+    ItemSlots.forEach((slot) => {
+      if (slot.includes(info.slot) && !useritems.find((i) => i.equipped === slot)) {
+        newEquipSlot = slot;
+      }
+    });
+    if (newEquipSlot === undefined) {
+      ItemSlots.forEach((slot) => {
+        if (slot.includes(info.slot)) {
+          newEquipSlot = slot;
+        }
+      });
+    }
+  }
+  // We need to have a slot
+  if (!newEquipSlot) {
+    return { success: false, message: "No slot found", promises: [] };
+  }
+  // Mutate
+  if (doEquip) {
+    const userItemInSlot = useritems.find(
+      (ui) => ui.equipped === newEquipSlot && ui.id !== useritem.id,
+    );
+    // Optimistic update
+    useritem.equipped = newEquipSlot;
+    if (userItemInSlot) {
+      userItemInSlot.equipped = "NONE";
+    }
+    // Promises
+    const promises = [
+      client
+        .update(userItem)
+        .set({ equipped: newEquipSlot })
+        .where(eq(userItem.id, useritem.id)),
+      ...(userItemInSlot
+        ? [
+            client
+              .update(userItem)
+              .set({ equipped: "NONE" })
+              .where(eq(userItem.id, userItemInSlot.id)),
+          ]
+        : []),
+    ];
+    return { success: true, message: `Equipped ${info.name}`, promises };
+  } else {
+    const promise = client
+      .update(userItem)
+      .set({ equipped: "NONE" })
+      .where(eq(userItem.id, useritem.id));
+    return { success: true, message: `Unequipped ${info.name}`, promises: [promise] };
+  }
 };

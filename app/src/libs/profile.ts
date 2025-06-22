@@ -34,7 +34,7 @@ export const calcLevel = (experience: number) => {
       level += 1;
     }
   }
-  return level;
+  return Math.min(level, 100);
 };
 
 export const calcHP = (level: number) => {

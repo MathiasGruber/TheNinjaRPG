@@ -200,6 +200,22 @@ export class OrbitControls extends EventDispatcher<OrbitControlsEventMap> {
   ) {
     super();
 
+    // Validate required parameters
+    if (!object) {
+      throw new Error("OrbitControls: camera object is required");
+    }
+    if (!domElement) {
+      throw new Error("OrbitControls: DOM element is required");
+    }
+
+    // Initialize up vector if it's missing (Three.js cameras should have this by default)
+    if (!object.up) {
+      console.warn(
+        "OrbitControls: camera up vector not found, initializing with default Y-up",
+      );
+      object.up = new Vector3(0, 1, 0);
+    }
+
     // Prevent 2‑finger browser scroll / zoom
     this.domElement.style.touchAction = "none";
 
@@ -297,11 +313,8 @@ export class OrbitControls extends EventDispatcher<OrbitControlsEventMap> {
    */
   update = (() => {
     const offset = new Vector3();
-    const quat = new Quaternion().setFromUnitVectors(
-      this.object.up,
-      new Vector3(0, 1, 0),
-    );
-    const quatInverse = quat.clone().invert();
+    let quat: Quaternion;
+    let quatInverse: Quaternion;
 
     const lastPosition = new Vector3();
     const lastQuaternion = new Quaternion();
@@ -309,6 +322,21 @@ export class OrbitControls extends EventDispatcher<OrbitControlsEventMap> {
     const twoPI = 2 * Math.PI;
 
     return (): boolean => {
+      // Safety check for object and its up property
+      if (!this.object?.up) {
+        console.warn("OrbitControls: camera object or up vector is undefined");
+        return false;
+      }
+
+      // Initialize quaternions if not already done or if up vector changed
+      if (!quat) {
+        quat = new Quaternion().setFromUnitVectors(
+          this.object.up,
+          new Vector3(0, 1, 0),
+        );
+        quatInverse = quat.clone().invert();
+      }
+
       const position = this.object.position;
 
       // Offset from target in world space
@@ -452,8 +480,16 @@ export class OrbitControls extends EventDispatcher<OrbitControlsEventMap> {
       if (this.screenSpacePanning) {
         v.setFromMatrixColumn(objectMatrix, 1); // Y column
       } else {
-        v.setFromMatrixColumn(objectMatrix, 0);
-        v.crossVectors(this.object.up, v);
+        // Safety check for this.object.up
+        if (!this.object?.up) {
+          console.warn(
+            "OrbitControls: camera up vector is undefined, using Y axis as fallback",
+          );
+          v.set(0, 1, 0);
+        } else {
+          v.setFromMatrixColumn(objectMatrix, 0);
+          v.crossVectors(this.object.up, v);
+        }
       }
       v.multiplyScalar(distance);
       this.panOffset.add(v);

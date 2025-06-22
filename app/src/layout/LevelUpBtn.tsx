@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import Loader from "@/layout/Loader";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -75,8 +75,9 @@ const LevelUpBtn: React.FC = () => {
         </div>
       )}
       {showModal && (
-        <Modal
+        <Modal2
           title={`Level up to Lvl ${userData.level + 1}!`}
+          isOpen={showModal}
           setIsOpen={setShowModal}
           proceed_label="Awesome!"
           isValid={false}
@@ -115,7 +116,7 @@ const LevelUpBtn: React.FC = () => {
               </p>
             </>
           )}
-        </Modal>
+        </Modal2>
       )}
     </>
   );

@@ -2,16 +2,14 @@ import React, { useState } from "react";
 import Image from "next/image";
 import StatusBar from "@/layout/StatusBar";
 import Countdown from "@/layout/Countdown";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import { CircleHelp } from "lucide-react";
-import { secondsFromNow, secondsFromDate } from "@/utils/time";
 import { getObjectiveImage } from "@/libs/objectives";
 import { X, Check, Gift } from "lucide-react";
 import { hasReward } from "@/validators/objectives";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { getObjectiveSchema } from "@/validators/objectives";
 import { isObjectiveComplete } from "@/libs/objectives";
-import type { TimeFrames } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import type { AllObjectivesType, ObjectiveRewardType } from "@/validators/objectives";
 import type { QuestTrackerType } from "@/validators/objectives";
@@ -23,6 +21,7 @@ interface ObjectiveProps {
   checkRewards: () => void;
   tier?: number;
   grayedOut?: boolean;
+  hideIfNoRewards?: boolean | null;
 }
 export const Objective: React.FC<ObjectiveProps> = (props) => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -54,6 +53,10 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   ) : (
     <X className="h-10 w-10 stroke-red-500" />
   );
+
+  // If future objectives are hidden, hide future objectives
+  if (props.hideIfNoRewards && !canCollect) return null;
+
   // Show the objective
   return (
     <div className={`flex flex-row ${props.grayedOut ? "grayscale opacity-30" : ""}`}>
@@ -77,9 +80,13 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                 onClick={() => setModalOpen(true)}
               />
               {modalOpen && (
-                <Modal title="Objective Details" setIsOpen={() => setModalOpen(false)}>
+                <Modal2
+                  title="Objective Details"
+                  setIsOpen={() => setModalOpen(false)}
+                  isOpen={modalOpen}
+                >
                   <div dangerouslySetInnerHTML={{ __html: objective.description }} />
-                </Modal>
+                </Modal2>
               )}
             </>
           )}
@@ -104,7 +111,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
           {"sector" in parsed && (
             <div className="flex flex-row items-center">
               <div className="grow">
-                {!parsed.hideLocation && (
+                {!("hideLocation" in parsed && parsed.hideLocation) && (
                   <>
                     <div>
                       <b>Sector: </b> {parsed.sector}
@@ -114,7 +121,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                     </div>
                   </>
                 )}
-                {parsed.hideLocation && (
+                {"hideLocation" in parsed && parsed.hideLocation && (
                   <div>
                     <b>Location:</b> hidden
                   </div>
@@ -132,10 +139,11 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
 
 interface RewardProps {
   info?: AllObjectivesType | ObjectiveRewardType | null;
+  rewardMultiplier?: number;
 }
 
 export const Reward: React.FC<RewardProps> = (props) => {
-  const info = props.info;
+  const { info, rewardMultiplier } = props;
   let rewards = `${info?.reward_money ? `${info.reward_money} Ryo` : ""}`;
   if (info?.reward_tokens) {
     rewards += `${rewards ? ", " : ""} ${info.reward_tokens} Tokens`;
@@ -154,6 +162,14 @@ export const Reward: React.FC<RewardProps> = (props) => {
       {rewards && (
         <p>
           <b>Rewards</b>: {rewards}
+          {rewardMultiplier && rewardMultiplier !== 1.0 && (
+            <>
+              <br />
+              <span className="text-sm text-red-500">
+                Will only give {rewardMultiplier * 100}% Rewards
+              </span>
+            </>
+          )}
         </p>
       )}
     </>
@@ -166,23 +182,37 @@ interface EventTimerProps {
 }
 
 export const EventTimer: React.FC<EventTimerProps> = (props) => {
-  const { quest, tracker } = props;
+  const { quest } = props;
 
   // If the quest is permanent
-  if (quest.timeFrame === "all_time" && !quest.expiresAt) return <></>;
+  if (!quest.endsAt && !quest.startsAt) return <></>;
 
-  // Get the expiry time based on quest.timeFrame from now(), or expiresAt, whatever comes first:
-  const nextYear = secondsFromNow(60 * 60 * 24 * 365);
-  const expiresAt = quest.expiresAt || nextYear;
-  const expiryTime = secondsFromDate(
-    getFreqSeconds(quest.timeFrame),
-    new Date(tracker.startAt),
-  );
-  const targetDate = expiresAt < expiryTime ? new Date(expiresAt) : expiryTime;
+  const now = new Date();
+  const startDate = quest.startsAt ? new Date(quest.startsAt) : null;
+  const endDate = quest.endsAt ? new Date(quest.endsAt) : null;
 
+  // If event hasn't started yet
+  if (startDate && now < startDate) {
+    return (
+      <div>
+        <b>Starts in: </b> <Countdown targetDate={startDate} />
+      </div>
+    );
+  }
+
+  // If event has started but not ended
+  if (endDate && now < endDate) {
+    return (
+      <div>
+        <b>Time Left: </b> <Countdown targetDate={endDate} />
+      </div>
+    );
+  }
+
+  // If event has ended
   return (
     <div>
-      <b>Time Left: </b> <Countdown targetDate={targetDate} />
+      <b>Event Ended</b>
     </div>
   );
 };
@@ -198,18 +228,5 @@ const getStatusColor = (tier: number | undefined, done: boolean) => {
       return "bg-red-500";
     default:
       return "bg-blue-500";
-  }
-};
-
-const getFreqSeconds = (timeFrame: (typeof TimeFrames)[number]) => {
-  switch (timeFrame) {
-    case "daily":
-      return 60 * 60 * 24;
-    case "weekly":
-      return 60 * 60 * 24 * 7;
-    case "monthly":
-      return 60 * 60 * 24 * 30;
-    case "all_time":
-      return 60 * 60 * 24 * 365;
   }
 };

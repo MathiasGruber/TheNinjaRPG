@@ -34,19 +34,22 @@ interface GameAssetFilteringProps {
 
 const GameAssetFiltering: React.FC<GameAssetFilteringProps> = (props) => {
   // Destructure the state
-  const { setName, setTags, setType } = props.state;
-  const { name, tags, type } = props.state;
+  const { setName, setTags, setType, setFolder } = props.state;
+  const { name, tags, type, folder } = props.state;
 
   // Name search schema
   const form = useForm<GameAssetSchema>({
     resolver: zodResolver(gameAssetSchema),
-    defaultValues: { name: name, type: type },
+    defaultValues: { name: name, type: type, folder: folder },
   });
   const watchName = useWatch({ control: form.control, name: "name", defaultValue: "" });
 
   // Get all content tags
   const { data: dbTags } =
     api.gameAsset.getAllGameAssetContentTagNames.useQuery(undefined);
+
+  // Get all folders
+  const { data: dbFolders } = api.gameAsset.getAllFolders.useQuery(undefined);
 
   // Update the state
   useEffect(() => {
@@ -102,6 +105,28 @@ const GameAssetFiltering: React.FC<GameAssetFilteringProps> = (props) => {
               </Select>
             </div>
           </div>
+          {/* Folder */}
+          <div>
+            <Label htmlFor="folder">Folder</Label>
+            <div className="flex flex-row items-center">
+              <Select
+                onValueChange={(v) => setFolder(v === "__ALL__" ? "" : v)}
+                value={folder || "__ALL__"}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">All folders</SelectItem>
+                  {dbFolders?.map((f) => (
+                    <SelectItem key={f.folder} value={f.folder}>
+                      {f.folder}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           {/* Tags */}
           {dbTags && (
             <div>
@@ -130,6 +155,7 @@ export const getFilter = (state: GameAssetFilteringState) => {
     name: state.name ? state.name : undefined,
     type: state.type ? state.type : "STATIC",
     tags: state.tags.length !== 0 ? state.tags : undefined,
+    folder: state.folder ? state.folder : undefined,
   };
 };
 
@@ -139,14 +165,17 @@ export const useFiltering = () => {
   const [name, setName] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
   const [type, setType] = useState<GameAssetType>("STATIC");
+  const [folder, setFolder] = useState<string>("");
   // Return all
   return {
     name,
     type,
     tags,
+    folder,
     setName,
     setTags,
     setType,
+    setFolder,
   };
 };
 

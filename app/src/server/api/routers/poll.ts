@@ -11,6 +11,7 @@ import {
   canEditPolls,
   canClosePolls,
   canDeletePollOptions,
+  canInteractWithPolls,
 } from "@/utils/permissions";
 import {
   createPollSchema,
@@ -35,6 +36,9 @@ export const pollRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Guard
       if (!user) return errorResponse("User not found");
+      if (!canInteractWithPolls(user.rank)) {
+        return errorResponse("Too low rank to vote. Must be at least Genin.");
+      }
       if (!canCreatePolls(user.role)) {
         return errorResponse("You don't have permission to create polls");
       }
@@ -108,6 +112,9 @@ export const pollRouter = createTRPCRouter({
 
       // Guard
       if (!user) return errorResponse("User not found");
+      if (!canInteractWithPolls(user.rank)) {
+        return errorResponse("Too low rank to vote. Must be at least Genin.");
+      }
       if (!existingPoll) return errorResponse("Poll not found");
       if (existingPoll.createdByUserId !== user.userId && !canEditPolls(user.role)) {
         return errorResponse("You don't have permission to update this poll");
@@ -158,6 +165,9 @@ export const pollRouter = createTRPCRouter({
       ]);
       // Guard
       if (!user) return errorResponse("User not found");
+      if (!canInteractWithPolls(user.rank)) {
+        return errorResponse("Too low rank to vote. Must be at least Genin.");
+      }
       if (!existingPoll) return errorResponse("Poll not found");
       if (!existingPoll.isActive) return errorResponse("Poll is not active");
       if (!option) return errorResponse("Option not found");
@@ -347,6 +357,10 @@ export const pollRouter = createTRPCRouter({
   getUserVote: protectedProcedure
     .input(z.object({ pollId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Query
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      // Guard
+      if (!user) throw new Error("User not found");
       return await fetchUserVote(ctx.drizzle, ctx.userId, input.pollId);
     }),
 
@@ -364,6 +378,9 @@ export const pollRouter = createTRPCRouter({
 
       // Guard
       if (!user) return errorResponse("User not found");
+      if (!canInteractWithPolls(user.rank)) {
+        return errorResponse("Too low rank to vote. Must be at least Genin.");
+      }
       if (!existingPoll) return errorResponse("Poll not found");
       if (!existingPoll.isActive) return errorResponse("Poll is not active");
       if (!existingVote) return errorResponse("You haven't voted in this poll");
@@ -391,6 +408,9 @@ export const pollRouter = createTRPCRouter({
 
       // Guard
       if (!user) return errorResponse("User not found");
+      if (!canInteractWithPolls(user.rank)) {
+        return errorResponse("Too low rank to vote. Must be at least Genin.");
+      }
       if (!existingPoll) return errorResponse("Poll not found");
       if (!canClosePolls(user.role)) {
         return errorResponse("You don't have permission to close polls");
@@ -442,6 +462,9 @@ export const pollRouter = createTRPCRouter({
 
       // Guard
       if (!user) return errorResponse("User not found");
+      if (!canInteractWithPolls(user.rank)) {
+        return errorResponse("Too low rank to vote. Must be at least Genin.");
+      }
       if (!existingPoll) return errorResponse("Poll not found");
       if (!existingOption) return errorResponse("Option not found");
 

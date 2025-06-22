@@ -3,31 +3,27 @@ import { calculateContentDiff } from "@/utils/diff";
 import { useForm, useWatch } from "react-hook-form";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
-import AvatarImage from "@/layout/Avatar";
-import Model3d from "@/layout/Model3d";
+import ContentImageSelector from "@/layout/ContentImageSelector";
 import RichInput from "@/layout/RichInput";
-import Loader from "@/layout/Loader";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { objectKeys } from "@/utils/typeutils";
-import { RefreshCw } from "lucide-react";
 import { getTagSchema } from "@/libs/combat/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { showMutationToast } from "@/libs/toast";
-import { UploadButton } from "@/utils/uploadthing";
 import { api } from "@/app/_trpc/client";
 import { getObjectiveSchema } from "@/validators/objectives";
-import { sleep } from "@/utils/time";
 import { Button } from "@/components/ui/button";
 import { MultiSelect, type OptionType } from "@/components/ui/multi-select";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -36,11 +32,16 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { nanoid } from "nanoid";
+import { cn } from "src/libs/shadui";
+import { InstantTasks } from "@/validators/objectives";
 import type { Path, PathValue } from "react-hook-form";
 import type { AllObjectivesType } from "@/validators/objectives";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { FieldValues } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
+import type { ContentType, IMG_ORIENTATION } from "@/drizzle/constants";
 
 export type FormDbValue = { id: string; name: string };
 export type FormEntry<K> = {
@@ -48,22 +49,39 @@ export type FormEntry<K> = {
   label?: string;
   doubleWidth?: boolean;
   resetButton?: boolean;
+  searchable?: boolean;
 } & (
   | { type: "text" }
   | { type: "richinput" }
   | { type: "date" }
   | { type: "number" }
   | { type: "boolean" }
-  | { type: "str_array"; values: readonly string[]; multiple?: boolean }
   | { type: "animation_array"; values: readonly string[] }
   | { type: "statics_array"; values: readonly string[] }
-  | { type: "avatar"; href?: string | null }
+  | { type: "avatar"; href?: string | null; size?: IMG_ORIENTATION; maxDim?: number }
   | { type: "avatar3d"; modelUrl?: string | null; imgUrl?: string | null }
+  | {
+      type: "str_array";
+      values: readonly string[];
+      multiple?: boolean;
+      allowAddNew?: boolean;
+    }
   | {
       type: "db_values";
       values: FormDbValue[] | undefined;
       multiple?: boolean;
       current?: string;
+    }
+  | {
+      type: "db_values_with_number";
+      values: FormDbValue[] | undefined;
+      multiple?: boolean;
+      current?: string;
+    }
+  | {
+      type: "dialog_options";
+      values: { text: string; nextObjectiveId: string }[];
+      objectiveIds: string[];
     }
 );
 
@@ -75,13 +93,15 @@ interface EditContentProps<T, K, S extends FieldValues> {
   formClassName?: string;
   buttonTxt?: string;
   allowImageUpload?: boolean;
+  relationId?: string;
   fixedWidths?: "basis-32" | "basis-64" | "basis-96";
-  type?: "jutsu" | "bloodline" | "item" | "quest" | "ai" | "badge" | "asset";
+  type?: ContentType;
   bgColor?: "bg-slate-600" | "";
   onAccept?: (
     e: React.BaseSyntheticEvent<object, any, any> | undefined,
   ) => Promise<void>;
   onEnter?: () => Promise<void>;
+  submitDisabled?: boolean;
 }
 
 /**
@@ -96,11 +116,15 @@ export const EditContent = <
   props: EditContentProps<T, K, S>,
 ) => {
   // Destructure
-  const { formData, formClassName, form, showSubmit, buttonTxt } = props;
+  const { formData, formClassName, form, showSubmit, buttonTxt, submitDisabled } =
+    props;
   const currentValues = form.getValues();
 
-  // State
-  const [isLoading, setIsLoading] = useState(false);
+  // State for managing dynamic options for fields with allowAddNew
+  const [dynamicOptionsMap, setDynamicOptionsMap] = useState<
+    Record<string, OptionType[]>
+  >({});
+  const [newItemInputMap, setNewItemInputMap] = useState<Record<string, string>>({});
 
   // Event listener for submitting on enter click
   const onDocumentKeyDown = (event: KeyboardEvent) => {
@@ -121,74 +145,22 @@ export const EditContent = <
   }, []);
 
   // Mutations
-  const { mutate: removeBg, isPending: load1 } = api.openai.removeBg.useMutation({
-    onSuccess: (data, variables) => {
-      showMutationToast({ success: true, message: "Background removed" });
-      fetchReplicateResult({
-        replicateId: data.replicateId,
-        field: variables.field,
-        removeBg: false,
-      });
-    },
-  });
+  // const { mutate: create3dModel } =
+  //   api.openai.create3dModel.useMutation({
+  //     onSuccess: (data, variables) => {
+  //       showMutationToast({
+  //         success: true,
+  //         message: "3D model generated. Now fetching",
+  //       });
+  //       fetchReplicateResult({
+  //         replicateId: data.replicateId,
+  //         field: variables.field,
+  //         removeBg: false,
+  //       });
+  //     },
+  //   });
 
-  const { mutate: fetchReplicateResult, isPending: load2 } =
-    api.openai.fetchReplicateResult.useMutation({
-      onMutate: () => {
-        setIsLoading(true);
-      },
-      onSuccess: async (data, variables) => {
-        if (data.status !== "failed") {
-          if (data.url) {
-            form.setValue(
-              variables.field as Path<S>,
-              data.url as PathValue<S, Path<S>>,
-              { shouldDirty: true },
-            );
-            if (variables.removeBg) {
-              removeBg({ url: data.url, field: variables.field });
-            }
-            setIsLoading(false);
-          } else {
-            await sleep(5000);
-            fetchReplicateResult(variables);
-          }
-        }
-      },
-      onError: (error) => {
-        console.error(error);
-        setIsLoading(false);
-      },
-    });
-
-  const { mutate: createImg, isPending: load3 } = api.openai.createImg.useMutation({
-    onSuccess: (data, variables) => {
-      showMutationToast({ success: true, message: "Image generated. Now fetching" });
-      fetchReplicateResult({
-        replicateId: data.replicateId,
-        field: variables.field,
-        removeBg: variables.removeBg,
-      });
-    },
-  });
-
-  const { mutate: create3dModel, isPending: load4 } =
-    api.openai.create3dModel.useMutation({
-      onSuccess: (data, variables) => {
-        showMutationToast({
-          success: true,
-          message: "3D model generated. Now fetching",
-        });
-        fetchReplicateResult({
-          replicateId: data.replicateId,
-          field: variables.field,
-          removeBg: false,
-        });
-      },
-    });
-
-  const load = isLoading || load1 || load2 || load3 || load4;
-
+  // const load = isLoading || load1 || load2 || load3;
   return (
     <Form {...form}>
       <form
@@ -197,340 +169,625 @@ export const EditContent = <
           formClassName ?? "grid grid-cols-1 md:grid-cols-2 items-center gap-2"
         }
       >
-        {formData.map((formEntry) => {
-          // Derived
-          const id = formEntry.id;
-          let type = formEntry.type;
+        {formData
+          .filter((formEntry) => formEntry.type !== "avatar3d")
+          .sort((a, b) => {
+            if (["dialog_options", "db_values_with_number"].includes(a.type)) return 1;
+            if (["dialog_options", "db_values_with_number"].includes(b.type)) return -1;
+            return 0;
+          })
+          .map((formEntry) => {
+            // Derived
+            const id = formEntry.id;
+            let type = formEntry.type;
 
-          // Options for select & multi-select
-          let options: OptionType[] = [];
-          if (
-            formEntry.type === "animation_array" ||
-            formEntry.type === "statics_array" ||
-            formEntry.type === "str_array"
-          ) {
-            options.push(...formEntry.values?.map((v) => ({ label: v, value: v })));
-          } else if (formEntry.type === "db_values" && formEntry.values) {
-            options.push(
-              ...formEntry.values?.map((v) => ({ label: v.name, value: v.id })),
-            );
-          }
-          options = options.map((o) => ({
-            label: o.label !== "" ? o.label : "None",
-            value: o.value !== "" ? o.value : "None",
-          }));
+            // Options for select & multi-select
+            let options: OptionType[] = [];
+            if (
+              formEntry.type === "animation_array" ||
+              formEntry.type === "statics_array" ||
+              formEntry.type === "str_array"
+            ) {
+              options.push(...formEntry.values?.map((v) => ({ label: v, value: v })));
+            } else if (formEntry.type === "db_values" && formEntry.values) {
+              options.push(
+                ...formEntry.values?.map((v) => ({ label: v.name, value: v.id })),
+              );
+            }
+            options = options.map((o) => ({
+              label: o.label !== "" ? o.label : "None",
+              value: o.value !== "" ? o.value : "None",
+            }));
 
-          // Show richInputs as text if fixedWidths
-          if (props.fixedWidths && formEntry.type === "richinput") {
-            type = "text";
-          }
+            // Show richInputs as text if fixedWidths
+            if (props.fixedWidths && formEntry.type === "richinput") {
+              type = "text";
+            }
 
-          // Render
-          return (
-            <div
-              key={`formEntry-${id}`}
-              className={`${["avatar", "avatar3d"].includes(type) ? "row-span-5" : ""} ${
-                formEntry.doubleWidth ? "md:col-span-2" : ""
-              } ${
-                props.fixedWidths
-                  ? `grow-0 shrink-0 px-2 pt-3 h-32 ${props.fixedWidths}`
-                  : ""
-              } ${props.bgColor ? props.bgColor : ""}`}
-            >
-              {["text", "number", "date"].includes(type) && (
-                <FormField
-                  control={form.control}
-                  name={id}
-                  render={({ field, fieldState }) => {
-                    return (
-                      <FormItem>
-                        <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                        <FormControl>
-                          <Input
-                            id={id}
-                            type={type}
-                            isDirty={fieldState.isDirty}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-              )}
-              {"boolean" === type && (
-                <FormField
-                  control={form.control}
-                  name={id}
-                  render={({ field, fieldState }) => {
-                    return (
-                      <FormItem>
-                        <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                        <br />
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            isDirty={fieldState.isDirty}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-              )}
-              {type === "richinput" && currentValues && (
-                <FormField
-                  control={form.control}
-                  name={id}
-                  render={({ fieldState }) => {
-                    return (
-                      <FormItem>
-                        <FormControl>
-                          <RichInput
-                            id={id}
-                            height="200"
-                            placeholder={currentValues[id] as string}
-                            label={formEntry.label ? formEntry.label : id}
-                            control={form.control}
-                            isDirty={fieldState.isDirty}
-                            error={form.formState.errors[id]?.message as string}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-              )}
-              {(type === "str_array" ||
-                type === "db_values" ||
-                type === "animation_array" ||
-                type === "statics_array") && (
-                <div className="flex flex-row items-end">
-                  <div className="grow">
-                    <FormField
-                      control={form.control}
-                      name={id}
-                      render={({ field, fieldState }) => (
+            // Prompt for image generation
+            let prompt = "";
+            // Generate based on name, title and description
+            if (currentValues?.name) {
+              prompt += `${currentValues?.name} `;
+            }
+            if (currentValues?.username) {
+              prompt += `${currentValues?.username} `;
+            }
+            if (currentValues?.title) {
+              prompt += `${currentValues?.title} `;
+            }
+            if (currentValues?.description) {
+              prompt += `${currentValues?.description} `;
+            }
+
+            // Render
+            return (
+              <div
+                key={`formEntry-${id}`}
+                className={`${["avatar", "avatar3d"].includes(type) ? "row-span-5" : ""} ${
+                  formEntry.doubleWidth ? "md:col-span-2" : ""
+                } ${
+                  props.fixedWidths
+                    ? `grow-0 shrink-0 px-2 pt-3 h-32 ${props.fixedWidths}`
+                    : ""
+                } ${props.bgColor ? props.bgColor : ""}`}
+              >
+                {["text", "number", "date"].includes(type) && (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field, fieldState }) => {
+                      return (
                         <FormItem>
                           <FormLabel>
                             {formEntry.label ? formEntry.label : id}
                           </FormLabel>
-
-                          {"multiple" in formEntry && formEntry.multiple ? (
-                            <MultiSelect
-                              selected={field.value ? field.value : []}
+                          <FormControl>
+                            <Input
+                              id={id}
+                              type={type}
                               isDirty={fieldState.isDirty}
-                              options={options}
-                              onChange={field.onChange}
+                              {...field}
                             />
-                          ) : (
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger isDirty={fieldState.isDirty}>
-                                  <SelectValue placeholder={`None`} />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {options.map((option) => (
-                                  <SelectItem
-                                    key={`select-${option.label}`}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
-                      )}
-                    />
-                  </div>
-                  {formEntry.resetButton && (
-                    <Button
-                      className="w-8 p-0 ml-1"
-                      type="button"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        form.setValue(id, "" as PathValue<S, K>, {
-                          shouldDirty: true,
-                        });
-                      }}
-                    >
-                      <X className="h-5 w-5 stroke-1" />
-                    </Button>
-                  )}
-                  {"current" in formEntry && formEntry.current && (
-                    <div className="w-12 ml-1 h-12 overflow-y-auto">
-                      <Image
-                        src={formEntry.current}
-                        alt={id}
-                        width={100}
-                        height={100}
-                        priority
+                      );
+                    }}
+                  />
+                )}
+                {"boolean" === type && (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field, fieldState }) => {
+                      return (
+                        <FormItem>
+                          <FormLabel>
+                            {formEntry.label ? formEntry.label : id}
+                          </FormLabel>
+                          <br />
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              isDirty={fieldState.isDirty}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                )}
+                {type === "richinput" && currentValues && (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ fieldState }) => {
+                      return (
+                        <FormItem>
+                          <FormControl>
+                            <RichInput
+                              id={id}
+                              height="200"
+                              placeholder={currentValues[id] as string}
+                              label={formEntry.label ? formEntry.label : id}
+                              control={form.control}
+                              isDirty={fieldState.isDirty}
+                              error={form.formState.errors[id]?.message as string}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                )}
+                {(type === "str_array" ||
+                  type === "db_values" ||
+                  type === "animation_array" ||
+                  type === "statics_array") && (
+                  <div className="flex flex-row items-end">
+                    <div className="grow">
+                      <FormField
+                        control={form.control}
+                        name={id}
+                        render={({ field, fieldState }) => {
+                          const canAddNew =
+                            "allowAddNew" in formEntry && formEntry.allowAddNew;
+
+                          // Get or initialize dynamic options for this field
+                          const fieldId = String(id);
+                          const dynamicOptions = dynamicOptionsMap[fieldId] || options;
+                          const newItemInput = newItemInputMap[fieldId] || "";
+
+                          const setDynamicOptions = (newOptions: OptionType[]) => {
+                            setDynamicOptionsMap((prev) => ({
+                              ...prev,
+                              [fieldId]: newOptions,
+                            }));
+                          };
+
+                          const setNewItemInput = (value: string) => {
+                            setNewItemInputMap((prev) => ({
+                              ...prev,
+                              [fieldId]: value,
+                            }));
+                          };
+
+                          const addNewItem = () => {
+                            if (
+                              newItemInput.trim() &&
+                              !dynamicOptions.find(
+                                (opt) => opt.value === newItemInput.trim(),
+                              )
+                            ) {
+                              const newOption = {
+                                label: newItemInput.trim(),
+                                value: newItemInput.trim(),
+                              };
+                              const updatedOptions = [...dynamicOptions, newOption];
+                              setDynamicOptions(updatedOptions);
+
+                              // If single select, auto-select the new item
+                              if (!("multiple" in formEntry && formEntry.multiple)) {
+                                form.setValue(
+                                  id,
+                                  newItemInput.trim() as PathValue<S, K>,
+                                );
+                              } else {
+                                // If multi-select, add to current selection
+                                const currentValues = field.value ? field.value : [];
+                                field.onChange([...currentValues, newItemInput.trim()]);
+                              }
+
+                              setNewItemInput("");
+                            }
+                          };
+
+                          return (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>
+                                {formEntry.label ? formEntry.label : id}
+                              </FormLabel>
+
+                              {"multiple" in formEntry && formEntry.multiple ? (
+                                <MultiSelect
+                                  selected={field.value ? field.value : []}
+                                  isDirty={fieldState.isDirty}
+                                  options={dynamicOptions}
+                                  onChange={field.onChange}
+                                  allowAddNew={canAddNew}
+                                  onAddNewOption={(newOption) => {
+                                    setDynamicOptions([...dynamicOptions, newOption]);
+                                  }}
+                                />
+                              ) : (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <FormControl>
+                                      <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn(
+                                          "w-full justify-between",
+                                          !field.value && "text-muted-foreground",
+                                          fieldState.isDirty && "border-orange-300",
+                                        )}
+                                      >
+                                        {field.value
+                                          ? dynamicOptions.find(
+                                              (option) => option.value === field.value,
+                                            )?.label
+                                          : "Select option"}
+                                        <ChevronsUpDown className="opacity-50" />
+                                      </Button>
+                                    </FormControl>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[200px] p-0">
+                                    <Command>
+                                      {formEntry.searchable && (
+                                        <CommandInput
+                                          placeholder="Search..."
+                                          className="h-9"
+                                        />
+                                      )}
+
+                                      <CommandList>
+                                        <CommandEmpty>No framework found.</CommandEmpty>
+                                        <CommandGroup>
+                                          {dynamicOptions.map((option) => (
+                                            <CommandItem
+                                              value={option.label}
+                                              key={option.value}
+                                              onSelect={() => {
+                                                form.setValue(
+                                                  id,
+                                                  option.value as PathValue<S, K>,
+                                                );
+                                              }}
+                                            >
+                                              {option.label}
+                                              <Check
+                                                className={cn(
+                                                  "ml-auto",
+                                                  option.value === field.value
+                                                    ? "opacity-100"
+                                                    : "opacity-0",
+                                                )}
+                                              />
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                        {canAddNew && (
+                                          <div className="p-2 border-t">
+                                            <div className="flex items-center space-x-2">
+                                              <Input
+                                                placeholder="Add new option..."
+                                                value={newItemInput}
+                                                onChange={(e) =>
+                                                  setNewItemInput(e.target.value)
+                                                }
+                                                onKeyDown={(e) => {
+                                                  if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    addNewItem();
+                                                  }
+                                                }}
+                                                className="h-8"
+                                              />
+                                              <Button
+                                                size="sm"
+                                                onClick={addNewItem}
+                                                disabled={!newItemInput.trim()}
+                                                className="h-8 w-8 p-0"
+                                              >
+                                                <Plus className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
                       />
                     </div>
-                  )}
-                </div>
-              )}
-              {type === "avatar" && props.allowImageUpload && "href" in formEntry && (
-                <div className="flex flex-col justify-start">
-                  <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                  <br />
-                  <AvatarImage
-                    href={currentValues?.[id] ?? formEntry.href}
-                    alt={id}
-                    size={100}
-                    hover_effect={true}
-                    priority
-                  />
-
-                  <br />
-                  {props.allowImageUpload && (
-                    <div className="flex flex-row justify-center">
+                    {formEntry.resetButton && (
                       <Button
-                        id="create"
-                        className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
+                        className="w-8 p-0 ml-1"
+                        type="button"
+                        variant="ghost"
                         onClick={(e) => {
-                          e.preventDefault();
                           e.stopPropagation();
-                          let prompt = "";
-                          // Generate based on name, title and description
-                          if (currentValues?.name) {
-                            prompt += `${currentValues?.name} `;
-                          }
-                          if (currentValues?.username) {
-                            prompt += `${currentValues?.username} `;
-                          }
-                          if (currentValues?.title) {
-                            prompt += `${currentValues?.title} `;
-                          }
-                          if (prompt && !load) {
-                            // Different qualifiers for different content types
-                            if (props.type === "quest") {
-                              prompt = `Epic composition, cinematic ${prompt}, vibrant background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, Trending on artstation, 8k, Japanese inspiration, extremely detailed.`;
-                            } else if (props.type === "item") {
-                              prompt = `Miniature Icon Object for Videogame User Interface, ${prompt}, white background, concept art design, Japanese inspiration, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, MOORPG Items, professional videogame Design, Indi Studio, High Quality, 4k, Photoshop.`;
-                            } else if (props.type === "badge") {
-                              prompt = `${prompt} round badge Japanese inspiration, white background, pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, professional videogame Design, High Quality, 4k, Photoshop.`;
-                            } else if (props.type === "jutsu") {
-                              prompt = `epic composition, symbolic representing the action: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
-                            } else if (props.type === "bloodline") {
-                              prompt = `epic composition, symbolic representing the heritage: ${prompt},Japanese inspiration, fantasy pixel art evoking the charm of 8-bit/16-bit era games with modern shading techniques, trending on artstation, extremely detailed.`;
-                            } else if (props.type === "ai") {
-                              prompt = `A full-body anime-style pixel art ${prompt} in a 3D-like, standing in a balanced, central position. The ${prompt} is rendered with clean, sharp pixel details and modern shading techniques, evoking the style of retro 8-bit/16-bit games but with a polished, high-quality finish. The background is a simple, solid color highlighting the character, allowing them to stand out clearly. Dynamic pose, extremely detailed.`;
-                            }
-                            // Send of the request for content image
-                            createImg({
-                              prompt: prompt,
-                              field: id,
-                              removeBg: ["item", "ai"].includes(props.type ?? ""),
-                            });
-                          }
+                          e.preventDefault();
+                          form.setValue(id, "" as PathValue<S, K>, {
+                            shouldDirty: true,
+                          });
                         }}
                       >
-                        {load ? (
-                          <Loader noPadding={true} size={25} />
-                        ) : (
-                          <RefreshCw className="mr-1 p-2 h-10 w-10" />
-                        )}
-                        AI
+                        <X className="h-5 w-5 stroke-1" />
                       </Button>
-                      <UploadButton
-                        endpoint="imageUploader"
-                        onClientUploadComplete={(res) => {
-                          const url = res?.[0]?.url;
-                          if (url) {
-                            form.setValue(id, url as PathValue<S, K>, {
-                              shouldDirty: true,
-                            });
-                          }
-                        }}
-                        onUploadError={(error: Error) => {
-                          showMutationToast({ success: false, message: error.message });
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-              {type === "avatar3d" &&
-                "modelUrl" in formEntry &&
-                "imgUrl" in formEntry && (
-                  <div className="flex flex-col justify-start">
-                    <FormLabel>{formEntry.label ? formEntry.label : id}</FormLabel>
-                    <br />
-                    <Model3d
-                      modelUrl={currentValues?.[id] ?? formEntry.modelUrl}
-                      imageUrl={formEntry.imgUrl}
-                      alt={id}
-                      size={100}
-                      hover_effect={true}
-                      priority
-                    />
-                    <br />
-                    {formEntry.imgUrl && props.allowImageUpload && (
-                      <div className="flex flex-row justify-center">
-                        <Button
-                          id="create"
-                          className="h-10 mr-1 bg-blue-600 hover:bg-blue-700"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (formEntry.imgUrl) {
-                              create3dModel({
-                                imgUrl: formEntry.imgUrl,
-                                field: id,
-                              });
-                            }
-                          }}
-                        >
-                          {load ? (
-                            <Loader noPadding={true} size={25} />
-                          ) : (
-                            <RefreshCw className="mr-1 p-2 h-10 w-10" />
-                          )}
-                          AI
-                        </Button>
-                        <UploadButton
-                          endpoint="modelUploader"
-                          onClientUploadComplete={(res) => {
-                            const url = res?.[0]?.url;
-                            if (url) {
-                              form.setValue(id, url as PathValue<S, K>, {
-                                shouldDirty: true,
-                              });
-                            }
-                          }}
-                          onUploadError={(error: Error) => {
-                            showMutationToast({
-                              success: false,
-                              message: error.message,
-                            });
-                          }}
+                    )}
+                    {"current" in formEntry && formEntry.current && (
+                      <div className="w-12 ml-1 h-12 overflow-y-auto">
+                        <Image
+                          src={formEntry.current}
+                          alt={id}
+                          width={100}
+                          height={100}
+                          priority
                         />
                       </div>
                     )}
                   </div>
                 )}
-            </div>
-          );
-        })}
+                {type === "avatar" &&
+                  props.allowImageUpload &&
+                  "href" in formEntry &&
+                  props.type && (
+                    <ContentImageSelector
+                      label={formEntry.label ? formEntry.label : id}
+                      imageUrl={currentValues?.[id] ?? formEntry.href}
+                      id={props.relationId ?? nanoid()}
+                      allowImageUpload={props.allowImageUpload}
+                      prompt={prompt}
+                      type={props.type}
+                      onUploadComplete={(url) => {
+                        form.setValue(id, url as PathValue<S, K>, {
+                          shouldDirty: true,
+                        });
+                      }}
+                      size={formEntry.size ?? "square"}
+                      maxDim={formEntry.maxDim ?? 256}
+                    />
+                  )}
+                {formEntry.type === "dialog_options" ? (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field }) => {
+                      const dialogOptions: { text: string; nextObjectiveId: string }[] =
+                        Array.isArray(field.value)
+                          ? (field.value as { text: string; nextObjectiveId: string }[])
+                          : [];
+                      return (
+                        <FormItem className="flex flex-col gap-2">
+                          <FormLabel>{formEntry.label ?? id}</FormLabel>
+                          <div className="flex flex-col gap-2">
+                            {dialogOptions.map((opt, idx) => {
+                              const option: { text: string; nextObjectiveId: string } =
+                                opt;
+                              return (
+                                <div key={idx} className="flex gap-2 items-center">
+                                  <Input
+                                    className="flex-1"
+                                    placeholder="Dialog text..."
+                                    value={option.text}
+                                    onChange={(e) => {
+                                      const updated = [...dialogOptions];
+                                      updated[idx] = {
+                                        ...option,
+                                        text: e.target.value,
+                                      };
+                                      field.onChange(updated);
+                                    }}
+                                  />
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        className="min-w-[120px] flex-1"
+                                      >
+                                        {option.nextObjectiveId
+                                          ? formEntry.objectiveIds.find(
+                                              (oid) => oid === option.nextObjectiveId,
+                                            ) || "Select objective"
+                                          : "Select objective"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[200px] p-0">
+                                      <Command>
+                                        <CommandInput
+                                          placeholder="Search objectives..."
+                                          className="h-9"
+                                        />
+                                        <CommandList>
+                                          <CommandEmpty>
+                                            No objectives found.
+                                          </CommandEmpty>
+                                          <CommandGroup>
+                                            {formEntry.objectiveIds.map((oid) => (
+                                              <CommandItem
+                                                key={oid}
+                                                value={oid}
+                                                onSelect={() => {
+                                                  const updated = [...dialogOptions];
+                                                  updated[idx] = {
+                                                    ...option,
+                                                    nextObjectiveId: oid,
+                                                  };
+                                                  field.onChange(updated);
+                                                }}
+                                              >
+                                                {oid}
+                                                <Check
+                                                  className={cn(
+                                                    "ml-auto",
+                                                    oid === option.nextObjectiveId
+                                                      ? "opacity-100"
+                                                      : "opacity-0",
+                                                  )}
+                                                />
+                                              </CommandItem>
+                                            ))}
+                                          </CommandGroup>
+                                        </CommandList>
+                                      </Command>
+                                    </PopoverContent>
+                                  </Popover>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="p-1"
+                                    onClick={() => {
+                                      const updated = dialogOptions.filter(
+                                        (_, i) => i !== idx,
+                                      );
+                                      field.onChange(updated);
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full mt-2"
+                              onClick={() => {
+                                field.onChange([
+                                  ...dialogOptions,
+                                  {
+                                    text: "",
+                                    nextObjectiveId: formEntry.objectiveIds[0] ?? "",
+                                  },
+                                ]);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-1" /> Add Dialog Option
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ) : null}
+                {formEntry.type === "db_values_with_number" ? (
+                  <FormField
+                    control={form.control}
+                    name={id}
+                    render={({ field }) => {
+                      // Each entry: { opponentId: string, number: number }
+                      const valueArr: { ids: string[]; number: number }[] =
+                        Array.isArray(field.value) ? field.value : [];
+                      const options = (formEntry.values || []).map((v) => ({
+                        label: v.name,
+                        value: v.id,
+                      }));
+                      return (
+                        <FormItem className="flex flex-col py-4">
+                          <FormLabel>{formEntry.label ?? id}</FormLabel>
+                          <div className="flex flex-col gap-2">
+                            {valueArr.map((entry, idx) => (
+                              <div key={idx} className="flex gap-2 items-center">
+                                {/* Dropdown for db_value */}
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className="min-w-[120px] flex-1 justify-between"
+                                    >
+                                      {options.find((o) => entry.ids.includes(o.value))
+                                        ?.label || "Select Entry"}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[200px] p-0">
+                                    <Command>
+                                      <CommandInput
+                                        placeholder="Search..."
+                                        className="h-9"
+                                      />
+                                      <CommandList>
+                                        <CommandEmpty>No options found.</CommandEmpty>
+                                        <CommandGroup>
+                                          {options.map((option) => (
+                                            <CommandItem
+                                              key={option.value}
+                                              value={option.value}
+                                              onSelect={() => {
+                                                const updated = [...valueArr];
+                                                const ids = entry.ids.includes(
+                                                  option.value,
+                                                )
+                                                  ? entry.ids.filter(
+                                                      (id) => id !== option.value,
+                                                    )
+                                                  : [...entry.ids, option.value];
+                                                updated[idx] = {
+                                                  ...entry,
+                                                  ids: ids,
+                                                };
+                                                field.onChange(updated);
+                                              }}
+                                            >
+                                              {option.label}
+                                              <Check
+                                                className={cn(
+                                                  "ml-auto",
+                                                  entry.ids.includes(option.value)
+                                                    ? "opacity-100"
+                                                    : "opacity-0",
+                                                )}
+                                              />
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
+                                {/* Number input */}
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  className="w-20"
+                                  value={entry.number}
+                                  onChange={(e) => {
+                                    const updated = [...valueArr];
+                                    updated[idx] = {
+                                      ...entry,
+                                      number: Number(e.target.value),
+                                    };
+                                    field.onChange(updated);
+                                  }}
+                                />
+                                {/* Remove button */}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="p-1"
+                                  onClick={() => {
+                                    const updated = valueArr.filter(
+                                      (_, i) => i !== idx,
+                                    );
+                                    field.onChange(updated);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => {
+                                field.onChange([...valueArr, { ids: [], number: 1 }]);
+                              }}
+                              disabled={options.length === 0}
+                            >
+                              <Plus className="h-4 w-4 mr-1" /> Add Entry
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ) : null}
+              </div>
+            );
+          })}
         {showSubmit && props.onAccept && (
           <div className="col-span-2 items-center mt-3">
-            <Button id="create" className="w-full" onClick={props.onAccept}>
+            <Button
+              id="create"
+              className="w-full"
+              onClick={props.onAccept}
+              disabled={submitDisabled}
+            >
               {buttonTxt ?? "Save"}
             </Button>
           </div>
@@ -824,6 +1081,7 @@ interface ObjectiveFormWrapperProps {
   fixedWidths?: "basis-32" | "basis-64" | "basis-96";
   bgColor?: "bg-slate-600" | "";
   objectives: AllObjectivesType[];
+  consecutiveObjectives: boolean;
   setObjectives: (content: AllObjectivesType[]) => void;
 }
 
@@ -842,7 +1100,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Queries
   const fields = Object.keys(shownTag);
-  const hasAIs = fields.includes("attackerAIs") || fields.includes("opponent_ai");
+  const hasAIs = fields.includes("attackerAIs") || fields.includes("opponentAIs");
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
     enabled: hasAIs,
   });
@@ -856,7 +1114,28 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   });
 
   const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
-    enabled: fields.includes("reward_items") || fields.includes("collect_item_id"),
+    enabled:
+      fields.includes("reward_items") ||
+      fields.includes("collectItemIds") ||
+      fields.includes("deliverItemIds"),
+  });
+
+  const { data: sceneBackgrounds } = api.gameAsset.getAllNames.useQuery(
+    { type: "SCENE_BACKGROUND", folderPrefix: true },
+    { enabled: fields.includes("sceneBackground") },
+  );
+
+  const { data: sceneCharacters } = api.gameAsset.getAllNames.useQuery(
+    { type: "SCENE_CHARACTER", folderPrefix: true },
+    { enabled: fields.includes("sceneCharacters") },
+  );
+
+  const { data: quests } = api.quests.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("newQuestIds"),
+  });
+
+  const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("reward_bloodlines"),
   });
 
   // Form for handling the specific tag
@@ -933,23 +1212,53 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     return type;
   };
 
+  const sectorType = "sectorType" in watchAll ? watchAll.sectorType : undefined;
+  const locationType = "locationType" in watchAll ? watchAll.locationType : undefined;
+
   // Parse how to present the tag form
   const formData: FormEntry<Attribute>[] = attributes
     .filter(
       (value) =>
-        ![
-          "task",
-          "id",
-          "image",
-          "item_name",
-          "opponent_name",
-          "reward",
-          "completed",
-        ].includes(value),
+        !["task", "id", "image", "item_name", "reward", "completed"].includes(value),
     )
+    .filter((value) => {
+      return (
+        !sectorType ||
+        (sectorType === "specific" && !["sectorList"].includes(value)) ||
+        (sectorType === "from_list" && !["sector"].includes(value)) ||
+        (sectorType === "random" && !["sector", "sectorList"].includes(value)) ||
+        (sectorType === "user_village" && !["sector", "sectorList"].includes(value)) ||
+        (sectorType === "current_sector" && !["sector", "sectorList"].includes(value))
+      );
+    })
+    .filter((value) => {
+      return (
+        props.consecutiveObjectives ||
+        !["nextObjectiveId", "failObjectiveId"].includes(value)
+      );
+    })
+    .filter((value) => {
+      return (
+        !["fail_quest", "win_quest", "reset_quest"].includes(watchTask) ||
+        !["nextObjectiveId"].includes(value)
+      );
+    })
+    .filter((value) => {
+      return (
+        !([...InstantTasks, "dialog"] as string[]).includes(watchTask) ||
+        !["sector", "longitude", "latitude"].includes(value)
+      );
+    })
+    .filter((value) => {
+      return (
+        !locationType ||
+        locationType === "specific" ||
+        (locationType === "random" && !["longitude", "latitude"].includes(value))
+      );
+    })
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);
-      if ((value as string) === "opponent_ai" && aiData) {
+      if ((["attackers"] as string[]).includes(value) && aiData) {
         return {
           id: value,
           values: aiData
@@ -958,25 +1267,45 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
               id: ai.userId,
               name: `lvl ${ai.level}: ${ai.username}`,
             })),
-          multiple: false,
-          type: "db_values",
-        };
-      } else if ((value as string) === "attackers" && aiData) {
-        return {
-          id: value,
-          values: aiData
-            .sort((a, b) => a.level - b.level)
-            .map((ai) => ({
-              id: ai.userId,
-              name: `lvl ${ai.level}: ${ai.username}`,
-            })),
+          doubleWidth: true,
           multiple: true,
-          type: "db_values",
+          label: "Random Attacker AIs [and encounter chance %]",
+          type: "db_values_with_number",
+        };
+      } else if ((["opponentAIs"] as string[]).includes(value) && aiData) {
+        return {
+          id: value,
+          values: aiData
+            .sort((a, b) => a.level - b.level)
+            .map((ai) => ({
+              id: ai.userId,
+              name: `lvl ${ai.level}: ${ai.username}`,
+            })),
+          doubleWidth: true,
+          multiple: true,
+          label: "Opponent AIs [and number]",
+          type: "db_values_with_number",
+        };
+      } else if (value === "reward_items" && itemData) {
+        return {
+          id: value,
+          values: itemData.sort((a, b) => a.name.localeCompare(b.name)),
+          doubleWidth: true,
+          multiple: true,
+          label: "Reward Items [and drop chance%]",
+          type: "db_values_with_number",
         };
       } else if (value === "reward_jutsus" && jutsuData) {
         return {
           id: value,
           values: jutsuData,
+          multiple: true,
+          type: "db_values",
+        };
+      } else if (value === "reward_bloodlines" && bloodlines) {
+        return {
+          id: value,
+          values: bloodlines,
           multiple: true,
           type: "db_values",
         };
@@ -987,18 +1316,61 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           multiple: true,
           type: "db_values",
         };
-      } else if (value === "reward_items" && itemData) {
+      } else if (["collectItemIds", "deliverItemIds"].includes(value) && itemData) {
         return {
           id: value,
           values: itemData,
           multiple: true,
           type: "db_values",
         };
-      } else if ((value as string) === "collect_item_id" && itemData) {
+      } else if (["sceneBackground"].includes(value) && sceneBackgrounds) {
         return {
           id: value,
-          values: itemData,
-          multiple: false,
+          values: sceneBackgrounds,
+          type: "db_values",
+        };
+      } else if (["sceneCharacters"].includes(value) && sceneCharacters) {
+        return {
+          id: value,
+          values: sceneCharacters,
+          multiple: true,
+          type: "db_values",
+        };
+      } else if (value === "nextObjectiveId" && props.objectives) {
+        const obejctiveIds = props.objectives.map((objective) => objective.id);
+        if (innerType instanceof z.ZodArray) {
+          // Dialog objective: nextObjectiveId is an array of {text, nextObjectiveId}
+          return {
+            id: value,
+            values: (shownTag.nextObjectiveId ?? []) as {
+              text: string;
+              nextObjectiveId: string;
+            }[],
+            doubleWidth: true,
+            type: "dialog_options",
+            objectiveIds: obejctiveIds,
+          };
+        } else {
+          return {
+            id: value,
+            values: obejctiveIds,
+            type: "str_array",
+            resetButton: true,
+          };
+        }
+      } else if (["failObjectiveId"].includes(value) && props.objectives) {
+        const obejctiveIds = props.objectives.map((objective) => objective.id);
+        return {
+          id: value,
+          values: obejctiveIds,
+          type: "str_array",
+          resetButton: true,
+        };
+      } else if (([value] as string[]).includes("newQuestIds") && quests) {
+        return {
+          id: value,
+          values: quests,
+          multiple: true,
           type: "db_values",
         };
       } else if (
@@ -1026,6 +1398,17 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       ) {
         const values = innerType._def.type._def.values as string[];
         return { id: value, type: "str_array", values: values, multiple: true };
+      } else if (
+        innerType instanceof z.ZodArray &&
+        innerType._def.type instanceof z.ZodString
+      ) {
+        return {
+          id: value,
+          type: "str_array",
+          values: [],
+          multiple: true,
+          allowAddNew: true,
+        };
       } else if (innerType instanceof z.ZodBoolean) {
         return { id: value, label: value, type: "boolean" };
       } else {

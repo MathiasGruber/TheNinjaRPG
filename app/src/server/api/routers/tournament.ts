@@ -15,6 +15,7 @@ import { TOURNAMENT_ROUND_SECONDS } from "@/drizzle/constants";
 import { secondsFromDate } from "@/utils/time";
 import { updateRewards } from "@/routers/quests";
 import { ObjectiveReward } from "@/validators/objectives";
+import { postProcessRewards } from "@/libs/quest";
 import type { TournamentMatch } from "@/drizzle/schema";
 import type { TournamentMatchState } from "@/drizzle/constants";
 import type { BaseServerResponse } from "@/server/api/trpc";
@@ -91,10 +92,11 @@ export const tournamentRouter = createTRPCRouter({
 
         // End tournament & send reward
         if (data && (now > roundEndAt || allWon) && nMatches === 1 && match) {
+          const finalRewards = postProcessRewards(data.rewards);
           const winnerId = getWinner(match);
           const winner = await fetchUser(ctx.drizzle, winnerId);
           await Promise.all([
-            updateRewards(ctx.drizzle, winner, data.rewards),
+            updateRewards(ctx.drizzle, winner, finalRewards),
             ctx.drizzle.delete(tournament).where(eq(tournament.id, input.tournamentId)),
             ctx.drizzle
               .delete(tournamentMatch)

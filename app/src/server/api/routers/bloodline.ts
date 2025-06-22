@@ -7,7 +7,7 @@ import { bloodline, bloodlineRolls, actionLog } from "@/drizzle/schema";
 import { userJutsu, jutsu } from "@/drizzle/schema";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/api/trpc";
 import { serverError, baseServerResponse, errorResponse } from "@/api/trpc";
-import { fetchUser } from "@/routers/profile";
+import { fetchUser, fetchUpdatedUser } from "@/routers/profile";
 import { BloodlineValidator } from "@/libs/combat/types";
 import { getRandomElement } from "@/utils/array";
 import { canChangeContent } from "@/utils/permissions";
@@ -18,8 +18,14 @@ import { calculateContentDiff } from "@/utils/diff";
 import { bloodlineFilteringSchema } from "@/validators/bloodline";
 import { filterRollableBloodlines, getPityRolls } from "@/libs/bloodline";
 import { LetterRanks, PITY_SYSTEM_ENABLED } from "@/drizzle/constants";
+import { COST_SWAP_BLOODLINE } from "@/drizzle/constants";
+import { BLOODLINE_SWAP_COOLDOWN_HOURS } from "@/drizzle/constants";
+import { getUnique } from "@/utils/grouping";
+import { canSwapBloodline } from "@/utils/permissions";
+import { secondsFromDate, secondsPassed } from "@/utils/time";
+import { getTimeLeftStr, getDaysHoursMinutesSeconds } from "@/utils/time";
 import type { ZodAllTags } from "@/libs/combat/types";
-import type { BloodlineRank, UserData } from "@/drizzle/schema";
+import type { BloodlineRank, Bloodline, UserData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 
 export const bloodlineRouter = createTRPCRouter({
@@ -119,6 +125,71 @@ export const bloodlineRouter = createTRPCRouter({
       return { success: false, message: `Not allowed to create bloodline` };
     }
   }),
+  // Get all bloodlines a user has ever had
+  getUserHistoricBloodlines: protectedProcedure.query(async ({ ctx }) => {
+    return await fetchUserHistoricBloodlines(ctx.drizzle, ctx.userId);
+  }),
+  // Swap bloodline of session user
+  swapBloodline: protectedProcedure
+    .input(z.object({ bloodlineId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [updatedUser, line, historicBloodlines, lastTransfer] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        fetchBloodline(ctx.drizzle, input.bloodlineId),
+        fetchUserHistoricBloodlines(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.actionLog.findFirst({
+          where: and(
+            eq(actionLog.userId, ctx.userId),
+            eq(actionLog.tableName, "user"),
+            eq(actionLog.relatedMsg, "Bloodline Changed"),
+          ),
+        }),
+      ]);
+      const user = updatedUser.user;
+      // Guards
+      if (!user) return errorResponse("User does not exist");
+      if (!line) return errorResponse("Bloodline does not exist");
+      if (user.bloodlineId === line.id) {
+        return errorResponse("You already have this bloodline");
+      }
+      if (COST_SWAP_BLOODLINE > user.reputationPoints) {
+        return errorResponse("Not enough reputation points");
+      }
+      if (!canSwapBloodline(user.role)) {
+        return errorResponse("Not allowed to swap bloodline");
+      }
+      if (!historicBloodlines.find((b) => b.id === line.id)) {
+        return errorResponse("Bloodline is not in your history");
+      }
+      // Check if cooldown is over
+      if (lastTransfer) {
+        console.log(lastTransfer);
+        const canTransferAgainDate = secondsFromDate(
+          BLOODLINE_SWAP_COOLDOWN_HOURS * 60 * 60,
+          lastTransfer.createdAt,
+        );
+        if (canTransferAgainDate > new Date()) {
+          const msLeft = -secondsPassed(canTransferAgainDate) * 1000;
+          const timeLeft = getTimeLeftStr(...getDaysHoursMinutesSeconds(msLeft));
+          return errorResponse(`You can swap again in ${timeLeft}`);
+        }
+      }
+
+      // Update
+      await updateBloodline(
+        ctx.drizzle,
+        user,
+        line,
+        COST_SWAP_BLOODLINE,
+        `Bloodline Swapped from ${user.bloodline?.name} to ${line.name}`,
+      );
+      return { success: true, message: "Bloodline swapped" };
+    }),
   // Delete a bloodline
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -129,11 +200,7 @@ export const bloodlineRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchBloodline(ctx.drizzle, input.id),
         ctx.drizzle.query.userData.findMany({
-          where: and(
-            eq(userData.bloodlineId, input.id),
-            eq(userData.isAi, false),
-            eq(userData.role, "USER"),
-          ),
+          where: and(eq(userData.bloodlineId, input.id), eq(userData.isAi, false)),
         }),
       ]);
       // Derived
@@ -354,10 +421,13 @@ export const bloodlineRouter = createTRPCRouter({
       if (!randomBloodline) return errorResponse("No bloodlines in the pool?");
       // Update roll & user if successfull
       await Promise.all([
-        ctx.drizzle
-          .update(userData)
-          .set({ bloodlineId: randomBloodline.id })
-          .where(eq(userData.userId, ctx.userId)),
+        updateBloodline(
+          ctx.drizzle,
+          user,
+          randomBloodline,
+          0,
+          `Pity roll for ${input.rank}: ${randomBloodline.name}`,
+        ),
         ctx.drizzle
           .update(bloodlineRolls)
           .set({
@@ -365,6 +435,14 @@ export const bloodlineRouter = createTRPCRouter({
             updatedAt: new Date(),
           })
           .where(eq(bloodlineRolls.id, prevRoll.id)),
+        ctx.drizzle.insert(bloodlineRolls).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          type: "PITY",
+          bloodlineId: randomBloodline.id,
+          goal: input.rank,
+          used: 1,
+        }),
       ]);
       return {
         success: true,
@@ -372,24 +450,35 @@ export const bloodlineRouter = createTRPCRouter({
       };
     }),
   // Remove a bloodline from session user
-  removeBloodline: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await fetchUser(ctx.drizzle, ctx.userId);
-    const roll = await fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId);
-    if (!user.bloodlineId) {
-      throw serverError("PRECONDITION_FAILED", "You do not have a bloodline");
-    }
-    if (user.bloodlineId === roll?.bloodlineId) {
-      return await ctx.drizzle
-        .update(userData)
-        .set({ bloodlineId: null })
-        .where(eq(userData.userId, ctx.userId));
-    } else {
-      if (user.reputationPoints < REMOVAL_COST) {
-        throw serverError("FORBIDDEN", "You do not have enough reputation points");
+  removeBloodline: protectedProcedure
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      // Query
+      const [user, roll] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchNaturalBloodlineRoll(ctx.drizzle, ctx.userId),
+      ]);
+      // Guard
+      if (!user.bloodlineId) {
+        throw serverError("PRECONDITION_FAILED", "You do not have a bloodline");
       }
-      await updateBloodline(ctx.drizzle, user, null, REMOVAL_COST);
-    }
-  }),
+      if (user.bloodlineId === roll?.bloodlineId) {
+        await updateBloodline(ctx.drizzle, user, null, 0, "Bloodline Removed");
+        return { success: true, message: "Bloodline removed for free" };
+      } else {
+        if (user.reputationPoints < REMOVAL_COST) {
+          throw serverError("FORBIDDEN", "You do not have enough reputation points");
+        }
+        await updateBloodline(
+          ctx.drizzle,
+          user,
+          null,
+          REMOVAL_COST,
+          "Bloodline Removed",
+        );
+        return { success: true, message: `Bloodline removed for ${REMOVAL_COST} reps` };
+      }
+    }),
   // Purchase a bloodline for session user
   purchaseBloodline: protectedProcedure
     .input(z.object({ bloodlineId: z.string() }))
@@ -412,13 +501,23 @@ export const bloodlineRouter = createTRPCRouter({
         return errorResponse("Bloodline does not belong to your village");
       }
       // Update
-      await ctx.drizzle
-        .update(userData)
-        .set({
-          reputationPoints: user.reputationPoints - BLOODLINE_COST[line.rank],
+      await Promise.all([
+        updateBloodline(
+          ctx.drizzle,
+          user,
+          line,
+          BLOODLINE_COST[line.rank],
+          `Bloodline Purchased: ${line.name}`,
+        ),
+        ctx.drizzle.insert(bloodlineRolls).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          type: "DIRECT",
           bloodlineId: line.id,
-        })
-        .where(eq(userData.userId, ctx.userId));
+          goal: line.rank,
+          used: 1,
+        }),
+      ]);
       return { success: true, message: "Bloodline purchased" };
     }),
 });
@@ -430,8 +529,9 @@ export const bloodlineRouter = createTRPCRouter({
 export const updateBloodline = async (
   client: DrizzleClient,
   user: UserData,
-  bloodlineId: string | null,
+  bloodline: Bloodline | null,
   repCost: number,
+  logMsg: string,
 ) => {
   // Get current bloodline jutsus
   const bloodlineJutsus = user.bloodlineId
@@ -451,6 +551,8 @@ export const updateBloodline = async (
             .update(userJutsu)
             .set({
               level: sql`CASE WHEN finishTraining > NOW() THEN level - 1 ELSE level END`,
+              finishTraining: null,
+              equipped: 0,
             })
             .where(
               and(
@@ -464,24 +566,23 @@ export const updateBloodline = async (
     client
       .update(userData)
       .set({
-        bloodlineId: bloodlineId,
+        bloodlineId: bloodline?.id || null,
         reputationPoints: user.reputationPoints - repCost,
       })
       .where(
         and(eq(userData.userId, user.userId), gte(userData.reputationPoints, repCost)),
       ),
+    // Create a log entry for this action
+    client.insert(actionLog).values({
+      id: nanoid(),
+      userId: user.userId,
+      tableName: "user",
+      changes: [logMsg],
+      relatedId: user.userId,
+      relatedMsg: "Bloodline Changed",
+      relatedImage: user.avatarLight || user.avatar || IMG_AVATAR_DEFAULT,
+    }),
   ]);
-  // Update the training timer & equipped states.
-  // This has to be done after level update, otherwise level update wont use the correct finishTraining value
-  await client
-    .update(userJutsu)
-    .set({ finishTraining: null, equipped: 0 })
-    .where(
-      and(
-        eq(userJutsu.userId, user.userId),
-        inArray(userJutsu.jutsuId, bloodlineJutsus),
-      ),
-    );
 };
 /**
  * COMMON QUERIES WHICH ARE REUSED
@@ -504,6 +605,25 @@ export const fetchItemBloodlineRolls = async (
     where: and(eq(bloodlineRolls.userId, userId), eq(bloodlineRolls.type, "ITEM")),
     with: { bloodline: true },
   });
+};
+
+export const fetchUserHistoricBloodlines = async (
+  client: DrizzleClient,
+  userId: string,
+) => {
+  // Get all unique bloodlineIds the user has ever rolled
+  const userRolls = await client.query.bloodlineRolls.findMany({
+    where: and(
+      eq(bloodlineRolls.userId, userId),
+      isNotNull(bloodlineRolls.bloodlineId),
+    ),
+    with: { bloodline: { with: { village: true } } },
+  });
+  const userBloodlines = getUnique(userRolls, "bloodlineId")
+    .filter((roll) => roll.bloodline)
+    .map((roll) => roll.bloodline!);
+  // Return array of bloodline objects
+  return userBloodlines;
 };
 
 export const fetchBloodline = async (client: DrizzleClient, bloodlineId: string) => {

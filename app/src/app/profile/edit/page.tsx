@@ -5,12 +5,12 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import Confirm from "@/layout/Confirm";
+import Confirm2 from "@/layout/Confirm2";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Accordion from "@/layout/Accordion";
 import AvatarImage from "@/layout/Avatar";
-import Modal from "@/layout/Modal";
+import Modal2 from "@/layout/Modal2";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import ItemWithEffects from "@/layout/ItemWithEffects";
@@ -46,6 +46,7 @@ import {
   Trash2,
   SendHorizontal,
   Ban,
+  ShieldOff,
 } from "lucide-react";
 import { attributes, getSearchValidator } from "@/validators/register";
 import { colors, skin_colors } from "@/validators/register";
@@ -66,14 +67,18 @@ import { updateUserPreferencesSchema } from "@/validators/user";
 import { UploadButton } from "@/utils/uploadthing";
 import { capUserStats } from "@/libs/profile";
 import { getUserElements } from "@/validators/user";
-import { canSwapVillage } from "@/utils/permissions";
+import { canSwapBloodline } from "@/utils/permissions";
+import { canSwapVillage, canEditPublicUser } from "@/utils/permissions";
+import { canClearSectors } from "@/utils/permissions";
 import { useInfinitePagination } from "@/libs/pagination";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import type { Gender } from "@/validators/register";
 import type { BaseServerResponse } from "@/server/api/trpc";
-import type { Village } from "@/drizzle/schema";
+import type { Bloodline, Village } from "@/drizzle/schema";
+import type { ContentType, IMG_ORIENTATION } from "@/drizzle/constants";
+import type { UserWithRelations } from "@/server/api/routers/profile";
 import {
   AiRule,
   ConditionDistanceHigherThan,
@@ -114,7 +119,7 @@ export default function EditProfile() {
           unselectedSubtitle="Choose an old avatar"
           onClick={setActiveElement}
         >
-          <HistoricalAiAvatar />
+          <HistoricalAiAvatar contentType="user" />
         </Accordion>
         <Accordion
           title="Custom Avatar"
@@ -252,6 +257,17 @@ export default function EditProfile() {
         >
           <BattleSettingsEdit userId={userData.userId} />
         </Accordion>
+        {canSwapBloodline(userData.role) && (
+          <Accordion
+            title="Swap Bloodline"
+            selectedTitle={activeElement}
+            unselectedSubtitle="Change your bloodline of choice"
+            selectedSubtitle={`You can swap your bloodline to any bloodline your character has previously possessed for ${COST_SWAP_BLOODLINE} reputation points. Note: Bloodlines purchased directly before 14/06/2025 have not been recorded and can therefore not be swapped. You have ${userData.reputationPoints} reputation points.`}
+            onClick={setActiveElement}
+          >
+            <SwapBloodline />
+          </Accordion>
+        )}
         {canSwapVillage(userData.role) && (
           <Accordion
             title="Swap Village"
@@ -261,6 +277,16 @@ export default function EditProfile() {
             onClick={setActiveElement}
           >
             <SwapVillage />
+          </Accordion>
+        )}
+        {userData && userData.role !== "USER" && (
+          <Accordion
+            title="Management Commands"
+            selectedTitle={activeElement}
+            unselectedSubtitle="Staff Management Commands"
+            onClick={setActiveElement}
+          >
+            <ManagementCommands user={userData} />
           </Accordion>
         )}
       </div>
@@ -491,7 +517,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             <Label htmlFor="battle-description">Show battle descriptions</Label>
             <br />
             <br />
-            <Confirm
+            <Confirm2
               title="Reset AI Profile"
               button={
                 <Button
@@ -519,7 +545,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             >
               This will reset your AI profile to default settings. This action cannot be
               undone. Are you sure you want to continue?
-            </Confirm>
+            </Confirm2>
           </TabsContent>
           <TabsContent value="aiprofile">
             <AiProfileEdit userData={profile} hideTitle />
@@ -714,7 +740,7 @@ const NewAiAvatar: React.FC = () => {
         {userData && userData?.reputationPoints > 0 ? (
           <>
             <p className="italic">- Costs 1 reputation point</p>
-            <Confirm
+            <Confirm2
               title="Confirm Avatar Change"
               button={
                 <Button id="create" className="w-full">
@@ -732,7 +758,7 @@ const NewAiAvatar: React.FC = () => {
               NVidia A100 GPU cluster, and each generation costs a little bit of money.
               We are working on a solution to make this free, but for now, we need to
               charge a small fee to cover the cost of the GPU cluster.
-            </Confirm>
+            </Confirm2>
           </>
         ) : (
           <p className="text-red-500">Requires 1 reputation point</p>
@@ -745,10 +771,19 @@ const NewAiAvatar: React.FC = () => {
 /**
  * Historical AI Avatar Change
  */
-const HistoricalAiAvatar: React.FC = () => {
+
+interface HistoricalAiAvatarProps {
+  relationId?: string;
+  contentType: ContentType;
+  onUpdate?: (url: string) => void;
+  size?: IMG_ORIENTATION;
+}
+
+export const HistoricalAiAvatar: React.FC<HistoricalAiAvatarProps> = (props) => {
   // Queries & mutations
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
   const { data: userData } = useRequiredUserData();
+  const { size = "square" } = props;
 
   // tRPC utility
   const utils = api.useUtils();
@@ -760,6 +795,7 @@ const HistoricalAiAvatar: React.FC = () => {
     hasNextPage,
   } = api.avatar.getHistoricalAvatars.useInfiniteQuery(
     {
+      relationId: props.relationId,
       limit: 20,
     },
     {
@@ -779,8 +815,11 @@ const HistoricalAiAvatar: React.FC = () => {
   const updateAvatar = api.avatar.updateAvatar.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
-      if (data.success) {
+      if (data.success && data.url) {
         await utils.profile.getUser.invalidate();
+        if (props.onUpdate) {
+          props.onUpdate(data.url);
+        }
       }
     },
   });
@@ -796,7 +835,7 @@ const HistoricalAiAvatar: React.FC = () => {
   });
 
   const loading = updateAvatar.isPending || deleteAvatar.isPending;
-  if (loading) return <Loader explanation="Processing avatar..." />;
+  if (loading) return <Loader explanation="Processing..." />;
 
   return (
     <>
@@ -806,7 +845,9 @@ const HistoricalAiAvatar: React.FC = () => {
             <div
               key={avatar.id}
               className=" my-2 basis-1/6 relative"
-              onClick={() => updateAvatar.mutate({ avatar: avatar.id })}
+              onClick={() =>
+                updateAvatar.mutate({ avatar: avatar.id, type: props.contentType })
+              }
               ref={i === pageAvatars.length - 1 ? setLastElement : null}
             >
               <AvatarImage
@@ -814,8 +855,9 @@ const HistoricalAiAvatar: React.FC = () => {
                 alt={userData?.username ?? "User Avatar"}
                 hover_effect={true}
                 size={200}
+                className={size === "square" ? "aspect-square" : "aspect-auto"}
               />
-              <Confirm
+              <Confirm2
                 title="Confirm Deletion"
                 button={
                   <Trash2 className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-amber-100 fill-slate-500 p-1 hover:text-orange-500" />
@@ -828,7 +870,7 @@ const HistoricalAiAvatar: React.FC = () => {
               >
                 You are about to delete an avatar. Note that this action is permanent.
                 Are you sure?
-              </Confirm>
+              </Confirm2>
             </div>
           ))}
         </div>
@@ -902,7 +944,7 @@ const SwapVillage: React.FC = () => {
       )}
       {isFetching && <Loader explanation="Loading villages" />}
       {isOpen && userData && village && (
-        <Modal
+        <Modal2
           title="Confirm Purchase"
           proceed_label={
             isSwapping
@@ -911,6 +953,7 @@ const SwapVillage: React.FC = () => {
                 ? `Swap for ${COST_SWAP_VILLAGE} reps`
                 : `Need ${COST_SWAP_VILLAGE - userData.reputationPoints} reps`
           }
+          isOpen={isOpen}
           setIsOpen={setIsOpen}
           isValid={false}
           onAccept={() => {
@@ -928,7 +971,106 @@ const SwapVillage: React.FC = () => {
         >
           {!isSwapping && <ItemWithEffects item={village} key={village.id} />}
           {isSwapping && <Loader explanation={`Purchasing ${village.name}`} />}
-        </Modal>
+        </Modal2>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Swap bloodline
+ */
+const SwapBloodline: React.FC = () => {
+  // State
+  const { data: userData } = useRequiredUserData();
+  const [bloodline, setBloodline] = useState<Bloodline | undefined>(undefined);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const utils = api.useUtils();
+
+  // Fetch data
+  const { data: bloodlines, isFetching } =
+    api.bloodline.getUserHistoricBloodlines.useQuery(undefined);
+
+  // Mutations
+  const { mutate: swap, isPending: isSwapping } =
+    api.bloodline.swapBloodline.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        await utils.profile.getUser.invalidate();
+      },
+      onSettled: () => {
+        document.body.style.cursor = "default";
+        setIsOpen(false);
+      },
+    });
+
+  // Only show if we have userData
+  if (!userData) {
+    return <Loader explanation="Loading profile page..." />;
+  }
+
+  // Derived data
+  const isDisabled = userData.bloodline ? false : true;
+  const canAfford = userData && userData.reputationPoints >= COST_SWAP_BLOODLINE;
+
+  // Show component
+  return (
+    <div className="mt-2">
+      {!isDisabled && !isFetching && bloodlines && (
+        <ActionSelector
+          items={bloodlines}
+          showBgColor={false}
+          showLabels={true}
+          onClick={(id) => {
+            if (id == bloodline?.id) {
+              setBloodline(undefined);
+              setIsOpen(false);
+            } else {
+              setBloodline(bloodlines?.find((b) => b.id === id));
+              setIsOpen(true);
+            }
+          }}
+        />
+      )}
+      {isFetching && <Loader explanation="Loading bloodlines" />}
+      {isDisabled && (
+        <div>
+          You do not have a bloodline currently. Go{" "}
+          <Link className="font-bold" href="/travel">
+            travel
+          </Link>{" "}
+          to the wake island location, and get one in the science building.
+        </div>
+      )}
+      {isOpen && userData && bloodline && (
+        <Modal2
+          title="Confirm Purchase"
+          proceed_label={
+            isSwapping
+              ? undefined
+              : canAfford
+                ? `Swap for ${COST_SWAP_BLOODLINE} reps`
+                : `Need ${COST_SWAP_BLOODLINE - userData.reputationPoints} reps`
+          }
+          isOpen={isOpen}
+          setIsOpen={setIsOpen}
+          isValid={false}
+          onAccept={() => {
+            if (canAfford) {
+              swap({ bloodlineId: bloodline.id });
+            } else {
+              setIsOpen(false);
+            }
+          }}
+          confirmClassName={
+            canAfford
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-red-600 text-white hover:bg-red-700"
+          }
+        >
+          {!isSwapping && <ItemWithEffects item={bloodline} key={bloodline.id} />}
+          {isSwapping && <Loader explanation={`Purchasing ${bloodline.name}`} />}
+        </Modal2>
       )}
     </div>
   );
@@ -1236,7 +1378,7 @@ const RerollElement: React.FC = () => {
   const disabled = !canAfford || (!canChangeFirst && !canChangeSecond);
 
   return (
-    <Confirm
+    <Confirm2
       title="Confirm Re-Roll"
       button={
         <Button id="create" type="submit" className="w-full my-3" disabled={disabled}>
@@ -1250,7 +1392,7 @@ const RerollElement: React.FC = () => {
     >
       Changing your base elements costs {COST_REROLL_ELEMENT} reputation points. Are you
       sure you want to re-roll?
-    </Confirm>
+    </Confirm2>
   );
 };
 
@@ -1309,7 +1451,7 @@ const NameChange: React.FC = () => {
               </FormItem>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm New Username"
             button={
               <Button
@@ -1329,7 +1471,7 @@ const NameChange: React.FC = () => {
             Changing your username costs {COST_CHANGE_USERNAME} reputation points, and
             can only be reverted by purchasing another name change. Are you sure you
             want to change your username to {searchTerm}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
     </div>
@@ -1390,7 +1532,7 @@ const CustomTitle: React.FC = () => {
               </FormItem>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm Custom Title"
             disabled={disabled}
             button={
@@ -1408,7 +1550,7 @@ const CustomTitle: React.FC = () => {
             Changing your custom title costs {COST_CUSTOM_TITLE} reputation points, and
             can only be changed by requesting another change. Are you sure you want to
             change your title to {curTitle}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
     </div>
@@ -1507,7 +1649,7 @@ const ChangeGender: React.FC = () => {
               </div>
             )}
           />
-          <Confirm
+          <Confirm2
             title="Confirm Gender Change"
             disabled={!canBuyUsername}
             button={
@@ -1525,9 +1667,123 @@ const ChangeGender: React.FC = () => {
             Changing your gender costs {COST_CHANGE_GENDER} reputation points, and can
             only be changed by requesting another change. Are you sure you want to
             change your gender to {watchGender}?
-          </Confirm>
+          </Confirm2>
         </form>
       </Form>
+    </div>
+  );
+};
+
+/**
+ * Site Management Functionality
+ */
+interface ManagementCommandsProps {
+  user: NonNullable<UserWithRelations>;
+}
+const ManagementCommands: React.FC<ManagementCommandsProps> = ({ user }) => {
+  // State for sector selection
+  const [sectorNumber, setSectorNumber] = useState<number>(1);
+
+  // Utility
+  const utils = api.useUtils();
+
+  // Mutations
+  const { mutate: unequipAllGear, isPending: isUnequipping } =
+    api.staff.unequipAllGear.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.profile.getUser.invalidate(),
+            utils.item.getUserItems.invalidate(),
+          ]);
+        }
+      },
+    });
+
+  const { mutate: releaseSector, isPending: isReleasingSector } =
+    api.staff.releaseSector.useMutation({
+      onSuccess: async (data) => {
+        showMutationToast(data);
+        if (data.success) {
+          await Promise.all([
+            utils.travel.getSectorData.invalidate(),
+            utils.village.getSectorOwnerships.invalidate(),
+          ]);
+        }
+      },
+    });
+
+  // Show options
+  return (
+    <div className="grid grid-cols-3 items-center gap-4 p-4">
+      {canEditPublicUser(user) && (
+        <Confirm2
+          title="Confirm Unequip All Gear"
+          button={
+            <Button variant="destructive" disabled={isUnequipping} className="w-full">
+              {isUnequipping ? (
+                <Loader size={5} />
+              ) : (
+                <>
+                  <ShieldOff className="h-4 w-4 mr-2" />
+                  Unequip All Gear
+                </>
+              )}
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            unequipAllGear();
+          }}
+        >
+          This will unequip all currently equipped gear <b>FOR ALL USERS</b>. Are you
+          sure you want to continue?
+        </Confirm2>
+      )}
+      {canClearSectors(user.role) && (
+        <Confirm2
+          title="Confirm Clear Sector"
+          button={
+            <Button
+              variant="destructive"
+              disabled={isReleasingSector}
+              className="w-full"
+            >
+              {isReleasingSector ? (
+                <Loader size={5} />
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Sector
+                </>
+              )}
+            </Button>
+          }
+          onAccept={(e) => {
+            e.preventDefault();
+            releaseSector({ sector: sectorNumber });
+          }}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="sectorNumber">Sector #</Label>
+              <Input
+                id="sectorNumber"
+                type="number"
+                min={1}
+                value={sectorNumber}
+                onChange={(e) => setSectorNumber(parseInt(e.target.value) || 1)}
+                className="w-20"
+              />
+            </div>
+            <p>
+              This will clear sector <b>{sectorNumber}</b> ownership from the database.
+              Are you sure you want to continue?
+            </p>
+          </div>
+        </Confirm2>
+      )}
     </div>
   );
 };
