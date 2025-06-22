@@ -428,7 +428,7 @@ const Character: React.FC<CharacterProps> = (props) => {
               }
             }}
           >
-            {!isEquipping && (
+            {!isEquipping ? (
               <ActionSelector
                 items={items?.filter((item) => slot?.includes(item.slot))}
                 counts={items}
@@ -445,9 +445,9 @@ const Character: React.FC<CharacterProps> = (props) => {
             ) : (
               <Loader explanation={`Swapping ${item?.name}`} />
             )}
-          </div>
-        </Modal>
-      )}
+          </Modal2>
+        )}
+      </div>
     </div>
   );
 };
