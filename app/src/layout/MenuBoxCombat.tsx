@@ -5,7 +5,7 @@ import AvatarImage from "@/layout/Avatar";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import ElementImage from "@/layout/ElementImage";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dna, Link2 } from "lucide-react";
+import { Dna, Link2, Gem } from "lucide-react";
 import { useUserData } from "@/utils/UserContext";
 import { useAtomValue } from "jotai";
 import { userBattleAtom, combatActionIdAtom } from "@/utils/UserContext";
@@ -27,6 +27,9 @@ const MenuBoxCombat: React.FC = () => {
 
   // Guard
   if (!battleUser) return null;
+
+  // Find equipped keystone item
+  const keystoneItem = battleUser.items?.find((item) => item.equipped === "KEYSTONE");
 
   return (
     <>
@@ -102,6 +105,24 @@ const MenuBoxCombat: React.FC = () => {
               <ItemWithEffects
                 item={battleUser.bloodline}
                 key={battleUser.bloodline.id}
+                hideDetails
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+      {keystoneItem && (
+        <Popover>
+          <PopoverTrigger>
+            <div className="flex flex-row items-center hover:text-orange-500 hover:cursor-pointer">
+              <Gem className="h-6 w-6 mr-2" /> {keystoneItem.item.name}
+            </div>
+          </PopoverTrigger>
+          <PopoverContent>
+            <div className="max-w-[320px]">
+              <ItemWithEffects
+                item={keystoneItem.item}
+                key={keystoneItem.id}
                 hideDetails
               />
             </div>
