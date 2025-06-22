@@ -151,33 +151,7 @@ const Shop: React.FC<ShopProps> = (props) => {
                   }
                 }}
                 showBgColor={false}
-                showLabels={false}
-                renderItem={(clickedItem) => (
-                  <div 
-                    className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-90"
-                    onClick={() => {
-                      if (clickedItem.id === item?.id) {
-                        setItem(undefined);
-                        setIsOpen(false);
-                      } else {
-                        setItem(allItems?.find((i) => i.id === clickedItem.id));
-                        setIsOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="w-12 h-12 flex-shrink-0">
-                      <ContentImage
-                        image={clickedItem.image}
-                        alt={clickedItem.name}
-                        rarity={clickedItem.rarity}
-                        className="w-12 h-12"
-                      />
-                    </div>
-                    <div className="flex flex-col items-center mt-1">
-                      <p className="text-sm font-medium text-center">{clickedItem.name}</p>
-                    </div>
-                  </div>
-                )}
+                showLabels={true}
               />
               {isOpen && item && (
                 <Modal2
