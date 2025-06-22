@@ -110,7 +110,7 @@ const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
           </div>
           {/* Effect */}
           <div>
-            <Select onValueChange={(e) => setEffect(e as EffectType)}>
+            <Select onValueChange={(e) => setEffect(e as EffectType)} value={effect}>
               <Label htmlFor="effect">Effect</Label>
               <SelectTrigger>
                 <SelectValue placeholder={effect} />
@@ -129,7 +129,7 @@ const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
           </div>
           {/* Rarity */}
           <div>
-            <Select onValueChange={(e) => setRarity(e as ItemRarity)}>
+            <Select onValueChange={(e) => setRarity(e as ItemRarity)} value={itemRarity}>
               <Label htmlFor="rarity">Rarity</Label>
               <SelectTrigger>
                 <SelectValue placeholder={itemRarity} />
@@ -148,7 +148,7 @@ const ItemShopFiltering: React.FC<ItemShopFilteringProps> = (props) => {
           </div>
           {/* Slot */}
           <div>
-            <Select onValueChange={(e) => setSlot(e as ItemSlotType)}>
+            <Select onValueChange={(e) => setSlot(e as ItemSlotType)} value={slot}>
               <Label htmlFor="slot">Slot</Label>
               <SelectTrigger>
                 <SelectValue placeholder={slot} />
