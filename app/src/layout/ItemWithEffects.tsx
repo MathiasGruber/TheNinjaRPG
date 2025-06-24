@@ -446,37 +446,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Method</b>: {item.method.toLowerCase()}
               </p>
             )}
-            {"direction" in item &&
-              typeof item.direction === "string" &&
-              item.direction && (
-                <p>
-                  <b>Direction</b>: {item.direction.toLowerCase()}
-                </p>
-              )}
-            {"effects" in item && item.effects && item.effects.length > 0 && (
-              (() => {
-                // Extract direction from effects for jutsu
-                const directions = new Set<string>();
-                item.effects.forEach((effect: unknown) => {
-                  if (
-                    typeof effect === "object" &&
-                    effect !== null &&
-                    "direction" in effect &&
-                    typeof (effect as { direction: unknown }).direction === "string"
-                  ) {
-                    directions.add((effect as { direction: string }).direction.toLowerCase());
-                  }
-                });
-                if (directions.size > 0) {
-                  return (
-                    <p>
-                      <b>Direction</b>: {Array.from(directions).join(", ")}
-                    </p>
-                  );
-                }
-                return null;
-              })()
-            )}
             {"weaponType" in item && item.weaponType && (
               <p>
                 <b>Weapon</b>: {item.weaponType.toLowerCase()}
@@ -724,6 +693,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                             </div>
                           </span>
                         )}
+                      {"direction" in parsedEffect && parsedEffect.direction && (
+                        <span>
+                          <b>Direction: </b>
+                          {parsedEffect.direction.toLowerCase()}
+                        </span>
+                      )}
                     </div>
                   </>
                 )}
