@@ -457,9 +457,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               (() => {
                 // Extract direction from effects for jutsu
                 const directions = new Set<string>();
-                item.effects.forEach((effect: any) => {
-                  if (effect.direction && typeof effect.direction === "string") {
-                    directions.add(effect.direction.toLowerCase());
+                item.effects.forEach((effect: unknown) => {
+                  if (
+                    typeof effect === "object" &&
+                    effect !== null &&
+                    "direction" in effect &&
+                    typeof (effect as { direction: unknown }).direction === "string"
+                  ) {
+                    directions.add((effect as { direction: string }).direction.toLowerCase());
                   }
                 });
                 if (directions.size > 0) {
