@@ -312,22 +312,6 @@ export const itemRouter = createTRPCRouter({
           `No more than ${info.maxEquips} instances. Already have ${instancesEquipped} equipped.`,
         );
       }
-      // Determine equipment slot (first empty slots, then any slot)
-      let newEquipSlot = input.slot;
-      if (newEquipSlot === undefined) {
-        ItemSlots.forEach((slot) => {
-          if (slot.includes(info.slot) && !useritems.find((i) => i.equipped === slot)) {
-            newEquipSlot = slot;
-          }
-        });
-        if (newEquipSlot === undefined) {
-          ItemSlots.forEach((slot) => {
-            if (slot.includes(info.slot)) {
-              newEquipSlot = slot;
-            }
-          });
-        }
-      }
       // Mutate
       const result = await toggleEquipItem(
         ctx.drizzle,

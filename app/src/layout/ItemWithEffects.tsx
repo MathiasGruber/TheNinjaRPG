@@ -453,6 +453,25 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                   <b>Direction</b>: {item.direction.toLowerCase()}
                 </p>
               )}
+            {"effects" in item && item.effects && item.effects.length > 0 && (
+              (() => {
+                // Extract direction from effects for jutsu
+                const directions = new Set<string>();
+                item.effects.forEach((effect: any) => {
+                  if (effect.direction && typeof effect.direction === "string") {
+                    directions.add(effect.direction.toLowerCase());
+                  }
+                });
+                if (directions.size > 0) {
+                  return (
+                    <p>
+                      <b>Direction</b>: {Array.from(directions).join(", ")}
+                    </p>
+                  );
+                }
+                return null;
+              })()
+            )}
             {"weaponType" in item && item.weaponType && (
               <p>
                 <b>Weapon</b>: {item.weaponType.toLowerCase()}
