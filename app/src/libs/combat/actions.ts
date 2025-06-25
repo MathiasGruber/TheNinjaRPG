@@ -697,6 +697,23 @@ export const performBattleAction = (props: {
 
   // Update the action state, so as keep state for technique cooldowns
   if (action.cooldown && action.cooldown > 0) {
+    // Restore original cooldowns when GCD expires (run this BEFORE applying new cooldowns)
+    user.jutsus.forEach((jutsu) => {
+      if (jutsu.jutsu.cooldown === 3 && jutsu.lastUsedRound && (jutsu.jutsu as any).originalCooldown !== undefined) {
+        if (battle.round - jutsu.lastUsedRound >= 3) {
+          jutsu.jutsu.cooldown = (jutsu.jutsu as any).originalCooldown;
+        }
+      }
+    });
+    
+    user.items.forEach((item) => {
+      if (item.item.cooldown === 3 && item.lastUsedRound && (item.item as any).originalCooldown !== undefined) {
+        if (battle.round - item.lastUsedRound >= 3) {
+          item.item.cooldown = (item.item as any).originalCooldown;
+        }
+      }
+    });
+
     // Update the last used round for the action
     let actionPerformed;
     switch (action.type) {
@@ -749,7 +766,24 @@ export const performBattleAction = (props: {
           }
           const newLastUsedRound = battle.round + 3 - cooldown;
           if (newLastUsedRound > (a.lastUsedRound || -1)) {
-            a.lastUsedRound = newLastUsedRound;
+            if (newLastUsedRound <= 0) {
+              // Apply GCD - set to current round and override cooldown to 3
+              a.lastUsedRound = battle.round;
+              
+              // Store original cooldown and set to 3
+              if ("jutsu" in a && a.jutsu) {
+                a.jutsu.originalCooldown = a.jutsu.cooldown;
+                a.jutsu.cooldown = 3;
+              } else if ("item" in a && a.item) {
+                a.item.originalCooldown = a.item.cooldown;
+                a.item.cooldown = 3;
+              } else if ("cooldown" in a) {
+                a.originalCooldown = a.cooldown;
+                a.cooldown = 3;
+              }
+            } else {
+              a.lastUsedRound = newLastUsedRound;
+            }
           }
         });
     }
