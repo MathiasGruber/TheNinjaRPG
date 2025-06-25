@@ -699,17 +699,17 @@ export const performBattleAction = (props: {
   if (action.cooldown && action.cooldown > 0) {
     // Restore original cooldowns when GCD expires (run this BEFORE applying new cooldowns)
     user.jutsus.forEach((jutsu) => {
-      if (jutsu.jutsu.cooldown === 3 && jutsu.lastUsedRound && (jutsu.jutsu as any).originalCooldown !== undefined) {
+      if (jutsu.jutsu.cooldown === 3 && jutsu.lastUsedRound && jutsu.jutsu.originalCooldown !== undefined) {
         if (battle.round - jutsu.lastUsedRound >= 3) {
-          jutsu.jutsu.cooldown = (jutsu.jutsu as any).originalCooldown;
+          jutsu.jutsu.cooldown = jutsu.jutsu.originalCooldown;
         }
       }
     });
     
     user.items.forEach((item) => {
-      if (item.item.cooldown === 3 && item.lastUsedRound && (item.item as any).originalCooldown !== undefined) {
+      if (item.item.cooldown === 3 && item.lastUsedRound && item.item.originalCooldown !== undefined) {
         if (battle.round - item.lastUsedRound >= 3) {
-          item.item.cooldown = (item.item as any).originalCooldown;
+          item.item.cooldown = item.item.originalCooldown;
         }
       }
     });
