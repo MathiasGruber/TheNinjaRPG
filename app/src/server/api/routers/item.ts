@@ -25,7 +25,7 @@ import { itemFilteringSchema } from "@/validators/item";
 import { filterRollableBloodlines } from "@/libs/bloodline";
 import { fetchBloodlines } from "@/routers/bloodline";
 import { setEmptyStringsToNulls } from "@/utils/typeutils";
-import type { UserItemWithItem } from "@/drizzle/schema";
+import type { UserItemWithItem, UserData } from "@/drizzle/schema";
 import type { ItemSlot } from "@/drizzle/constants";
 import type { ZodAllTags } from "@/libs/combat/types";
 import type { DrizzleClient } from "@/server/db";
@@ -180,10 +180,7 @@ export const itemRouter = createTRPCRouter({
           gte(item.cost, input.minCost),
           gte(item.repsCost, input.minRepsCost),
         ),
-        orderBy: (table, { asc }) => [
-          asc(table.cost),
-          asc(table.repsCost),
-        ],
+        orderBy: (table, { asc }) => [asc(table.cost), asc(table.repsCost)],
       });
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {
@@ -294,33 +291,16 @@ export const itemRouter = createTRPCRouter({
         fetchUserItems(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, ctx.userId),
       ]);
-      const useritem = useritems.find((i) => i.id === input.userItemId);
-      // Definitions & Guard
-      if (!useritem) return errorResponse("User item not found");
-      if (useritem.storedAtHome) return errorResponse("Fetch at home first");
-      if (user.level < useritem.item.requiredLevel) {
-        return errorResponse(`You need to be level ${useritem.item.requiredLevel} to equip this item`);
-      }
-      const doEquip = !useritem.equipped || useritem.equipped !== input.slot;
-      const info = useritem.item;
-      const instances = useritems.filter(
-        (ui) => ui.itemId === info.id && ui.equipped !== "NONE",
-      );
-      const instancesEquipped = instances.length;
-      if (doEquip && instancesEquipped >= info.maxEquips) {
-        return errorResponse(
-          `No more than ${info.maxEquips} instances. Already have ${instancesEquipped} equipped.`,
-        );
-      }
       // Mutate
       const result = await toggleEquipItem(
         ctx.drizzle,
         input.userItemId,
         useritems,
+        user,
         input.slot,
       );
       // Execute any promises
-      if (result.success && result.promises.length > 0) {
+      if (result.success && "promises" in result && result.promises.length > 0) {
         await Promise.all(result.promises);
         return { success: true, message: result.message };
       }
@@ -593,7 +573,10 @@ export const itemRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
       // Fetch user items
-      const useritems = await fetchUserItems(ctx.drizzle, ctx.userId);
+      const [useritems, user] = await Promise.all([
+        fetchUserItems(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
 
       // Get unequipped items that are not stored at home, sorted by cost (descending)
       const unequippedItems = useritems
@@ -621,9 +604,10 @@ export const itemRouter = createTRPCRouter({
             ctx.drizzle,
             useritem.id,
             useritems,
+            user,
             slot,
           );
-          if (result.success) {
+          if (result.success && "promises" in result && result.promises.length > 0) {
             nEquipped++;
             updatePromises.push(...result.promises);
             availableSlots = availableSlots.filter((s) => s !== slot);
@@ -683,15 +667,21 @@ export const toggleEquipItem = async (
   client: DrizzleClient,
   userItemId: string,
   useritems: UserItemWithItem[],
+  user: UserData,
   slot?: ItemSlot,
 ) => {
   const useritem = useritems.find((i) => i.id === userItemId);
   // Definitions & Guard
   if (!useritem) {
-    return { success: false, message: "User item not found", promises: [] };
+    return errorResponse("User item not found");
   }
   if (useritem.storedAtHome) {
-    return { success: false, message: "Fetch at home first", promises: [] };
+    return errorResponse("Fetch at home first");
+  }
+  if (useritem.item.requiredLevel > user.level) {
+    return errorResponse(
+      `You need to be level ${useritem.item.requiredLevel} to equip this item`,
+    );
   }
   const doEquip = !useritem.equipped || useritem.equipped !== slot;
   const info = useritem.item;
@@ -700,11 +690,9 @@ export const toggleEquipItem = async (
   );
   const instancesEquipped = instances.length;
   if (doEquip && instancesEquipped >= info.maxEquips) {
-    return {
-      success: false,
-      message: `No more than ${info.maxEquips} instances. Already have ${instancesEquipped} equipped.`,
-      promises: [],
-    };
+    return errorResponse(
+      `No more than ${info.maxEquips} instances. Already have ${instancesEquipped} equipped.`,
+    );
   }
   // Determine equipment slot (first empty slots, then any slot)
   let newEquipSlot = slot;
@@ -724,7 +712,7 @@ export const toggleEquipItem = async (
   }
   // We need to have a slot
   if (!newEquipSlot) {
-    return { success: false, message: "No slot found", promises: [] };
+    return errorResponse("No slot found");
   }
   // Mutate
   if (doEquip) {
