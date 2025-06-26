@@ -349,6 +349,7 @@ const Character: React.FC<CharacterProps> = (props) => {
   const [slot, setSlot] = useState<ItemSlot | undefined>(undefined);
   const [item, setItem] = useState<(UserItem & Item) | undefined>(undefined);
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [showItemDetails, setShowItemDetails] = useState<boolean>(false);
 
   // The item on the current slot
 
@@ -362,7 +363,13 @@ const Character: React.FC<CharacterProps> = (props) => {
   // Open modal for equipping
   const act = (slot: ItemSlot) => {
     setSlot(slot);
-    setIsOpen(true);
+    const equippedItem = items?.find((it) => it.equipped === slot);
+    if (equippedItem) {
+      setItem(equippedItem);
+      setShowItemDetails(true);
+    } else {
+      setIsOpen(true);
+    }
   };
 
   // Mutations
@@ -376,6 +383,7 @@ const Character: React.FC<CharacterProps> = (props) => {
     onSettled: () => {
       document.body.style.cursor = "default";
       setIsOpen(false);
+      setShowItemDetails(false);
       setItem(undefined);
     },
   });
@@ -428,7 +436,7 @@ const Character: React.FC<CharacterProps> = (props) => {
               }
             }}
           >
-            {!isEquipping && (
+            {!isEquipping ? (
               <ActionSelector
                 items={items?.filter((item) => slot?.includes(item.slot))}
                 counts={items}
@@ -442,8 +450,24 @@ const Character: React.FC<CharacterProps> = (props) => {
                   equip({ userItemId: id, slot: slot });
                 }}
               />
+            ) : (
+              <Loader explanation={`Swapping ${item?.name}`} />
             )}
-            {isEquipping && item && <Loader explanation={`Swapping ${item.name}`} />}
+          </Modal2>
+        )}
+        {showItemDetails && item && (
+          <Modal2
+            title="Item Details"
+            isOpen={showItemDetails}
+            setIsOpen={setShowItemDetails}
+            isValid={false}
+            proceed_label="Unequip"
+            onAccept={() => {
+              equip({ userItemId: item.id, slot: slot! });
+            }}
+          >
+            <ItemWithEffects item={item} key={item.id} showStatistic="item" />
+            {isEquipping && <Loader explanation={`Unequipping ${item.name}`} />}
           </Modal2>
         )}
       </div>
@@ -474,13 +498,20 @@ const Equip: React.FC<EquipProps> = (props) => {
       onClick={() => props.act(props.slot)}
     >
       {item ? (
-        <ContentImage
-          image={item.image}
-          hideBorder={true}
-          alt={item.name}
-          rarity={item.rarity}
-          className=""
-        />
+        <>
+          <ContentImage
+            image={item.image}
+            hideBorder={true}
+            alt={item.name}
+            rarity={item.rarity}
+            className=""
+          />
+          {item.quantity > 1 && (
+            <div className="absolute bottom-0 right-0 flex h-7 w-7 flex-row items-center justify-center rounded-full border-2 border-amber-300 bg-slate-300 text-black text-base font-bold">
+              {item.quantity}
+            </div>
+          )}
+        </>
       ) : (
         <p className="opacity-100">{props.txt}</p>
       )}
