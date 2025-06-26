@@ -167,7 +167,7 @@ export const getBasicActions = (
           power: 18,
           powerPerLevel: 0.1,
           statTypes: ["Highest"],
-          generalTypes: ["Highest", "Highest"],
+          generalTypes: ["Highest"],
           rounds: 0,
           appearAnimation: ID_ANIMATION_HIT,
         }),
