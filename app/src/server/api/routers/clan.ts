@@ -1291,6 +1291,15 @@ export const clanRouter = createTRPCRouter({
       if (user.clanId && user.clanId !== fetchedClan.id) {
         return errorResponse("Already in a faction");
       }
+      
+      // Check if the user was previously a co-leader and clear their slot
+      const wasCoLeader = fetchedClan.coLeader1 === user.userId || 
+                         fetchedClan.coLeader2 === user.userId || 
+                         fetchedClan.coLeader3 === user.userId;
+      
+      // When taking ownership, clear all co-leader slots for a clean slate
+      // The new leader can then appoint their own co-leaders
+      
       // Update
       await Promise.all([
         ctx.drizzle
@@ -1299,7 +1308,12 @@ export const clanRouter = createTRPCRouter({
           .where(eq(userData.userId, user.userId)),
         ctx.drizzle
           .update(clan)
-          .set({ leaderId: user.userId })
+          .set({ 
+            leaderId: user.userId,
+            coLeader1: null,
+            coLeader2: null,
+            coLeader3: null,
+          })
           .where(eq(clan.id, fetchedClan.id)),
         ...(["HIDEOUT", "TOWN"].includes(fetchedClan.village?.type ?? "")
           ? [
