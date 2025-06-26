@@ -164,8 +164,8 @@ export const getBasicActions = (
       level: user?.level,
       effects: [
         DamageTag.parse({
-          power: 18,
-          powerPerLevel: 0.1,
+          power: 9,
+          powerPerLevel: 0.05,
           statTypes: ["Highest"],
           generalTypes: ["Highest"],
           rounds: 0,
