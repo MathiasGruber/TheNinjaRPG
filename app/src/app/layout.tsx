@@ -15,6 +15,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Viewport, Metadata } from "next";
 
 import "../styles/globals.css";
+import "sonner/dist/styles.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
