@@ -380,7 +380,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
       options={
         <div className="ml-3">
           <div className="mt-2 flex flex-row items-center ">
-            {["mission", "crime", "event", "errand"].includes(quest.questType) && (
+            {["mission", "crime", "event", "errand", "story"].includes(quest.questType) && (
               <Confirm2
                 title="Confirm deleting quest"
                 button={

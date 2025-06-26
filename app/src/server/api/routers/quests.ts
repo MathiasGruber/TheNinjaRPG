@@ -513,7 +513,7 @@ export const questsRouter = createTRPCRouter({
       if (!current) {
         throw serverError("PRECONDITION_FAILED", `No active quest with id ${input.id}`);
       }
-      if (!["mission", "crime", "event", "errand"].includes(current.questType)) {
+      if (!["mission", "crime", "event", "errand", "story"].includes(current.questType)) {
         throw serverError("PRECONDITION_FAILED", `Cannot abandon ${current.questType}`);
       }
       await Promise.all([
