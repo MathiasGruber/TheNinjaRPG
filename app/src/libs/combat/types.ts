@@ -63,6 +63,7 @@ export type BattleUserState = Omit<NonNullable<UserWithRelations>, "items"> & {
   usedActions: { id: string; type: "jutsu" | "item" | "basic" | "bloodline" }[];
   hex?: TerrainHex;
   clan?: Clan | null;
+  keystoneName?: string | null;
 };
 
 // Create type for battle, which contains information on user current state
@@ -1163,6 +1164,7 @@ export const ItemValidatorRawSchema = z.object({
   weaponType: z.enum(WeaponTypes),
   rarity: z.enum(ItemRarities),
   slot: z.enum(ItemSlotTypes),
+  requiredLevel: z.coerce.number().int().min(1).max(100).default(1),
   expireFromStoreAt: z
     .string()
     .regex(DateTimeRegExp, "Must be of format YYYY-MM-DD")

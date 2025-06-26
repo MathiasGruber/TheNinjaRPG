@@ -1481,6 +1481,15 @@ export const processUsersForBattle = (info: {
       });
     }
 
+    // Determine equipped keystone item name for quick display later
+    const keystoneItem = user.items.find(
+      (useritem) =>
+        useritem.item &&
+        useritem.item.itemType === "KEYSTONE" &&
+        useritem.equipped === "KEYSTONE",
+    );
+    user.keystoneName = keystoneItem?.item.name ?? null;
+
     // Add item effects
     const items: (UserItem & { item: Item; lastUsedRound: number })[] = [];
     user.items

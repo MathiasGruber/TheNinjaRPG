@@ -446,13 +446,6 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                 <b>Method</b>: {item.method.toLowerCase()}
               </p>
             )}
-            {"direction" in item &&
-              typeof item.direction === "string" &&
-              item.direction && (
-                <p>
-                  <b>Direction</b>: {item.direction.toLowerCase()}
-                </p>
-              )}
             {"weaponType" in item && item.weaponType && (
               <p>
                 <b>Weapon</b>: {item.weaponType.toLowerCase()}
@@ -698,6 +691,15 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                                 />
                               ))}
                             </div>
+                          </span>
+                        )}
+                      {"direction" in parsedEffect &&
+                        parsedEffect.direction &&
+                        (effect.type === "increasestat" ||
+                          effect.type === "decreasestat") && (
+                          <span>
+                            <b>Direction: </b>
+                            {parsedEffect.direction.toLowerCase()}
                           </span>
                         )}
                     </div>

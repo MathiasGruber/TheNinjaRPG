@@ -50,6 +50,7 @@ export const publicState = [
   "isAi",
   "isSummon",
   "isOriginal",
+  "keystoneName",
   "latitude",
   "leftBattle",
   "level",
