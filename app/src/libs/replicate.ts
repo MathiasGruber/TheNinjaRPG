@@ -133,7 +133,7 @@ export const getAvatarPrompt = async (client: DrizzleClient, user: UserData) => 
   return `${getPhenotype(
     user.rank,
     user.gender,
-  )}, ${attributes}, fully clothed, anime, rossdraws portrait, stanley artgerm lau, wlop, looking into camera, interesting background`;
+  )}, ${attributes}, fully clothed, wearing clothes, dressed, anime, rossdraws portrait, stanley artgerm lau, wlop, looking into camera, interesting background, sfw`;
 };
 
 /**
