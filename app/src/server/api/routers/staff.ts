@@ -2,7 +2,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { baseServerResponse, errorResponse } from "@/server/api/trpc";
 import { fetchBadge } from "@/routers/badge";
 import { fetchAttributes } from "@/routers/profile";
-import { eq, ne, and, desc } from "drizzle-orm";
+import { eq, ne, and, desc, sql } from "drizzle-orm";
 import {
   actionLog,
   aiProfile,
@@ -66,6 +66,7 @@ import {
   canEditPublicUser,
   canRestoreActivityStreak,
   canUseMonitoringTests,
+  canDeleteReferral,
 } from "@/utils/permissions";
 import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import { canCloneUser, canClearSectors } from "@/utils/permissions";
@@ -734,6 +735,53 @@ export const staffRouter = createTRPCRouter({
       ]);
 
       return { success: true, message: "UserId updated" };
+    }),
+  // Delete referral from user
+  deleteReferral: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query
+      const [user, target] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+      ]);
+      // Guard
+      if (!canDeleteReferral(user.role)) {
+        return errorResponse("You don't have permission to delete referrals");
+      }
+      if (!target) {
+        return errorResponse("Target user not found");
+      }
+      if (!target.recruiterId) {
+        return errorResponse("User has no recruiter to delete");
+      }
+      // Get recruiter info for logging
+      const recruiter = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, target.recruiterId),
+        columns: { username: true },
+      });
+      // Mutate
+      await Promise.all([
+        ctx.drizzle
+          .update(userData)
+          .set({ recruiterId: null })
+          .where(eq(userData.userId, input.userId)),
+        ctx.drizzle
+          .update(userData)
+          .set({ nRecruited: sql`${userData.nRecruited} - 1` })
+          .where(eq(userData.userId, target.recruiterId)),
+        ctx.drizzle.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "user",
+          changes: [`Removed referral: ${target.username}`],
+          relatedId: input.userId,
+          relatedMsg: `Referral has been removed`,
+          relatedImage: target.avatarLight,
+        }),
+      ]);
+      return { success: true, message: `Referral removed from ${target.username}` };
     }),
 });
 
