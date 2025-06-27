@@ -61,6 +61,7 @@ import {
   canAwardReputation,
   canSeeActivityEvents,
   canRestoreActivityStreak,
+  canDeleteReferral,
 } from "@/utils/permissions";
 import { api } from "@/app/_trpc/client";
 import { showMutationToast } from "@/libs/toast";
@@ -317,6 +318,15 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         await utils.profile.getPublicUser.invalidate();
       }
       form.reset();
+    },
+  });
+
+  const deleteReferral = api.staff.deleteReferral.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      if (data.success) {
+        await utils.profile.getPublicUser.invalidate();
+      }
     },
   });
 
@@ -663,7 +673,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
           </div>
         </div>
       </ContentBox>
-      <div className="text-center text-sm italic">Unique ID: {profile.userId}</div>
+      {canSeeSecrets && (
+        <div className="text-center text-sm italic">Unique ID: {profile.userId}</div>
+      )}
       {/* MARRIED USERS */}
       {showMarriages && marriages !== undefined && marriages.length > 0 && (
         <ContentBox
@@ -703,26 +715,41 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
         >
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5">
             {profile.recruitedUsers.map((user, i) => (
-              <Link
-                href={`/username/${user.username}`}
-                className="text-center"
-                key={`recruited-${i}`}
-              >
-                <AvatarImage
-                  href={user.avatar}
-                  alt={user.username}
-                  userId={user.userId}
-                  hover_effect={true}
-                  priority={true}
-                  size={100}
-                />
-                <div>
-                  <div className="font-bold">{user.username}</div>
+              <div key={`recruited-${i}`} className="text-center relative">
+                <Link
+                  href={`/username/${user.username}`}
+                  className="block"
+                >
+                  <AvatarImage
+                    href={user.avatar}
+                    alt={user.username}
+                    userId={user.userId}
+                    hover_effect={true}
+                    priority={true}
+                    size={100}
+                  />
                   <div>
-                    Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
+                    <div className="font-bold">{user.username}</div>
+                    <div>
+                      Lvl. {user.level} {capitalizeFirstLetter(user.rank)}
+                    </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+                {userData && canDeleteReferral(userData.role) && (
+                  <Confirm2
+                    title="Delete Referral"
+                    proceed_label="Delete"
+                    button={
+                      <Trash2 className="absolute right-[8%] top-0 h-9 w-9 border-2 border-black cursor-pointer rounded-full bg-red-100 fill-slate-500 p-1 hover:fill-red-500" />
+                    }
+                    onAccept={() => deleteReferral.mutate({ userId: user.userId })}
+                  >
+                    Are you sure you want to delete the referral relationship between{" "}
+                    <strong>{profile.username}</strong> and <strong>{user.username}</strong>?
+                    This action will remove the referral and cannot be undone.
+                  </Confirm2>
+                )}
+              </div>
             ))}
           </div>
         </ContentBox>

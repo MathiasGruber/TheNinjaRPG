@@ -321,3 +321,7 @@ export const canInteractWithPolls = (rank: UserRank) => {
 export const canClearSectors = (role: UserRole) => {
   return ["CODING-ADMIN", "CONTENT-ADMIN", "CONTENT", "EVENT"].includes(role);
 };
+
+export const canDeleteReferral = (role: UserRole) => {
+  return ["HEAD_MODERATOR", "MODERATOR-ADMIN", "CODING-ADMIN"].includes(role);
+};

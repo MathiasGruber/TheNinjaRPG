@@ -1148,6 +1148,8 @@ export const profileRouter = createTRPCRouter({
         user.earnedExperience = 8008;
         user.isBanned = false;
         user.aiProfileId = null;
+        // Hide userId from regular users
+        user.userId = "hidden";
       }
       if (!isSelf && requester?.role === "USER") {
         user.jutsus = [];
