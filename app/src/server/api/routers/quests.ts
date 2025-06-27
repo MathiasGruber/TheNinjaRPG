@@ -516,6 +516,21 @@ export const questsRouter = createTRPCRouter({
       if (!["mission", "crime", "event", "errand", "story"].includes(current.questType)) {
         throw serverError("PRECONDITION_FAILED", `Cannot abandon ${current.questType}`);
       }
+      
+      // Reset recentlyDied flags for the abandoned quest
+      const updatedQuestData = user.questData?.map((questTracker) => {
+        if (questTracker.id === input.id) {
+          return {
+            ...questTracker,
+            goals: questTracker.goals.map((goal) => ({
+              ...goal,
+              recentlyDied: false
+            }))
+          };
+        }
+        return questTracker;
+      }) || [];
+      
       await Promise.all([
         ctx.drizzle
           .update(questHistory)
@@ -528,7 +543,10 @@ export const questsRouter = createTRPCRouter({
           ),
         ctx.drizzle
           .update(userData)
-          .set({ questFinishAt: new Date() })
+          .set({ 
+            questFinishAt: new Date(),
+            questData: updatedQuestData 
+          })
           .where(eq(userData.userId, ctx.userId)),
       ]);
       return { success: true, message: `Quest abandoned` };
@@ -893,11 +911,32 @@ export const questsRouter = createTRPCRouter({
     .input(z.object({ userId: z.string(), questId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Query
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, targetUser] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUpdatedUser({ client: ctx.drizzle, userId: input.userId }),
+      ]);
       // Guard
       if (!user || !canEditPublicUser(user)) {
         return errorResponse("Not authorized to delete user quests");
       }
+      if (!targetUser.user) {
+        return errorResponse("Target user not found");
+      }
+      
+      // Reset recentlyDied flags for the deleted quest
+      const updatedQuestData = targetUser.user.questData?.map((questTracker) => {
+        if (questTracker.id === input.questId) {
+          return {
+            ...questTracker,
+            goals: questTracker.goals.map((goal) => ({
+              ...goal,
+              recentlyDied: false
+            }))
+          };
+        }
+        return questTracker;
+      }) || [];
+      
       // Mutate
       await Promise.all([
         ctx.drizzle
@@ -908,6 +947,10 @@ export const questsRouter = createTRPCRouter({
               eq(questHistory.questId, input.questId),
             ),
           ),
+        ctx.drizzle
+          .update(userData)
+          .set({ questData: updatedQuestData })
+          .where(eq(userData.userId, input.userId)),
         ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -919,6 +962,49 @@ export const questsRouter = createTRPCRouter({
         }),
       ]);
       return { success: true, message: "Quest deleted successfully" };
+    }),
+  retryBattle: protectedProcedure
+    .input(z.object({ questId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Fetch
+      const [{ user }, useritems] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+          hideInformation: false,
+        }),
+        fetchUserItems(ctx.drizzle, ctx.userId),
+      ]);
+      // Guard
+      if (!user) {
+        throw serverError("PRECONDITION_FAILED", "User does not exist");
+      }
+
+      // Get updated quest information with start_battle task and retry flag
+      const { trackers, notifications, consequences, questIdsUpdated } = getNewTrackers(
+        { ...user, useritems },
+        [{ task: "start_battle", text: "retry" }],
+      );
+      user.questData = trackers;
+
+      // Handle consequences
+      const finalNotification = await handleQuestConsequences(
+        ctx.drizzle,
+        user,
+        consequences,
+        notifications,
+      );
+
+      // Return information
+      return {
+        success: true,
+        message: "Battle retry initiated",
+        notifications: finalNotification,
+        questData: user.questData,
+        questIdsUpdated,
+        updateAt: new Date(),
+      };
     }),
 });
 
