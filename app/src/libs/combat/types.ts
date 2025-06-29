@@ -103,6 +103,7 @@ export type CombatResult = {
   outcome: "Won" | "Lost" | "Draw" | "Fled";
   didWin: number;
   eloDiff: number;
+  lpDiff: number;
   experience: number;
   pvpStreak: number;
   curHealth: number;

@@ -46,6 +46,7 @@ import {
   WAR_SECTORWAR_PVP_SHRINE_REDUCE,
   WAR_SECTORWAR_PVP_SHRINE_RECOVER,
 } from "@/drizzle/constants";
+import { calculateLpEloChange } from "@/libs/ranked_pvp";
 import { checkCoLeader } from "@/validators/clan";
 import type { BattleWar } from "@/libs/combat/types";
 import type { PathCalculator } from "../hexgrid";
@@ -574,6 +575,12 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         eloDiff = 0;
       }
 
+      // Ranked PvP LP change
+      let lpDiff = 0;
+      if (battleType === "RANKED_PVP" && targets[0]) {
+        lpDiff = calculateLpEloChange(user, targets[0], didWin, []);
+      }
+
       // Calculate Eperience gain
       let experience = didWin ? eloDiff * expBoost : 0;
       const streakBonus = 1 + user.pvpStreak * 0.05; // 5% per streak
@@ -872,6 +879,7 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
         outcome: outcome,
         didWin: didWin ? 1 : 0,
         eloDiff: eloDiff,
+        lpDiff: lpDiff,
         experience: 0.01,
         pvpStreak: calculatePvpStreak(battleType, user, targets, didWin),
         curHealth: user.curHealth,
@@ -903,7 +911,8 @@ export const calcBattleResult = (battle: CompleteBattle, userId: string) => {
       };
 
       // Things to reward for non-spars
-      if (battleType !== "SPARRING" && battleType !== "TRAINING") {
+      const noRewardBattles = ["SPARRING", "TRAINING", "RANKED_PVP"];
+      if (!noRewardBattles.includes(battleType)) {
         // Money stolen/given
         result.money = moneyDelta * battle.rewardScaling + user.moneyStolen;
         // If any stats were used, distribute exp change on stats.
@@ -1400,7 +1409,7 @@ export const processUsersForBattle = (info: {
     }
 
     // Add bloodline efects
-    if (user.bloodline?.effects) {
+    if (user.bloodline?.effects && battleType !== "RANKED_PVP") {
       user.bloodline.effects.forEach((effect) => {
         const realized = realizeTag({
           tag: effect as UserEffect,
@@ -1443,11 +1452,13 @@ export const processUsersForBattle = (info: {
           return false;
         }
         // Not if cannot train jutsu
-        if (!checkJutsuItems(userjutsu.jutsu, user.items) && !user.isAi) {
-          return false;
-        }
-        if (!canTrainJutsu(userjutsu.jutsu, user) && !user.isAi) {
-          return false;
+        if (battleType !== "RANKED_PVP") {
+          if (!checkJutsuItems(userjutsu.jutsu, user.items) && !user.isAi) {
+            return false;
+          }
+          if (!canTrainJutsu(userjutsu.jutsu, user) && !user.isAi) {
+            return false;
+          }
         }
         // Add summons to list
         const effects = userjutsu.jutsu.effects as UserEffect[];

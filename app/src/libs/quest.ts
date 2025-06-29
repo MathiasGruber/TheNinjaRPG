@@ -196,6 +196,61 @@ export const postProcessRewards = (rewards: ObjectiveRewardType) => {
       .flat(),
   };
 };
+export type PostProcessedRewards = ReturnType<typeof postProcessRewards>;
+
+/**
+ * Collapse multiple rewards into a single reward
+ * @param rewards - Rewards to collapse
+ * @returns Collapsed reward
+ */
+export const collapseRewards = (
+  rewards: ObjectiveRewardType[],
+): ObjectiveRewardType => {
+  const collapsed: ObjectiveRewardType = {
+    reward_money: 0,
+    reward_clanpoints: 0,
+    reward_exp: 0,
+    reward_tokens: 0,
+    reward_prestige: 0,
+    reward_items: [],
+    reward_jutsus: [],
+    reward_bloodlines: [],
+    reward_badges: [],
+    reward_rank: "NONE",
+  };
+
+  rewards.forEach((reward) => {
+    // Sum numeric rewards
+    collapsed.reward_money += reward.reward_money;
+    collapsed.reward_clanpoints += reward.reward_clanpoints;
+    collapsed.reward_exp += reward.reward_exp;
+    collapsed.reward_tokens += reward.reward_tokens;
+    collapsed.reward_prestige += reward.reward_prestige;
+
+    // Concatenate array rewards
+    collapsed.reward_items.push(...reward.reward_items);
+    collapsed.reward_jutsus.push(...reward.reward_jutsus);
+    collapsed.reward_bloodlines.push(...reward.reward_bloodlines);
+    collapsed.reward_badges.push(...reward.reward_badges);
+
+    // Handle rank reward (take the highest rank)
+    if (reward.reward_rank !== "NONE") {
+      if (collapsed.reward_rank === "NONE") {
+        collapsed.reward_rank = reward.reward_rank;
+      } else {
+        // Compare ranks and keep the higher one
+        const rankOrder = ["NONE", "GENIN", "CHUNIN", "JONIN", "SANNIN", "KAGE"];
+        const currentIndex = rankOrder.indexOf(collapsed.reward_rank);
+        const newIndex = rankOrder.indexOf(reward.reward_rank);
+        if (newIndex > currentIndex) {
+          collapsed.reward_rank = reward.reward_rank;
+        }
+      }
+    }
+  });
+
+  return collapsed;
+};
 
 export type QuestConsequence = {
   type:

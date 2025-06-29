@@ -70,7 +70,7 @@ export const idsWithNumberField = z
   )
   .default([]);
 
-const rewardFields = {
+export const rewardFields = {
   reward_money: z.coerce.number().default(0),
   reward_clanpoints: z.coerce.number().default(0),
   reward_exp: z.coerce.number().default(0),
