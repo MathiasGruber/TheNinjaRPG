@@ -29,12 +29,22 @@ export default function Users() {
     "Online",
     "Strongest",
     "PvP",
+    "Ranked",
     "Outlaws",
     "Community",
     "Staff",
     ...(userData?.role !== "USER" ? ["Dailies"] : []),
   ];
-  type TabName = "Online" | "Strongest" | "Weakest" | "PvP" | "Outlaws" | "Community" | "Staff" | "Dailies";
+  type TabName =
+    | "Online"
+    | "Strongest"
+    | "Weakest"
+    | "PvP"
+    | "Ranked"
+    | "Outlaws"
+    | "Community"
+    | "Staff"
+    | "Dailies";
   const [activeTab, setActiveTab] = useState<TabName>("Online");
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
 
@@ -93,6 +103,8 @@ export default function Users() {
     columns.push({ key: "updatedAt", header: "Last Active", type: "time_passed" });
   } else if (activeTab === "PvP") {
     columns.push({ key: "pvpStreak", header: "PvP Streak", type: "string" });
+  } else if (activeTab === "Ranked") {
+    columns.push({ key: "rankedLp", header: "Ranked PvP LP", type: "string" });
   } else if (activeTab === "Outlaws") {
     columns.push({ key: "villagePrestige", header: "Notoriety", type: "string" });
   } else if (activeTab === "Community") {
@@ -104,24 +116,27 @@ export default function Users() {
     const currentHour = new Date().getUTCHours();
     const currentMinutes = new Date().getUTCMinutes();
     // Ensure minimum of 1 minute (0.0167 hours) to prevent division by zero
-    const hoursPassed = Math.max(0.0167, (currentHour + (currentMinutes / 60))).toFixed(2);
-    columns.push({ 
-      key: "dailyArenaFights", 
-      header: "Arena Fights", 
+    const hoursPassed = Math.max(0.0167, currentHour + currentMinutes / 60).toFixed(2);
+    columns.push({
+      key: "dailyArenaFights",
+      header: "Arena Fights",
       type: "string",
-      tooltip: (user: User) => `${(user.dailyArenaFights / Number(hoursPassed)).toFixed(2)} per hour`
+      tooltip: (user: User) =>
+        `${(user.dailyArenaFights / Number(hoursPassed)).toFixed(2)} per hour`,
     });
-    columns.push({ 
-      key: "dailyMissions", 
-      header: "Missions", 
+    columns.push({
+      key: "dailyMissions",
+      header: "Missions",
       type: "string",
-      tooltip: (user: User) => `${(user.dailyMissions / Number(hoursPassed)).toFixed(2)} per hour`
+      tooltip: (user: User) =>
+        `${(user.dailyMissions / Number(hoursPassed)).toFixed(2)} per hour`,
     });
-    columns.push({ 
-      key: "dailyErrands", 
-      header: "Errands", 
+    columns.push({
+      key: "dailyErrands",
+      header: "Errands",
       type: "string",
-      tooltip: (user: User) => `${(user.dailyErrands / Number(hoursPassed)).toFixed(2)} per hour`
+      tooltip: (user: User) =>
+        `${(user.dailyErrands / Number(hoursPassed)).toFixed(2)} per hour`,
     });
   }
   if (userData && canSeeIps(userData.role)) {
@@ -191,4 +206,3 @@ export default function Users() {
     </ContentBox>
   );
 }
-

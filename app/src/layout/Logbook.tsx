@@ -13,7 +13,7 @@ import { Objective, Reward, EventTimer } from "@/layout/Objective";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { capitalizeFirstLetter } from "@/utils/sanitize";
 import { api } from "@/app/_trpc/client";
-import { showMutationToast } from "@/libs/toast";
+import { showMutationToast, showRewardToast } from "@/libs/toast";
 import { useInfinitePagination } from "@/libs/pagination";
 import { parseHtml } from "@/utils/parse";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
@@ -22,7 +22,6 @@ import {
   MISSIONS_PER_DAY,
   ADDITIONAL_MISSION_REWARD_MULTIPLIER,
   IMG_SCENE_BACKGROUND,
-  IMG_SCENE_CHARACTER,
 } from "@/drizzle/constants";
 import { getActiveObjective } from "@/libs/objectives";
 import { cn } from "src/libs/shadui";
@@ -554,111 +553,20 @@ export const useCheckRewards = () => {
             rewards.reward_badges.length > 0 ||
             rewards.reward_bloodlines.length > 0 ||
             rewards.reward_items.length > 0;
-          const reward = (
-            <div className="flex flex-col gap-2">
-              {notifications.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {notifications.map((description, i) => (
-                    <div key={`objective-success-${i}`}>
-                      <b>Objective {i + 1}:</b>
-                      <br />
-                      <i>{parseHtml(description)}</i>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {resolved && quest.successDescription && (
-                <div>
-                  <b>Quest Completed:</b>
-                  <br />
-                  <i>{parseHtml(quest.successDescription)}</i>
-                </div>
-              )}
-              <div className="flex flex-row items-center">
-                <div className="flex flex-col basis-2/3">
-                  {rewards.reward_money > 0 && (
-                    <span>
-                      <b>Money:</b> {rewards.reward_money} ryo
-                    </span>
-                  )}
-                  {rewards.reward_clanpoints > 0 && (
-                    <span>
-                      <b>Clan points:</b> {rewards.reward_clanpoints}
-                    </span>
-                  )}
-                  {rewards.reward_exp > 0 && (
-                    <span>
-                      <b>Experience:</b> {rewards.reward_exp}
-                    </span>
-                  )}
-                  {rewards.reward_tokens > 0 && (
-                    <span>
-                      <b>Village tokens:</b> {rewards.reward_tokens}
-                    </span>
-                  )}
-                  {rewards.reward_prestige > 0 && (
-                    <span>
-                      <b>Village prestige:</b> {rewards.reward_prestige}
-                    </span>
-                  )}
-                  {rewards.reward_jutsus.length > 0 && (
-                    <span>
-                      <b>Jutsus: </b> {rewards.reward_jutsus.join(", ")}
-                    </span>
-                  )}
-                  {rewards.reward_badges.length > 0 && (
-                    <span>
-                      <b>Badges: </b> {rewards.reward_badges.join(", ")}
-                    </span>
-                  )}
-                  {rewards.reward_bloodlines.length > 0 && (
-                    <span>
-                      <b>Swappable Bloodlines: </b>{" "}
-                      {rewards.reward_bloodlines.join(", ")}
-                    </span>
-                  )}
-                  {rewards.reward_items.length > 0 && (
-                    <span>
-                      <b>Items: </b>
-                      {rewards.reward_items.join(", ")}
-                    </span>
-                  )}
-                </div>
-                <div className="basis-1/3 flex flex-col">
-                  {badges.map((badge, i) => (
-                    <Image
-                      key={i}
-                      src={badge.image}
-                      width={128}
-                      height={128}
-                      alt={badge.name}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-          if (resolved) {
-            showMutationToast({
-              success: true,
-              message: reward,
-              title: `Finished: ${quest.name}`,
-            });
-          } else if (showToast) {
-            showMutationToast({
-              success: true,
-              message: reward,
-              title: `Reward from ${quest.name}`,
-            });
-          }
-          await Promise.all([
-            utils.profile.getUser.invalidate(),
-            utils.quests.getQuestHistory.invalidate(),
-            utils.quests.allianceBuilding.invalidate(),
-            utils.quests.missionHall.invalidate(),
-            utils.quests.storyQuests.invalidate(),
-          ]);
+          // Show toast
+          const message = resolved
+            ? `Finished: ${quest.name}`
+            : `Reward from ${quest.name}`;
+          if (resolved || showToast)
+            showRewardToast(notifications, rewards, message, false, quest, badges);
         }
+        await Promise.all([
+          utils.profile.getUser.invalidate(),
+          utils.quests.getQuestHistory.invalidate(),
+          utils.quests.allianceBuilding.invalidate(),
+          utils.quests.missionHall.invalidate(),
+          utils.quests.storyQuests.invalidate(),
+        ]);
       },
     });
 
