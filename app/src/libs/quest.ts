@@ -405,7 +405,10 @@ export const getNewTrackers = (
             status.done = true;
             consequences.push({ type: "start_quest", ids: objective.newQuestIds });
           } else if (task === "start_battle") {
-            putInCombat();
+            // Only trigger combat if player hasn't recently died in this objective
+            if (!status.recentlyDied) {
+              putInCombat();
+            }
           }
 
           // Specific updates requested by the caller
@@ -518,6 +521,10 @@ export const getNewTrackers = (
                     if (completionOutcome === "Lose") {
                       status.done = true;
                     }
+                    // Mark as recently died to prevent automatic re-triggering
+                    if (task === "start_battle") {
+                      status.recentlyDied = true;
+                    }
                   } else if (taskUpdate.text === "Draw") {
                     if (objective.drawDescription) {
                       notifications.push(objective.drawDescription);
@@ -538,6 +545,13 @@ export const getNewTrackers = (
                     status.done = true;
                   }
                 }
+              }
+
+              // Handle manual retriggering of start_battle objectives
+              if (task === "start_battle" && taskUpdate.text === "retry") {
+                status.recentlyDied = false;
+                putInCombat();
+                return;
               }
             });
           if ("value" in objective && status.value >= objective.value) {

@@ -380,7 +380,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
       options={
         <div className="ml-3">
           <div className="mt-2 flex flex-row items-center ">
-            {["mission", "crime", "event", "errand"].includes(quest.questType) && (
+            {["mission", "crime", "event", "errand", "story"].includes(quest.questType) && (
               <Confirm2
                 title="Confirm deleting quest"
                 button={
@@ -433,30 +433,30 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               height={341}
             />
             {characters.map((character, i) => (
-              <div key={i} className="absolute bottom-0 w-2/5">
+              <div key={i} className="absolute bottom-0 w-2/5 flex items-end pb-12">
                 <Image
                   src={character}
                   alt="Character"
-                  className="aspect-3 "
+                  className="max-h-full w-auto object-contain"
                   width={341}
                   height={512}
                 />
               </div>
             ))}
             {/* Bottom dialog area */}
-            <div className="absolute inset-x-0 bottom-0 flex flex-col items-center pointer-events-none max-h-1/3">
+            <div className="absolute inset-x-0 bottom-0 flex flex-col items-center pointer-events-none">
               {/* Shown text */}
-              <div className="bg-poppopover w-full max-w-[calc(100%-2rem)] max-h-1/3 min-h-10 p-2 rounded-lg overflow-y-auto border-2 mb-2 pointer-events-auto">
+              <div className="bg-poppopover w-full max-w-[calc(100%-2rem)] max-h-32 min-h-10 p-2 rounded-lg overflow-y-auto border-2 mb-2 pointer-events-auto">
                 {shownText}
               </div>
 
               {/* Dialog options */}
               {activeObjective?.task === "dialog" && (
-                <div className="flex flex-row flex-wrap justify-end gap-2 w-full max-w-[calc(100%-2rem)] pr-4 pb-1 pointer-events-auto">
+                <div className="flex flex-col gap-1 w-full max-w-[calc(100%-2rem)] px-4 pb-1 pointer-events-auto pt-1 max-h-20 overflow-y-auto">
                   {activeObjective.nextObjectiveId.map((entry) => (
-                    <div key={entry.nextObjectiveId}>
+                    <div key={entry.nextObjectiveId} className="flex justify-end">
                       <div
-                        className="bg-popover px-3 py-1 border-2 rounded-lg hover:bg-poppopover cursor-pointer whitespace-nowrap"
+                        className="bg-popover px-2 py-1 border-2 rounded-lg hover:bg-poppopover cursor-pointer text-xs sm:text-sm break-words max-w-full text-right shadow-lg"
                         onClick={() =>
                           !isCheckingRewards &&
                           checkRewards({
@@ -466,7 +466,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                         }
                       >
                         {isCheckingRewards ? (
-                          <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                          <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                         ) : (
                           entry.text
                         )}
