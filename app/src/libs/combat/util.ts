@@ -85,6 +85,7 @@ import { dungeonCombatResult } from "@/libs/dungeon";
 import { boostPvpGain, pvpExperienceReward } from "@/libs/pvpExperience";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
+import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
 import { randomInt, secureRandomInt } from "@/utils/math";
 import { secondsPassed } from "@/utils/time";
 import { getShrineBoost, getStrucBoost } from "@/utils/village";
@@ -1958,6 +1959,8 @@ export const calcBattleResult = (
   const users = battle.usersState;
   const user = users.find((u) => u.userId === userId);
   if (user && !user.leftBattle) {
+    const loyalty = getVillageLoyaltyBonuses(user);
+    const pvpRewardBoost = PvpBattleTypes.includes(battleType) ? loyalty.pvpRewards : 0;
     // Faction identities still determine reward eligibility and political consequences.
     const villageIds = [
       ...new Set(users.filter((u) => !u.isSummon).map((u) => u.villageId)),
@@ -2050,6 +2053,7 @@ export const calcBattleResult = (
           }
         }
       }
+      experience *= percentageMultiplier(pvpRewardBoost);
 
       // Find users who did not leave battle yet
       const friendsUsers = friends.filter((u) => !u.isAi);
@@ -2641,6 +2645,22 @@ export const calcBattleResult = (
             });
           });
       }
+
+      const boostPositiveReward = (value: number, percent: number) =>
+        value > 0 ? value * percentageMultiplier(percent) : value;
+      moneyDelta = boostPositiveReward(moneyDelta, pvpRewardBoost);
+      deltaEarnedExperience = boostPositiveReward(
+        deltaEarnedExperience,
+        pvpRewardBoost,
+      );
+      deltaTokens = boostPositiveReward(
+        deltaTokens,
+        loyalty.villageRewards + pvpRewardBoost,
+      );
+      deltaPrestige = boostPositiveReward(
+        deltaPrestige,
+        loyalty.villageRewards + pvpRewardBoost,
+      );
 
       // Result object
       const result: CombatResult = {

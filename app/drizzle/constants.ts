@@ -1490,6 +1490,20 @@ export const COST_RESKIN_JUTSU = 60;
 export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";
 export const VILLAGE_REDUCED_GAINS_DAYS = 7;
 export const VILLAGE_SYNDICATE_ID = "ryBk0qD4EgvPPyav2K4OC";
+export const VILLAGE_LOYALTY_TIERS = [
+  { days: 7, bonus: "regen", percent: 5 },
+  { days: 14, bonus: "villageRewards", percent: 3 },
+  { days: 20, bonus: "statGains", percent: 5 },
+  { days: 30, bonus: "pvpRewards", percent: 5 },
+  { days: 40, bonus: "shopDiscount", percent: 5 },
+  { days: 50, bonus: "regen", percent: 10 },
+  { days: 60, bonus: "missionRewards", percent: 5 },
+  { days: 70, bonus: "statGains", percent: 10 },
+  { days: 80, bonus: "masteryTraining", percent: 15 },
+  { days: 90, bonus: "villageRewards", percent: 10 },
+  { days: 100, bonus: "masteryTraining", percent: 15 },
+] as const;
+export type VillageLoyaltyBonus = (typeof VILLAGE_LOYALTY_TIERS)[number]["bonus"];
 export const ALLIANCE_VILLAGE_TYPES = ["VILLAGE", "HIDEOUT", "STRONGHOLD"] as const;
 /** Village types owned by a faction (clan), led by its leader without an elder council */
 export const FACTION_VILLAGE_TYPES = ["HIDEOUT", "STRONGHOLD"] as const;

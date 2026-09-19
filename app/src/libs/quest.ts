@@ -75,6 +75,7 @@ import { getSageMasteryDisplayRank, isSageRankAtLeast } from "@/libs/sageMode";
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import { findNearestReachableCoordinate } from "@/libs/sector-map/validation";
 import { availableQuestLetterRanks } from "@/libs/train";
+import { getVillageLoyaltyBonuses } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
 import { getUnique } from "@/utils/grouping";
 import { canChangeContent, canPlayHiddenQuests } from "@/utils/permissions";
@@ -419,6 +420,7 @@ export const getReward = (
     const clanMissionBoost = user.isOutlaw
       ? 0
       : (user.clan?.missionRewardBoost ?? 0) / 100;
+    const loyalty = getVillageLoyaltyBonuses(user);
     let boostFactor = 1;
     if (userQuest?.quest.questType) {
       if (["mission", "crime", "medical"].includes(userQuest.quest.questType)) {
@@ -427,6 +429,9 @@ export const getReward = (
         // clanMissionBoost intentionally excluded from errands; only shrine + village hall apply
         boostFactor = 1 + errandsBoost + villageMissionBoost;
       }
+    }
+    if (["mission", "errand"].includes(userQuest.quest.questType)) {
+      boostFactor += loyalty.missionRewards / 100;
     }
     // Get rewards
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
@@ -491,15 +496,16 @@ export const getReward = (
     });
     // Scale rewards
     const missionLike = ["mission", "crime"].includes(userQuest.quest.questType);
-    let factor = boostFactor; // Start with shrine boost factor
-
-    // Apply daily mission limit penalty if applicable, but keep shrine boost
-    if (
+    const reducedRewardFactor =
       missionLike &&
       isReducedMissionReward(user.dailyMissions, { phase: "in-progress" })
-    ) {
-      factor = ADDITIONAL_MISSION_REWARD_MULTIPLIER * boostFactor;
-    }
+        ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
+        : 1;
+    const factor = boostFactor * reducedRewardFactor;
+    const villageRewardFactor =
+      (boostFactor + loyalty.villageRewards / 100) * reducedRewardFactor;
+    const masteryTrainingFactor =
+      (boostFactor + loyalty.masteryTraining / 100) * reducedRewardFactor;
 
     // Boosts, penalties and multipliers; applied identically to a reward-choice offer.
     const scaleRewards = (target: ObjectiveRewardType) => {

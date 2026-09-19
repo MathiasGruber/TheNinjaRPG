@@ -1,6 +1,9 @@
 
 import { describe, expect, it } from "bun:test";
-import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
+import {
+  buildDerivedUserRegenUpdate,
+  buildNegativePrestigeVillageUpdate,
+} from "@/server/utils/profileRegen";
 
 describe("buildDerivedUserRegenUpdate", () => {
   it("keeps only derived regen fields by default", () => {
@@ -69,6 +72,22 @@ describe("buildDerivedUserRegenUpdate", () => {
       villagePrestige: 300,
       villageId: "village-1",
       isOutlaw: true,
+    });
+  });
+
+  it("builds a complete negative-prestige village transition", () => {
+    const joinedVillageAt = new Date("2026-05-01T10:00:00.000Z");
+    expect(
+      buildNegativePrestigeVillageUpdate(
+        { villagePrestige: -125 },
+        "syndicate",
+        joinedVillageAt,
+      ),
+    ).toEqual({
+      villagePrestige: 125,
+      villageId: "syndicate",
+      isOutlaw: true,
+      joinedVillageAt,
     });
   });
 });
