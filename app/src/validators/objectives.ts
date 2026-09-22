@@ -160,6 +160,7 @@ export const OBJECTIVE_TAG_TYPES = [
   "decreasepotency",
   "decreasestat",
   "decreasemastery",
+  "diffuse",
   "disarm",
   "drain",
   "elementalseal",

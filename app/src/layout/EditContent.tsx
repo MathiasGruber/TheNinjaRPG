@@ -2956,6 +2956,7 @@ export const FORM_LABEL_MAP: Record<string, string> = {
   singleBattle: "Track best single-battle only (else cumulative)",
   bloodlineRank: "Bloodline Rank",
   shieldRounds: "Shield Rounds",
+  delayRounds: "Diffuse Repayment Turns",
 };
 
 /**
