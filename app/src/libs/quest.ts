@@ -430,9 +430,9 @@ export const getReward = (
         boostFactor = 1 + errandsBoost + villageMissionBoost;
       }
     }
-    if (["mission", "errand"].includes(userQuest.quest.questType)) {
-      boostFactor += loyalty.missionRewards / 100;
-    }
+    const missionLoyalty = ["mission", "errand"].includes(userQuest.quest.questType)
+      ? loyalty.missionRewards
+      : 0;
     // Get rewards
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
     const goals = tracker?.goals ?? [];
@@ -501,11 +501,13 @@ export const getReward = (
       isReducedMissionReward(user.dailyMissions, { phase: "in-progress" })
         ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
         : 1;
-    const factor = boostFactor * reducedRewardFactor;
-    const villageRewardFactor =
-      (boostFactor + loyalty.villageRewards / 100) * reducedRewardFactor;
-    const masteryTrainingFactor =
-      (boostFactor + loyalty.masteryTraining / 100) * reducedRewardFactor;
+    // Loyalty improves earnings, never the cost of a configured penalty.
+    const scaleReward = (value: number, extraLoyalty = 0) =>
+      Math.floor(
+        (value * boostFactor +
+          (value > 0 ? (value * (missionLoyalty + extraLoyalty)) / 100 : 0)) *
+          reducedRewardFactor,
+      );
 
     // Boosts, penalties and multipliers; applied identically to a reward-choice offer.
     const scaleRewards = (target: ObjectiveRewardType) => {
@@ -708,11 +710,30 @@ export type GetRewardResult = ReturnType<typeof getReward>["rewards"];
  */
 export const postProcessRewards = (
   rewards: ObjectiveRewardType,
+  user?: Parameters<typeof getVillageLoyaltyBonuses>[0],
 ): PostProcessedRewards => {
   // Defensive check: ensure reward_items is an array (handles malformed DB data)
   const rewardItems = Array.isArray(rewards?.reward_items) ? rewards.reward_items : [];
+  // Pass user for unscaled configured payouts; getReward already applies its quest factors.
+  const villageRewardBonus = user ? getVillageLoyaltyBonuses(user).villageRewards : 0;
   return {
     ...rewards,
+    ...(user
+      ? {
+          reward_tokens: Math.floor(
+            rewards.reward_tokens > 0
+              ? rewards.reward_tokens +
+                  (rewards.reward_tokens * villageRewardBonus) / 100
+              : rewards.reward_tokens,
+          ),
+          reward_prestige: Math.floor(
+            rewards.reward_prestige > 0
+              ? rewards.reward_prestige +
+                  (rewards.reward_prestige * villageRewardBonus) / 100
+              : rewards.reward_prestige,
+          ),
+        }
+      : {}),
     reward_items: rewardItems
       .filter((reward) => {
         // Use 'number' as drop chance (default 100 = guaranteed)

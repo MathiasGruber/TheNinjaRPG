@@ -86,7 +86,7 @@ import { boostPvpGain, pvpExperienceReward } from "@/libs/pvpExperience";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
 import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
-import { randomInt, secureRandomInt } from "@/utils/math";
+import { randomInt, round, secureRandomInt } from "@/utils/math";
 import { secondsPassed } from "@/utils/time";
 import { getShrineBoost, getStrucBoost } from "@/utils/village";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
@@ -2728,6 +2728,7 @@ export const calcBattleResult = (
           };
           total = 6;
         }
+        experience *= percentageMultiplier(loyalty.statGains);
         let assignedExp = 0;
         const { stats_cap, gens_cap } = getUserCaps(user.rank);
 
@@ -2755,7 +2756,7 @@ export const calcBattleResult = (
         });
 
         // Experience
-        result.experience = Math.floor(assignedExp * 100) / 100;
+        result.experience = Math.floor(round(assignedExp * 100, 8)) / 100;
       }
 
       // Ensure Ranked PvP winner rewards are applied despite noRewardBattles gating
@@ -2873,7 +2874,8 @@ const distributeExpToStat = (
   result: CombatResult,
 ): number => {
   const expWeighted = (count / total) * experience;
-  const expRounded = Math.floor(expWeighted * 100) / 100;
+  // Remove floating-point noise before truncating to hundredths (e.g. 18.4 * 100).
+  const expRounded = Math.floor(round(expWeighted * 100, 8)) / 100;
   const expResult = Math.max(0, Math.min(expRounded, cap - user[stat]));
   result[stat] += expResult;
   return expResult;

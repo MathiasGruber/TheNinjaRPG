@@ -3059,7 +3059,16 @@ export const updateUserContent = async (props: {
  * Fetch user with bloodline & village relations. Occasionally updates the user with regeneration
  * of pools, or optionally forces regeneration with forceRegen=true
  */
-export const fetchUpdatedUser = async (props: {
+export const fetchUpdatedUser = async (
+  props: Parameters<typeof fetchUpdatedUserOnce>[0],
+) => {
+  // A lost village-state CAS invalidates the entire snapshot, including its relations.
+  let result = await fetchUpdatedUserOnce(props);
+  while (result === null) result = await fetchUpdatedUserOnce(props);
+  return result;
+};
+
+const fetchUpdatedUserOnce = async (props: {
   client: DrizzleClient;
   userId: string;
   userIp?: string;
@@ -3440,6 +3449,15 @@ export const fetchUpdatedUser = async (props: {
     };
   }
 
+  // The surviving ANBU membership is a durable retry marker after failed expulsion cleanup.
+  if (user?.isOutlaw && user.anbuId) {
+    const squadData = await fetchSquad(client, user.anbuId);
+    if (squadData && (await removeFromSquad(client, squadData, user.userId))) {
+      user.anbuId = null;
+      user.anbuSquad = null;
+    }
+  }
+
   // Handle village prestige situations
   if (user) {
     // If prestige below 0, reset to 0 and move to outlaw faction
@@ -3477,46 +3495,44 @@ export const fetchUpdatedUser = async (props: {
               expectedVillage,
             ),
           );
-        if (kickResult.rowsAffected === 1) {
-          Object.assign(user, kickUpdate);
-          forceRegen = true;
-          requiresUserRefresh = true;
-          requiresProgressionRefresh = true;
-          void pusher.trigger(user.userId, "event", {
-            type: "userMessage",
-            message:
-              "You have been kicked out of your village due to negative prestige",
-            route: "/profile",
-            routeText: "To Profile",
-          });
-          // Complete the guarded transition before starting related membership cleanup.
-          await Promise.all([
-            ...(user.anbuId && squadData
-              ? [removeFromSquad(client, squadData, user.userId)]
-              : []),
-            ...(user.clanId && clanData
-              ? [removeFromClan(client, clanData, user, ["Turned outlaw"])]
-              : []),
-            ...(needNewKage && elder && previousVillageId
-              ? [
-                  client
-                    .update(village)
-                    .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
-                    .where(eq(village.id, previousVillageId)),
-                  client
-                    .update(userData)
-                    .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
-                    .where(eq(userData.userId, user.userId)),
-                  pusher.trigger(user.userId, "event", {
-                    type: "userMessage",
-                    message: `Your prestige dropped below ${KAGE_MIN_PRESTIGE} and you are no longer kage`,
-                    route: "/profile",
-                    routeText: "To Profile",
-                  }),
-                ]
-              : []),
-          ]);
-        }
+        if (kickResult.rowsAffected !== 1) return null;
+        Object.assign(user, kickUpdate);
+        forceRegen = true;
+        requiresUserRefresh = true;
+        requiresProgressionRefresh = true;
+        void pusher.trigger(user.userId, "event", {
+          type: "userMessage",
+          message: "You have been kicked out of your village due to negative prestige",
+          route: "/profile",
+          routeText: "To Profile",
+        });
+        // Complete the guarded transition before starting related membership cleanup.
+        await Promise.all([
+          ...(user.anbuId && squadData
+            ? [removeFromSquad(client, squadData, user.userId)]
+            : []),
+          ...(user.clanId && clanData
+            ? [removeFromClan(client, clanData, user, ["Turned outlaw"])]
+            : []),
+          ...(needNewKage && elder && previousVillageId
+            ? [
+                client
+                  .update(village)
+                  .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
+                  .where(eq(village.id, previousVillageId)),
+                client
+                  .update(userData)
+                  .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
+                  .where(eq(userData.userId, user.userId)),
+                pusher.trigger(user.userId, "event", {
+                  type: "userMessage",
+                  message: `Your prestige dropped below ${KAGE_MIN_PRESTIGE} and you are no longer kage`,
+                  route: "/profile",
+                  routeText: "To Profile",
+                }),
+              ]
+            : []),
+        ]);
       }
     }
   }
