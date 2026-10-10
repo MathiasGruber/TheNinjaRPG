@@ -76,6 +76,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
+import { ElementalMastery } from "@/layout/ElementalMastery";
 import {
   EnergyTrainingQueue,
   useEnergyTrainingQueue,
@@ -233,6 +234,7 @@ export default function Training() {
             section={activeSection}
           />
         )}
+        {activeSection === "Elements" && <ElementalMastery timeDiff={timeDiff} />}
         {activeSection === "Jutsu" && (
           <JutsuTraining
             userData={userData}

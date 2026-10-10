@@ -33,6 +33,7 @@ import {
   COMBAT_BIOMES,
   type CombatBiome,
   CombatStatNames,
+  ELEMENTAL_MASTERY_BOOST,
   MAP_RESERVED_SECTORS,
   MAP_WAKE_ISLAND_SECTOR,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
@@ -144,6 +145,7 @@ import {
   resetMasteriesToBase,
   rollInitiative,
 } from "@/libs/combat/util";
+import { activeTrainedElement } from "@/libs/elementalMastery";
 import { fetchDmgConfig } from "@/libs/gamesettings";
 import { computeJutsuLoadoutCapAssignments } from "@/libs/jutsu";
 import {
@@ -220,7 +222,12 @@ import { randomInt } from "@/utils/math";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
 import { canAccessStructure } from "@/utils/village";
 import type { AssignableUserStats } from "@/validators/combat";
-import { BarrierTag, performActionSchema, statSchema } from "@/validators/combat";
+import {
+  BarrierTag,
+  IncreaseDamageGivenTag,
+  performActionSchema,
+  statSchema,
+} from "@/validators/combat";
 import { sectorIdSchema } from "@/validators/travel";
 import { fetchUpdatedUser, fetchUser, type UserWithRelations } from "./profile";
 
@@ -3385,6 +3392,27 @@ export const processUsersForBattle = async (
         ui.equipped = "NONE";
       });
     const gateMasteries = effectiveMasteries(wearer);
+
+    // Capture the unlocked element's passive once; action processing uses only battle state.
+    const trainedElement = activeTrainedElement(user);
+    if (trainedElement && !isRankedBattle) {
+      const realized = realizeTag({
+        tag: IncreaseDamageGivenTag.parse({
+          power: ELEMENTAL_MASTERY_BOOST,
+          elements: [trainedElement],
+          target: "SELF",
+        }) as UserEffect,
+        user,
+        actionId: "elemental-mastery",
+        target: user,
+        level: user.level,
+      });
+      realized.isNew = false;
+      realized.castThisRound = false;
+      realized.targetId = user.userId;
+      realized.fromType = "elementalMastery";
+      userEffects.push(realized);
+    }
 
     // Add bloodline efects
     if (
