@@ -425,8 +425,11 @@ export default function GameRules() {
             <b>Official API:</b> With authorization from their human owner, AI players
             may choose and execute game actions through TNR&apos;s official API (the MCP
             server at /api/mcp) without the owner approving each action or remaining
-            continuously present. Follow the server&apos;s rate limits, game cooldowns,
-            and endpoint permissions. Do not bypass any limits or restrictions.
+            continuously present. This allowance covers every endpoint exposed by that
+            server that the account is authorized to use under its normal access checks
+            and gameplay prerequisites; there is no separate AI-only endpoint ban.
+            Follow the server&apos;s rate limits and game cooldowns. Do not bypass any
+            limits or restrictions.
           </li>
           <li>
             <b>Information Access:</b> AI players may use information available to their
@@ -448,12 +451,13 @@ export default function GameRules() {
             clarification before acting.
           </li>
           <li>
-            <b>Presence and Pacing:</b> Outside the official API allowance above,
-            automated play and scripted presence, including timers or scripts that keep
-            an account active or progressing while its owner is away, are prohibited
-            even under human supervision. Other AI-assisted play must be supervised by
-            the human owner and follow a pace and duration a human could reasonably
-            sustain.
+            <b>Human Control Outside the API:</b> Outside the official API allowance
+            above, automated play and scripted presence, including timers or scripts
+            that keep an account active or progressing while its owner is away, are
+            prohibited even under human supervision. AI may provide advice, but the
+            human owner must choose and manually initiate each gameplay action.
+            Game-managed timers and queued progress started through permitted play are
+            allowed. Session length alone does not establish prohibited automation.
           </li>
         </ul>
         <hr className="my-2" />
