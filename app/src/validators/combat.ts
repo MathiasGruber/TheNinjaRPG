@@ -1404,6 +1404,11 @@ export const JutsuValidatorRawSchema = z.object({
   staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
   actionCostPerc: z.coerce.number().int().min(10).max(100),
   cooldown: z.coerce.number().int().min(0).max(300),
+  requiredSkillId: z
+    .string()
+    .max(191)
+    .nullish()
+    .transform((v) => v || null),
   bloodlineId: z.string().nullable(),
   requiredBloodlineItemId: z
     .string()
@@ -1617,6 +1622,11 @@ export const ItemValidatorRawSchema = z.object({
   farmFertilizerExperience: z.coerce.number().int().min(0).prefault(0),
   craftingExperience: z.coerce.number().int().min(0).prefault(0),
   crystalTargetTypes: z.enum(ItemTypes).nullable(),
+  requiredSkillId: z
+    .string()
+    .max(191)
+    .nullish()
+    .transform((v) => v || null),
   bloodlineId: z.string().nullable(),
   battleUsageType: z.enum(BattleUsageTypes).prefault("BOTH"),
   craftingRequirements: z

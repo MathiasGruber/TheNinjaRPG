@@ -160,6 +160,8 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     name: "image",
   });
 
+  const { data: requiredSkills } = api.skillTree.getAllNames.useQuery();
+
   // Object for form values
   const formData: FormEntry<keyof ZodJutsuType>[] = [
     {
@@ -202,6 +204,14 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     { id: "range", type: "number" },
     { id: "cooldown", type: "number" },
     { id: "requiredLevel", type: "number" },
+    {
+      id: "requiredSkillId",
+      label: "Required Skill (Activated)",
+      type: "db_values",
+      values: requiredSkills,
+      searchable: true,
+      resetButton: true,
+    },
     { id: "jutsuType", type: "str_array", values: JutsuTypes },
     { id: "bloodlineId", type: "db_values", values: bloodlines, resetButton: true },
     {

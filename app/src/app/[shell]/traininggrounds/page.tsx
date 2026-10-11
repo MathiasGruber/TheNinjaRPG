@@ -1115,7 +1115,9 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   const masteries = effectiveMasteries({
     ...userData,
     items: userItems ?? [],
-    userSkills: userSkills?.skills.filter((userSkill) => userSkill.activated),
+    userSkills:
+      userData.userSkills ??
+      userSkills?.skills.filter((userSkill) => userSkill.activated),
   });
 
   // User Jutsus
@@ -1244,7 +1246,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
         if (j.parentJutsuId)
           return (
             // Training/leveling is item-free, so ignore the bloodline item requirement here
-            canUseJutsu(j, userData, true, masteries) &&
+            canUseJutsu(j, userData, true, masteries, true) &&
             (userJutsuOwnership?.some((uj) => uj.jutsuId === j.id) ?? false)
           );
         return canTrainJutsu(j, userData, masteries);

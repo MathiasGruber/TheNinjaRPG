@@ -56,6 +56,7 @@ beforeEach(() => {
       getAllNames: { useQuery: () => ({ data: [] }) },
       update: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
     },
+    skillTree: { getAllNames: { useQuery: () => ({ data: [] }) } },
     bloodline: { getAllNames: { useQuery: () => ({ data: [] }) } },
   });
 });

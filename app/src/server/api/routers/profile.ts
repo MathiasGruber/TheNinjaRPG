@@ -117,7 +117,11 @@ import { getWorldCyclePosition } from "@/libs/dayNight";
 import { getGameSettingBoost } from "@/libs/gameSettingBoost";
 import { getGameSetting, updateGameSetting } from "@/libs/gamesettings";
 import { getLayoutExperimentAssignments } from "@/libs/layoutPreference";
-import { effectiveMasteries, type MasteryStatSource } from "@/libs/mastery";
+import {
+  effectiveMasteries,
+  type MasterySources,
+  type MasteryStatSource,
+} from "@/libs/mastery";
 import { allocateMasteryGains } from "@/libs/masteryProgression";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import { moderateContent, validateUserUpdateReason } from "@/libs/moderator";
@@ -4128,6 +4132,7 @@ export const scaleEditedAi = (stored: UserData, edited: UserData) => {
 export type UserWithRelations =
   | (UserData & {
       effectiveMasteries?: MasteryStatSource;
+      userSkills?: NonNullable<MasterySources["userSkills"]>;
       /** Every queue entry of the user, in queue order per kind */
       queue?: UserQueue[];
       bloodline?: Bloodline | null;

@@ -25,6 +25,7 @@ import {
 } from "@/libs/item";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
 import { getNextQueueSchedule } from "@/libs/queue";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import {
   fetchItemWithCraftingRequirements,
@@ -631,6 +632,8 @@ export const occupationRouter = createTRPCRouter({
       ) {
         return errorResponse("You cannot use a crystal that is still being crafted");
       }
+      if (!hasRequiredSkill(crystalItem, user))
+        return errorResponse("Activate the required skill to use this crystal");
       if (crystalItem.itemType !== "CRYSTAL") {
         return errorResponse("Selected item is not a crystal");
       }

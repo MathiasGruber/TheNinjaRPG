@@ -216,5 +216,6 @@ export const SAGE_MODE_ACTIVATION_JUTSU: Jutsu = {
   requiredSpeed: null,
   requiredIntelligence: null,
   requiredWillpower: null,
+  requiredSkillId: null,
   requiredBloodlineItemId: null,
 };

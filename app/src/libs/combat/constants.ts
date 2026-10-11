@@ -46,6 +46,7 @@ export type DmgConfig = typeof dmgConfig;
  * Which user state is public (using ID references - full data is in extraState)
  */
 export const publicState = [
+  "skillLockedJutsuIds",
   "actionPoints",
   "anbuId",
   "avatar",
@@ -105,6 +106,7 @@ export const publicState = [
  * Which user state is private
  */
 export const privateState = [
+  "activeSkillIds",
   "masteryRanks",
   "usedMasteries",
   "bloodlineMastery",

@@ -82,6 +82,7 @@ import {
   getPublicQuestUser,
 } from "@/libs/quest";
 import { hasEnergyQueue, liveQueueRows } from "@/libs/queue";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { callDiscordContent } from "@/libs/socials";
 import {
   calcJutsuEquipLimit,
@@ -752,7 +753,7 @@ export const jutsuRouter = createTRPCRouter({
         return errorResponse("You don't meet the level requirement for this evolution");
       if (!canEvolveJutsu(evolutionJutsu, user))
         return errorResponse("You don't meet the stat requirements for this evolution");
-      if (!canUseJutsu(evolutionJutsu, user, true))
+      if (!canUseJutsu(evolutionJutsu, user, true, undefined, true))
         return errorResponse(
           "You don't meet all requirements for this evolution (village, bloodline, or element restrictions)",
         );
@@ -772,7 +773,9 @@ export const jutsuRouter = createTRPCRouter({
       ]);
       const questDataForDb = filterQuestTrackersForDbPersist(trackers, user);
       const evolutionCapFlags = getJutsuCapFlags(evolutionJutsu);
-      const isRestrictedEquipType = hasAnyJutsuEquipCap(evolutionCapFlags);
+      const isRestrictedEquipType =
+        hasAnyJutsuEquipCap(evolutionCapFlags) ||
+        !hasRequiredSkill(evolutionJutsu, user);
       // Single compare-and-swap update that applies every userJutsu-row change at once:
       // - jutsuId/level/experience/finishTraining — the evolution itself
       // - equipped — force off for restricted types to avoid cap overflows
@@ -874,6 +877,7 @@ export const jutsuRouter = createTRPCRouter({
         user,
         entry,
         relations,
+        requiredSkill,
         jutsuWithName,
         parent,
         siblings,
@@ -885,6 +889,12 @@ export const jutsuRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchJutsu(ctx.drizzle, input.id),
         getJutsuRelations(ctx.drizzle, input.id),
+        input.data.requiredSkillId
+          ? ctx.drizzle.query.skillTree.findFirst({
+              columns: { id: true, pathType: true },
+              where: eq(skillTree.id, input.data.requiredSkillId),
+            })
+          : Promise.resolve(null),
         ctx.drizzle.query.jutsu.findFirst({
           columns: { name: true, id: true },
           where: eq(jutsu.name, input.data.name),
@@ -953,6 +963,13 @@ export const jutsuRouter = createTRPCRouter({
         return errorResponse(
           "Bloodline reskin must match the linked parent's bloodline",
         );
+      }
+      if (
+        input.data.requiredSkillId &&
+        !input.data.reskinParentJutsuId &&
+        (!requiredSkill || requiredSkill.pathType !== "SKILL")
+      ) {
+        return errorResponse("Select a valid SkillTree skill entry");
       }
       // Guard
       if (user.isBanned)
@@ -1241,7 +1258,7 @@ export const jutsuRouter = createTRPCRouter({
       if (
         info.parentJutsuId &&
         userjutsuObj &&
-        !canUseJutsu(info, user, true, masteries)
+        !canUseJutsu(info, user, true, masteries, true)
       )
         return errorResponse("Jutsu not for you");
       if (
@@ -1376,6 +1393,7 @@ export const jutsuRouter = createTRPCRouter({
         // duplicate what the rollback covers a moment later).
         const capFlags = getJutsuCapFlags(info);
         const canAutoEquip =
+          hasRequiredSkill(info, user) &&
           curEquip < maxEquip &&
           checkJutsuBloodlineItem(info, user.items) &&
           canEquipUnderCaps(capFlags, equippedCapCounts);
