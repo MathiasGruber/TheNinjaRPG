@@ -11,7 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { ASSETS_LAYER, EFFECTS_LAYER, TILES_LAYER } from "@/drizzle/constants";
 import { defineHex } from "@/libs/hexgrid";
-import { highlightTiles } from "@/libs/threejs/combat";
+import { type CombatHoverData, highlightTiles, highlightTileTooltips } from "@/libs/threejs/combat";
 
 // Bun has no DOM; the renderer only needs the body cursor in these tests.
 const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
@@ -112,6 +112,32 @@ const expectRangeColors = (meshes: Mesh<PlaneGeometry, MeshBasicMaterial>[]) => 
     expect(mesh.material.color.equals(rangeColor)).toBe(true);
   }
 };
+
+describe("highlightTileTooltips user detection", () => {
+  it.each([true, false])("reports a user without effects only when present (%p)", (hasUser) => {
+    const { info, meshes } = createScene();
+    const hovers: (CombatHoverData | null)[] = [];
+    highlightTileTooltips({
+      group_tiles: info.group_tiles,
+      cachedIntersections: {
+        battleTiles: [{ object: meshes[0]!, distance: 0, point: new Vector3() }],
+        tiles: [],
+        ground: [],
+      },
+      battleMaps: {
+        usersByTile: new Map(hasUser ? [["0,0", "user-1"]] : []),
+        userEffectsByUserId: new Map(),
+        groundEffectsByTile: new Map(),
+      },
+      mouseX: 12,
+      mouseY: 34,
+      onHoverChange: (hover) => hovers.push(hover),
+    });
+    expect(hovers).toEqual([hasUser ? {
+      tileKey: "0,0", userId: "user-1", position: { x: 12, y: 34 },
+    } : null]);
+  });
+});
 
 describe("highlightTiles range colors", () => {
   it.each([0, -0.5])(

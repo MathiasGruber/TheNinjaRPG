@@ -2265,7 +2265,7 @@ export const applyFinalStandDamage = (
   damage: number,
   messages: ActionEffect[],
 ): number => {
-  if (target.curHealth <= 0) return damage;
+  if (target.curHealth <= 0 || target.curHealth - damage >= 1) return damage;
   const finalStandEffect = effects.find((effect) => {
     if (effect.type !== "finalstand" || effect.targetId !== target.userId) return false;
     if (effect.fromType === "bloodline") {
@@ -2276,7 +2276,7 @@ export const applyFinalStandDamage = (
     }
     return (effect.rounds ?? 0) > 0;
   });
-  if (finalStandEffect && target.curHealth - damage < 1) {
+  if (finalStandEffect) {
     const remainingDamage = Math.max(0, target.curHealth - 1);
     messages.push({
       txt: `${target.username}'s final stand prevents ${(damage - remainingDamage).toFixed(2)} damage`,

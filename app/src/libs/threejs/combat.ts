@@ -1923,10 +1923,10 @@ export const highlightTileTooltips = (info: {
     const hasGroundEffects = groundEffectsOnTile && groundEffectsOnTile.length > 0;
 
     // If there's anything to show, create hover data
-    if (hasUserEffects || hasGroundEffects) {
+    if (userIdAtTile || hasUserEffects || hasGroundEffects) {
       currentHover = {
         tileKey,
-        userId: hasUserEffects ? userIdAtTile : undefined,
+        userId: userIdAtTile,
         position: { x: info.mouseX || 0, y: info.mouseY || 0 },
       };
     }

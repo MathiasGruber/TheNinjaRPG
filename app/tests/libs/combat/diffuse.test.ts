@@ -665,6 +665,22 @@ describe("Diffuse repayment and restrictions", () => {
 });
 
 describe("Final Stand bloodline activation", () => {
+  it("keeps bloodline Final Stand available after nonlethal damage and repayment", () => {
+    const effect = makeEffect("finalstand", { power: 100 }, {
+      ...runtime(), fromType: "bloodline", isNew: true, createdRound: ROUND,
+    });
+    const current = run([attack(), diffuse(), effect]).newBattle;
+    expect(current.usersEffects.find((e) => e.type === "finalstand")?.rounds).toBeUndefined();
+    current.round += 1;
+    const repaid = applyEffects(current, "defender").newBattle;
+    expect(repaid.usersEffects.find((e) => e.type === "finalstand")?.rounds).toBeUndefined();
+    defender(repaid).curHealth = 20;
+    repaid.usersEffects.push(attack({ createdRound: repaid.round }));
+    const lethal = applyEffects(repaid, "attacker").newBattle;
+    expect(defender(lethal).curHealth).toBe(1);
+    expect(lethal.usersEffects.find((e) => e.type === "finalstand")?.rounds).toBe(1);
+  });
+
   it("expires a triggered bloodline Final Stand at the next round transition", () => {
     const effect = makeEffect("finalstand", { power: 100 }, {
       ...runtime(), fromType: "bloodline", isNew: true, createdRound: ROUND,
