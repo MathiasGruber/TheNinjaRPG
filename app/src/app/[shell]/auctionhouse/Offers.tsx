@@ -435,9 +435,13 @@ export function NewOfferDialog({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="min-h-[44px] rounded-full shadow-sm">
-          <Plus className="mr-2 h-4 w-4" />
-          {offerType === "REQUEST" ? "New request" : "New trade"}
+        <Button
+          size="icon"
+          aria-label={offerType === "REQUEST" ? "New request" : "New trade"}
+          hoverText={offerType === "REQUEST" ? "New request" : "New trade"}
+          className="min-h-[44px] min-w-[44px] rounded-full shadow-sm"
+        >
+          <Plus aria-hidden="true" className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">

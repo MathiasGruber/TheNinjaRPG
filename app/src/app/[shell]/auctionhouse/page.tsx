@@ -182,17 +182,16 @@ export default function AuctionHousePage() {
       title="Auction House"
       subtitle="Buy, sell or exchange items"
       defaultBackHref="/village"
-      topRightCorntentBreakpoint="xl"
       padding={false}
       topRightContent={
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-1">
           <Select
             value={selectedStatus}
             onValueChange={(value) => setSelectedStatus(value as AuctionListingState)}
           >
             <SelectTrigger
               aria-label="Listing status"
-              className="h-11 min-h-[44px] w-[9.5rem] rounded-full border-amber-500/40 bg-background/80 shadow-sm"
+              className="h-11 min-h-[44px] w-28 rounded-full border-amber-500/40 bg-background/80 px-2 shadow-sm"
             >
               <SelectValue />
             </SelectTrigger>
@@ -507,7 +506,7 @@ const AuctionListing: React.FC<AuctionListingProps> = ({
               {browseTab === "MINE"
                 ? sellerSearchTerm.trim()
                   ? "No listings match the seller search. Try clearing the seller filter."
-                  : "You have no listings in this status. Create one from List item, or switch status above."
+                  : "You have no listings in this status. Use the + button to create one, or switch status above."
                 : browseTab === "MY_BIDS"
                   ? sellerSearchTerm.trim()
                     ? "No bids match the seller search. Try clearing the seller filter."
@@ -1635,9 +1634,13 @@ export const NewAuctionListingDialog: React.FC<{
       }}
     >
       <DialogTrigger asChild>
-        <Button className="min-h-[44px] rounded-full shadow-sm">
-          <Plus className="mr-2 h-4 w-4" />
-          List item
+        <Button
+          size="icon"
+          aria-label="List item"
+          hoverText="List item"
+          className="min-h-[44px] min-w-[44px] rounded-full shadow-sm"
+        >
+          <Plus aria-hidden="true" className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
