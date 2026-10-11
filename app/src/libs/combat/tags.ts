@@ -142,19 +142,22 @@ export const absorb = (
   // Apply the absorb effect the round after the effect is applied
   if (!effect.isNew && !effect.castThisRound) {
     consequences.forEach((consequence, effectId) => {
+      const incomingDamage = consequence.diffuseImmediateDamage ?? consequence.damage;
       if (
         consequence.targetId === effect.targetId &&
-        consequence.damage &&
-        consequence.damage > 0
+        incomingDamage &&
+        incomingDamage > 0
       ) {
-        const damageEffect = usersEffects.find((e) => e.id === effectId);
+        const damageEffect = usersEffects.find(
+          (e) => e.id === (consequence.diffuseSourceEffectId ?? effectId),
+        );
         if (damageEffect) {
           const ratio = getEfficiencyRatio(damageEffect, effect);
           // Calculate absorption amount for this effect
           const absorbAmount =
             effect.calculation === "percentage"
-              ? consequence.damage * (power / 100)
-              : Math.min(power, consequence.damage);
+              ? incomingDamage * (power / 100)
+              : Math.min(power, incomingDamage);
           const convert = Math.ceil(absorbAmount * ratio);
 
           // Apply absorption to each pool
@@ -1278,6 +1281,8 @@ export const clone = (
   if (effect.isNew) {
     const newAi = structuredClone(user);
     delete newAi.baseStatsForModifiers;
+    // A clone did not receive the original's hits and must not inherit its deferred damage.
+    delete newAi.diffuseDamage;
     // Place on battlefield
     newAi.userId = nanoid();
     effect.creatorId = newAi.userId;
@@ -2247,6 +2252,35 @@ export const immunity = (effect: UserEffect, target: BattleUserState) => {
     return getInfo(target, effect, `has immunity to ${preventType} prevention`);
   }
   return undefined;
+};
+
+/** Apply Final Stand's health floor consistently to immediate and deferred damage. */
+export const applyFinalStandDamage = (
+  effects: UserEffect[],
+  target: BattleUserState,
+  damage: number,
+  messages: ActionEffect[],
+): number => {
+  if (target.curHealth <= 0 || target.curHealth - damage >= 1) return damage;
+  const finalStandEffect = effects.find((effect) => {
+    if (effect.type !== "finalstand" || effect.targetId !== target.userId) return false;
+    if (effect.fromType === "bloodline") {
+      if (effect.rounds === 0) return false;
+      // Bloodline Final Stand lasts until the next round, including debt repayment.
+      effect.rounds = 1;
+      return true;
+    }
+    return (effect.rounds ?? 0) > 0;
+  });
+  if (finalStandEffect) {
+    const remainingDamage = Math.max(0, target.curHealth - 1);
+    messages.push({
+      txt: `${target.username}'s final stand prevents ${(damage - remainingDamage).toFixed(2)} damage`,
+      color: "orange",
+    });
+    return remainingDamage;
+  }
+  return damage;
 };
 
 /** Prevents the user from being reduced below 1 HP */

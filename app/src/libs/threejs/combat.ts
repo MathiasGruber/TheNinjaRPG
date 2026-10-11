@@ -1899,7 +1899,7 @@ export const highlightTileTooltips = (info: {
   mouseY?: number;
   onHoverChange?: (hover: CombatHoverData | null) => void;
 }) => {
-  const { groundEffectsByTile, usersByTile, userEffectsByUserId } = info.battleMaps;
+  const { groundEffectsByTile, usersByTile } = info.battleMaps;
   const { onHoverChange } = info;
   const battleTileIntersects = info.cachedIntersections.battleTiles;
 
@@ -1913,20 +1913,16 @@ export const highlightTileTooltips = (info: {
 
     // Check for user at this tile
     const userIdAtTile = usersByTile.get(tileKey);
-    const userEffects = userIdAtTile
-      ? userEffectsByUserId.get(userIdAtTile)
-      : undefined;
-    const hasUserEffects = userEffects && userEffects.length > 0;
 
     // Check for ground effects
     const groundEffectsOnTile = groundEffectsByTile.get(tileKey);
     const hasGroundEffects = groundEffectsOnTile && groundEffectsOnTile.length > 0;
 
     // If there's anything to show, create hover data
-    if (hasUserEffects || hasGroundEffects) {
+    if (userIdAtTile || hasGroundEffects) {
       currentHover = {
         tileKey,
-        userId: hasUserEffects ? userIdAtTile : undefined,
+        userId: userIdAtTile,
         position: { x: info.mouseX || 0, y: info.mouseY || 0 },
       };
     }

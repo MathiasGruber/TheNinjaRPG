@@ -1104,6 +1104,7 @@ export const calcApplyRatio = (
   const alwaysApply: ZodAllTags["type"][] = [
     "absorb",
     "afterburn",
+    "diffuse",
     "buffprevent",
     "cleanseprevent",
     "clearprevent",
@@ -1299,6 +1300,7 @@ export const sortEffects = (
     "barrier",
     "shield",
     "finalstand",
+    "diffuse",
     "clone",
     "redirection",
     "damage",
@@ -1424,7 +1426,9 @@ export const calcPoolCost = (
  * A reducer for collapsing a Map<string, Consequence> into a Consequence[]
  */
 export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
-  const current = acc.find((c) => c.targetId === val.targetId);
+  const current = acc.find(
+    (c) => c.targetId === val.targetId && c.damageSource === val.damageSource,
+  );
   if (current) {
     if (val.damage) {
       current.damage = current.damage ? current.damage + val.damage : val.damage;
@@ -1477,10 +1481,19 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
         val.consumeRounds ?? 0,
       );
     }
+    if (current.preDiffuseDamage !== undefined || val.preDiffuseDamage !== undefined) {
+      current.preDiffuseDamage =
+        (current.preDiffuseDamage ?? current.preShieldDamage ?? 0) +
+        (val.preDiffuseDamage ?? val.preShieldDamage ?? 0);
+    }
     if (val.preShieldDamage) {
       current.preShieldDamage = current.preShieldDamage
         ? current.preShieldDamage + val.preShieldDamage
         : val.preShieldDamage;
+    }
+    if (val.diffuseImmediateDamage !== undefined) {
+      current.diffuseImmediateDamage =
+        (current.diffuseImmediateDamage ?? 0) + val.diffuseImmediateDamage;
     }
     if (val.absorb_hp) {
       current.absorb_hp = current.absorb_hp
@@ -1520,6 +1533,9 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
     }
     if (val.wound) {
       current.wound = current.wound ? current.wound + val.wound : val.wound;
+    }
+    if (val.afterburn) {
+      current.afterburn = (current.afterburn ?? 0) + val.afterburn;
     }
   } else {
     if (val.vampRatio) {
