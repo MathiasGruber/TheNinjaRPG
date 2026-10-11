@@ -40,8 +40,8 @@ export function ParentalControls() {
     <ParentalSettingsForm
       key={`${data.version}-${generation}`}
       settings={data}
-      onSaved={() => {
-        void refetch();
+      onSaved={async () => {
+        await refetch();
         setGeneration((value) => value + 1);
       }}
     />
@@ -53,7 +53,7 @@ function ParentalSettingsForm({
   onSaved,
 }: {
   settings: inferRouterOutputs<AppRouter>["parentalControls"]["get"];
-  onSaved: () => void;
+  onSaved: () => Promise<void>;
 }) {
   const [enabled, setEnabled] = useState(settings.enabled);
   const [tavernDisabled, setTavernDisabled] = useState(
@@ -88,11 +88,10 @@ function ParentalSettingsForm({
         setNewPin("");
         setConfirmPin("");
         await Promise.all([
-          utils.parentalControls.get.invalidate(),
+          onSaved(),
           utils.comments.getUserConversations.invalidate(),
           utils.comments.getConversationComments.invalidate(),
         ]);
-        onSaved();
       }
     },
     onError: () =>

@@ -914,17 +914,13 @@ export const commentsRouter = createTRPCRouter({
           .update(conversationComment)
           .set({ reactions: newReactions })
           .where(eq(conversationComment.id, input.commentId)),
-        ...(comment?.conversationId
-          ? [
-              pusher.trigger(comment.conversationId, "event", {
-                message: "reaction",
-                fromId: ctx.userId,
-                commentId: comment.id,
-                emoji: input.emoji,
-                username: user.username,
-              }),
-            ]
-          : []),
+        pusher.trigger(convo.id, "event", {
+          message: "reaction",
+          fromId: ctx.userId,
+          commentId: comment.id,
+          emoji: input.emoji,
+          username: user.username,
+        }),
       ]);
       return { success: true, message: "Reaction added" };
     }),

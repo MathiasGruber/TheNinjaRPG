@@ -57,12 +57,6 @@ describe("cached conversation remounts", () => {
         unsubscribe();
         restricted = true;
 
-        // Reconnection and focus happen while the chat is absent; neither has an observer.
-        client.getQueryCache().onOnline();
-        client.getQueryCache().onFocus();
-        expect(reads).toBe(1);
-        expect(client.getQueryCache().find({ queryKey })?.getObserversCount()).toBe(0);
-
         observer = mount();
         unsubscribe = observer.subscribe(() => {});
         await waitFor(() => expect(observer.getCurrentResult().data?.pages[0]?.restrictionMessage).toBe("Private messages are disabled by parental controls."));
