@@ -96,6 +96,7 @@ describe("PvP boost reward integration", () => {
     const ranked = calcBattleResult(makeCompleteBattle({ battleType: "RANKED_PVP", rewardScaling: 1, usersState: [{ ...hero, leftBattle: false }, foe] }), "hero");
     expect(ranked?.money).toBe(3458);
     const clan = calcBattleResult(makeCompleteBattle({ battleType: "CLAN_BATTLE", rewardScaling: 1, usersState: [{ ...hero, leftBattle: false, clanId: "clan" }, foe] }), "hero");
-    expect(clan?.clanPoints).toBe(59);
+    // The shared clan victory is credited once by the battle queue claim.
+    expect(clan?.clanPoints).toBe(0);
   });
 });

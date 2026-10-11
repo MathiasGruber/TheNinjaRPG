@@ -82,6 +82,7 @@ import {
 import { battleItemExp, battleJutsuExp } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
 import type { DrizzleClient } from "@/server/db";
+import { rewardClanBattleVictory } from "@/server/utils/clanBattle";
 import { reduceActiveFarmPlotTimers } from "@/server/utils/farming";
 import { masteryGainUpdates } from "@/server/utils/masteryProgression";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
@@ -359,14 +360,8 @@ export const updateBattle = async (
           });
       }
     }
-    // If user won and it's a clan battle, update the clan battle queue
-    if (result?.didWin && newBattle.battleType === "CLAN_BATTLE") {
-      if (user && other) {
-        await client
-          .update(mpvpBattleQueue)
-          .set({ winnerId: result?.didWin ? user.clanId : other.clanId })
-          .where(eq(mpvpBattleQueue.battleId, newBattle.id));
-      }
+    if (result?.didWin && newBattle.battleType === "CLAN_BATTLE" && user?.clanId) {
+      await rewardClanBattleVictory(client, newBattle.id, user.clanId);
     }
   };
   return { battleOver, finishBattle };
@@ -499,6 +494,44 @@ export const createAction = async (
         appliedEffects: entry.appliedEffects,
       };
     });
+  if (newBattle.battleType === "CLAN_BATTLE") {
+    // INSERT ... SELECT shares the lobby row with deletion for the duration of
+    // the statement. A delayed action cannot recreate a deleted combat log.
+    await Promise.all(
+      actions.map((entry) =>
+        client
+          .insert(battleAction)
+          .select(
+            client
+              .select({
+                id: sql<string>`${entry.id}`.as("id"),
+                createdAt: sql<Date>`${entry.createdAt}`.as("createdAt"),
+                updatedAt: sql<Date>`${entry.updatedAt}`.as("updatedAt"),
+                battleId: sql<string>`${entry.battleId}`.as("battleId"),
+                battleVersion: sql<number>`${entry.battleVersion}`.as("battleVersion"),
+                battleRound: sql<number>`${entry.battleRound}`.as("battleRound"),
+                actionId: sql<string>`${entry.actionId}`.as("actionId"),
+                userId: sql<string>`${entry.userId}`.as("userId"),
+                description: sql<string>`${entry.description}`.as("description"),
+                appliedEffects: sql<
+                  ActionEffect[]
+                >`CAST(${JSON.stringify(entry.appliedEffects)} AS JSON)`.as(
+                  "appliedEffects",
+                ),
+              })
+              .from(mpvpBattleQueue)
+              .where(
+                and(
+                  eq(mpvpBattleQueue.battleId, newBattle.id),
+                  eq(mpvpBattleQueue.battleType, "CLAN_BATTLE"),
+                ),
+              ),
+          )
+          .onDuplicateKeyUpdate({ set: { id: sql`${battleAction.id}` } }),
+      ),
+    );
+    return actions;
+  }
   await client
     .insert(battleAction)
     .values(actions)

@@ -2063,7 +2063,9 @@ export const ELDER_VOTE_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
 export type ElderVoteStatus = (typeof ELDER_VOTE_STATUSES)[number];
 export const CLANS_PER_STRUCTURE_LEVEL = 999999;
 export const CLAN_LOBBY_SECONDS = 30;
-export const CLAN_BATTLE_REWARD_POINTS = 50;
+export const CLAN_BATTLE_REWARD_POINTS = 4000;
+export const CLAN_BATTLE_REWARD_RYO = 1000000;
+export const CLAN_POINT_RYO_RATE = 200;
 
 // Clan boost system - Ryo-based
 export const CLAN_BOOST_MAX_LEVEL = 10;

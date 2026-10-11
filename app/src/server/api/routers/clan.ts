@@ -3,12 +3,14 @@ import {
   and,
   desc,
   eq,
+  exists,
   getTableColumns,
   gte,
   inArray,
   isNull,
   like,
   ne,
+  not,
   or,
   sql,
 } from "drizzle-orm";
@@ -25,6 +27,7 @@ import {
   CLAN_CREATE_RYO_COST,
   CLAN_LOBBY_SECONDS,
   CLAN_MAX_MEMBERS,
+  CLAN_POINT_RYO_RATE,
   CLAN_RANK_REQUIREMENT,
   CLANS_PER_STRUCTURE_LEVEL,
   ELDER_NOMINATION_CUTOFF_DAY,
@@ -76,6 +79,7 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { clearClanCombat, deleteClanBattle } from "@/server/utils/clanBattle";
 import { canEditClans } from "@/utils/permissions";
 import { checkForBadWords } from "@/utils/profanity";
 import { secondsFromDate } from "@/utils/time";
@@ -84,9 +88,11 @@ import {
   checkAssassin,
   checkCoLeader,
   clanBankDepositSchema,
+  clanBattleIdSchema,
   clanBoostTypeSchema,
   clanCreateSchema,
   clanGetRequestSchema,
+  clanPointConversionSchema,
   factionEditSchema,
   strictClanNameField,
 } from "@/validators/clan";
@@ -1088,6 +1094,49 @@ export const clanRouter = createTRPCRouter({
         "CLAN_CHALLENGE",
       );
     }),
+  convertPointsToRyo: protectedProcedure
+    .meta({ mcp: { description: "Convert clan points into clan bank ryo" } })
+    .input(clanPointConversionSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [user, fetchedClan] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClan(ctx.drizzle, input.clanId),
+      ]);
+      if (!fetchedClan) return errorResponse("Clan not found");
+      if (user.isBanned) return errorResponse("You are banned");
+      if (
+        user.clanId !== fetchedClan.id ||
+        (fetchedClan.leaderId !== ctx.userId && !checkCoLeader(ctx.userId, fetchedClan))
+      ) {
+        return errorResponse("Only clan leaders and co-leaders can convert points");
+      }
+      const ryo = input.points * CLAN_POINT_RYO_RATE;
+      const converted = await ctx.drizzle
+        .update(clan)
+        .set({
+          points: sql`${clan.points} - ${input.points}`,
+          bank: sql`${clan.bank} + ${ryo}`,
+        })
+        .where(
+          and(
+            eq(clan.id, input.clanId),
+            gte(clan.points, input.points),
+            or(
+              eq(clan.leaderId, ctx.userId),
+              eq(clan.coLeader1, ctx.userId),
+              eq(clan.coLeader2, ctx.userId),
+              eq(clan.coLeader3, ctx.userId),
+            ),
+          ),
+        );
+      if (converted.rowsAffected !== 1)
+        return errorResponse("Not enough clan points or leadership changed");
+      return {
+        success: true,
+        message: `Converted ${input.points.toLocaleString()} clan points to ${ryo.toLocaleString()} ryo in the clan bank`,
+      };
+    }),
   toBank: protectedProcedure
     .meta({ mcp: { description: "Deposit ryo to clan bank" } })
     .input(clanBankDepositSchema)
@@ -1382,21 +1431,54 @@ export const clanRouter = createTRPCRouter({
         .where(and(eq(userData.userId, user.userId), eq(userData.status, "AWAKE")));
       if (result.rowsAffected === 0) return errorResponse("Was not awake?");
 
-      // Mutation 2: insert with slot - unique constraint prevents race conditions
-      try {
-        await ctx.drizzle.insert(mpvpBattleUser).values({
-          id: nanoid(),
-          userId: user.userId,
-          clanBattleId: input.clanBattleId,
-          side: side,
-          slot: availableSlot,
-        });
-      } catch {
-        // If insert failed due to slot conflict, revert user status and return error
+      const entryId = nanoid();
+      const undoJoin = async () => {
+        await ctx.drizzle.delete(mpvpBattleUser).where(eq(mpvpBattleUser.id, entryId));
         await ctx.drizzle
           .update(userData)
           .set({ status: "AWAKE" })
-          .where(eq(userData.userId, user.userId));
+          .where(
+            and(
+              eq(userData.userId, user.userId),
+              eq(userData.status, "QUEUED"),
+              isNull(userData.battleId),
+              not(
+                exists(
+                  ctx.drizzle
+                    .select({ one: sql`1` })
+                    .from(mpvpBattleUser)
+                    .innerJoin(
+                      mpvpBattleQueue,
+                      eq(mpvpBattleUser.clanBattleId, mpvpBattleQueue.id),
+                    )
+                    .where(
+                      and(
+                        eq(mpvpBattleUser.userId, user.userId),
+                        isNull(mpvpBattleQueue.winnerId),
+                      ),
+                    ),
+                ),
+              ),
+            ),
+          );
+      };
+      // This reversible membership write may race a start/delete. Revalidate afterward
+      // and remove only our own entry, without locking a missing row or another combat.
+      try {
+        await ctx.drizzle.insert(mpvpBattleUser).values({
+          id: entryId,
+          userId: user.userId,
+          clanBattleId: input.clanBattleId,
+          side,
+          slot: availableSlot,
+        });
+        const current = await fetchClanBattle(ctx.drizzle, input.clanBattleId);
+        if (!current || current.battleId) {
+          await undoJoin();
+          return errorResponse("Battle started or was deleted; refresh and try again");
+        }
+      } catch {
+        await undoJoin();
         return errorResponse("Slot was taken. Please try again.");
       }
       return { success: true, message: `Joined ${groupLabel} battle` };
@@ -1473,6 +1555,54 @@ export const clanRouter = createTRPCRouter({
       );
       return { success: true, message: `Kicked from ${groupLabel} battle` };
     }),
+  deleteClanBattle: protectedProcedure
+    .meta({ mcp: { description: "Delete a clan battle and release its participants" } })
+    .input(clanBattleIdSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [user, clanBattleData, ledClans] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchClanBattle(ctx.drizzle, input.clanBattleId),
+        ctx.drizzle.query.clan.findMany({
+          where: or(
+            eq(clan.leaderId, ctx.userId),
+            eq(clan.coLeader1, ctx.userId),
+            eq(clan.coLeader2, ctx.userId),
+            eq(clan.coLeader3, ctx.userId),
+          ),
+        }),
+      ]);
+      if (!clanBattleData || clanBattleData.battleType !== "CLAN_BATTLE")
+        return errorResponse("Clan battle not found");
+      const isParticipantLeader = ledClans.some(
+        (c) =>
+          c.id === user.clanId &&
+          [clanBattleData.attackerEntityId, clanBattleData.defenderEntityId].includes(
+            c.id,
+          ),
+      );
+      if (user.isBanned) return errorResponse("You are banned");
+      if (!canEditClans(user.role) && !isParticipantLeader)
+        return errorResponse("Not allowed to delete this clan battle");
+      if (!(await deleteClanBattle(ctx.drizzle, clanBattleData)))
+        return errorResponse("Battle changed; refresh and try again");
+      clanBattleData.queue.forEach((participant) => {
+        void pusher.trigger(participant.userId, "event", { type: "battleEnded" });
+      });
+      await ctx.drizzle.insert(actionLog).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        tableName: "clan",
+        relatedId: clanBattleData.attackerEntityId,
+        changes: [
+          `Deleted clan battle ${clanBattleData.id} (combat ${clanBattleData.battleId ?? "pending"})`,
+        ],
+      });
+      return {
+        success: true,
+        message: "Clan battle deleted and participants released",
+      };
+    }),
   initiateClanBattle: protectedProcedure
     .meta({ mcp: { description: "Start clan battle combat" } })
     .input(z.object({ clanBattleId: z.string() }))
@@ -1511,41 +1641,60 @@ export const clanRouter = createTRPCRouter({
       const maxOnEachSide = Math.min(challengers.length, defenders.length);
       const challengerIds = challengers.slice(0, maxOnEachSide).map((u) => u.userId);
       const defenderIds = defenders.slice(0, maxOnEachSide).map((u) => u.userId);
-      // Start the battle
-      const result = await initiateBattle(
-        {
-          userIds: challengerIds,
-          targetIds: defenderIds,
-          client: ctx.drizzle,
-          biome: "default",
-        },
-        "CLAN_BATTLE",
-      );
-
-      if (result.success && result.battleId) {
-        await Promise.all([
-          ctx.drizzle
-            .update(mpvpBattleQueue)
-            .set({ battleId: result.battleId })
-            .where(eq(mpvpBattleQueue.id, input.clanBattleId)),
-          ...(allIds.length > 0
-            ? [
-                ctx.drizzle
-                  .update(userData)
-                  .set({
-                    status: sql`CASE WHEN status = 'QUEUED' THEN 'AWAKE' ELSE status END`,
-                  })
-                  .where(inArray(userData.userId, allIds)),
-              ]
-            : []),
-        ]);
-        return {
-          success: true,
-          message: `${groupLabel} battle initiated`,
-          battleId: result.battleId,
-        };
+      // Reserve the combat ID before expensive preloading so simultaneous starts cannot
+      // create multiple battles and deletion can identify a startup already in flight.
+      const battleId = nanoid();
+      const reserved = await ctx.drizzle
+        .update(mpvpBattleQueue)
+        .set({ battleId })
+        .where(
+          and(
+            eq(mpvpBattleQueue.id, input.clanBattleId),
+            eq(mpvpBattleQueue.battleType, "CLAN_BATTLE"),
+            isNull(mpvpBattleQueue.battleId),
+            isNull(mpvpBattleQueue.winnerId),
+          ),
+        );
+      if (reserved.rowsAffected !== 1)
+        return errorResponse("Battle already started or deleted");
+      try {
+        const result = await initiateBattle(
+          {
+            userIds: challengerIds,
+            targetIds: defenderIds,
+            client: ctx.drizzle,
+            biome: "default",
+            clanBattle: { queueId: input.clanBattleId, battleId },
+          },
+          "CLAN_BATTLE",
+        );
+        if (!result.success) {
+          await deleteClanBattle(ctx.drizzle, { id: input.clanBattleId, battleId });
+          return errorResponse(result.message);
+        }
+        // Startup writes can finish after deletion. Clean that exclusive combat ID
+        // instead of leaving participants in a battle whose lobby no longer exists.
+        const current = await fetchClanBattle(ctx.drizzle, input.clanBattleId);
+        if (current?.battleId !== battleId) {
+          await clearClanCombat(ctx.drizzle, battleId);
+          return errorResponse("Clan battle was deleted during startup");
+        }
+        await ctx.drizzle
+          .update(userData)
+          .set({ status: "AWAKE" })
+          .where(
+            and(
+              inArray(userData.userId, allIds),
+              eq(userData.status, "QUEUED"),
+              isNull(userData.battleId),
+            ),
+          );
+        return { success: true, message: `${groupLabel} battle initiated`, battleId };
+      } catch (error) {
+        await deleteClanBattle(ctx.drizzle, { id: input.clanBattleId, battleId });
+        await clearClanCombat(ctx.drizzle, battleId);
+        throw error;
       }
-      return errorResponse(`Failed to initiate ${groupLabel} battle`);
     }),
   instantJoinAndLead: protectedProcedure
     .input(z.object({ clanId: z.string() }))

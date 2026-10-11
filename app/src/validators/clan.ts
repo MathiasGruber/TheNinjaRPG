@@ -14,6 +14,13 @@ export const clanBankDepositSchema = z.object({
   clanId: z.string(),
 });
 
+export const clanPointConversionSchema = z.object({
+  clanId: z.string(),
+  points: z.number().int().positive().max(2147483647),
+});
+
+export const clanBattleIdSchema = z.object({ clanBattleId: z.string() });
+
 export const strictClanNameField = createReservedNameField({
   reserved: RESERVED_FACTION_NAMES,
   errorMessage: "This clan name is not allowed.",
