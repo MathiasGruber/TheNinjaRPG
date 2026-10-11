@@ -599,6 +599,7 @@ function OfferItemPicker({
                 <CommandItem
                   key={option.value}
                   value={option.label}
+                  keywords={[option.label]}
                   onSelect={() => {
                     onChange(option.value);
                     setIsOpen(false);
