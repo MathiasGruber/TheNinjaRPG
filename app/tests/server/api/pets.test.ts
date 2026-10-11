@@ -7,7 +7,7 @@ import { PET_SPECIES } from "@/libs/pets/catalogue";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import { petsRouter } from "@/server/api/routers/pets";
 import type { DrizzleClient } from "@/server/db";
-import { getPetDayKey } from "@/utils/time";
+import { DAY_S, getPetDayKey, secondsFromNow } from "@/utils/time";
 import { insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -138,6 +138,40 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await readPet(database))?.artRank).toBe(1);
     expect((await readPet(database))?.generationStatus).toBe("PENDING");
     expect((await caller.rankUp()).success).toBe(false);
+  });
+
+  it("keeps a ready pet unchanged when today's image attempts are exhausted", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, {
+      rank: 3, artRank: 3, experience: 60000,
+      generationDay: getPetDayKey(), generationAttempts: PET_MAX_GENERATION_ATTEMPTS,
+    });
+    await database.update(userData).set({ rank: "CHUNIN" }).where(eq(userData.userId, userId));
+    const beforePet = await readPet(database);
+    const beforeOwner = await readOwner(database);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect(await caller.rankUp()).toEqual({
+      success: false,
+      message: `You have used today's ${PET_MAX_GENERATION_ATTEMPTS} generation attempts. Retry tomorrow; your companion is still yours.`,
+    });
+    expect(await readPet(database)).toEqual(beforePet);
+    expect(await readOwner(database)).toEqual(beforeOwner);
+  });
+
+  it("allows evolution when exhausted image attempts belong to the previous UTC day", async () => {
+    const database = await getTestDatabase();
+    const previousDay = getPetDayKey(secondsFromNow(-DAY_S));
+    await readyPet(database, {
+      rank: 3, artRank: 3, experience: 60000,
+      generationDay: previousDay, generationAttempts: PET_MAX_GENERATION_ATTEMPTS,
+    });
+    await database.update(userData).set({ rank: "CHUNIN" }).where(eq(userData.userId, userId));
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect((await caller.rankUp()).success).toBe(true);
+    expect(await readPet(database)).toMatchObject({
+      rank: 4, artRank: 3, generationStatus: "PENDING", avatar,
+      generationDay: previousDay, generationAttempts: PET_MAX_GENERATION_ATTEMPTS,
+    });
   });
 
   it("preserves a downgraded owner's pet while preventing enable, training, AI edits and evolution", async () => {

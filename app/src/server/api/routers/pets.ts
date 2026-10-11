@@ -318,6 +318,11 @@ export const petsRouter = createTRPCRouter({
     if (blocked) return errorResponse(blocked);
     const next = PET_RANKS.find((entry) => entry.rank === pet.rank + 1);
     if (!next) return errorResponse("Your pet has reached its highest rank.");
+    const attempts = pet.generationDay === getPetDayKey() ? pet.generationAttempts : 0;
+    if (attempts >= PET_MAX_GENERATION_ATTEMPTS)
+      return errorResponse(
+        `You have used today's ${PET_MAX_GENERATION_ATTEMPTS} generation attempts. Retry tomorrow; your companion is still yours.`,
+      );
     const changed = await updateOwnedPet(ctx.drizzle, user, pet, {
       rank: next.rank,
       generationStatus: "PENDING",
