@@ -774,6 +774,7 @@ const RaidChatPanel: React.FC<RaidChatPanelProps> = ({ conversationId }) => {
   const { data: commentsData, isPending } =
     api.comments.getConversationComments.useInfiniteQuery(queryKey, {
       enabled: !!conversationId,
+      refetchOnMount: "always",
       refetchOnWindowFocus: "always",
       refetchOnReconnect: "always",
       getNextPageParam: (lastPage) => lastPage.nextCursor,

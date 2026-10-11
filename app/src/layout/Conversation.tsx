@@ -132,6 +132,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     refetch,
   } = api.comments.getConversationComments.useInfiniteQuery(queryKey, {
     enabled: props.convo_id !== undefined || props.convo_title !== undefined,
+    refetchOnMount: "always",
     refetchOnWindowFocus: "always",
     refetchOnReconnect: "always",
     getNextPageParam: (lastPage) => lastPage.nextCursor,
