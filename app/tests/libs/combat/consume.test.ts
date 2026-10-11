@@ -1,10 +1,17 @@
 import { describe, expect, it } from "bun:test";
 import { SHIELD_MAX_HEALTH } from "@/drizzle/constants";
+import { insertAction } from "@/libs/combat/actions";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { applyEffects } from "@/libs/combat/process";
-import { ConsumeTag, JutsuValidatorRawSchema } from "@/validators/combat";
+import { getBattleGrid } from "@/libs/combat/util";
+import { ConsumeTag, DamageTag, JutsuValidatorRawSchema } from "@/validators/combat";
 import type { CombatAction, CompleteBattle, UserEffect } from "@/libs/combat/types";
-import { makeBattleUser, makeDamageEffect, makeEffect } from "./helpers/battleScenario";
+import {
+  makeBattleUser,
+  makeCompleteBattle,
+  makeDamageEffect,
+  makeEffect,
+} from "./helpers/battleScenario";
 
 const ROUND = 3;
 
@@ -487,7 +494,7 @@ describe("active Consume damage conversion", () => {
     expect(shieldHp(newBattle)).toBe(0);
   });
 
-  it("converts deferred damage when Diffuse repayments occur during active Consume", () => {
+  it("combines Diffuse repayments and new damage with capped conversion and the longest shield duration", () => {
     const defender = makeDefender("defender", {
       diffuseDamage: [
         {
@@ -499,12 +506,28 @@ describe("active Consume damage conversion", () => {
         },
       ],
     });
-    const { newBattle } = applyEffects(
-      makeBattle([makeAttacker(), defender], [activeConsume()]),
+    const { newBattle, actionEffects } = applyEffects(
+      makeBattle(
+        [makeAttacker(), defender],
+        [
+          staticHit(),
+          activeConsume(),
+          activeConsume({
+            id: "bloodline-consume",
+            fromType: "bloodline",
+            power: 75,
+            shieldRounds: 6,
+          }),
+        ],
+      ),
       "defender",
       makeAction(),
     );
-    expect(shieldHp(newBattle)).toBe(50);
+    const healthLost = defender.curHealth - newBattle.usersState[1]!.curHealth;
+    expect(healthLost).toBeGreaterThan(100);
+    expect(shieldHp(newBattle)).toBe(healthLost);
+    expect(findConsumeShield(newBattle.usersEffects)?.rounds).toBe(6);
+    expect(actionEffects.filter((e) => e.txt.includes("consumes"))).toHaveLength(1);
   });
 
   it("does not generate shields from self-inflicted damage", () => {
@@ -517,6 +540,68 @@ describe("active Consume damage conversion", () => {
       makeAction(),
     );
     expect(shieldHp(newBattle)).toBe(0);
+  });
+
+  it("does not convert reflected damage from a self-targeted cast", () => {
+    const jutsu = JutsuValidatorRawSchema.parse({
+      ...SAGE_MODE_ACTIVATION_JUTSU,
+      effects: [
+        DamageTag.parse({
+          power: 100,
+          calculation: "static",
+          rounds: 0,
+          target: "SELF",
+          friendlyFire: "FRIENDLY",
+          statTypes: ["None"],
+        }),
+      ],
+    });
+    const action: CombatAction = {
+      ...jutsu,
+      id: "self-hit",
+      type: "jutsu",
+      updatedAt: 0,
+      originalCooldown: 0,
+      level: 0,
+    };
+    const battle = makeCompleteBattle({
+      createdAt: new Date(0),
+      round: ROUND,
+      width: 5,
+      height: 5,
+      usersState: [makeAttacker(), makeDefender()],
+      usersEffects: [
+        activeConsume(),
+        makeEffect(
+          "reflect",
+          { power: 50, calculation: "percentage", rounds: 2 },
+          {
+            creatorId: "attacker",
+            targetId: "attacker",
+            targetType: "user",
+            createdRound: ROUND - 1,
+          },
+        ),
+      ],
+    });
+    expect(
+      insertAction({
+        battle,
+        grid: getBattleGrid(20, battle),
+        action,
+        actorId: "attacker",
+        longitude: 0,
+        latitude: 0,
+      }),
+    ).toBe(true);
+
+    const { newBattle, actionEffects } = applyEffects(battle, "attacker", action);
+    expect(newBattle.usersState[0]?.curHealth).toBe(880);
+    expect(
+      actionEffects.some((e) => e.txt === "attacker takes 40.00 reflect damage"),
+    ).toBe(true);
+    expect(shieldHp(newBattle)).toBe(0);
+    expect(actionEffects.some((e) => e.txt.includes("consumes"))).toBe(false);
   });
 
   it("does not convert damage when Consume is sealed", () => {

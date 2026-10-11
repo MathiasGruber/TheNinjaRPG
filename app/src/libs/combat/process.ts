@@ -481,8 +481,38 @@ export const applyEffects = (
     );
   });
 
+  // Register Consume after activation and prevention, before accumulating damage.
+  const consumeByUser: ConsumeByUser = new Map();
+  usersEffects
+    .filter(
+      (e) => e.type === "consume" && (isEffectActive(e) || instantConsumeIds.has(e.id)),
+    )
+    .sort(sortEffects)
+    .forEach((effect) => {
+      applySingleEffect(
+        consequences,
+        newUsersState,
+        newUsersEffects,
+        newGroundEffects,
+        actionEffects,
+        appliedEffects,
+        battle,
+        actorId,
+        effect,
+        action,
+        consumeByUser,
+      );
+    });
+
+  // Accumulate before collapseConsequences merges hits from different casters.
+  // Grant shields after damage resolves so they cannot absorb the generating action.
+  const accumulateConsumeShield = (userId: string, damage: number) => {
+    const consume = consumeByUser.get(userId);
+    if (!consume || damage <= 0) return;
+    consume.hp += damage * consume.ratio;
+  };
+
   // Resolve activation and prevention before Final Stand can protect debt repayment.
-  const diffuseRepayments: { userId: string; damage: number }[] = [];
   repayDiffuseDamage(
     newUsersState,
     usersEffects,
@@ -490,7 +520,7 @@ export const applyEffects = (
     round,
     actionEffects,
     (userId, targetId, damage) => {
-      if (userId !== targetId) diffuseRepayments.push({ userId, damage });
+      if (userId !== targetId) accumulateConsumeShield(userId, damage);
     },
   );
 
@@ -682,40 +712,6 @@ export const applyEffects = (
       effect,
       action,
     );
-  });
-
-  // Resolve Consume after all damage sources, including secondary damage and Diffuse.
-  const consumeByUser: ConsumeByUser = new Map();
-  usersEffects
-    .filter(
-      (e) => e.type === "consume" && (isEffectActive(e) || instantConsumeIds.has(e.id)),
-    )
-    .sort(sortEffects)
-    .forEach((effect) => {
-      applySingleEffect(
-        consequences,
-        newUsersState,
-        newUsersEffects,
-        newGroundEffects,
-        actionEffects,
-        appliedEffects,
-        battle,
-        actorId,
-        effect,
-        action,
-        consumeByUser,
-      );
-    });
-
-  // Accumulate before collapseConsequences merges hits from different casters.
-  // Grant shields after damage resolves so they cannot absorb the generating action.
-  const accumulateConsumeShield = (userId: string, damage: number) => {
-    const consume = consumeByUser.get(userId);
-    if (!consume || damage <= 0) return;
-    consume.hp += damage * consume.ratio;
-  };
-  diffuseRepayments.forEach(({ userId, damage }) => {
-    accumulateConsumeShield(userId, damage);
   });
 
   // Apply consequences to users
@@ -1001,7 +997,9 @@ export const applyEffects = (
             usersEffects,
           );
           // Reflect belongs to the defender and converts only its capped return.
-          accumulateConsumeShield(target.userId, finalReflect);
+          if (target.userId !== user.userId) {
+            accumulateConsumeShield(target.userId, finalReflect);
+          }
           user.curHealth -= finalReflect;
           user.curHealth = Math.max(0, user.curHealth);
           actionEffects.push({
