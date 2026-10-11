@@ -85,7 +85,7 @@ import type { BattleEffect, GroundEffect, UserEffect } from "@/libs/combat/types
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
 import { findWarsWithUser } from "@/libs/war";
-import { randomInt, secureRandom } from "@/utils/math";
+import { randomInt, secureRandomInt } from "@/utils/math";
 import { secondsPassed } from "@/utils/time";
 import { getEffectiveStructureLevel, getShrineBoost } from "@/utils/village";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
@@ -3203,10 +3203,14 @@ export const getAffectedTiles = (info: {
     });
     // Preview all eligible candidates; the server samples once when the cast is accepted.
     if (pattern.selection === "RANDOM" && !info.preview) {
-      const random = info.random ?? secureRandom;
       const count = Math.min(pattern.randomCount, candidates.length);
       for (let index = 0; index < count; index++) {
-        const selected = index + Math.floor(random() * (candidates.length - index));
+        const remaining = candidates.length - index;
+        const selected =
+          index +
+          (info.random
+            ? Math.floor(info.random() * remaining)
+            : secureRandomInt(remaining));
         const current = candidates[index];
         const chosen = candidates[selected];
         if (current && chosen) {

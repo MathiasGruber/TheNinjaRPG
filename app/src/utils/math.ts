@@ -5,10 +5,24 @@ export const randomInt = (min: number, max: number) => {
   return Math.floor(Math.random() * (max - min + 1) + min);
 };
 
-/** An unpredictable fraction in [0, 1), available in both server and browser code. */
-export const secureRandom = () => {
+/** Unbiased integer in [0, maxExclusive), available in server and browser code. */
+export const secureRandomInt = (maxExclusive: number) => {
+  if (
+    !Number.isInteger(maxExclusive) ||
+    maxExclusive < 1 ||
+    maxExclusive > 0x1_0000_0000
+  )
+    throw new RangeError("Random upper bound must be an integer from 1 through 2^32.");
+  if (maxExclusive === 1) return 0;
+  // Mask to the next power of two and reject excess values instead of rounding or modulo.
+  const mask = 0xffff_ffff >>> Math.clz32(maxExclusive - 1);
   const values = crypto.getRandomValues(new Uint32Array(1));
-  return (values[0] ?? 0) / 0x1_0000_0000;
+  let value = ((values[0] ?? 0) & mask) >>> 0;
+  while (value >= maxExclusive) {
+    crypto.getRandomValues(values);
+    value = ((values[0] ?? 0) & mask) >>> 0;
+  }
+  return value;
 };
 
 /**
