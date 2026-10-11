@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  PET_SANCTUARY_IMAGE,
+  IMG_BUILDING_PET_SANCTUARY,
   PET_SANCTUARY_LORE,
   PET_SANCTUARY_NAME,
 } from "@/drizzle/constants";
@@ -25,10 +25,10 @@ export default function PetSanctuaryPage() {
         defaultBackHref="/village"
       >
         <Image
-          src={PET_SANCTUARY_IMAGE}
+          src={IMG_BUILDING_PET_SANCTUARY}
           alt="The Bondkeeper Sanctuary beneath Wake Island's cedars"
-          width={1024}
-          height={390}
+          width={1536}
+          height={572}
           className="w-full"
           priority
         />

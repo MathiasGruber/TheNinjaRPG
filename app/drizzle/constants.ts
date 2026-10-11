@@ -629,7 +629,8 @@ export const PET_GENERATION_LEASE_MS = 15 * 60 * 1000;
 export const PET_GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
 export const PET_GENERATION_RETRY_MS = 60 * 1000;
 export const PET_SANCTUARY_NAME = "Bondkeeper Sanctuary";
-export const PET_SANCTUARY_IMAGE = "/bondkeeper-sanctuary.svg";
+export const PET_SANCTUARY_IMAGE =
+  "https://ui0arpl8sm.ufs.sh/f/ar-xbD9hKwKkVBXFZacnC.webp";
 export const PET_SANCTUARY_LONGITUDE = 3;
 export const PET_SANCTUARY_LATITUDE = 6;
 export const PET_SANCTUARY_LORE =
@@ -3006,6 +3007,8 @@ export const IMG_MISSION_PVP =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJzCBxBXemvaQu94EYJs8HpxVzofny6iPtbgCZ.webp";
 export const IMG_MISSION_WAR = "/War_mission.webp";
 
+export const IMG_BUILDING_PET_SANCTUARY =
+  "https://ui0arpl8sm.ufs.sh/f/jBPMweRXHOHqCpuvFDvkb.webp";
 export const IMG_BUILDING_MISSIONHALL =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ2TCTWInMXlcRpYmJ5do0zKw4Qx6PVEtBa9b8.webp";
 export const IMG_BUILDING_SCIENCEBUILDING =
