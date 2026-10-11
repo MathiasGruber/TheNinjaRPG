@@ -4,14 +4,18 @@ import * as nextServer from "next/server";
 import { SHRINE_BATTLE_LOBBY_SECONDS } from "@/drizzle/constants";
 import {
   aiProfile, anbuSquad, battle, battleAction, battleHistory, clan,
-  mpvpBattleQueue, mpvpBattleUser, userData, village, villageAlliance,
+  mpvpBattleQueue, mpvpBattleUser, quest, raidParticipation, userData, village, villageAlliance,
 } from "@/drizzle/schema";
+import { calcBattleResult } from "@/libs/combat/util";
+import { raidsRouter } from "@/server/api/routers/raids";
+import { RaidObjective } from "@/validators/objectives";
+import { ObjectiveReward } from "@/validators/rewards";
 import { Pusher } from "@/libs/pusher";
 import { combatRouter, initiateBattle } from "@/server/api/routers/combat";
 import { shrineRouter } from "@/server/api/routers/shrine";
-import { insertUsers } from "../../setup/factories";
+import { insertQuests, insertUsers } from "../../setup/factories";
 import {
-  callerFor, describeWithDatabase, getTestDatabase, resetTables,
+  callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables,
 } from "../../setup/testDatabase";
 
 const participants = ["credit-actor", "credit-ally", "credit-enemy"];
@@ -31,7 +35,7 @@ const factionTotals = async (userId: string) => {
 describeWithDatabase("combat team faction rewards", () => {
   beforeEach(async () => {
     await resetTables(battleAction, battleHistory, battle, mpvpBattleUser, mpvpBattleQueue,
-      aiProfile, userData, clan, anbuSquad, villageAlliance, village);
+      aiProfile, raidParticipation, quest, userData, clan, anbuSquad, villageAlliance, village);
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     vi.spyOn(nextServer, "after").mockImplementation(() => {});
     vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => Response.json(
@@ -121,4 +125,109 @@ describeWithDatabase("combat team faction rewards", () => {
       expect(polling.clanPoints).toBe(acting.result.clanPoints);
     },
   );
+  const startDecidedRaid = async (teammateState?: "dead" | "fled" | "settled") => {
+    const db = await getTestDatabase();
+    const [actorId, allyId, enemyId] = participants as [string, string, string];
+    await db.update(userData).set({ isAi: true }).where(eq(userData.userId, enemyId));
+    await insertQuests([{ id: "credit-raid", name: "Raid", questType: "raid",
+      raidBossCurrentHealth: 100, raidBossMaxHealth: 100,
+      raidEndsAt: new Date(Date.now() + 3600000),
+      content: { objectives: [RaidObjective.parse({ id: "raid-goal", task: "open_raid", sector: 335,
+        opponentAIs: [{ ids: [enemyId], number: 100, quantity: 1 }] })],
+        reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] }
+    }]);
+    await db.insert(mpvpBattleQueue).values({ id: "credit-raid-lobby", battleType: "RAID_BATTLE",
+      attackerEntityId: "credit-raid", defenderEntityId: "credit-raid", sector: 335,
+      createdAt: new Date(Date.now() - 120000) });
+    await db.insert(mpvpBattleUser).values(winners.map((userId, slot) => ({
+      id: `${userId}-raid-queue`, clanBattleId: "credit-raid-lobby", userId,
+      side: "ATTACKER" as const, slot,
+    })));
+    const started = await (await callerFor(raidsRouter, actorId)).startRaidBattle({ teamId: "credit-raid-lobby" });
+    expect(started.success, started.message).toBe(true);
+    const saved = (await db.query.battle.findFirst({ where: eq(battle.id, started.battleId!) }))!;
+    saved.usersState.find((u) => u.controllerId === enemyId)!.curHealth = 0;
+    const teammate = saved.usersState.find((u) => u.userId === allyId)!;
+    if (teammateState === "dead") teammate.curHealth = 0;
+    if (teammateState === "fled") teammate.fledBattle = true;
+    if (teammateState === "settled") teammate.leftBattle = true;
+    await db.update(battle).set({ usersState: saved.usersState, activeUserId: actorId,
+      createdAt: new Date(Date.now() - 1000), roundStartAt: new Date(),
+      updatedAt: new Date(Date.now() + 1000) }).where(eq(battle.id, saved.id));
+    return saved;
+  };
+
+  it.each(["performAction", "getBattle"] as const)(
+    "RAID %s pays surviving teammates before deleting their only settlement path",
+    async (route) => {
+      const db = await getTestDatabase();
+      const saved = await startDecidedRaid();
+      const actor = await callerFor(combatRouter, winners[0]!);
+      const ally = await callerFor(combatRouter, winners[1]!);
+      const predicted = winners.map((id) => calcBattleResult(structuredClone(saved), id)!);
+      expect(predicted[1]!.didWin).toBe(1);
+      expect(predicted[1]!.clanPoints).toBeGreaterThan(0);
+      const allyBefore = (await db.query.userData.findFirst({ where: eq(userData.userId, winners[1]!) }))!;
+      if (route === "performAction") await actor.performAction({ battleId: saved.id, version: saved.version });
+      else await actor.getBattle({ battleId: saved.id });
+      for (const [index, id] of winners.entries()) {
+        const result = predicted[index]!;
+        expect(await factionTotals(id)).toEqual({ tokens: 1000 + result.villageTokens,
+          anbuPoints: 30 + result.anbuPoints, anbuActivity: 3 + Number(result.pvpStreak > 0),
+          clanPoints: 10 + result.clanPoints, clanActivityPoints: 20 + result.clanPoints, clanActivity: 5 });
+      }
+      // Raid cleanup still owns only the teammate's pools/status, not personal or threshold rewards.
+      expect(await db.query.userData.findFirst({ where: eq(userData.userId, winners[1]!) })).toMatchObject({
+        status: "AWAKE", battleId: null, money: allyBefore.money, experience: allyBefore.experience,
+      });
+      expect(await db.query.raidParticipation.findFirst({ where: eq(raidParticipation.userId, winners[1]!) })).toBeUndefined();
+      expect(await ally.getBattle({ battleId: saved.id })).toEqual({ battle: null, result: null });
+      const paid = await factionTotals(winners[1]!);
+      await ally.performAction({ battleId: saved.id, version: saved.version });
+      await actor.performAction({ battleId: saved.id, version: saved.version });
+      expect(await factionTotals(winners[1]!)).toEqual(paid);
+    },
+  );
+
+  it.each(["actor", "ally"] as const)("RAID rejects a stale %s finalizer captured before the winning deletion claim", async (staleUser) => {
+    const db = await getTestDatabase();
+    const saved = await startDecidedRaid();
+    let unblock!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => { unblock = resolve; });
+    const ready = new Promise<void>((resolve) => { reached = resolve; });
+    const staleClient = new Proxy(db, {
+      get(target, key, receiver) {
+        if (key !== "delete") return Reflect.get(target, key, receiver);
+        return (...args: Parameters<typeof db.delete>) => {
+          if (args[0] !== battle) return db.delete(...args);
+          return { where: async (condition: Parameters<ReturnType<typeof db.delete>["where"]>[0]) => {
+            reached();
+            await gate;
+            return db.delete(battle).where(condition);
+          } };
+        };
+      },
+    });
+    const staleApi = callerForDatabase(combatRouter, winners[staleUser === "actor" ? 0 : 1]!, staleClient);
+    const staleRequest = staleUser === "actor"
+      ? staleApi.performAction({ battleId: saved.id, version: saved.version })
+      : staleApi.getBattle({ battleId: saved.id });
+    try {
+      await ready;
+      if (staleUser === "actor") await (await callerFor(combatRouter, winners[1]!)).getBattle({ battleId: saved.id });
+      else await (await callerFor(combatRouter, winners[0]!)).performAction({ battleId: saved.id, version: saved.version });
+    } finally { unblock(); }
+    expect(await staleRequest).toEqual(staleUser === "actor" ? { updateClient: true } : { battle: null, result: null });
+    const predicted = calcBattleResult(structuredClone(saved), winners[1]!)!;
+    expect((await factionTotals(winners[1]!)).clanPoints).toBe(10 + predicted.clanPoints);
+    expect((await factionTotals(winners[0]!)).clanPoints).toBe(10 + predicted.clanPoints);
+  });
+
+  it.each(["dead", "fled", "settled"] as const)("RAID grants no faction credit to a %s teammate", async (state) => {
+    const saved = await startDecidedRaid(state);
+    const before = await factionTotals(winners[1]!);
+    await (await callerFor(combatRouter, winners[0]!)).performAction({ battleId: saved.id, version: saved.version });
+    expect(await factionTotals(winners[1]!)).toEqual(before);
+  });
 });

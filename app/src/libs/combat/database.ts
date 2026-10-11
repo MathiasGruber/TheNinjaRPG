@@ -55,6 +55,7 @@ import {
 } from "@/libs/combat/userCache";
 import {
   buildCombatTrackerTasks,
+  calcBattleResult,
   didKageChallengerWin,
   getBattleTeamWars,
   getItem,
@@ -264,9 +265,9 @@ export const updateBattle = async (
         // dropped to 0 from boss AoE must be sent to the hospital, not released as AWAKE.
         ...(raidBossDefeated || raidTeamWiped ? humanTeammates : [])
           .filter((u) => u.userId !== userId)
-          .map((teammate) => {
+          .map(async (teammate) => {
             const sendToHospital = !newBattle.forceKeepPools && teammate.curHealth <= 0;
-            return client
+            const released = await client
               .update(userData)
               .set({
                 battleId: null,
@@ -297,6 +298,21 @@ export const updateBattle = async (
                   eq(userData.battleId, newBattle.id),
                 ),
               );
+            // Raid deletion prevents teammates from polling their own settlement.
+            // The battle claim and guarded release exclude stale or prior claims.
+            if (raidBossDefeated && released.rowsAffected > 0) {
+              const teammateResult = calcBattleResult(
+                structuredClone(newBattle),
+                teammate.userId,
+                newBattle.extraState.settings,
+              );
+              await updateVillageAnbuClan(
+                client,
+                newBattle,
+                teammateResult,
+                teammate.userId,
+              );
+            }
           }),
       ]);
 
