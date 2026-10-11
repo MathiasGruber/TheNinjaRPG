@@ -74,8 +74,8 @@ const setup = (target: AvailableTarget = "CLOSEST_OPPONENT", conditions: ZodAllA
   });
   const battle = mkBattle(actor);
   battle.usersState = [actor,
-    mkUser({ userId: "boss", controllerId: "boss", villageId: "enemy", longitude: 4, latitude: 1, maxHealth: 9000, curHealth: 3000 }),
-    mkUser({ userId: "minion", controllerId: "minion", villageId: "enemy", longitude: 3, latitude: 1, maxHealth: 2000, curHealth: 800 }),
+    mkUser({ userId: "boss", controllerId: "boss", villageId: "enemy", longitude: 4, latitude: 1, maxHealth: 9000, curHealth: 3000, enmity: 800 }),
+    mkUser({ userId: "minion", controllerId: "minion", villageId: "enemy", longitude: 3, latitude: 1, maxHealth: 2000, curHealth: 800, enmity: 20 }),
     mkUser({ userId: "ally-boss", controllerId: "ally-boss", villageId: "ally", longitude: 1, latitude: 3, maxHealth: 10000 }),
     mkUser({ userId: "ally-minion", controllerId: "ally-minion", villageId: "ally", longitude: 1, latitude: 2, maxHealth: 1000, curHealth: 1000 }),
   ];
@@ -89,6 +89,8 @@ const setup = (target: AvailableTarget = "CLOSEST_OPPONENT", conditions: ZodAllA
 
 describe("AI targeting and clauses", () => {
   it.each([
+    ["HIGHEST_ENMITY_OPPONENT", "boss"],
+    ["LOWEST_ENMITY_OPPONENT", "minion"],
     ["HIGHEST_MAX_HEALTH_ALLY", "ally-boss"],
     ["HIGHEST_MAX_HEALTH_OPPONENT", "boss"],
     ["LOWEST_HEALTH_OPPONENT", "minion"],
@@ -131,6 +133,17 @@ describe("AI targeting and clauses", () => {
       mkUser({ userId: "fled", villageId: "enemy", maxHealth: 99999, fledBattle: true }),
     );
     expect(run().nextBattle.usersState.find((user) => user.userId === "boss")!.curHealth).toBeLessThan(3000);
+  });
+
+  it.each(["HIGHEST_ENMITY_OPPONENT", "LOWEST_ENMITY_OPPONENT"] as const)("%s ignores unavailable opponents and handles legacy battles", (target) => {
+    const { battle, run } = setup(target);
+    battle.usersState.push(mkUser({ userId: "dead", villageId: "enemy", curHealth: 0, enmity: 9999 }), mkUser({ userId: "fled", villageId: "enemy", fledBattle: true, enmity: 0 }));
+    const expected = target === "HIGHEST_ENMITY_OPPONENT" ? "boss" : "minion";
+    expect(run().nextBattle.usersState.find((u) => u.userId === expected)!.curHealth).toBeLessThan(battle.usersState.find((u) => u.userId === expected)!.curHealth);
+    for (const user of battle.usersState) delete user.enmity;
+    expect(run().nextActionId).toBe(DAMAGE_JUTSU);
+    battle.usersState = [battle.usersState[0]!];
+    expect(() => run()).not.toThrow();
   });
 
   it("uses effective maximum health including active pool effects", () => {

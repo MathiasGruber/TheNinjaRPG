@@ -261,6 +261,23 @@ export const performAIaction = (
           return randomAlly;
         case "CLOSEST_ALLY":
           return closestAlly;
+        case "HIGHEST_ENMITY_OPPONENT":
+        case "LOWEST_ENMITY_OPPONENT":
+          return enemies.reduce<(typeof enemies)[number] | undefined>(
+            (best, candidate) => {
+              if (!best) return candidate;
+              const candidateEnmity = candidate.enmity ?? 0;
+              const bestEnmity = best.enmity ?? 0;
+              return (
+                entry.target === "HIGHEST_ENMITY_OPPONENT"
+                  ? candidateEnmity > bestEnmity
+                  : candidateEnmity < bestEnmity
+              )
+                ? candidate
+                : best;
+            },
+            undefined,
+          );
         case "HIGHEST_MAX_HEALTH_ALLY":
           return healthTarget(allies, "max", true);
         case "HIGHEST_MAX_HEALTH_OPPONENT":

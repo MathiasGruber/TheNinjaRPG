@@ -87,7 +87,7 @@ export const realizeTag = <T extends BattleEffect>(props: {
   battle?: Battle; // Make battle optional since it's not always needed
 }): T => {
   const { tag, user, target, level, round, barrierAbsorb, battle } = props;
-  if ("rounds" in tag) {
+  if ("rounds" in tag || tag.type === "increaseaggro" || tag.type === "decreaseaggro") {
     tag.timeTracker = {};
   }
   // Older catalog JSON uses Highest as an unclassified marker; it never resolves from mastery.
@@ -1280,6 +1280,7 @@ export const clone = (
   }
   if (effect.isNew) {
     const newAi = structuredClone(user);
+    newAi.enmity = 0;
     delete newAi.baseStatsForModifiers;
     // A clone did not receive the original's hits and must not inherit its deferred damage.
     delete newAi.diffuseDamage;
@@ -1743,6 +1744,34 @@ export const pooladjust = (effect: UserEffect, target: BattleUserState) => {
       `${affected.join(", ")} cost is ${adverb} by ${qualifier}`,
     );
   }
+};
+
+/** Aggro changes follow target-turn timing; generation modifiers are read at HP loss. */
+export const adjustAggro = (
+  effect: UserEffect,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
+): ActionEffect | undefined => {
+  if (effect.type !== "increaseaggro" && effect.type !== "decreaseaggro") return;
+  if (!effect.isNew && !isEffectActive(effect)) return;
+  const { pass } = preventCheck(usersEffects, "buffprevent", target, effect);
+  if (!pass) return preventResponse(effect, target, "cannot change enmity");
+  const { power, qualifier } = getPower(effect);
+  const increases = effect.type === "increaseaggro";
+  if (effect.aggroMode === "GENERATION") {
+    return getInfo(
+      target,
+      effect,
+      `enmity generation is ${increases ? "increased" : "decreased"} by ${qualifier}`,
+    );
+  }
+  const current = target.enmity ?? 0;
+  const delta = effect.calculation === "percentage" ? (current * power) / 100 : power;
+  target.enmity = Math.max(0, current + (increases ? delta : -delta));
+  return {
+    txt: `${target.username}'s enmity ${increases ? "increases" : "decreases"} by ${Math.abs(target.enmity - current).toFixed(2)}`,
+    color: "blue",
+  };
 };
 
 export const increasepoolcost = (effect: UserEffect, target: BattleUserState) => {
@@ -3123,6 +3152,7 @@ export const summon = (
       }
       if (ai) {
         const newAi = structuredClone(ai);
+        newAi.enmity = 0;
         delete newAi.baseStatsForModifiers;
         // Place on battlefield
         newAi.userId = nanoid();

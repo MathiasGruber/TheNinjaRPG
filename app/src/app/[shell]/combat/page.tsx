@@ -13,6 +13,7 @@ import { type CombatLayoutComponentId, useCombatPreferences } from "@/hooks/comb
 import { useTutorialStep } from "@/hooks/tutorial";
 import ActionTimer from "@/layout/ActionTimer";
 import { ActionSelector } from "@/layout/CombatActions";
+import { CombatAggro } from "@/layout/CombatAggro";
 import CombatHistory from "@/layout/CombatHistory";
 import CombatTimeline from "@/layout/CombatTimeline";
 import Loader from "@/layout/Loader";
@@ -312,9 +313,12 @@ export default function CombatPage() {
             )}
           </>
         )}
+        {config.showAggro && <CombatAggro battle={battle} userId={userId} />}
       </div>
     );
   }, [
+    config.showAggro,
+    userId,
     isInBattle,
     battle,
     isAutoCombatActive,

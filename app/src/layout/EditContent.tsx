@@ -1893,7 +1893,17 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     })
     .map((value) => {
       const innerType = getInner(tagSchema.shape[value]);
-      if (String(value) === "affectedTag") {
+      if (String(value) === "aggroMode") {
+        return {
+          id: value,
+          label: "Aggro mode",
+          type: "db_values",
+          values: [
+            { id: "ENMITY", name: "Current enmity (once per round)" },
+            { id: "GENERATION", name: "Damage-generated enmity" },
+          ],
+        };
+      } else if (String(value) === "affectedTag") {
         return {
           id: value,
           label: "Affected Tag",

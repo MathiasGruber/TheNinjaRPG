@@ -3203,6 +3203,7 @@ export const processUsersForBattle = async (
       usedActions: [],
       usedTagTypes: [],
       damageDealt: 0,
+      enmity: 0,
       initiative: 0,
       basicActions: [],
       sageModeActivated: inputUser.sageModeActivated ?? false,

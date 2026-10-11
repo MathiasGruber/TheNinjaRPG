@@ -198,6 +198,8 @@ export type CombatUserFields = {
   skillLockedJutsuIds?: string[];
   /** Total damage this user dealt to opponents this battle (for damage_dealt tracker). */
   damageDealt: number;
+  /** Battle-wide threat score used by authored AI targeting rules. */
+  enmity?: number;
   initiative: number;
   basicActions: BattleBasicAction[];
   hex?: TerrainHex;

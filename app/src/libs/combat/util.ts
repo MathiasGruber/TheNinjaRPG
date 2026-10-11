@@ -1149,7 +1149,14 @@ export const calcApplyRatio = (
   }
   // Get latest application of effect to the given target
   let ratio = 1;
-  if (trackResults && effect.rounds !== undefined && effect.timeTracker) {
+  const isDirectAggro =
+    (effect.type === "increaseaggro" || effect.type === "decreaseaggro") &&
+    effect.aggroMode === "ENMITY";
+  if (
+    trackResults &&
+    (effect.rounds !== undefined || isDirectAggro) &&
+    effect.timeTracker
+  ) {
     const prevApply = effect.timeTracker[targetId];
     if (prevApply) {
       if (battle.round !== prevApply) {
@@ -1193,6 +1200,9 @@ export const isEffectActive = (effect: UserEffect | GroundEffect) => {
 /** Potency for distinct selections or calculation modes can coexist. */
 export const getEffectStackKey = (effect: UserEffect) => {
   const key = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
+  if (effect.type === "increaseaggro" || effect.type === "decreaseaggro") {
+    return `${key}-${effect.aggroMode}-${effect.calculation}`;
+  }
   if (effect.type === "increasepotency" || effect.type === "decreasepotency") {
     const elements = [...new Set(effect.affectedElements ?? [])].sort().join(",");
     return `${key}-${effect.affectedTag}-${effect.calculation}-${elements || "all"}`;
@@ -1288,6 +1298,8 @@ export const sortEffects = (
     "activatesagemode",
     "cleanse",
     "clear",
+    "increaseaggro",
+    "decreaseaggro",
     "increasepotency",
     "decreasepotency",
     "decreasepoolcost",

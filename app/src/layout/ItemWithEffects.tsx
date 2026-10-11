@@ -1311,6 +1311,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                             {parsedEffect.calculation}
                           </span>
                         )}
+                        {"aggroMode" in parsedEffect && (
+                          <span>
+                            <b>Aggro mode: </b>
+                            {parsedEffect.aggroMode === "ENMITY"
+                              ? "Current enmity"
+                              : "Enmity generation"}
+                          </span>
+                        )}
                         {"blocks" in parsedEffect && parsedEffect.blocks && (
                           <span>
                             <b>Blocks: </b>

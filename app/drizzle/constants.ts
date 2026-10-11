@@ -3306,6 +3306,9 @@ export const STEALTH_TRAIN_GAIN_PER_MINUTE = 50; // Training gain per minute
 export const CovertTrainingTypes = ["stealth", "sensory"] as const;
 export type CovertTrainingType = (typeof CovertTrainingTypes)[number];
 
+/** Enmity awarded per point of opposing combatant HP lost after mitigation. */
+export const COMBAT_ENMITY_PER_DAMAGE = 1;
+
 // Damage formula constants
 export const DMG_STATS_SCALING = 1;
 export const DMG_BASE_HITS = 10; // Target time-to-kill in hits
