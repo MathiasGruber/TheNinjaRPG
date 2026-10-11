@@ -1,9 +1,14 @@
 import { Grid, rectangle } from "honeycomb-grid";
-import { Group, Texture, TextureLoader } from "three";
+import { Group, Sprite, Texture, TextureLoader } from "three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { ASSETS_LAYER, EFFECTS_LAYER } from "@/drizzle/constants";
 import type { GameAsset } from "@/drizzle/schema";
 import { defineHex } from "@/libs/hexgrid";
-import { drawCombatEffects, resetCombatCaches } from "@/libs/threejs/combat";
+import {
+  drawCombatBackground,
+  drawCombatEffects,
+  resetCombatCaches,
+} from "@/libs/threejs/combat";
 import { ActionSprite, SpriteMixer } from "@/libs/threejs/SpriteMixer";
 import { showAnimation } from "@/libs/threejs/util";
 
@@ -56,6 +61,37 @@ const effect = (id: string): DrawInfo["battle"]["groundEffects"][number] =>
     staticAnimation: "animation",
     power: 100,
   }) as DrawInfo["battle"]["groundEffects"][number];
+
+describe("combat tile labels", () => {
+  it("blends translucent labels above effects and below scenery without writing depth", () => {
+    const context = {
+      globalAlpha: 1,
+      measureText: () => ({ width: 18 }),
+      fillText: vi.fn(),
+      fillRect: vi.fn(),
+      getImageData: () => ({ data: new Uint8ClampedArray(64 * 64 * 4) }),
+      putImageData: vi.fn(),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      context as unknown as CanvasRenderingContext2D,
+    );
+    const { group_names } = drawCombatBackground(
+      100,
+      { width: 2, height: 2, background: "ground" } as DrawInfo["battle"],
+      () => 1,
+      true,
+    );
+    expect(group_names.children).toHaveLength(4);
+    for (const label of group_names.children) {
+      expect(label).toBeInstanceOf(Sprite);
+      const material = (label as Sprite).material;
+      expect(material.depthWrite).toBe(false);
+      expect(material.depthTest).toBe(true);
+      expect(label.position.z).toBeGreaterThan(EFFECTS_LAYER);
+      expect(label.position.z).toBeLessThan(ASSETS_LAYER);
+    }
+  });
+});
 
 describe("combat effect animation lifecycle", () => {
   it("retains a temporarily hidden effect without recreating its animation", () => {

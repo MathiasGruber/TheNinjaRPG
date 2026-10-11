@@ -1,6 +1,15 @@
 import { Grid, rectangle } from "honeycomb-grid";
-import { Color, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from "three";
+import {
+  Color,
+  Group,
+  LineSegments,
+  Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  Vector3,
+} from "three";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { ASSETS_LAYER, EFFECTS_LAYER, TILES_LAYER } from "@/drizzle/constants";
 import { defineHex } from "@/libs/hexgrid";
 import { highlightTiles } from "@/libs/threejs/combat";
 
@@ -22,12 +31,12 @@ afterEach(() => {
 
 type HighlightInfo = Parameters<typeof highlightTiles>[0];
 
-const createScene = () => {
+const createScene = (offsetLayer = 0) => {
   const grid = new Grid(defineHex(), rectangle({ width: 3, height: 3 }));
   const group_tiles = new Group();
   const meshes = Array.from(grid, (tile) => {
     const mesh = new Mesh(
-      new PlaneGeometry(1, 1),
+      new PlaneGeometry(1, 1).translate(0, 0, TILES_LAYER + offsetLayer),
       new MeshBasicMaterial({ color: "white" }),
     );
     mesh.name = `${tile.row},${tile.col}`;
@@ -105,6 +114,33 @@ const expectRangeColors = (meshes: Mesh<PlaneGeometry, MeshBasicMaterial>[]) => 
 };
 
 describe("highlightTiles range colors", () => {
+  it.each([0, -0.5])(
+    "keeps range and selected edges above static effects with terrain offset %p",
+    (offsetLayer) => {
+      const { info, meshes, render } = createScene(offsetLayer);
+      info.cachedIntersections.battleTiles = [
+        { object: meshes[0]!, distance: 0, point: new Vector3() },
+      ];
+      render();
+
+      const edges = info.group_highlight_edges.children.filter(
+        (edge): edge is LineSegments => edge instanceof LineSegments && edge.visible,
+      );
+      expect(edges).toHaveLength(meshes.length + 1);
+      for (const edge of edges) {
+        const positions = edge.geometry.getAttribute("position");
+        for (let index = 0; index < positions.count; index++) {
+          const layer = positions.getZ(index) + edge.position.z;
+          expect(layer).toBeGreaterThan(EFFECTS_LAYER);
+          expect(layer).toBeLessThan(ASSETS_LAYER);
+        }
+      }
+      const rangeEdge = edges[0]!;
+      const selectedEdge = edges.at(-1)!;
+      expect(selectedEdge.position.z).toBeGreaterThan(rangeEdge.position.z);
+    },
+  );
+
   it("colors newly highlighted tiles before caching the first frame", () => {
     const { meshes, render } = createScene();
     const highlights = render();
