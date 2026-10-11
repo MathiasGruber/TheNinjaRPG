@@ -6,6 +6,7 @@ import { STORE_FEDERAL_PRODUCTS } from "@/drizzle/constants";
 import { purchases as nativePurchases } from "@/libs/native";
 import type { StorePackage } from "@/libs/native/purchases";
 import { ensureDom } from "../setup-dom.mjs";
+import { createToastMock } from "../setup/toastMock";
 
 type AsyncMock = ReturnType<
   typeof vi.fn<(...args: unknown[]) => Promise<unknown>>
@@ -119,6 +120,7 @@ vi.mock("@/env/client.mjs", () => ({
 }));
 
 vi.mock("@/libs/toast", () => ({
+  ...createToastMock(),
   showMutationToast: (value: unknown) => testMocks().toast(value),
 }));
 

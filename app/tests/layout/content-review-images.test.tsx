@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { ContentReviewDetail } from "@/layout/ContentReviewDetail";
 import { sceneAssetIds } from "@/libs/contentReview/paths";
 import { ensureDom } from "../setup-dom.mjs";
+import { createToastMock } from "../setup/toastMock";
 
 const state: {
   before: Record<string, unknown>;
@@ -76,7 +77,7 @@ vi.mock("@/layout/Logbook", () => ({
   ),
 }));
 vi.mock("@/layout/ItemWithEffects", () => ({ default: () => null }));
-vi.mock("@/libs/toast", () => ({ showMutationToast: vi.fn() }));
+vi.mock("@/libs/toast", createToastMock);
 vi.mock("@/layout/ContentImage", () => ({
   default: ({ image, alt }: { image: string; alt: string }) => (
     <img src={image} alt={alt} />

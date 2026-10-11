@@ -6,6 +6,7 @@ import { EnergyTrainingQueue, useEnergyTrainingQueue } from "@/layout/EnergyTrai
 import type { UserWithRelations } from "@/routers/profile";
 import type { UserDeltaResponse } from "@/validators/userCache";
 import { ensureDom } from "../setup-dom.mjs";
+import { createToastMock } from "../setup/toastMock";
 
 type Result = UserDeltaResponse;
 type QueueCallbacks = {
@@ -60,7 +61,7 @@ vi.mock("@/utils/UserContext", () => ({
 vi.mock("@/layout/ContentBox", () => ({
   default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
-vi.mock("@/libs/toast", () => ({ showMutationToast: vi.fn() }));
+vi.mock("@/libs/toast", createToastMock);
 
 beforeEach(() => {
   ensureDom();
