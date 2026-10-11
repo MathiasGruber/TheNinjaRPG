@@ -1174,15 +1174,15 @@ export const insertAction = (info: {
       updateStatUsage(user, effect as UserEffect);
     });
     recordMasteryUsage(user, action);
-    user.usedActions.push({
-      id: action.id,
-      type: action.type,
-      ...(action.type === "jutsu" && action.data
-        ? { masteryTypes: jutsuMasteryTypes(action.data) }
-        : {}),
-    });
     // Check if action affected anything
     if (affectedTiles.size > 0) {
+      user.usedActions.push({
+        id: action.id,
+        type: action.type,
+        ...(action.type === "jutsu" && action.data
+          ? { masteryTypes: jutsuMasteryTypes(action.data) }
+          : {}),
+      });
       // Combat logs outlive summons and clones; retain definitions of revealed
       // actions even when their caster is removed from usersState.
       if (action.type === "jutsu" || action.type === "item") {

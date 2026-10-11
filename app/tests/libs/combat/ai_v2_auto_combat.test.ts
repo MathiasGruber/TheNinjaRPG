@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "bun:test";
 import { Grid, rectangle } from "honeycomb-grid";
 import { performAIaction } from "@/libs/combat/ai_v2";
-import { ActionUseSpecificJutsu } from "@/validators/ai";
+import { ActionEndTurn, ActionUseSpecificJutsu } from "@/validators/ai";
 import type { BattleUserState, CompleteBattle } from "@/libs/combat/types";
+import { maskBattle, maskBattleDynamic } from "@/libs/combat/util";
 
 /**
  * Integration cover for auto combat at the ai_v2 CALL SITE: a human with
@@ -100,6 +101,73 @@ describe("performAIaction auto combat", () => {
     const human = mkHuman({ isAutoCombat: true });
     const { nextActionId } = performAIaction(mkBattle(human), grid, "user_h1");
     expect(nextActionId).toBe(DAMAGE_JUTSU);
+  });
+
+  it("keeps a rejected auto-combat jutsu private when the next rule ends the turn", () => {
+    const grid = new Grid(TerrainHex, rectangle({ width: 10, height: 10 }));
+    const battle = structuredClone(
+      mkBattle(mkHuman({ isAutoCombat: true, direction: "left" })),
+    );
+    battle.extraState.jutsus[DAMAGE_JUTSU]!.range = 1;
+    Object.assign(battle.usersState[1]!, { longitude: 7, latitude: 2 });
+    battle.extraState.aiProfiles[PROFILE]!.rules.push({
+      conditions: [], action: ActionEndTurn.parse({}),
+    });
+
+    const { nextBattle, nextActionId, aiDescriptions } = performAIaction(
+      battle,
+      grid,
+      "user_h1",
+    );
+    expect(nextActionId).toBe("wait");
+    expect(aiDescriptions.map((description) => description.trim())).toEqual([
+      "End Turn: Human stands and does nothing",
+    ]);
+    expect(nextBattle.extraState.revealedActions).toBeUndefined();
+    for (const viewer of ["foe", "spectator"]) {
+      for (const response of [
+        maskBattle(nextBattle, viewer),
+        maskBattleDynamic(nextBattle, viewer),
+      ]) {
+        expect(response.extraState.jutsus).not.toHaveProperty(DAMAGE_JUTSU);
+      }
+    }
+    const actor = nextBattle.usersState.find((u) => u.userId === "user_h1")!;
+    expect(actor.usedActions).toEqual([{ id: "wait", type: "basic" }]);
+    expect(actor.jutsus[0]?.lastUsedRound).toBe(-99);
+    expect(actor.curStamina).toBe(5000);
+    expect(maskBattle(nextBattle, "user_h1").extraState.jutsus).toHaveProperty(
+      DAMAGE_JUTSU,
+    );
+  });
+
+  it("reveals a successful auto-combat cast while preserving its usage and cooldown", () => {
+    const grid = new Grid(TerrainHex, rectangle({ width: 10, height: 10 }));
+    const battle = structuredClone(
+      mkBattle(mkHuman({ isAutoCombat: true, direction: "left" })),
+    );
+    battle.extraState.jutsus[DAMAGE_JUTSU]!.statClassification = "Ninjutsu";
+
+    const { nextBattle, nextActionId } = performAIaction(battle, grid, "user_h1");
+    expect(nextActionId).toBe(DAMAGE_JUTSU);
+    expect(nextBattle.extraState.revealedActions).toEqual({
+      jutsuIds: [DAMAGE_JUTSU], itemIds: [],
+    });
+    const actor = nextBattle.usersState.find((u) => u.userId === "user_h1")!;
+    expect(actor.usedActions).toEqual([{
+      id: DAMAGE_JUTSU, type: "jutsu", masteryTypes: ["Ninjutsu"],
+    }]);
+    expect(actor.usedMasteries).toEqual({ ninjutsuMastery: 1 });
+    expect(actor.jutsus[0]?.lastUsedRound).toBe(nextBattle.round);
+    expect(actor.curStamina).toBeLessThan(5000);
+    for (const viewer of ["foe", "spectator"]) {
+      for (const response of [
+        maskBattle(nextBattle, viewer),
+        maskBattleDynamic(nextBattle, viewer),
+      ]) {
+        expect(response.extraState.jutsus).toHaveProperty(DAMAGE_JUTSU);
+      }
+    }
   });
 
   it("leaves a plain human untouched (call-site filter)", () => {
