@@ -774,6 +774,8 @@ const RaidChatPanel: React.FC<RaidChatPanelProps> = ({ conversationId }) => {
   const { data: commentsData, isPending } =
     api.comments.getConversationComments.useInfiniteQuery(queryKey, {
       enabled: !!conversationId,
+      refetchOnWindowFocus: "always",
+      refetchOnReconnect: "always",
       getNextPageParam: (lastPage) => lastPage.nextCursor,
     });
 
@@ -823,9 +825,12 @@ const RaidChatPanel: React.FC<RaidChatPanelProps> = ({ conversationId }) => {
         return true;
       });
   }, [commentsData?.pages]);
+  const restrictionMessage =
+    commentsData?.pages[0]?.restrictionMessage ??
+    commentsData?.pages[0]?.convo?.sendRestriction;
 
   const handleSendMessage = () => {
-    if (!conversationId) return;
+    if (!conversationId || restrictionMessage) return;
     const trimmedMessage = message.trim();
     if (trimmedMessage.length < 4) {
       showMutationToast({
@@ -883,7 +888,7 @@ const RaidChatPanel: React.FC<RaidChatPanelProps> = ({ conversationId }) => {
             ))
         ) : (
           <p className="text-muted-foreground text-sm">
-            No messages yet. Coordinate your team here.
+            {restrictionMessage ?? "No messages yet. Coordinate your team here."}
           </p>
         )}
       </div>
@@ -893,19 +898,28 @@ const RaidChatPanel: React.FC<RaidChatPanelProps> = ({ conversationId }) => {
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           placeholder={
-            userData?.isBanned || userData?.isSilenced
+            restrictionMessage ??
+            (userData?.isBanned || userData?.isSilenced
               ? "You cannot send messages while banned or silenced."
-              : "Write a message to everyone in this raid..."
+              : "Write a message to everyone in this raid...")
           }
-          disabled={isSending || userData?.isBanned || userData?.isSilenced}
+          disabled={
+            !!restrictionMessage ||
+            isSending ||
+            userData?.isBanned ||
+            userData?.isSilenced
+          }
           className="min-h-24"
           maxLength={5000}
         />
         <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground text-xs">Minimum 4 characters.</span>
+          <span className="text-muted-foreground text-xs">
+            {restrictionMessage ?? "Minimum 4 characters."}
+          </span>
           <Button
             onClick={handleSendMessage}
             disabled={
+              !!restrictionMessage ||
               isSending ||
               userData?.isBanned ||
               userData?.isSilenced ||
