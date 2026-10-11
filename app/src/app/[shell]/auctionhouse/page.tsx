@@ -182,17 +182,13 @@ export default function AuctionHousePage() {
       title="Auction House"
       subtitle="Buy, sell or exchange items"
       defaultBackHref="/village"
-      padding={false}
       topRightContent={
-        <div className="flex items-center justify-end gap-1">
+        <div className="mb-2 flex items-center justify-end gap-2">
           <Select
             value={selectedStatus}
             onValueChange={(value) => setSelectedStatus(value as AuctionListingState)}
           >
-            <SelectTrigger
-              aria-label="Listing status"
-              className="h-11 min-h-[44px] w-28 rounded-full border-amber-500/40 bg-background/80 px-2 shadow-sm"
-            >
+            <SelectTrigger aria-label="Listing status" className="w-28 px-2">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -244,10 +240,10 @@ export default function AuctionHousePage() {
           }
         }}
       >
-        <div className="border-b bg-linear-to-b from-amber-950/10 to-muted/30 px-3 py-4 md:px-6">
-          <div className="mx-auto flex max-w-6xl flex-col gap-2">
+        <div className="border-b pb-3">
+          <div className="flex flex-col gap-2">
             <TabsList
-              className="grid grid-cols-3 gap-1 rounded-xl bg-muted/90 shadow-inner ring-1 ring-border/50 xl:grid-cols-6 dark:bg-muted/40"
+              className="grid grid-cols-3 xl:grid-cols-6"
               aria-label="Auction House"
             >
               {BROWSE_TAB_OPTIONS.map(({ key, label, Icon }) => (
@@ -406,16 +402,11 @@ const AuctionListing: React.FC<AuctionListingProps> = ({
 
   return (
     <div>
-      <div className="border-b bg-muted/25 px-3 py-4 md:px-5">
+      <div className="border-b py-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
             <div className="min-w-0">
-              <Label
-                htmlFor="search"
-                className="text-muted-foreground text-xs uppercase"
-              >
-                Search catalog
-              </Label>
+              <Label htmlFor="search">Search catalog</Label>
               <div className="relative mt-1">
                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -431,17 +422,12 @@ const AuctionListing: React.FC<AuctionListingProps> = ({
                   }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-11 rounded-xl border-border/80 bg-background pl-10 shadow-sm"
+                  className="pl-10"
                 />
               </div>
             </div>
             <div className="min-w-0">
-              <Label
-                htmlFor="search-seller"
-                className="text-muted-foreground text-xs uppercase"
-              >
-                Search seller
-              </Label>
+              <Label htmlFor="search-seller">Search seller</Label>
               <div className="relative mt-1">
                 <UserSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -449,19 +435,14 @@ const AuctionListing: React.FC<AuctionListingProps> = ({
                   placeholder="Seller username…"
                   value={sellerSearchTerm}
                   onChange={(e) => setSellerSearchTerm(e.target.value)}
-                  className="h-11 rounded-xl border-border/80 bg-background pl-10 shadow-sm"
+                  className="pl-10"
                 />
               </div>
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2 sm:gap-3">
             <div className="w-[7.5rem]">
-              <Label
-                htmlFor="minPrice"
-                className="text-muted-foreground text-xs uppercase"
-              >
-                Min
-              </Label>
+              <Label htmlFor="minPrice">Min</Label>
               <NumberInput
                 id="minPrice"
                 optional
@@ -469,16 +450,11 @@ const AuctionListing: React.FC<AuctionListingProps> = ({
                 placeholder="0"
                 value={minPrice}
                 onTextChange={setMinPrice}
-                className="mt-1 h-11 rounded-xl shadow-sm"
+                className="mt-1"
               />
             </div>
             <div className="w-[7.5rem]">
-              <Label
-                htmlFor="maxPrice"
-                className="text-muted-foreground text-xs uppercase"
-              >
-                Max
-              </Label>
+              <Label htmlFor="maxPrice">Max</Label>
               <NumberInput
                 id="maxPrice"
                 optional
@@ -486,20 +462,20 @@ const AuctionListing: React.FC<AuctionListingProps> = ({
                 placeholder="∞"
                 value={maxPrice}
                 onTextChange={setMaxPrice}
-                className="mt-1 h-11 rounded-xl shadow-sm"
+                className="mt-1"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-3 md:p-5">
+      <div className="pt-3">
         {isLoading && allListings.length === 0 ? (
           <div className="flex min-h-[40vh] items-center justify-center">
             <Loader explanation="Loading lots…" />
           </div>
         ) : allListings.length === 0 ? (
-          <div className="flex min-h-[36vh] flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 px-6 py-16 text-center">
+          <div className="flex min-h-[36vh] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
             <Landmark className="mb-3 h-12 w-12 text-muted-foreground opacity-60" />
             <p className="font-medium text-lg">No lots match your filters</p>
             <p className="mt-1 max-w-sm text-muted-foreground text-sm">
@@ -591,8 +567,8 @@ const AuctionLotCard: React.FC<AuctionLotCardProps> = ({
       type="button"
       onClick={onOpen}
       className={cn(
-        "group flex h-full w-full flex-col rounded-2xl border border-border/80 bg-card text-left shadow-sm transition-all",
-        "hover:border-amber-500/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60",
+        "group flex h-full w-full flex-col rounded-xl border bg-card text-left shadow-sm transition-all",
+        "hover:border-primary/50 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
       <div className="flex min-h-0 flex-1 gap-3 p-3">
@@ -998,7 +974,7 @@ const AuctionDetailsDialog: React.FC<AuctionDetailsDialogProps> = ({
           />
         </div>
 
-        <Card className="overflow-hidden border-amber-500/25 bg-linear-to-br from-amber-950/10 via-card to-card shadow-sm">
+        <Card className="overflow-hidden">
           <CardHeader className="space-y-0.5 p-3 pb-2">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
               <CardTitle className="flex items-center gap-1.5 font-semibold text-xs">
@@ -1634,12 +1610,7 @@ export const NewAuctionListingDialog: React.FC<{
       }}
     >
       <DialogTrigger asChild>
-        <Button
-          size="icon"
-          aria-label="List item"
-          hoverText="List item"
-          className="min-h-[44px] min-w-[44px] rounded-full shadow-sm"
-        >
+        <Button size="icon" aria-label="List item" hoverText="List item">
           <Plus aria-hidden="true" className="h-4 w-4" />
         </Button>
       </DialogTrigger>

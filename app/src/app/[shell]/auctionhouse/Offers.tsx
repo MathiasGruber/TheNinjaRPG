@@ -69,14 +69,9 @@ export function AuctionOffers({
   const offers = query.data?.pages.flatMap((page) => page.data) ?? [];
   return (
     <div>
-      <div className="flex flex-wrap items-end gap-3 border-b bg-muted/25 px-3 py-4 md:px-5">
-        <div className="min-w-0 flex-1 sm:max-w-sm">
-          <Label
-            htmlFor="offer-search"
-            className="text-muted-foreground text-xs uppercase"
-          >
-            Search requested items
-          </Label>
+      <div className="flex flex-wrap items-end gap-3 border-b py-3">
+        <div className="min-w-0 flex-1">
+          <Label htmlFor="offer-search">Search requested items</Label>
           <div className="relative mt-1">
             <Search
               aria-hidden="true"
@@ -87,7 +82,7 @@ export function AuctionOffers({
               placeholder="Search by item name…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="h-11 rounded-xl border-border/80 bg-background pl-10 shadow-sm"
+              className="pl-10"
             />
           </div>
         </div>
@@ -95,12 +90,11 @@ export function AuctionOffers({
           variant={onlyMine ? "default" : "outline"}
           onClick={() => setOnlyMine(!onlyMine)}
           aria-pressed={onlyMine}
-          className="h-11 min-h-[44px] rounded-xl"
         >
           {offerType === "REQUEST" ? "My requests" : "My trades"}
         </Button>
       </div>
-      <div className="space-y-4 p-3 md:p-5">
+      <div className="space-y-4 pt-3">
         {query.isLoading ? (
           <Loader explanation="Loading offers" />
         ) : query.isError ? (
@@ -206,7 +200,6 @@ export function NewOfferDialog({
           size="icon"
           aria-label={offerType === "REQUEST" ? "New request" : "New trade"}
           hoverText={offerType === "REQUEST" ? "New request" : "New trade"}
-          className="min-h-[44px] min-w-[44px] rounded-full shadow-sm"
         >
           <Plus aria-hidden="true" className="h-4 w-4" />
         </Button>
