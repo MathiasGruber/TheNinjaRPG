@@ -9,7 +9,7 @@ describe("masked battle payload", () => {
   it("omits settlement records without mutating the authoritative battle or changing client actions", () => {
     vi.spyOn(Date, "now").mockReturnValue(1767225600000);
     const battle = makeCompleteBattle({
-      usersState: [makeBattleUser("me"), makeBattleUser("opponent")],
+      usersState: [makeBattleUser("me"), makeBattleUser("opponent", {bloodlineId: "line"})],
       extraState: {
         userQuests: { me: [{ id: "quest", quest: { content: "x".repeat(10000) } } as unknown as UserQuest] },
         completedQuests: { me: [{ id: "completed", questId: "quest", completed: 1 }] },
@@ -24,8 +24,8 @@ describe("masked battle payload", () => {
     expect(masked.extraState.userQuests).toEqual({});
     expect(masked.extraState.completedQuests).toEqual({});
     expect(masked.extraState.sectorExclusiveRaids).toEqual([]);
-    expect(masked.extraState.textureAssets).toBe(battle.extraState.textureAssets);
-    expect(masked.extraState.jutsus).toBe(battle.extraState.jutsus);
+    expect(masked.extraState.textureAssets).not.toContain("texture");
+    expect(masked.extraState.jutsus).toEqual(battle.extraState.jutsus);
     expect(masked.extraState.bloodlines.line).toEqual<{ id: string; name: string }>({ id: "line", name: "Visible bloodline" });
     expect(JSON.stringify(masked)).not.toContain("Secret catalog");
     expect(availableUserActions(masked, "me")).toEqual(availableUserActions(battle, "me"));

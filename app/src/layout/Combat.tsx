@@ -267,10 +267,21 @@ const Combat: React.FC<CombatProps> = (props) => {
   const allAssets = [...textureAssets, ...sfxAssets];
 
   // Query data
-  const { data: gameAssets } = api.misc.getAllGameAssetNames.useQuery(
-    { ids: allAssets },
-    { enabled: !!battleRef.current },
-  );
+  const { data: gameAssets, isPlaceholderData: hasPreviousGameAssets } =
+    api.misc.getAllGameAssetNames.useQuery(
+      { ids: allAssets },
+      { enabled: !!battleRef.current, placeholderData: (previous) => previous },
+    );
+  const hasGameAssets = gameAssets !== undefined;
+  const gameAssetsRef = useRef({
+    assets: gameAssets ?? [],
+    requestedIds: new Set(allAssets),
+  });
+  useEffect(() => {
+    if (gameAssets && !hasPreviousGameAssets) {
+      gameAssetsRef.current = { assets: gameAssets, requestedIds: new Set(allAssets) };
+    }
+  }, [gameAssets, hasPreviousGameAssets, allAssets]);
 
   // Preload all combat-related asset textures once assets list is ready
   useEffect(() => {
@@ -529,12 +540,14 @@ const Combat: React.FC<CombatProps> = (props) => {
           await handleNextStepAsync(currentStep.onCombatLoss);
         }
       }
-      // Update battle state - merge dynamic update with existing extraState
+      // Merge refreshed visible catalogs with static rendering data.
       if (data.updateClient && data.battleUpdate && battleRef.current?.extraState) {
-        // Merge the dynamic battle update with the existing extraState
         const mergedBattle = {
           ...data.battleUpdate,
-          extraState: battleRef.current.extraState,
+          extraState: {
+            ...battleRef.current.extraState,
+            ...data.battleUpdate.extraState,
+          },
         };
         battleRef.current = mergedBattle;
         setBattleState({
@@ -931,7 +944,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     // Reference to the mount
     const sceneRef = mountRef.current;
 
-    if (sceneRef && battleRef.current && gameAssets !== undefined) {
+    if (sceneRef && battleRef.current && hasGameAssets) {
       // Mark component as mounted
       isMountedRef.current = true;
       // Used for map size calculations
@@ -1177,7 +1190,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             group_assets: group_assets,
             sfxEnabled: Boolean(userData?.sfxOn ?? true),
             sfxVolume: sfxVolume,
-            gameAssets: gameAssets ?? [],
+            gameAssets: gameAssetsRef.current.assets,
           });
           endDrawUsers();
 
@@ -1195,17 +1208,25 @@ const Combat: React.FC<CombatProps> = (props) => {
 
           // Draw all ground effects on the map (non-movement SFX delayed until movement completes)
           const endDrawEffects = profiler?.mark("animate_draw_effects") ?? (() => {});
-          drawCombatEffects({
-            groupEffects: group_effects,
-            battle: battleRef.current,
-            grid: gridRef.current,
-            animationId: hasRenderedFrame ? 1 : 0,
-            spriteMixer,
-            gameAssets: gameAssets ?? [],
-            sfxEnabled: Boolean(userData?.sfxOn ?? true),
-            sfxVolume: sfxVolume,
-            isAnyUserMoving,
-          });
+          // Wait for newly revealed assets before caching the effect's first
+          // frame, so its appear animation and sound play when the lookup arrives.
+          if (
+            [
+              ...(battleRef.current.extraState.textureAssets ?? []),
+              ...(battleRef.current.extraState.sfxAssets ?? []),
+            ].every((id) => gameAssetsRef.current.requestedIds.has(id))
+          )
+            drawCombatEffects({
+              groupEffects: group_effects,
+              battle: battleRef.current,
+              grid: gridRef.current,
+              animationId: hasRenderedFrame ? 1 : 0,
+              spriteMixer,
+              gameAssets: gameAssetsRef.current.assets,
+              sfxEnabled: Boolean(userData?.sfxOn ?? true),
+              sfxVolume: sfxVolume,
+              isAnyUserMoving,
+            });
           endDrawEffects();
 
           // Performance optimization: Run raycaster intersections once per frame
@@ -1390,7 +1411,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         cleanUp(scene, renderer);
       };
     }
-  }, [battleId, gameAssets, userData?.sfxOn]);
+  }, [battleId, hasGameAssets, userData?.sfxOn]);
 
   // Update visibility when showGridNumbers flag changes
   useEffect(() => {

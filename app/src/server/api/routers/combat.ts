@@ -851,8 +851,7 @@ export const combatRouter = createTRPCRouter({
               result ? updateRaidProgress(db, newBattle, suid) : Promise.resolve(),
               finishBattle(),
             ]);
-            // Return dynamic battle update (excludes extraState for efficiency)
-            // Frontend should merge this with existing extraState
+            // Return dynamic state and the viewer's current visible action catalogs.
             const newMaskedBattle = maskBattleDynamic(newBattle, suid);
 
             // Ping users on websocket
@@ -873,7 +872,7 @@ export const combatRouter = createTRPCRouter({
             after(() => Sentry.flush(15000));
 
             // Return the new battle + result state if applicable
-            // Note: battleUpdate excludes extraState - frontend merges with existing
+            // The frontend merges visible catalogs into existing rendering data.
             return {
               result: result,
               updateClient: true,

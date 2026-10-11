@@ -106,6 +106,7 @@ describe("GROUND-targeted item usage records into usedActions", () => {
     });
 
     expect(result).toBe(true);
+    expect(battle.extraState.revealedActions).toEqual({ jutsuIds: [], itemIds: [ITEM_ID] });
     const itemUses = actor.usedActions.filter((a) => a.type === "item");
     expect(itemUses.map((a) => a.id)).toContain(ITEM_ID);
   });

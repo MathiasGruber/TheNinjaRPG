@@ -134,11 +134,12 @@ const CombatTimeline: React.FC<CombatTimelineProps> = ({
             : [];
         const action = actions.find((a) => a.id === entry.actionId);
 
-        const userJutsu = user?.jutsus?.find((j) => j.jutsuId === entry.actionId);
+        // Catalogs contain the viewer's actions and publicly used actions; resolving
+        // logs by action ID does not require exposing anyone else's loadout.
         const jutsu =
-          battle && userJutsu ? getJutsu(battle, userJutsu.jutsuId) : undefined;
-        const userItem = user?.items?.find((i) => i.itemId === entry.actionId);
-        const item = battle && userItem ? getItem(battle, userItem.itemId) : undefined;
+          battle && entry.actionId ? getJutsu(battle, entry.actionId) : undefined;
+        const item =
+          battle && entry.actionId ? getItem(battle, entry.actionId) : undefined;
 
         let actionImage: string | undefined;
         let actionItem: GenericObject;
@@ -146,7 +147,7 @@ const CombatTimeline: React.FC<CombatTimelineProps> = ({
         if (jutsu) {
           actionImage = jutsu.image;
           actionItem = jutsu;
-        } else if (userItem && item) {
+        } else if (item) {
           actionImage = item.image;
           actionItem = item;
         } else {

@@ -25,6 +25,15 @@ import {
   getUserCaps,
   HEX_ASPECT_RATIO,
   HEX_STACKING_DISPLACEMENT,
+  ID_ANIMATION_HEAL,
+  ID_ANIMATION_HIT,
+  ID_ANIMATION_SMOKE,
+  ID_SFX_CLEANSE,
+  ID_SFX_CLEAR,
+  ID_SFX_HEAL,
+  ID_SFX_HIT,
+  ID_SFX_MOVE,
+  ID_SFX_SMOKE,
   isPreBattleGearFromType,
   KAGE_CHALLENGE_WIN_PRESTIGE,
   KAGE_PRESTIGE_COST,
@@ -39,6 +48,7 @@ import {
   PVP_KILL_TOKEN_REWARD_ANBU,
   PVP_KILL_TOKEN_REWARD_ASSASSIN,
   PvpBattleTypes,
+  SAGE_MODE_ACTIVATION_JUTSU_ID,
   SHARED_COOLDOWN_TAGS,
   STREAK_LEVEL_DIFF,
   WAR_HEALTH_ANBU_RECOVER,
@@ -62,7 +72,6 @@ import {
 } from "@/drizzle/constants";
 import type {
   Battle,
-  Bloodline,
   GameSetting,
   Item,
   UserItem,
@@ -71,7 +80,7 @@ import type {
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { combatMasteryGains } from "@/libs/combat/mastery";
 import { supportsNpcAllies } from "@/libs/combat/participants";
-import { spliceOrphanedSummons } from "@/libs/combat/summon";
+import { isSummonTemplate, spliceOrphanedSummons } from "@/libs/combat/summon";
 import type { BattleEffect, GroundEffect, UserEffect } from "@/libs/combat/types";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
@@ -104,6 +113,7 @@ import type {
   DroppedItem,
   ReturnedBattle,
   ReturnedBattleDynamic,
+  ReturnedExtraState,
   ReturnedUserState,
 } from "./types";
 
@@ -207,12 +217,14 @@ export const getItemOrThrow = (
 /**
  * Get full Village data from extraState by villageId
  */
-export const getVillage = (
-  battle: CompleteBattle | ReturnedBattle,
+export const getVillage = <T extends CompleteBattle | ReturnedBattle>(
+  battle: T,
   villageId: string | null | undefined,
-) => {
+): T["extraState"]["villages"][string] | undefined => {
   if (!villageId) return undefined;
-  return battle.extraState.villages?.[villageId];
+  return battle.extraState.villages?.[villageId] as
+    | T["extraState"]["villages"][string]
+    | undefined;
 };
 
 /**
@@ -229,12 +241,14 @@ export const getAnbuSquad = (
 /**
  * Get Clan data from extraState by clanId
  */
-export const getClan = (
-  battle: CompleteBattle | ReturnedBattle,
+export const getClan = <T extends CompleteBattle | ReturnedBattle>(
+  battle: T,
   clanId: string | null | undefined,
-) => {
+): T["extraState"]["clans"][string] | undefined => {
   if (!clanId) return undefined;
-  return battle.extraState.clans?.[clanId];
+  return battle.extraState.clans?.[clanId] as
+    | T["extraState"]["clans"][string]
+    | undefined;
 };
 
 /**
@@ -1523,66 +1537,238 @@ export const maskUsersState = (
   usersState: BattleUserState[],
   userId: string,
 ): ReturnedUserState[] => {
-  return usersState.map((user) => {
-    if (user.controllerId !== userId) {
-      return Object.fromEntries(
-        publicState.map((key) => [key, user[key]]),
-      ) as unknown as ReturnedUserState;
-    } else {
-      return Object.fromEntries(
-        allState.map((key) => [key, user[key]]),
-      ) as unknown as ReturnedUserState;
-    }
-  });
+  return usersState
+    .filter((user) => !isSummonTemplate(user, usersState))
+    .map((user) => {
+      if (user.controllerId !== userId) {
+        return Object.fromEntries(
+          publicState.map((key) => [key, user[key]]),
+        ) as unknown as ReturnedUserState;
+      } else {
+        return Object.fromEntries(
+          allState.map((key) => [key, user[key]]),
+        ) as unknown as ReturnedUserState;
+      }
+    });
 };
 
 /**
- * Masks information from a battle prior to returning it to the frontend,
- * i.e. do not leak opponents stats
+ * Send only catalogs needed for the viewer's actions and actions already revealed
+ * in the combat log. An allowlist keeps new server-only state private by default.
  */
-export const maskBattle = (battle: Battle, userId: string) => {
+const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraState => {
+  const state = battle.extraState;
+  const visibleUsers = battle.usersState.filter(
+    (u) => !isSummonTemplate(u, battle.usersState),
+  );
+  const controlledUsers = visibleUsers.filter((u) => u.controllerId === userId);
+  const jutsuIds = new Set(
+    controlledUsers.flatMap((u) => u.jutsus?.map((j) => j.jutsuId) ?? []),
+  );
+  const itemIds = new Set(
+    controlledUsers.flatMap((u) => u.items?.map((i) => i.itemId) ?? []),
+  );
+  const reskinIds = new Set(
+    controlledUsers.flatMap((u) => u.jutsus?.map((j) => j.reskinId) ?? []),
+  );
+  const sageModeIds = new Set(controlledUsers.map((u) => u.sageModeId));
+
+  for (const id of state?.revealedActions?.jutsuIds ?? []) jutsuIds.add(id);
+  for (const id of state?.revealedActions?.itemIds ?? []) itemIds.add(id);
+
+  // Injected actions can become available after the initial fetch, including on a
+  // newly piloted summon. Include their definitions only once granted to the viewer.
+  for (const effect of battle.usersEffects ?? []) {
+    if (
+      effect.type === "injectjutsus" &&
+      controlledUsers.some((u) => u.userId === effect.targetId)
+    ) {
+      for (const id of effect.jutsuIds) jutsuIds.add(id);
+    }
+  }
+  if (controlledUsers.some((u) => u.sageModeId))
+    jutsuIds.add(SAGE_MODE_ACTIVATION_JUTSU_ID);
+  for (const user of battle.usersState) {
+    for (const action of user.usedActions ?? []) {
+      if (action.type === "jutsu") jutsuIds.add(action.id);
+      if (action.type === "item") itemIds.add(action.id);
+    }
+  }
+
+  const select = <T>(
+    catalog: Record<string, T> | undefined,
+    ids: Set<string | null | undefined>,
+  ) => Object.fromEntries(Object.entries(catalog ?? {}).filter(([id]) => ids.has(id)));
+  const jutsus = select(state?.jutsus, jutsuIds);
+  const items = select(state?.items, itemIds);
+  const effects = [
+    ...Object.values(jutsus).flatMap((j) => j.effects),
+    ...Object.values(items).flatMap((i) => i.effects),
+    ...maskBattleEffects(battle.usersEffects, battle, userId),
+    ...maskBattleEffects(battle.groundEffects, battle, userId),
+  ];
+
   return {
-    ...battle,
-    // Reward settlement uses the authoritative server state; the client never reads
-    // these records. Keep the remaining catalogs for actions, summons and rendering.
-    extraState: {
-      ...battle.extraState,
-      // Lobby loadout changes need the server catalog; clients must not see unpurchased tiers.
-      bloodlines: Object.fromEntries(
-        Object.entries(battle.extraState?.bloodlines ?? {}).map(([id, line]) => {
-          const { bloodrightTiers: _tiers, ...bloodline } = line as Bloodline & {
-            bloodrightTiers?: unknown;
-          };
-          return [id, bloodline];
-        }),
-      ),
-      profileCacheSnapshots: {},
-      enemySkills: {},
-      userQuests: {},
-      completedQuests: {},
-      questData: {},
-      bounties: {},
-      bountySignups: {},
-      sectorExclusiveRaids: [],
-    },
-    usersState: maskUsersState(battle.usersState, userId),
+    jutsus,
+    items,
+    jutsuReskins: select(state?.jutsuReskins, reskinIds),
+    sageModes: select(state?.sageModes, sageModeIds),
+    villages: Object.fromEntries(
+      Object.entries(
+        select(state?.villages, new Set(visibleUsers.map((u) => u.villageId))),
+      ).map(([id, village]) => [id, { id, hexColor: village.hexColor }]),
+    ),
+    clans: Object.fromEntries(
+      Object.entries(
+        select(state?.clans, new Set(visibleUsers.map((u) => u.clanId))),
+      ).map(([id, clan]) => [id, { id, image: clan.image }]),
+    ),
+    bloodlines: Object.fromEntries(
+      Object.entries(
+        select(state?.bloodlines, new Set(visibleUsers.map((u) => u.bloodlineId))),
+      ).map(([id, line]) => {
+        const { bloodrightTiers: _tiers, ...bloodline } = line as typeof line & {
+          bloodrightTiers?: unknown;
+        };
+        return [id, bloodline];
+      }),
+    ),
+    enemySkills: {},
+    anbuSquads: {},
+    keystoneItems: select(
+      state?.keystoneItems,
+      new Set(visibleUsers.map((u) => u.keystoneItemId)),
+    ),
+    wars: {},
+    aiProfiles: {},
+    relations: {},
+    profileCacheSnapshots: {},
+    userQuests: {},
+    completedQuests: {},
+    questData: {},
+    bounties: {},
+    bountySignups: {},
+    sectorExclusiveRaids: [],
+    energyRegeneration: select(state?.energyRegeneration, new Set([userId])),
+    textureAssets: [
+      ...new Set([
+        ID_ANIMATION_SMOKE,
+        ID_ANIMATION_HIT,
+        ID_ANIMATION_HEAL,
+        ...effects
+          .flatMap((e) => [
+            e.appearAnimation,
+            e.disappearAnimation,
+            e.staticAnimation,
+            e.staticAssetPath,
+          ])
+          .filter((id): id is string => !!id),
+      ]),
+    ],
+    sfxAssets: [
+      ...new Set([
+        ID_SFX_SMOKE,
+        ID_SFX_HIT,
+        ID_SFX_HEAL,
+        ID_SFX_MOVE,
+        ID_SFX_CLEANSE,
+        ID_SFX_CLEAR,
+        ...effects
+          .flatMap((e) => [e.appearSfx, e.disappearSfx])
+          .filter((id): id is string => !!id),
+      ]),
+    ],
   };
 };
 
+/** Preserve visible effects while removing private equipment/skill sources and grants. */
+const maskBattleEffects = <T extends BattleEffect>(
+  effects: T[] | undefined,
+  battle: Battle,
+  userId: string,
+): T[] => {
+  const controlledIds = new Set(
+    battle.usersState.filter((u) => u.controllerId === userId).map((u) => u.userId),
+  );
+  const templateIds = new Set(
+    battle.usersState
+      .filter((u) => isSummonTemplate(u, battle.usersState))
+      .map((u) => u.userId),
+  );
+  return (effects ?? [])
+    .filter(
+      (effect) =>
+        !templateIds.has(effect.creatorId) &&
+        !("targetId" in effect && templateIds.has(String(effect.targetId))),
+    )
+    .map((effect) => {
+      const masked = { ...effect };
+      if (!controlledIds.has(effect.creatorId)) delete masked.highestGenerals;
+      if (!("targetId" in effect && controlledIds.has(String(effect.targetId))))
+        delete masked.targetHighestGenerals;
+      return {
+        ...masked,
+        // Passive modifiers are visible in the effects panel; their equipment and
+        // skill IDs are not needed to render or apply those modifiers on the client.
+        ...(!controlledIds.has(effect.creatorId) &&
+        ["armor", "accessory", "skill"].includes(effect.fromType ?? "")
+          ? { actionId: "hidden" }
+          : {}),
+        ...(effect.type === "injectjutsus" &&
+        !("targetId" in effect && controlledIds.has(String(effect.targetId)))
+          ? { jutsuIds: [] }
+          : {}),
+      };
+    });
+};
+
+/** Masks the response without changing the authoritative battle used by combat. */
+export const maskBattle = (battle: Battle, userId: string): ReturnedBattle => ({
+  ...battle,
+  extraState: maskBattleExtraState(battle, userId),
+  usersState: maskUsersState(battle.usersState, userId),
+  usersEffects: maskBattleEffects(battle.usersEffects, battle, userId),
+  groundEffects: maskBattleEffects(battle.groundEffects, battle, userId),
+});
+
 /**
- * Masks a battle for returning dynamic updates (excludes extraState).
- * Used by performAction to send only the fields that changed during combat.
- * Frontend should merge this with existing extraState from initial battle fetch.
+ * Include the visible action catalogs in dynamic updates: granting injected jutsu
+ * or piloting a summon can reveal definitions absent from the initial response.
  */
 export const maskBattleDynamic = (
   battle: Battle,
   userId: string,
 ): ReturnedBattleDynamic => {
   const { extraState: _extraState, ...dynamicBattle } = battle;
-  void _extraState; // Intentionally excluded from dynamic updates
+  const {
+    jutsus,
+    items,
+    jutsuReskins,
+    sageModes,
+    bloodlines,
+    keystoneItems,
+    villages,
+    clans,
+    textureAssets,
+    sfxAssets,
+  } = maskBattleExtraState(battle, userId);
   return {
     ...dynamicBattle,
+    extraState: {
+      jutsus,
+      items,
+      jutsuReskins,
+      sageModes,
+      bloodlines,
+      keystoneItems,
+      villages,
+      clans,
+      textureAssets,
+      sfxAssets,
+    },
     usersState: maskUsersState(dynamicBattle.usersState, userId),
+    usersEffects: maskBattleEffects(battle.usersEffects, battle, userId),
+    groundEffects: maskBattleEffects(battle.groundEffects, battle, userId),
   };
 };
 

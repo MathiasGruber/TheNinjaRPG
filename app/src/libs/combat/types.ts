@@ -377,6 +377,8 @@ export type PreBattleGearModifiers = {
  * Static data is stored once at battle initiation and looked up by ID.
  */
 export type ExtraState = {
+  /** Definitions of publicly performed actions, retained after their caster despawns. */
+  revealedActions?: { jutsuIds: string[]; itemIds: string[] };
   /** Persisted, unscaled player state for confirmed completion responses; never sent to opponents. */
   profileCacheSnapshots?: Record<string, CombatCacheSnapshot>;
   /** Repeated-opponent eligibility captured before inserting this battle. */
@@ -451,8 +453,14 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
 /**
  * A returned battle used on frontend where private information is hidden
  */
-export type ReturnedBattle = Omit<CompleteBattle, "usersState"> & {
+export type ReturnedExtraState = Omit<ExtraState, "villages" | "clans"> & {
+  villages: Record<string, Pick<CombatQueryVillage, "id" | "hexColor">>;
+  clans: Record<string, Pick<Clan, "id" | "image">>;
+};
+
+export type ReturnedBattle = Omit<CompleteBattle, "usersState" | "extraState"> & {
   usersState: ReturnedUserState[];
+  extraState: ReturnedExtraState;
 };
 
 /** Minimal battle context for per-round effect logic (e.g. castThisRound). */
@@ -466,10 +474,23 @@ export type BattleDynamicUpdate = Omit<CompleteBattle, "extraState">;
 
 /**
  * Returned dynamic battle update with masked user state.
- * Used for performAction responses to avoid sending static extraState.
+ * Used for performAction responses with refreshed visible action catalogs.
  */
 export type ReturnedBattleDynamic = Omit<BattleDynamicUpdate, "usersState"> & {
   usersState: ReturnedUserState[];
+  extraState: Pick<
+    ReturnedExtraState,
+    | "jutsus"
+    | "items"
+    | "jutsuReskins"
+    | "sageModes"
+    | "bloodlines"
+    | "keystoneItems"
+    | "villages"
+    | "clans"
+    | "textureAssets"
+    | "sfxAssets"
+  >;
 };
 
 export type DroppedItem = {

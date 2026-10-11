@@ -43,28 +43,24 @@ export const dmgConfig = {
 export type DmgConfig = typeof dmgConfig;
 
 /**
- * Which user state is public (using ID references - full data is in extraState)
+ * Battlefield state needed to render participants and their visible status.
  */
 export const publicState = [
   "skillLockedJutsuIds",
   "actionPoints",
-  "anbuId",
   "avatar",
   "avatarFacing",
-  "basicActions",
   "bloodlineId",
+  "keystoneName",
+  "keystoneItemId",
+  "updatedAt",
   "clanId",
-  "sageModeId",
   "sageModeActivated",
   "sageModeActivatedRound",
   "sageModeExpiresRound",
   "sageModeUsedThisBattle",
-  "sageMasteryExperience",
-  "dailySageActivations",
   "controllerId",
   "curChakra",
-  "curEnergy",
-  "maxEnergy",
   "curHealth",
   "curStamina",
   "direction",
@@ -77,29 +73,18 @@ export const publicState = [
   "isAutoCombat",
   "isSummon",
   "isOriginal",
-  "items",
-  "jutsus",
-  "keystoneName",
-  "keystoneItemId",
   "latitude",
   "leftBattle",
   "level",
-  "location",
   "longitude",
   "maxChakra",
   "maxHealth",
   "maxStamina",
-  "medicalExperience",
   "rank",
-  "relationIds",
   "round",
-  "regeneration",
-  "sector",
-  "updatedAt",
   "userId",
   "username",
   "villageId",
-  "warIds",
 ] as const;
 
 /**
@@ -107,6 +92,22 @@ export const publicState = [
  */
 export const privateState = [
   "activeSkillIds",
+  "anbuId",
+  "basicActions",
+  "sageModeId",
+  "sageMasteryExperience",
+  "dailySageActivations",
+  "curEnergy",
+  "maxEnergy",
+  "items",
+  "jutsus",
+  "location",
+  "medicalExperience",
+  "relationIds",
+  "regeneration",
+  "sector",
+  "warIds",
+
   "masteryRanks",
   "usedMasteries",
   "bloodlineMastery",
@@ -123,7 +124,6 @@ export const privateState = [
   "speed",
   "strength",
   "taijutsuMastery",
-  "updatedAt",
   "willpower",
 ] as const;
 
