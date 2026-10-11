@@ -89,7 +89,7 @@ const mkBattle = (human: BattleUserState): CompleteBattle =>
 const mkHuman = (over: Partial<BattleUserState> = {}): BattleUserState =>
   mkUser({
     userId: "user_h1", username: "Human", controllerId: "user_h1",
-    isAi: false, aiProfileId: PROFILE, longitude: 2, latitude: 2,
+    isAi: false, direction: "left", aiProfileId: PROFILE, longitude: 2, latitude: 2,
     jutsus: [{ id: "uj1", jutsuId: DAMAGE_JUTSU, level: 1, experience: 0,
                equipped: true, lastUsedRound: -99, originalCooldown: 0 }],
     ...over,

@@ -1315,6 +1315,7 @@ export const combatRouter = createTRPCRouter({
         reconcileLobbyPools(usersState[0], originalPools, completeUserEffects);
         usersState[0].initiative = originalInitiative;
         usersState[0].direction = originalDirection;
+        usersState[0].isAggressor = user.isAggressor;
       }
 
       // Merge the user's state with the other user's state

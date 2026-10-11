@@ -44,7 +44,7 @@ import {
   warKill,
 } from "@/drizzle/schema";
 import { stillInBattle } from "@/libs/combat/actions";
-import { supportsNpcAllies } from "@/libs/combat/participants";
+import { areBattleAllies } from "@/libs/combat/participants";
 import type { ActionEffect, CombatResult, CompleteBattle } from "@/libs/combat/types";
 import {
   canCacheCombatCompletion,
@@ -56,9 +56,10 @@ import {
 import {
   buildCombatTrackerTasks,
   didKageChallengerWin,
+  getBattleTeamWars,
   getItem,
+  getOpposingBattleWars,
   getVillage,
-  getWarsArray,
   hydrateUserForQuests,
   isPvpEnergyRewardBattle,
 } from "@/libs/combat/util";
@@ -78,7 +79,6 @@ import {
   prepareExclusiveRaidActivation,
 } from "@/libs/raids";
 import { battleItemExp, battleJutsuExp } from "@/libs/train";
-import { findWarsWithUser } from "@/libs/war";
 import type { UserWithRelations } from "@/routers/profile";
 import type { DrizzleClient } from "@/server/db";
 import { reduceActiveFarmPlotTimers } from "@/server/utils/farming";
@@ -154,10 +154,7 @@ export const updateBattle = async (
   // Get user and other user
   const user = newBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const other = newBattle.usersState.find(
-    (u) =>
-      u.userId !== userId &&
-      !u.isSummon &&
-      (!supportsNpcAllies(newBattle.battleType) || u.direction !== user?.direction),
+    (u) => u.userId !== userId && !u.isSummon && user && !areBattleAllies(u, user),
   );
 
   // Non-summon humans in this raid battle. Used to purge raid-chat memberships
@@ -410,13 +407,7 @@ export const saveUsage = async (
           type: "ai",
           contentId: ai.controllerId,
           battleType,
-          battleWon: (
-            supportsNpcAllies(battleType)
-              ? ai.direction === user.direction
-              : ai.controllerId === userId
-          )
-            ? battleWon
-            : oppositeBattleWon,
+          battleWon: areBattleAllies(ai, user) ? battleWon : oppositeBattleWon,
         });
       });
     // Keep one usage per content and outcome, including templates on both teams.
@@ -645,21 +636,11 @@ export const updateWars = async (
   if (!result) return;
   // Skip war updates if kill happened in war-torn sector
   if (user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR) return;
-  // Get user's wars from static data
-  const userWars = getWarsArray(curBattle, user);
-
-  // Fetch target with whom the user is in a war
+  // Team faction context is entirely preloaded; teammates are never war victims.
   const warResults = curBattle.usersState
-    .filter((t) => t.userId !== userId)
-    .filter((t) => !t.isSummon)
-    .map((target) => {
-      const targetWars = getWarsArray(curBattle, target);
-      return {
-        target,
-        wars: findWarsWithUser(targetWars, userWars, target.villageId, userVillageId),
-      };
-    })
-    .filter((wr) => wr.wars.length > 0);
+    .filter((target) => !target.isSummon && !areBattleAllies(target, user))
+    .map((target) => ({ target, wars: getOpposingBattleWars(curBattle, user, target) }))
+    .filter((entry) => entry.wars.length > 0);
 
   // Run all war updates in parallel
   // Note: War kill inserts, war health updates, and all shrine updates run in parallel
@@ -674,17 +655,7 @@ export const updateWars = async (
   const sectorsWithDefeatedShrine = new Set<number>();
 
   warResults.forEach((warResult) => {
-    warResult.wars.forEach((w) => {
-      const killerSideVillageId =
-        w.attackerVillageId === user.villageId ||
-        w.warAllies.some(
-          (a) =>
-            a.villageId === user.villageId &&
-            a.supportVillageId === w.attackerVillageId,
-        )
-          ? w.attackerVillageId
-          : w.defenderVillageId;
-
+    warResult.wars.forEach(({ war: w, sideVillageId: killerSideVillageId }) => {
       // Insert war kill for tracking purposes
       // Use per-war shrine HP change for village wars/raids (includes level diff adjustment)
       // For sector wars, use the total accumulated shrineChangeHp value
@@ -911,10 +882,10 @@ export const updateWars = async (
   });
 
   // Handle SHRINE_WAR defend scenarios where user and AI share same villageId
-  // In these cases, findWarsWithUser returns no results, so warResults is empty
+  // In these cases, both teams have the same faction, so warResults is empty
   // but villageWarShrineInfo may still have data from the defend scenario handler in util.ts
   if (curBattle.battleType === "SHRINE_WAR") {
-    const userWars = getWarsArray(curBattle, user);
+    const userWars = getBattleTeamWars(curBattle, user).map(({ war }) => war);
     for (const warId of Object.keys(result.villageWarShrineInfo)) {
       // Skip if already processed through warResults
       if (processedShrineWarIds.has(warId)) continue;
@@ -1311,26 +1282,10 @@ export const updateUser = async (
     );
     const farmActivityAt = new Date();
 
-    // War-kill detection: an opposing-side, non-summon foe who shares an active war with the
-    // user. The `t.direction !== user.direction` guard restricts the match to actual opponents,
-    // so it means "a fight that contained a war foe on the other side" rather than a war foe on
-    // the killer's own side (e.g. a co-op raid). War-torn sector kills are excluded (war state is
-    // not tracked there). Shrine AI kills are covered too: shrine AIs defend (right side) and
-    // carry the defending village's villageId, so findWarsWithUser matches them. Computed from
-    // pre-loaded battle state (no DB fetch).
-    const userWars = getWarsArray(curBattle, user);
-    const isOpposingWarFoe = (t: (typeof curBattle.usersState)[number]) =>
-      !isInWarTornSector &&
-      !!user.villageId &&
-      t.userId !== userId &&
-      !t.isSummon &&
-      t.direction !== user.direction &&
-      findWarsWithUser(
-        getWarsArray(curBattle, t),
-        userWars,
-        t.villageId,
-        user.villageId,
-      ).length > 0;
+    // War quest credit follows both combat teams' preloaded faction participation.
+    // War-torn kills remain outside persistent war state.
+    const isOpposingWarFoe = (target: (typeof curBattle.usersState)[number]) =>
+      !isInWarTornSector && getOpposingBattleWars(curBattle, user, target).length > 0;
     // Battle-global war participation (outcome-independent): gates the per-battle pvp_kills
     // counter for war quests. Per-opponent `warFoe` (below) gates defeat_opponents so a non-war
     // target isn't credited just because a war foe shared the battle.
@@ -1359,15 +1314,10 @@ export const updateUser = async (
       }
     }
 
-    // NPC ally battles credit defeat objectives only for opposing non-summon participants.
+    // Shared opponent credit follows the battle team, excluding summons and allies.
     const trackerEvents = [
       ...curBattle.usersState
-        .filter(
-          (u) =>
-            u.userId !== userId &&
-            (!supportsNpcAllies(curBattle.battleType) ||
-              (!u.isSummon && u.direction !== user.direction)),
-        )
+        .filter((u) => !u.isSummon && !areBattleAllies(u, user))
         .flatMap((u) => [
           // Defeat opponent with outcome; gated per quest type in getNewTrackers (pvp → war-torn
           // sector, war → this opponent being an active-war foe).

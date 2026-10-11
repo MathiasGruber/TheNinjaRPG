@@ -74,8 +74,8 @@ const setup = (target: AvailableTarget = "CLOSEST_OPPONENT", conditions: ZodAllA
   });
   const battle = mkBattle(actor);
   battle.usersState = [actor,
-    mkUser({ userId: "boss", controllerId: "boss", villageId: "enemy", longitude: 4, latitude: 1, maxHealth: 9000, curHealth: 3000, enmity: 800 }),
-    mkUser({ userId: "minion", controllerId: "minion", villageId: "enemy", longitude: 3, latitude: 1, maxHealth: 2000, curHealth: 800, enmity: 20 }),
+    mkUser({ userId: "boss", controllerId: "boss", villageId: "enemy", direction: "left", longitude: 4, latitude: 1, maxHealth: 9000, curHealth: 3000, enmity: 800 }),
+    mkUser({ userId: "minion", controllerId: "minion", villageId: "enemy", direction: "left", longitude: 3, latitude: 1, maxHealth: 2000, curHealth: 800, enmity: 20 }),
     mkUser({ userId: "ally-boss", controllerId: "ally-boss", villageId: "ally", longitude: 1, latitude: 3, maxHealth: 10000 }),
     mkUser({ userId: "ally-minion", controllerId: "ally-minion", villageId: "ally", longitude: 1, latitude: 2, maxHealth: 1000, curHealth: 1000 }),
   ];
@@ -110,7 +110,7 @@ describe("AI targeting and clauses", () => {
     }
   });
 
-  for (const battleType of ["QUEST", "OVERWORLD"] as const) {
+  for (const battleType of ["ARENA", "SPARRING", "KAGE_PVP", "CLAN_BATTLE", "COMBAT", "SHRINE_WAR", "QUEST", "OVERWORLD"] as const) {
     it(`${battleType} targets enemies by side even when an ally shares the enemy template`, () => {
       const { battle, run } = setup("HIGHEST_MAX_HEALTH_OPPONENT");
       battle.battleType = battleType;
@@ -129,15 +129,15 @@ describe("AI targeting and clauses", () => {
   it("ignores dead and fled targets", () => {
     const { battle, run } = setup("HIGHEST_MAX_HEALTH_OPPONENT");
     battle.usersState.push(
-      mkUser({ userId: "dead", villageId: "enemy", maxHealth: 99999, curHealth: 0 }),
-      mkUser({ userId: "fled", villageId: "enemy", maxHealth: 99999, fledBattle: true }),
+      mkUser({ userId: "dead", villageId: "enemy", direction: "left", maxHealth: 99999, curHealth: 0 }),
+      mkUser({ userId: "fled", villageId: "enemy", direction: "left", maxHealth: 99999, fledBattle: true }),
     );
     expect(run().nextBattle.usersState.find((user) => user.userId === "boss")!.curHealth).toBeLessThan(3000);
   });
 
   it.each(["HIGHEST_ENMITY_OPPONENT", "LOWEST_ENMITY_OPPONENT"] as const)("%s ignores unavailable opponents and handles legacy battles", (target) => {
     const { battle, run } = setup(target);
-    battle.usersState.push(mkUser({ userId: "dead", villageId: "enemy", curHealth: 0, enmity: 9999 }), mkUser({ userId: "fled", villageId: "enemy", fledBattle: true, enmity: 0 }));
+    battle.usersState.push(mkUser({ userId: "dead", villageId: "enemy", direction: "left", curHealth: 0, enmity: 9999 }), mkUser({ userId: "fled", villageId: "enemy", direction: "left", fledBattle: true, enmity: 0 }));
     const expected = target === "HIGHEST_ENMITY_OPPONENT" ? "boss" : "minion";
     expect(run().nextBattle.usersState.find((u) => u.userId === expected)!.curHealth).toBeLessThan(battle.usersState.find((u) => u.userId === expected)!.curHealth);
     for (const user of battle.usersState) delete user.enmity;

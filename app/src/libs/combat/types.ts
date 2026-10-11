@@ -167,6 +167,7 @@ export type CombatUserFields = {
     creditDamage: boolean;
   }[];
   controllerId: string;
+  /** Fixed battle team, assigned at initiation and inherited by summons/clones. */
   direction: "left" | "right";
   isAggressor: boolean;
   highestGenerals: (typeof GenNames)[number][];
