@@ -79,6 +79,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AUCTION_BIDDER_LEVEL_MAX,
   AUCTION_BIDDER_LEVEL_MIN,
@@ -203,39 +204,42 @@ export default function AuctionHousePage() {
           {auctionHouseLevelMessage}
         </p>
       )}
-      <div
-        className="grid grid-cols-3 gap-2 border-b p-3"
-        role="tablist"
-        aria-label="Auction House sections"
+      <Tabs
+        value={section}
+        onValueChange={(value) => setSection(value as typeof section)}
       >
-        {(
-          [
-            ["LISTINGS", "Auctions & sales"],
-            ["REQUEST", "Requests"],
-            ["TRADE", "Trades"],
-          ] as const
-        ).map(([key, label]) => (
-          <Button
-            key={key}
-            role="tab"
-            aria-selected={section === key}
-            variant={section === key ? "default" : "outline"}
-            onClick={() => setSection(key)}
-            className="h-auto min-h-11 whitespace-normal text-xs sm:text-sm"
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-      {section === "LISTINGS" ? (
-        <AuctionListing selectedStatus={selectedStatus} />
-      ) : (
-        <AuctionOffers
-          key={section}
-          offerType={section}
-          status={selectedStatus as "ACTIVE" | "SOLD" | "EXPIRED" | "CANCELLED"}
-        />
-      )}
+        <TabsList
+          className="grid grid-cols-3 gap-2 rounded-none border-b p-3"
+          aria-label="Auction House sections"
+        >
+          {(
+            [
+              ["LISTINGS", "Auctions & sales"],
+              ["REQUEST", "Requests"],
+              ["TRADE", "Trades"],
+            ] as const
+          ).map(([key, label]) => (
+            <TabsTrigger
+              key={key}
+              value={key}
+              className="min-h-11 whitespace-normal text-xs sm:text-sm"
+            >
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value={section} className="mt-0">
+          {section === "LISTINGS" ? (
+            <AuctionListing selectedStatus={selectedStatus} />
+          ) : (
+            <AuctionOffers
+              key={section}
+              offerType={section}
+              status={selectedStatus as "ACTIVE" | "SOLD" | "EXPIRED" | "CANCELLED"}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </ContentBox>
   );
 }

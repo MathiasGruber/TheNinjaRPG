@@ -46,6 +46,7 @@ import {
 import Image from "@/layout/Image";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
+import { isEquippableUserItem, isImbuing } from "@/libs/item";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { createAuctionOfferSchema } from "@/validators/auction";
@@ -624,10 +625,6 @@ const inventoryLabel = (row: InventoryItem) =>
 const isOfferInventoryAvailable = (row: InventoryItem) =>
   row.item.canBeTraded &&
   row.quantity > 0 &&
-  !row.isInAuction &&
   row.equipped === "NONE" &&
-  !row.storedAtHome &&
-  (!row.craftingFinishedAt || row.craftingFinishedAt <= new Date()) &&
-  !row.imbuements.some(
-    (entry) => entry.craftingFinishedAt && entry.craftingFinishedAt > new Date(),
-  );
+  isEquippableUserItem(row) &&
+  !isImbuing(row);

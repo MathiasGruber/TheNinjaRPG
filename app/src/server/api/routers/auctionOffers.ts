@@ -10,6 +10,7 @@ import {
   userData,
   userItem,
 } from "@/drizzle/schema";
+import { isEquippableUserItem, isImbuing } from "@/libs/item";
 import { getAuctionPriceError } from "@/libs/itemEconomy";
 import {
   baseServerResponse,
@@ -329,14 +330,9 @@ const offerItemError = (row: UserItemWithRelations | undefined, quantity: number
   if (
     !row?.item.canBeTraded ||
     row.quantity < quantity ||
-    row.isInAuction ||
     row.equipped !== "NONE" ||
-    row.storedAtHome ||
-    (row.craftingFinishedAt && row.craftingFinishedAt > new Date()) ||
-    row.imbuements.some(
-      (imbuement) =>
-        imbuement.craftingFinishedAt && imbuement.craftingFinishedAt > new Date(),
-    )
+    !isEquippableUserItem(row) ||
+    isImbuing(row)
   )
     return "Item is not available for trading";
   if (!row.item.canStack && quantity !== 1)
