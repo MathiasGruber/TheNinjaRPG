@@ -7,7 +7,14 @@
  * its rows leak into it.
  */
 import { afterAll, beforeAll } from "bun:test";
-import { closeTestDatabase, hasTestDatabase, prepareTestDatabase } from "./testDatabase";
+import {
+  closeTestDatabase,
+  hasTestDatabase,
+  prepareTestDatabase,
+} from "./testDatabase";
+// Bun preserves loaded exports when a suite supplies a partial module mock.
+// Load the toast module before any suite can hide exports needed by another suite.
+import "@/libs/toast";
 
 if (hasTestDatabase) {
   // Reconciling the schema is slower than a unit test's default budget.

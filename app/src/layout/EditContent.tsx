@@ -44,6 +44,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import ContentAudioSelector from "@/layout/ContentAudioSelector";
 import ContentImage from "@/layout/ContentImage";
 import ContentImageSelector from "@/layout/ContentImageSelector";
+import { CoordinateTargetingEditor } from "@/layout/CoordinateTargetingEditor";
 import { EpidemicSfxSearch } from "@/layout/EpidemicSfxSearch";
 import Image from "@/layout/Image";
 import Modal from "@/layout/Modal";
@@ -77,6 +78,7 @@ import {
   ItemValidator,
   JutsuValidator,
 } from "@/validators/combat";
+import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
 import type { AllObjectivesType } from "@/validators/objectives";
 import {
   getObjectiveSchema,
@@ -108,6 +110,7 @@ export type FormEntry<K> = {
   searchable?: boolean;
   readonly?: boolean;
 } & (
+  | { type: "coordinate_targeting" }
   | { type: "text" }
   | { type: "textarea"; rows?: number }
   | { type: "richinput"; height?: string }
@@ -596,7 +599,11 @@ export const EditContent = <
                       !(formEntry.type === "avatar" && formEntry.size === "landscape")
                       ? "row-span-5"
                       : "",
-                    formEntry.fullWidth ? "col-span-full" : formEntry.doubleWidth ? "md:col-span-2" : "",
+                    formEntry.fullWidth
+                      ? "col-span-full"
+                      : formEntry.doubleWidth
+                        ? "md:col-span-2"
+                        : "",
                     props.fixedWidths
                       ? `h-32 shrink-0 grow-0 px-2 pt-3 ${props.fixedWidths}`
                       : "",
@@ -684,6 +691,19 @@ export const EditContent = <
                           </FormItem>
                         );
                       }}
+                    />
+                  )}
+                  {type === "coordinate_targeting" && (
+                    <FormField
+                      control={form.control}
+                      name={id}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{formEntry.label ?? "Coordinate pattern"}</FormLabel>
+                          <CoordinateTargetingEditor value={field.value as CoordinateTargeting | null | undefined} onChange={field.onChange} readonly={formEntry.readonly} />
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   )}
                   {type === "textarea" && (
@@ -1554,7 +1574,7 @@ export const EditContent = <
             );
           })}
         {showSubmit && props.onAccept && (
-          <div className="col-span-2 mt-3 items-center">
+          <div className="col-span-full mt-3 items-center">
             <span className="sr-only" role="status" aria-live="polite">
               {submitLoading ? (submitLoadingText ?? "Saving") : ""}
             </span>
@@ -1585,6 +1605,7 @@ export const EditContent = <
 };
 
 interface EffectFormWrapperProps {
+  allowCoordinateTargeting?: boolean;
   idx: number;
   type: "jutsu" | "bloodline" | "item" | "skillTree" | "sageMode";
   availableTags: readonly string[];
@@ -1740,8 +1761,19 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     // Calculate diff
     const newEffects = [...effects];
     const tagSchema = getTagSchema(watchType);
-    const parsedTag = tagSchema.safeParse(watchAll);
-    const shownTag = parsedTag.success ? parsedTag.data : tag;
+    // Coordinate drafts must reach the parent validator so Save cannot persist an
+    // older valid pattern while duplicate or incomplete coordinates are on screen.
+    const hasCoordinateDraft = watchAll.target === "COORDINATES";
+    const leftCoordinateTarget = tag.target === "COORDINATES" && !hasCoordinateDraft;
+    const draft = leftCoordinateTarget
+      ? { ...watchAll, coordinateTargeting: null }
+      : watchAll;
+    const parsedTag = tagSchema.safeParse(draft);
+    const shownTag = parsedTag.success
+      ? parsedTag.data
+      : hasCoordinateDraft
+        ? draft
+        : tag;
     newEffects[idx] = shownTag;
     const diff = calculateContentDiff(effects, newEffects);
     if (diff.length > 0) {
@@ -1749,9 +1781,13 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         if (form.formState.isDirty) {
           void form.trigger();
         }
-        if (form.formState.isValid) {
+        if (
+          hasCoordinateDraft ||
+          (leftCoordinateTarget && parsedTag.success) ||
+          form.formState.isValid
+        ) {
           setEffects(newEffects);
-          form.reset(watchAll);
+          if (parsedTag.success) form.reset(draft);
         }
       }
     }
@@ -1777,6 +1813,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   // Parse how to present the tag form
   const ignore = ["timeTracker", "type"];
   if (isDamageModifier && !hasElementFilter) ignore.push("elements");
+  if (watchAll.target !== "COORDINATES") ignore.push("coordinateTargeting");
   if (props.type === "bloodline") {
     ignore.push(...["rounds", "friendlyFire"]);
   }
@@ -1954,6 +1991,13 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           label: FORM_LABEL_MAP[value] ?? value,
           type: "db_values",
         };
+      } else if ((value as string) === "coordinateTargeting") {
+        return {
+          id: value,
+          label: "Tag coordinate pattern",
+          type: "coordinate_targeting",
+          fullWidth: true,
+        };
       } else if ((value as string) === "description") {
         return { id: value, label: value, type: "richinput", doubleWidth: true };
       } else if (innerType instanceof z.ZodString && value === "appearAnimation") {
@@ -2027,10 +2071,14 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         };
       } else if (innerType instanceof z.ZodEnum) {
         const enumValues = innerType.options as string[];
+        const values =
+          value === "target" && !props.allowCoordinateTargeting
+            ? enumValues.filter((option) => option !== "COORDINATES")
+            : enumValues;
         return {
           id: value,
           type: "str_array",
-          values: enumValues,
+          values,
         };
       } else if (
         innerType instanceof z.ZodArray &&
@@ -2120,6 +2168,12 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
             </p>
           </div>
         )}
+      {watchAll.target === "COORDINATES" && (
+        <p className="mb-3 text-muted-foreground text-sm">
+          This tag places ground effects on its own tiles, independently of the parent
+          pattern. Friendly Fire controls who is affected when occupying those tiles.
+        </p>
+      )}
       {(tag.type === "increasepotency" || tag.type === "decreasepotency") && (
         <p className="mb-3 text-muted-foreground text-sm">
           Static adds or subtracts power points. Percentage scales the selected tag’s

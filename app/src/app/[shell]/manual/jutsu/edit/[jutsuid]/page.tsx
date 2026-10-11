@@ -210,6 +210,7 @@ const SingleEditJutsu: React.FC<SingleEditJutsuProps> = (props) => {
             <EffectFormWrapper
               idx={i}
               type="jutsu"
+              allowCoordinateTargeting
               tag={tag}
               availableTags={tagTypes}
               hideTagType={!!reskinParentId}

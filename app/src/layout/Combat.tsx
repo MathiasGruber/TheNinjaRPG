@@ -1050,11 +1050,12 @@ const Combat: React.FC<CombatProps> = (props) => {
       scene.add(group_tiles);
       scene.add(group_edges);
       scene.add(group_highlight_edges);
-      scene.add(group_names);
       scene.add(group_assets);
       scene.add(group_ground);
       scene.add(group_users);
       scene.add(group_effects);
+      // Blend labels over static effects while retaining scenery and user occlusion.
+      scene.add(group_names);
 
       // Capture clicks to update move direction
       // On mobile, we validate tiles on-the-fly since canClick may be stale

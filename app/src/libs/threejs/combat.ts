@@ -54,7 +54,7 @@ import type {
   UserEffect,
 } from "@/libs/combat/types";
 import {
-  getAffectedTiles,
+  getActionAffectedTiles,
   getBattleGrid,
   getClan,
   getEffectiveCurPool,
@@ -182,7 +182,8 @@ export const validateActionTarget = (info: {
   if (!targetInPossible) return { isValid: false };
 
   // Get affected tiles (green = valid, red = invalid)
-  const { green: greenTiles, red: redTiles } = getAffectedTiles({
+  const { green: greenTiles, red: redTiles } = getActionAffectedTiles({
+    preview: true,
     a: origin,
     b: target,
     action,
@@ -194,7 +195,11 @@ export const validateActionTarget = (info: {
   });
 
   // Target must be in green set and not in red set
-  const isValid = greenTiles.size > 0 && !redTiles.has(target);
+  const hasCoordinatePattern =
+    action.method === "COORDINATES" ||
+    action.effects.some((tag) => tag.target === "COORDINATES");
+  const isValid =
+    greenTiles.size > 0 && (hasCoordinatePattern || !redTiles.has(target));
 
   return { isValid, origin, possibleTiles, greenTiles, redTiles };
 };
@@ -399,10 +404,11 @@ export const drawCombatBackground = (
           texture.needsUpdate = true;
           const spriteMaterial = new SpriteMaterial({
             map: texture,
+            depthWrite: false,
           });
           const sprite = new Sprite(spriteMaterial);
 
-          sprite.position.set(tile.x, tile.y - (2 * cy) / 3, ASSETS_LAYER);
+          sprite.position.set(tile.x, tile.y - (2 * cy) / 3, ASSETS_LAYER - 0.1);
 
           const scale = (Math.max(tile.height, tile.width) * 0.2) / fontSize;
           sprite.scale.set(canvas.width * scale, canvas.height * scale, 1);
@@ -1412,9 +1418,9 @@ export const drawCombatUsers = (info: {
   return anyUserMoving;
 };
 
-// Z offset for highlight edges to render above base edges
-const HIGHLIGHT_EDGE_Z_OFFSET = 0.5;
-const HIGHLIGHT_EDGE_Z_OFFSET_SELECTED = 0.6;
+// Keep edges above static effects even on recessed tiles, but below assets and users.
+const HIGHLIGHT_EDGE_Z_OFFSET = EFFECTS_LAYER - TILES_LAYER + 0.6;
+const HIGHLIGHT_EDGE_Z_OFFSET_SELECTED = EFFECTS_LAYER - TILES_LAYER + 0.7;
 
 // Cache highlight edges by the tile geometry object. Tile coordinates are reused across
 // battles, but generated terrain offsets can make the geometry differ per render.

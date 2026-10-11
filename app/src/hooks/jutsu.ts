@@ -36,6 +36,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   // Case type
   const jutsu = {
     ...data,
+    coordinateTargeting: data.coordinateTargeting || null,
     elementClassification: data.elementClassification || "None",
     effects: data.effects,
   };
@@ -161,6 +162,20 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   });
 
   const { data: requiredSkills } = api.skillTree.getAllNames.useQuery();
+  const targetingMethod = useWatch({ control: form.control, name: "method" });
+  const previousTargetingMethod = useRef(targetingMethod);
+  useEffect(() => {
+    if (
+      previousTargetingMethod.current === "COORDINATES" &&
+      targetingMethod !== "COORDINATES"
+    ) {
+      form.setValue("coordinateTargeting", null, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    previousTargetingMethod.current = targetingMethod;
+  }, [targetingMethod, form]);
 
   // Object for form values
   const formData: FormEntry<keyof ZodJutsuType>[] = [
@@ -224,6 +239,16 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     { id: "villageId", type: "db_values", values: villages, resetButton: true },
     { id: "jutsuWeapon", type: "str_array", values: WeaponTypes },
     { id: "method", type: "str_array", values: AttackMethods },
+    ...(targetingMethod === "COORDINATES"
+      ? [
+          {
+            id: "coordinateTargeting" as const,
+            label: "Coordinate pattern",
+            type: "coordinate_targeting" as const,
+            fullWidth: true,
+          },
+        ]
+      : []),
     { id: "jutsuRank", type: "str_array", values: LetterRanks },
     { id: "requiredRank", type: "str_array", values: UserRanks },
     { id: "target", type: "str_array", values: AttackTargets },

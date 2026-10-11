@@ -20,6 +20,7 @@ import {
   MAX_MASTERY_CAP,
   MasteryTypes,
   MaxPoolTypes,
+  NonActionItemTypes,
   PoolTypes,
   SAGE_MASTERY_EXP_CAP,
   SAGE_MODE_MAX_LEVEL,
@@ -33,6 +34,10 @@ import {
 import type { Item, UserData } from "@/drizzle/schema";
 import { DateTimeRegExp } from "@/utils/regex";
 import { makeCappedNullableNumber } from "@/validators/base";
+import {
+  type CoordinateTargeting,
+  coordinateTargetingSchema,
+} from "@/validators/coordinateTargeting";
 import { itemEconomySchema, refineItemEconomy } from "@/validators/itemEconomy";
 import { rewardFields } from "@/validators/rewards";
 
@@ -85,7 +90,7 @@ const type = (defaultString: string) => {
 /******************** */
 /**  BASE ATTRIBUTES  */
 /******************** */
-const BaseTagTargets = ["INHERIT", "SELF"] as const;
+const BaseTagTargets = ["INHERIT", "SELF", "COORDINATES"] as const;
 const BaseAttributes = {
   // Visual controls
   staticAssetPath: z.string().prefault(""),
@@ -105,6 +110,7 @@ const BaseAttributes = {
   direction: type("offence"),
   // Attack target, if different from the default
   target: z.enum(BaseTagTargets).optional().prefault("INHERIT"),
+  coordinateTargeting: coordinateTargetingSchema.nullish(),
   // Enable / disables applying to friendlies. Default is to apply to all users
   friendlyFire: z.enum(["ALL", "FRIENDLY", "ENEMIES"]).optional(),
   // Default is for calculation to be static
@@ -1156,11 +1162,16 @@ interface ContentBaseValidatorType {
   target: (typeof AttackTargets)[number];
   method: (typeof AttackMethods)[number];
   range?: number;
+  coordinateTargeting?: CoordinateTargeting | null;
   effects: ZodAllTags[];
 }
 
 interface ItemValidatorType
-  extends Omit<Item, "id" | "createdAt" | "updatedAt" | "hidden"> {
+  extends Omit<
+    Item,
+    "id" | "createdAt" | "updatedAt" | "hidden" | "coordinateTargeting"
+  > {
+  coordinateTargeting?: CoordinateTargeting | null;
   effects: ZodAllTags[];
 }
 
@@ -1178,6 +1189,13 @@ const addIssue = (ctx: z.RefinementCtx, message: string) => {
  * Validator for using a specific item/jutsu action
  */
 const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) => {
+  if (data.method === "COORDINATES" && !data.coordinateTargeting) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["coordinateTargeting"],
+      message: "Configure coordinates for the COORDINATES method.",
+    });
+  }
   // Pick out various effect types
   const hasMove = data.effects.find((e) => e.type === "move");
   const hasClone = data.effects.find((e) => e.type === "clone");
@@ -1186,6 +1204,18 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
   const hasDamage = data.effects.find((e) => e.type === "damage");
   const isAOE = data.method.includes("AOE");
   const isEmptyGround = data.target === "EMPTY_GROUND";
+  // Move uses the clicked destination rather than the affected pattern.
+  if (
+    hasMove &&
+    (data.method === "COORDINATES" ||
+      data.effects.some((tag) => tag.target === "COORDINATES"))
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["method"],
+      message: "Move tags cannot be combined with coordinate targeting.",
+    });
+  }
   // Run checks
   if (data.target === "SELF" && data.range && data.range > 0) {
     addIssue(ctx, "If target is SELF, range should be 0");
@@ -1218,6 +1248,12 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
   );
   const hasUnlockItemVariant = data.effects.find((e) => e.type === "unlockitemvariant");
   const hasSageModeActivation = data.effects.find((e) => e.type === "activatesagemode");
+
+  if (NonActionItemTypes.includes(data.itemType)) {
+    SuperRefinePassiveEffects(data.effects, ctx);
+    if (data.method === "COORDINATES")
+      addIssue(ctx, "Coordinate methods require a combat action item.");
+  }
 
   // Cost validation - exactly one cost type must be set
   const costTypes = [
@@ -1323,7 +1359,21 @@ const SuperRefineJutsu = (
  * Validator specific to effects
  */
 export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) => {
-  effects.forEach((e) => {
+  effects.forEach((e, index) => {
+    if (e.target === "COORDINATES" && !e.coordinateTargeting) {
+      ctx.addIssue({
+        code: "custom",
+        path: [index, "coordinateTargeting"],
+        message: "Configure coordinates for this tag.",
+      });
+    }
+    if (e.target === "COORDINATES" && e.type === "move") {
+      ctx.addIssue({
+        code: "custom",
+        path: [index, "target"],
+        message: "Move tags must inherit the clicked destination or target self.",
+      });
+    }
     if (e.type === "barrier" && e.staticAssetPath === "") {
       addIssue(ctx, "BarrierTag needs a staticAssetPath");
     } else if (e.type === "wound") {
@@ -1368,6 +1418,22 @@ export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) 
   });
 };
 
+/** Passive sources have no selected tile or cast pattern. */
+export const SuperRefinePassiveEffects = (
+  effects: ZodAllTags[],
+  ctx: z.RefinementCtx,
+) => {
+  effects.forEach((effect, index) => {
+    if (effect.target === "COORDINATES") {
+      ctx.addIssue({
+        code: "custom",
+        path: [index, "target"],
+        message: "Coordinate tags require a jutsu or combat action item.",
+      });
+    }
+  });
+};
+
 /** Jutsu catalog validation, including integer mastery and general-stat prerequisites. */
 export const JutsuValidatorRawSchema = z.object({
   name: z.string().trim(),
@@ -1381,6 +1447,7 @@ export const JutsuValidatorRawSchema = z.object({
   requiredRank: z.enum(UserRanks),
   requiredLevel: z.coerce.number().min(1).max(100),
   method: z.enum(AttackMethods),
+  coordinateTargeting: coordinateTargetingSchema.nullish(),
   target: z.enum(AttackTargets),
   range: z.coerce.number().int().min(0).max(5),
   // The column is nullable, so rows stored before this field existed - and any
@@ -1466,7 +1533,10 @@ export const BloodlineValidator = z.object({
   hidden: z.coerce.boolean().optional(),
   difficulty: z.enum(BloodlineDifficultyRatings).nullable().optional(),
   traits: z.string().max(256).nullable().optional(),
-  effects: z.array(AllTags).superRefine(SuperRefineEffects),
+  effects: z
+    .array(AllTags)
+    .superRefine(SuperRefineEffects)
+    .superRefine(SuperRefinePassiveEffects),
 });
 export type ZodBloodlineType = z.output<typeof BloodlineValidator>;
 export type ZodBloodlineInput = z.input<typeof BloodlineValidator>;
@@ -1491,10 +1561,19 @@ export const SageModeValidator = z
     actionCostPerc: z.coerce.number().int().min(10).max(100),
     villageId: z.string().nullable(),
     hidden: z.coerce.boolean().optional(),
-    effects: z.array(AllTags).superRefine(SuperRefineEffects),
+    effects: z
+      .array(AllTags)
+      .superRefine(SuperRefineEffects)
+      .superRefine(SuperRefinePassiveEffects),
     /** Applied when active sage buffs end; uses the full combat effect pipeline (instant damage/heal/drain resolve immediately). */
-    afterEffects: z.array(AllTags).superRefine(SuperRefineEffects),
-    level2Effects: z.array(AllTags).superRefine(SuperRefineEffects),
+    afterEffects: z
+      .array(AllTags)
+      .superRefine(SuperRefineEffects)
+      .superRefine(SuperRefinePassiveEffects),
+    level2Effects: z
+      .array(AllTags)
+      .superRefine(SuperRefineEffects)
+      .superRefine(SuperRefinePassiveEffects),
   })
   .superRefine((data, ctx) => {
     if (data.level2Effects.length > 0 && data.requiredSageMastery <= 0) {
@@ -1525,7 +1604,10 @@ export const SkillTreeValidator = z
     hidden: z.coerce.boolean().optional(),
     skillType: z.enum(SkillTreeEntryTypes).prefault("DEFAULT"),
     folderId: z.string().nullish(),
-    effects: z.array(AllTags).superRefine(SuperRefineEffects),
+    effects: z
+      .array(AllTags)
+      .superRefine(SuperRefineEffects)
+      .superRefine(SuperRefinePassiveEffects),
   })
   .superRefine((tier, ctx) => {
     if (tier.pathType === "BLOODRIGHT" && !tier.bloodlineId)
@@ -1576,6 +1658,7 @@ export const ItemValidatorRawSchema = z.object({
   range: z.coerce.number().int().min(0).max(10),
   maxEquips: z.coerce.number().int().min(0).max(10),
   method: z.enum(AttackMethods),
+  coordinateTargeting: coordinateTargetingSchema.nullish(),
   target: z.enum(AttackTargets),
   itemType: z.enum(ItemTypes),
   weaponType: z.enum(WeaponTypes),

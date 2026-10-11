@@ -52,7 +52,7 @@ import {
   calcApReduction,
   calcPoolCost,
   findBarrier,
-  getAffectedTiles,
+  getActionAffectedTiles,
   getBarriersBetween,
   getEffectiveCurPool,
   getEffectStackKey,
@@ -732,6 +732,7 @@ export const userItemToAction = (
     type: "item" as const,
     target: item.target,
     method: item.method,
+    coordinateTargeting: item.coordinateTargeting,
     range: item.range,
     updatedAt: Date.now(),
     cooldown: useritem.originalCooldown,
@@ -777,6 +778,7 @@ export const userJutsuToAction = (
     type: "jutsu" as const,
     target: jutsu.target,
     method: jutsu.method,
+    coordinateTargeting: jutsu.coordinateTargeting,
     range: jutsu.range,
     updatedAt: Date.now(),
     cooldown: userjutsu.originalCooldown,
@@ -947,7 +949,7 @@ export const insertAction = (info: {
     // Get the possible action squares
     const highlights = getPossibleActionTiles(action, userHex, grid);
     // Given this action, get the affected tiles
-    const { green: affectedTiles } = getAffectedTiles({
+    const { green: affectedTiles, effectTiles } = getActionAffectedTiles({
       a: userHex,
       b: targetTile,
       action,
@@ -957,6 +959,7 @@ export const insertAction = (info: {
       ground: groundEffects,
       userId: actorId,
     });
+    if (affectedTiles.size === 0) return false;
     // Bookkeeping
     let targetUsernames: string[] = [];
     let targetGenders: string[] = [];
@@ -987,18 +990,24 @@ export const insertAction = (info: {
       [...usersEffects, ...groundPotency],
       actorId,
     );
-    // For each affected tile, apply the effects
+    // Each tag uses its own resolved tiles, or the shared parent pattern.
     affectedTiles.forEach((tile) => {
       // Calculate how many barriers are between origin & target
       const { barriers, totalAbsorb } = hasBarriers
         ? getBarriersBetween(actorId, aStar, groundEffects, userHex, tile)
         : EMPTY_BARRIER_RESULT;
 
-      // ADD EFFECTS
-      if (action.target === "GROUND" || action.target === "EMPTY_GROUND") {
-        // ADD GROUND EFFECTS
-        const target = getTargetUser(alive, "CHARACTER", tile, user.userId);
-        castTags.forEach((tag) => {
+      castTags.forEach((tag, tagIndex) => {
+        // SELF tags apply once per accepted cast, even when the parent pattern is empty.
+        if (tag.target !== "SELF" && !effectTiles[tagIndex]?.has(tile)) return;
+        // ADD EFFECTS
+        if (
+          action.target === "GROUND" ||
+          action.target === "EMPTY_GROUND" ||
+          tag.target === "COORDINATES"
+        ) {
+          // ADD GROUND EFFECTS
+          const target = getTargetUser(alive, "CHARACTER", tile, user.userId);
           // If it is a move effect, use the target tile instead of AOE tile
           const effectTile = tag.type === "move" ? targetTile : tile;
           // Target conditions
@@ -1021,7 +1030,11 @@ export const insertAction = (info: {
                 appliedEffects.add(idx);
               }
             }
-          } else if (!tag.target || tag.target === "INHERIT") {
+          } else if (
+            !tag.target ||
+            tag.target === "INHERIT" ||
+            tag.target === "COORDINATES"
+          ) {
             const effect = realizeTag({
               tag: tag as GroundEffect,
               user: user,
@@ -1046,17 +1059,15 @@ export const insertAction = (info: {
               }
             }
           }
-        });
-      } else {
-        // ADD USER EFFECTS
-        const target = getTargetUser(
-          alive,
-          action.target,
-          tile,
-          user.userId,
-          supportsNpcAllies(battle.battleType),
-        );
-        castTags.forEach((tag, tagIndex) => {
+        } else {
+          // ADD USER EFFECTS
+          const target = getTargetUser(
+            alive,
+            action.target,
+            tile,
+            user.userId,
+            supportsNpcAllies(battle.battleType),
+          );
           const effect = realizeTag({
             tag: tag as UserEffect,
             user: user,
@@ -1140,8 +1151,8 @@ export const insertAction = (info: {
               }
             }
           }
-        });
-      }
+        }
+      });
     });
     // Trigger each passive source once per enemy reached by the accepted action.
     // Empty tiles, self actions, stealth rejections and barrier hits supply no recipient.
