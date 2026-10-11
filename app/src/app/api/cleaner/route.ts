@@ -60,6 +60,7 @@ const HOURLY_TIMER_NAME = "cleaner-hourly";
 
 export const maxDuration = 300;
 
+/** Run cron-authenticated hourly cleanup, claiming daily maintenance separately. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;
