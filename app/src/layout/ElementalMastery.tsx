@@ -43,7 +43,6 @@ export const ElementalMastery = ({
     await Promise.all([
       utils.profile.getUser.invalidate(),
       utils.profile.getPublicUser.invalidate(),
-      utils.misc.getCaptcha.invalidate(),
     ]);
   };
   const onError = () => {
@@ -129,11 +128,9 @@ export const ElementalMastery = ({
         </div>
       ) : (
         <>
-          {mode === "experience" && (
-            <p className="mb-3 text-sm">
-              Available unused XP: {user.earnedExperience.toLocaleString()}
-            </p>
-          )}
+          <p className="mb-3 text-sm">
+            Available unused XP: {user.earnedExperience.toLocaleString()}
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             {BasicElementName.map((element) => {
               const progress = user.elementalMastery[element] ?? 0;
