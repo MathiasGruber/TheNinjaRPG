@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { NumberInput, validateNumberInputs } from "@/components/ui/number-input";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -161,16 +161,16 @@ export const ElementalMastery = ({
                         : "Unlocks when fully mastered"}
                   </p>
                   <div className="flex gap-2">
-                    <Input
-                      type="number"
+                    <NumberInput
+                      optional
                       min={1}
                       max={Math.min(Math.ceil(room), user.earnedExperience)}
                       aria-label={`${element} unused XP`}
                       placeholder="Unused XP"
                       value={amounts[element] ?? ""}
                       disabled={isPending || room <= 0}
-                      onChange={(event) =>
-                        setAmounts({ ...amounts, [element]: event.target.value })
+                      onTextChange={(value) =>
+                        setAmounts({ ...amounts, [element]: value })
                       }
                     />
                     <Button
@@ -182,7 +182,11 @@ export const ElementalMastery = ({
                         amount <= 0 ||
                         amount > Math.min(Math.ceil(room), user.earnedExperience)
                       }
-                      onClick={() => invest.mutate({ element, amount })}
+                      onClick={(event) => {
+                        if (!validateNumberInputs(event.currentTarget.parentElement))
+                          return;
+                        invest.mutate({ element, amount });
+                      }}
                     >
                       Invest
                     </Button>
