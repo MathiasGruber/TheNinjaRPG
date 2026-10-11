@@ -3,7 +3,7 @@ import {
   RANKED_LEGEND_LP_REQUIREMENT,
   RANKED_SANNIN_TOP_PLAYERS,
 } from "@/drizzle/constants";
-import type { RankedLoadout } from "@/drizzle/schema";
+import type { Item, Jutsu, RankedLoadout } from "@/drizzle/schema";
 import { item, jutsu, rankedLoadout, userData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
@@ -64,34 +64,47 @@ const filterProhibitedRankedSelections = async (
   const removedItemIds = selectedItems
     .filter((entry) => entry.requiredSkillId || entry.bloodlineId)
     .map((entry) => entry.id);
-  if (removedJutsuIds.length === 0 && removedItemIds.length === 0) {
-    return { loadout: storedLoadout, removedJutsuIds, removedItemIds };
+  let loadout = storedLoadout;
+  if (removedJutsuIds.length > 0 || removedItemIds.length > 0) {
+    loadout = {
+      ...storedLoadout,
+      loadout: {
+        ...storedLoadout.loadout,
+        jutsuIds: storedLoadout.loadout.jutsuIds.filter(
+          (id) => !removedJutsuIds.includes(id),
+        ),
+        favoriteJutsuIds: (storedLoadout.loadout.favoriteJutsuIds ?? []).filter(
+          (id) => !removedJutsuIds.includes(id),
+        ),
+        weaponIds: storedLoadout.loadout.weaponIds.filter(
+          (id) => !removedItemIds.includes(id),
+        ),
+        consumableIds: storedLoadout.loadout.consumableIds.filter(
+          (id) => !removedItemIds.includes(id),
+        ),
+        favoriteWeaponIds: (storedLoadout.loadout.favoriteWeaponIds ?? []).filter(
+          (id) => !removedItemIds.includes(id),
+        ),
+        favoriteConsumableIds: (
+          storedLoadout.loadout.favoriteConsumableIds ?? []
+        ).filter((id) => !removedItemIds.includes(id)),
+      },
+    };
   }
-  const loadout: RankedLoadout = {
-    ...storedLoadout,
-    loadout: {
-      ...storedLoadout.loadout,
-      jutsuIds: storedLoadout.loadout.jutsuIds.filter(
-        (id) => !removedJutsuIds.includes(id),
-      ),
-      favoriteJutsuIds: (storedLoadout.loadout.favoriteJutsuIds ?? []).filter(
-        (id) => !removedJutsuIds.includes(id),
-      ),
-      weaponIds: storedLoadout.loadout.weaponIds.filter(
-        (id) => !removedItemIds.includes(id),
-      ),
-      consumableIds: storedLoadout.loadout.consumableIds.filter(
-        (id) => !removedItemIds.includes(id),
-      ),
-      favoriteWeaponIds: (storedLoadout.loadout.favoriteWeaponIds ?? []).filter(
-        (id) => !removedItemIds.includes(id),
-      ),
-      favoriteConsumableIds: (storedLoadout.loadout.favoriteConsumableIds ?? []).filter(
-        (id) => !removedItemIds.includes(id),
-      ),
-    },
+  return {
+    loadout,
+    removedJutsuIds,
+    removedItemIds,
+    // Favorites remain stored; only equipped rows contribute to loadout limits.
+    jutsus: selectedJutsus.filter((entry) =>
+      loadout.loadout.jutsuIds.includes(entry.id),
+    ),
+    items: selectedItems.filter(
+      (entry) =>
+        loadout.loadout.weaponIds.includes(entry.id) ||
+        loadout.loadout.consumableIds.includes(entry.id),
+    ),
   };
-  return { loadout, removedJutsuIds, removedItemIds };
 };
 
 /**
@@ -112,6 +125,8 @@ export const cleanRankedProhibitedSelections = async (
   loadout: RankedLoadout;
   removedJutsuIds: string[];
   removedItemIds: string[];
+  jutsus: Jutsu[];
+  items: Item[];
 }> => {
   const filtered = await filterProhibitedRankedSelections(client, storedLoadout);
   if (filtered.removedJutsuIds.length === 0 && filtered.removedItemIds.length === 0) {

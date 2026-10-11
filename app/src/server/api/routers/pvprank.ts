@@ -492,37 +492,12 @@ export const pvpRankRouter = createTRPCRouter({
           ctx.drizzle,
           currentLoadout,
         );
-        currentLoadout.loadout = cleaned.loadout.loadout;
         removedJutsuIds = cleaned.removedJutsuIds;
         removedItemIds = cleaned.removedItemIds;
-      }
-
-      // Validate loadout for residual limits
-      if (
-        currentLoadout?.loadout.jutsuIds.length ||
-        currentLoadout?.loadout.weaponIds.length ||
-        currentLoadout?.loadout.consumableIds.length
-      ) {
-        const [jutsus, items] = await Promise.all([
-          currentLoadout.loadout.jutsuIds.length > 0
-            ? ctx.drizzle.query.jutsu.findMany({
-                where: inArray(jutsu.id, currentLoadout.loadout.jutsuIds),
-              })
-            : [],
-          currentLoadout.loadout.weaponIds.length > 0 ||
-          currentLoadout.loadout.consumableIds.length > 0
-            ? ctx.drizzle.query.item.findMany({
-                where: inArray(item.id, [
-                  ...currentLoadout.loadout.weaponIds,
-                  ...currentLoadout.loadout.consumableIds,
-                ]),
-              })
-            : [],
-        ]);
 
         // Check loadout
-        const jutsuCheck = validateJutsuLoadout(jutsus);
-        const itemCheck = validateItemLoadout(items);
+        const jutsuCheck = validateJutsuLoadout(cleaned.jutsus);
+        const itemCheck = validateItemLoadout(cleaned.items);
         if (!jutsuCheck.check || !itemCheck.check) {
           return errorResponse(jutsuCheck.message || itemCheck.message);
         }
