@@ -59,6 +59,7 @@ import type {
   BattleEffect,
   BattleUserState,
   Consequence,
+  ConsumeByUser,
   GroundEffect,
   ReturnedBattle,
   ReturnedUserState,
@@ -1866,7 +1867,7 @@ export const wound = (
         if (woundDamage > 0) {
           // Find or create a consequence for this target
           let targetConsequence = Array.from(consequences.values()).find(
-            (c) => c.targetId === effect.targetId,
+            (c) => c.targetId === effect.targetId && c.userId === effect.creatorId,
           );
 
           if (!targetConsequence) {
@@ -2040,19 +2041,20 @@ export const vamp = (
 };
 
 /**
- * Convert a percentage of damage dealt into a temporary shield on the caster.
- * Uses the same pre-shield damage basis as vamp, but is not affected by heal modifiers.
- * Intentionally returns no cast-round announcement; process.ts logs when the shield is created.
+ * Register active conversion of all damage dealt by the caster, capped at 100%.
+ * process.ts resolves shield HP before incoming shields and grants it after damage.
  */
 export const consume = (
   effect: UserEffect,
-  consequences: Map<string, Consequence>,
+  consumeByUser: ConsumeByUser,
 ): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const shieldRounds = "shieldRounds" in effect ? effect.shieldRounds : 3;
-  forEachOutgoingDamage(effect, consequences, (c) => {
-    c.consumeRatio = Math.min(1, (c.consumeRatio ?? 0) + power / 100);
-    c.consumeRounds = Math.max(c.consumeRounds ?? 0, shieldRounds);
+  const previous = consumeByUser.get(effect.creatorId);
+  consumeByUser.set(effect.creatorId, {
+    ratio: Math.min(1, (previous?.ratio ?? 0) + power / 100),
+    rounds: Math.max(previous?.rounds ?? 0, shieldRounds),
+    hp: 0,
   });
   return undefined;
 };
@@ -2083,15 +2085,9 @@ export const drain = (
     !effect.castThisRound &&
     (effect.rounds === undefined || effect.rounds > 0)
   ) {
-    // Merge all drains on one target into a single consequence (keyed by targetId so
-    // multiple drain effects accumulate), attributed to the caster so the drain_hp branch
-    // in process.ts credits damage_dealt to the drainer like the other DoTs. Credit is
-    // first-consequence-owner: if two DIFFERENT creators drain the same target in a round,
-    // their ticks merge here (and again in collapseConsequences, which merges by targetId and
-    // keeps the first userId), so the later drainer's share goes uncredited. Same multi-
-    // attacker limitation collapseConsequences already has for damage/residual/wound/poison;
-    // a per-attacker fix belongs in that shared merge, not here.
-    const consequence: Consequence = consequences.get(effect.targetId) || {
+    // Preserve the caster until damage conversions have resolved.
+    const consequenceKey = `drain-${effect.creatorId}-${effect.targetId}`;
+    const consequence: Consequence = consequences.get(consequenceKey) || {
       userId: effect.creatorId,
       targetId: effect.targetId,
       drain_hp: 0,
@@ -2126,7 +2122,7 @@ export const drain = (
       }
     });
 
-    consequences.set(effect.targetId, consequence);
+    consequences.set(consequenceKey, consequence);
   }
 
   return getInfo(
@@ -3471,7 +3467,7 @@ export const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) =>
 
 /**
  * Apply a callback to each outgoing damage consequence created this cast round.
- * Shared by vamp, consume, and other damage-conversion tags.
+ * Used by instant damage-conversion tags such as vamp.
  */
 const forEachOutgoingDamage = (
   effect: UserEffect,

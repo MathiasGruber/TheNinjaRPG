@@ -620,20 +620,10 @@ export const ConsumeTag = z.object({
   ...PowerAttributes,
   type: z.literal("consume").prefault("consume"),
   description: msg(
-    "Convert a percentage of damage dealt by this jutsu into a temporary shield on yourself. Not affected by heal modifiers.",
+    "While active, convert a percentage of all damage you deal into stacking temporary shields on yourself. Not affected by heal modifiers.",
   ),
   calculation: z.enum(["percentage"]).prefault("percentage"),
-  // The tag itself is instant (never lingers); shieldRounds is the duration of the
-  // shield it generates. rounds is normalized to 0 rather than rejected above 0, so
-  // that switching tag types in the admin editor - which copies rounds across - cannot
-  // leave the form permanently invalid on a field that is hidden for this tag.
-  rounds: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .max(100)
-    .overwrite(() => 0)
-    .prefault(0),
+  rounds: z.coerce.number().int().min(0).max(100).prefault(3),
   shieldRounds: z.coerce.number().int().min(1).max(100).prefault(3),
   target: z.enum(BaseTagTargets).optional().prefault("SELF"),
 });
@@ -1436,7 +1426,7 @@ export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) 
           "WoundTag must be used together with a damage or pierce effect on the same action",
         );
       }
-    } else if (e.type === "vamp" || e.type === "consume") {
+    } else if (e.type === "vamp" || (e.type === "consume" && e.rounds === 0)) {
       const hasDamageOrPierce = effects.some(
         (x) => x.type === "damage" || x.type === "pierce",
       );

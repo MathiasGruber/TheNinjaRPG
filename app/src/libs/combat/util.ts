@@ -1105,6 +1105,7 @@ export const calcApplyRatio = (
   const alwaysApply: ZodAllTags["type"][] = [
     "absorb",
     "afterburn",
+    "consume",
     "diffuse",
     "buffprevent",
     "cleanseprevent",
@@ -1144,6 +1145,8 @@ export const calcApplyRatio = (
   // If always apply, then apply 1 time, but not if rounds set to 0
   if (alwaysApply.includes(effect.type)) {
     if (effect.rounds !== undefined && effect.rounds === 0) {
+      // Zero-duration Consume still converts the casting action's damage.
+      if (effect.type === "consume" && effect.isNew && effect.castThisRound) return 1;
       return 0;
     }
     return 1;
@@ -1487,16 +1490,6 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
         (current.vampHeal ?? 0) +
         val.vampRatio * (val.preShieldDamage ?? val.damage ?? 0);
     }
-    if (val.consumeRatio) {
-      // Consume shields off the FULL pre-shield hit (same basis as vamp), unaffected by heal mods.
-      current.consumeShield =
-        (current.consumeShield ?? 0) +
-        val.consumeRatio * (val.preShieldDamage ?? val.damage ?? 0);
-      current.consumeRounds = Math.max(
-        current.consumeRounds ?? 0,
-        val.consumeRounds ?? 0,
-      );
-    }
     if (current.preDiffuseDamage !== undefined || val.preDiffuseDamage !== undefined) {
       current.preDiffuseDamage =
         (current.preDiffuseDamage ?? current.preShieldDamage ?? 0) +
@@ -1557,11 +1550,6 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
     if (val.vampRatio) {
       val.vampHeal =
         (val.vampHeal ?? 0) + val.vampRatio * (val.preShieldDamage ?? val.damage ?? 0);
-    }
-    if (val.consumeRatio) {
-      val.consumeShield =
-        (val.consumeShield ?? 0) +
-        val.consumeRatio * (val.preShieldDamage ?? val.damage ?? 0);
     }
     acc.push(val);
   }

@@ -1,7 +1,18 @@
 import { describe, expect, it } from "bun:test";
+import { SHIELD_MAX_HEALTH } from "@/drizzle/constants";
+import { insertAction } from "@/libs/combat/actions";
+import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { applyEffects } from "@/libs/combat/process";
+import { getBattleGrid } from "@/libs/combat/util";
+import { ConsumeTag, DamageTag, JutsuValidatorRawSchema, SageModeValidator } from "@/validators/combat";
 import type { CombatAction, CompleteBattle, UserEffect } from "@/libs/combat/types";
-import { makeBattleUser, makeDamageEffect, makeEffect } from "./helpers/battleScenario";
+import {
+  makeBattleUser,
+  makeCompleteBattle,
+  makeDamageEffect,
+  makeEffect,
+} from "./helpers/battleScenario";
+import { makeSageMode } from "./helpers/sageMode";
 
 const ROUND = 3;
 
@@ -46,10 +57,10 @@ const makeAttack = (
     targetType: "user",
   } as Partial<UserEffect>);
 
-const makeConsume = (power: number, shieldRounds = 3): UserEffect =>
+const makeConsume = (power: number, shieldRounds = 3, rounds = 3): UserEffect =>
   makeEffect(
     "consume",
-    { power, calculation: "percentage", shieldRounds },
+    { power, calculation: "percentage", shieldRounds, rounds },
     {
       id: "consume-1",
       creatorId: "attacker",
@@ -110,14 +121,14 @@ describe("applyEffects — consume", () => {
     ).toBe(true);
   });
 
-  it("does not leave the consume tag itself as a lingering effect", () => {
+  it("keeps the active duration separate from the generated shield duration", () => {
     const battle = makeBattle(
       [makeAttacker(), makeDefender()],
       [makeAttack(), makeConsume(25, 5)],
     );
     const { newBattle } = applyEffects(battle, "attacker", makeAction());
 
-    expect(newBattle.usersEffects.some((e) => e.type === "consume")).toBe(false);
+    expect(newBattle.usersEffects.find((e) => e.type === "consume")?.rounds).toBe(3);
     const shield = newBattle.usersEffects.find(
       (e) => e.type === "shield" && e.targetId === "attacker",
     );
@@ -162,9 +173,7 @@ describe("applyEffects — consume", () => {
   });
 
   it("merges consume shields across multiple damage hits on the same target", () => {
-    // Two damage consequences share targetId and collapse; consumeShield must accumulate
-    // in the merge branch (current.consumeShield += ...), producing one shield sized off
-    // the total pre-shield damage — not two separate shields or only the first hit.
+    // Two hits on the same target contribute to one per-caster shield before merging.
     const defender = makeDefender();
     const { newBattle } = applyEffects(
       makeBattle(
@@ -207,7 +216,8 @@ describe("applyEffects — consume", () => {
     const perDefenderLost = [first, second].map(
       (defender) =>
         defender.curHealth -
-        (newBattle.usersState.find((u) => u.userId === defender.userId)?.curHealth ?? 0),
+        (newBattle.usersState.find((u) => u.userId === defender.userId)?.curHealth ??
+          0),
     );
     const healthLost = perDefenderLost.reduce((total, lost) => total + lost, 0);
     const shields = newBattle.usersEffects.filter(
@@ -236,7 +246,10 @@ describe("applyEffects — consume", () => {
     const shieldHpBefore = consumeShield!.power;
 
     // Control: defender hits attacker with no shield.
-    const controlAttacker = makeAttacker({ curHealth: 100_000_000, maxHealth: 100_000_000 });
+    const controlAttacker = makeAttacker({
+      curHealth: 100_000_000,
+      maxHealth: 100_000_000,
+    });
     const { newBattle: control } = applyEffects(
       makeBattle(
         [controlAttacker, makeDefender()],
@@ -272,12 +285,641 @@ describe("applyEffects — consume", () => {
     const remainingShield = findConsumeShield(shielded.usersEffects);
 
     expect(shieldedLost).toBeLessThan(controlLost);
-    expect(
-      actionEffects.some((e) => e.txt.includes("shield absorbs")),
-    ).toBe(true);
+    expect(actionEffects.some((e) => e.txt.includes("shield absorbs"))).toBe(true);
     // Shield HP decreased (or was destroyed) by the absorbed amount.
-    expect((remainingShield?.power ?? 0) < shieldHpBefore || remainingShield === undefined).toBe(
-      true,
+    expect(
+      (remainingShield?.power ?? 0) < shieldHpBefore || remainingShield === undefined,
+    ).toBe(true);
+  });
+});
+
+describe("active Consume damage conversion", () => {
+  const activeConsume = (overrides: Partial<UserEffect> = {}): UserEffect =>
+    ({
+      ...makeConsume(50),
+      isNew: false,
+      castThisRound: false,
+      createdRound: ROUND - 1,
+      ...overrides,
+    }) as UserEffect;
+  const staticHit = (creatorId = "attacker", targetId = "defender") =>
+    makeDamageEffect({
+      ...makeAttack("static-hit", creatorId, targetId),
+      power: 100,
+      powerPerLevel: 0,
+      calculation: "static",
+      statTypes: ["None"],
+    } as Partial<UserEffect>);
+  const shieldHp = (battle: CompleteBattle, userId = "attacker") =>
+    battle.usersEffects
+      .filter((e) => e.type === "shield" && e.targetId === userId)
+      .reduce((hp, e) => hp + e.power, 0);
+
+  it("preserves authored durations and defaults new tags to three active rounds", () => {
+    expect(ConsumeTag.parse({}).rounds).toBe(3);
+    expect(ConsumeTag.parse({ rounds: 7, shieldRounds: 2 })).toMatchObject({
+      rounds: 7,
+      shieldRounds: 2,
+    });
+  });
+
+  it("stacks shields from different actions during the same active round", () => {
+    const first = applyEffects(
+      makeBattle([makeAttacker(), makeDefender()], [staticHit(), activeConsume()]),
+      "attacker",
+      makeAction(),
+    ).newBattle;
+    const firstShield = findConsumeShield(first.usersEffects)!;
+    const second = applyEffects(
+      {
+        ...first,
+        usersEffects: [
+          ...first.usersEffects,
+          { ...staticHit(), id: "second-hit", actionId: "other-jutsu" },
+        ],
+      },
+      "attacker",
+      makeAction(),
+    ).newBattle;
+    expect(firstShield.power).toBeGreaterThan(0);
+    expect(shieldHp(second)).toBe(firstShield.power * 2);
+    expect(second.usersEffects.filter((e) => e.type === "shield")).toHaveLength(2);
+  });
+
+  it("converts subsequent damage in a later round", () => {
+    const { newBattle } = applyEffects(
+      {
+        ...makeBattle(
+          [makeAttacker(), makeDefender()],
+          [{ ...staticHit(), createdRound: ROUND + 1 }, activeConsume({ rounds: 1 })],
+        ),
+        round: ROUND + 1,
+      },
+      "attacker",
+      makeAction(),
     );
+    expect(shieldHp(newBattle)).toBeGreaterThan(0);
+  });
+
+  it("expires without removing shields previously earned", () => {
+    const first = applyEffects(
+      makeBattle([makeAttacker(), makeDefender()], [staticHit(), activeConsume()]),
+      "attacker",
+      makeAction(),
+    ).newBattle;
+    const expired = first.usersEffects.map((e) =>
+      e.type === "consume" ? { ...e, rounds: 0 } : e,
+    );
+    const second = applyEffects(
+      { ...first, round: ROUND + 1, usersEffects: [...expired, staticHit()] },
+      "attacker",
+      makeAction(),
+    ).newBattle;
+    expect(shieldHp(second)).toBe(shieldHp(first));
+    expect(second.usersEffects.some((e) => e.type === "consume")).toBe(false);
+  });
+
+  it("supports zero-duration conversion only on the casting action", () => {
+    const { newBattle } = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender()],
+        [staticHit(), makeConsume(50, 3, 0)],
+      ),
+      "attacker",
+      makeAction(),
+    );
+    expect(shieldHp(newBattle)).toBeGreaterThan(0);
+    expect(newBattle.usersEffects.some((e) => e.type === "consume")).toBe(false);
+    const stale = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender()],
+        [staticHit(), activeConsume({ rounds: 0 })],
+      ),
+      "attacker",
+      makeAction(),
+    ).newBattle;
+    expect(shieldHp(stale)).toBe(0);
+  });
+
+  it("converts residual damage during the victim's turn", () => {
+    const defender = makeDefender();
+    const residual = {
+      ...staticHit(),
+      isNew: false,
+      castThisRound: false,
+      createdRound: ROUND - 1,
+      rounds: 2,
+    };
+    const { newBattle, actionEffects } = applyEffects(
+      makeBattle([makeAttacker(), defender], [residual, activeConsume()]),
+      "defender",
+      makeAction(),
+    );
+    const lost =
+      defender.curHealth -
+      newBattle.usersState.find((u) => u.userId === "defender")!.curHealth;
+    expect(actionEffects.some((e) => e.txt.includes("residual damage"))).toBe(true);
+    expect(lost).toBeGreaterThan(0);
+    expect(shieldHp(newBattle)).toBe(Math.floor(lost * 0.5));
+  });
+
+  it("converts health drain without converting chakra or stamina drain", () => {
+    const drain = makeEffect(
+      "drain",
+      {
+        power: 100,
+        calculation: "static",
+        poolsAffected: ["Health", "Chakra", "Stamina"],
+        rounds: 2,
+      },
+      {
+        creatorId: "attacker",
+        targetId: "defender",
+        targetType: "user",
+        createdRound: ROUND - 1,
+        isNew: false,
+      },
+    );
+    const defender = makeDefender();
+    const { newBattle } = applyEffects(
+      makeBattle([makeAttacker(), defender], [drain, activeConsume()]),
+      "defender",
+      makeAction(),
+    );
+    const lost =
+      defender.curHealth -
+      newBattle.usersState.find((u) => u.userId === "defender")!.curHealth;
+    expect(lost).toBeGreaterThan(0);
+    expect(shieldHp(newBattle)).toBe(Math.floor(lost * 0.5));
+  });
+
+  it("keeps damage from another caster out of the consume shield", () => {
+    const { newBattle } = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender(), makeDefender("other")],
+        [staticHit("other"), staticHit(), activeConsume()],
+      ),
+      "attacker",
+      makeAction(),
+    );
+    const reference = applyEffects(
+      makeBattle([makeAttacker(), makeDefender()], [staticHit(), activeConsume()]),
+      "attacker",
+      makeAction(),
+    ).newBattle;
+    expect(shieldHp(newBattle)).toBe(shieldHp(reference));
+  });
+
+  it("converts reflected damage for the defender", () => {
+    const reflect = makeEffect(
+      "reflect",
+      { power: 50, calculation: "percentage", rounds: 2 },
+      {
+        creatorId: "defender",
+        targetId: "defender",
+        targetType: "user",
+        createdRound: ROUND - 1,
+        isNew: false,
+      },
+    );
+    const consume = activeConsume({ creatorId: "defender", targetId: "defender" });
+    const { newBattle } = applyEffects(
+      makeBattle([makeAttacker(), makeDefender()], [staticHit(), reflect, consume]),
+      "attacker",
+      makeAction(),
+    );
+    const reflected =
+      1000 - newBattle.usersState.find((u) => u.userId === "attacker")!.curHealth;
+    expect(reflected).toBeGreaterThan(0);
+    expect(shieldHp(newBattle, "defender")).toBe(Math.floor(reflected * 0.5));
+    expect(shieldHp(newBattle)).toBe(0);
+  });
+
+  it.each([0, 25])("converts ground-hit reflection on Sage activation with %i percent existing Consume", (existingPower) => {
+    const sageMode = makeSageMode(
+      SageModeValidator.parse({
+        ...makeSageMode(),
+        name: "Consume Sage",
+        description: "Converts outgoing damage into a shield",
+        villageId: null,
+        effects: [ConsumeTag.parse({ power: 50, rounds: 7, shieldRounds: 2 })],
+      }),
+    );
+    const initial = makeCompleteBattle({
+      width: 5,
+      height: 5,
+      round: 1,
+      createdAt: new Date(0),
+      usersState: [makeAttacker({ sageModeId: sageMode.id }), makeDefender("defender", { curHealth: 1000, maxHealth: 1000 })],
+      extraState: { sageModes: { [sageMode.id]: sageMode } },
+    });
+    const groundAction = {
+      ...JutsuValidatorRawSchema.parse({
+        ...SAGE_MODE_ACTIVATION_JUTSU,
+        name: "Ground attack",
+        target: "GROUND",
+        range: 3,
+        effects: [DamageTag.parse({ power: 100, calculation: "static", rounds: 3, statTypes: ["None"] })],
+      }),
+      id: "ground-hit",
+      type: "jutsu",
+      updatedAt: 0,
+      originalCooldown: 0,
+      level: 0,
+    } as CombatAction;
+    expect(insertAction({ battle: initial, grid: getBattleGrid(20, initial), action: groundAction, actorId: "defender", longitude: 0, latitude: 0 })).toBe(true);
+    const battle = applyEffects(initial, "defender", groundAction).newBattle;
+    expect(battle.groundEffects).toHaveLength(1);
+    battle.round = ROUND;
+    battle.usersEffects.push(makeEffect("reflect", { power: 50, calculation: "percentage", rounds: 3 }, {
+      creatorId: "attacker", targetId: "attacker", targetType: "user", createdRound: ROUND - 1, isNew: false,
+    }));
+    if (existingPower) battle.usersEffects.push(activeConsume({ power: existingPower, shieldRounds: 5 }));
+    const action = { ...SAGE_MODE_ACTIVATION_JUTSU, type: "jutsu", updatedAt: 0, originalCooldown: 0, level: 0 } as CombatAction;
+    expect(insertAction({ battle, grid: getBattleGrid(20, battle), action, actorId: "attacker", longitude: 0, latitude: 0 })).toBe(true);
+
+    const { newBattle, actionEffects } = applyEffects(battle, "attacker", action);
+
+    expect(newBattle.usersState[0]?.sageModeActivated).toBe(true);
+    expect(newBattle.usersState[0]?.curHealth).toBe(840);
+    expect(newBattle.usersState[1]?.curHealth).toBe(960);
+    expect(newBattle.usersEffects.find((e) => e.type === "consume" && e.fromType === "sageMode")?.rounds).toBe(sageMode.activationRounds);
+    expect(shieldHp(newBattle)).toBe(40 * (50 + existingPower) / 100);
+    expect(findConsumeShield(newBattle.usersEffects)?.rounds).toBe(existingPower ? 5 : 2);
+    expect(actionEffects.filter((e) => e.txt.includes("consumes"))).toHaveLength(1);
+  });
+
+  it("combines Diffuse repayments and new damage with capped conversion and the longest shield duration", () => {
+    const defender = makeDefender("defender", {
+      diffuseDamage: [
+        {
+          attackerId: "attacker",
+          remainingDamage: 200,
+          remainingTurns: 2,
+          lastAppliedRound: ROUND - 1,
+          creditDamage: true,
+        },
+      ],
+    });
+    const { newBattle, actionEffects } = applyEffects(
+      makeBattle(
+        [makeAttacker(), defender],
+        [
+          staticHit(),
+          activeConsume(),
+          activeConsume({
+            id: "bloodline-consume",
+            fromType: "bloodline",
+            power: 75,
+            shieldRounds: 6,
+          }),
+        ],
+      ),
+      "defender",
+      makeAction(),
+    );
+    const healthLost = defender.curHealth - newBattle.usersState[1]!.curHealth;
+    expect(healthLost).toBeGreaterThan(100);
+    expect(shieldHp(newBattle)).toBe(healthLost);
+    expect(findConsumeShield(newBattle.usersEffects)?.rounds).toBe(6);
+    expect(actionEffects.filter((e) => e.txt.includes("consumes"))).toHaveLength(1);
+  });
+
+  it("does not generate shields from self-inflicted damage", () => {
+    const { newBattle } = applyEffects(
+      makeBattle(
+        [makeAttacker()],
+        [staticHit("attacker", "attacker"), activeConsume()],
+      ),
+      "attacker",
+      makeAction(),
+    );
+    expect(shieldHp(newBattle)).toBe(0);
+  });
+
+  it("does not convert reflected damage from a self-targeted cast", () => {
+    const jutsu = JutsuValidatorRawSchema.parse({
+      ...SAGE_MODE_ACTIVATION_JUTSU,
+      effects: [
+        DamageTag.parse({
+          power: 100,
+          calculation: "static",
+          rounds: 0,
+          target: "SELF",
+          friendlyFire: "FRIENDLY",
+          statTypes: ["None"],
+        }),
+      ],
+    });
+    const action: CombatAction = {
+      ...jutsu,
+      id: "self-hit",
+      type: "jutsu",
+      updatedAt: 0,
+      originalCooldown: 0,
+      level: 0,
+    };
+    const battle = makeCompleteBattle({
+      createdAt: new Date(0),
+      round: ROUND,
+      width: 5,
+      height: 5,
+      usersState: [makeAttacker(), makeDefender()],
+      usersEffects: [
+        activeConsume(),
+        makeEffect(
+          "reflect",
+          { power: 50, calculation: "percentage", rounds: 2 },
+          {
+            creatorId: "attacker",
+            targetId: "attacker",
+            targetType: "user",
+            createdRound: ROUND - 1,
+          },
+        ),
+      ],
+    });
+    expect(
+      insertAction({
+        battle,
+        grid: getBattleGrid(20, battle),
+        action,
+        actorId: "attacker",
+        longitude: 0,
+        latitude: 0,
+      }),
+    ).toBe(true);
+
+    const { newBattle, actionEffects } = applyEffects(battle, "attacker", action);
+    expect(newBattle.usersState[0]?.curHealth).toBe(880);
+    expect(
+      actionEffects.some((e) => e.txt === "attacker takes 40.00 reflect damage"),
+    ).toBe(true);
+    expect(shieldHp(newBattle)).toBe(0);
+    expect(actionEffects.some((e) => e.txt.includes("consumes"))).toBe(false);
+  });
+
+  it("does not convert damage when Consume is sealed", () => {
+    const seal = makeEffect(
+      "seal",
+      { power: 100, rounds: 3 },
+      {
+        creatorId: "defender",
+        targetId: "attacker",
+        targetType: "user",
+        isNew: false,
+        createdRound: ROUND - 2,
+      },
+    );
+    const { newBattle } = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender()],
+        [staticHit(), activeConsume({ fromType: "bloodline" }), seal],
+      ),
+      "attacker",
+      makeAction(),
+    );
+    expect(shieldHp(newBattle)).toBe(0);
+  });
+  it("accepts standalone active buffs but requires a hit for instant Consume", () => {
+    expect(
+      JutsuValidatorRawSchema.safeParse({
+        ...SAGE_MODE_ACTIVATION_JUTSU,
+        effects: [ConsumeTag.parse({ rounds: 3 })],
+      }).success,
+    ).toBe(true);
+    expect(
+      JutsuValidatorRawSchema.safeParse({
+        ...SAGE_MODE_ACTIVATION_JUTSU,
+        effects: [ConsumeTag.parse({ rounds: 0 })],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("attributes simultaneous drain ticks to their own casters", () => {
+    const drains = ["attacker", "other"].map((creatorId) =>
+      makeEffect(
+        "drain",
+        { power: 20, calculation: "static", poolsAffected: ["Health"], rounds: 2 },
+        {
+          id: `drain-${creatorId}`,
+          creatorId,
+          targetId: "defender",
+          targetType: "user",
+          createdRound: ROUND - 1,
+          isNew: false,
+        },
+      ),
+    );
+    const { newBattle } = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender(), makeDefender("other")],
+        [...drains, activeConsume()],
+      ),
+      "defender",
+      makeAction(),
+    );
+    expect(shieldHp(newBattle)).toBe(10);
+  });
+
+  it("converts poison damage while the victim spends pools", () => {
+    const poison = makeEffect(
+      "poison",
+      { power: 50, calculation: "percentage", rounds: 2 },
+      {
+        creatorId: "attacker",
+        targetId: "defender",
+        targetType: "user",
+        createdRound: ROUND - 1,
+        isNew: false,
+      },
+    );
+    const { newBattle } = applyEffects(
+      makeBattle([makeAttacker(), makeDefender()], [poison, activeConsume()]),
+      "defender",
+      { chakraCost: 100, staminaCost: 100 } as CombatAction,
+    );
+    expect(shieldHp(newBattle)).toBe(50);
+  });
+
+  it("respects the Reflect cap when granting a shield", () => {
+    const reflect = makeEffect(
+      "reflect",
+      { power: 100, calculation: "percentage", rounds: 2 },
+      {
+        creatorId: "defender",
+        targetId: "defender",
+        targetType: "user",
+        createdRound: ROUND - 1,
+        isNew: false,
+      },
+    );
+    const { newBattle } = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender()],
+        [
+          staticHit(),
+          reflect,
+          activeConsume({ creatorId: "defender", targetId: "defender" }),
+        ],
+      ),
+      "attacker",
+      makeAction(),
+    );
+    const returnedDamage =
+      1000 - newBattle.usersState.find((u) => u.userId === "attacker")!.curHealth;
+    expect(shieldHp(newBattle, "defender")).toBe(Math.floor(returnedDamage * 0.5));
+  });
+
+  it("does not convert immediate or deferred recoil into an opponent's shield", () => {
+    const recoil = makeEffect(
+      "recoil",
+      { power: 50, calculation: "percentage", rounds: 2 },
+      {
+        creatorId: "defender",
+        targetId: "attacker",
+        targetType: "user",
+        createdRound: ROUND - 1,
+        isNew: false,
+      },
+    );
+    const diffuse = makeEffect(
+      "diffuse",
+      { power: 50, delayRounds: 2, rounds: 3 },
+      {
+        creatorId: "attacker",
+        targetId: "attacker",
+        targetType: "user",
+        createdRound: ROUND - 1,
+        isNew: false,
+      },
+    );
+    const first = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender()],
+        [
+          staticHit(),
+          recoil,
+          diffuse,
+          activeConsume({ creatorId: "defender", targetId: "defender" }),
+        ],
+      ),
+      "attacker",
+      makeAction(),
+    ).newBattle;
+    expect(shieldHp(first, "defender")).toBe(0);
+    const second = applyEffects(
+      { ...first, round: ROUND + 1 },
+      "attacker",
+      makeAction(),
+    ).newBattle;
+    expect(shieldHp(second, "defender")).toBe(0);
+    expect(
+      second.usersState.find((u) => u.userId === "attacker")!.curHealth,
+    ).toBeLessThan(first.usersState.find((u) => u.userId === "attacker")!.curHealth);
+  });
+
+  it("does not convert a newly cast active buff that Clear removes", () => {
+    const clear = makeEffect(
+      "clear",
+      { power: 100, rounds: 0 },
+      {
+        creatorId: "defender",
+        targetId: "attacker",
+        targetType: "user",
+        createdRound: ROUND,
+        isNew: true,
+      },
+    );
+    const { newBattle, actionEffects } = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender()],
+        [staticHit(), makeConsume(50), clear],
+      ),
+      "attacker",
+      makeAction(),
+    );
+    expect(actionEffects.some((e) => e.txt.includes("cleared"))).toBe(true);
+    expect(shieldHp(newBattle)).toBe(0);
+  });
+
+  it("keeps deferred summon damage conversion on its caster and quest credit on its controller", () => {
+    const summon = makeBattleUser("summon", {
+      isSummon: true,
+      controllerId: "attacker",
+      direction: "left",
+    });
+    const diffuse = makeEffect(
+      "diffuse",
+      { power: 50, delayRounds: 2, rounds: 3 },
+      {
+        creatorId: "defender",
+        targetId: "defender",
+        targetType: "user",
+        createdRound: ROUND - 1,
+        isNew: false,
+      },
+    );
+    const consume = activeConsume({ creatorId: "summon", targetId: "summon" });
+    const first = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender(), summon],
+        [staticHit("summon"), diffuse, consume],
+      ),
+      "summon",
+      makeAction(),
+    ).newBattle;
+    const initialShield = shieldHp(first, "summon");
+    const debt = first.usersState.find((u) => u.userId === "defender")!
+      .diffuseDamage![0]!;
+    expect(debt.attackerId).toBe("attacker");
+    expect(debt.sourceUserId).toBe("summon");
+    const second = applyEffects(
+      { ...first, round: ROUND + 1 },
+      "defender",
+      makeAction(),
+    ).newBattle;
+    expect(shieldHp(second, "summon")).toBe(
+      initialShield + Math.floor((debt.remainingDamage / debt.remainingTurns) * 0.5),
+    );
+    expect(shieldHp(second)).toBe(0);
+  });
+  it("attributes wound ticks separately for each caster", () => {
+    const wounds = ["attacker", "other"].map((creatorId) =>
+      makeEffect(
+        "wound",
+        { power: 20, rounds: 2 },
+        {
+          id: `wound-${creatorId}`,
+          creatorId,
+          targetId: "defender",
+          targetType: "user",
+          createdRound: ROUND - 1,
+          isNew: false,
+          timeTracker: { originalDamage: 100 },
+        },
+      ),
+    );
+    const { newBattle } = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender(), makeDefender("other")],
+        [...wounds, activeConsume()],
+      ),
+      "defender",
+      makeAction(),
+    );
+    expect(shieldHp(newBattle)).toBe(10);
+  });
+
+  it("caps conversion at 100% and generated shield HP at the schema maximum", () => {
+    const { newBattle } = applyEffects(
+      makeBattle(
+        [makeAttacker(), makeDefender()],
+        [{ ...staticHit(), power: 1000000 }, activeConsume({ power: 200 })],
+      ),
+      "attacker",
+      makeAction(),
+    );
+    expect(shieldHp(newBattle)).toBe(SHIELD_MAX_HEALTH);
   });
 });

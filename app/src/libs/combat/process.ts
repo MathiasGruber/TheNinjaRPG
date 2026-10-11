@@ -119,6 +119,7 @@ import type {
   CombatAction,
   CompleteBattle,
   Consequence,
+  ConsumeByUser,
   ExtraState,
   GroundEffect,
   PreBattleGearModifiers,
@@ -410,6 +411,12 @@ export const applyEffects = (
 
   // Remember effects applied to different users, so that we only apply effects once
   const appliedEffects = new Set<string>();
+  // Only authored instant tags may convert after their duration reaches zero.
+  const instantConsumeIds = new Set(
+    usersEffects
+      .filter((e) => e.type === "consume" && e.rounds === 0 && e.isNew)
+      .map((e) => e.id),
+  );
 
   // Apply mirror & copy tags first, so that these get added to usersEffects
   usersEffects
@@ -448,8 +455,8 @@ export const applyEffects = (
 
   // Separate post-damage-modifier effects (wound, afterburn, reflect, recoil, lifesteal, absorb)
   // These depend on post-mitigated damage values, so they must run after pierce
-  const postDamageModifierEffects = usersEffects.filter((e) =>
-    POST_DAMAGE_MODIFIER_TYPES.includes(e.type),
+  const postDamageModifierEffects = usersEffects.filter(
+    (e) => POST_DAMAGE_MODIFIER_TYPES.includes(e.type) && e.type !== "consume",
   );
 
   // Separate heal adjustment effects (increaseheal/decreaseheal)
@@ -457,6 +464,8 @@ export const applyEffects = (
   const healAdjustmentEffects = usersEffects.filter(
     (e) => e.type === "increaseheal" || e.type === "decreaseheal",
   );
+
+  const consumeByUser: ConsumeByUser = new Map();
 
   // Apply non-damage-modifier effects first (maintains existing ordering)
   nonDamageModifierEffects.sort(sortEffects).forEach((effect) => {
@@ -471,11 +480,51 @@ export const applyEffects = (
       actorId,
       effect,
       action,
+      consumeByUser,
     );
   });
 
+  // Register Consume after activation and prevention, before accumulating damage.
+  usersEffects
+    .filter(
+      (e) => e.type === "consume" && (isEffectActive(e) || instantConsumeIds.has(e.id)),
+    )
+    .sort(sortEffects)
+    .forEach((effect) => {
+      applySingleEffect(
+        consequences,
+        newUsersState,
+        newUsersEffects,
+        newGroundEffects,
+        actionEffects,
+        appliedEffects,
+        battle,
+        actorId,
+        effect,
+        action,
+        consumeByUser,
+      );
+    });
+
+  // Accumulate before collapseConsequences merges hits from different casters.
+  // Grant shields after damage resolves so they cannot absorb the generating action.
+  const accumulateConsumeShield = (userId: string, damage: number) => {
+    const consume = consumeByUser.get(userId);
+    if (!consume || damage <= 0) return;
+    consume.hp += damage * consume.ratio;
+  };
+
   // Resolve activation and prevention before Final Stand can protect debt repayment.
-  repayDiffuseDamage(newUsersState, usersEffects, actorId, round, actionEffects);
+  repayDiffuseDamage(
+    newUsersState,
+    usersEffects,
+    actorId,
+    round,
+    actionEffects,
+    (userId, targetId, damage) => {
+      if (userId !== targetId) accumulateConsumeShield(userId, damage);
+    },
+  );
 
   const sealEffects = getActiveSealEffects(usersEffects);
   const diffuseEffects = usersEffects.filter(
@@ -667,11 +716,6 @@ export const applyEffects = (
     );
   });
 
-  // Consume shields are accumulated per attacker across all collapsed consequences and
-  // pushed once after the loop, so a multi-target action grants a single shield sized
-  // off the whole hit rather than one shield per damaged target.
-  const consumeShieldByUser = new Map<string, { hp: number; rounds: number }>();
-
   // Apply consequences to users
   Array.from(consequences.values())
     // Before collapsing consequences, we process each consequence indicidually
@@ -737,6 +781,20 @@ export const applyEffects = (
       };
       // Store pre-shield damage for reflect/lifesteal/absorb calculations
       const preShieldDamage = c.damage ?? 0;
+
+      if (target && user && c.userId !== c.targetId) {
+        if (c.damageSource !== "recoil") {
+          accumulateConsumeShield(
+            c.userId,
+            Math.max(0, preShieldDamage) +
+              Math.max(0, c.residual ?? 0) +
+              Math.max(0, c.wound ?? 0) +
+              Math.max(0, c.afterburn ?? 0) +
+              Math.max(0, c.drain_hp ?? 0) +
+              Math.max(0, c.poison ?? 0),
+          );
+        }
+      }
 
       // Adjust damages and reduce shields
       if (target && user) {
@@ -855,21 +913,6 @@ export const applyEffects = (
             });
           }
         }
-        // Consume: convert a % of pre-shield damage into a temporary shield on the
-        // attacker. Not affected by heal modifiers and does not share the vamp/lifesteal
-        // leech budget. Accumulated here and granted once after the loop. Sits outside
-        // the damage block because consumeShield is only ever set from a pre-shield hit,
-        // which survives a merge that drops a shield-reduced damage===0 (same reason
-        // lifesteal is applied outside the block below).
-        const consumeShield = c.consumeShield ?? 0;
-        const consumeRounds = c.consumeRounds ?? 0;
-        if (consumeShield > 0 && consumeRounds > 0 && user.curHealth > 0) {
-          const prev = consumeShieldByUser.get(user.userId);
-          consumeShieldByUser.set(user.userId, {
-            hp: (prev?.hp ?? 0) + consumeShield,
-            rounds: Math.max(prev?.rounds ?? 0, consumeRounds),
-          });
-        }
         if (c.residual !== undefined && c.residual >= 0) {
           creditConsequenceEnmity(c, "residual", newUsersState, usersEffects);
           target.curHealth -= c.residual;
@@ -955,6 +998,10 @@ export const applyEffects = (
             Math.min(user.curHealth, finalReflect),
             usersEffects,
           );
+          // Reflect belongs to the defender and converts only its capped return.
+          if (target.userId !== user.userId) {
+            accumulateConsumeShield(target.userId, finalReflect);
+          }
           user.curHealth -= finalReflect;
           user.curHealth = Math.max(0, user.curHealth);
           actionEffects.push({
@@ -1093,10 +1140,10 @@ export const applyEffects = (
 
   // Grant the accumulated consume shields: one effect and one log line per attacker,
   // sized off the total pre-shield damage the action dealt across every target.
-  consumeShieldByUser.forEach(({ hp, rounds }, userId) => {
+  consumeByUser.forEach(({ hp, rounds }, userId) => {
     const user = newUsersState.find((u) => u.userId === userId);
     if (!user || user.curHealth <= 0) return;
-    const shieldHp = Math.floor(hp);
+    const shieldHp = Math.min(Math.floor(hp), SHIELD_MAX_HEALTH);
     if (shieldHp <= 0) return;
     newUsersEffects.push(
       createConsumeShieldEffect(user, shieldHp, rounds, battle.round),
@@ -1173,6 +1220,7 @@ export const applySingleEffect = (
   actorId: string,
   effect: UserEffect,
   action?: CombatAction,
+  consumeByUser?: ConsumeByUser,
 ) => {
   // Derive damage config from battle state (with fallback for older battles)
   const config = battle.extraState.dmgConfig ?? defaultDmgConfig;
@@ -1341,8 +1389,6 @@ export const applySingleEffect = (
           info = lifesteal(effect, usersEffects, consequences, curTarget);
         } else if (effect.type === "vamp") {
           info = vamp(effect, usersEffects, consequences, curTarget);
-        } else if (effect.type === "consume") {
-          info = consume(effect, consequences);
         } else if (effect.type === "fleeprevent") {
           info = fleePrevent(effect, usersEffects, curTarget);
         } else if (effect.type === "healprevent") {
@@ -1375,6 +1421,8 @@ export const applySingleEffect = (
           info = disarm(effect, usersEffects, curTarget);
         } else if (effect.type === "weakness") {
           info = weakness(effect, curTarget);
+        } else if (effect.type === "consume" && consumeByUser) {
+          info = consume(effect, consumeByUser);
         } else if (effect.type === "shield") {
           info = shield(effect, curTarget);
         } else if (effect.type === "immunity") {
@@ -1396,6 +1444,7 @@ export const applySingleEffect = (
             effect,
             action,
             newTarget,
+            consumeByUser,
           );
         } else if (effect.type === "copy") {
           info = copy(effect, usersEffects, curUser, curTarget);
@@ -1874,7 +1923,7 @@ const applyDiffuseToConsequences = ({
       if (originalDamage <= 0) continue;
       const isReturnDamage = key === "reflect" || key === "recoil";
       const targetId = isReturnDamage ? consequence.userId : consequence.targetId;
-      const attackerId = isReturnDamage ? consequence.targetId : consequence.userId;
+      const attackerId = key === "reflect" ? consequence.targetId : consequence.userId;
       if (!effects.some((e) => e.targetId === targetId)) continue;
       const isPrimary = key === "damage" || key === "residual";
       const isPierce = consequence.types?.includes("pierce") ?? false;
@@ -2256,6 +2305,7 @@ function applyActivateSageMode(
   effect: UserEffect,
   action: CombatAction | undefined,
   newTarget: BattleUserState,
+  consumeByUser?: ConsumeByUser,
 ): ActionEffect | undefined {
   if (effect.actionId !== SAGE_MODE_ACTIVATION_JUTSU_ID) {
     return {
@@ -2346,6 +2396,7 @@ function applyActivateSageMode(
       actorId,
       realized,
       action,
+      consumeByUser,
     );
   }
 
