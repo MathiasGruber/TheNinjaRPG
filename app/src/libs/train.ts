@@ -1184,20 +1184,45 @@ export const settleQueuedTraining = (
   const update: Partial<UserData> = {};
   const gains: Partial<Record<TimedMasteryName, number>> = {};
   const completed: ReturnType<typeof settleMasteryTrainingQueue>["completed"] = [];
-  // Share the daily allowance across the queues, including offline completions.
+  const queues = MasteryQueueKinds.map((kind) => ({
+    kind,
+    rows: liveQueueRows(rows, kind, user[masteryTrainingFields[kind].head]),
+  })).filter(({ kind, rows }) => rows.length && user[masteryTrainingFields[kind].stat]);
+  // Each handoff shares the daily allowance; equal finishes use MasteryQueueKinds order.
   let dailyTrainings = user.dailyTrainings;
-  for (const kind of MasteryQueueKinds) {
+  while (queues.length) {
+    const currentUser = {
+      ...user,
+      ...applyMasteryTrainingGains(user, gains),
+      ...update,
+      dailyTrainings,
+    };
+    const [next] = queues
+      .map((queue) => ({
+        queue,
+        endsAt: masteryTrainingEndsAt(currentUser, queue.kind),
+      }))
+      .sort(
+        (a, b) =>
+          (a.endsAt?.getTime() ?? Number.POSITIVE_INFINITY) -
+          (b.endsAt?.getTime() ?? Number.POSITIVE_INFINITY),
+      );
+    if (!next) break;
+    const { queue, endsAt } = next;
+    const { kind, rows: liveRows } = queue;
     const fields = masteryTrainingFields[kind];
-    const liveRows = liveQueueRows(rows, kind, user[fields.head]);
-    if (!liveRows.length || !user[fields.stat]) continue;
     const result = settleMasteryTrainingQueue(
-      { ...user, dailyTrainings },
+      currentUser,
       toMasteryEntries(liveRows),
       settings,
-      now,
+      // One handoff per pass lets the other queue's earlier finish claim the allowance.
+      endsAt && endsAt < now ? endsAt : now,
       kind,
     );
-    if (!result.consumed) continue;
+    if (!result.consumed) {
+      queues.splice(queues.indexOf(queue), 1);
+      continue;
+    }
     Object.assign(
       update,
       masteryTrainingSessionUpdate(kind, {
@@ -1205,11 +1230,21 @@ export const settleQueuedTraining = (
         startedAt: result.masteryTrainingStartedAt,
         speed: result.trainingSpeed,
       }),
-      { [fields.head]: queueHeadAfter(liveRows, result.consumed, user[fields.head]) },
+      {
+        [fields.head]: queueHeadAfter(
+          liveRows,
+          result.consumed,
+          currentUser[fields.head],
+        ),
+      },
     );
-    Object.assign(gains, result.gains);
+    for (const entry of result.completed) {
+      gains[entry.stat] = (gains[entry.stat] ?? 0) + entry.amount;
+    }
     completed.push(...result.completed);
     dailyTrainings = result.dailyTrainings;
+    queue.rows = liveRows.slice(result.consumed);
+    if (!queue.rows.length) queues.splice(queues.indexOf(queue), 1);
   }
   return {
     energy: energy && {

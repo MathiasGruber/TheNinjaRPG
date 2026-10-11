@@ -1,7 +1,14 @@
 import { MASTERY_RANK_CAPS } from "@/drizzle/constants";
 import { describe, expect, it } from "bun:test";
-import { MAX_DAILY_TRAININGS, TOTAL_MASTERY_CAP } from "@/drizzle/constants";
 import {
+  ELEMENTAL_MASTERY_CAP,
+  MAX_DAILY_TRAININGS,
+  TOTAL_MASTERY_CAP,
+  type MasteryQueueKind,
+} from "@/drizzle/constants";
+import type { UserQueue } from "@/drizzle/schema";
+import {
+  applyMasteryTrainingGains,
   calcMasteryTrainingAmount,
   getMasteryQueueSchedule,
   settleMasteryTrainingQueue,
@@ -30,6 +37,13 @@ const trainee = (patch: Record<string, unknown> = {}) =>
     trainingSpeed: "15min",
     currentlyTrainingMastery: "ninjutsuMastery",
     masteryTrainingStartedAt: start,
+    currentlyTrainingElement: "Wind",
+    elementalTrainingStartedAt: start,
+    elementalTrainingSpeed: "15min",
+    elementalMastery: {},
+    masteryQueueHead: 0,
+    elementalQueueHead: 0,
+    energyQueueHead: 0,
     ninjutsuMastery: 0,
     genjutsuMastery: 0,
     taijutsuMastery: 0,
@@ -48,6 +62,145 @@ const fullSession = (speed: "15min" | "1hr") =>
 
 type Queue = MasteryTrainingQueueEntry[];
 const genjutsuHour: Queue = [{ stat: "genjutsuMastery", speed: "1hr" }];
+
+const queueRows = (kind: MasteryQueueKind, entries: Queue): UserQueue[] =>
+  entries.map((entry, index) => ({
+    id: `${kind}-${index}`,
+    userId: "trainee",
+    kind,
+    position: index + 1,
+    stat: entry.stat,
+    speed: entry.speed,
+    jutsuId: null,
+    itemId: null,
+    energy: null,
+    reservedRyo: null,
+    quantity: null,
+    materials: null,
+    durationSeconds: null,
+    startsAt: null,
+    finishesAt: null,
+    createdAt: start,
+  }));
+
+const refreshQueues = (
+  user: NonNullable<UserWithRelations>,
+  rows: UserQueue[],
+  minutes: number[],
+) =>
+  minutes.reduce((current, minute) => {
+    const result = settleQueuedTraining(current, rows, [], 0, after(minute)).mastery;
+    return result
+      ? {
+          ...current,
+          ...applyMasteryTrainingGains(current, result.gains),
+          ...result.update,
+        }
+      : current;
+  }, user);
+
+describe("combined mastery and elemental queue settlement", () => {
+  it("uses the shared daily allowance in finish order regardless of refresh cadence", () => {
+    const user = trainee({
+      dailyTrainings: MAX_DAILY_TRAININGS - 2,
+      trainingSpeed: "1hr",
+    });
+    const rows = [
+      ...queueRows("MASTERY", genjutsuHour),
+      ...queueRows("ELEMENT", [{ stat: "Earth", speed: "1hr" }]),
+    ];
+    const offline = refreshQueues(user, rows, [61]);
+    expect(offline).toEqual(refreshQueues(user, rows, [16, 61]));
+    expect(offline).toMatchObject({
+      dailyTrainings: MAX_DAILY_TRAININGS - 1,
+      ninjutsuMastery: 0,
+      currentlyTrainingMastery: "ninjutsuMastery",
+      masteryQueueHead: 0,
+      elementalMastery: { Wind: fullSession("15min") },
+      currentlyTrainingElement: "Earth",
+      elementalTrainingStartedAt: after(15),
+      elementalQueueHead: 1,
+    });
+  });
+
+  it("reselects the next finish after each handoff and stops at the shared allowance", () => {
+    const user = trainee({
+      dailyTrainings: MAX_DAILY_TRAININGS - 3,
+      trainingSpeed: "1hr",
+      federalStatus: "GOLD",
+    });
+    const rows = [
+      ...queueRows("MASTERY", genjutsuHour),
+      ...queueRows("ELEMENT", [
+        { stat: "Earth", speed: "15min" },
+        { stat: "Lightning", speed: "15min" },
+        { stat: "Wind", speed: "15min" },
+      ]),
+    ];
+    const offline = refreshQueues(user, rows, [61]);
+    expect(offline).toEqual(refreshQueues(user, rows, [16, 31, 46, 61]));
+    expect(offline).toMatchObject({
+      dailyTrainings: MAX_DAILY_TRAININGS - 1,
+      ninjutsuMastery: 0,
+      masteryQueueHead: 0,
+      elementalMastery: {
+        Wind: fullSession("15min"),
+        Earth: fullSession("15min"),
+      },
+      currentlyTrainingElement: "Lightning",
+      elementalTrainingStartedAt: after(30),
+      elementalQueueHead: 2,
+    });
+  });
+
+  it("keeps mastery first for tied finishes at the shared daily limit", () => {
+    const user = trainee({ dailyTrainings: MAX_DAILY_TRAININGS - 2 });
+    const rows = [
+      ...queueRows("ELEMENT", [{ stat: "Earth", speed: "1hr" }]),
+      ...queueRows("MASTERY", genjutsuHour),
+    ];
+    const result = refreshQueues(user, rows, [16]);
+    expect(result).toMatchObject({
+      dailyTrainings: MAX_DAILY_TRAININGS - 1,
+      ninjutsuMastery: fullSession("15min"),
+      currentlyTrainingMastery: "genjutsuMastery",
+      masteryQueueHead: 1,
+      elementalMastery: {},
+      currentlyTrainingElement: "Wind",
+      elementalQueueHead: 0,
+    });
+  });
+
+  it("accumulates repeated gains, drops capped repeats and leaves final sessions for collection", () => {
+    const user = trainee({
+      trainingSpeed: "1hr",
+      elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP - 150 },
+      federalStatus: "GOLD",
+    });
+    const rows = [
+      ...queueRows("MASTERY", genjutsuHour),
+      ...queueRows("ELEMENT", [
+        { stat: "Wind", speed: "15min" },
+        { stat: "Wind", speed: "15min" },
+        { stat: "Earth", speed: "15min" },
+      ]),
+    ];
+    const offline = refreshQueues(user, rows, [180]);
+    expect(offline).toEqual(refreshQueues(user, rows, [16, 31, 61, 180]));
+    expect(offline).toMatchObject({
+      dailyTrainings: 3,
+      ninjutsuMastery: fullSession("1hr"),
+      genjutsuMastery: 0,
+      currentlyTrainingMastery: "genjutsuMastery",
+      masteryTrainingStartedAt: after(60),
+      masteryQueueHead: 1,
+      elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP },
+      currentlyTrainingElement: "Earth",
+      elementalTrainingStartedAt: after(30),
+      elementalQueueHead: 3,
+    });
+  });
+});
 
 describe("mastery training queue settlement", () => {
   it("collects finished sessions and starts each queued one at the previous end", () => {
