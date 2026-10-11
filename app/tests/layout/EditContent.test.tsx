@@ -302,17 +302,25 @@ describe("coordinate effect drafts", () => {
         ?.longitude,
     ).toBe(3);
   });
-  it("keeps blank coordinate drafts invalid until corrected", async () => {
-    const view = render(<CoordinateDraftForm />);
-    const column = view.getByRole("spinbutton", { name: "Coordinate 1 column" });
-    fireEvent.input(column, { target: { value: "" } });
-    await waitFor(() => expect(view.getByRole("alert")).toBeDefined());
-    fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
-    expect(save).not.toHaveBeenCalled();
-    expect((column as HTMLInputElement).value).toBe("");
-    fireEvent.input(column, { target: { value: "4" } });
-    await waitFor(() => expect(view.queryByRole("alert")).toBeNull());
-    fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
-    expect(save).toHaveBeenCalledTimes(1);
-  });
+  it.each(["column", "row"] as const)(
+    "keeps blank coordinate %s drafts invalid until corrected",
+    async (axis) => {
+      const view = render(<CoordinateDraftForm />);
+      const input = view.getByRole("spinbutton", { name: `Coordinate 1 ${axis}` });
+      fireEvent.input(input, { target: { value: "" } });
+      await waitFor(() => expect(view.getByRole("alert")).toBeDefined());
+      fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
+      expect(save).not.toHaveBeenCalled();
+      expect((input as HTMLInputElement).value).toBe("");
+      fireEvent.input(input, { target: { value: "4" } });
+      await waitFor(() => expect(view.queryByRole("alert")).toBeNull());
+      fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(
+        save.mock.calls[0]?.[0].data.effects[0]?.coordinateTargeting?.coordinates[0],
+      ).toEqual(
+        axis === "column" ? { longitude: 4, latitude: 1 } : { longitude: 1, latitude: 4 },
+      );
+    },
+  );
 });

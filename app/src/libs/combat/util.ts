@@ -3069,7 +3069,6 @@ export const getAffectedTiles = (info: {
   ground: GroundEffect[];
   userId: string;
   preview?: boolean;
-  random?: () => number;
 }) => {
   // Destruct & variables
   const { action, b, a, grid, restrictGrid, users, userId } = info;
@@ -3205,12 +3204,7 @@ export const getAffectedTiles = (info: {
     if (pattern.selection === "RANDOM" && !info.preview) {
       const count = Math.min(pattern.randomCount, candidates.length);
       for (let index = 0; index < count; index++) {
-        const remaining = candidates.length - index;
-        const selected =
-          index +
-          (info.random
-            ? Math.floor(info.random() * remaining)
-            : secureRandomInt(remaining));
+        const selected = index + secureRandomInt(candidates.length - index);
         const current = candidates[index];
         const chosen = candidates[selected];
         if (current && chosen) {

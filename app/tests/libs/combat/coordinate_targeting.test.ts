@@ -97,7 +97,6 @@ const scenario = () => {
       ground: battle.groundEffects,
       userId: "actor",
       preview,
-      random: () => 0,
     });
   const cast = (ability = action(), longitude = 2, latitude = 2) =>
     insertAction({
@@ -187,9 +186,6 @@ describe("coordinate pattern resolution", () => {
     });
     expect(resolve(ability).green.size).toBe(3);
     expect(resolve(ability, true).green.size).toBe(25);
-    expect(positions(resolve(ability).green)).toEqual(
-      positions(resolve(ability).green),
-    );
   });
   it.each([
     "SELF",

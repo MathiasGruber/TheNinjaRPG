@@ -114,32 +114,22 @@ export const CoordinateTargetingEditor = (props: {
             key={index}
             className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
           >
-            <NumberInput
-              step={1}
-              aria-label={`Coordinate ${index + 1} column`}
-              value={coordinate.longitude}
-              disabled={props.readonly}
-              onValueChange={(value) =>
-                update({
-                  coordinates: pattern.coordinates.map((entry, i) =>
-                    i === index ? { ...entry, longitude: value } : entry,
-                  ),
-                })
-              }
-            />
-            <NumberInput
-              step={1}
-              aria-label={`Coordinate ${index + 1} row`}
-              value={coordinate.latitude}
-              disabled={props.readonly}
-              onValueChange={(value) =>
-                update({
-                  coordinates: pattern.coordinates.map((entry, i) =>
-                    i === index ? { ...entry, latitude: value } : entry,
-                  ),
-                })
-              }
-            />
+            {(["longitude", "latitude"] as const).map((axis) => (
+              <NumberInput
+                key={axis}
+                step={1}
+                aria-label={`Coordinate ${index + 1} ${axis === "longitude" ? "column" : "row"}`}
+                value={coordinate[axis]}
+                disabled={props.readonly}
+                onValueChange={(value) =>
+                  update({
+                    coordinates: pattern.coordinates.map((entry, i) =>
+                      i === index ? { ...entry, [axis]: value } : entry,
+                    ),
+                  })
+                }
+              />
+            ))}
             <Button
               type="button"
               variant="outline"
