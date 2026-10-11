@@ -790,10 +790,16 @@ export default function MyJutsu() {
                       const effectiveLevel = isJutsuInTraining(userjutsu, serverNow)
                         ? userjutsu.level - 1
                         : userjutsu.level;
-                      // No userItems: evolveJutsu does not check the weapon
+                      // Evolution ignores the weapon and skill use gates, like evolveJutsu.
                       const evolveWarning = !userData
                         ? ""
-                        : jutsuRequirementWarning(evo, userData) ||
+                        : jutsuRequirementWarning(
+                            evo,
+                            userData,
+                            undefined,
+                            undefined,
+                            true,
+                          ) ||
                           (canEvolveJutsu(evo, userData)
                             ? ""
                             : "You do not meet the stat requirements for this evolution.");

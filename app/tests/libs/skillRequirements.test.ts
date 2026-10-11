@@ -46,6 +46,23 @@ describe("activated skill use requirements", () => {
     expect(jutsuRequirementWarning(jutsu, activeUser as unknown as NonNullable<UserWithRelations>)).toBe("");
   });
 
+  it("allows evolution acquisition without activation while retaining other requirements", () => {
+    const trainee = user as unknown as NonNullable<UserWithRelations>;
+    expect(jutsuRequirementWarning(jutsu, trainee, undefined, undefined, true)).toBe("");
+    for (const [requirements, warning] of [
+      [{ requiredRank: "ELDER" }, "rank"],
+      [{ requiredLevel: 51 }, "level"],
+      [{ villageId: "other" }, "village"],
+      [{ bloodlineId: "other" }, "bloodline"],
+      [{ requiredNinjutsuMastery: 101 }, "mastery"],
+      [{ elementClassification: "Fire" }, "elements"],
+      [{ requiredBloodlineItemId: "other" }, "bloodline item"],
+    ] as const) {
+      expect(jutsuRequirementWarning({ ...jutsu, ...requirements }, trainee, undefined, undefined, true)).toContain(warning);
+    }
+    expect(jutsuRequirementWarning({ ...jutsu, jutsuRank: "C" }, { ...trainee, rank: "STUDENT" }, undefined, undefined, true)).toContain("rank");
+  });
+
   it("filters locked gear from both loadouts and optimal auto-equipping", () => {
     const loadout = [{ itemId: "gear", slot: "HEAD" as const }];
     expect(computeLoadoutAssignments(loadout, [gear], user).assignments).toEqual([]);

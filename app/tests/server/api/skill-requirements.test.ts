@@ -1,8 +1,11 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
+import { JUTSU_TRAIN_LEVEL_CAP } from "@/drizzle/constants";
 import { item, itemLoadout, jutsu, jutsuLoadout, skillTree, userData, userItem, userJutsu, userSkill } from "@/drizzle/schema";
+import { canEvolveJutsu, jutsuRequirementWarning } from "@/libs/train";
 import { itemRouter } from "@/server/api/routers/item";
 import { jutsuRouter } from "@/server/api/routers/jutsu";
+import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { skillTreeRouter } from "@/server/api/routers/skillTree";
 import { HealTag, RepairTag } from "@/validators/combat";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
@@ -66,5 +69,23 @@ describeWithDatabase("skill requirements against MySQL", () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain("required by items or jutsu");
     expect(await db.query.skillTree.findFirst({ where: eq(skillTree.id, "skill") })).toBeDefined();
+  });
+
+  it("allows evolving into a skill-gated jutsu but keeps it unequipped", async () => {
+    const db = await getTestDatabase();
+    await db.insert(jutsu).values({ id: "parent", name: "Parent", description: "Parent", battleDescription: "Uses parent", image: "parent.webp", effects: [], target: "SELF", range: 0, requiredRank: "STUDENT", jutsuType: "NORMAL" });
+    await db.update(jutsu).set({ parentJutsuId: "parent" }).where(eq(jutsu.id, "jutsu"));
+    await db.insert(userJutsu).values({ id: "owned-parent", userId: USER, jutsuId: "parent", level: JUTSU_TRAIN_LEVEL_CAP, equipped: true });
+    const { user } = await fetchUpdatedUser({ client: db, userId: USER });
+    const evolution = (await db.query.jutsu.findFirst({ where: eq(jutsu.id, "jutsu") }))!;
+    expect(jutsuRequirementWarning(evolution, user!)).toContain("Activate the required skill");
+    expect(jutsuRequirementWarning(evolution, user!, undefined, undefined, true)).toBe("");
+    expect(canEvolveJutsu(evolution, user!)).toBe(true);
+    const caller = await callerFor(jutsuRouter, USER);
+    expect((await caller.evolveJutsu({ userJutsuId: "owned-parent", evolutionJutsuId: "jutsu" })).success).toBe(true);
+    const evolved = await db.query.userJutsu.findFirst({ where: eq(userJutsu.id, "owned-parent") });
+    expect(evolved?.jutsuId).toBe("jutsu");
+    expect(evolved?.equipped).toBe(false);
+    expect((await caller.toggleEquip({ userJutsuId: "owned-parent" })).success).toBe(false);
   });
 });

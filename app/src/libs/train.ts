@@ -402,15 +402,16 @@ export const canUseJutsu = (
 /**
  * The first unmet requirement as a user-facing message, or "" when the jutsu is usable.
  * Passing `userItems` also evaluates the weapon requirement, which toggleEquip does not,
- * and counts worn gear toward masteries.
+ * and counts worn gear toward masteries. Evolution acquisition ignores the skill use gate.
  */
 export const jutsuRequirementWarning = (
   jutsu: Jutsu,
   userdata: NonNullable<UserWithRelations>,
   userItems?: UserItemWithItem[],
   userSkills?: MasterySources["userSkills"],
+  ignoreSkill = false,
 ): string =>
-  jutsuRequirementChecks(jutsu, userdata, { userItems, userSkills }).find(
+  jutsuRequirementChecks(jutsu, userdata, { userItems, userSkills, ignoreSkill }).find(
     ({ ok }) => !ok,
   )?.warning ?? "";
 
