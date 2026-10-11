@@ -17,14 +17,17 @@ import { getMasteryQueue } from "@/libs/queue";
 import { calcJutsuTrainCost, calcJutsuTrainTime, findJutsuInTraining } from "@/libs/train";
 import { jutsuRouter } from "@/server/api/routers/jutsu";
 import { occupationRouter } from "@/server/api/routers/occupation";
+import type { DrizzleClient } from "@/server/db";
 import { fetchUpdatedUser, profileRouter } from "@/server/api/routers/profile";
 import { trainRouter } from "@/server/api/routers/train";
 import {
+  fetchCraftingQueue,
   settleCraftingQueue,
   settleJutsuTrainingQueue,
 } from "@/server/utils/userQueue";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { queueMasteries } from "../../setup/queues";
+import { failStatements } from "../../setup/statements";
 import type { MasteryTrainingQueueEntry } from "@/validators/train";
 import {
   callerFor,
@@ -527,6 +530,167 @@ const readCraftQueue = () => readQueue("CRAFT");
 describeWithDatabase("crafting queue", () => {
   beforeEach(async () => {
     await resetTables(userQueue, craftingRequirement, userItem, item, userVote, userData);
+  });
+
+  for (const missedActiveSnapshot of [false, true]) {
+    it(`reschedules crafts in one update ${missedActiveSnapshot ? "after a missed active snapshot" : "without a transaction"}`, async () => {
+      await insertUser(CRAFTER);
+      await setupRecipe();
+      const now = new Date("2026-01-01T00:00:00.123Z");
+      const activeFinish = new Date(now.getTime() + MINUTE);
+      await insertUserItems([
+        {
+          id: "busy",
+          userId: USER_ID,
+          itemId: "blade",
+          craftingFinishedAt: activeFinish,
+        },
+      ]);
+      const database = await getTestDatabase();
+      await database.insert(userQueue).values(
+        [30, 45, 90].map((durationSeconds, index) => ({
+          id: `cq-${index}`,
+          userId: USER_ID,
+          kind: "CRAFT" as const,
+          position: index + 1,
+          itemId: "blade",
+          quantity: 1,
+          materials: [],
+          durationSeconds,
+          startsAt: now,
+          finishesAt: new Date(now.getTime() + durationSeconds * 1000),
+        })),
+      );
+      const waiting = await fetchCraftingQueue(database, USER_ID);
+      // Only the upfront active-job read misses the commit; all transactional reads
+      // and writes still execute against MySQL, including the locked deadline reread.
+      const client = missedActiveSnapshot
+        ? new Proxy(database, {
+            get(target, property, receiver) {
+              if (property === "select") {
+                return () => ({ from: () => ({ where: async () => [] }) });
+              }
+              return Reflect.get(target, property, receiver);
+            },
+          })
+        : database;
+      const recorded = await recordQueries(() =>
+        settleCraftingQueue(client, USER_ID, now, waiting),
+      );
+      expect(recorded.result).toBe(0);
+      expect(
+        recorded.statements.filter((statement) => /^update `UserQueue`/i.test(statement)),
+      ).toHaveLength(1);
+      expect(recorded.statements.some((statement) => /^begin/i.test(statement))).toBe(
+        missedActiveSnapshot,
+      );
+      const rows = await readCraftQueue();
+      expect(rows.map((row) => row.startsAt)).toEqual(
+        [60, 90, 135].map((seconds) => new Date(now.getTime() + seconds * 1000)),
+      );
+      expect(rows.map((row) => row.finishesAt)).toEqual(
+        [90, 135, 225].map((seconds) => new Date(now.getTime() + seconds * 1000)),
+      );
+      expect((await readUser()).craftingExperience).toBe(0);
+      const current = await fetchCraftingQueue(database, USER_ID);
+      const unchanged = await recordQueries(() =>
+        settleCraftingQueue(database, USER_ID, now, current),
+      );
+      expect(
+        unchanged.statements.filter((statement) =>
+          /^update `UserQueue`/i.test(statement),
+        ),
+      ).toHaveLength(0);
+    });
+  }
+
+  it("retains a prepaid craft and its rewards when output insertion fails, then starts it once on retry", async () => {
+    await insertUser(CRAFTER);
+    await setupRecipe();
+    const database = await getTestDatabase();
+    const now = new Date();
+    await database.insert(userQueue).values({
+      id: "cq-retry",
+      userId: USER_ID,
+      kind: "CRAFT",
+      position: 1,
+      itemId: "blade",
+      quantity: 1,
+      materials: [
+        { userItemId: "gone", itemId: "ore", quantity: 3, storedAtHome: false },
+      ],
+      durationSeconds: 60,
+      startsAt: now,
+      finishesAt: new Date(now.getTime() + MINUTE),
+    });
+    const before = await readCraftQueue();
+    const client = new Proxy(database, {
+      get(target, property, receiver) {
+        if (property === "transaction") {
+          return (callback: (tx: DrizzleClient) => Promise<unknown>) =>
+            target.transaction((tx) =>
+              callback(failStatements(tx as unknown as DrizzleClient, userItem)),
+            );
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    await expect(settleCraftingQueue(client, USER_ID, now)).rejects.toThrow(
+      "Statement failed on purpose",
+    );
+    expect(await readCraftQueue()).toEqual(before);
+    expect(await readItems()).toEqual([]);
+    expect((await readUser()).craftingExperience).toBe(0);
+    expect(await settleCraftingQueue(database, USER_ID, now)).toBe(1);
+    expect(await settleCraftingQueue(database, USER_ID, now)).toBe(0);
+    expect(await readCraftQueue()).toEqual([]);
+    expect(
+      (await readItems()).map(({ itemId, quantity }) => ({ itemId, quantity })),
+    ).toEqual([{ itemId: "blade", quantity: 1 }]);
+    expect((await readUser()).craftingExperience).toBe(10);
+  });
+
+  it("refunds a dropped craft by merging eligible stacks and inserting missing or full ones", async () => {
+    await insertUser(CRAFTER);
+    await setupRecipe();
+    await insertUserItems([
+      { id: "ore-stack", userId: USER_ID, itemId: "ore", quantity: 10 },
+      { id: "ore-full", userId: USER_ID, itemId: "ore", quantity: 49 },
+    ]);
+    const database = await getTestDatabase();
+    await database.update(item).set({ hidden: true }).where(eq(item.id, "blade"));
+    const now = new Date();
+    await database.insert(userQueue).values({
+      id: "cq-refund",
+      userId: USER_ID,
+      kind: "CRAFT",
+      position: 1,
+      itemId: "blade",
+      quantity: 1,
+      materials: [
+        { userItemId: "ore-stack", itemId: "ore", quantity: 3, storedAtHome: false },
+        { userItemId: "ore-full", itemId: "ore", quantity: 3, storedAtHome: false },
+        { userItemId: "gone", itemId: "ore", quantity: 4, storedAtHome: true },
+      ],
+      durationSeconds: 60,
+      startsAt: now,
+      finishesAt: new Date(now.getTime() + MINUTE),
+    });
+    expect(await settleCraftingQueue(database, USER_ID, now)).toBe(0);
+    const items = await readItems();
+    expect(items.find((row) => row.id === "ore-stack")?.quantity).toBe(13);
+    expect(items.find((row) => row.id === "ore-full")?.quantity).toBe(49);
+    expect(
+      items
+        .filter((row) => row.id !== "ore-stack" && row.id !== "ore-full")
+        .map(({ quantity, storedAtHome }) => ({ quantity, storedAtHome }))
+        .sort((a, b) => a.quantity - b.quantity),
+    ).toEqual([
+      { quantity: 3, storedAtHome: false },
+      { quantity: 4, storedAtHome: true },
+    ]);
+    expect(await readCraftQueue()).toEqual([]);
+    expect((await readUser()).craftingExperience).toBe(0);
   });
 
   it("takes the materials of a queued craft and grants output and experience when it starts", async () => {
