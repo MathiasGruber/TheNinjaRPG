@@ -171,14 +171,14 @@ export function Profile() {
           <CharacterProfile />
         </TabsContent>
         <TabsContent value="achievements">
-          <ContentBox padding={false}>
+          <ContentBox title="Achievements" padding={false}>
             <div className="p-3">
               <LogbookAchievements />
             </div>
           </ContentBox>
         </TabsContent>
         <TabsContent value="history">
-          <ContentBox padding={false}>
+          <ContentBox title="History" padding={false}>
             <ProfileHistory />
           </ContentBox>
         </TabsContent>
