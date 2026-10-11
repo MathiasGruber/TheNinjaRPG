@@ -66,6 +66,7 @@ const placementRule =
     if (entityType === "ITEM" && WORN_ITEM_TYPES.includes(text(fields.itemType))) {
       return "caster";
     }
+    if (tagTarget === "COORDINATES") return "ground";
     const actionTarget = text(fields.target);
     if (tagTarget === "SELF" || actionTarget === "SELF") return "caster";
     if (actionTarget === "GROUND" || actionTarget === "EMPTY_GROUND") return "ground";

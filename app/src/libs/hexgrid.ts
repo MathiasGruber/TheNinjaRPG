@@ -132,7 +132,14 @@ export const getPossibleActionTiles = (
   let highlights: Grid<TerrainHex> | undefined;
   if (action && origin) {
     const radius = action.range;
+    const hasTargetPattern = action.effects.some(
+      (tag) =>
+        tag.target === "COORDINATES" && tag.coordinateTargeting?.origin === "TARGET",
+    );
     if (
+      hasTargetPattern ||
+      (action.method === "COORDINATES" &&
+        action.coordinateTargeting?.origin === "TARGET") ||
       action.method === "SINGLE" ||
       action.method === "AOE_LINE_SHOOT" ||
       action.method === "AOE_WALL_SHOOT" ||
@@ -143,7 +150,7 @@ export const getPossibleActionTiles = (
     ) {
       const f = spiral<TerrainHex>({ start: [origin.q, origin.r], radius: radius });
       highlights = grid.traverse(f);
-    } else if (action.method === "ALL") {
+    } else if (action.method === "ALL" || action.method === "COORDINATES") {
       highlights = grid;
     }
   }

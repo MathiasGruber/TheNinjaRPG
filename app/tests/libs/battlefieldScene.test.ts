@@ -1,4 +1,3 @@
-
 import { describe, expect, it } from "bun:test";
 import {
   battlefieldSceneOf,
@@ -45,6 +44,17 @@ describe("battlefieldSceneOf", () => {
     expect(placements(scene)).toEqual(["ground", "caster"]);
   });
 
+  it("places coordinate tags on ground even when the parent targets itself", () => {
+    expect(
+      placements(
+        battlefieldSceneOf("JUTSU", "coordinates", {
+          target: "SELF",
+          effects: [tag({ staticAssetPath: "field" }, "COORDINATES")],
+        }),
+      ),
+    ).toEqual(["ground"]);
+  });
+
   it("keeps bloodline and worn-item effects on their owner", () => {
     const effects = [tag({ staticAnimation: "glow" }, "INHERIT")];
     expect(placements(battlefieldSceneOf("BLOODLINE", "b1", { effects }))).toEqual([
@@ -52,7 +62,11 @@ describe("battlefieldSceneOf", () => {
     ]);
     expect(
       placements(
-        battlefieldSceneOf("ITEM", "i1", { itemType: "ARMOR", target: "OTHER_USER", effects }),
+        battlefieldSceneOf("ITEM", "i1", {
+          itemType: "ARMOR",
+          target: "OTHER_USER",
+          effects,
+        }),
       ),
     ).toEqual(["caster"]);
     expect(
@@ -80,9 +94,9 @@ describe("battlefieldSceneOf", () => {
   });
 
   it("skips effects that neither draw nor sound, and entities that draw nothing", () => {
-    expect(battlefieldSceneOf("JUTSU", "j3", { target: "SELF", effects: [tag({})] })).toBe(
-      null,
-    );
+    expect(
+      battlefieldSceneOf("JUTSU", "j3", { target: "SELF", effects: [tag({})] }),
+    ).toBe(null);
     expect(battlefieldSceneOf("BADGE", "b1", { name: "Brave" })).toBe(null);
   });
 

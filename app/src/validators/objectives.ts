@@ -60,7 +60,7 @@ import {
 } from "@/drizzle/constants";
 import { DateTimeRegExp } from "@/utils/regex";
 import { idsWithNumberField } from "@/validators/base";
-import { AllTags } from "@/validators/combat";
+import { AllTags, SuperRefinePassiveEffects } from "@/validators/combat";
 import { masteryRequirementFields } from "@/validators/mastery";
 import {
   ObjectiveReward,
@@ -967,7 +967,7 @@ export const RaidDamageThresholdValidator = z.object({
   damageRequired: z.coerce.number().min(1, "Damage must be at least 1"),
   sortOrder: z.coerce.number().min(0).max(255).prefault(0),
   rewards: ObjectiveReward,
-  effects: z.array(AllTags).prefault([]),
+  effects: z.array(AllTags).prefault([]).superRefine(SuperRefinePassiveEffects),
   effectDurationMinutes: z.coerce.number().min(1).max(10080).prefault(60),
 });
 export type RaidDamageThresholdType = z.infer<typeof RaidDamageThresholdValidator>;

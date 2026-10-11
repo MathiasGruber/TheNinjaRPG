@@ -18,7 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { MAX_ITEM_VARIANTS, VARIANT_COST_TYPES } from "@/drizzle/constants";
+import {
+  MAX_ITEM_VARIANTS,
+  NonActionItemTypes,
+  VARIANT_COST_TYPES,
+} from "@/drizzle/constants";
 import type { CraftingRequirement, Item } from "@/drizzle/schema";
 import { useItemEditForm } from "@/hooks/item";
 import Confirm from "@/layout/Confirm";
@@ -86,6 +90,8 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
   // Form handling
   const { item, effects, form, formData, setEffects, handleItemSubmit, isUpdating } =
     useItemEditForm(props.item, props.refetch);
+
+  const itemType = useWatch({ control: form.control, name: "itemType" });
 
   // Filter out any undefined effects from useWatch
   const validEffects = (effects?.filter((e): e is ZodAllTags => e !== undefined) ??
@@ -185,6 +191,11 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
             <EffectFormWrapper
               idx={i}
               type="item"
+              allowCoordinateTargeting={
+                !NonActionItemTypes.includes(
+                  itemType as (typeof NonActionItemTypes)[number],
+                )
+              }
               tag={tag}
               availableTags={tagTypes}
               effects={validEffects}

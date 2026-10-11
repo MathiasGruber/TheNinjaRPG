@@ -3068,6 +3068,8 @@ export const getAffectedTiles = (info: {
   users: ReturnedUserState[];
   ground: GroundEffect[];
   userId: string;
+  preview?: boolean;
+  random?: () => number;
 }) => {
   // Destruct & variables
   const { action, b, a, grid, restrictGrid, users, userId } = info;
@@ -3162,6 +3164,62 @@ export const getAffectedTiles = (info: {
   } else if (action.method === "AOE_SPIRAL_SHOOT") {
     tiles = grid.traverse(spiral<TerrainHex>({ start: [a.q, a.r], radius }));
     if (tiles) tiles = tiles.filter((t) => t !== a);
+  } else if (action.method === "COORDINATES") {
+    const pattern = action.coordinateTargeting;
+    if (!pattern) return { green, red };
+    const origin =
+      pattern.origin === "CASTER" ? a : pattern.origin === "TARGET" ? b : undefined;
+    const coordinates = new Set(
+      pattern.coordinates.map(
+        (coordinate) =>
+          `${coordinate.longitude + (origin?.col ?? 0)},${coordinate.latitude + (origin?.row ?? 0)}`,
+      ),
+    );
+    const candidates = grid.toArray().filter((target) => {
+      const listed = coordinates.has(`${target.col},${target.row}`);
+      const selected =
+        pattern.selection === "EXCLUDE"
+          ? !listed
+          : pattern.selection === "RANDOM" && coordinates.size === 0
+            ? true
+            : listed;
+      if (!selected) return false;
+      // Coordinate patterns select tiles independently of the clicked anchor.
+      if (
+        action.target === "EMPTY_GROUND" &&
+        users.some(
+          (u) =>
+            u.longitude === target.col &&
+            u.latitude === target.row &&
+            u.curHealth > 0 &&
+            !u.fledBattle,
+        )
+      )
+        return false;
+      if (isValidMove({ action, target, user, users, barriers, clicked: b }))
+        return true;
+      red.add(target);
+      return false;
+    });
+    // Preview all eligible candidates; the server samples once when the cast is accepted.
+    if (pattern.selection === "RANDOM" && !info.preview) {
+      const random = info.random ?? Math.random;
+      const count = Math.min(pattern.randomCount, candidates.length);
+      for (let index = 0; index < count; index++) {
+        const selected = index + Math.floor(random() * (candidates.length - index));
+        const current = candidates[index];
+        const chosen = candidates[selected];
+        if (current && chosen) {
+          candidates[index] = chosen;
+          candidates[selected] = current;
+          green.add(chosen);
+        }
+      }
+    } else {
+      candidates.forEach((target) => {
+        green.add(target);
+      });
+    }
   } else if (action.method === "ALL") {
     grid.forEach((target) => {
       if (isValidMove({ action, target, user, users, barriers, clicked: b })) {
@@ -3180,6 +3238,53 @@ export const getAffectedTiles = (info: {
   });
 
   return { green, red };
+};
+
+/** Resolve every tag before applying effects so spawned barriers cannot change later patterns. */
+export const getActionAffectedTiles = (
+  info: Parameters<typeof getAffectedTiles>[0],
+) => {
+  if (
+    info.action.effects.some((tag) => tag.type === "move") &&
+    (info.action.method === "COORDINATES" ||
+      info.action.effects.some((tag) => tag.target === "COORDINATES"))
+  ) {
+    return {
+      green: new Set<TerrainHex>(),
+      red: new Set<TerrainHex>(),
+      effectTiles: [],
+    };
+  }
+  const inherited = getAffectedTiles(info);
+  if (info.action.effects.length === 0) return { ...inherited, effectTiles: [] };
+  const green = new Set<TerrainHex>();
+  const red = new Set<TerrainHex>();
+  const effectTiles = info.action.effects.map((tag) => {
+    const result =
+      tag.target === "COORDINATES"
+        ? getAffectedTiles({
+            ...info,
+            action: {
+              ...info.action,
+              method: "COORDINATES",
+              target: info.action.target === "EMPTY_GROUND" ? "EMPTY_GROUND" : "GROUND",
+              coordinateTargeting: tag.coordinateTargeting,
+              effects: [tag],
+            },
+          })
+        : inherited;
+    result.green.forEach((tile) => {
+      green.add(tile);
+    });
+    result.red.forEach((tile) => {
+      red.add(tile);
+    });
+    return result.green;
+  });
+  green.forEach((tile) => {
+    red.delete(tile);
+  });
+  return { green, red, effectTiles };
 };
 
 /**

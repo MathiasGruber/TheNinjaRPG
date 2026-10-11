@@ -684,6 +684,7 @@ export const AttackMethods = [
   "AOE_LARGE_WALL_SHOOT",
   "AOE_CIRCLE_SHOOT",
   "AOE_SPIRAL_SHOOT",
+  "COORDINATES",
 ] as const;
 export type AttackMethod = (typeof AttackMethods)[number];
 

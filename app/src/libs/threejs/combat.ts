@@ -54,7 +54,7 @@ import type {
   UserEffect,
 } from "@/libs/combat/types";
 import {
-  getAffectedTiles,
+  getActionAffectedTiles,
   getBattleGrid,
   getClan,
   getEffectiveCurPool,
@@ -182,7 +182,8 @@ export const validateActionTarget = (info: {
   if (!targetInPossible) return { isValid: false };
 
   // Get affected tiles (green = valid, red = invalid)
-  const { green: greenTiles, red: redTiles } = getAffectedTiles({
+  const { green: greenTiles, red: redTiles } = getActionAffectedTiles({
+    preview: true,
     a: origin,
     b: target,
     action,
@@ -194,7 +195,11 @@ export const validateActionTarget = (info: {
   });
 
   // Target must be in green set and not in red set
-  const isValid = greenTiles.size > 0 && !redTiles.has(target);
+  const hasCoordinatePattern =
+    action.method === "COORDINATES" ||
+    action.effects.some((tag) => tag.target === "COORDINATES");
+  const isValid =
+    greenTiles.size > 0 && (hasCoordinatePattern || !redTiles.has(target));
 
   return { isValid, origin, possibleTiles, greenTiles, redTiles };
 };

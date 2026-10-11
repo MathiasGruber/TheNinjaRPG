@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
 import type { CraftingQueueMaterial } from "@/validators/train";
 import {
   mysqlTable,
@@ -26,7 +27,7 @@ import * as consts from "@/drizzle/constants";
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import { AllTags, SuperRefineEffects } from "@/validators/combat";
+import { AllTags, SuperRefineEffects, SuperRefinePassiveEffects } from "@/validators/combat";
 import type { DashboardContentGroup } from "@/validators/dashboard";
 import type { ZodAllTags } from "@/validators/combat";
 import type {
@@ -1409,6 +1410,7 @@ export const item = mysqlTable(
     weaponType: mysqlEnum("weaponType", consts.WeaponTypes).default("NONE").notNull(),
     target: mysqlEnum("target", consts.AttackTargets).notNull(),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
+    coordinateTargeting: json("coordinateTargeting").$type<CoordinateTargeting>(),
     cost: int("cost").default(1).notNull(),
     repsCost: int("reputationCost").default(0).notNull(),
     seichiSilverCost: int("seichiSilverCost").default(0).notNull(),
@@ -1708,6 +1710,7 @@ export const jutsu = mysqlTable(
     healthCost: double("healthCost").default(0).notNull(),
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
+    coordinateTargeting: json("coordinateTargeting").$type<CoordinateTargeting>(),
     hidden: boolean("hidden").default(false).notNull(),
     injectableInBattle: boolean("injectableInBattle").default(false).notNull(),
     battleUsageType: mysqlEnum("battleUsageType", consts.BattleUsageTypes)
@@ -2761,7 +2764,7 @@ export const insertAiSchema = createInsertSchema(userData)
           willpower: z.coerce.number().min(10),
           speed: z.coerce.number().min(10),
           isSummon: z.coerce.boolean(),
-          effects: z.array(AllTags).superRefine(SuperRefineEffects),
+          effects: z.array(AllTags).superRefine(SuperRefineEffects).superRefine(SuperRefinePassiveEffects),
         }).shape
   );
 export type InsertAiSchema = z.infer<typeof insertAiSchema>;

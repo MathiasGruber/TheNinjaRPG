@@ -2,7 +2,13 @@ import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
 const { cleanup, fireEvent, render, waitFor } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { DamageTag, HealTag, type ZodAllTags } from "@/validators/combat";
+import { useState } from "react";
+import {
+  DamageTag,
+  HealTag,
+  JutsuValidatorRawSchema,
+  type ZodAllTags,
+} from "@/validators/combat";
 
 const save = vi.fn(async (_input: { id: string; data: { effects: ZodAllTags[] } }) => ({
   success: true,
@@ -20,14 +26,25 @@ vi.mock("@/app/_trpc/client", () => ({
     jutsu: { getAllNames: names, update },
     bloodline: { getAllNames: names, update },
     sageMode: { getAllNames: names },
+    skillTree: { getAllNames: names },
+    badge: { getAll: names },
     misc: { getAllGameAssetNames: names },
+    gameAsset: {
+      getNameTags: names,
+      getSceneAssets: names,
+      getAll: { useInfiniteQuery: () => ({ data: { pages: [] } }) },
+    },
   },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/libs/toast", () => ({ ...createToastMock(), showMutationToast: toast }));
 vi.mock("@/layout/ContentImageSelector", () => ({ default: () => null }));
 
-const { MassEffectEditor } = await import("@/layout/EditContent");
+vi.mock("@radix-ui/react-use-size", () => ({
+  useSize: () => ({ width: 0, height: 0 }),
+}));
+
+const { MassEffectEditor, EffectFormWrapper } = await import("@/layout/EditContent");
 
 beforeEach(() => {
   ensureDom();
@@ -142,4 +159,83 @@ describe("MassEffectEditor numeric drafts", () => {
       await waitFor(() => expect(pending).toHaveBeenLastCalledWith(false));
     });
   }
+});
+
+const CoordinateDraftForm = () => {
+  const [effects, setEffects] = useState<ZodAllTags[]>([
+    DamageTag.parse({
+      target: "COORDINATES",
+      coordinateTargeting: {
+        origin: "BATTLEFIELD",
+        selection: "ALL",
+        randomCount: 1,
+        coordinates: [
+          { longitude: 1, latitude: 1 },
+          { longitude: 2, latitude: 1 },
+        ],
+      },
+    }),
+  ]);
+  return (
+    <>
+      <EffectFormWrapper
+        type="jutsu"
+        allowCoordinateTargeting
+        idx={0}
+        tag={effects[0]!}
+        effects={effects}
+        setEffects={setEffects}
+        availableTags={["damage"]}
+      />
+      <button
+        type="button"
+        onClick={() => {
+          if (JutsuValidatorRawSchema.shape.effects.safeParse(effects).success) {
+            void save({ id: "coordinates", data: { effects } });
+          }
+        }}
+      >
+        Save coordinate effects
+      </button>
+    </>
+  );
+};
+
+describe("coordinate effect drafts", () => {
+  it("blocks duplicate coordinates in parent validation and saves corrected drafts", async () => {
+    const view = render(<CoordinateDraftForm />);
+    fireEvent.input(view.getByRole("spinbutton", { name: "Coordinate 2 column" }), {
+      target: { value: "1" },
+    });
+    await waitFor(() =>
+      expect(view.getByText("Coordinates must be unique.")).toBeDefined(),
+    );
+    fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.input(view.getByRole("spinbutton", { name: "Coordinate 2 column" }), {
+      target: { value: "3" },
+    });
+    await waitFor(() =>
+      expect(view.queryByText("Coordinates must be unique.")).toBeNull(),
+    );
+    fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(
+      save.mock.calls[0]?.[0].data.effects[0]?.coordinateTargeting?.coordinates[1]
+        ?.longitude,
+    ).toBe(3);
+  });
+  it("keeps blank coordinate drafts invalid until corrected", async () => {
+    const view = render(<CoordinateDraftForm />);
+    const column = view.getByRole("spinbutton", { name: "Coordinate 1 column" });
+    fireEvent.input(column, { target: { value: "" } });
+    await waitFor(() => expect(view.getByRole("alert")).toBeDefined());
+    fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
+    expect(save).not.toHaveBeenCalled();
+    expect((column as HTMLInputElement).value).toBe("");
+    fireEvent.input(column, { target: { value: "4" } });
+    await waitFor(() => expect(view.queryByRole("alert")).toBeNull());
+    fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
+    expect(save).toHaveBeenCalledTimes(1);
+  });
 });

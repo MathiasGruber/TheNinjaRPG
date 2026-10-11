@@ -200,6 +200,7 @@ export const SAGE_MODE_ACTIVATION_JUTSU: Jutsu = {
   healthCost: 0,
   villageId: null,
   method: "SINGLE",
+  coordinateTargeting: null,
   hidden: true,
   injectableInBattle: true,
   battleUsageType: "BOTH",

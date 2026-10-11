@@ -36,6 +36,7 @@ export const useItemEditForm = (
     : "";
   const item = {
     ...data,
+    coordinateTargeting: data.coordinateTargeting || null,
     effects: data.effects,
     expireFromStoreAt: expireFromStoreAt,
     crystalTargetTypes: data.crystalTargetTypes || null,
@@ -138,6 +139,8 @@ export const useItemEditForm = (
   const { data: requiredSkills } = api.skillTree.getAllNames.useQuery();
 
   // Object for form values
+  const targetingMethod = useWatch({ control: form.control, name: "method" });
+
   const formData: FormEntry<keyof ZodItemType>[] = [
     { id: "name", label: "Item Name", type: "text" },
     { id: "image", type: "avatar", href: imageUrl },
@@ -149,6 +152,16 @@ export const useItemEditForm = (
     { id: "battleDescription", type: "text", doubleWidth: true },
     { id: "target", type: "str_array", values: AttackTargets },
     { id: "method", type: "str_array", values: AttackMethods },
+    ...(targetingMethod === "COORDINATES"
+      ? [
+          {
+            id: "coordinateTargeting" as const,
+            label: "Coordinate pattern",
+            type: "coordinate_targeting" as const,
+            fullWidth: true,
+          },
+        ]
+      : []),
     { id: "battleUsageType", type: "str_array", values: BattleUsageTypes },
     { id: "cost", type: "number" },
     { id: "repsCost", type: "number" },
