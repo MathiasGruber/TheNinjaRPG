@@ -1670,8 +1670,11 @@ export const clanRouter = createTRPCRouter({
           );
         return { success: true, message: `${groupLabel} battle initiated`, battleId };
       } catch (error) {
-        await deleteClanBattle(ctx.drizzle, { id: input.clanBattleId, battleId });
-        await clearClanCombat(ctx.drizzle, battleId);
+        if (
+          !(await deleteClanBattle(ctx.drizzle, { id: input.clanBattleId, battleId }))
+        ) {
+          await clearClanCombat(ctx.drizzle, battleId);
+        }
         throw error;
       }
     }),
