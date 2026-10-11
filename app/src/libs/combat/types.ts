@@ -181,6 +181,8 @@ export type CombatUserFields = {
   usedStats: Record<(typeof StatNames)[number], number>;
   leftBattle: boolean;
   fledBattle: boolean;
+  /** This participant reserved the village/side's PvP mission credit at settlement. */
+  villageMissionPvpCredited?: boolean;
   moneyStolen: number;
   allyVillage: boolean;
   /** One entry per successful action, including repeated casts; serialized for end-of-battle quest progress. */
@@ -497,6 +499,8 @@ export type CombatResult = {
   pvpExperience?: number;
   weeklyPvpKills?: number;
   profileUpdate?: CombatProfileUpdate;
+  /** Shared kills reserved by the successful battle version claim. */
+  villageMissionPvpKills?: number;
   energyReward?: number;
   masteryGains?: Partial<Record<MasteryName, number>>;
   outcome: "Won" | "Lost" | "Draw" | "Fled";

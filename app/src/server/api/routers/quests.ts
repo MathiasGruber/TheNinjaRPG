@@ -116,6 +116,7 @@ import {
 import { getSageMasteryDisplayRank, sageRanksAtOrBelow } from "@/libs/sageMode";
 import { callDiscordContent } from "@/libs/socials";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
+import { villageMissionCompletionEvents } from "@/libs/villageMission";
 import { initiateBattle } from "@/routers/combat";
 import { fetchUserItems } from "@/routers/item";
 import type { UserWithRelations } from "@/routers/profile";
@@ -149,6 +150,7 @@ import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
+import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import { extendWarParticipantSql } from "@/server/utils/war";
 import { chunkArray, getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
@@ -347,6 +349,7 @@ export const questsRouter = createTRPCRouter({
         activeWars,
       });
       const filtered = missions.filter((e) => {
+        if (e.questType === "mission" && e.questRank === "S") return false;
         if (e.questType === "war" && !villageInWar) return false;
         return isAvailableUserQuests(e, user, true).check;
       });
@@ -765,7 +768,7 @@ export const questsRouter = createTRPCRouter({
         if (!rewardChoiceCheck.check) {
           return errorResponse(rewardChoiceCheck.message);
         }
-        // Validate that either main quest has sceneCharacters or each objective has sceneCharacters
+        // Shared Village Mission progress has no quest scenes to populate.
         const hasMainSceneCharacters = input.data.content.sceneCharacters.length > 0;
         const allObjectivesHaveSceneCharacters = input.data.content.objectives.every(
           (objective) =>
@@ -773,6 +776,7 @@ export const questsRouter = createTRPCRouter({
         );
         if (
           !input.data.hidden &&
+          input.data.questType !== "village_mission" &&
           !hasMainSceneCharacters &&
           !allObjectivesHaveSceneCharacters
         ) {
@@ -852,10 +856,23 @@ export const questsRouter = createTRPCRouter({
         // Update database
         await Promise.all([
           ctx.drizzle.update(quest).set(input.data).where(eq(quest.id, entry.id)),
-          ctx.drizzle
-            .update(questHistory)
-            .set({ questType: input.data.questType })
-            .where(eq(questHistory.questId, entry.id)),
+          // Village Missions retire personal attempts without granting completions
+          // or reclassifying completed history as collective progress.
+          data.questType === "village_mission"
+            ? ctx.drizzle
+                .update(questHistory)
+                .set({ endAt: new Date() })
+                .where(
+                  and(
+                    eq(questHistory.questId, entry.id),
+                    eq(questHistory.completed, 0),
+                    isNull(questHistory.endAt),
+                  ),
+                )
+            : ctx.drizzle
+                .update(questHistory)
+                .set({ questType: input.data.questType })
+                .where(eq(questHistory.questId, entry.id)),
           ctx.drizzle.insert(actionLog).values({
             id: nanoid(),
             userId: ctx.userId,
@@ -2711,6 +2728,15 @@ export const upsertQuestEntry = async (
       "Overworld quests can only be accepted from their assigned NPC.",
     );
   }
+  if (
+    quest.questType === "village_mission" ||
+    (quest.questType === "mission" && quest.questRank === "S")
+  ) {
+    throw serverError(
+      "PRECONDITION_FAILED",
+      "Village Missions can only be selected by the Kage in the Town Hall",
+    );
+  }
   // Reuse the caller's pre-fetched history row when supplied; otherwise load it here.
   let entry =
     prevEntry !== undefined
@@ -2982,6 +3008,10 @@ export const commitQuestObjectiveRewards = async (info: {
     notifications,
     consequences,
   } = info;
+  // Collective tokens are paid only by villageMission.claim, never personal history.
+  if (userQuest?.quest.questType === "village_mission") {
+    return { outcome: "not_found" };
+  }
   const rewardChoice = resolved ? (info.rewardChoice ?? null) : null;
   const senseiId =
     user.rank === "GENIN" && userQuest?.quest.questType === "mission"
@@ -3083,6 +3113,9 @@ export const commitQuestObjectiveRewards = async (info: {
           eq(questHistory.questId, userQuest?.questId ?? ""),
           eq(questHistory.userId, userId),
           eq(questHistory.completed, 0),
+          isNull(questHistory.endAt),
+          // Content conversion can retire a personal attempt after its reward snapshot was loaded.
+          sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${questHistory.questId} AND ${quest.questType} != 'village_mission')`,
           ...(rewardChoice ? [isNull(questHistory.pendingRewardChoice)] : []),
         ),
       );
@@ -3112,7 +3145,21 @@ export const commitQuestObjectiveRewards = async (info: {
     user,
     consequences,
     notifications,
-    { alwaysClaimUserState: true },
+    {
+      alwaysClaimUserState: true,
+      // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
+      claimConditions:
+        !resolved && userQuest
+          ? [
+              sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${userQuest.questId} AND ${quest.questType} != 'village_mission')`,
+              ...(userQuest.quest.questType === "achievement"
+                ? []
+                : [
+                    sql`EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.questId} = ${userQuest.questId} AND ${questHistory.userId} = ${userId} AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL)`,
+                  ]),
+            ]
+          : [],
+    },
   );
 
   if (!claimed) {
@@ -3214,6 +3261,16 @@ export const commitQuestObjectiveRewards = async (info: {
     shouldReduceFarmTimers
       ? rewardPromise.then(reduceFarmTimers)
       : Promise.resolve(null),
+    resolved && userQuest
+      ? rewardPromise.then(() =>
+          recordVillageMissionProgress(
+            client,
+            user.villageId,
+            userId,
+            villageMissionCompletionEvents(userQuest.quest),
+          ),
+        )
+      : Promise.resolve(),
     // Credit the sensei their per-mission ryo bonus
     ...(senseiId
       ? [
@@ -3346,9 +3403,14 @@ const executeClaimedQuestConsequences = async ({
               where: inArray(quest.id, startedQuestIds),
             });
             // Runs after the user snapshot is already committed, so a throw here would burn the
-            // objective without starting the quest. An NPC-only target can only appear via a
-            // content edit that stranded the edge, so skip it instead of failing the request.
-            const startable = quests.filter((q) => !isNpcOnlyQuestType(q.questType));
+            // objective without starting the quest. Content edits or migrations can strand
+            // edges to quests that cannot be personally assigned; skip those destinations.
+            const startable = quests.filter(
+              (q) =>
+                !isNpcOnlyQuestType(q.questType) &&
+                q.questType !== "village_mission" &&
+                !(q.questType === "mission" && q.questRank === "S"),
+            );
             if (startable.length > 0) {
               notifications.push(
                 `Started new quest: ${startable.map((q) => q.name).join(", ")}`,
@@ -3448,6 +3510,8 @@ export const handleQuestConsequences = async (
   notifications: string[],
   options?: {
     alwaysClaimUserState?: boolean;
+    /** Conditions that must still hold when the reward/consequence snapshot is claimed. */
+    claimConditions?: QueryCondition[];
     /** Roll the active objectives' ambush attackers; only the travel movement check sets it. */
     rollObjectiveAttackers?: boolean;
   },
@@ -3514,6 +3578,7 @@ export const handleQuestConsequences = async (
       client,
       userId: user.userId,
       updatedAt: user.updatedAt,
+      where: options?.claimConditions,
       set: {
         questData: filterQuestTrackersForDbPersist(user.questData ?? [], user),
       },

@@ -1864,14 +1864,19 @@ export const getMissionHallSettings = (isOutlaw: boolean) => {
       delayMinutes: 20,
       description: `A-rank ${type}s are the second highest rank of ${type}s. They usually have a high chance of danger and are considered to be very difficult, e.g. assassinating a target, etc.`,
     },
-    {
-      type: type,
-      rank: "S",
-      name: "S-rank",
-      image: IMG_MISSION_S,
-      delayMinutes: 25,
-      description: `S-rank ${type}s are the highest rank of ${type}s. They are usually extremely dangerous and difficult and reserved for kage-level shinobi.`,
-    },
+    ...(isOutlaw
+      ? [
+          {
+            type: "crime" as const,
+            rank: "S" as const,
+            name: "S-rank",
+            image: IMG_MISSION_S,
+            delayMinutes: 25,
+            description:
+              "S-rank crimes are dangerous assignments for the strongest outlaws.",
+          },
+        ]
+      : []),
     {
       type: "medical",
       rank: "D",
@@ -2746,9 +2751,12 @@ export const isQuestRankAllowed = (
   user: Pick<UserData, "rank">,
   source: "ui" | "random_assignment" = "ui",
 ) =>
-  source === "random_assignment" && quest.questType !== "mission"
-    ? true
-    : availableQuestLetterRanks(user.rank).includes(quest.questRank);
+  quest.questType === "village_mission" ||
+  (quest.questType === "mission" && quest.questRank === "S")
+    ? false
+    : source === "random_assignment" && quest.questType !== "mission"
+      ? true
+      : availableQuestLetterRanks(user.rank).includes(quest.questRank);
 
 /**
  * Match one content event against an objective's configured filters.

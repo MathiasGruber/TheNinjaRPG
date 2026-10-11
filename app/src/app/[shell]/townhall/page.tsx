@@ -3,14 +3,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   CircleArrowUp,
+  Crown,
   DoorClosed,
   DoorOpen,
   Handshake,
+  Landmark,
   LandPlot,
   Lock,
   LockOpen,
+  ScrollText,
   ShieldPlus,
   Swords,
+  UsersRound,
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
@@ -64,6 +68,7 @@ import NavTabs from "@/layout/NavTabs";
 import PublicUserComponent from "@/layout/PublicUser";
 import { ShrineHall } from "@/layout/ShrineHall";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import { VillageMission, VillageStructureMaintenance } from "@/layout/VillageMission";
 import { WarRoom } from "@/layout/WarSystem";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
@@ -83,7 +88,7 @@ export default function TownHall() {
   const { data: userData } = useRequiredUserData();
   const availableTabs = userData?.isOutlaw
     ? ["Alliance", "Wars", "Shrines"]
-    : ["Alliance", "Kage", "Elders", "Wars", "Shrines"];
+    : ["Alliance", "Kage", "Elders", "Wars", "Shrines", "Village Mission"];
   const [tab, setTab] = useLocalStorage<(typeof availableTabs)[number] | null>(
     "townhallTab",
     null,
@@ -99,20 +104,79 @@ export default function TownHall() {
       current={tab}
       options={availableTabs}
       setValue={setTab}
+      icons={{
+        Alliance: (
+          <Handshake
+            className="@min-[640px]/townhall:hidden size-4 shrink-0"
+            aria-hidden="true"
+          />
+        ),
+        Kage: (
+          <Crown
+            className="@min-[640px]/townhall:hidden size-4 shrink-0"
+            aria-hidden="true"
+          />
+        ),
+        Elders: (
+          <UsersRound
+            className="@min-[640px]/townhall:hidden size-4 shrink-0"
+            aria-hidden="true"
+          />
+        ),
+        Wars: (
+          <Swords
+            className="@min-[640px]/townhall:hidden size-4 shrink-0"
+            aria-hidden="true"
+          />
+        ),
+        Shrines: (
+          <Landmark
+            className="@min-[640px]/townhall:hidden size-4 shrink-0"
+            aria-hidden="true"
+          />
+        ),
+        "Village Mission": (
+          <ScrollText
+            className="@min-[640px]/townhall:hidden size-4 shrink-0"
+            aria-hidden="true"
+          />
+        ),
+      }}
+      iconOnlyOptions={availableTabs}
+      labelClassName={(option) =>
+        option === (tab ?? "Alliance")
+          ? "not-sr-only"
+          : "@min-[640px]/townhall:not-sr-only"
+      }
+      fontSize="text-xs"
+      listClassName="flex-nowrap gap-0.5"
+      itemClassName={() => "mr-0 shrink-0"}
+      className="min-h-11 min-w-8 @min-[640px]/townhall:px-2 px-1.5"
     />
   );
 
+  let content: React.ReactNode;
   if (tab === "Alliance" || !tab) {
-    return <AllianceHall user={userData} navTabs={NavBarBlock} />;
+    content = <AllianceHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Kage") {
-    return <KageHall user={userData} navTabs={NavBarBlock} />;
+    content = <KageHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Elders") {
-    return <ElderHall user={userData} navTabs={NavBarBlock} />;
+    content = <ElderHall user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Wars") {
-    return <WarRoom user={userData} navTabs={NavBarBlock} />;
+    content = <WarRoom user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Shrines") {
-    return <ShrineHall user={userData} navTabs={NavBarBlock} />;
+    content = <ShrineHall user={userData} navTabs={NavBarBlock} />;
+  } else if (tab === "Village Mission") {
+    content = (
+      <>
+        <VillageMission villageId={userData.villageId ?? ""} navTabs={NavBarBlock} />
+        {userData.userId === userData.village?.kageId && (
+          <VillageStructureMaintenance villageId={userData.villageId ?? ""} />
+        )}
+      </>
+    );
   }
+  return <div className="@container/townhall min-w-0">{content}</div>;
 }
 
 const ElderHall: React.FC<{
@@ -213,6 +277,7 @@ const ElderHall: React.FC<{
         subtitle="Elders Council"
         defaultBackHref="/village"
         topRightContent={navTabs}
+        topRightCorntentBreakpoint="sm"
       >
         <p className="pb-2">
           The Elder Council is composed of representatives from the village&apos;s most
@@ -628,6 +693,7 @@ const KageHall: React.FC<{
         subtitle="Kage Challenge"
         defaultBackHref="/village"
         topRightContent={navTabs}
+        topRightCorntentBreakpoint="sm"
       >
         <p>
           The &quot;Kage&quot; is the village&apos;s most potent and skilled ninja,
@@ -1126,6 +1192,7 @@ const AllianceHall: React.FC<{
         subtitle="Alliances & Relations"
         defaultBackHref="/village"
         topRightContent={navTabs}
+        topRightCorntentBreakpoint="sm"
       >
         <AllianceList
           user={user}

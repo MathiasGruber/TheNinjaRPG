@@ -17,6 +17,7 @@ import {
 } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
+import { accrueVillageStructureMaintenance } from "@/server/utils/villageMaintenance";
 import { MONTH_S, secondsFromNow } from "@/utils/time";
 
 const ENDPOINT_NAME = "hourly-maintainance";
@@ -37,11 +38,13 @@ export async function GET(request: Request) {
 
   try {
     // Expired bounties
-    const [expiredBounties, activeCount, expiredAnalytics] = await Promise.all([
-      bountyExpire(),
-      dailyActivePlayers(),
-      deleteExpiredVisitorAnalytics(),
-    ]);
+    const [expiredBounties, activeCount, expiredAnalytics, villageMaintenance] =
+      await Promise.all([
+        bountyExpire(),
+        dailyActivePlayers(),
+        deleteExpiredVisitorAnalytics(),
+        accrueVillageStructureMaintenance(drizzleDB),
+      ]);
 
     // Return response
     return NextResponse.json({
@@ -50,6 +53,7 @@ export async function GET(request: Request) {
       expiredBountiesCount: expiredBounties.length,
       activeCount: activeCount,
       expiredAnalytics,
+      villageMaintenance,
     });
   } catch (error) {
     return await handleEndpointError(error);

@@ -62,6 +62,7 @@ import {
   hydrateUserForQuests,
   isPvpEnergyRewardBattle,
 } from "@/libs/combat/util";
+import { claimVillageMissionCombatEvents } from "@/libs/combat/villageMission";
 import { getPvpFarmActivityReductionSeconds } from "@/libs/farming";
 import { allocateMasteryGains } from "@/libs/masteryProgression";
 import type { PusherClient } from "@/libs/pusher";
@@ -84,6 +85,10 @@ import { reduceActiveFarmPlotTimers } from "@/server/utils/farming";
 import { masteryGainUpdates } from "@/server/utils/masteryProgression";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { purgeRaidChatMembership } from "@/server/utils/raidChat";
+import {
+  applyVillageMissionShrineDamage,
+  recordVillageMissionProgress,
+} from "@/server/utils/villageMission";
 import { extendWarParticipantSql } from "@/server/utils/war";
 import { periodStart } from "@/utils/time";
 
@@ -119,6 +124,10 @@ export const updateBattle = async (
   fetchedVersion: number,
   pusher?: PusherClient,
 ) => {
+  if (result) {
+    result.villageMissionPvpKills =
+      claimVillageMissionCombatEvents(newBattle, userId, result).pvp_kills ?? 0;
+  }
   // Calculations
   // raidBossDefeated: the boss specifically died (kill).
   // raidTeamWiped: every human in this raid is out of stillInBattle while the
@@ -632,7 +641,7 @@ export const updateWars = async (
   const userVillageId = user?.villageId;
   // Guard
   if (!user) return;
-  if (!user.villageId) return;
+  if (!userVillageId) return;
   if (!result) return;
   // Skip war updates if kill happened in war-torn sector
   if (user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR) return;
@@ -726,13 +735,28 @@ export const updateWars = async (
           sectorsWithDefeatedShrine.add(w.sector);
         }
 
+        const shouldCreditMission =
+          killerSideVillageId === w.attackerVillageId && !user.isAi;
         otherPromises.push(
-          client
-            .update(war)
-            .set({
-              defenderShrineHp: sql`GREATEST(LEAST(defenderShrineHp + ${result.shrineChangeHp}, defenderShrineMaxHp), 0)`,
-            })
-            .where(and(eq(war.id, w.id), isNull(war.endedAt))),
+          retryOnDeadlock(async () => {
+            if (result.shrineChangeHp < 0) {
+              await applyVillageMissionShrineDamage(
+                client,
+                shouldCreditMission ? userVillageId : null,
+                userId,
+                w.id,
+                "defenderShrineHp",
+                -result.shrineChangeHp,
+              );
+            } else {
+              await client
+                .update(war)
+                .set({
+                  defenderShrineHp: sql`GREATEST(LEAST(defenderShrineHp + ${result.shrineChangeHp}, defenderShrineMaxHp), 0)`,
+                })
+                .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+            }
+          }),
         );
       }
 
@@ -781,44 +805,25 @@ export const updateWars = async (
                   : (w.defenderVillage?.name ?? "Defender");
 
               if (change < 0) {
-                // Attacking: reduce shrine HP, apply war health damage if crossing to 0 and status changes
-                // First, try to update only if status is ACTIVE and HP will cross to 0
-                const captureResult = await client
-                  .update(war)
-                  .set({
-                    [hpCol]: sql`GREATEST(${sql.raw(hpCol)} + ${change}, 0)`,
-                    [statusCol]: "CAPTURED",
-                  })
-                  .where(
-                    and(
-                      eq(war.id, w.id),
-                      isNull(war.endedAt),
-                      sql`${sql.raw(statusCol)} = 'ACTIVE'`,
-                      sql`${sql.raw(hpCol)} + ${change} <= 0`,
-                    ),
-                  );
-
-                if (captureResult.rowsAffected > 0) {
-                  // This battle caused the shrine to be captured (ACTIVE -> CAPTURED)
-                  // Apply damage to the shrine owner's war health
-                  await client
-                    .update(war)
-                    .set({
-                      [warHealthCol]: sql`GREATEST(${sql.raw(warHealthCol)} - ${WAR_SHRINE_CAPTURE_WARHEALTH_DMG}, 0)`,
-                    })
-                    .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+                const ownerVillageId =
+                  shrineType === "attacker" ? w.attackerVillageId : w.defenderVillageId;
+                const shouldCreditMission =
+                  killerSideVillageId !== ownerVillageId && !user.isAi;
+                const captured = await retryOnDeadlock(() =>
+                  applyVillageMissionShrineDamage(
+                    client,
+                    shouldCreditMission ? userVillageId : null,
+                    userId,
+                    w.id,
+                    hpCol,
+                    -change,
+                    true,
+                  ),
+                );
+                if (captured) {
                   result.notifications.push(
                     `${villageName}'s shrine captured! ${villageName} lost ${WAR_SHRINE_CAPTURE_WARHEALTH_DMG} war HP!`,
                   );
-                } else {
-                  // Didn't capture - either already CAPTURED or didn't cross threshold
-                  // Still update shrine HP
-                  await client
-                    .update(war)
-                    .set({
-                      [hpCol]: sql`GREATEST(${sql.raw(hpCol)} + ${change}, 0)`,
-                    })
-                    .where(and(eq(war.id, w.id), isNull(war.endedAt)));
                 }
               } else {
                 // Defending/Recovering: increase shrine HP, apply war health heal if crossing recapture threshold
@@ -1557,6 +1562,13 @@ export const updateUser = async (
     let itemSettlementCommitted = true;
     // Update user & user items
     await Promise.all([
+      ...(!user.isAi
+        ? [
+            recordVillageMissionProgress(client, user.villageId, userId, {
+              pvp_kills: result.villageMissionPvpKills ?? 0,
+            }),
+          ]
+        : []),
       ...(farmActivityReductionSeconds > 0
         ? [
             reduceActiveFarmPlotTimers(
