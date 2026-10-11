@@ -2071,26 +2071,17 @@ export const profileRouter = createTRPCRouter({
         getAssignedCombatStatTotal(stats) - getAssignedCombatStatTotal(user),
       );
       let elementalSpent = 0;
-      const elementalGains = Object.fromEntries(
-        BasicElementName.flatMap((element) => {
-          const room = elementalGainRoom(user, element);
-          // Whole unused-XP points can finish fractional room left by timed training.
-          const points = Math.min(Math.floor(input[element]), Math.ceil(room));
-          elementalSpent += points;
-          return points > 0
-            ? [
-                [
-                  element,
-                  (user.elementalMastery[element] ?? 0) + Math.min(points, room),
-                ],
-              ]
-            : [];
-        }),
-      );
-      const elementalUpdate =
-        elementalSpent > 0
-          ? { elementalMastery: { ...user.elementalMastery, ...elementalGains } }
-          : {};
+      const elementalMastery = { ...user.elementalMastery };
+      for (const element of BasicElementName) {
+        const room = elementalGainRoom(user, element);
+        // Whole unused-XP points can finish fractional room left by timed training.
+        const points = Math.min(Math.floor(input[element]), Math.ceil(room));
+        if (points <= 0) continue;
+        elementalSpent += points;
+        elementalMastery[element] =
+          (elementalMastery[element] ?? 0) + Math.min(points, room);
+      }
+      const elementalUpdate = elementalSpent > 0 ? { elementalMastery } : {};
       const spent =
         combatSpent +
         assignableMasteryNames.reduce(

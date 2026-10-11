@@ -41,36 +41,25 @@ export const createAssignedExperienceSchema = (
   user?: NonNullable<UserWithRelations>,
 ) => {
   const { schema, maxValues } = createStatSchema(0, 0, user);
-  const masteryRoom = Object.fromEntries(
-    assignableMasteryNames.map((name) => [
+  const additionalRoom = Object.fromEntries([
+    ...assignableMasteryNames.map((name) => [
       name,
       user ? masteryGainRoom(user, name) : MAX_MASTERY_CAP,
     ]),
-  ) as Record<(typeof assignableMasteryNames)[number], number>;
-  const masteryFields = Object.fromEntries(
-    assignableMasteryNames.map((name) => [
-      name,
-      z.coerce.number().min(0).max(masteryRoom[name]).prefault(0),
-    ]),
-  ) as Record<
-    (typeof assignableMasteryNames)[number],
-    z.ZodPrefault<z.ZodCoercedNumber>
-  >;
-  const elementalRoom = Object.fromEntries(
-    BasicElementName.map((element) => [
+    ...BasicElementName.map((element) => [
       element,
       user ? Math.ceil(elementalGainRoom(user, element)) : ELEMENTAL_MASTERY_CAP,
     ]),
-  ) as Record<BasicElement, number>;
-  const elementalFields = Object.fromEntries(
-    BasicElementName.map((element) => [
-      element,
-      z.coerce.number().min(0).max(elementalRoom[element]).prefault(0),
+  ]) as Record<(typeof assignableMasteryNames)[number] | BasicElement, number>;
+  const additionalFields = Object.fromEntries(
+    Object.entries(additionalRoom).map(([name, room]) => [
+      name,
+      z.coerce.number().min(0).max(room).prefault(0),
     ]),
-  ) as Record<BasicElement, z.ZodPrefault<z.ZodCoercedNumber>>;
+  ) as Record<keyof typeof additionalRoom, z.ZodPrefault<z.ZodCoercedNumber>>;
   return {
-    schema: schema.extend(masteryFields).extend(elementalFields),
-    maxValues: { ...maxValues, ...masteryRoom, ...elementalRoom },
+    schema: schema.extend(additionalFields),
+    maxValues: { ...maxValues, ...additionalRoom },
   };
 };
 
