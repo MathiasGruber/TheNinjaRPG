@@ -5,6 +5,12 @@ export const randomInt = (min: number, max: number) => {
   return Math.floor(Math.random() * (max - min + 1) + min);
 };
 
+/** An unpredictable fraction in [0, 1), available in both server and browser code. */
+export const secureRandom = () => {
+  const values = crypto.getRandomValues(new Uint32Array(1));
+  return (values[0] ?? 0) / 0x1_0000_0000;
+};
+
 /**
  * Rounds a number to a specified number of decimal places.
  * @param value - The number to round.
