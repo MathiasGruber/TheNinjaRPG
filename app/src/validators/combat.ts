@@ -269,7 +269,6 @@ const AggroAttributes = {
   target: z.enum(BaseTagTargets).prefault("SELF"),
   calculation: z.enum(["static", "percentage"]).prefault("percentage"),
   aggroMode: z.enum(["ENMITY", "GENERATION"]).prefault("GENERATION"),
-  rounds: z.coerce.number().int().min(0).max(100).optional(),
 };
 
 export const IncreaseAggroTag = z.object({

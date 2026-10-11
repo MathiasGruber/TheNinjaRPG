@@ -227,10 +227,8 @@ const Combat: React.FC<CombatProps> = (props) => {
       ),
     [battleState.battle],
   );
-  const aggroRef = useRef(aggro);
-  const showAggroRef = useRef(config.showAggro);
-  aggroRef.current = aggro;
-  showAggroRef.current = config.showAggro;
+  const aggroRef = useRef(config.showAggro ? aggro : undefined);
+  aggroRef.current = config.showAggro ? aggro : undefined;
 
   // Get effects for hovered element (can include both user and ground effects)
   const hoveredEffects = useMemo(() => {
@@ -1219,7 +1217,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             sfxEnabled: Boolean(userData?.sfxOn ?? true),
             sfxVolume: sfxVolume,
             gameAssets: gameAssetsRef.current.assets,
-            aggro: showAggroRef.current ? aggroRef.current : undefined,
+            aggro: aggroRef.current,
           });
           endDrawUsers();
 
