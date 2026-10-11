@@ -1,4 +1,5 @@
 
+import { CONTENT_PROPOSAL_RETENTION_DAYS } from "@/drizzle/constants";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import {
@@ -1001,7 +1002,7 @@ describeWithDatabase("content review", () => {
     const database = await getTestDatabase();
     const submitted = await ingestAgentSubmission(database, { agentName: "agent", proposals: [await revisionProposal()] });
     const id = submitted.accepted[0]!.id;
-    await database.update(contentProposal).set({ status: "REJECTED", statusChangedAt: new Date(Date.now() - 11 * 86_400_000) }).where(eq(contentProposal.id, id));
+    await database.update(contentProposal).set({ status: "REJECTED", statusChangedAt: new Date(Date.now() - (CONTENT_PROPOSAL_RETENTION_DAYS + 1) * 86_400_000) }).where(eq(contentProposal.id, id));
     await database.insert(contentProposalMedia).values({ id: "retained-old-media", proposalId: id,
       changeId: (await readAgentProposal(database, id))!.changes[0]!.id,
       path: "image", kind: "IMAGE", source: "GENERATED", title: "Old image",
@@ -1046,7 +1047,7 @@ describeWithDatabase("content review", () => {
     const submitted = await ingestAgentSubmission(database, { agentName: "agent", proposals: [await revisionProposal()] });
     const id = submitted.accepted[0]!.id;
     const original = (await readAgentProposal(database, id))!;
-    await database.update(contentProposal).set({ status: "REJECTED", statusChangedAt: new Date(Date.now() - 11 * 86_400_000) }).where(eq(contentProposal.id, id));
+    await database.update(contentProposal).set({ status: "REJECTED", statusChangedAt: new Date(Date.now() - (CONTENT_PROPOSAL_RETENTION_DAYS + 1) * 86_400_000) }).where(eq(contentProposal.id, id));
     await database.insert(contentProposalMedia).values([
       { id: "retry-file", proposalId: id, changeId: original.changes[0]!.id, path: "image", kind: "IMAGE", source: "GENERATED", title: "Retry image", url: "https://example.com/retry.webp", fileKey: "retry-file-key", chosen: true },
       { id: "orphan-catalog", proposalId: id, changeId: original.changes[0]!.id, path: "image", kind: "IMAGE", source: "CATALOG", title: "Catalog image" },
@@ -1064,9 +1065,34 @@ describeWithDatabase("content review", () => {
     expect(await database.query.contentProposalBasis.findMany()).toHaveLength(0);
   });
 
+  it("filters analytics by entity and agent while counting each proposal once", async () => {
+    const database = await getTestDatabase();
+    await database.insert(contentProposal).values([
+      { id: "stats-applied", title: "Applied", rationale: "Analytics fixture", category: "GRAMMAR", source: "AGENT", agentName: "Codex", status: "APPLIED" },
+      { id: "stats-rejected", title: "Rejected", rationale: "Analytics fixture", category: "GRAMMAR", source: "AGENT", agentName: "Claude", status: "REJECTED" },
+    ]);
+    await database.insert(contentProposalChange).values([
+      { id: "stats-change-1", proposalId: "stats-applied", entityType: "ITEM", before: {}, after: {} },
+      { id: "stats-change-2", proposalId: "stats-applied", entityType: "ITEM", before: {}, after: {} },
+      { id: "stats-change-3", proposalId: "stats-rejected", entityType: "BADGE", before: {}, after: {} },
+    ]);
+    const editor = await callerFor(contentReviewRouter, EDITOR);
+    const stats = await editor.getStats({ days: 90, interval: "weekly", entityType: "ITEM", agentName: "Codex" });
+    expect(stats.summary.total).toBe(1);
+    expect(stats.summary.acceptanceRate).toBe(100);
+    expect(stats.agents).toEqual(["Claude", "Codex"]);
+    expect(stats.trend.reduce((sum, row) => sum + row.total, 0)).toBe(1);
+    expect(stats.breakdown).toHaveLength(1);
+    expect((await editor.getStats({})).summary.acceptanceRate).toBe(50);
+    const player = await callerFor(contentReviewRouter, PLAYER);
+    const hidden = await player.getStats({});
+    expect(hidden.summary.total).toBe(0);
+    expect(hidden.agents).toEqual([]);
+  });
+
   it("removes rejected suggestions once the retention window has passed", async () => {
     const database = await getTestDatabase();
-    const old = new Date(Date.now() - 11 * 86_400_000);
+    const old = new Date(Date.now() - (CONTENT_PROPOSAL_RETENTION_DAYS + 1) * 86_400_000);
     await database.insert(contentProposal).values([
       {
         id: "old-rejected",
@@ -1080,7 +1106,8 @@ describeWithDatabase("content review", () => {
       {
         id: "recent-rejected",
         title: "Recent",
-        rationale: "Rejected yesterday.",
+        rationale: "Still within retention.",
+        statusChangedAt: new Date(Date.now() - 89 * 86_400_000),
         category: "GRAMMAR",
         source: "AGENT",
         status: "REJECTED",

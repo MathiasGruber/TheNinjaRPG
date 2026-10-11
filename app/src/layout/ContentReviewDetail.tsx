@@ -107,6 +107,7 @@ const ProposalReview: React.FC<ContentReviewDetailProps & { proposal: Proposal }
     await Promise.all([
       utils.contentReview.getQueue.invalidate(),
       utils.contentReview.getCounts.invalidate(),
+      utils.contentReview.getStats.invalidate(),
       utils.contentReview.getProposal.invalidate({ id }),
       utils.profile.getUser.invalidate(),
     ]);

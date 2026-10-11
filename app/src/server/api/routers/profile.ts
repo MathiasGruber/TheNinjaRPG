@@ -3468,6 +3468,8 @@ export const fetchUpdatedUser = async (props: {
     }
   }
   if (user) {
+    // Completed mastery training can unlock Energy capacity bonuses on worn gear.
+    user.maxEnergy = calcMaxEnergy(user);
     const trackerUser = await hydrateQuestCollections(client, user);
     // Get the latest quest trackers
     const trackerResults = getNewTrackers(trackerUser, [{ task: "any" }]);

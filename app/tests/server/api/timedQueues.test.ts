@@ -708,6 +708,56 @@ describeWithDatabase("mastery training queue", () => {
     await resetTables(userQueue, trainingLog, userVote, userData);
   });
 
+  it.each(["AWAKE", "ASLEEP"] as const)("automatically collects the final session exactly once while %s", async (status) => {
+    const startedAt = minutesFromNow(-20);
+    await insertUser({
+      status,
+      trainingSpeed: "15min",
+      currentlyTrainingMastery: "ninjutsuMastery",
+      masteryTrainingStartedAt: startedAt,
+    });
+    const database = await getTestDatabase();
+    await Promise.all(Array.from({ length: 4 }, () => fetchUpdatedUser({ client: database, userId: USER_ID })));
+    const user = await readUser();
+    expect(user.status).toBe(status);
+    expect(user.currentlyTrainingMastery).toBeNull();
+    expect(user.masteryTrainingStartedAt).toBeNull();
+    expect(user.ninjutsuMastery).toBeGreaterThan(0);
+    expect(user.dailyTrainings).toBe(1);
+    expect(await liveMasteryQueue()).toEqual([]);
+    const logs = await database.select().from(trainingLog).where(eq(trainingLog.userId, USER_ID));
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.trainingFinishedAt?.getTime()).toBe(startedAt.getTime() + 15 * MINUTE);
+    await fetchUpdatedUser({ client: database, userId: USER_ID, forceRegen: true });
+    expect((await readUser()).ninjutsuMastery).toBe(user.ninjutsuMastery);
+    expect((await readUser()).dailyTrainings).toBe(1);
+  });
+
+  it("collects the last queued session during offline catch-up and ignores consumed rows afterward", async () => {
+    await insertUser({
+      trainingSpeed: "15min",
+      currentlyTrainingMastery: "ninjutsuMastery",
+      masteryTrainingStartedAt: minutesFromNow(-40),
+      masteryQueue: [{ stat: "genjutsuMastery", speed: "15min" }],
+    });
+    const database = await getTestDatabase();
+    await fetchUpdatedUser({ client: database, userId: USER_ID });
+    const user = await readUser();
+    expect(user.currentlyTrainingMastery).toBeNull();
+    expect(user.masteryTrainingStartedAt).toBeNull();
+    expect(user.ninjutsuMastery).toBeGreaterThan(0);
+    expect(user.genjutsuMastery).toBeGreaterThan(0);
+    expect(user.dailyTrainings).toBe(2);
+    expect(user.masteryQueueHead).toBe(1);
+    expect(await liveMasteryQueue()).toEqual([]);
+    expect(await readQueue("MASTERY")).toHaveLength(1);
+    await fetchUpdatedUser({ client: database, userId: USER_ID, forceRegen: true });
+    expect((await readUser()).ninjutsuMastery).toBe(user.ninjutsuMastery);
+    expect((await readUser()).genjutsuMastery).toBe(user.genjutsuMastery);
+    expect((await readUser()).dailyTrainings).toBe(2);
+    expect(await database.select().from(trainingLog).where(eq(trainingLog.userId, USER_ID))).toHaveLength(2);
+  });
+
   it.each(["AWAKE", "ASLEEP"] as const)("collects the finished session and starts the queued one while %s", async (status) => {
     const startedAt = minutesFromNow(-20);
     await insertUser({

@@ -35,6 +35,7 @@ import {
   setAtPath,
   topLevelField,
 } from "@/libs/contentReview/paths";
+import { buildReviewStats } from "@/libs/contentReview/stats";
 import {
   createStaffProposal,
   normalizeEditable,
@@ -56,7 +57,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { canChangeContent, isStaffRole } from "@/utils/permissions";
-import { DAY_S, secondsFromNow } from "@/utils/time";
+import { getUtcDayWindowStart } from "@/utils/time";
 import type { gameAssetValidator } from "@/validators/asset";
 import type { BadgeValidator } from "@/validators/badge";
 import type {
@@ -541,31 +542,26 @@ export const contentReviewRouter = createTRPCRouter({
       return { success: true, message: "Reverted. The previous values are back." };
     }),
 
-  /**
-   * Suggestions per source, agent, category and status created in the last `days` days,
-   * at most the retention window. Empty for anyone who cannot review.
-   */
+  /** Submission cohorts within retention, counted once per suggestion across entity changes. */
   getStats: protectedProcedure
     .input(reviewStatsSchema)
     .query(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
-      if (!canChangeContent(user.role)) return [];
-      return ctx.drizzle
-        .select({
-          source: contentProposal.source,
-          agentName: contentProposal.agentName,
-          category: contentProposal.category,
-          status: contentProposal.status,
-          n: count(),
-        })
-        .from(contentProposal)
-        .where(gte(contentProposal.createdAt, secondsFromNow(-input.days * DAY_S)))
-        .groupBy(
-          contentProposal.source,
-          contentProposal.agentName,
-          contentProposal.category,
-          contentProposal.status,
-        );
+      const now = new Date();
+      if (!canChangeContent(user.role)) return buildReviewStats([], input, now);
+      const proposals = await ctx.drizzle.query.contentProposal.findMany({
+        columns: {
+          id: true,
+          source: true,
+          agentName: true,
+          category: true,
+          status: true,
+          createdAt: true,
+        },
+        where: gte(contentProposal.createdAt, getUtcDayWindowStart(input.days, now)),
+        with: { changes: { columns: { entityType: true } } },
+      });
+      return buildReviewStats(proposals, input, now);
     }),
 
   /**

@@ -1,10 +1,9 @@
 import { useMemo } from "react";
 import { useRefreshAt } from "@/hooks/useRefreshAt";
-import { getMasteryQueue } from "@/libs/queue";
 import { masteryTrainingEndsAt } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
 
-/** Settle queued mastery sessions on every page, including while asleep. */
+/** Finish mastery sessions on every page, including the final session and while asleep. */
 export const useMasteryQueueRefresh = (
   user: UserWithRelations,
   onRefresh: () => void,
@@ -19,9 +18,6 @@ export const useMasteryQueueRefresh = (
     deadlines,
     onRefresh,
     timeDiff,
-    enabled &&
-      !!user &&
-      ["AWAKE", "ASLEEP"].includes(user.status) &&
-      getMasteryQueue(user).length > 0,
+    enabled && !!user && ["AWAKE", "ASLEEP"].includes(user.status),
   );
 };

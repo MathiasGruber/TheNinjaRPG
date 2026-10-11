@@ -15,12 +15,9 @@ import {
 } from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
 import { CategoryBadge, ContentReviewDetail } from "@/layout/ContentReviewDetail";
+import { ContentReviewStats } from "@/layout/ContentReviewStats";
 import Loader from "@/layout/Loader";
-import {
-  CATEGORY_LABELS,
-  reviewStatsSourceLabel,
-  STATUS_LABELS,
-} from "@/libs/contentReview/labels";
+import { CATEGORY_LABELS, STATUS_LABELS } from "@/libs/contentReview/labels";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { formatTimeAgo } from "@/utils/time";
@@ -57,6 +54,7 @@ export const ContentReviewDesk: React.FC = () => {
       await Promise.all([
         utils.contentReview.getQueue.invalidate(),
         utils.contentReview.getCounts.invalidate(),
+        utils.contentReview.getStats.invalidate(),
         utils.profile.getUser.invalidate(),
       ]);
     },
@@ -120,7 +118,7 @@ export const ContentReviewDesk: React.FC = () => {
         </TabsList>
       </Tabs>
       {tab === "Stats" ? (
-        <ReviewStats canView={canReview && canChangeContent(userData.role)} />
+        <ContentReviewStats canView={canReview && canChangeContent(userData.role)} />
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-1 text-xs">
@@ -326,78 +324,6 @@ const FilterChip: React.FC<{
     {label}
   </button>
 );
-
-/** Acceptance per source and category over the retention window, to tune the audit. */
-const ReviewStats: React.FC<{ canView: boolean }> = ({ canView }) => {
-  const { data, isPending } = api.contentReview.getStats.useQuery(
-    { days: CONTENT_PROPOSAL_RETENTION_DAYS },
-    { enabled: canView },
-  );
-  if (!canView) return <p>Only content staff can see review statistics.</p>;
-  if (isPending) return <Loader explanation="Loading statistics" />;
-  const rows = new Map<
-    string,
-    { label: string; category: ContentProposalCategory; counts: Record<string, number> }
-  >();
-  for (const row of data ?? []) {
-    const label = reviewStatsSourceLabel(row.source, row.agentName);
-    const key = `${label}|${row.category}`;
-    const entry = rows.get(key) ?? { label, category: row.category, counts: {} };
-    entry.counts[row.status] = (entry.counts[row.status] ?? 0) + row.n;
-    rows.set(key, entry);
-  }
-  if (rows.size === 0) {
-    return <p>No suggestions in the last {CONTENT_PROPOSAL_RETENTION_DAYS} days.</p>;
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-primary text-white text-xs uppercase">
-          <tr>
-            <th className="px-3 py-2">Source</th>
-            <th className="px-3 py-2">Category</th>
-            <th className="px-3 py-2 text-right">Applied</th>
-            <th className="px-3 py-2 text-right">Rejected</th>
-            <th className="px-3 py-2 text-right">Outdated</th>
-            <th className="px-3 py-2 text-right">Waiting</th>
-            <th className="px-3 py-2 text-right">Accepted</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...rows.values()].map((row, index) => {
-            const applied = (row.counts.APPLIED ?? 0) + (row.counts.REVERTED ?? 0);
-            const rejected = row.counts.REJECTED ?? 0;
-            const decided = applied + rejected;
-            return (
-              <tr
-                key={`${row.label}-${row.category}`}
-                className={`border-gray-700 border-b ${index % 2 ? "bg-popover" : "bg-card"}`}
-              >
-                <td className="px-3 py-2">{row.label}</td>
-                <td className="px-3 py-2">{CATEGORY_LABELS[row.category]}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{applied}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{rejected}</td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {row.counts.OUTDATED ?? 0}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {row.counts.PENDING ?? 0}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {decided ? `${Math.round((applied / decided) * 100)}%` : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <p className="mt-2 text-xs opacity-70">
-        Last {CONTENT_PROPOSAL_RETENTION_DAYS} days. Rejected and outdated suggestions
-        are removed after that, so older numbers would undercount them.
-      </p>
-    </div>
-  );
-};
 
 /** Desk tabs; every tab but Stats lists the suggestions in one status. */
 const TABS = [

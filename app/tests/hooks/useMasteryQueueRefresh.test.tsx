@@ -55,8 +55,8 @@ describe("global mastery queue refresh", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
     rerender({ user: trainee({ status, currentlyTrainingMastery: "taijutsuMastery", masteryTrainingStartedAt: new Date(BASE + 2 * INTERVAL), masteryQueueHead: 2 }) });
     act(() => advanceTimers(INTERVAL * 3));
-    // Consumed rows awaiting cleanup must not automatically collect the final session.
-    expect(refresh).toHaveBeenCalledTimes(2);
+    // Consumed rows awaiting cleanup must not prevent the final session's refresh.
+    expect(refresh).toHaveBeenCalledTimes(3);
   });
 
   it("uses the server clock and the latest refresh callback", () => {
@@ -94,8 +94,6 @@ describe("global mastery queue refresh", () => {
     { status: "BATTLE" },
     { status: "HOSPITALIZED" },
     { currentlyTrainingMastery: null, masteryTrainingStartedAt: null },
-    { queue: [] },
-    { masteryQueueHead: 2 },
   ])("does not schedule settlement for an ineligible profile %j", (patch) => {
     const refresh = vi.fn();
     renderHook(() => useMasteryQueueRefresh(trainee(patch), refresh, 0));
@@ -103,13 +101,22 @@ describe("global mastery queue refresh", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("cancels the deadline when the queue is removed or the account is disabled", () => {
+  it.each([{ queue: [] }, { masteryQueueHead: 2 }])(
+    "refreshes the final session without live waiting entries %j", (patch) => {
+      const refresh = vi.fn();
+      renderHook(() => useMasteryQueueRefresh(trainee(patch), refresh, 0));
+      act(() => advanceTimers(INTERVAL + 1_000));
+      expect(refresh).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("cancels the deadline when training finishes or the account is disabled", () => {
     const refresh = vi.fn();
     const { rerender, unmount } = renderHook(
       ({ user, enabled }) => useMasteryQueueRefresh(user, refresh, 0, enabled),
       { initialProps: { user: trainee(), enabled: true } },
     );
-    rerender({ user: trainee({ queue: [] }), enabled: true });
+    rerender({ user: trainee({ currentlyTrainingMastery: null, masteryTrainingStartedAt: null }), enabled: true });
     act(() => advanceTimers(INTERVAL + 1_000));
     expect(refresh).not.toHaveBeenCalled();
     const next = trainee({ masteryTrainingStartedAt: new Date(nowMs) });

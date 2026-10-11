@@ -354,7 +354,7 @@ export type ContentAuditFocus = (typeof ContentAuditFocuses)[number];
 /** Hours between scheduled audit runs; the cron in .github/workflows/content-audit.yml. */
 export const CONTENT_AUDIT_INTERVAL_HOURS = 3;
 /** Rejected and outdated suggestions are removed this long after they were decided. */
-export const CONTENT_PROPOSAL_RETENTION_DAYS = 10;
+export const CONTENT_PROPOSAL_RETENTION_DAYS = 90;
 /** Suggestions resting on usage statistics go out of date after this many days. */
 export const CONTENT_PROPOSAL_EVIDENCE_DAYS = 14;
 /** Most entities one audit suggestion may list as its basis. */

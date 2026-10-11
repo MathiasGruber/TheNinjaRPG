@@ -58,7 +58,7 @@ export const MasteryTrainingQueue = ({
       title="Mastery queue"
       subtitle="Sessions that start when the active one ends"
       capacity={getQueueTotalCapacity(user)}
-      help="Select a mastery image below to queue another session at the selected interval. When the active session reaches its full interval, its gains are collected and the next queued mastery starts at that moment, also while you are offline or asleep. The last session waits for you to collect it. Capped masteries are skipped, and the queue pauses at the daily session limit."
+      help="Select a mastery image below to queue another session at the selected interval. Each session finishes and collects its gains automatically, including the last one, also while you are offline or asleep. The next queued mastery starts when the previous one ends. Capped masteries are skipped, and the queue pauses at the daily session limit."
       active={
         user.currentlyTrainingMastery && activeEndsAt
           ? {

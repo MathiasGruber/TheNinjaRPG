@@ -2059,7 +2059,8 @@ export const initiateBattle = async (
   // The same settlement as an account refresh (`settleQueuedTraining`), written back in
   // bulk with the battle claim below.
   const queuedTraining = fetchedUsers.flatMap((user) => {
-    if (user.isAi || user.queue.length === 0) return [];
+    if (user.isAi || (user.queue.length === 0 && !user.currentlyTrainingMastery))
+      return [];
     const original = { ...user };
     const ticks = Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
     const trainingUser = {
@@ -2090,6 +2091,8 @@ export const initiateBattle = async (
       user.masteryTrainingStartedAt = mastery.masteryTrainingStartedAt;
       user.trainingSpeed = mastery.trainingSpeed;
       user.dailyTrainings = mastery.dailyTrainings;
+      // Completion can make already worn Energy capacity gear eligible before loadouts change.
+      energyCapacity[user.userId] = calcMaxEnergy(user);
     }
     const tasks = [
       ...(amount > 0 ? [{ task: "stats_trained" as const, increment: amount }] : []),
