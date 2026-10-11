@@ -1,5 +1,17 @@
 import { randomInt } from "crypto";
-import { and, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  exists,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
@@ -608,7 +620,19 @@ export const kageRouter = createTRPCRouter({
         fundingClan
           ? lte(village.leaderUpdatedAt, new Date(Date.now() - lockout * 1000))
           : eq(village.structureMaintenanceDue, 0),
-        sql`EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${ctx.userId} AND ${userData.villageId} = ${village.id} AND ${userData.isBanned} = false ${fundingClan ? sql`AND ${userData.clanId} = ${fundingClan.id}` : sql``})`,
+        exists(
+          ctx.drizzle
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(
+              and(
+                eq(userData.userId, ctx.userId),
+                eq(userData.villageId, village.id),
+                eq(userData.isBanned, false),
+                fundingClan ? eq(userData.clanId, fundingClan.id) : undefined,
+              ),
+            ),
+        ),
       );
       // Drizzle has no multi-table UPDATE builder. A joined write debits funds and
       // upgrades the guarded level together, without a transaction or partial payment.
@@ -645,7 +669,18 @@ export const kageRouter = createTRPCRouter({
             eq(village.kageId, ctx.userId),
             sql`${village.structureMaintenanceDue} > 0`,
             gte(village.tokens, village.structureMaintenanceDue),
-            sql`EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${ctx.userId} AND ${userData.villageId} = ${village.id} AND ${userData.isBanned} = false)`,
+            exists(
+              ctx.drizzle
+                .select({ userId: userData.userId })
+                .from(userData)
+                .where(
+                  and(
+                    eq(userData.userId, ctx.userId),
+                    eq(userData.villageId, village.id),
+                    eq(userData.isBanned, false),
+                  ),
+                ),
+            ),
           ),
         );
       return result.rowsAffected > 0

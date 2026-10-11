@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, eq, exists, gte, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { quest, userData, village } from "@/drizzle/schema";
 import {
@@ -12,6 +12,7 @@ import {
   errorResponse,
   protectedProcedure,
 } from "@/server/api/trpc";
+import type { DrizzleClient } from "@/server/db";
 import { getRandomElement } from "@/utils/array";
 import { idSchema } from "@/validators/misc";
 import {
@@ -101,7 +102,7 @@ export const villageMissionRouter = createTRPCRouter({
         })
         .where(
           and(
-            leaderGuard(input.villageId, ctx.userId),
+            leaderGuard(ctx.drizzle, input.villageId, ctx.userId),
             current
               ? and(
                   sql`JSON_UNQUOTE(JSON_EXTRACT(${village.activeMission}, '$.id')) = ${current.id}`,
@@ -151,7 +152,7 @@ export const villageMissionRouter = createTRPCRouter({
         })
         .where(
           and(
-            leaderGuard(input.villageId, ctx.userId),
+            leaderGuard(ctx.drizzle, input.villageId, ctx.userId),
             sql`JSON_UNQUOTE(JSON_EXTRACT(${village.activeMission}, '$.id')) = ${mission.id}`,
             ...mission.objectives.map((objective) =>
               gte(
@@ -172,10 +173,26 @@ export const villageMissionRouter = createTRPCRouter({
     }),
 });
 
-const leaderGuard = (villageId: string, userId: string) =>
+const leaderGuard = (
+  client: Pick<DrizzleClient, "select">,
+  villageId: string,
+  userId: string,
+) =>
   and(
     eq(village.id, villageId),
     eq(village.kageId, userId),
     eq(village.type, "VILLAGE"),
-    sql`EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${userId} AND ${userData.villageId} = ${village.id} AND ${userData.isOutlaw} = false AND ${userData.isBanned} = false)`,
+    exists(
+      client
+        .select({ userId: userData.userId })
+        .from(userData)
+        .where(
+          and(
+            eq(userData.userId, userId),
+            eq(userData.villageId, village.id),
+            eq(userData.isOutlaw, false),
+            eq(userData.isBanned, false),
+          ),
+        ),
+    ),
   );

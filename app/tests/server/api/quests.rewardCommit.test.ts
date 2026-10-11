@@ -1,6 +1,6 @@
 
 import { eq, type SQL } from "drizzle-orm";
-import { MySqlDialect } from "drizzle-orm/mysql-core";
+import { MySqlDialect, QueryBuilder } from "drizzle-orm/mysql-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { bankTransfers, quest, questHistory, userData, village } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
@@ -126,7 +126,8 @@ const makeClient = (
   }));
   const deleteWhere = vi.fn().mockResolvedValue({ rowsAffected: 1 });
   const deleteFrom = vi.fn(() => ({ where: deleteWhere }));
-  const select = vi.fn();
+  const queryBuilder = new QueryBuilder();
+  const select = vi.fn(queryBuilder.select.bind(queryBuilder));
   const client = {
     update,
     delete: deleteFrom,
