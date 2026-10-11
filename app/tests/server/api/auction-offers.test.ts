@@ -1,16 +1,17 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
-import { actionLog, auctionOffer, item, userData, userItem, userItemImbuement, storeUserIdAlias } from "@/drizzle/schema";
+import { actionLog, auctionOffer, farmCollectionLog, farmPlot, item, userData, userItem, userItemImbuement, storeUserIdAlias } from "@/drizzle/schema";
 import { occupationRouter } from "@/server/api/routers/occupation";
 import { auctionRouter } from "@/server/api/routers/auction";
-import { failStatements } from "../../setup/statements";
+import { farmingRouter } from "@/server/api/routers/farming";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import type { DrizzleClient } from "@/server/db";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("Auction House fixed-term requests and trades", () => {
   beforeEach(async () => {
-    await resetTables(storeUserIdAlias, actionLog, auctionOffer, userItemImbuement, userItem, item, userData);
+    await resetTables(storeUserIdAlias, actionLog, auctionOffer, farmCollectionLog, farmPlot, userItemImbuement, userItem, item, userData);
     await insertUsers([
       { userId: "owner", username: "Requester", level: 50, bank: 1000 },
       { userId: "supplier", username: "Supplier", level: 50, bank: 100 },
@@ -127,6 +128,33 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     const rows = await (await getTestDatabase()).select().from(userItem).where(eq(userItem.userId, "owner"));
     expect(rows.reduce((sum, row) => sum + row.quantity, 0)).toBe(50);
     expect(rows.every((row) => !row.isInAuction)).toBe(true);
+  });
+
+  it("reclaims a trade stack changed by an in-flight farm harvest without accepting changed terms", async () => {
+    const db = await getTestDatabase();
+    await db.update(item).set({ farmSellValue: 40 }).where(eq(item.id, "gem"));
+    await insertItems([{ id: "seed", name: "Seed", canStack: true, isFarmSeed: true, farmYieldItemId: "gem" }]);
+    await db.insert(farmPlot).values({ id: "ready-plot", userId: "owner", slotIndex: 0, seedItemId: "seed", plantedAt: new Date(0), finishAt: new Date(0) });
+    // Reserve the full stack after harvest snapshots the inventory, before its fill writes.
+    const harvestDb = beforeStatements(db, userItem, [() => postTrade(50)]);
+    const farmer = callerForDatabase(farmingRouter, "owner", harvestDb);
+    expect((await farmer.harvestPlot({ plotId: "ready-plot" })).success).toBe(true);
+    const [offer] = await db.select().from(auctionOffer);
+    expect(offer?.offeredQuantity).toBe(50);
+    expect((await db.select().from(userItem).where(eq(userItem.id, "owner-gems")))[0]).toMatchObject({ quantity: 51, isInAuction: true });
+    const supplier = await callerFor(auctionRouter, "supplier");
+    expect(await supplier.acceptAuctionOffer({ offerId: offer!.id, userItemId: "supplier-ore" })).toMatchObject({ success: false, message: "Offered item is no longer available" });
+    const rival = await callerFor(auctionRouter, "rival");
+    expect((await rival.cancelAuctionOffer({ offerId: offer!.id })).success).toBe(false);
+    expect((await db.select().from(auctionOffer))[0]?.status).toBe("ACTIVE");
+    const owner = await callerFor(auctionRouter, "owner");
+    expect((await owner.cancelAuctionOffer({ offerId: offer!.id })).success).toBe(true);
+    expect((await owner.cancelAuctionOffer({ offerId: offer!.id })).success).toBe(false);
+    expect((await db.select().from(auctionOffer))[0]?.status).toBe("CANCELLED");
+    expect((await db.select().from(userItem).where(eq(userItem.id, "owner-gems")))[0]).toMatchObject({ userId: "owner", quantity: 51, isInAuction: false, activeVariantId: "cosmetic" });
+    expect((await db.select().from(userItem).where(eq(userItem.id, "supplier-ore")))[0]?.quantity).toBe(100);
+    expect(await balances()).toMatchObject({ owner: 1000, supplier: 100, rival: 100 });
+    expect(await db.select().from(actionLog)).toHaveLength(2);
   });
 
   it("can trade materials for equipment while preserving progression, durability and imbuements", async () => {

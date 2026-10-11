@@ -271,6 +271,7 @@ export const auctionOfferProcedures = {
             .where(eq(userData.userId, ctx.userId));
           requireOfferWrite(refund.rowsAffected, "Account is unavailable");
         } else {
+          // Cancellation reclaims the owner's row even if an in-flight grant changed its quantity.
           const release = await tx
             .update(userItem)
             .set({ isInAuction: false, updatedAt: new Date() })
@@ -279,7 +280,6 @@ export const auctionOfferProcedures = {
                 eq(userItem.id, offer.offeredUserItemId ?? ""),
                 eq(userItem.userId, ctx.userId),
                 eq(userItem.isInAuction, true),
-                eq(userItem.quantity, offer.offeredQuantity ?? 0),
               ),
             );
           requireOfferWrite(release.rowsAffected, "Reserved item is unavailable");
