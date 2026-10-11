@@ -1,6 +1,6 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { describe, expect, it } from "bun:test";
-import { CombatStatNames, MasteryNames } from "@/drizzle/constants";
+import { CombatStatNames, ELEMENTAL_MASTERY_CAP, MasteryNames } from "@/drizzle/constants";
 import { battle } from "@/drizzle/schema";
 import { captureCombatCacheSnapshot, combatCacheDerived, combatCacheEnergy, combatCacheItems, combatCacheIntegerDelta, combatProfilePatch, canCacheCombatCompletion, type CombatProfileUpdate } from "@/libs/combat/userCache";
 import { calcMaxEnergy } from "@/libs/profile";
@@ -21,7 +21,8 @@ const fixture = () => {
   const raw = { userId: "viewer", level: 10, rank: "JONIN" as const,
     ...Object.fromEntries([...CombatStatNames, ...MasteryNames].map((field) => [field, 100])),
     curEnergy: 10, money: 100, experience: 200, seichiSilver: 0, pveFights: 10, regenAt: new Date("2026-01-01T00:00:00Z"), earnedExperience: 100,
-    bloodlineId: null, items: [gear], energyQueueHead: 0, energyQueueTail: 0, masteryQueueHead: 0, queue: [] } as unknown as Parameters<typeof captureCombatCacheSnapshot>[0];
+    bloodlineId: null, items: [gear], energyQueueHead: 0, energyQueueTail: 0, masteryQueueHead: 0, elementalQueueHead: 0, queue: [],
+    elementalMastery: {}, currentlyTrainingElement: null, elementalTrainingStartedAt: null, elementalTrainingSpeed: "15min", dailyTrainings: 0 } as unknown as Parameters<typeof captureCombatCacheSnapshot>[0];
   const snapshot = captureCombatCacheSnapshot(raw);
   const { masterySources: _private, ...baseline } = snapshot;
   const items = [{ ...baseline.items[0]!, durability: 0 }];
@@ -74,6 +75,43 @@ describe("confirmed combat profile reconciliation", () => {
     expect(after.notifications.map((entry) => entry.name)).toEqual(["Assign XP"]);
     expect(client.getQueryState(key)?.isInvalidated).toBe(false);
     client.clear();
+  });
+
+  it("refreshes elemental training settled before the arena snapshot was captured", async () => {
+    const { raw, current, update } = fixture();
+    current.elementalMastery = { Wind: ELEMENTAL_MASTERY_CAP - 100 };
+    current.currentlyTrainingElement = "Wind";
+    current.elementalTrainingStartedAt = raw.regenAt;
+    const server = {
+      ...raw,
+      elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP },
+      currentlyTrainingElement: null,
+      elementalTrainingStartedAt: null,
+      dailyTrainings: 1,
+    };
+    const { masterySources: _private, ...baseline } = captureCombatCacheSnapshot(server);
+    update.baseline = baseline;
+    expect(baseline.hadTrainingQueue).toBe(false);
+    expect(combatProfilePatch(current, update)).toBeUndefined();
+
+    const client = new QueryClient();
+    client.setQueryData(key, { userData: current });
+    let reads = 0;
+    const observer = new QueryObserver(client, { queryKey: key, staleTime: Infinity,
+      queryFn: async () => {
+        reads++;
+        return { userData: { ...current, ...server, status: "AWAKE", battleId: null } };
+      } });
+    const close = observer.subscribe(() => {});
+    await updateUserCache(client, key, (user) => combatProfilePatch(user, update), {
+      revision: prepareUserUpdate(client, key), delta: update.userDelta,
+    });
+    expect(reads).toBe(1);
+    expect(client.getQueryData<{ userData: typeof current }>(key)!.userData).toMatchObject({
+      elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP },
+      currentlyTrainingElement: null, elementalTrainingStartedAt: null, dailyTrainings: 1,
+    });
+    close(); client.clear();
   });
 
   it("falls back for another viewer, replacement battle, queue, changed progression or gear", () => {
@@ -156,5 +194,19 @@ describe("confirmed combat profile reconciliation", () => {
     expect(canCacheCombatCompletion({ ...battle, extraState: { ...battle.extraState, profileCacheSnapshots: { viewer: legacyCounter } } }, result, "viewer")).toBe(false);
     snapshot.hadTrainingQueue = true;
     expect(canCacheCombatCompletion(battle, result, "viewer")).toBe(false);
+  });
+
+  it.each([-900_000, 900_000])("refreshes standalone elemental training across combat at offset %s", (offset) => {
+    const { raw, current, update } = fixture();
+    const training = { currentlyTrainingElement: "Wind" as const, elementalTrainingStartedAt: new Date(Date.now() + offset) };
+    const snapshot = captureCombatCacheSnapshot({ ...raw, ...training });
+    const user = makeBattleUser("viewer", { isAi: false, direction: "left", curHealth: 100 });
+    const enemy = makeBattleUser("ai", { isAi: true, direction: "right", curHealth: 0, leftBattle: true });
+    const battle = makeCompleteBattle({ battleType: "ARENA", usersState: [user, enemy], extraState: { settings: [], profileCacheSnapshots: { viewer: snapshot } } });
+    const result = calcBattleResult(battle, "viewer", [])!;
+    result.villagePrestige = 0; result.villageTokens = 0; result.anbuPoints = 0; result.clanPoints = 0;
+    expect(snapshot.hadTrainingQueue).toBe(true);
+    expect(canCacheCombatCompletion(battle, result, "viewer")).toBe(false);
+    expect(combatProfilePatch({ ...current, ...training }, update)).toBeUndefined();
   });
 });

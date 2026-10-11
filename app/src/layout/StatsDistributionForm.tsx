@@ -577,9 +577,9 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
           const maxValue = maxValues[stat];
           const minValue = 0;
           const step = isInArray(stat, BasicElementName) ? 1 : 0.01;
-          const currentValue = Number.isFinite(Number(formValues[stat]))
-            ? Number(formValues[stat])
-            : 0;
+          const hasFiniteValue = Number.isFinite(Number(formValues[stat]));
+          const currentValue = hasFiniteValue ? Number(formValues[stat]) : 0;
+          const useInput = useInputBoxes || !hasFiniteValue;
 
           // Calculate remaining points and dynamic max for this slider
           // remainingPoints already includes currentValue freed up from the total
@@ -595,7 +595,7 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
                 name={stat}
                 render={({ field, fieldState }) => (
                   <FormItem className="pt-1">
-                    {useInputBoxes && (
+                    {useInput && (
                       <FormLabel>
                         {capitalizeFirstLetter(noCase(stat))}
                         {currentValue
@@ -603,7 +603,7 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
                           : ""}
                       </FormLabel>
                     )}
-                    {useInputBoxes ? (
+                    {useInput ? (
                       <FormControl>
                         <NumberInput
                           min={minValue}
@@ -623,7 +623,8 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
                         label={capitalizeFirstLetter(noCase(stat))}
                         default={defaultValues[stat] ?? 0}
                         min={minValue}
-                        max={dynamicMax}
+                        // Native ranges must represent a retained draft so it can be lowered.
+                        max={Math.max(dynamicMax, currentValue)}
                         step={step}
                         watchedValue={currentValue}
                         watchedTotal={availableStats}
