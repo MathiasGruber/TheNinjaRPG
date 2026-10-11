@@ -49,6 +49,70 @@ afterEach(() => {
 const options = ["Dashboard", "Character", "Achievements"];
 
 describe("optional tab remembering", () => {
+  it("keeps responsive icon tabs named and keyboard accessible", async () => {
+    const iconOptions = ["Dashboard", "Character", "Achievements", "Sharing", "Delete Character"];
+    const view = render(
+      <Tabs defaultValue="Character">
+        <NavTabs
+          current="Character"
+          options={iconOptions}
+          icons={Object.fromEntries(iconOptions.map((option) => [option, <span aria-hidden="true">★</span>]))}
+          iconOnlyOptions={iconOptions}
+          labelClassName={(option) => option === "Dashboard" || option === "Character" ? "@min-[480px]:not-sr-only" : ""}
+          accessibleTabs
+          label="Profile sections"
+          values={{ "Delete Character": "delete" }}
+        />
+        <TabsContent value="Achievements">Your achievements</TabsContent>
+        <TabsContent value="delete">Deletion details</TabsContent>
+      </Tabs>,
+    );
+    expect(view.getAllByRole("tab")).toHaveLength(5);
+    const character = view.getByRole("tab", { name: "Character" });
+    character.focus();
+    fireEvent.keyDown(character, { key: "ArrowRight" });
+    await waitFor(() => expect(view.getByRole("tabpanel", { name: "Achievements" }).textContent).toBe("Your achievements"));
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "End" });
+    await waitFor(() => expect(view.getByRole("tabpanel", { name: "Delete Character" }).textContent).toBe("Deletion details"));
+    expect(document.activeElement).toBe(view.getByRole("tab", { name: "Delete Character" }));
+  });
+  it("associates icon tab panels with labels containing spaces using stable values", () => {
+    const view = render(
+      <Tabs value="edit">
+        <NavTabs
+          current="Edit Character"
+          options={["Edit Character"]}
+          icons={{ "Edit Character": <span aria-hidden="true">✎</span> }}
+          iconOnlyOptions={["Edit Character"]}
+          values={{ "Edit Character": "edit" }}
+          accessibleTabs
+          label="Profile sections"
+        />
+        <TabsContent value="edit">Character settings</TabsContent>
+      </Tabs>,
+    );
+    expect(view.getByRole("tab", { name: "Edit Character" }).getAttribute("aria-selected")).toBe("true");
+    expect(view.getByRole("tabpanel", { name: "Edit Character" }).textContent).toBe("Character settings");
+  });
+  it("names icon tabs and preserves their notification badges", () => {
+    const onChange = vi.fn();
+    const view = render(
+      <NavTabs
+        current="Character"
+        options={["Dashboard", "Character", "Sharing"]}
+        icons={{ Sharing: <span aria-hidden="true">↗</span> }}
+        iconOnlyOptions={["Sharing"]}
+        counts={{ Sharing: 2 }}
+        onChange={onChange}
+      />,
+    );
+    const sharing = view.getByRole("button", { name: "Sharing 2 notifications" });
+    expect(sharing.getAttribute("title")).toBe("Sharing");
+    expect(sharing.querySelector(".sr-only")?.textContent).toBe("Sharing");
+    expect(view.getByRole("button", { name: "Dashboard" }).querySelector(".sr-only")).toBeNull();
+    fireEvent.click(sharing);
+    expect(onChange).toHaveBeenCalledWith("Sharing");
+  });
   it("ignores a saved tab and does not write clicks when remembering is off", () => {
     const read = vi
       .spyOn(storage, "safeLocalStorageGetItem")

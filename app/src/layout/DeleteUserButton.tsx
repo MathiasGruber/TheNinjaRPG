@@ -12,6 +12,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 
 interface DeleteUserButtonProps {
   className?: string;
+  label?: string;
   userData: {
     userId: string;
     isBanned: boolean;
@@ -96,12 +97,16 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
       button={
         <span
           className={cn("inline-flex items-center", props.className)}
-          title="Delete character"
+          title={props.label ?? "Delete character"}
         >
           <Trash2
             className={`h-6 w-6 cursor-pointer hover:text-orange-500 ${userData.deletionAt ? "animate-pulse text-red-500" : ""}`}
           />
-          <span className="sr-only">Delete character</span>
+          {props.label ? (
+            <span>{props.label}</span>
+          ) : (
+            <span className="sr-only">Delete character</span>
+          )}
         </span>
       }
       proceed_label={
