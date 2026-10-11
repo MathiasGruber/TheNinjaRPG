@@ -375,6 +375,12 @@ export const combatRouter = createTRPCRouter({
               ...(result
                 ? [
                     updateUser(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
+                    updateVillageAnbuClan(
+                      ctx.drizzle,
+                      settledBattle,
+                      result,
+                      ctx.userId,
+                    ),
                     updateWars(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
                     updateKage(ctx.drizzle, settledBattle, result),
                     updateRaidProgress(ctx.drizzle, settledBattle, ctx.userId),
