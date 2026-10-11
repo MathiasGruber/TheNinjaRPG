@@ -774,6 +774,7 @@ const RaidChatPanel: React.FC<RaidChatPanelProps> = ({ conversationId }) => {
   const { data: commentsData, isPending } =
     api.comments.getConversationComments.useInfiniteQuery(queryKey, {
       enabled: !!conversationId,
+      // Recheck permissions after missed cross-tab events, even while cached history is fresh.
       refetchOnMount: "always",
       refetchOnWindowFocus: "always",
       refetchOnReconnect: "always",

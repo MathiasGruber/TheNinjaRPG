@@ -25,6 +25,7 @@ import type { AppRouter } from "@/server/api/root";
 import { parentalSettingsSchema } from "@/validators/parentalControls";
 import { getSearchValidator } from "@/validators/register";
 
+/** Loads account settings and resets the form from the saved policy after saving or reloading. */
 export function ParentalControls() {
   const [generation, setGeneration] = useState(0);
   const { data, isPending, error, refetch } = api.parentalControls.get.useQuery();
@@ -42,12 +43,14 @@ export function ParentalControls() {
       settings={data}
       onSaved={async () => {
         await refetch();
+        // Reload must also discard local drafts and PINs when the saved version is unchanged.
         setGeneration((value) => value + 1);
       }}
     />
   );
 }
 
+/** Edits a saved policy snapshot with PIN fields held in local component state. */
 function ParentalSettingsForm({
   settings,
   onSaved,

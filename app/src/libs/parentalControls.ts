@@ -1,5 +1,6 @@
 import type { ParentalControl } from "@/drizzle/schema";
 
+/** Communication rules without PIN credentials or attempt counters. */
 export type CommunicationPolicy = Pick<
   ParentalControl,
   "userId" | "enabled" | "tavernDisabled" | "privateMessages" | "approvedUserIds"
@@ -9,6 +10,10 @@ export const TAVERN_PARENTAL_MESSAGE =
 export const PRIVATE_PARENTAL_MESSAGE =
   "Parental controls allow private messages only with approved players.";
 
+/**
+ * Returns the first restriction imposed by any participating account, or null.
+ * Include retained message senders in participantIds when checking existing history.
+ */
 export const privateConversationRestriction = (
   policies: CommunicationPolicy[],
   participantIds: string[],
@@ -29,6 +34,10 @@ export const privateConversationRestriction = (
   return null;
 };
 
+/**
+ * Returns the reader's tavern or private-history restriction, or null.
+ * Private history includes current members and retained senders; support is exempt.
+ */
 export const conversationReadRestriction = (
   policy: CommunicationPolicy | undefined,
   convo: { isPublic: boolean; isStaffAvailable: boolean; users: { userId: string }[] },

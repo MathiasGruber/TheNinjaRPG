@@ -51,6 +51,7 @@ interface ConversationCommentProps extends PostProps {
   setQuoteId?: (id: string) => void;
   quoteIds?: string[] | null;
   onDeleted?: (commentId: string) => void;
+  /** Revoking edit permission hides an open editor without discarding its unsaved draft. */
   canEdit?: boolean;
 }
 export const CommentOnConversation: React.FC<ConversationCommentProps> = (props) => {

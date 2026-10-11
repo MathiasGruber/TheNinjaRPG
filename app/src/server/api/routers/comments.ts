@@ -1059,10 +1059,9 @@ interface FetchConvoOptions {
 }
 
 /**
- * Fetches a conversation based on the provided options.
- * @param params - The options for fetching the conversation.
- * @returns The fetched conversation if it exists and the user is authorized, otherwise throws an error.
- * @throws {ServerError} If the request is invalid or the conversation is not found.
+ * Loads a conversation with the requesting account's read and participant-wide send restrictions.
+ * Callers still enforce conversation membership or staff authorization before returning data.
+ * Returns undefined when absent; throws BAD_REQUEST when neither an ID nor a title is supplied.
  */
 export const fetchConversation = async (params: FetchConvoOptions) => {
   const { client, id, title, userId } = params;
@@ -1110,7 +1109,10 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
   return { ...convo, readRestriction, sendRestriction };
 };
 
-// Leaving removes membership but retains messages while other members remain.
+/**
+ * Retained senders must stay subject to approval after leaving a private conversation.
+ * Without an explicit conversation ID, loads senders across the account's memberships.
+ */
 const fetchPrivateConversationSenders = (
   client: DrizzleClient,
   userId: string,
@@ -1223,9 +1225,8 @@ interface NotifiedUser {
 }
 
 /**
- * Fetches users to notify about mentions and quotes, checking for blacklists
- * @param options - The options for fetching users to notify
- * @returns Array of user IDs with notification types
+ * Returns mention/quote recipients allowed by their blacklist and parental policy.
+ * Staff conversations preserve support access; mentions take priority over quotes.
  */
 export const fetchUsersToNotify = async (
   client: DrizzleClient,

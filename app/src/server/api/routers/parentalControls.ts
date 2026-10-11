@@ -10,7 +10,9 @@ import {
 import { hashParentalPin, verifyParentalPin } from "@/server/utils/parentalControls";
 import { parentalSettingsSchema } from "@/validators/parentalControls";
 
+/** Account-level parental settings; versioned writes require the stored parent PIN when present. */
 export const parentalControlsRouter = createTRPCRouter({
+  /** Returns the editable policy and PIN presence without exposing the stored hash. */
   get: protectedProcedure.query(async ({ ctx }) => {
     const settings = await ctx.drizzle.query.parentalControl.findFirst({
       where: eq(parentalControl.userId, ctx.userId),
@@ -46,6 +48,7 @@ export const parentalControlsRouter = createTRPCRouter({
       approvedPlayers,
     };
   }),
+  /** Requires the stored parent PIN when present; enabling without one creates a new PIN. */
   save: protectedProcedure
     .input(parentalSettingsSchema)
     .mutation(async ({ ctx, input }) => {
@@ -111,6 +114,7 @@ export const parentalControlsRouter = createTRPCRouter({
       };
       let result: { rowsAffected: number };
       try {
+        // The version guard and unique account key allow only one concurrent save or setup to win.
         result = settings
           ? await ctx.drizzle
               .update(parentalControl)
@@ -137,6 +141,8 @@ export const parentalControlsRouter = createTRPCRouter({
         return errorResponse(
           "Settings changed in another tab. Reload them before saving.",
         );
+      // A notification failure must not turn a committed save into a reported failure.
+      // Chat queries also refresh permissions on remount, focus and reconnect.
       void Promise.resolve()
         .then(() =>
           getServerPusher().trigger(ctx.userId, "event", {
