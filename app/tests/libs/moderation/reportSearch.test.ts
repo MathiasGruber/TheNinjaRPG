@@ -37,11 +37,7 @@ const database = (
 describe("moderation report search capabilities", () => {
   it("uses vector results before full-text and sends vectors as parameters", async () => {
     const { client, queries } = database((query, params) => {
-      if (
-        query.includes("FROM `UserReportEmbedding`") ||
-        query.includes("from `UserReportEmbedding`")
-      )
-        return [];
+      if (query.includes("from `UserReportEmbedding`")) return [];
       expect(query).toContain("DISTANCE");
       expect(query).toContain("`sourceText` = `UserReport`.`aiInterpretation`");
       expect(params).toContain("[1,0]");
