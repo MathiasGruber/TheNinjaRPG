@@ -80,15 +80,11 @@ export const moderateContent = async (
       .set({
         flagged: result.flagged,
         categoryScores: { ...result.category_scores },
+        outcome: result.flagged ? "CHECKING" : "GATE_CLEAR",
+        completedAt: result.flagged ? null : new Date(),
       })
       .where(eq(moderationScan.id, scanId));
-    if (!result.flagged) {
-      await client
-        .update(moderationScan)
-        .set({ outcome: "GATE_CLEAR", completedAt: new Date() })
-        .where(eq(moderationScan.id, scanId));
-      return;
-    }
+    if (!result.flagged) return;
     stage = "decision";
     const context = await getAdditionalContext(
       client,

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import Table from "@/layout/Table";
 import { isStaffRole } from "@/utils/permissions";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { ModBotPerformanceInput } from "@/validators/reports";
@@ -182,35 +183,14 @@ export default function BotPerformance() {
                         View counts by{" "}
                         {filters.interval === "daily" ? "day" : "week starting Monday"}
                       </summary>
-                      <div className="mt-3 overflow-x-auto">
-                        <table className="w-full whitespace-nowrap text-left text-sm">
-                          <thead>
-                            <tr>
-                              <Th>Period (UTC)</Th>
-                              <Th>Bot alerts</Th>
-                              <Th>Staff action</Th>
-                              <Th>Cleared</Th>
-                              <Th>Pending</Th>
-                              <Th>Action yield</Th>
-                              <Th>Human reports</Th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {data.trend.map((row) => (
-                              <tr key={row.date} className="border-t">
-                                <Td>{row.date}</Td>
-                                <Td>{row.botTotal}</Td>
-                                <Td>{row.botAction}</Td>
-                                <Td>{row.botCleared}</Td>
-                                <Td>{row.botPending}</Td>
-                                <Td>
-                                  {percent(row.actionYield)} (n={row.botReviewed})
-                                </Td>
-                                <Td>{row.humanTotal}</Td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="mt-3 whitespace-nowrap tabular-nums">
+                        <Table
+                          data={data.trend.map((row) => ({
+                            ...row,
+                            actionYield: `${percent(row.actionYield)} (n=${row.botReviewed})`,
+                          }))}
+                          columns={[...TREND_COLUMNS]}
+                        />
                       </div>
                     </details>
                   </section>
@@ -222,34 +202,15 @@ export default function BotPerformance() {
                       staff action · {summary.humanCleared} cleared ·{" "}
                       {summary.humanPending} pending.
                     </p>
-                    <div className="overflow-x-auto">
-                      <table className="w-full whitespace-nowrap text-left text-sm">
-                        <thead>
-                          <tr>
-                            <Th>Surface</Th>
-                            <Th>Bot alerts</Th>
-                            <Th>Reviewed</Th>
-                            <Th>Action yield</Th>
-                            <Th>Pending</Th>
-                            <Th>Human reports</Th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.surfaces.map((row) => (
-                            <tr className="border-t" key={row.surface}>
-                              <Td>{SURFACES[row.surface]}</Td>
-                              <Td>{row.botTotal}</Td>
-                              <Td>{row.botReviewed}</Td>
-                              <Td>
-                                {percent(row.actionYield)} ({row.botAction}/
-                                {row.botReviewed})
-                              </Td>
-                              <Td>{row.botPending}</Td>
-                              <Td>{row.humanTotal}</Td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="whitespace-nowrap tabular-nums">
+                      <Table
+                        data={data.surfaces.map((row) => ({
+                          ...row,
+                          surface: SURFACES[row.surface],
+                          actionYield: `${percent(row.actionYield)} (${row.botAction}/${row.botReviewed})`,
+                        }))}
+                        columns={[...SURFACE_COLUMNS]}
+                      />
                     </div>
                   </section>
                   <section className="space-y-3 rounded-lg border bg-card p-4">
@@ -319,27 +280,14 @@ export default function BotPerformance() {
                       />
                     </div>
                     {data.versions.length > 0 && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full whitespace-nowrap text-left text-sm">
-                          <thead>
-                            <tr>
-                              <Th>Prompt version</Th>
-                              <Th>Scan attempts</Th>
-                              <Th>Reviewed predictions</Th>
-                              <Th>Agreement</Th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {data.versions.map((row) => (
-                              <tr className="border-t" key={row.version}>
-                                <Td>{row.version}</Td>
-                                <Td>{row.scans}</Td>
-                                <Td>{row.evaluated}</Td>
-                                <Td>{percent(row.agreement)}</Td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="whitespace-nowrap tabular-nums">
+                        <Table
+                          data={data.versions.map((row) => ({
+                            ...row,
+                            agreement: percent(row.agreement),
+                          }))}
+                          columns={[...VERSION_COLUMNS]}
+                        />
                       </div>
                     )}
                   </section>
@@ -484,14 +432,6 @@ const FilterSelect = ({
     </Select>
   </div>
 );
-const Th = ({ children }: { children: React.ReactNode }) => (
-  <th scope="col" className="px-3 py-2 font-medium text-muted-foreground">
-    {children}
-  </th>
-);
-const Td = ({ children }: { children: React.ReactNode }) => (
-  <td className="px-3 py-2 tabular-nums">{children}</td>
-);
 const percent = (value: number | null) =>
   value == null ? "—" : `${value.toFixed(1)}%`;
 const dateLabel = (at: string) =>
@@ -537,4 +477,27 @@ const SURFACES: Record<string, string> = {
   profile: "Profile",
   other: "Other",
 };
+const TREND_COLUMNS = [
+  { key: "date", header: "Period (UTC)", type: "string" },
+  { key: "botTotal", header: "Bot alerts", type: "string" },
+  { key: "botAction", header: "Staff action", type: "string" },
+  { key: "botCleared", header: "Cleared", type: "string" },
+  { key: "botPending", header: "Pending", type: "string" },
+  { key: "actionYield", header: "Action yield", type: "string" },
+  { key: "humanTotal", header: "Human reports", type: "string" },
+] as const;
+const SURFACE_COLUMNS = [
+  { key: "surface", header: "Surface", type: "string" },
+  { key: "botTotal", header: "Bot alerts", type: "string" },
+  { key: "botReviewed", header: "Reviewed", type: "string" },
+  { key: "actionYield", header: "Action yield", type: "string" },
+  { key: "botPending", header: "Pending", type: "string" },
+  { key: "humanTotal", header: "Human reports", type: "string" },
+] as const;
+const VERSION_COLUMNS = [
+  { key: "version", header: "Prompt version", type: "string" },
+  { key: "scans", header: "Scan attempts", type: "string" },
+  { key: "evaluated", header: "Reviewed predictions", type: "string" },
+  { key: "agreement", header: "Agreement", type: "string" },
+] as const;
 type Stats = RouterOutputs["reports"]["getModBotPerformance"];
