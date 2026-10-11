@@ -768,7 +768,7 @@ export const questsRouter = createTRPCRouter({
         if (!rewardChoiceCheck.check) {
           return errorResponse(rewardChoiceCheck.message);
         }
-        // Validate that either main quest has sceneCharacters or each objective has sceneCharacters
+        // Shared Village Mission progress has no quest scenes to populate.
         const hasMainSceneCharacters = input.data.content.sceneCharacters.length > 0;
         const allObjectivesHaveSceneCharacters = input.data.content.objectives.every(
           (objective) =>
@@ -776,6 +776,7 @@ export const questsRouter = createTRPCRouter({
         );
         if (
           !input.data.hidden &&
+          input.data.questType !== "village_mission" &&
           !hasMainSceneCharacters &&
           !allObjectivesHaveSceneCharacters
         ) {
@@ -855,10 +856,23 @@ export const questsRouter = createTRPCRouter({
         // Update database
         await Promise.all([
           ctx.drizzle.update(quest).set(input.data).where(eq(quest.id, entry.id)),
-          ctx.drizzle
-            .update(questHistory)
-            .set({ questType: input.data.questType })
-            .where(eq(questHistory.questId, entry.id)),
+          // Village Missions retire personal attempts without granting completions
+          // or reclassifying completed history as collective progress.
+          data.questType === "village_mission"
+            ? ctx.drizzle
+                .update(questHistory)
+                .set({ endAt: new Date() })
+                .where(
+                  and(
+                    eq(questHistory.questId, entry.id),
+                    eq(questHistory.completed, 0),
+                    isNull(questHistory.endAt),
+                  ),
+                )
+            : ctx.drizzle
+                .update(questHistory)
+                .set({ questType: input.data.questType })
+                .where(eq(questHistory.questId, entry.id)),
           ctx.drizzle.insert(actionLog).values({
             id: nanoid(),
             userId: ctx.userId,
@@ -2994,6 +3008,10 @@ export const commitQuestObjectiveRewards = async (info: {
     notifications,
     consequences,
   } = info;
+  // Collective tokens are paid only by villageMission.claim, never personal history.
+  if (userQuest?.quest.questType === "village_mission") {
+    return { outcome: "not_found" };
+  }
   const rewardChoice = resolved ? (info.rewardChoice ?? null) : null;
   const senseiId =
     user.rank === "GENIN" && userQuest?.quest.questType === "mission"

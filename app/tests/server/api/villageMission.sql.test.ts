@@ -1,15 +1,17 @@
-import { beforeEach, expect, it } from "bun:test";
+import { beforeEach, expect, it, spyOn } from "bun:test";
 import { eq } from "drizzle-orm";
-import { userData, village, villageStructure, quest, war, warKill } from "@/drizzle/schema";
+import { userData, village, villageStructure, quest, questHistory, war, warKill } from "@/drizzle/schema";
 import { updateWars } from "@/libs/combat/database";
 import type { CompleteBattle, CombatResult } from "@/libs/combat/types";
 import { SimpleObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { villageMissionRouter } from "@/server/api/routers/villageMission";
 import { kageRouter } from "@/server/api/routers/kage";
+import { questsRouter } from "@/server/api/routers/quests";
+import * as socials from "@/libs/socials";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import { accrueVillageStructureMaintenance } from "@/server/utils/villageMaintenance";
-import { insertUsers, insertQuests } from "../../setup/factories";
+import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const state = async () => (await getTestDatabase()).query.village.findFirst({ where: eq(village.id, "v1") });
@@ -18,7 +20,7 @@ const objective = { id: "effort", task: "combined_mission_effort", description: 
 
 describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
   beforeEach(async () => {
-    await resetTables(userData, village, villageStructure, quest, war, warKill);
+    await resetTables(userData, village, villageStructure, quest, questHistory, war, warKill);
     const db = await getTestDatabase();
     await insertUsers([
       { userId: "leader", username: "leader", villageId: "v1" },
@@ -28,6 +30,58 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     await db.insert(village).values({ id: "v1", name: "Test village", kageId: "leader", type: "VILLAGE", tokens: 500_000, structureMaintenanceMonth: "2026-09" });
     await db.insert(villageStructure).values({ id: "bank", name: "Bank", route: "/bank", image: "", villageId: "v1", level: 1 });
     await insertQuests([1, 2].map((id) => ({ id: `mission-${id}`, name: `Mission ${id}`, questType: "village_mission", questRank: "S", hidden: false, consecutiveObjectives: false, content: { reward: ObjectiveReward.parse({ reward_tokens: 100_000 }), objectives: [SimpleObjective.parse(objective)], sceneBackground: "", sceneCharacters: [] } })));
+  });
+
+  it("saves a Village Mission without scenes while retaining ordinary quest scene validation", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ role: "OWNER" }).where(eq(userData.userId, "leader"));
+    const entry = await db.query.quest.findFirst({ where: eq(quest.id, "mission-1") });
+    if (!entry) throw new Error("Missing mission fixture");
+    const caller = await callerFor(questsRouter, "leader");
+    const discord = spyOn(socials, "callDiscordContent").mockResolvedValue(undefined);
+    try {
+      expect((await caller.update({ id: entry.id, data: { ...entry, name: "Edited shared mission" } })).success).toBe(true);
+      expect((await db.query.quest.findFirst({ where: eq(quest.id, entry.id) }))?.name).toBe("Edited shared mission");
+      const result = await caller.update({ id: entry.id, data: { ...entry, questType: "mission", questRank: "D", content: { ...entry.content, objectives: [SimpleObjective.parse({ ...objective, task: "pvp_kills" })] } } });
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("sceneCharacters");
+    } finally {
+      discord.mockRestore();
+    }
+  });
+
+  it("retires personal attempts on conversion and refuses personal Village Mission rewards", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ role: "OWNER" }).where(eq(userData.userId, "leader"));
+    await db.update(quest).set({ questType: "mission", questRank: "D" }).where(eq(quest.id, "mission-1"));
+    await insertQuestHistory([
+      { id: "open", userId: "member", questId: "mission-1", questType: "mission", previousCompletes: 3 },
+      { id: "finished", userId: "outsider", questId: "mission-1", questType: "mission", completed: 1, previousCompletes: 4, endAt: new Date("2026-09-01") },
+    ]);
+    const entry = await db.query.quest.findFirst({ where: eq(quest.id, "mission-1") });
+    if (!entry) throw new Error("Missing mission fixture");
+    const discord = spyOn(socials, "callDiscordContent").mockResolvedValue(undefined);
+    try {
+      const caller = await callerFor(questsRouter, "leader");
+      expect((await caller.update({ id: entry.id, data: { ...entry, questType: "village_mission", questRank: "S" } })).success).toBe(true);
+    } finally {
+      discord.mockRestore();
+    }
+    const open = await db.query.questHistory.findFirst({ where: eq(questHistory.id, "open") });
+    const finished = await db.query.questHistory.findFirst({ where: eq(questHistory.id, "finished") });
+    expect(open?.endAt).not.toBeNull();
+    expect(open?.completed).toBe(0);
+    expect(open?.previousCompletes).toBe(3);
+    expect(open?.questType).toBe("mission");
+    expect(finished?.endAt).toEqual(new Date("2026-09-01"));
+    expect(finished?.previousCompletes).toBe(4);
+    expect(finished?.questType).toBe("mission");
+    // A stale or legacy personal assignment must still never enter the generic reward path.
+    await db.update(questHistory).set({ endAt: null }).where(eq(questHistory.id, "open"));
+    const member = await callerFor(questsRouter, "member");
+    expect((await member.checkRewards({ questId: entry.id })).success).toBe(false);
+    expect((await state())?.tokens).toBe(500_000);
+    expect((await db.query.questHistory.findFirst({ where: eq(questHistory.id, "open") }))?.completed).toBe(0);
   });
 
   it("only the Kage can select; racing starts leave exactly one active mission", async () => {
