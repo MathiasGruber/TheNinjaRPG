@@ -1732,11 +1732,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         const tagSchema = getTagSchema(watchType);
         const parsedTag = tagSchema.safeParse({ type: watchType });
         const shownTag = parsedTag.success ? parsedTag.data : tag;
-        // Consume locks rounds to 0 and hides the field (shield duration lives on
-        // shieldRounds), so carrying rounds across a switch either way would leave the
-        // new tag with a value its schema rejects on a field the admin cannot see.
         const skipKeys = ["type", "calculation", "direction"];
-        if (tag.type === "consume" || watchType === "consume") skipKeys.push("rounds");
         // For all typed keys in shownTag, if the key exists in curTag, keep the value, except for type
         objectKeys(shownTag).forEach((key) => {
           if (!skipKeys.includes(key) && key in curTag) {
@@ -1825,10 +1821,6 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     if (roundsSchema instanceof z.ZodNumber && !roundsSchema.safeParse(0).success) {
       ignore.push("rounds");
     }
-  }
-  // Consume is instant; shield duration lives on shieldRounds (rounds is locked to 0).
-  if (tag.type === "consume") {
-    ignore.push("rounds");
   }
   // Add direction to ignore list if not increasestat, decreasestat, or redirection
   if (!["increasestat", "decreasestat", "redirection"].includes(tag.type)) {
@@ -2124,7 +2116,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     }
   }
 
-  // Consume: hide locked rounds and surface shieldRounds where Rounds normally sits.
+  // Keep shield duration beside the active Consume duration.
   if (tag.type === "consume") {
     const shieldIdx = formData.findIndex((e) => String(e.id) === "shieldRounds");
     if (shieldIdx >= 0) {

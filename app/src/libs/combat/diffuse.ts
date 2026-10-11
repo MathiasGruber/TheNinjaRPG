@@ -56,6 +56,7 @@ export const deferDiffuseDamage = (
         (debt) =>
           debt.attackerId === attackerId &&
           debt.enmityUserId === enmityUserId &&
+          debt.sourceUserId === packet.attackerId &&
           debt.remainingTurns === effect.delayRounds &&
           debt.lastAppliedRound === round &&
           debt.creditDamage === packet.creditDamage,
@@ -65,6 +66,7 @@ export const deferDiffuseDamage = (
         debts.push({
           attackerId,
           enmityUserId,
+          sourceUserId: packet.attackerId,
           remainingDamage: damage,
           remainingTurns: effect.delayRounds,
           lastAppliedRound: round,
@@ -87,6 +89,7 @@ export const repayDiffuseDamage = (
   actorId: string,
   round: number,
   messages: ActionEffect[],
+  onDamage?: (attackerId: string, targetId: string, damage: number) => void,
 ) => {
   const target = users.find((u) => u.userId === actorId);
   if (!target?.diffuseDamage?.length || target.curHealth <= 0) return;
@@ -103,6 +106,7 @@ export const repayDiffuseDamage = (
     if (attacker && debt.creditDamage) creditDamageDealt(attacker, target, damage);
     const enmityUser = users.find((u) => u.userId === debt.enmityUserId);
     if (enmityUser) creditDamageEnmity(enmityUser, target, healthLost, effects);
+    onDamage?.(debt.sourceUserId ?? debt.attackerId, target.userId, damage);
     messages.push({
       txt: `${target.username} takes ${damage.toFixed(2)} diffuse damage`,
       color: "red",

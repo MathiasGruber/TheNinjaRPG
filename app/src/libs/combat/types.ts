@@ -159,6 +159,8 @@ export type CombatUserFields = {
     attackerId: string;
     /** Original damage actor; absent for recoil or debts without threat attribution. */
     enmityUserId?: string;
+    /** Actual caster, retained separately from controller quest credit. */
+    sourceUserId?: string;
     remainingDamage: number;
     remainingTurns: number;
     lastAppliedRound: number;
@@ -610,12 +612,6 @@ export type Consequence = {
   lifesteal_hp?: number;
   vampRatio?: number;
   vampHeal?: number;
-  /** Ratio of pre-shield damage converted into a temporary shield on the attacker */
-  consumeRatio?: number;
-  /** Resolved shield HP from consumeRatio * preShieldDamage */
-  consumeShield?: number;
-  /** How many rounds the consume-generated shield should last */
-  consumeRounds?: number;
   absorb_hp?: number;
   absorb_sp?: number;
   absorb_cp?: number;
@@ -626,6 +622,9 @@ export type Consequence = {
   preShieldDamage?: number;
   types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
+
+/** Active damage conversion and generated shield duration, keyed by caster. */
+export type ConsumeByUser = Map<string, { ratio: number; rounds: number }>;
 
 /**
  * Realized tag, i.e. these are the tags that are actually inserted in battle, with
