@@ -17,6 +17,8 @@ export type WarSettlement = {
   winningVillageIds: string[];
   warIds: string[];
   notificationContent: string;
+  /** Epoch milliseconds captured by the terminal write; absent on older receipts. */
+  cleanupCutoff?: number;
   boostsDelivered: boolean;
   structuresDelivered: boolean;
   notified: boolean;

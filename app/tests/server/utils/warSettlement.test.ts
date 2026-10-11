@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
-import { afterEach, beforeEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, spyOn } from "bun:test";
 import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
+import mysql from "mysql2/promise";
 import {
   WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
@@ -27,6 +28,8 @@ import {
   war,
   warAlly,
 } from "@/drizzle/schema";
+import { Pusher } from "@/libs/pusher";
+import { shrineRouter } from "@/server/api/routers/shrine";
 import {
   fetchActiveWar,
   fetchActiveWars,
@@ -587,6 +590,102 @@ describeWithDatabase("guarded war settlement and delivery", () => {
     expect(await balance(db, "ally")).toBe(tokens);
   });
 
+  it("keeps a successful claim retryable when its receipt cannot be reloaded", async () => {
+    const db = await seed();
+    const initial = await snapshot(db);
+    const read = spyOn(db.query.war, "findFirst").mockRejectedValueOnce(
+      new Error("Receipt read unavailable"),
+    );
+    try {
+      const ended = await handleWarEnd(initial, db);
+      expect(ended.status).toBe("ATTACKER_VICTORY");
+      expect(ended.settlementPending).toBe(true);
+    } finally {
+      read.mockRestore();
+    }
+    expect((await savedWar(db))?.settlementPending).toBe(true);
+    await fetchActiveWars(db);
+    expect((await savedWar(db))?.settlementPending).toBe(false);
+    expect(await balance(db, "attacker")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS);
+    expect(await db.select().from(notification)).toHaveLength(1);
+  });
+
+  for (const waitForLock of [false, true])
+    it(`cleans preclaim shrine queues and quests ${waitForLock ? "while the terminal update waits on a row lock" : "before the terminal update"}`, async () => {
+      const db = await seed("SECTOR_WAR");
+      stubProfile("fetchUpdatedUser", async () => ({
+        user: await db.query.userData.findFirst({
+          where: eq(userData.userId, "attacker-user"),
+          with: { village: true },
+        }),
+        requiresUserRefresh: false,
+      }));
+      const trigger = spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+      const connection = waitForLock
+        ? await mysql.createConnection(process.env.TEST_MYSQL_URL!)
+        : undefined;
+      if (connection) {
+        await connection.beginTransaction();
+        await connection.query("SELECT id FROM War WHERE id = ? FOR UPDATE", [warId]);
+      }
+      let admittedAt: Date | undefined;
+      const client = intercept(db, async (query, execute) => {
+        if (!admittedAt && statement(query).trimStart().startsWith("UPDATE `War`")) {
+          const pending = connection ? execute() : undefined;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          expect((await savedWar(db))?.status).toBe("ACTIVE");
+          expect(
+            (
+              await callerForDatabase(
+                shrineRouter,
+                "attacker-user",
+                db,
+              ).challengeShrine({
+                sectorNumber: sectorId,
+              })
+            ).success,
+          ).toBe(true);
+          admittedAt = (await db.query.mpvpBattleQueue.findFirst())?.createdAt;
+          await db.insert(questHistory).values({
+            id: "preclaim-quest",
+            userId: "attacker-user",
+            questId: "war-quest",
+            questType: "war",
+            startedAt: admittedAt,
+          });
+          await connection?.commit();
+          if (pending) return pending;
+        }
+        return execute();
+      });
+      try {
+        const ended = await handleWarEnd(await snapshot(db), client, {
+          shrineBuilderId: "attacker-kage",
+        });
+        expect(ended.status).toBe("ATTACKER_VICTORY");
+        expect((await savedWar(db))?.settlementPending).toBe(false);
+        expect(await db.select().from(mpvpBattleQueue)).toHaveLength(0);
+        expect(await db.select().from(mpvpBattleUser)).toHaveLength(0);
+        expect(await db.select().from(questHistory)).toHaveLength(0);
+        expect(
+          (
+            await db.query.userData.findFirst({
+              where: eq(userData.userId, "attacker-user"),
+            })
+          )?.status,
+        ).toBe("AWAKE");
+        expect(ended.settlement?.cleanupCutoff).toBeGreaterThanOrEqual(
+          admittedAt?.getTime() ?? 0,
+        );
+        expect((await savedWar(db))?.endedAt).toEqual(ended.endedAt);
+        expect((await db.query.sector.findFirst())?.capturedAt).toEqual(ended.endedAt);
+      } finally {
+        trigger.mockRestore();
+        await connection?.rollback();
+        await connection?.end();
+      }
+    });
+
   it("delayed delivery preserves quests and shrine queues created after the settlement", async () => {
     const db = await seed();
     const client = intercept(db, async (query, execute) => {
@@ -595,8 +694,9 @@ describeWithDatabase("guarded war settlement and delivery", () => {
       return execute();
     });
     const ended = await handleWarEnd(await snapshot(db), client);
-    if (!ended.endedAt) throw new Error("Missing settlement date");
-    const later = new Date(ended.endedAt.getTime() + 60_000);
+    if (!ended.settlement?.cleanupCutoff) throw new Error("Missing cleanup cutoff");
+    const cutoff = ended.settlement.cleanupCutoff;
+    const later = new Date(cutoff + 60_000);
     await db.insert(questHistory).values([
       {
         id: "old-quest",
@@ -632,6 +732,7 @@ describeWithDatabase("guarded war settlement and delivery", () => {
       .set({ status: "QUEUED" })
       .where(eq(userData.userId, "attacker-user"));
     await fetchActiveWars(db);
+    expect((await savedWar(db))?.settlement?.cleanupCutoff).toBe(cutoff);
     expect((await db.select().from(questHistory)).map((row) => row.id)).toEqual([
       "new-quest",
     ]);

@@ -220,6 +220,7 @@ export const handleWarEnd = async (
 
     // Drizzle cannot update multiple tables. This follows purchase delivery's atomic
     // receipt/balance write: failed or duplicate claims cannot lose or repeat value.
+    // SYSDATE freezes cleanup when the write runs, including time spent waiting on locks.
     const claimed = await retryOnDeadlock(() =>
       client.execute(sql`
       UPDATE ${war}
@@ -240,7 +241,7 @@ export const handleWarEnd = async (
           : sql``
       }
       SET ${war.status} = ${status}, ${war.endedAt} = ${endedAt},
-          ${war.settlement} = ${JSON.stringify(settlement)}, ${war.settlementPending} = TRUE,
+          ${war.settlement} = JSON_SET(${JSON.stringify(settlement)}, '$.cleanupCutoff', CAST(UNIX_TIMESTAMP(SYSDATE(3)) * 1000 AS UNSIGNED)), ${war.settlementPending} = TRUE,
           ${recipient.tokens} = ${recipient.tokens} + ${
             isSector
               ? sql`CASE WHEN ${recipient.id} = ${current.attackerVillageId} THEN ${options.shrineBuilderId ? -WAR_PURCHASE_SHRINE_TOKEN_COST : 0} ELSE 0 END`
@@ -273,7 +274,13 @@ export const handleWarEnd = async (
     );
     if (claimed.rowsAffected > 0) {
       current = { ...current, status, endedAt, settlement, settlementPending: true };
-      await finishWarSettlement(client, current);
+      const saved = await fetchSettlementWar(client, current.id).catch((error) => {
+        logError(error, "Failed to load war settlement receipt", { warId: current.id });
+      });
+      if (saved) {
+        current = saved;
+        await finishWarSettlement(client, current);
+      }
       return current;
     }
     const saved = await fetchSettlementWar(client, current.id);
@@ -315,6 +322,7 @@ const finishWarSettlement = async (
   const receipt = endedWar.settlement;
   if (!receipt || !endedWar.endedAt || !endedWar.settlementPending) return;
   const endedAt = endedWar.endedAt;
+  const cleanupCutoff = new Date(receipt.cleanupCutoff ?? endedAt.getTime());
   const winningIds = receipt.winningVillageIds;
   const isSector = endedWar.type === "SECTOR_WAR";
   const isDraw = endedWar.status === "DRAW";
@@ -346,7 +354,7 @@ const finishWarSettlement = async (
   const queueMatch = and(
     eq(mpvpBattleQueue.battleType, "SHRINE_BATTLE"),
     isNull(mpvpBattleQueue.battleId),
-    lte(mpvpBattleQueue.createdAt, endedAt),
+    lte(mpvpBattleQueue.createdAt, cleanupCutoff),
     isSector
       ? eq(mpvpBattleQueue.sector, endedWar.sector)
       : or(
@@ -404,7 +412,7 @@ const finishWarSettlement = async (
           .where(
             and(
               eq(userRequest.type, "WAR_ALLY"),
-              lte(userRequest.createdAt, endedAt),
+              lte(userRequest.createdAt, cleanupCutoff),
               inArray(userRequest.relatedId, receipt.warIds),
             ),
           ),
@@ -412,7 +420,7 @@ const finishWarSettlement = async (
       retryOnDeadlock(() =>
         client.execute(sql`
         DELETE qh FROM QuestHistory qh INNER JOIN UserData ud ON qh.userId = ud.userId
-        WHERE qh.questType = 'war' AND qh.completed = 0 AND qh.startedAt <= ${endedAt}
+        WHERE qh.questType = 'war' AND qh.completed = 0 AND qh.startedAt <= ${cleanupCutoff}
           AND ud.villageId IN (${sql.join(
             receipt.villageIds.map((id) => sql`${id}`),
             sql`, `,
