@@ -768,16 +768,14 @@ const rescheduleWaiting = async (
   const moved = rescheduleQueue(entries, startsAt).filter(
     ({ entry, startsAt: next }) => entry.startsAt.getTime() !== next.getTime(),
   );
-  // Timestamps only order the schedule, so a concurrent reschedule computing the same
-  // chain from the same running job is harmless.
-  await Promise.all(
-    moved.map(({ entry, startsAt: next, finishesAt }) =>
-      client
-        .update(userQueue)
-        .set({ startsAt: next, finishesAt })
-        .where(eq(userQueue.id, entry.id)),
-    ),
-  );
+  // This client may be a single-session PlanetScale transaction. Finish each write
+  // before dispatching the next so rescheduling cannot abort the job-start transaction.
+  for (const { entry, startsAt: next, finishesAt } of moved) {
+    await client
+      .update(userQueue)
+      .set({ startsAt: next, finishesAt })
+      .where(eq(userQueue.id, entry.id));
+  }
 };
 
 /**
