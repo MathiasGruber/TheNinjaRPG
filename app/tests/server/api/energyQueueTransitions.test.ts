@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import {
   aiProfile,
   battle,
@@ -22,6 +22,7 @@ import { getServerPusher } from "@/libs/pusher";
 import { getEnergyQueue } from "@/libs/queue";
 import { initiateBattle } from "@/server/api/routers/combat";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
+import { trainRouter } from "@/server/api/routers/train";
 import { completeExpiredGlobalTravel, travelRouter } from "@/server/api/routers/travel";
 import {
   invalidatePublishedMapCache,
@@ -524,6 +525,109 @@ describeWithDatabase("Energy queue state transitions", () => {
       expect((await db.select().from(userQueue)).map((row) => row.kind)).toEqual([kind]);
       expect((await db.select().from(trainingLog)).map((log) => log.stat)).toEqual([stat]);
     } finally {
+      trigger.mockRestore();
+    }
+  });
+
+  it("preserves a concurrent discipline speed change when combat advances only the element queue", async () => {
+    const now = new Date();
+    setSystemTime(now);
+    let speedWriteReady!: () => void;
+    const ready = new Promise<void>((resolve) => { speedWriteReady = resolve; });
+    let releaseSpeedWrite!: () => void;
+    const release = new Promise<void>((resolve) => { releaseSpeedWrite = resolve; });
+    const trigger = vi.spyOn(getServerPusher(), "trigger").mockResolvedValue({} as never);
+    try {
+      await prepare([]);
+      const db = await getTestDatabase();
+      await patch({
+        isOutlaw: true,
+        stealthActive: false,
+        primaryElement: "Fire",
+        secondaryElement: "Water",
+        trainingSpeed: "15min",
+        currentlyTrainingElement: "Wind",
+        elementalTrainingSpeed: "15min",
+        elementalTrainingStartedAt: new Date(now.getTime() - 14 * 60_000),
+      });
+      await queueMasteries(USER, [{ stat: "Earth", speed: "1hr" }], "ELEMENT");
+      await insertUsers([{ userId: "attacker", username: "Attacker", rank: "JONIN", level: 1, status: "AWAKE", isOutlaw: true, sector: HOME, longitude: 25, latitude: 10 }]);
+      await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
+      const speedDb = new Proxy(db, {
+        get(target, property, receiver) {
+          const value = Reflect.get(target, property, receiver);
+          if (property !== "update") return value;
+          return (table: typeof userData) => {
+            const update = value.call(target, table);
+            if (table !== userData) return update;
+            return {
+              set: (values: Record<string, unknown>) => {
+                const builder = update.set(values);
+                if (values.trainingSpeed !== "4hrs") return builder;
+                return {
+                  where: async (...conditions: unknown[]) => {
+                    speedWriteReady();
+                    await release;
+                    return builder.where(...conditions);
+                  },
+                };
+              },
+            };
+          };
+        },
+      });
+      // The speed request reads before the element finishes, then waits to commit.
+      const speedChange = trainRouter.createCaller({ drizzle: speedDb, userId: USER } as never)
+        .updateTrainingSpeed({ speed: "4hrs" });
+      await ready;
+      setSystemTime(new Date(now.getTime() + 2 * 60_000));
+      let raced = false;
+      const racingDb = new Proxy(db, {
+        get(target, property, receiver) {
+          const value = Reflect.get(target, property, receiver);
+          if (property !== "update") return value;
+          return (table: typeof userData) => {
+            const update = value.call(target, table);
+            if (table !== userData) return update;
+            return {
+              set: (values: Record<string, unknown>) => {
+                const builder = update.set(values);
+                if (values.status !== "BATTLE") return builder;
+                return {
+                  where: async (...conditions: unknown[]) => {
+                    // Commit the real speed mutation after preload and before the battle claim.
+                    releaseSpeedWrite();
+                    expect((await speedChange).success).toBe(true);
+                    expect((await read())!.trainingSpeed).toBe("4hrs");
+                    raced = true;
+                    return builder.where(...conditions);
+                  },
+                };
+              },
+            };
+          };
+        },
+      });
+      const result = await initiateBattle({
+        client: racingDb, userIds: ["attacker"], targetIds: [USER], sector: HOME,
+        longitude: 25, latitude: 10, biome: "default",
+      }, "SPARRING");
+      expect(result.success).toBe(true);
+      expect(raced).toBe(true);
+      const user = (await read())!;
+      expect(user.trainingSpeed).toBe("4hrs");
+      expect(user.currentlyTrainingMastery).toBeNull();
+      expect(user.masteryTrainingStartedAt).toBeNull();
+      expect(user.masteryQueueHead).toBe(0);
+      expect(user.currentlyTrainingElement).toBe("Earth");
+      expect(user.elementalTrainingSpeed).toBe("1hr");
+      expect(user.elementalQueueHead).toBe(1);
+      expect(user.elementalMastery.Wind).toBeGreaterThan(0);
+      expect(user.dailyTrainings).toBe(1);
+      expect((await db.select().from(trainingLog)).map((log) => log.stat)).toEqual(["Wind"]);
+    } finally {
+      releaseSpeedWrite();
+      setSystemTime();
       trigger.mockRestore();
     }
   });

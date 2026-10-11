@@ -2783,9 +2783,13 @@ export const initiateBattle = async (
         "trainingSpeed",
         "dailyTrainings",
       ] as const) {
+        const participants = masteryParticipants.filter(
+          (entry) => entry.mastery && column in entry.mastery.update,
+        );
+        if (!participants.length) continue;
         queueUpdate[column] = queueCase(
           column,
-          masteryParticipants,
+          participants,
           (entry) => entry.user[column],
         );
       }

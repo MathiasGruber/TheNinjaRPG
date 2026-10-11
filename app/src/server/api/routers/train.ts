@@ -410,18 +410,12 @@ export const trainRouter = createTRPCRouter({
       const fields = masteryTrainingFields[kind];
       const { stat: trained, startedAt, speed } = getMasteryTrainingState(user, kind);
       if (
+        !startedAt ||
         trained !== input.stat ||
-        startedAt?.getTime() !== input.startedAt.getTime()
+        startedAt.getTime() !== input.startedAt.getTime()
       ) {
         return errorResponse(
           `Your ${kind === "ELEMENT" ? "elemental" : "mastery"} training changed. Please refresh and try again`,
-        );
-      }
-      if (!trained || !startedAt) {
-        return errorResponse(
-          kind === "ELEMENT"
-            ? "Not currently training an element"
-            : "Not currently training a mastery",
         );
       }
       if (showTrainingCapcha(user)) {
