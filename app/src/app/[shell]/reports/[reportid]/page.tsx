@@ -55,7 +55,7 @@ export default function Report(props: { params: Promise<{ reportid: string }> })
       {prevReports && prevReports.length > 0 && (
         <ContentBox
           title="Related Reports"
-          subtitle="Note: Search will be improved once Vector Search is available"
+          subtitle="Previous moderation cases with similar content"
           initialBreak
         >
           {prevReports?.map((report) => (

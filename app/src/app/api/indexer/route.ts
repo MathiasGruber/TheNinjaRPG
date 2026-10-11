@@ -3,11 +3,11 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { userReport } from "@/drizzle/schema";
 import { checkGameTimer, updateGameSetting } from "@/libs/gamesettings";
+import { indexReportEmbeddings } from "@/libs/moderation/reportSearch";
 import { generateModerationDecision } from "@/libs/moderator";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 
-// TODO: Update this to perform vector based indexing once the feature is stable in planetscale + MySQL local
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     // Update timer
     await updateGameSetting(drizzleDB, `indexer-${frequency}m`, 0, new Date());
 
-    // Fetch reports without an embedding
+    // Fetch reports without a summary
     const reports = await drizzleDB.query.userReport.findMany({
       columns: {
         id: true,
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       orderBy: asc(userReport.createdAt),
     });
 
-    // For each report, generate an AI interpretation of the situation, and embed it
+    // Generate summaries before indexing eligible resolved reports
     for (const report of reports) {
       const { decision, aiInterpretation } = await generateModerationDecision(
         drizzleDB,
@@ -52,6 +52,8 @@ export async function GET(request: Request) {
         })
         .where(eq(userReport.id, report.id));
     }
+
+    await indexReportEmbeddings(drizzleDB);
 
     return Response.json(`OK`);
   } catch (cause) {

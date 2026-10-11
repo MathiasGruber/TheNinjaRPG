@@ -13,7 +13,16 @@ type InfractionData = {
 };
 
 const ParsedReportJson: React.FC<{
-  report: Omit<UserReport, "reporterUserId">;
+  report: Pick<
+    UserReport,
+    | "id"
+    | "reason"
+    | "infraction"
+    | "aiInterpretation"
+    | "predictedStatus"
+    | "system"
+    | "createdAt"
+  >;
   viewer: NonNullable<UserWithRelations>;
 }> = (props) => {
   const infraction = props.report.infraction as InfractionData | null;
