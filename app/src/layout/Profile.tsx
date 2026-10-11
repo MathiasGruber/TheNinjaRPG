@@ -132,7 +132,7 @@ export function Profile() {
         value={profileTabValues[activeTab]}
         onValueChange={(value) => selectTab(value)}
       >
-        <div className="@container mb-3">
+        <div className="mb-3">
           <NavTabs
             id={`profileTab:${userData.userId}`}
             remember={userData.rememberProfileTab}
@@ -153,13 +153,12 @@ export function Profile() {
               ),
             }}
             iconOnlyOptions={iconProfileTabs}
+            keepIconTabsTogether
             values={profileTabValues}
             counts={{ Sharing: newInRecruit }}
-            listClassName="grid w-full grid-cols-10 gap-1 @min-[520px]:flex @min-[520px]:justify-end"
-            itemClassName={(option) =>
-              `mr-0 ${iconProfileTabs.includes(option as (typeof iconProfileTabs)[number]) ? "col-span-2" : tutorialActive ? "col-span-10" : "col-span-5"}`
-            }
-            className="min-h-[44px] min-w-[44px] w-full px-3 text-base @min-[520px]:w-auto"
+            listClassName="w-full flex-wrap justify-end gap-[4px]"
+            itemClassName={() => "mr-0 shrink-0"}
+            className="min-h-[44px] min-w-[44px] px-[12px] text-base"
           />
         </div>
         <TabsContent value="dashboard">

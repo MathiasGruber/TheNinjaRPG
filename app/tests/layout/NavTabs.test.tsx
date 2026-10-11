@@ -49,6 +49,33 @@ afterEach(() => {
 const options = ["Dashboard", "Character", "Achievements"];
 
 describe("optional tab remembering", () => {
+  it("keeps keyboard navigation and panel names working across an icon group", async () => {
+    const iconOptions = ["Achievements", "Sharing", "Delete Character"];
+    const view = render(
+      <Tabs defaultValue="Character">
+        <NavTabs
+          current="Character"
+          options={["Dashboard", "Character", ...iconOptions]}
+          icons={Object.fromEntries(iconOptions.map((option) => [option, <span aria-hidden="true">★</span>]))}
+          iconOnlyOptions={iconOptions}
+          keepIconTabsTogether
+          accessibleTabs
+          label="Profile sections"
+          values={{ "Delete Character": "delete" }}
+        />
+        <TabsContent value="Achievements">Your achievements</TabsContent>
+        <TabsContent value="delete">Deletion details</TabsContent>
+      </Tabs>,
+    );
+    expect(view.getAllByRole("tab")).toHaveLength(5);
+    const character = view.getByRole("tab", { name: "Character" });
+    character.focus();
+    fireEvent.keyDown(character, { key: "ArrowRight" });
+    await waitFor(() => expect(view.getByRole("tabpanel", { name: "Achievements" }).textContent).toBe("Your achievements"));
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "End" });
+    await waitFor(() => expect(view.getByRole("tabpanel", { name: "Delete Character" }).textContent).toBe("Deletion details"));
+    expect(document.activeElement).toBe(view.getByRole("tab", { name: "Delete Character" }));
+  });
   it("associates icon tab panels with labels containing spaces using stable values", () => {
     const view = render(
       <Tabs value="edit">

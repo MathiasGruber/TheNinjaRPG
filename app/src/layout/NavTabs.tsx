@@ -13,6 +13,8 @@ interface NavTabsProps {
   icons?: Partial<Record<string, React.ReactNode>>;
   /** Keep icon tabs named for assistive technology and hover discovery. */
   iconOnlyOptions?: readonly string[];
+  /** Wrap adjacent icon tabs together instead of leaving a lone icon on a new row. */
+  keepIconTabsTogether?: boolean;
   /** Stable Radix values keep labels containing spaces out of generated ID references. */
   values?: Partial<Record<string, string>>;
   listClassName?: string;
@@ -127,6 +129,33 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
     );
   });
 
+  const renderedItems = props.keepIconTabsTogether
+    ? options.flatMap((option, index) => {
+        if (!props.iconOnlyOptions?.includes(option)) return [tabItems[index]];
+        if (index > 0 && props.iconOnlyOptions.includes(options[index - 1] ?? "")) {
+          return [];
+        }
+        let end = index + 1;
+        while (
+          end < options.length &&
+          props.iconOnlyOptions.includes(options[end] ?? "")
+        ) {
+          end++;
+        }
+        return [
+          <li
+            key={`icon-group-${index}`}
+            role="presentation"
+            className="min-w-0 [gap:inherit]"
+          >
+            <ul role="presentation" className="flex flex-wrap [gap:inherit]">
+              {tabItems.slice(index, end)}
+            </ul>
+          </li>,
+        ];
+      })
+    : tabItems;
+
   // Render
   return (
     <div
@@ -136,14 +165,17 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
         <TabsList
           asChild
           aria-label={props.label}
-          className="w-auto flex-nowrap gap-0 rounded-none bg-transparent p-0 text-foreground"
+          className={cn(
+            "w-auto flex-nowrap gap-0 rounded-none bg-transparent p-0 text-foreground",
+            props.listClassName,
+          )}
         >
-          <ul className={cn("-mb-px flex flex-row", props.listClassName)}>
-            {tabItems}
-          </ul>
+          <ul className="-mb-px flex flex-row">{renderedItems}</ul>
         </TabsList>
       ) : (
-        <ul className={cn("-mb-px flex flex-row", props.listClassName)}>{tabItems}</ul>
+        <ul className={cn("-mb-px flex flex-row", props.listClassName)}>
+          {renderedItems}
+        </ul>
       )}
     </div>
   );
