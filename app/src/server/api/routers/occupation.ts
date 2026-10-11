@@ -395,6 +395,7 @@ export const occupationRouter = createTRPCRouter({
             const itemWhere = and(
               eq(userItem.id, consumption.userItemId),
               eq(userItem.userId, ctx.userId),
+              eq(userItem.isInAuction, false),
               eq(
                 userItem.quantity,
                 consumption.consumeQuantity + consumption.newQuantity,

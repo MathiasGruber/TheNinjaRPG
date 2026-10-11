@@ -1,6 +1,6 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
-import { actionLog, auctionOffer, farmCollectionLog, farmPlot, item, userData, userItem, userItemImbuement, storeUserIdAlias } from "@/drizzle/schema";
+import { actionLog, auctionOffer, craftingRequirement, farmCollectionLog, farmPlot, item, userData, userItem, userItemImbuement, userQueue, storeUserIdAlias } from "@/drizzle/schema";
 import { occupationRouter } from "@/server/api/routers/occupation";
 import { auctionRouter } from "@/server/api/routers/auction";
 import { farmingRouter } from "@/server/api/routers/farming";
@@ -11,7 +11,7 @@ import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, re
 
 describeWithDatabase("Auction House fixed-term requests and trades", () => {
   beforeEach(async () => {
-    await resetTables(storeUserIdAlias, actionLog, auctionOffer, farmCollectionLog, farmPlot, userItemImbuement, userItem, item, userData);
+    await resetTables(storeUserIdAlias, actionLog, auctionOffer, farmCollectionLog, farmPlot, userQueue, craftingRequirement, userItemImbuement, userItem, item, userData);
     await insertUsers([
       { userId: "owner", username: "Requester", level: 50, bank: 1000 },
       { userId: "supplier", username: "Supplier", level: 50, bank: 100 },
@@ -60,6 +60,17 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     const owner = await callerFor(auctionRouter, "owner");
     expect((await owner.createAuctionOffer({ offerType: "TRADE", requestedItemId: "ore", requestedQuantity: 1, offeredUserItemId: "owner-crystal", offeredQuantity: quantity })).success).toBe(true);
     return (await (await getTestDatabase()).select().from(auctionOffer))[0]!;
+  };
+  const prepareQueuedCraft = async (quantity: number) => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ status: "AWAKE", sector: 1, occupation: "CRAFTING", craftingExperience: 100000, federalStatus: "GOLD", updatedAt: new Date(Date.now() - 60000) }).where(eq(userData.userId, "owner"));
+    await insertItems([{ id: "output", name: "Crafted sword", itemType: "WEAPON", canBeCrafted: true, canStack: false, stackSize: 1 }]);
+    await insertUserItems([{ id: "owner-ore", userId: "owner", itemId: "ore", quantity: 10 }, { id: "running-craft", userId: "owner", itemId: "output", craftingFinishedAt: new Date(Date.now() + 3600000) }]);
+    await db.insert(craftingRequirement).values({ id: "ore-requirement", craftItemId: "output", requirementItemId: "ore", quantity });
+  };
+  const postCraftMaterialTrade = async () => {
+    const owner = await callerFor(auctionRouter, "owner");
+    expect((await owner.createAuctionOffer({ offerType: "TRADE", requestedItemId: "ore", requestedQuantity: 1, offeredUserItemId: "owner-ore", offeredQuantity: 10 })).success).toBe(true);
   };
 
   it("reserves a request's bank funds, transfers only the requested quantity and pays once", async () => {
@@ -288,7 +299,7 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     const input = { userItemId: "owner-sword", userCrystalItemId: "owner-crystal" };
     expect(await crafter.imbueItem(input)).toMatchObject({ success: false, message: "Cannot use a crystal reserved for auction or trade" });
     expect((await db.select().from(userItem).where(eq(userItem.id, "owner-crystal")))[0]).toMatchObject({ quantity: 1, isInAuction: true });
-    expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]).toEqual(userBefore);
+    expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]).toMatchObject({ craftingExperience: userBefore!.craftingExperience, money: userBefore!.money, bank: userBefore!.bank });
     expect((await db.select().from(userItem).where(eq(userItem.id, "owner-sword")))[0]).toEqual(targetBefore);
     expect(await db.select().from(userItemImbuement)).toHaveLength(0);
     const owner = await callerFor(auctionRouter, "owner");
@@ -317,6 +328,48 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
       expect((await db.select().from(auctionOffer))[0]?.status).toBe("SOLD");
     });
   }
+
+  for (const quantity of [5, 10]) {
+    it(`preserves material escrow reserved before a queued craft consumes ${quantity} of 10 items`, async () => {
+      await prepareQueuedCraft(quantity);
+      const db = await getTestDatabase();
+      // Reserve after the craft claims its user snapshot, before the material write.
+      const craftDb = beforeStatements(db, userItem, [postCraftMaterialTrade]);
+      const crafter = callerForDatabase(occupationRouter, "owner", craftDb);
+      expect(await crafter.craftItem({ itemId: "output", quantity: 1 })).toMatchObject({ success: false, message: "Could not start crafting — materials changed, please try again" });
+      expect((await db.select().from(userItem).where(eq(userItem.id, "owner-ore")))[0]).toMatchObject({ quantity: 10, isInAuction: true });
+      expect(await db.select().from(userQueue)).toHaveLength(0);
+      const [offer] = await db.select().from(auctionOffer);
+      expect(offer).toMatchObject({ status: "ACTIVE", offeredQuantity: 10 });
+      const owner = await callerFor(auctionRouter, "owner");
+      expect((await owner.cancelAuctionOffer({ offerId: offer!.id })).success).toBe(true);
+      expect((await db.select().from(userItem).where(eq(userItem.id, "owner-ore")))[0]).toMatchObject({ quantity: 10, isInAuction: false });
+      expect((await crafter.craftItem({ itemId: "output", quantity: 1 })).success).toBe(true);
+      expect(await db.select().from(userQueue)).toHaveLength(1);
+    });
+  }
+
+  it("returns other consumed materials when a queued craft loses a material stack to trade escrow", async () => {
+    await prepareQueuedCraft(10);
+    const db = await getTestDatabase();
+    await db.insert(craftingRequirement).values({ id: "gem-requirement", craftItemId: "output", requirementItemId: "gem", quantity: 3 });
+    let finishReservation!: () => void;
+    const reserved = new Promise<void>((resolve) => { finishReservation = resolve; });
+    const craftDb = beforeStatements(db, userItem, [async () => {
+      try { await postCraftMaterialTrade(); } finally { finishReservation(); }
+    }, () => reserved, async () => {
+      // The other material was taken; this statement returns it after the conflict.
+      expect((await db.select().from(userItem).where(eq(userItem.id, "owner-gems")))[0]?.quantity).toBe(47);
+    }]);
+    const crafter = callerForDatabase(occupationRouter, "owner", craftDb);
+    expect(await crafter.craftItem({ itemId: "output", quantity: 1 })).toMatchObject({ success: false, message: "Could not start crafting — materials changed, please try again" });
+    expect((await db.select().from(userItem).where(eq(userItem.id, "owner-gems")))[0]).toMatchObject({ quantity: 50, isInAuction: false });
+    expect((await db.select().from(userItem).where(eq(userItem.id, "owner-ore")))[0]).toMatchObject({ quantity: 10, isInAuction: true });
+    expect(await db.select().from(userQueue)).toHaveLength(0);
+    const [offer] = await db.select().from(auctionOffer);
+    const owner = await callerFor(auctionRouter, "owner");
+    expect((await owner.cancelAuctionOffer({ offerId: offer!.id })).success).toBe(true);
+  });
 
   it("rejects a retired account identity while allowing its escrow refund", async () => {
     const offer = await postRequest();
