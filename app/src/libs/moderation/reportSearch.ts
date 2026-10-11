@@ -139,20 +139,17 @@ export const generateReportEmbeddings = async (
     dimensions: REPORT_EMBEDDING_DIMENSIONS,
     input: texts,
   });
-  const embeddings = texts.map(
-    (_, index) => response.data.find((row) => row.index === index)?.embedding,
-  );
-  if (
-    embeddings.some(
-      (embedding) =>
-        !embedding ||
-        embedding.length !== REPORT_EMBEDDING_DIMENSIONS ||
-        embedding.some((value) => !Number.isFinite(value)),
-    )
-  ) {
-    throw new Error("Invalid moderation report embeddings");
-  }
-  return embeddings as number[][];
+  return texts.map((_, index) => {
+    const embedding = response.data.find((row) => row.index === index)?.embedding;
+    if (
+      !embedding ||
+      embedding.length !== REPORT_EMBEDDING_DIMENSIONS ||
+      embedding.some((value) => !Number.isFinite(value))
+    ) {
+      throw new Error("Invalid moderation report embeddings");
+    }
+    return embedding;
+  });
 };
 
 type EmbedReports = typeof generateReportEmbeddings;
