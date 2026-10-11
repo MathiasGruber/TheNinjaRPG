@@ -49,6 +49,43 @@ afterEach(() => {
 const options = ["Dashboard", "Character", "Achievements"];
 
 describe("optional tab remembering", () => {
+  it("associates icon tab panels with labels containing spaces using stable values", () => {
+    const view = render(
+      <Tabs value="edit">
+        <NavTabs
+          current="Edit Character"
+          options={["Edit Character"]}
+          icons={{ "Edit Character": <span aria-hidden="true">✎</span> }}
+          iconOnlyOptions={["Edit Character"]}
+          values={{ "Edit Character": "edit" }}
+          accessibleTabs
+          label="Profile sections"
+        />
+        <TabsContent value="edit">Character settings</TabsContent>
+      </Tabs>,
+    );
+    expect(view.getByRole("tab", { name: "Edit Character" }).getAttribute("aria-selected")).toBe("true");
+    expect(view.getByRole("tabpanel", { name: "Edit Character" }).textContent).toBe("Character settings");
+  });
+  it("names icon tabs and preserves their notification badges", () => {
+    const onChange = vi.fn();
+    const view = render(
+      <NavTabs
+        current="Character"
+        options={["Dashboard", "Character", "Sharing"]}
+        icons={{ Sharing: <span aria-hidden="true">↗</span> }}
+        iconOnlyOptions={["Sharing"]}
+        counts={{ Sharing: 2 }}
+        onChange={onChange}
+      />,
+    );
+    const sharing = view.getByRole("button", { name: "Sharing 2 notifications" });
+    expect(sharing.getAttribute("title")).toBe("Sharing");
+    expect(sharing.querySelector(".sr-only")?.textContent).toBe("Sharing");
+    expect(view.getByRole("button", { name: "Dashboard" }).querySelector(".sr-only")).toBeNull();
+    fireEvent.click(sharing);
+    expect(onChange).toHaveBeenCalledWith("Sharing");
+  });
   it("ignores a saved tab and does not write clicks when remembering is off", () => {
     const read = vi
       .spyOn(storage, "safeLocalStorageGetItem")

@@ -11,6 +11,12 @@ interface NavTabsProps {
   current: string | null;
   options: string[] | readonly string[];
   icons?: Partial<Record<string, React.ReactNode>>;
+  /** Keep icon tabs named for assistive technology and hover discovery. */
+  iconOnlyOptions?: readonly string[];
+  /** Stable Radix values keep labels containing spaces out of generated ID references. */
+  values?: Partial<Record<string, string>>;
+  listClassName?: string;
+  itemClassName?: (option: string) => string;
   counts?: Partial<Record<string, number>>;
   countLabel?: string;
   /** Render Radix tabs inside a controlled Tabs root with matching TabsContent. */
@@ -45,15 +51,24 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
 
   const tabItems = options.map((option, i) => {
     const count = props.counts?.[option] ?? 0;
+    const isIconOnly =
+      !!props.icons?.[option] && !!props.iconOnlyOptions?.includes(option);
     const button = (
       <button
         type="button"
+        title={isIconOnly ? option : undefined}
+        aria-label={
+          isIconOnly
+            ? `${option}${count > 0 ? ` ${count} ${props.countLabel ?? "notifications"}` : ""}`
+            : undefined
+        }
         className={cn(
           option === current
             ? "active inline-block rounded-t-lg border-foreground/50 border-b-2 pt-2 pr-1 pb-2 pl-1 text-foreground/50"
             : "inline-block rounded-t-lg border-gray-700 border-transparent border-b-2 pt-2 pr-1 pb-2 pl-1 hover:border-gray-300 hover:text-gray-600",
           props.className,
-          count > 0 && "relative pr-7",
+          count > 0 && "relative",
+          count > 0 && !isIconOnly && "pr-7",
         )}
         onClick={() => {
           if (id && remember) safeLocalStorageSetItem(id, option);
@@ -67,7 +82,7 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
         {props.icons?.[option] ? (
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
             {props.icons[option]}
-            {option}
+            <span className={isIconOnly ? "sr-only" : undefined}>{option}</span>
           </span>
         ) : (
           option
@@ -79,6 +94,7 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
           >
             <span aria-hidden="true">{count}</span>
             <span className="sr-only">
+              {" "}
               {count} {props.countLabel ?? "notifications"}
             </span>
           </span>
@@ -87,14 +103,14 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
     );
     return (
       <li
-        className="mr-2"
+        className={cn("mr-2", props.itemClassName?.(option))}
         key={`${option}-${i}`}
         id={`tutorial-${option}`}
         role={props.accessibleTabs ? "presentation" : undefined}
       >
         {props.accessibleTabs ? (
           <TabsTrigger
-            value={option}
+            value={props.values?.[option] ?? option}
             asChild
             className={cn(
               "rounded-b-none data-[state=active]:bg-transparent data-[state=active]:text-foreground/50 data-[state=active]:shadow-none",
@@ -122,10 +138,12 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
           aria-label={props.label}
           className="w-auto flex-nowrap gap-0 rounded-none bg-transparent p-0 text-foreground"
         >
-          <ul className="-mb-px flex flex-row">{tabItems}</ul>
+          <ul className={cn("-mb-px flex flex-row", props.listClassName)}>
+            {tabItems}
+          </ul>
         </TabsList>
       ) : (
-        <ul className="-mb-px flex flex-row">{tabItems}</ul>
+        <ul className={cn("-mb-px flex flex-row", props.listClassName)}>{tabItems}</ul>
       )}
     </div>
   );
