@@ -2,7 +2,7 @@ import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import { conversation, conversationComment, parentalControl, user2conversation, userData } from "@/drizzle/schema";
 import { parentalControlsRouter } from "@/server/api/routers/parentalControls";
-import { commentsRouter } from "@/server/api/routers/comments";
+import { commentsRouter, fetchUsersToNotify } from "@/server/api/routers/comments";
 import { hashParentalPin, renameParentalContact } from "@/server/utils/parentalControls";
 import { insertUsers } from "../../setup/factories";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -125,5 +125,17 @@ describeWithDatabase("parental controls", () => {
     const outsider = await callerFor(commentsRouter, "stranger");
     expect(await outsider.fetchConversationComment({ commentId: "approved-message" })).toBeNull();
     expect((await outsider.reactConversationComment({ commentId: "approved-message", emoji: "👍" })).success).toBe(false);
+  });
+  it("preserves approved/private and support notifications while restricting tavern notifications", async () => {
+    const db = await getTestDatabase();
+    await db.insert(parentalControl).values({ userId: "child", ...settings, pinHash: await hashParentalPin(settings.pin) });
+    const context = { isPublic: false, isStaffAvailable: false };
+    const notify = (convo: typeof context) => fetchUsersToNotify(db, "friend", [], ["child"], convo);
+    expect(await notify(context)).toEqual([{ userId: "child", type: "quoted" }]);
+    expect(await notify({ ...context, isPublic: true })).toEqual([]);
+    await db.update(parentalControl).set({ tavernDisabled: false, privateMessages: "NONE" }).where(eq(parentalControl.userId, "child"));
+    expect(await notify(context)).toEqual([]);
+    expect(await notify({ ...context, isPublic: true })).toHaveLength(1);
+    expect(await notify({ ...context, isStaffAvailable: true })).toHaveLength(1);
   });
 });

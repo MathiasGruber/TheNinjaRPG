@@ -9,6 +9,7 @@ import {
   IMG_AVATAR_DEFAULT,
 } from "@/drizzle/constants";
 import {
+  type Conversation,
   conversation,
   conversationComment,
   forumPost,
@@ -778,7 +779,13 @@ export const commentsRouter = createTRPCRouter({
         .filter((id): id is string => !!id);
 
       const [notifiedUserIds] = await Promise.all([
-        fetchUsersToNotify(ctx.drizzle, ctx.userId, mentionedUserNames, quotedUserIds),
+        fetchUsersToNotify(
+          ctx.drizzle,
+          ctx.userId,
+          mentionedUserNames,
+          quotedUserIds,
+          convo,
+        ),
         // Insert into DB
         ctx.drizzle.insert(conversationComment).values({
           id: commentId,
@@ -1169,6 +1176,7 @@ export const fetchUsersToNotify = async (
   currentUserId: string,
   mentionedUserNames: string[],
   quotedUserIds: string[],
+  convo: Pick<Conversation, "isPublic" | "isStaffAvailable">,
 ) => {
   const notifiedUserIds: NotifiedUser[] = [];
 
@@ -1220,9 +1228,10 @@ export const fetchUsersToNotify = async (
 
     const policy = policies.find((p) => p.userId === user.userId);
     if (
-      policy?.enabled &&
-      (policy.tavernDisabled ||
-        privateConversationRestriction([policy], [currentUserId, user.userId]))
+      conversationReadRestriction(policy, {
+        ...convo,
+        users: [{ userId: currentUserId }, { userId: user.userId }],
+      })
     )
       continue;
     // Determine notification type (prioritize mentions over quotes if both apply)
