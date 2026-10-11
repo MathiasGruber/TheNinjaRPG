@@ -2057,7 +2057,12 @@ export const initiateBattle = async (
   // The same settlement as an account refresh (`settleQueuedTraining`), written back in
   // bulk with the battle claim below.
   const queuedTraining = fetchedUsers.flatMap((user) => {
-    if (user.isAi || (user.queue.length === 0 && !user.currentlyTrainingMastery))
+    if (
+      user.isAi ||
+      (user.queue.length === 0 &&
+        !user.currentlyTrainingMastery &&
+        !user.currentlyTrainingElement)
+    )
       return [];
     const original = { ...user };
     const ticks = Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));

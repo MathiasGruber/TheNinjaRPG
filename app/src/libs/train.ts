@@ -1165,8 +1165,8 @@ export const settleEnergyTrainingQueue = (
 };
 
 /**
- * The single in-memory settlement of a user's MASTERY, ELEMENT and ENERGY queue rows, shared by
- * the account refresh and combat setup. Works on the user and rows already loaded, so it
+ * The single in-memory settlement of active mastery and elemental training and ENERGY
+ * queue rows, shared by account refresh and combat setup. Uses the already loaded rows, so it
  * costs no query; the caller persists the result together with the new queue heads,
  * which consume the settled rows in the same write as the gains.
  */
@@ -1187,7 +1187,7 @@ export const settleQueuedTraining = (
   const queues = MasteryQueueKinds.map((kind) => ({
     kind,
     rows: liveQueueRows(rows, kind, user[masteryTrainingFields[kind].head]),
-  })).filter(({ kind, rows }) => rows.length && user[masteryTrainingFields[kind].stat]);
+  })).filter(({ kind }) => user[masteryTrainingFields[kind].stat]);
   // Each handoff shares the daily allowance; equal finishes use MasteryQueueKinds order.
   let dailyTrainings = user.dailyTrainings;
   while (queues.length) {
@@ -1219,7 +1219,10 @@ export const settleQueuedTraining = (
       endsAt && endsAt < now ? endsAt : now,
       kind,
     );
-    if (!result.consumed) {
+    if (
+      !result.consumed &&
+      result.currentlyTrainingMastery === currentUser[fields.stat]
+    ) {
       queues.splice(queues.indexOf(queue), 1);
       continue;
     }
@@ -1244,7 +1247,7 @@ export const settleQueuedTraining = (
     completed.push(...result.completed);
     dailyTrainings = result.dailyTrainings;
     queue.rows = liveRows.slice(result.consumed);
-    if (!queue.rows.length) queues.splice(queues.indexOf(queue), 1);
+    if (!result.currentlyTrainingMastery) queues.splice(queues.indexOf(queue), 1);
   }
   return {
     energy: energy && {

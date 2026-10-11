@@ -171,7 +171,7 @@ describe("combined mastery and elemental queue settlement", () => {
     });
   });
 
-  it("accumulates repeated gains, drops capped repeats and leaves final sessions for collection", () => {
+  it("accumulates repeated gains, drops capped repeats and collects final sessions", () => {
     const user = trainee({
       trainingSpeed: "1hr",
       elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP - 150 },
@@ -188,15 +188,15 @@ describe("combined mastery and elemental queue settlement", () => {
     const offline = refreshQueues(user, rows, [180]);
     expect(offline).toEqual(refreshQueues(user, rows, [16, 31, 61, 180]));
     expect(offline).toMatchObject({
-      dailyTrainings: 3,
+      dailyTrainings: 5,
       ninjutsuMastery: fullSession("1hr"),
-      genjutsuMastery: 0,
-      currentlyTrainingMastery: "genjutsuMastery",
-      masteryTrainingStartedAt: after(60),
+      genjutsuMastery: fullSession("1hr"),
+      currentlyTrainingMastery: null,
+      masteryTrainingStartedAt: null,
       masteryQueueHead: 1,
-      elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP },
-      currentlyTrainingElement: "Earth",
-      elementalTrainingStartedAt: after(30),
+      elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP, Earth: fullSession("15min") },
+      currentlyTrainingElement: null,
+      elementalTrainingStartedAt: null,
       elementalQueueHead: 3,
     });
   });
@@ -266,23 +266,23 @@ describe("mastery training queue settlement", () => {
   });
 
   it("returns final-session completion without waiting rows and cannot credit it twice", () => {
-    const user = trainee({ masteryQueueHead: 2, energyQueueHead: 0 });
+    const user = trainee({ masteryQueueHead: 2, energyQueueHead: 0, currentlyTrainingElement: null });
     expect(settleQueuedTraining(user, [], [], 0, after(10)).mastery).toBeNull();
     const result = settleQueuedTraining(user, [], [], 0, after(15)).mastery;
-    expect(result?.head).toBe(2);
+    expect(result?.update.masteryQueueHead).toBe(2);
     expect(result?.completed).toHaveLength(1);
-    expect(result?.currentlyTrainingMastery).toBeNull();
-    expect(settleQueuedTraining({ ...user, ...result }, [], [], 0, after(600)).mastery).toBeNull();
+    expect(result?.update.currentlyTrainingMastery).toBeNull();
+    expect(settleQueuedTraining({ ...user, ...result?.update }, [], [], 0, after(600)).mastery).toBeNull();
   });
 
   it("clears a capped final session without granting gains or counting another session", () => {
-    const user = trainee({ ninjutsuMastery: mastery_cap, masteryQueueHead: 0, energyQueueHead: 0 });
+    const user = trainee({ ninjutsuMastery: mastery_cap, masteryQueueHead: 0, energyQueueHead: 0, currentlyTrainingElement: null });
     const result = settleQueuedTraining(user, [], [], 0, after(15)).mastery;
-    expect(result?.currentlyTrainingMastery).toBeNull();
-    expect(result?.masteryTrainingStartedAt).toBeNull();
+    expect(result?.update.currentlyTrainingMastery).toBeNull();
+    expect(result?.update.masteryTrainingStartedAt).toBeNull();
     expect(result?.gains).toEqual({});
     expect(result?.completed).toEqual([]);
-    expect(result?.dailyTrainings).toBe(0);
+    expect(result?.update.dailyTrainings).toBe(0);
   });
 
   it("collects the final authorized session at the daily limit without starting another", () => {

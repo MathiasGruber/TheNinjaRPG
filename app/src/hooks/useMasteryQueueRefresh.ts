@@ -3,7 +3,7 @@ import { useRefreshAt } from "@/hooks/useRefreshAt";
 import { masteryTrainingEndsAt } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
 
-/** Finish mastery sessions on every page, including the final session and while asleep. */
+/** Finish mastery and elemental sessions on every page, including while asleep. */
 export const useMasteryQueueRefresh = (
   user: UserWithRelations,
   onRefresh: () => void,
@@ -16,12 +16,9 @@ export const useMasteryQueueRefresh = (
     : null;
   // Preserve the pending refresh through unrelated profile renders, including
   // useRefreshAt's grace period just after the server deadline.
-  const masteryDeadline = user && getMasteryQueue(user).length > 0 ? finishesAt : null;
-  const elementalDeadline =
-    user && getMasteryQueue(user, "ELEMENT").length > 0 ? elementalFinishesAt : null;
   const deadlines = useMemo(
-    () => [masteryDeadline, elementalDeadline],
-    [masteryDeadline, elementalDeadline],
+    () => [finishesAt, elementalFinishesAt],
+    [finishesAt, elementalFinishesAt],
   );
   useRefreshAt(
     deadlines,

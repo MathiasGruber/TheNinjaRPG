@@ -101,7 +101,11 @@ describe("global mastery queue refresh", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it.each([{ queue: [] }, { masteryQueueHead: 2 }])(
+  it.each([
+    { queue: [] },
+    { masteryQueueHead: 2 },
+    { queue: [], currentlyTrainingMastery: null, masteryTrainingStartedAt: null, currentlyTrainingElement: "Wind", elementalTrainingStartedAt: new Date(BASE), elementalTrainingSpeed: "15min" },
+  ])(
     "refreshes the final session without live waiting entries %j", (patch) => {
       const refresh = vi.fn();
       renderHook(() => useMasteryQueueRefresh(trainee(patch), refresh, 0));
@@ -109,6 +113,18 @@ describe("global mastery queue refresh", () => {
       expect(refresh).toHaveBeenCalledTimes(1);
     },
   );
+
+  it("refreshes both standalone sessions in finish order", () => {
+    const refresh = vi.fn();
+    renderHook(() => useMasteryQueueRefresh(trainee({
+      queue: [], trainingSpeed: "1hr", currentlyTrainingElement: "Wind",
+      elementalTrainingStartedAt: new Date(BASE), elementalTrainingSpeed: "15min",
+    }), refresh, 0));
+    act(() => advanceTimers(INTERVAL + 1_000));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    act(() => advanceTimers(INTERVAL * 3));
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
 
   it("cancels the deadline when training finishes or the account is disabled", () => {
     const refresh = vi.fn();

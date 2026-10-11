@@ -81,7 +81,7 @@ describeWithDatabase("elemental mastery guarded progression", () => {
     const caller = await api();
     expect((await caller.startMasteryTraining({ stat: "Wind" })).success).toBe(true);
     expect((await caller.startMasteryTraining({ stat: "Earth" })).success).toBe(false);
-    const startedAt = new Date(Date.now() - 3_600_000);
+    const startedAt = new Date(Date.now() - 1_800_000);
     await patch({ elementalTrainingStartedAt: startedAt });
     const before = await readUser();
     const results = await Promise.all([caller.stopMasteryTraining({ stat: "Wind", startedAt }), caller.stopMasteryTraining({ stat: "Wind", startedAt })]);
@@ -103,11 +103,32 @@ describeWithDatabase("elemental mastery guarded progression", () => {
     await caller.startMasteryTraining({ stat: "Wind", speed: "15min" });
     expect((await caller.updateTrainingSpeed({ speed: "24hrs" })).success).toBe(true);
     expect((await readUser()).elementalTrainingSpeed).toBe("15min");
-    await patch({ elementalTrainingStartedAt: new Date(Date.now() - 900_000) });
+    await patch({ elementalTrainingStartedAt: new Date(Date.now() - 840_000) });
     expect((await caller.stopMasteryTraining(await session())).success).toBe(true);
     const user = await readUser();
     expect(user.elementalMastery.Wind).toBeGreaterThan(0);
     expect(user.elementalMastery.Wind).toBeLessThan(1000);
+  });
+
+  it.each([
+    { progress: ELEMENTAL_MASTERY_CAP - 5, primaryElement: "Fire", gained: 5 },
+    { progress: ELEMENTAL_MASTERY_CAP + 10, primaryElement: "Fire", gained: 0 },
+    { progress: 100, primaryElement: "Wind", gained: 0 },
+  ] as const)("automatically settles a final elemental session without waiting rows %j", async ({ progress, primaryElement, gained }) => {
+    await patch({ status: "ASLEEP", primaryElement, elementalMastery: { Wind: progress }, currentlyTrainingElement: "Wind", elementalTrainingStartedAt: new Date(Date.now() - 3_601_000) });
+    const before = await readUser();
+    const client = await getTestDatabase();
+    const { user } = await fetchUpdatedUser({ client, userId: ID });
+    expect(user!.elementalMastery.Wind).toBe(progress + gained);
+    expect(user!.currentlyTrainingElement).toBeNull();
+    expect(user!.elementalTrainingStartedAt).toBeNull();
+    expect(user!.dailyTrainings).toBe(before.dailyTrainings + (gained > 0 ? 1 : 0));
+    expect(user!.experience).toBe(before.experience);
+    expect(await readUser()).toMatchObject({ elementalMastery: user!.elementalMastery, currentlyTrainingElement: null, elementalTrainingStartedAt: null, dailyTrainings: user!.dailyTrainings });
+    await fetchUpdatedUser({ client, userId: ID });
+    const logs = await client.select().from(trainingLog).where(eq(trainingLog.userId, ID));
+    expect(logs.map(log => [log.stat, log.amount])).toEqual(gained > 0 ? [["Wind", gained]] : []);
+    expect((await readUser()).dailyTrainings).toBe(user!.dailyTrainings);
   });
 
   it("retains progress after a bloodline swap but suppresses duplicate activation", async () => {
@@ -127,7 +148,7 @@ describeWithDatabase("elemental mastery guarded progression", () => {
   it("cannot cash out newly provided elements and can cancel their old session", async () => {
     const caller = await api();
     await caller.startMasteryTraining({ stat: "Wind" });
-    await patch({ primaryElement: "Wind", elementalTrainingStartedAt: new Date(Date.now() - 3_600_000) });
+    await patch({ primaryElement: "Wind", elementalTrainingStartedAt: new Date(Date.now() - 1_800_000) });
     expect((await caller.stopMasteryTraining(await session())).success).toBe(true);
     expect((await readUser()).elementalMastery.Wind ?? 0).toBe(0);
     expect((await readUser()).currentlyTrainingElement).toBeNull();
