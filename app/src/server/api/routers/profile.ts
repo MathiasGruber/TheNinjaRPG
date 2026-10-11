@@ -537,35 +537,7 @@ export const profileRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.drizzle
         .update(userData)
-        .set({
-          ...(input.dashboardContentPriority !== undefined
-            ? { dashboardContentPriority: input.dashboardContentPriority }
-            : {}),
-          ...(input.rememberProfileTab !== undefined
-            ? { rememberProfileTab: input.rememberProfileTab }
-            : {}),
-          ...(input.tutorialOn !== undefined ? { tutorialOn: input.tutorialOn } : {}),
-          ...(input.musicOn !== undefined ? { musicOn: input.musicOn } : {}),
-          ...(input.sfxOn !== undefined ? { sfxOn: input.sfxOn } : {}),
-          ...(input.buttonSfxOn !== undefined
-            ? { buttonSfxOn: input.buttonSfxOn }
-            : {}),
-          ...(input.iframesMuted !== undefined
-            ? { iframesMuted: input.iframesMuted }
-            : {}),
-          ...(input.defaultAutoCombat !== undefined
-            ? { defaultAutoCombat: input.defaultAutoCombat }
-            : {}),
-          ...(input.showPvpRecord !== undefined
-            ? { showPvpRecord: input.showPvpRecord }
-            : {}),
-          ...(input.preferredGeneral1 !== undefined
-            ? { preferredGeneral1: input.preferredGeneral1 }
-            : {}),
-          ...(input.preferredGeneral2 !== undefined
-            ? { preferredGeneral2: input.preferredGeneral2 }
-            : {}),
-        })
+        .set(input)
         .where(eq(userData.userId, ctx.userId));
       return {
         success: result.rowsAffected > 0,
