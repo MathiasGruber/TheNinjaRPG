@@ -2994,6 +2994,9 @@ export type AuctionListingState = (typeof AUCTION_LISTING_STATES)[number];
 export const AUCTION_LISTING_TYPES = ["AUCTION", "DIRECT"] as const;
 export type AuctionListingType = (typeof AUCTION_LISTING_TYPES)[number];
 
+export const AUCTION_OFFER_TYPES = ["REQUEST", "TRADE"] as const;
+export const AUCTION_OFFER_MAX_RYO = 4_294_967_295;
+
 /** Allowed bidder character level range for open auctions (absolute bounds). */
 export const AUCTION_BIDDER_LEVEL_MIN = 1;
 export const AUCTION_BIDDER_LEVEL_MAX = 100;

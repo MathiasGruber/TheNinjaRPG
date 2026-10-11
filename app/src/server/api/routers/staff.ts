@@ -12,6 +12,7 @@ import {
   actionLog,
   aiProfile,
   anbuSquad,
+  auctionOffer,
   automatedModeration,
   bankTransfers,
   bloodlineRolls,
@@ -874,6 +875,14 @@ export const staffRouter = createTRPCRouter({
       }
       const moves = await Promise.allSettled([
         ctx.drizzle
+          .update(auctionOffer)
+          .set({ ownerId: input.newUserId })
+          .where(eq(auctionOffer.ownerId, input.userId)),
+        ctx.drizzle
+          .update(auctionOffer)
+          .set({ accepterId: input.newUserId })
+          .where(eq(auctionOffer.accepterId, input.userId)),
+        ctx.drizzle
           .update(aiProfile)
           .set({ userId: input.newUserId })
           .where(eq(aiProfile.userId, input.userId)),
@@ -1273,6 +1282,13 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
       .delete(userPushPreference)
       .where(eq(userPushPreference.userId, userId));
   });
+
+  // Close permanent offers before removing their escrow inventory. The status CAS
+  // serializes deletion with acceptance, so cleanup cannot erase a supplier's payment.
+  await client
+    .update(auctionOffer)
+    .set({ status: "CANCELLED", updatedAt: new Date() })
+    .where(and(eq(auctionOffer.ownerId, userId), eq(auctionOffer.status, "ACTIVE")));
 
   // Batch 1: AI templates may own placement rows. Their lookup is independent of the
   // prerequisite sensei-reference cleanup, so run both together before destructive deletes.

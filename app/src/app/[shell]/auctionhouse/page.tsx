@@ -112,6 +112,7 @@ import {
   type createAuctionListingSchema,
 } from "@/validators/auction";
 import { getSearchValidator } from "@/validators/register";
+import { AuctionOffers } from "./Offers";
 
 type AuctionListingRow = RouterOutputs["auction"]["getAuctionListings"]["data"][number];
 
@@ -160,6 +161,8 @@ export default function AuctionHousePage() {
   // Settings
   const { userData, access } = useRequireInVillage("/auctionhouse");
 
+  const [section, setSection] = useState<"LISTINGS" | "REQUEST" | "TRADE">("LISTINGS");
+
   // State
   const [selectedStatus, setSelectedStatus] = useState<string>("ACTIVE");
 
@@ -172,7 +175,7 @@ export default function AuctionHousePage() {
   return (
     <ContentBox
       title="Auction House"
-      subtitle="Live floor • Open bidding • Buy-it-now when listed"
+      subtitle="Open bidding • Material requests • Item trades"
       defaultBackHref="/village"
       padding={false}
       topRightContent={
@@ -189,7 +192,9 @@ export default function AuctionHousePage() {
               ))}
             </SelectContent>
           </Select>
-          {!belowAuctionMinLevel && <NewAuctionListingDialog />}
+          {!belowAuctionMinLevel && section === "LISTINGS" && (
+            <NewAuctionListingDialog />
+          )}
         </div>
       }
     >
@@ -198,7 +203,39 @@ export default function AuctionHousePage() {
           {auctionHouseLevelMessage}
         </p>
       )}
-      <AuctionListing selectedStatus={selectedStatus} />
+      <div
+        className="grid grid-cols-3 gap-2 border-b p-3"
+        role="tablist"
+        aria-label="Auction House sections"
+      >
+        {(
+          [
+            ["LISTINGS", "Auctions & sales"],
+            ["REQUEST", "Requests"],
+            ["TRADE", "Trades"],
+          ] as const
+        ).map(([key, label]) => (
+          <Button
+            key={key}
+            role="tab"
+            aria-selected={section === key}
+            variant={section === key ? "default" : "outline"}
+            onClick={() => setSection(key)}
+            className="h-auto min-h-11 whitespace-normal text-xs sm:text-sm"
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      {section === "LISTINGS" ? (
+        <AuctionListing selectedStatus={selectedStatus} />
+      ) : (
+        <AuctionOffers
+          key={section}
+          offerType={section}
+          status={selectedStatus as "ACTIVE" | "SOLD" | "EXPIRED" | "CANCELLED"}
+        />
+      )}
     </ContentBox>
   );
 }

@@ -63,6 +63,8 @@ export const BOTID_PROTECTED_PROCEDURES = [
   "blackmarket.takeOffer",
   "auction.createAuctionListing",
   "auction.placeBid",
+  "auction.createAuctionOffer",
+  "auction.acceptAuctionOffer",
   // Merch cart
   "merch.addToCart",
   "merch.updateCart",

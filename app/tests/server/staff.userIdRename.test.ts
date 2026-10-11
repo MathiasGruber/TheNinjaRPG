@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { beforeEach, expect, it } from "bun:test";
 import {
+  auctionOffer,
   bloodline,
   notification,
   paypalSubscription,
@@ -45,6 +46,7 @@ const NEW_USER_ID = "rename-new-user";
 describeWithDatabase("staff user-id rename", () => {
   beforeEach(async () => {
     await resetTables(
+      auctionOffer,
       bloodline,
       notification,
       userLiveActivity,
@@ -63,6 +65,22 @@ describeWithDatabase("staff user-id rename", () => {
       { userId: STAFF, username: "Terriator", role: "CODING-ADMIN" },
       { userId: OLD_USER_ID, username: "rename-target", role: "USER" },
     ]);
+  });
+
+  it("moves fixed-term offer ownership and acceptance when an account ID changes", async () => {
+    const database = await getTestDatabase();
+    await database.insert(auctionOffer).values({ id: "rename-offer", ownerId: OLD_USER_ID, accepterId: OLD_USER_ID, offerType: "REQUEST", requestedItemId: "ore", requestedQuantity: 10, ryo: 300 });
+    const caller = await callerFor(staffRouter, STAFF);
+    expect((await caller.updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID })).success).toBe(true);
+    expect((await database.select().from(auctionOffer))[0]).toMatchObject({ ownerId: NEW_USER_ID, accepterId: NEW_USER_ID });
+  });
+
+  it("closes permanent offers before deleting their owner's inventory", async () => {
+    const database = await getTestDatabase();
+    await database.insert(auctionOffer).values({ id: "deleted-offer", ownerId: OLD_USER_ID, offerType: "REQUEST", requestedItemId: "ore", requestedQuantity: 10, ryo: 300 });
+    await deleteUser(database, OLD_USER_ID);
+    expect((await database.select().from(auctionOffer))[0]?.status).toBe("CANCELLED");
+    expect(await database.select().from(userData).where(eq(userData.userId, OLD_USER_ID))).toHaveLength(0);
   });
 
   it("reserves every retired alias against later reuse", async () => {

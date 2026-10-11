@@ -3068,6 +3068,37 @@ export const userItemImbuementRelations = relations(userItemImbuement, ({ one })
   }),
 }));
 
+// Fixed-term offers escrow ryo or an inventory stack until acceptance or cancellation.
+export const auctionOffer = mysqlTable(
+  "AuctionOffer",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    ownerId: varchar("ownerId", { length: 191 }).notNull(),
+    accepterId: varchar("accepterId", { length: 191 }),
+    offerType: mysqlEnum("offerType", consts.AUCTION_OFFER_TYPES).notNull(),
+    requestedItemId: varchar("requestedItemId", { length: 191 }).notNull(),
+    requestedQuantity: int("requestedQuantity", { unsigned: true }).notNull(),
+    offeredUserItemId: varchar("offeredUserItemId", { length: 191 }),
+    offeredQuantity: int("offeredQuantity", { unsigned: true }),
+    ryo: int("ryo", { unsigned: true }).default(0).notNull(),
+    status: mysqlEnum("status", consts.AUCTION_LISTING_STATES).default("ACTIVE").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  },
+  (table) => ({
+    ownerIdIdx: index("AuctionOffer_ownerId_idx").on(table.ownerId),
+    statusTypeCreatedIdx: index("AuctionOffer_status_offerType_createdAt_idx").on(table.status, table.offerType, table.createdAt),
+    requestedItemIdIdx: index("AuctionOffer_requestedItemId_idx").on(table.requestedItemId),
+    offeredUserItemIdIdx: index("AuctionOffer_offeredUserItemId_idx").on(table.offeredUserItemId),
+  }),
+);
+
+export const auctionOfferRelations = relations(auctionOffer, ({ one }) => ({
+  owner: one(userData, { fields: [auctionOffer.ownerId], references: [userData.userId] }),
+  requestedItem: one(item, { fields: [auctionOffer.requestedItemId], references: [item.id] }),
+  offeredUserItem: one(userItem, { fields: [auctionOffer.offeredUserItemId], references: [userItem.id] }),
+}));
+
 // Auction House System Tables
 export const auctionListing = mysqlTable(
   "AuctionListing",

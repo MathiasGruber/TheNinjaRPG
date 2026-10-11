@@ -4,6 +4,9 @@ import {
   AUCTION_BIDDER_LEVEL_MIN,
   AUCTION_LISTING_STATES,
   AUCTION_LISTING_TYPES,
+  AUCTION_OFFER_MAX_RYO,
+  AUCTION_OFFER_TYPES,
+  MAX_ITEM_STACK_SIZE,
   RYO_FOR_REP_MIN_REPS,
   TRADEABLE_CURRENCY_TYPES,
 } from "@/drizzle/constants";
@@ -118,6 +121,35 @@ export const auctionListingSchemaForItem = (
 // Type exports
 export type CreateAuctionListingSchema = z.infer<typeof createAuctionListingSchema>;
 export type GetAuctionListingsSchema = z.infer<typeof getAuctionListingsSchema>;
+
+const offerQuantity = z.int().min(1).max(MAX_ITEM_STACK_SIZE);
+export const createAuctionOfferSchema = z.discriminatedUnion("offerType", [
+  z.object({
+    offerType: z.literal("REQUEST"),
+    requestedItemId: z.string().min(1),
+    requestedQuantity: offerQuantity,
+    ryo: z.int().min(1).max(AUCTION_OFFER_MAX_RYO),
+  }),
+  z.object({
+    offerType: z.literal("TRADE"),
+    requestedItemId: z.string().min(1),
+    requestedQuantity: offerQuantity,
+    offeredUserItemId: z.string().min(1),
+    offeredQuantity: offerQuantity,
+  }),
+]);
+export const getAuctionOffersSchema = z.object({
+  offerType: z.enum(AUCTION_OFFER_TYPES),
+  status: z.enum(AUCTION_LISTING_STATES).default("ACTIVE"),
+  onlyMine: z.boolean().default(false),
+  search: z.string().max(100).default(""),
+  limit: z.int().min(1).max(100).default(10),
+  cursor: z.int().min(0).nullish(),
+});
+export const auctionOfferIdSchema = z.object({ offerId: z.string().min(1) });
+export const acceptAuctionOfferSchema = auctionOfferIdSchema.extend({
+  userItemId: z.string().min(1),
+});
 
 // Black market offer schema
 export const blackMarketOfferSchema = z.object({
