@@ -57,6 +57,7 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { handleWarEnd, startDeclaredWar } from "@/server/utils/war";
 import {
   acceptWarAllyOffer,
@@ -877,18 +878,27 @@ export const warRouter = createTRPCRouter({
       if (!isKage(user)) return errorResponse("Not kage");
       if (!request) return errorResponse("Request not found");
       if (request.type !== "WAR_ALLY") return errorResponse("Not a war ally request");
-      if (request.status !== "PENDING") return errorResponse("Request not pending");
+      if (!["PENDING", "REJECTED"].includes(request.status))
+        return errorResponse("Request not pending");
       if (request.receiverId !== user.userId) return errorResponse("Not your request");
 
-      // Update request
-      const changed = await ctx.drizzle
-        .update(userRequest)
-        .set({ status: "REJECTED" })
-        .where(and(eq(userRequest.id, request.id), eq(userRequest.status, "PENDING")));
-      if (!changed.rowsAffected) return errorResponse("Offer is no longer pending");
-      await ctx.drizzle
-        .delete(warAlly)
-        .where(and(eq(warAlly.id, request.id), isNull(warAlly.acceptedAt)));
+      // Close before release to block admission; closed requests can retry cleanup.
+      if (request.status === "PENDING") {
+        const changed = await retryOnDeadlock(() =>
+          ctx.drizzle
+            .update(userRequest)
+            .set({ status: "REJECTED" })
+            .where(
+              and(eq(userRequest.id, request.id), eq(userRequest.status, "PENDING")),
+            ),
+        );
+        if (!changed.rowsAffected) return errorResponse("Offer is no longer pending");
+      }
+      await retryOnDeadlock(() =>
+        ctx.drizzle
+          .delete(warAlly)
+          .where(and(eq(warAlly.id, request.id), isNull(warAlly.acceptedAt))),
+      );
 
       // Return
       return { success: true, message: "Faction offer rejected" };
@@ -931,16 +941,26 @@ export const warRouter = createTRPCRouter({
       if (offer.senderId !== user.userId) {
         return errorResponse("Not your offer to delist");
       }
+      if (!["PENDING", "CANCELLED"].includes(offer.status))
+        return errorResponse("Offer is no longer pending");
 
-      // Update request
-      const changed = await ctx.drizzle
-        .update(userRequest)
-        .set({ status: "CANCELLED" })
-        .where(and(eq(userRequest.id, offer.id), eq(userRequest.status, "PENDING")));
-      if (!changed.rowsAffected) return errorResponse("Offer is no longer pending");
-      await ctx.drizzle
-        .delete(warAlly)
-        .where(and(eq(warAlly.id, offer.id), isNull(warAlly.acceptedAt)));
+      // Close before release to block admission; closed requests can retry cleanup.
+      if (offer.status === "PENDING") {
+        const changed = await retryOnDeadlock(() =>
+          ctx.drizzle
+            .update(userRequest)
+            .set({ status: "CANCELLED" })
+            .where(
+              and(eq(userRequest.id, offer.id), eq(userRequest.status, "PENDING")),
+            ),
+        );
+        if (!changed.rowsAffected) return errorResponse("Offer is no longer pending");
+      }
+      await retryOnDeadlock(() =>
+        ctx.drizzle
+          .delete(warAlly)
+          .where(and(eq(warAlly.id, offer.id), isNull(warAlly.acceptedAt))),
+      );
 
       return { success: true, message: "Offer delisted" };
     }),
