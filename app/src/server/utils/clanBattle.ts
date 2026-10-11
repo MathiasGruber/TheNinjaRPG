@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { CLAN_BATTLE_REWARD_POINTS, CLAN_BATTLE_REWARD_RYO } from "@/drizzle/constants";
 import {
   battle,
@@ -12,95 +12,102 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 
-/** Claim and pay the shared victory together; each participant may report the win. */
+/**
+ * Claim and credit a shared victory atomically, so participant reports and retries pay once.
+ * Returns true only when an unclaimed clan battle credits its participating winning clan;
+ * missing lobbies/clans, other battle types and duplicate reports return false. A failed
+ * credit leaves the winner unclaimed and balances unchanged; deadlocks retry the statement.
+ */
 export const rewardClanBattleVictory = async (
   client: DrizzleClient,
   battleId: string,
   clanId: string,
 ) =>
-  retryOnDeadlock(() =>
-    client.transaction(async (tx) => {
-      const claimed = await tx
-        .update(mpvpBattleQueue)
-        .set({ winnerId: clanId })
-        .where(
-          and(
-            eq(mpvpBattleQueue.battleId, battleId),
-            eq(mpvpBattleQueue.battleType, "CLAN_BATTLE"),
-            isNull(mpvpBattleQueue.winnerId),
-            or(
-              eq(mpvpBattleQueue.attackerEntityId, clanId),
-              eq(mpvpBattleQueue.defenderEntityId, clanId),
-            ),
-          ),
-        );
-      if (claimed.rowsAffected === 0) return false;
-      const credited = await tx
-        .update(clan)
-        .set({
-          points: sql`${clan.points} + ${CLAN_BATTLE_REWARD_POINTS}`,
-          activityPoints: sql`${clan.activityPoints} + ${CLAN_BATTLE_REWARD_POINTS}`,
-          bank: sql`${clan.bank} + ${CLAN_BATTLE_REWARD_RYO}`,
-          pvpActivity: sql`${clan.pvpActivity} + 1`,
-        })
-        .where(eq(clan.id, clanId));
-      if (credited.rowsAffected !== 1) throw new Error("Winning clan no longer exists");
-      return true;
-    }),
-  );
+  retryOnDeadlock(async () => {
+    // Drizzle's MySQL update builder cannot JOIN and SET both tables. As with purchase
+    // delivery, parameterized SQL keeps the claim and credit in one atomic statement.
+    const credited = await client.execute(sql`
+      UPDATE ${mpvpBattleQueue}
+      INNER JOIN ${clan} ON ${clan.id} = ${clanId}
+      SET ${mpvpBattleQueue.winnerId} = ${clanId},
+          ${clan.points} = ${clan.points} + ${CLAN_BATTLE_REWARD_POINTS},
+          ${clan.activityPoints} = ${clan.activityPoints} + ${CLAN_BATTLE_REWARD_POINTS},
+          ${clan.bank} = ${clan.bank} + ${CLAN_BATTLE_REWARD_RYO},
+          ${clan.pvpActivity} = ${clan.pvpActivity} + 1
+      WHERE ${mpvpBattleQueue.battleId} = ${battleId}
+        AND ${mpvpBattleQueue.battleType} = 'CLAN_BATTLE'
+        AND ${mpvpBattleQueue.winnerId} IS NULL
+        AND (${mpvpBattleQueue.attackerEntityId} = ${clanId}
+          OR ${mpvpBattleQueue.defenderEntityId} = ${clanId})
+    `);
+    return credited.rowsAffected > 0;
+  });
 
 type ClanBattleSnapshot = { id: string; battleId: string | null };
 
-/** Remove exactly the observed lobby, serializing deletion against startup and payout. */
+/**
+ * Claim deletion of exactly the observed clan lobby, then release its combat and members.
+ * Returns false without cleanup when the lobby is gone or its combat reservation changed;
+ * true means cleanup completed. The guarded DELETE serializes startup and payout, and does
+ * not reverse credited rewards. Cleanup retries only idempotent writes for the old IDs.
+ * A persistent database failure after the DELETE can leave combat, logs, memberships or
+ * queued users for support cleanup: the lobby stays deleted and the router cannot retry it.
+ */
 export const deleteClanBattle = async (
   client: DrizzleClient,
   snapshot: ClanBattleSnapshot,
-) =>
-  retryOnDeadlock(() =>
-    client.transaction(async (tx) => {
-      const deleted = await tx
-        .delete(mpvpBattleQueue)
-        .where(
-          and(
-            eq(mpvpBattleQueue.id, snapshot.id),
-            eq(mpvpBattleQueue.battleType, "CLAN_BATTLE"),
-            snapshot.battleId
-              ? eq(mpvpBattleQueue.battleId, snapshot.battleId)
-              : isNull(mpvpBattleQueue.battleId),
-          ),
-        );
-      if (deleted.rowsAffected !== 1) return false;
-      if (snapshot.battleId)
-        await clearClanCombat(tx as DrizzleClient, snapshot.battleId);
-      await tx
-        .update(userData)
-        .set({ status: "AWAKE" })
-        .where(
-          and(
-            eq(userData.status, "QUEUED"),
-            isNull(userData.battleId),
-            inArray(
-              userData.userId,
-              tx
-                .select({ userId: mpvpBattleUser.userId })
-                .from(mpvpBattleUser)
-                .where(eq(mpvpBattleUser.clanBattleId, snapshot.id)),
-            ),
-          ),
-        );
-      await tx
-        .delete(mpvpBattleUser)
-        .where(eq(mpvpBattleUser.clanBattleId, snapshot.id));
-      return true;
-    }),
+) => {
+  const deleted = await retryOnDeadlock(() =>
+    client
+      .delete(mpvpBattleQueue)
+      .where(
+        and(
+          eq(mpvpBattleQueue.id, snapshot.id),
+          eq(mpvpBattleQueue.battleType, "CLAN_BATTLE"),
+          snapshot.battleId !== null
+            ? eq(mpvpBattleQueue.battleId, snapshot.battleId)
+            : isNull(mpvpBattleQueue.battleId),
+        ),
+      ),
   );
+  if (deleted.rowsAffected !== 1) return false;
+  // The deletion is durable. Retry cleanup alone so a deadlock cannot skip it when
+  // a second DELETE finds no lobby; retain memberships until queued users are awake.
+  await retryOnDeadlock(async () => {
+    if (snapshot.battleId !== null) await clearClanCombat(client, snapshot.battleId);
+    await client
+      .update(userData)
+      .set({ status: "AWAKE" })
+      .where(
+        and(
+          eq(userData.status, "QUEUED"),
+          isNull(userData.battleId),
+          inArray(
+            userData.userId,
+            client
+              .select({ userId: mpvpBattleUser.userId })
+              .from(mpvpBattleUser)
+              .where(eq(mpvpBattleUser.clanBattleId, snapshot.id)),
+          ),
+        ),
+      );
+    await client
+      .delete(mpvpBattleUser)
+      .where(eq(mpvpBattleUser.clanBattleId, snapshot.id));
+  });
+  return true;
+};
 
-/** Also used after startup loses its lobby: the generated combat ID is exclusive to it. */
+/**
+ * Idempotently remove combat and logs for an exclusive clan combat ID, including a startup
+ * that lost its lobby. Release only users still holding that ID, preserving newer combats
+ * and non-battle statuses. Writes finish in order before resolving; a database failure may
+ * leave partial cleanup, which can safely be retried with the same ID.
+ */
 export const clearClanCombat = async (client: DrizzleClient, battleId: string) => {
   await client
     .delete(battle)
     .where(and(eq(battle.id, battleId), eq(battle.battleType, "CLAN_BATTLE")));
-  // A transaction shares one serverless-driver session, so drain each write in order.
   await client
     .update(userData)
     .set({
