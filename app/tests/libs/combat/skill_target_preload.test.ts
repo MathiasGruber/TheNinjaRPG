@@ -58,3 +58,22 @@ describe("skill targeting at battle initiation", () => {
     expect(result.userEffects.filter((e) => e.fromType === "skill")).toHaveLength(0);
   });
 });
+
+describe("skill-gated content at battle initiation", () => {
+  it.each(["COMBAT", "RANKED_PVP"] as const)("filters stale equipped content in %s and restores it after activation", async (battleType) => {
+    const caster = user("caster");
+    Object.assign(caster, { rank: "JONIN", bloodlineId: null, isAi: false });
+    caster.userSkills = [{ id: "owned", userId: caster.userId, skillId: "required", activated: true, purchasedAt: new Date(), skill: { ...skill("required", "SELF"), effects: [] } }];
+    const { SAGE_MODE_ACTIVATION_JUTSU } = await import("@/libs/sageMode");
+    caster.jutsus = [{ id: "owned-jutsu", jutsuId: "gated", equipped: true, level: 1, experience: 0, jutsu: { ...SAGE_MODE_ACTIVATION_JUTSU, id: "gated", jutsuType: "NORMAL", jutsuRank: "D", requiredSkillId: "required", effects: [], bloodlineId: null, requiredRank: "STUDENT" } }] as unknown as CombatQueryUser["jutsus"];
+    caster.items = [{ id: "owned-item", itemId: "gear", equipped: "HAND_1", level: 1, quantity: 1, durability: 100, imbuements: [], item: { id: "gear", itemType: "WEAPON", effects: [], battleUsageType: "BOTH", cooldown: 0, requiredSkillId: "required" } }] as unknown as CombatQueryUser["items"];
+    const active = await preload([caster], battleType);
+    expect(active.usersState[0]!.activeSkillIds).toEqual(["required"]);
+    expect(active.usersState[0]!.jutsus.map((j) => j.jutsuId)).toContain("gated");
+    expect(active.usersState[0]!.items.map((i) => i.itemId)).toContain("gear");
+    caster.userSkills[0]!.activated = false;
+    const inactive = await preload([caster], battleType);
+    expect(inactive.usersState[0]!.jutsus).toEqual([]);
+    expect(inactive.usersState[0]!.items).toEqual([]);
+  });
+});

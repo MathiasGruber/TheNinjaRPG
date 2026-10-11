@@ -70,6 +70,7 @@ import {
 } from "@/libs/item";
 import { gearMissingMastery } from "@/libs/mastery";
 import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/repair";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { showMutationToast, showRewardToast } from "@/libs/toast";
 import { hasRequiredLevel, remainingXpToLevel } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
@@ -232,7 +233,7 @@ export default function MyItems() {
 
   // Calculate items needing repair and which kits will be used
   const itemsNeedingRepair = (userItems || []).filter(needsInventoryRepair);
-  const repairKits = getRepairKits(userItems);
+  const repairKits = getRepairKits(userItems, userData ?? {});
   const isCrafter = userData.occupation === "CRAFTING";
   const totalRyoRepairCost = itemsNeedingRepair.reduce(
     (total, useritem) => total + calcItemRepairCost(useritem),
@@ -1360,19 +1361,17 @@ const Character: React.FC<CharacterProps> = (props) => {
   const [variantItem, setVariantItem] = useState<UserItemWithVariants | undefined>(
     undefined,
   );
-  const { data: userSkills } = api.skillTree.getUserSkills.useQuery(undefined, {
-    enabled: !!userData,
-  });
 
   // Battles unequip worn gear and hide weapons whose mastery gate is unmet; activated
   // skills count toward masteries as they do there
   const wearer = {
     ...userData,
     items: useritems ?? [],
-    userSkills: userSkills?.skills.filter((userSkill) => userSkill.activated),
   };
   const masteryWarning = (useritem: UserItemWithRelations) => {
     if (useritem.equipped === "NONE") return undefined;
+    if (!hasRequiredSkill(useritem.item, wearer))
+      return "Unusable in battle: activate the required skill";
     const missing = gearMissingMastery(useritem, wearer);
     if (!missing) return undefined;
     const current = Math.floor(missing.current).toLocaleString();

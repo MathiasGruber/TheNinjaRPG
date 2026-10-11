@@ -74,6 +74,7 @@ import { calcCombatHealPercentage } from "@/libs/hospital";
 import { jutsuMasteryTypes } from "@/libs/jutsuMastery";
 import { hasMasteryRequirements } from "@/libs/mastery";
 import { getSageDailyCap, getSageModeActivationCost } from "@/libs/sageMode";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import {
   CleanseTag,
   ClearTag,
@@ -829,6 +830,7 @@ export const handleInjectedJutsus = (
       .map((id) => allJutsus[id])
       .filter((j): j is Jutsu => j !== undefined);
     for (const j of tagJutsus) {
+      if (!canUseSkillGatedJutsu(j, user)) continue;
       allInjectedJutsuIdsFromEffects.add(j.id);
       if (!userCurrentExtraJutsuIds.includes(j.id)) {
         toBeAddedJutsuPower[j.id] = e.power ?? 1;
@@ -862,7 +864,10 @@ export const handleInjectedJutsus = (
           return user.curChakra >= cpCost && user.curStamina >= spCost;
         })()
       : true;
-    if (canAffordActivation) {
+    if (
+      canAffordActivation &&
+      canUseSkillGatedJutsu(allJutsus[sageActivationId]!, user)
+    ) {
       allInjectedJutsuIdsFromEffects.add(sageActivationId);
       if (!userCurrentExtraJutsuIds.includes(sageActivationId)) {
         toBeAddedJutsuPower[sageActivationId] = 1;
@@ -1637,3 +1642,9 @@ export const calcActiveUser = (
   // Return info
   return { actor, changedActor, progressRound, mseconds, secondsLeft };
 };
+
+/** Masked users carry catalog availability instead of their private skill build. */
+const canUseSkillGatedJutsu = (jutsu: Jutsu, user: ReturnedUserState) =>
+  user.activeSkillIds === undefined
+    ? !user.skillLockedJutsuIds?.includes(jutsu.id)
+    : hasRequiredSkill(jutsu, user);

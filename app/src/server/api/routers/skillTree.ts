@@ -27,6 +27,8 @@ import type { UserData } from "@/drizzle/schema";
 import {
   actionLog,
   bloodline,
+  item,
+  jutsu,
   skillTree,
   skillTreeFolder,
   userData,
@@ -499,22 +501,39 @@ export const skillTreeRouter = createTRPCRouter({
     .input(idSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const [{ user }, skill, usersWithSkill, bloodrightOwner, dependents] =
-        await Promise.all([
-          fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
-          ctx.drizzle.query.skillTree.findFirst({ where: eq(skillTree.id, input.id) }),
-          ctx.drizzle.query.userSkill.findMany({
-            where: eq(userSkill.skillId, input.id),
-          }),
-          ctx.drizzle.query.userData.findFirst({
-            where: sql`JSON_SEARCH(${userData.bloodright}, 'one', ${input.id}, NULL, '$[*].skillId') IS NOT NULL`,
-            columns: { userId: true },
-          }),
-          ctx.drizzle.query.skillTree.findMany({
-            where: sql`JSON_CONTAINS(${skillTree.requiredSkillIds}, ${JSON.stringify(input.id)})`,
-            columns: { id: true },
-          }),
-        ]);
+      const [
+        { user },
+        skill,
+        usersWithSkill,
+        bloodrightOwner,
+        dependents,
+        requiredItems,
+        requiredJutsus,
+      ] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        ctx.drizzle.query.skillTree.findFirst({ where: eq(skillTree.id, input.id) }),
+        ctx.drizzle.query.userSkill.findMany({
+          where: eq(userSkill.skillId, input.id),
+        }),
+        ctx.drizzle.query.userData.findFirst({
+          where: sql`JSON_SEARCH(${userData.bloodright}, 'one', ${input.id}, NULL, '$[*].skillId') IS NOT NULL`,
+          columns: { userId: true },
+        }),
+        ctx.drizzle.query.skillTree.findMany({
+          where: sql`JSON_CONTAINS(${skillTree.requiredSkillIds}, ${JSON.stringify(input.id)})`,
+          columns: { id: true },
+        }),
+        ctx.drizzle.query.item.findMany({
+          columns: { id: true },
+          where: eq(item.requiredSkillId, input.id),
+          limit: 1,
+        }),
+        ctx.drizzle.query.jutsu.findMany({
+          columns: { id: true },
+          where: eq(jutsu.requiredSkillId, input.id),
+          limit: 1,
+        }),
+      ]);
       if (!user || !canChangeContent(user.role)) {
         throw serverError(
           "UNAUTHORIZED",
@@ -523,6 +542,11 @@ export const skillTreeRouter = createTRPCRouter({
       }
 
       if (!skill) return errorResponse("Skill not found");
+      if (requiredItems.length || requiredJutsus.length) {
+        return errorResponse(
+          "Cannot delete a skill required by items or jutsu. Remove their requirements first",
+        );
+      }
       if (dependents.length)
         return errorResponse(
           "Cannot delete a tier referenced by dependent tiers. Update their prerequisites first",
@@ -1099,7 +1123,7 @@ export const fetchMasterySources = async (
     with: {
       bloodline: { columns: { effects: true } },
       userSkills: {
-        columns: { id: true },
+        columns: { id: true, skillId: true, activated: true },
         where: eq(userSkill.activated, true),
         with: { skill: { columns: { target: true, effects: true } } },
       },
@@ -1118,6 +1142,7 @@ export const fetchMasterySources = async (
               requiredGenjutsuMastery: true,
               requiredTaijutsuMastery: true,
               requiredBukijutsuMastery: true,
+              requiredSkillId: true,
               requiredBloodlineMastery: true,
               requiredSageMastery: true,
             },

@@ -1447,6 +1447,7 @@ export const item = mysqlTable(
     requiredGenjutsuMastery: int("requiredGenjutsuMastery"),
     requiredTaijutsuMastery: int("requiredTaijutsuMastery"),
     requiredBukijutsuMastery: int("requiredBukijutsuMastery"),
+    requiredSkillId: varchar("requiredSkillId", { length: 191 }),
     requiredBloodlineMastery: int("requiredBloodlineMastery"),
     requiredSageMastery: int("requiredSageMastery"),
     // General stat gates, checked only when evolving into this item
@@ -1501,6 +1502,7 @@ export const item = mysqlTable(
       repsCostIdx: index("Item_repsCost_idx").on(table.repsCost),
       requiredLevelIdx: index("Item_requiredLevel_idx").on(table.requiredLevel),
       bloodlineIdIdx: index("Item_bloodlineId_idx").on(table.bloodlineId),
+      requiredSkillIdIdx: index("Item_requiredSkillId_idx").on(table.requiredSkillId),
       parentItemIdIdx: index("Item_parentItemId_idx").on(table.parentItemId),
       parentItemIdHiddenIdx: index("Item_parentItemId_hidden_idx").on(
         table.parentItemId,
@@ -1732,6 +1734,7 @@ export const jutsu = mysqlTable(
     requiredSpeed: int("requiredSpeed"),
     requiredIntelligence: int("requiredIntelligence"),
     requiredWillpower: int("requiredWillpower"),
+    requiredSkillId: varchar("requiredSkillId", { length: 191 }),
     requiredBloodlineItemId: varchar("requiredBloodlineItemId", { length: 191 }),
   },
   (table) => {
@@ -1739,6 +1742,7 @@ export const jutsu = mysqlTable(
       nameKey: uniqueIndex("Jutsu_name_key").on(table.name),
       imageKey: index("Jutsu_image_key").on(table.image),
       bloodlineIdIdx: index("Jutsu_bloodlineId_idx").on(table.bloodlineId),
+      requiredSkillIdIdx: index("Jutsu_requiredSkillId_idx").on(table.requiredSkillId),
       villageIdIdx: index("Jutsu_villageId_idx").on(table.villageId),
       injectableIdx: index("Jutsu_injectable_idx").on(table.injectableInBattle),
       reskinParentIdx: index("Jutsu_reskinParentJutsuId_idx").on(table.reskinParentJutsuId),

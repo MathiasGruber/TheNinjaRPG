@@ -9,6 +9,7 @@ import {
   MAX_MASTERY_CAP,
   MasteryNames,
 } from "@/drizzle/constants";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import type { ZodAllTags } from "@/validators/combat";
 
 export const MASTERY_TYPE_TO_STAT: Record<MasteryType, MasteryName> = {
@@ -51,6 +52,7 @@ export type MasteryGear = {
   item: MasteryRequirementFields & {
     itemType: string;
     maxDurability: number;
+    requiredSkillId?: string | null;
     bloodlineId: string | null;
     canBeImbued: boolean;
     effects: ZodAllTags[];
@@ -68,7 +70,11 @@ export type MasteryBuffUser = MasteryStatSource & {
   bloodlineId: string | null;
   isAi?: boolean;
   bloodline?: { effects: ZodAllTags[] } | null;
-  userSkills?: { skill: { target: SkillTreeTarget; effects: ZodAllTags[] } }[];
+  userSkills?: {
+    skillId?: string;
+    activated?: boolean;
+    skill: { target: SkillTreeTarget; effects: ZodAllTags[] };
+  }[];
   items?: MasteryGear[];
 };
 
@@ -141,7 +147,11 @@ const resolveMasteryGear = (user: MasteryBuffUser, excludeUserItemId?: string) =
     addMasteryTags(withoutGear, stored, ownTags, user.level);
   }
   const candidates = (user.items ?? [])
-    .filter((ui) => isActiveWornGear(ui, user.bloodlineId))
+    .filter(
+      (ui) =>
+        isActiveWornGear(ui, user.bloodlineId) &&
+        (user.isAi || hasRequiredSkill(ui.item, user)),
+    )
     .map((ui) => ({ ui, delta: gearMasteryDelta(ui, user, stored) }));
   const penalties = candidates.filter(
     ({ ui, delta }) =>

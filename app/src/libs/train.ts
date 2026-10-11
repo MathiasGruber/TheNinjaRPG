@@ -51,6 +51,7 @@ import {
   toEnergyEntries,
   toMasteryEntries,
 } from "@/libs/queue";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { calcIsInVillage } from "@/libs/travel";
 import type { UserWithRelations } from "@/routers/profile";
 import { getUserFederalStatus } from "@/utils/paypal";
@@ -286,9 +287,8 @@ export const canTrainJutsu = (
   masteries?: MasteryStatSource,
 ): boolean => {
   if (isJutsuEvolution(jutsu)) return false;
-  // Learning a jutsu is intentionally allowed without the required bloodline item;
-  // the item only gates equipping and in-combat use, so skip that check here.
-  return canUseJutsu(jutsu, userdata, true, masteries);
+  // Bloodline items and activated skills gate use, while learning remains available.
+  return canUseJutsu(jutsu, userdata, true, masteries, true);
 };
 
 /** True for jutsu types that cannot be initially learned via training (owned ones can still be leveled). */
@@ -313,6 +313,7 @@ const jutsuRequirementChecks = (
      */
     userItems?: UserItemWithItem[];
     ignoreBloodlineItem?: boolean;
+    ignoreSkill?: boolean;
     /** Activated skills, counted toward masteries as the server gates count them. */
     userSkills?: MasterySources["userSkills"];
     /** Masteries to gate on; defaults to effectiveMasteries over the bloodline, `userItems` and `userSkills`. */
@@ -329,6 +330,14 @@ const jutsuRequirementChecks = (
       userSkills: opts?.userSkills,
     });
   return [
+    {
+      ok:
+        !!opts?.ignoreSkill ||
+        hasRequiredSkill(jutsu, {
+          userSkills: opts?.userSkills ?? userdata.userSkills,
+        }),
+      warning: "Activate the required skill to use this jutsu.",
+    },
     {
       ok: hasRequiredRank(userdata.rank, jutsu.requiredRank),
       warning: "You do not have the required rank to use this jutsu.",
@@ -377,6 +386,7 @@ export const canUseJutsu = (
   userdata: NonNullable<UserWithRelations>,
   ignoreBloodlineItem = false,
   masteries?: MasteryStatSource,
+  ignoreSkill = false,
 ): boolean => {
   if (userdata.isAi) return true;
   // No userItems passed, so the weapon requirement is not checked: toggleEquip allows
@@ -384,6 +394,7 @@ export const canUseJutsu = (
   // checkJutsuItems.
   return jutsuRequirementChecks(jutsu, userdata, {
     ignoreBloodlineItem,
+    ignoreSkill,
     masteries,
   }).every(({ ok }) => ok);
 };
@@ -391,15 +402,16 @@ export const canUseJutsu = (
 /**
  * The first unmet requirement as a user-facing message, or "" when the jutsu is usable.
  * Passing `userItems` also evaluates the weapon requirement, which toggleEquip does not,
- * and counts worn gear toward masteries.
+ * and counts worn gear toward masteries. Evolution acquisition ignores the skill use gate.
  */
 export const jutsuRequirementWarning = (
   jutsu: Jutsu,
   userdata: NonNullable<UserWithRelations>,
   userItems?: UserItemWithItem[],
   userSkills?: MasterySources["userSkills"],
+  ignoreSkill = false,
 ): string =>
-  jutsuRequirementChecks(jutsu, userdata, { userItems, userSkills }).find(
+  jutsuRequirementChecks(jutsu, userdata, { userItems, userSkills, ignoreSkill }).find(
     ({ ok }) => !ok,
   )?.warning ?? "";
 

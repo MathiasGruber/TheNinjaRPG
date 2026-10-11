@@ -184,6 +184,7 @@ import {
   mockAchievementHistoryEntries,
 } from "@/libs/quest";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
 import {
@@ -1079,6 +1080,8 @@ export const combatRouter = createTRPCRouter({
         ? userBattle.extraState.bloodlines?.[user.bloodlineId]
         : null;
       const activatedSkills = userSkills.filter((us) => us.activated);
+      // Skills may have been reset since battle initiation; loadout gates use the current build.
+      user.activeSkillIds = activatedSkills.map((skill) => skill.skillId);
 
       // Apply the item loadout first, then the jutsu loadout. selectItemLoadout mutates
       // `useritems` in place to the post-switch equipped state, and selectJutsuLoadout
@@ -1101,6 +1104,9 @@ export const combatRouter = createTRPCRouter({
         items: useritems,
       });
       const validateLobbyJutsu = (jutsu: Jutsu) => {
+        if (!hasRequiredSkill(jutsu, { userSkills: activatedSkills })) {
+          return `${jutsu.name}: activate the required skill`;
+        }
         if (!checkJutsuBloodlineItem(jutsu, useritems)) {
           return `${jutsu.name}: required bloodline item is not equipped`;
         }
@@ -1337,6 +1343,15 @@ export const combatRouter = createTRPCRouter({
         userBattle.extraState.preBattleGearModifiers[updatedBattleUserId] =
           extraState.preBattleGearModifiers?.[updatedBattleUserId] ??
           emptyPreBattleGearModifiers();
+      }
+
+      for (const participant of usersState) {
+        participant.skillLockedJutsuIds =
+          participant.activeSkillIds === undefined
+            ? []
+            : Object.values(userBattle.extraState.jutsus)
+                .filter((jutsu) => !hasRequiredSkill(jutsu, participant))
+                .map((jutsu) => jutsu.id);
       }
 
       // Mutate
@@ -2851,6 +2866,16 @@ export const initiateBattle = async (
     }
   }
 
+  // Publish only catalog availability; opponents never receive the private skill build.
+  for (const user of usersState) {
+    user.skillLockedJutsuIds =
+      user.activeSkillIds === undefined
+        ? []
+        : injectableJutsus
+            .filter((jutsu) => !hasRequiredSkill(jutsu, user))
+            .map((jutsu) => jutsu.id);
+  }
+
   // Run battle creation and user status updates in parallel for performance
   const [, , userResult] = await Promise.all([
     client.insert(battle).values({
@@ -3400,6 +3425,17 @@ export const processUsersForBattle = async (
     const fitsBattle = (usage: BattleUsageType) =>
       isQuestBattle ? usage !== "PVP" : usage !== "PVE";
 
+    const requirementSkills = user.userSkills;
+    user.activeSkillIds = inputUser.isAi
+      ? undefined
+      : requirementSkills
+          .filter((skill) => skill.activated)
+          .map((skill) => skill.skillId);
+    // Filter before mastery, weapon and bloodline-item gates read worn gear.
+    user.items = user.items.filter(
+      (ui) => user.isAi || hasRequiredSkill(ui.item, { userSkills: requirementSkills }),
+    );
+
     // The mastery sources this battle applies; ranked battles skip bloodline and skills
     const isRankedBattle =
       battleType === "RANKED_PVP" || battleType === "RANKED_SPARRING";
@@ -3548,6 +3584,11 @@ export const processUsersForBattle = async (
         if (!userjutsu.jutsu) {
           return false;
         }
+        if (
+          !user.isAi &&
+          !hasRequiredSkill(userjutsu.jutsu, { userSkills: requirementSkills })
+        )
+          return false;
         if (!fitsBattle(userjutsu.jutsu.battleUsageType)) {
           return false;
         }
@@ -3559,6 +3600,7 @@ export const processUsersForBattle = async (
           // Provide defaults for optional fields required by canUseJutsu
           const userForCheck = {
             ...user,
+            userSkills: requirementSkills,
             userQuests: user.userQuests ?? [],
             completedQuests: user.completedQuests ?? [],
           };

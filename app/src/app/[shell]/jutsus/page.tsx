@@ -148,9 +148,6 @@ export default function MyJutsu() {
     undefined,
     { enabled: !!userData },
   );
-  const { data: userSkills } = api.skillTree.getUserSkills.useQuery(undefined, {
-    enabled: !!userData,
-  });
   const { data: userReskins } = api.jutsu.getUserReskins.useQuery(undefined, {
     enabled: !!userData,
   });
@@ -366,12 +363,8 @@ export default function MyJutsu() {
     isReordering;
   const isFetching = l1 || l2;
 
-  // Activated skills raise masteries as the server's equip gate counts them; hidden ones
-  // are not sent to players, so only the server counts those
-  const activeSkills = useMemo(
-    () => userSkills?.skills.filter((userSkill) => userSkill.activated),
-    [userSkills],
-  );
+  // Use the profile snapshot so hidden activated skills still satisfy use gates.
+  const activeSkills = userData?.userSkills;
 
   // Categorize jutsu for organized display
   const categorizedJutsus = useMemo(() => {
@@ -789,10 +782,16 @@ export default function MyJutsu() {
                       const effectiveLevel = isJutsuInTraining(userjutsu, serverNow)
                         ? userjutsu.level - 1
                         : userjutsu.level;
-                      // No userItems: evolveJutsu does not check the weapon
+                      // Evolution ignores the weapon and skill use gates, like evolveJutsu.
                       const evolveWarning = !userData
                         ? ""
-                        : jutsuRequirementWarning(evo, userData) ||
+                        : jutsuRequirementWarning(
+                            evo,
+                            userData,
+                            undefined,
+                            undefined,
+                            true,
+                          ) ||
                           (canEvolveJutsu(evo, userData)
                             ? ""
                             : "You do not meet the stat requirements for this evolution.");

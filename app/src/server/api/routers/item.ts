@@ -54,6 +54,7 @@ import {
   questHistory,
   sageMode,
   sageModeRolls,
+  skillTree,
   userData,
   userItem,
   userItemImbuement,
@@ -112,6 +113,7 @@ import {
 import { hasEnergyQueue } from "@/libs/queue";
 import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/repair";
 import { filterRollableSageModes } from "@/libs/sageMode";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { callDiscordContent } from "@/libs/socials";
 import { hasRequiredLevel } from "@/libs/train";
 import { fetchBloodlines, fetchItemBloodlineRolls } from "@/routers/bloodline";
@@ -463,30 +465,49 @@ export const itemRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       setEmptyStringsToNulls(input.data, item);
       // Query
-      const [user, entry, itemWithName, parent, siblings, evolutionGraph] =
-        await Promise.all([
-          fetchUser(ctx.drizzle, ctx.userId),
-          fetchItemWithCraftingRequirements(ctx.drizzle, input.id),
-          ctx.drizzle.query.item.findFirst({
-            columns: { name: true, id: true },
-            where: eq(item.name, input.data.name),
-          }),
-          input.data.parentItemId
-            ? fetchItem(ctx.drizzle, input.data.parentItemId)
-            : Promise.resolve(null),
-          input.data.parentItemId
-            ? ctx.drizzle.query.item.findMany({
-                columns: { id: true },
-                where: eq(item.parentItemId, input.data.parentItemId),
-              })
-            : Promise.resolve([]),
-          input.data.parentItemId
-            ? ctx.drizzle.query.item.findMany({
-                columns: { id: true, parentItemId: true },
-                where: isNotNull(item.parentItemId),
-              })
-            : Promise.resolve([]),
-        ]);
+      const [
+        user,
+        entry,
+        requiredSkill,
+        itemWithName,
+        parent,
+        siblings,
+        evolutionGraph,
+      ] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchItemWithCraftingRequirements(ctx.drizzle, input.id),
+        input.data.requiredSkillId
+          ? ctx.drizzle.query.skillTree.findFirst({
+              columns: { id: true, pathType: true },
+              where: eq(skillTree.id, input.data.requiredSkillId),
+            })
+          : Promise.resolve(null),
+        ctx.drizzle.query.item.findFirst({
+          columns: { name: true, id: true },
+          where: eq(item.name, input.data.name),
+        }),
+        input.data.parentItemId
+          ? fetchItem(ctx.drizzle, input.data.parentItemId)
+          : Promise.resolve(null),
+        input.data.parentItemId
+          ? ctx.drizzle.query.item.findMany({
+              columns: { id: true },
+              where: eq(item.parentItemId, input.data.parentItemId),
+            })
+          : Promise.resolve([]),
+        input.data.parentItemId
+          ? ctx.drizzle.query.item.findMany({
+              columns: { id: true, parentItemId: true },
+              where: isNotNull(item.parentItemId),
+            })
+          : Promise.resolve([]),
+      ]);
+      if (
+        input.data.requiredSkillId &&
+        (!requiredSkill || requiredSkill.pathType !== "SKILL")
+      ) {
+        return errorResponse("Select a valid SkillTree skill entry");
+      }
       // Guard
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");
@@ -758,9 +779,10 @@ export const itemRouter = createTRPCRouter({
       }
 
       const canKeepEquipped =
-        userItemObj.equipped === "NONE" ||
-        userItemObj.equipped === evolutionItem.slot ||
-        userItemObj.equipped.startsWith(`${evolutionItem.slot}_`);
+        hasRequiredSkill(evolutionItem, user) &&
+        (userItemObj.equipped === "NONE" ||
+          userItemObj.equipped === evolutionItem.slot ||
+          userItemObj.equipped.startsWith(`${evolutionItem.slot}_`));
 
       let didEvolveThisCall = false;
       if (!alreadyEvolved) {
@@ -1373,7 +1395,7 @@ export const itemRouter = createTRPCRouter({
       // (no variant join) suffices here.
       const [user, tokenItem, variant, ownershipRows, existingUnlock] =
         await Promise.all([
-          fetchUser(ctx.drizzle, ctx.userId),
+          fetchUserEquipmentSnapshot(ctx.drizzle, ctx.userId),
           fetchUserItem(ctx.drizzle, ctx.userId, input.tokenUserItemId),
           ctx.drizzle.query.itemVariant.findFirst({
             where: eq(itemVariant.id, input.variantId),
@@ -1391,11 +1413,14 @@ export const itemRouter = createTRPCRouter({
       // spent while the user is not AWAKE (covers TRAVEL/BATTLE/ASLEEP/etc.), while
       // the token stack is still crafting, or while it is tied to an active auction
       // (consumeUserItemAtomically only guards id/userId/quantity).
+      if (!user) return errorResponse("User not found");
       if (user.isBanned) return errorResponse("You are banned");
       if (user.status !== "AWAKE") {
         return errorResponse(`Cannot use items while ${user.status.toLowerCase()}`);
       }
       if (!tokenItem) return errorResponse("Token item not found");
+      if (!hasRequiredSkill(tokenItem.item, user))
+        return errorResponse("Activate the required skill to use this token");
       if (tokenItem.storedAtHome) {
         return errorResponse("Fetch the Variant Token from home storage first");
       }
@@ -1878,6 +1903,9 @@ export const itemRouter = createTRPCRouter({
       if (useritem.craftingFinishedAt && useritem.craftingFinishedAt > new Date()) {
         return errorResponse("Cannot consume item that is being crafted");
       }
+      if (!hasRequiredSkill(useritem.item, { userSkills })) {
+        return errorResponse("Activate the required skill to consume this item");
+      }
       if (!nonCombatConsume(useritem.item, user)) {
         return errorResponse("Not consumable");
       }
@@ -2358,6 +2386,8 @@ export const itemRouter = createTRPCRouter({
       // Guard
       if (!user) return errorResponse("User not found");
       if (!repairUserItem) return errorResponse("Repair item not found");
+      if (!hasRequiredSkill(repairUserItem.item, user))
+        return errorResponse("Activate the required skill to use this repair item");
       if (!targetUserItem) return errorResponse("Target item not found");
       if (repairUserItem.userId !== user.userId)
         return errorResponse("Not your repair item");
@@ -2491,7 +2521,7 @@ export const itemRouter = createTRPCRouter({
         return errorResponse("No items need repair");
       }
       // Shared kit selection with the inventory preview (lowest power first)
-      const repairKits = getRepairKits(useritems);
+      const repairKits = getRepairKits(useritems, user);
       if (repairKits.length === 0) {
         return errorResponse("You don't have any repair items in your inventory");
       }
@@ -2731,6 +2761,7 @@ export const itemRouter = createTRPCRouter({
       ).length;
       const canAutoEquip =
         !info.effects.find((e) => e.type.includes("bloodline")) &&
+        hasRequiredSkill(info, user) &&
         instancesEquipped < info.maxEquips &&
         user.level >= info.requiredLevel &&
         (!info.bloodlineId || info.bloodlineId === user.bloodlineId) &&
@@ -2954,7 +2985,11 @@ export const itemRouter = createTRPCRouter({
       const now = new Date();
       const masteries = effectiveMasteries({ ...user, ...masterySources });
       const { assignments, hasUnequipped, hasAvailableSlots } =
-        computeAutoEquipAssignments(useritems, { ...user, ...masteries }, now);
+        computeAutoEquipAssignments(
+          useritems,
+          { ...user, ...masteries, userSkills: masterySources.userSkills },
+          now,
+        );
 
       if (!hasUnequipped) {
         return errorResponse("No unequipped items available");
@@ -3532,6 +3567,9 @@ export const toggleEquipItem = async (
 
   // Only check requirements when equipping (not when unequipping)
   if (doEquip) {
+    if (!hasRequiredSkill(useritem.item, user)) {
+      return errorResponse("Activate the required skill to equip this item");
+    }
     if (useritem.item.requiredLevel > user.level) {
       return errorResponse(
         `You need to be level ${useritem.item.requiredLevel} to equip this item`,

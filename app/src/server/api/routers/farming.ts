@@ -48,7 +48,9 @@ import {
   getNewTrackers,
   type ObjectiveTrackerTaskInput,
 } from "@/libs/quest";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { fetchUser } from "@/routers/profile";
+import { fetchUserSkills } from "@/routers/skillTree";
 import { fetchUserItems } from "@/server/api/routers/item";
 import { createTRPCRouter, errorResponse, protectedProcedure } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
@@ -82,7 +84,7 @@ export const farmingRouter = createTRPCRouter({
     .input(z.object({ plotId: z.string(), seedItemId: z.string() }))
     .output(farmMutationResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      const [user, userItems, plot, { seedItem, yieldItem }, questState] =
+      const [user, userItems, plot, { seedItem, yieldItem }, questState, userSkills] =
         await Promise.all([
           fetchUser(ctx.drizzle, ctx.userId),
           fetchUserItems(ctx.drizzle, ctx.userId),
@@ -91,6 +93,7 @@ export const farmingRouter = createTRPCRouter({
           }),
           fetchFarmSeedAndYield(ctx.drizzle, input.seedItemId),
           fetchFarmingQuestState(ctx.drizzle, ctx.userId),
+          fetchUserSkills(ctx.drizzle, ctx.userId),
         ]);
 
       const guard = guardFarmingMutation(user);
@@ -98,6 +101,8 @@ export const farmingRouter = createTRPCRouter({
       if (!plot) return errorResponse("Plot not found");
       if (plot.seedItemId) return errorResponse("This plot already has a crop");
       if (!seedItem?.isFarmSeed) return errorResponse("This item is not a farm seed");
+      if (!hasRequiredSkill(seedItem, { userSkills }))
+        return errorResponse("Activate the required skill to plant this seed");
       if (!seedItem.farmYieldItemId)
         return errorResponse("Seed has no crop configured");
       if (seedItem.farmGrowTimeSeconds <= 0) {
@@ -296,11 +301,12 @@ export const farmingRouter = createTRPCRouter({
     .input(z.object({ plotId: z.string(), userItemId: z.string() }))
     .output(farmMutationResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      const [user, userItems, plot, questState] = await Promise.all([
+      const [user, userItems, plot, questState, userSkills] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUserItems(ctx.drizzle, ctx.userId),
         fetchFarmPlotWithItems(ctx.drizzle, ctx.userId, input.plotId),
         fetchFarmingQuestState(ctx.drizzle, ctx.userId),
+        fetchUserSkills(ctx.drizzle, ctx.userId),
       ]);
 
       const guard = guardFarmingMutation(user);
@@ -325,6 +331,8 @@ export const farmingRouter = createTRPCRouter({
       if (!fertilizerStack) {
         return errorResponse("Fertilizer not found");
       }
+      if (!hasRequiredSkill(fertilizerStack.item, { userSkills }))
+        return errorResponse("Activate the required skill to use this fertilizer");
       if (!fertilizerStack.item.isFarmFertilizer) {
         return errorResponse("This item is not fertilizer");
       }
@@ -524,19 +532,23 @@ export const farmingRouter = createTRPCRouter({
     .input(z.object({ seedItemId: z.string() }))
     .output(farmMutationResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      const [user, userItems, seedItem, plots, questState] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchUserItems(ctx.drizzle, ctx.userId),
-        ctx.drizzle.query.item.findFirst({ where: eq(item.id, input.seedItemId) }),
-        ctx.drizzle.query.farmPlot.findMany({
-          where: eq(farmPlot.userId, ctx.userId),
-        }),
-        fetchFarmingQuestState(ctx.drizzle, ctx.userId),
-      ]);
+      const [user, userItems, seedItem, plots, questState, userSkills] =
+        await Promise.all([
+          fetchUser(ctx.drizzle, ctx.userId),
+          fetchUserItems(ctx.drizzle, ctx.userId),
+          ctx.drizzle.query.item.findFirst({ where: eq(item.id, input.seedItemId) }),
+          ctx.drizzle.query.farmPlot.findMany({
+            where: eq(farmPlot.userId, ctx.userId),
+          }),
+          fetchFarmingQuestState(ctx.drizzle, ctx.userId),
+          fetchUserSkills(ctx.drizzle, ctx.userId),
+        ]);
 
       const guard = guardFarmingMutation(user);
       if (guard) return guard;
       if (!seedItem?.isFarmSeed) return errorResponse("This item is not a farm seed");
+      if (!hasRequiredSkill(seedItem, { userSkills }))
+        return errorResponse("Activate the required skill to plant this seed");
       if (!seedItem.farmYieldItemId)
         return errorResponse("Seed has no crop configured");
       if (seedItem.farmGrowTimeSeconds <= 0) {
@@ -718,13 +730,14 @@ export const farmingRouter = createTRPCRouter({
     .input(z.object({ userItemId: z.string() }))
     .output(farmMutationResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      const [user, userItems, plots, questState] = await Promise.all([
+      const [user, userItems, plots, questState, userSkills] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUserItems(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.farmPlot.findMany({
           where: eq(farmPlot.userId, ctx.userId),
         }),
         fetchFarmingQuestState(ctx.drizzle, ctx.userId),
+        fetchUserSkills(ctx.drizzle, ctx.userId),
       ]);
       const guard = guardFarmingMutation(user);
       if (guard) return guard;
@@ -740,6 +753,8 @@ export const farmingRouter = createTRPCRouter({
       if (!fertilizerStack?.item.isFarmFertilizer) {
         return errorResponse("Fertilizer not found");
       }
+      if (!hasRequiredSkill(fertilizerStack.item, { userSkills }))
+        return errorResponse("Activate the required skill to use this fertilizer");
       const totalPlots = getTotalFarmPlots(user.farmPlotsPurchased);
       const fertilizable = plots.filter(
         (plot) =>

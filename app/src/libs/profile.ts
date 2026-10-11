@@ -34,6 +34,7 @@ import {
   wornGearTags,
 } from "@/libs/mastery";
 import { masteryGainRoom } from "@/libs/masteryProgression";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { getReducedGainsDays } from "@/libs/train";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { getStrucBoost } from "@/utils/village";
@@ -417,7 +418,10 @@ export const calcMaxEnergy = (user: MasteryBuffUser) => {
     })),
     ...(user.items ?? [])
       .filter(
-        (ui) => isActiveWornGear(ui, user.bloodlineId) && !gearMissingMastery(ui, user),
+        (ui) =>
+          isActiveWornGear(ui, user.bloodlineId) &&
+          (user.isAi || hasRequiredSkill(ui.item, user)) &&
+          !gearMissingMastery(ui, user),
       )
       .map((ui) => ({
         tags: wornGearTags(ui),

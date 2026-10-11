@@ -72,7 +72,9 @@ export const captureCombatCacheSnapshot = (
   masterySources: structuredClone({
     bloodlineId: user.bloodlineId,
     bloodline: user.bloodline ? { effects: user.bloodline.effects } : null,
-    userSkills: user.userSkills?.map(({ skill }) => ({
+    userSkills: user.userSkills?.map(({ skillId, activated, skill }) => ({
+      skillId,
+      activated,
       skill: { target: skill.target, effects: skill.effects },
     })),
     items: user.items.map((row) => ({
@@ -84,6 +86,7 @@ export const captureCombatCacheSnapshot = (
         itemType: row.item.itemType,
         maxDurability: row.item.maxDurability,
         bloodlineId: row.item.bloodlineId,
+        requiredSkillId: row.item.requiredSkillId,
         canBeImbued: row.item.canBeImbued,
         effects: row.item.effects,
         ...Object.fromEntries(

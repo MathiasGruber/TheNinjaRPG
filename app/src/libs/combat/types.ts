@@ -183,6 +183,10 @@ export type CombatUserFields = {
   usedTagTypes: EffectType[];
   /** Enemy-targeted skill and bloodright sources preloaded for on-action application. */
   enemySkillIds?: string[];
+  /** Activated skills captured at initiation for use gates, including injected jutsu. */
+  activeSkillIds?: string[];
+  /** Catalog jutsu blocked by skill requirements, safe for masked action prediction. */
+  skillLockedJutsuIds?: string[];
   /** Total damage this user dealt to opponents this battle (for damage_dealt tracker). */
   damageDealt: number;
   initiative: number;

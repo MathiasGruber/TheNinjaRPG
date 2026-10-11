@@ -36,6 +36,7 @@ import type {
   MasteryStatSource,
 } from "@/libs/mastery";
 import { gearMissingMastery, missingMasteryRequirement } from "@/libs/mastery";
+import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { getStrucBoost } from "@/utils/village";
 
@@ -568,6 +569,10 @@ export const computeLoadoutAssignments = (
       invalidItems.push(`${item.name} requires level ${item.requiredLevel}`);
       continue;
     }
+    if (!hasRequiredSkill(item, user)) {
+      invalidItems.push(`${item.name} requires an activated skill to equip`);
+      continue;
+    }
     if (item.bloodlineId && item.bloodlineId !== user.bloodlineId) {
       invalidItems.push(`${item.name} requires a specific bloodline to equip`);
       continue;
@@ -659,6 +664,7 @@ export interface AutoEquipUserItem {
   craftingFinishedAt: Date | null;
   imbuements: { craftingFinishedAt: Date | null }[];
   item: MasteryRequirementFields & {
+    requiredSkillId?: string | null;
     cost: number;
     slot: string;
     itemType: string;
@@ -685,7 +691,8 @@ export interface ComputedAutoEquip {
  */
 export const computeAutoEquipAssignments = (
   useritems: AutoEquipUserItem[],
-  user: { level: number; bloodlineId: string | null } & MasteryStatSource,
+  user: { level: number; bloodlineId: string | null } & MasteryStatSource &
+    Pick<MasteryBuffUser, "userSkills">,
   now: Date = new Date(),
 ): ComputedAutoEquip => {
   const candidates = useritems.filter(
@@ -721,6 +728,7 @@ export const computeAutoEquipAssignments = (
     );
     if (!slot) continue;
     if (useritem.item.requiredLevel > user.level) continue;
+    if (!hasRequiredSkill(useritem.item, user)) continue;
     if (useritem.item.bloodlineId && useritem.item.bloodlineId !== user.bloodlineId) {
       continue;
     }

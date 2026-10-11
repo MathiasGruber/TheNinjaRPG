@@ -1,4 +1,5 @@
 import type { UserItemWithRelations } from "@/drizzle/schema";
+import { hasRequiredSkill, type SkillRequirementUser } from "@/libs/skillRequirements";
 
 /**
  * Repair kit with its power/repair amount
@@ -45,11 +46,13 @@ export const needsInventoryRepair = (ui: {
  */
 export const getRepairKits = (
   userItems: UserItemWithRelations[] | undefined,
+  user: SkillRequirementUser = {},
 ): RepairKit[] => {
   return (userItems || [])
     .filter(
       (userItem) =>
         userItem.item?.effects?.some((e) => e.type === "repair") &&
+        hasRequiredSkill(userItem.item, user) &&
         userItem.quantity > 0 &&
         !userItem.storedAtHome &&
         !userItem.isInAuction &&
