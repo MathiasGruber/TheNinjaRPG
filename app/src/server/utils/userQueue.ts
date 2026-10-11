@@ -20,6 +20,7 @@ import {
   TimedQueueKinds,
 } from "@/drizzle/constants";
 import {
+  type GameSetting,
   type Item,
   item,
   type Jutsu,
@@ -34,6 +35,7 @@ import {
 } from "@/drizzle/schema";
 import { getInventoryBucket, getInventoryBucketCapacity } from "@/libs/item";
 import { jutsuMasteryTypes } from "@/libs/jutsuMastery";
+import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
 import {
   getNextQueueSchedule,
@@ -54,6 +56,7 @@ import { fetchStudents } from "@/routers/sensei";
 import type { DrizzleClient } from "@/server/db";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { getQueueTotalCapacity } from "@/utils/paypal";
 import type {
   CraftingQueueMaterial,
@@ -557,12 +560,14 @@ const settleCrafts = async (
   now: Date,
   preloaded?: QueuedCraft[],
 ) => {
-  const [waiting, crafting] = await Promise.all([
+  const [waiting, crafting, average] = await Promise.all([
     preloaded ?? fetchCraftingQueue(client, userId),
     client
       .select({ craftingFinishedAt: userItem.craftingFinishedAt })
       .from(userItem)
       .where(and(eq(userItem.userId, userId), isNotNull(userItem.craftingFinishedAt))),
+    // PlanetScale transaction sessions cannot execute concurrent reads.
+    fetchPvpExperienceAverage(client),
   ]);
   if (waiting.length === 0) return 0;
   return settleWaitingJobs({
@@ -572,7 +577,7 @@ const settleCrafts = async (
     waiting,
     now,
     lastFinish: latestDate(crafting.map((row) => row.craftingFinishedAt)),
-    start: (tx, entry, startsAt) => startQueuedCraft(tx, entry, startsAt),
+    start: (tx, entry, startsAt) => startQueuedCraft(tx, entry, startsAt, average),
   });
 };
 
@@ -889,6 +894,7 @@ const startQueuedCraft = async (
   client: Transaction,
   entry: QueuedCraft,
   startsAt: Date,
+  average: GameSetting,
 ): Promise<JobOutcome> => {
   if (!(await claimQueueRow(client, entry.id))) return "conflict";
   const craftable = !!entry.item && !entry.item.hidden && entry.item.canBeCrafted;
@@ -924,7 +930,10 @@ const startQueuedCraft = async (
   // Clan boosts apply to the experience as they do for a direct craft.
   const clanBoost = user.isOutlaw ? 0 : (user.clan?.craftingExpBoost ?? 0) / 100;
   const expGain = Math.floor(
-    (entry.item.craftingExperience ?? 0) * entry.quantity * (1 + clanBoost),
+    boostPvpGain(
+      (entry.item.craftingExperience ?? 0) * entry.quantity * (1 + clanBoost),
+      getPvpBoost(user, [average]).totalPercent,
+    ),
   );
   await updateQueueOwner(client, user, {
     craftingExperience: expGain,

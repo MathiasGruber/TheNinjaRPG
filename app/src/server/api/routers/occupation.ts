@@ -23,6 +23,7 @@ import {
   getInventoryBucketCapacity,
   getInventoryBucketFullMessage,
 } from "@/libs/item";
+import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
 import { getNextQueueSchedule } from "@/libs/queue";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
@@ -153,7 +154,7 @@ export const occupationRouter = createTRPCRouter({
       // atomically and bumps updatedAt, so this ordering gives the later CAS a
       // consistent boundary even when another request commits between the reads.
       // The refresh also starts any queued craft whose turn has come.
-      const { user } = await fetchUpdatedUser({
+      const { user, settings } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -342,7 +343,12 @@ export const occupationRouter = createTRPCRouter({
         : (user.clan?.craftingExpBoost ?? 0) / 100;
       const baseExpGain =
         (itemWithRequirements.craftingExperience ?? 0) * input.quantity;
-      const expGain = Math.floor(baseExpGain * (1 + clanCraftingExpBoost));
+      const expGain = Math.floor(
+        boostPvpGain(
+          baseExpGain * (1 + clanCraftingExpBoost),
+          getPvpBoost(user, settings).totalPercent,
+        ),
+      );
       // Update trackers: crafting experience, total items crafted, and any
       // craft-this-specific-item objectives. Emitted here (behind the transaction's
       // craft CAS below) — NOT from the quest-reward EXP path
@@ -741,7 +747,12 @@ export const occupationRouter = createTRPCRouter({
         ? 0
         : (user.clan?.craftingExpBoost ?? 0) / 100;
       const baseExpGain = Math.floor((crystalItem.craftingExperience ?? 0) / 2);
-      const expGain = Math.floor(baseExpGain * (1 + clanCraftingExpBoost));
+      const expGain = Math.floor(
+        boostPvpGain(
+          baseExpGain * (1 + clanCraftingExpBoost),
+          getPvpBoost(user, updatedUserResult.settings).totalPercent,
+        ),
+      );
       // Update trackers with crafting experience gained
       const { trackers } = getNewTrackers(user, [
         { task: "crafting_experience_gained", increment: expGain },

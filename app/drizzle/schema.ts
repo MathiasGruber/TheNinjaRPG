@@ -2605,8 +2605,11 @@ export const userData = mysqlTable(
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),
-    pvpActivity: int("pvpActivity").default(0).notNull(),
     pvpStreak: smallint("pvpStreak", { unsigned: true }).default(0).notNull(),
+    pvpExperience: float("pvpExperience").default(0).notNull(),
+    pvpExperienceDecayAt: datetime("pvpExperienceDecayAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+    weeklyPvpKills: int("weeklyPvpKills", { unsigned: true }).default(0).notNull(),
+    weeklyPvpKillsAt: datetime("weeklyPvpKillsAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
     errands: smallint("errands", { unsigned: true }).default(0).notNull(),
     missionsD: smallint("missionsD", { unsigned: true }).default(0).notNull(),
     missionsC: smallint("missionsC", { unsigned: true }).default(0).notNull(),
@@ -2710,6 +2713,7 @@ export const userData = mysqlTable(
       experienceIdx: index("UserData_experience_idx").on(table.experience),
       levelIdx: index("UserData_level_idx").on(table.level),
       usernameKey: uniqueIndex("UserData_username_key").on(table.username),
+      pvpExperienceAverageIdx: index("UserData_pvpExperienceAverage_idx").on(table.isAi, table.pvpExperience),
       bloodlineIdIdx: index("UserData_bloodlineId_idx").on(table.bloodlineId),
       bloodlineReskinIdIdx: index("UserData_bloodlineReskinId_idx").on(
         table.bloodlineReskinId,

@@ -440,7 +440,7 @@ const AnbuMembers: React.FC<AnbuMembersProps> = (props) => {
     { key: "avatar", header: "", type: "avatar" },
     { key: "username", header: "Username", type: "string" },
     { key: "rank", header: "Rank", type: "capitalized" },
-    { key: "pvpActivity", header: "PVP Activity", type: "string" },
+    { key: "pvpExperience", header: "PvP XP", type: "number" },
   ];
   if (isLeader || isKage || isElder || canStaffEdit) {
     columns.push({ key: "kickBtn", header: "Action", type: "jsx" });

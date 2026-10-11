@@ -91,7 +91,7 @@ export const userPatchSchema = z.object({
   errands: z.number().optional(),
   pveFights: z.number().optional(),
   pvpFights: z.number().optional(),
-  pvpActivity: z.number().optional(),
+  pvpExperience: z.number().optional(),
   pvpStreak: z.number().optional(),
 
   updatedAt: z.date().optional(),

@@ -503,6 +503,8 @@ const finalizeTournamentAndPayWinner = async (
       user: winner,
       rewards: finalRewards,
       reason: "TOURNAMENT",
+      // Clan prizes transfer the existing treasury rather than generating new ryo.
+      pvpBoostApplied: currentData.type === "CLAN",
     });
   } catch {
     return errorResponse(TOURNAMENT_FINALIZATION_INCOMPLETE);

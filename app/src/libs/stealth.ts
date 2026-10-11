@@ -24,6 +24,7 @@ import {
   STEALTH_MAX_DURATION_SECONDS,
   STEALTH_SENSORY_CAP,
 } from "@/drizzle/constants";
+import { boostPvpGain } from "@/libs/pvpExperience";
 
 /**
  * Calculate the maximum stealth duration in seconds based on stealth stat
@@ -242,15 +243,16 @@ export const calcCovertTrainingFinishAt = (
 };
 
 /**
- * Calculate the training gain for covert skills based on minutes and current stat level
+ * Calculate covert training gains, applying the PvP boost before the stat cap.
  */
 export const calcCovertTrainingGain = (
   minutes: number,
   currentStat: number,
   cap: number,
   gainPerMinute: number,
+  pvpBoostPercent: number = 0,
 ): number => {
-  const rawGain = minutes * gainPerMinute;
+  const rawGain = boostPvpGain(minutes * gainPerMinute, pvpBoostPercent);
   return Math.max(0, Math.min(rawGain, cap - currentStat));
 };
 
@@ -271,6 +273,7 @@ export const getStealthStatus = (
         covertTrainingType: "stealth" | "sensory" | null;
         covertTrainingStartedAt: Date | null;
         covertTrainingMinutes: number | null;
+        pvpBoost?: { totalPercent: number };
       }
     | undefined
     | null,
@@ -294,6 +297,7 @@ export const getStealthStatus = (
             : userData.sensory,
           cap,
           gainPerMinute,
+          userData.pvpBoost?.totalPercent ?? 0,
         )
       : null;
 

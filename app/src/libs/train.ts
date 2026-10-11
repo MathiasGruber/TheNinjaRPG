@@ -49,6 +49,7 @@ import { getGameSettingBoost } from "@/libs/gameSettingBoost";
 import type { MasterySources, MasteryStatSource } from "@/libs/mastery";
 import { effectiveMasteries, hasMasteryRequirements } from "@/libs/mastery";
 import { masteryGainRoom } from "@/libs/masteryProgression";
+import { getPvpBoost } from "@/libs/pvpExperience";
 import {
   liveQueueRows,
   queueHeadAfter,
@@ -961,6 +962,7 @@ export const trainingBoost = (
   return (
     ((trainSetting?.value ?? 1) *
       (1 + boost + clanBoost + shrineBoost) *
+      (1 + getPvpBoost(user, settings).totalPercent / 100) *
       (100 + (warSetting?.value ?? 0))) /
     100
   );

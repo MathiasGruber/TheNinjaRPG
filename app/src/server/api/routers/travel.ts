@@ -36,7 +36,6 @@ import {
   actionLog,
   battle,
   clan,
-  gameSetting,
   overworldAiPlacement,
   userData,
   userItem,
@@ -47,6 +46,7 @@ import {
 import { placementToSectorUser } from "@/libs/overworldAi";
 import { calcActiveUserRegen, calcLevel, calcMaxEnergy } from "@/libs/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
+import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
   findNearestWalkableCoordinate,
@@ -66,7 +66,7 @@ import {
 } from "@/libs/travel";
 import { isTutorialActive } from "@/libs/tutorial";
 import { initiateBattle } from "@/routers/combat";
-import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
+import { fetchAllGameSettings, fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { breakStealth } from "@/routers/stealth";
 import { fetchSector, fetchSectorVillage } from "@/routers/village";
 import {
@@ -81,6 +81,7 @@ import type { DrizzleClient } from "@/server/db";
 import { isTransientDatabaseError } from "@/server/dbRetry";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import {
   fetchPublishedSectorMap,
   fetchPublishedSectorMaps,
@@ -126,12 +127,13 @@ export const travelRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       // Query
-      const [user, target, sectorData] = await Promise.all([
+      const [user, target, sectorData, pvpAverage] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.userId),
         ctx.drizzle.query.village.findFirst({
           where: eq(village.sector, input.sector),
         }),
+        fetchPvpExperienceAverage(ctx.drizzle),
       ]);
 
       // Guard
@@ -205,6 +207,10 @@ export const travelRouter = createTRPCRouter({
       if (success) {
         // Rob 30% of target's money
         const stolenAmount = Math.floor(target.money * ROBBING_STOLLEN_AMOUNT);
+        const prestigeGain = boostPvpGain(
+          ROBBING_VILLAGE_PRESTIGE_GAIN,
+          getPvpBoost(user, [pvpAverage]).totalPercent,
+        );
 
         // Break stealth first (if active) to avoid coupling with money operations
         if (user.stealthActive) {
@@ -216,7 +222,7 @@ export const travelRouter = createTRPCRouter({
           .update(userData)
           .set({
             money: sql`${userData.money} + ${stolenAmount}`,
-            villagePrestige: sql`${userData.villagePrestige} + ${ROBBING_VILLAGE_PRESTIGE_GAIN}`,
+            villagePrestige: sql`${userData.villagePrestige} + ${prestigeGain}`,
           })
           .where(eq(userData.userId, ctx.userId));
         if (robberUpdate.rowsAffected === 0) {
@@ -251,7 +257,7 @@ export const travelRouter = createTRPCRouter({
             .update(userData)
             .set({
               money: sql`${userData.money} - ${stolenAmount}`,
-              villagePrestige: sql`${userData.villagePrestige} - ${ROBBING_VILLAGE_PRESTIGE_GAIN}`,
+              villagePrestige: sql`${userData.villagePrestige} - ${prestigeGain}`,
             })
             .where(eq(userData.userId, ctx.userId));
           return errorResponse("Failed to update target's data");
@@ -1138,7 +1144,7 @@ export const completeExpiredGlobalTravel = async (client: DrizzleClient) => {
         userSkills: { where: eq(userSkill.activated, true), with: { skill: true } },
       },
     }),
-    client.select().from(gameSetting),
+    fetchAllGameSettings(client),
   ]);
   await Promise.all([
     ...users.map((user) =>

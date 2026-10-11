@@ -76,6 +76,7 @@ import {
   isSupportedOverworldBindingTask,
   validateFriendlyPlacementBindings,
 } from "@/libs/overworldAi";
+import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
   combineTrackerResults,
@@ -144,6 +145,7 @@ import {
   masteryRankUpdate,
 } from "@/server/utils/masteryProgression";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
@@ -1322,6 +1324,7 @@ export const questsRouter = createTRPCRouter({
       // Mutations. Scalars are SQL increments and a pick never carries rank or village, so the
       // payout leaves questData to the snapshot claim above instead of writing back this read.
       const { items, jutsus, bloodlines, badges, sageModes } = await updateRewards({
+        pvpBoostApplied: true,
         client: ctx.drizzle,
         user,
         rewards,
@@ -1548,6 +1551,8 @@ export const updateRewards = async (info: {
   user: UserData;
   reason: string;
   rewards: GetRewardResult;
+  /** Skip for existing treasury transfers or rewards with their boost already applied. */
+  pvpBoostApplied?: boolean;
   questCounterField?: QuestCounterFieldName;
   questFinishedAt?: Date;
   // Fully-hydrated user (with quest relations) passed ONLY by callers that want gathering drops
@@ -1579,6 +1584,7 @@ export const updateRewards = async (info: {
     postClaimUserDataPatch,
     dropTrackerForQuestId,
     persistQuestData = true,
+    pvpBoostApplied = false,
   } = info;
   // Check if we need to fetch war data
   const hasWarRewards =
@@ -1590,9 +1596,12 @@ export const updateRewards = async (info: {
     itemIdCounts.set(id, (itemIdCounts.get(id) ?? 0) + 1);
   }
   const uniqueItemIds = [...itemIdCounts.keys()];
+  const hasRecruiterPrestige = !!user.recruiterId && rewards.reward_prestige > 0;
 
   // Fetch names from the database
   const [
+    pvpAverage,
+    recruiter,
     villageData,
     hunterItems,
     gatheringItems,
@@ -1603,6 +1612,20 @@ export const updateRewards = async (info: {
     activeWars,
     sageModes,
   ] = await Promise.all([
+    hasRecruiterPrestige || (!pvpBoostApplied && (user.pvpExperience ?? 0) > 0)
+      ? fetchPvpExperienceAverage(client)
+      : undefined,
+    hasRecruiterPrestige && user.recruiterId
+      ? client.query.userData.findFirst({
+          columns: {
+            pvpExperience: true,
+            weeklyPvpKills: true,
+            weeklyPvpKillsAt: true,
+            isAi: true,
+          },
+          where: eq(userData.userId, user.recruiterId),
+        })
+      : undefined,
     // Fetch villages if needed
     rewards.reward_village_membership !== "NONE"
       ? client
@@ -1704,6 +1727,15 @@ export const updateRewards = async (info: {
           )
       : [],
   ]);
+
+  if (!pvpBoostApplied) {
+    // Keep the caller's payout object aligned with the amounts displayed in its response.
+    boostPvpRewards(
+      rewards,
+      getPvpBoost(user, pvpAverage ? [pvpAverage] : []).totalPercent,
+      true,
+    );
+  }
 
   // If we are rewarding hunter items, only select based on hunter rank
   const droppedHunterItems = getHuntingItemDrops(
@@ -1832,7 +1864,12 @@ export const updateRewards = async (info: {
   }
 
   // Recruitment logic
-  const prestigeReward = Math.ceil(rewards.reward_prestige * 0.1);
+  const prestigeReward = Math.floor(
+    boostPvpGain(
+      Math.ceil(rewards.reward_prestige * 0.1),
+      getPvpBoost(recruiter ?? {}, pvpAverage ? [pvpAverage] : []).totalPercent,
+    ),
+  );
 
   // Update database
   await Promise.all([
@@ -2946,6 +2983,30 @@ export const commitQuestObjectiveRewards = async (info: {
     consequences,
   } = info;
   const rewardChoice = resolved ? (info.rewardChoice ?? null) : null;
+  const senseiId =
+    user.rank === "GENIN" && userQuest?.quest.questType === "mission"
+      ? user.senseiId
+      : null;
+  const [sensei, pvpAverage] = await Promise.all([
+    senseiId
+      ? client.query.userData.findFirst({
+          columns: {
+            pvpExperience: true,
+            weeklyPvpKills: true,
+            weeklyPvpKillsAt: true,
+            isAi: true,
+          },
+          where: eq(userData.userId, senseiId),
+        })
+      : undefined,
+    senseiId ? fetchPvpExperienceAverage(client) : undefined,
+  ]);
+  const senseiReward = Math.floor(
+    boostPvpGain(
+      SENSEI_STUDENT_RYO_PER_MISSION,
+      getPvpBoost(sensei ?? {}, pvpAverage ? [pvpAverage] : []).totalPercent,
+    ),
+  );
   const userDelta = getRewardUserDelta(rewards, 0, true);
   // Consequences can start battles or change inventory/quest relations outside this snapshot.
   const userCacheEligible =
@@ -3068,11 +3129,6 @@ export const commitQuestObjectiveRewards = async (info: {
     return { outcome: "state_changed" };
   }
 
-  // Sensei rewards
-  const hasSensei = user.senseiId && user.rank === "GENIN";
-  const isMission = userQuest?.quest.questType === "mission";
-  const senseiId = hasSensei && isMission ? user.senseiId : null;
-
   const changedQuestAssignments = await runCheckRewardsPrepInParallel(
     client,
     user,
@@ -3137,6 +3193,7 @@ export const commitQuestObjectiveRewards = async (info: {
     );
 
   const rewardPromise = updateRewards({
+    pvpBoostApplied: true,
     client,
     user,
     rewards,
@@ -3163,13 +3220,13 @@ export const commitQuestObjectiveRewards = async (info: {
           client
             .update(userData)
             .set({
-              money: sql`${userData.money} + ${SENSEI_STUDENT_RYO_PER_MISSION}`,
+              money: sql`${userData.money} + ${senseiReward}`,
             })
             .where(eq(userData.userId, senseiId)),
           client.insert(bankTransfers).values({
             senderId: userId,
             receiverId: senseiId,
-            amount: SENSEI_STUDENT_RYO_PER_MISSION,
+            amount: senseiReward,
             type: "sensei",
           }),
         ]

@@ -31,6 +31,7 @@ import {
 } from "@/drizzle/schema";
 import { castElderVoteEntry, fetchElderVote } from "@/libs/elder";
 import { getServerPusher } from "@/libs/pusher";
+import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import { fetchClan } from "@/routers/clan";
 import { initiateBattle } from "@/routers/combat";
 import { fetchUpdatedUser, fetchUser, updateNindo } from "@/routers/profile";
@@ -50,6 +51,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { calculateDailyLockedTime } from "@/server/utils/kage";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { canChallengeKage } from "@/utils/kage";
 import { canTakeKage } from "@/utils/permissions";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
@@ -187,9 +189,10 @@ export const kageRouter = createTRPCRouter({
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Fetch village and war data
-      const [user, challenge] = await Promise.all([
+      const [user, challenge, pvpAverage] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchRequest(ctx.drizzle, input.id, "KAGE"),
+        fetchPvpExperienceAverage(ctx.drizzle),
       ]);
       const [village, activeWars] = await Promise.all([
         fetchVillage(ctx.drizzle, user.villageId || ""),
@@ -220,12 +223,16 @@ export const kageRouter = createTRPCRouter({
         "KAGE_PVP",
       );
       if (result.success) {
+        const prestigeGain = boostPvpGain(
+          KAGE_CHALLENGE_ACCEPT_PRESTIGE,
+          getPvpBoost(user, [pvpAverage]).totalPercent,
+        );
         await Promise.all([
           updateRequestState(ctx.drizzle, input.id, "ACCEPTED", "KAGE"),
           ctx.drizzle
             .update(userData)
             .set({
-              villagePrestige: sql`${userData.villagePrestige} + ${KAGE_CHALLENGE_ACCEPT_PRESTIGE}`,
+              villagePrestige: sql`${userData.villagePrestige} + ${prestigeGain}`,
             })
             .where(eq(userData.userId, ctx.userId)),
           pusher.trigger(challenge.senderId, "event", {

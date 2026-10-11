@@ -194,6 +194,7 @@ export type CombatUserFields = {
   usedTagTypes: EffectType[];
   /** Enemy-targeted skill and bloodright sources preloaded for on-action application. */
   enemySkillIds?: string[];
+  pvpBoostPercent?: number;
   /** Activated skills captured at initiation for use gates, including injected jutsu. */
   activeSkillIds?: string[];
   /** Catalog jutsu blocked by skill requirements for the controller's action prediction. */
@@ -397,6 +398,8 @@ export type ExtraState = {
   profileCacheSnapshots?: Record<string, CombatCacheSnapshot>;
   /** Repeated-opponent eligibility captured before inserting this battle. */
   energyRewardEligible?: boolean;
+  /** Human shrine PvP XP scales independently of strategic shrine rewards. */
+  pvpExperienceScaling?: number;
   energyCapacity?: Record<string, number>;
   energyRegeneration?: Record<string, number>;
   // Static data - never changes during battle (looked up by ID)
@@ -491,6 +494,8 @@ export type DroppedItem = {
  * Result type for users when battle is ended
  */
 export type CombatResult = {
+  pvpExperience?: number;
+  weeklyPvpKills?: number;
   profileUpdate?: CombatProfileUpdate;
   energyReward?: number;
   masteryGains?: Partial<Record<MasteryName, number>>;

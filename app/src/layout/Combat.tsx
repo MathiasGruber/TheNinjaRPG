@@ -1653,6 +1653,12 @@ const Combat: React.FC<CombatProps> = (props) => {
                   )}
                 </div>
               )}
+              {(result.pvpExperience ?? 0) > 0 && (
+                <p>PvP Experience: +{result.pvpExperience?.toFixed(2)}</p>
+              )}
+              {(result.weeklyPvpKills ?? 0) > 0 && (
+                <p>Weekly PvP kills: +{result.weeklyPvpKills}</p>
+              )}
               {result.experience > 0 && (
                 <p>Experience Points: {result.experience.toFixed(2)}</p>
               )}

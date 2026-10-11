@@ -139,6 +139,7 @@ import {
   scaleUserStats,
 } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
+import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import {
   filterQuestTrackersForDbPersist,
   getNewTrackers,
@@ -191,6 +192,7 @@ import {
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
 import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoverySummaryCandidates } from "@/server/utils/questDiscovery";
 import {
@@ -648,16 +650,32 @@ export const profileRouter = createTRPCRouter({
     .output(userDeltaResponseSchema)
     .mutation(async ({ ctx }) => {
       // Query
+      const recruiterData = alias(userData, "recruiter");
+      const [snapshot, recruiter] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        ctx.drizzle
+          .select({
+            pvpExperience: recruiterData.pvpExperience,
+            weeklyPvpKills: recruiterData.weeklyPvpKills,
+            weeklyPvpKillsAt: recruiterData.weeklyPvpKillsAt,
+            isAi: recruiterData.isAi,
+          })
+          .from(userData)
+          .innerJoin(recruiterData, eq(userData.recruiterId, recruiterData.userId))
+          .where(eq(userData.userId, ctx.userId))
+          .then((rows) => rows[0]),
+      ]);
       const {
         user,
+        settings,
         requiresProgressionRefresh,
         publishedAchievementIds,
         progressionQuestCandidates,
         questBootstrap,
-      } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
+      } = snapshot;
       // Guard
       if (!user) return errorResponse("User not found");
       const block = levelUpBlockMessage(user);
@@ -710,7 +728,12 @@ export const profileRouter = createTRPCRouter({
         ],
       });
       if (result.success && user.recruiterId) {
-        const amount = 10 * newLevel * newLevel * newLevel;
+        const amount = Math.floor(
+          boostPvpGain(
+            10 * newLevel * newLevel * newLevel,
+            getPvpBoost(recruiter ?? {}, settings).totalPercent,
+          ),
+        );
         await Promise.all([
           ctx.drizzle
             .update(userData)
@@ -1339,7 +1362,7 @@ export const profileRouter = createTRPCRouter({
         }
       }
       return {
-        userData: user,
+        userData: user ? { ...user, pvpBoost: getPvpBoost(user, settings) } : user,
         achievementProgress: achievementProgress,
         notifications: notifications,
         serverTime: Date.now(),
@@ -3826,8 +3849,14 @@ export const fetchPublishedAchievements = async (client: DrizzleClient) =>
     (achievement) => !questHasOverworldObjectives(achievement),
   );
 
-const fetchAllGameSettings = (client: DrizzleClient) =>
-  scopedRead("gameSettings", () => client.select().from(gameSetting));
+export const fetchAllGameSettings = (client: DrizzleClient) =>
+  scopedRead("gameSettings", async () => {
+    const [settings, average] = await Promise.all([
+      client.select().from(gameSetting),
+      fetchPvpExperienceAverage(client),
+    ]);
+    return [...settings, average];
+  });
 
 const fetchHasUnvotedPolls = (client: DrizzleClient, userId: string, now: Date) =>
   scopedRead(`unvotedPolls:${userId}`, () =>
@@ -4183,6 +4212,7 @@ export const scaleEditedAi = (stored: UserData, edited: UserData) => {
 
 export type UserWithRelations =
   | (UserData & {
+      pvpBoost?: ReturnType<typeof getPvpBoost>;
       effectiveMasteries?: MasteryStatSource;
       userSkills?: NonNullable<MasterySources["userSkills"]>;
       /** Every queue entry of the user, in queue order per kind */
@@ -4314,7 +4344,7 @@ export const getUserProgressionUpdate = (
       errands: publicUser.errands,
       pveFights: publicUser.pveFights,
       pvpFights: publicUser.pvpFights,
-      pvpActivity: publicUser.pvpActivity,
+      pvpExperience: publicUser.pvpExperience,
       pvpStreak: publicUser.pvpStreak,
       offence: user.offence,
       defence: user.defence,

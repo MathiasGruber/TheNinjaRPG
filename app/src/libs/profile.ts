@@ -39,6 +39,7 @@ import {
   wornGearTags,
 } from "@/libs/mastery";
 import { masteryGainRoom } from "@/libs/masteryProgression";
+import { getPvpBoost } from "@/libs/pvpExperience";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import type { SectorUser } from "@/libs/threejs/types";
 import { getReducedGainsDays } from "@/libs/train";
@@ -438,7 +439,7 @@ export const calcActiveUserRegen = (
   const warFactor = warSetting?.value || 0;
   regeneration *= (100 + warFactor) / 100;
 
-  return regeneration;
+  return regeneration * (1 + getPvpBoost(user, settings).totalPercent / 100);
 };
 
 /** Energy capacity includes usable worn gear, bloodline and activated skill pool effects. */

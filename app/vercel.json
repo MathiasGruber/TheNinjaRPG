@@ -38,6 +38,10 @@
       "schedule": "0/5 0 * * *"
     },
     {
+      "path": "/api/weekly-pvp",
+      "schedule": "0/5 0 * * 1"
+    },
+    {
       "path": "/api/daily-ranked-pvp",
       "schedule": "0/5 0 * * *"
     },

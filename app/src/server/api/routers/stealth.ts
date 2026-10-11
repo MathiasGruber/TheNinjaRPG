@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { userData, villageAlliance } from "@/drizzle/schema";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
+import { getPvpBoost } from "@/libs/pvpExperience";
 import { fetchUpdatedUser } from "@/routers/profile";
 import {
   baseServerResponse,
@@ -328,7 +329,7 @@ export const stealthRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Query
-      const { user } = await fetchUpdatedUser({
+      const { user, settings } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -355,6 +356,7 @@ export const stealthRouter = createTRPCRouter({
         currentStat,
         STEALTH_SENSORY_CAP,
         STEALTH_TRAIN_GAIN_PER_MINUTE,
+        getPvpBoost(user, settings).totalPercent,
       );
       const finishAt = new Date(Date.now() + input.minutes * 60 * 1000);
 
@@ -401,7 +403,7 @@ export const stealthRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx }) => {
       // Query
-      const { user } = await fetchUpdatedUser({
+      const { user, settings } = await fetchUpdatedUser({
         client: ctx.drizzle,
         userId: ctx.userId,
       });
@@ -430,6 +432,7 @@ export const stealthRouter = createTRPCRouter({
         currentStat,
         STEALTH_SENSORY_CAP,
         STEALTH_TRAIN_GAIN_PER_MINUTE,
+        getPvpBoost(user, settings).totalPercent,
       );
       const newValue = Math.min(currentStat + gained, STEALTH_SENSORY_CAP);
 

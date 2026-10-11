@@ -1086,6 +1086,19 @@ export const MASTERY_RANK_REQUIREMENTS: Record<MasteryRank, number> = {
   MASTER: 1000000,
   LEGENDARY: MAX_MASTERY_CAP,
 };
+export const PVP_EXPERIENCE_PARTICIPATION_REWARD = 100;
+export const PVP_EXPERIENCE_WIN_REWARD = 150;
+export const PVP_EXPERIENCE_DAILY_DECAY = 0.1;
+export const PVP_EXPERIENCE_AVERAGE_SETTING = "pvpExperienceAverage";
+export const PVP_WEEKLY_KILL_BOOST = 0.25;
+export const PVP_WEEKLY_KILL_BOOST_CAP = 20;
+export const PVP_EXPERIENCE_BOOST_TIERS = [
+  { ratio: 1.4, percent: 15 },
+  { ratio: 1.3, percent: 10 },
+  { ratio: 1.2, percent: 5 },
+  { ratio: 0.8, percent: 2 },
+] as const;
+
 export const PVP_MASTERY_WIN_REWARD = 200;
 export const PVP_MASTERY_LOSS_REWARD = 100;
 // AI rows retain their catalog tuning: half the level budget over 6 stats is 1/12 each.
