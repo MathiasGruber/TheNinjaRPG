@@ -159,7 +159,7 @@ export default function CombatPage() {
   // turn) so Combat does not have to re-derive it from the same battle object.
   // Depend on battleState so isPending / result reach Combat; do not depend on
   // the whole config object — Combat only reads showGridNumbers, and the WebGL
-  // scene is set up on [battleId, gameAssets, sfxOn], not on this element.
+  // scene stays mounted while newly revealed action assets load.
   const combat = useMemo(() => {
     return (
       battleState &&

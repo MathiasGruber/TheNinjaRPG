@@ -185,7 +185,7 @@ export type CombatUserFields = {
   enemySkillIds?: string[];
   /** Activated skills captured at initiation for use gates, including injected jutsu. */
   activeSkillIds?: string[];
-  /** Catalog jutsu blocked by skill requirements, safe for masked action prediction. */
+  /** Catalog jutsu blocked by skill requirements for the controller's action prediction. */
   skillLockedJutsuIds?: string[];
   /** Total damage this user dealt to opponents this battle (for damage_dealt tracker). */
   damageDealt: number;
@@ -377,6 +377,8 @@ export type PreBattleGearModifiers = {
  * Static data is stored once at battle initiation and looked up by ID.
  */
 export type ExtraState = {
+  /** Definitions of publicly performed actions, retained after their caster despawns. */
+  revealedActions?: { jutsuIds: string[]; itemIds: string[] };
   /** Persisted, unscaled player state for confirmed completion responses; never sent to opponents. */
   profileCacheSnapshots?: Record<string, CombatCacheSnapshot>;
   /** Repeated-opponent eligibility captured before inserting this battle. */
@@ -408,8 +410,6 @@ export type ExtraState = {
   /** Per-user pre-battle gear/keystone % mods folded into the damage pipeline at battle start. */
   preBattleGearModifiers?: Record<string, PreBattleGearModifiers>;
   settings?: GameSetting[];
-  textureAssets?: string[];
-  sfxAssets?: string[];
   initialDurability?: Record<string, Record<string, number>>; // userId -> userItemId -> durability
   // Raid-specific data
   raidQuestId?: string; // The quest ID for raid battles
@@ -451,26 +451,20 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
 /**
  * A returned battle used on frontend where private information is hidden
  */
-export type ReturnedBattle = Omit<CompleteBattle, "usersState"> & {
+export type ReturnedExtraState = Omit<ExtraState, "villages" | "clans"> & {
+  villages: Record<string, Pick<CombatQueryVillage, "id" | "hexColor">>;
+  clans: Record<string, Pick<Clan, "id" | "image">>;
+  textureAssets?: string[];
+  sfxAssets?: string[];
+};
+
+export type ReturnedBattle = Omit<CompleteBattle, "usersState" | "extraState"> & {
   usersState: ReturnedUserState[];
+  extraState: ReturnedExtraState;
 };
 
 /** Minimal battle context for per-round effect logic (e.g. castThisRound). */
 export type BattleRoundContext = Pick<ReturnedBattle, "round">;
-
-/**
- * Dynamic battle state - only the fields that change during battle.
- * Used for efficient updates from performAction (excludes static extraState).
- */
-export type BattleDynamicUpdate = Omit<CompleteBattle, "extraState">;
-
-/**
- * Returned dynamic battle update with masked user state.
- * Used for performAction responses to avoid sending static extraState.
- */
-export type ReturnedBattleDynamic = Omit<BattleDynamicUpdate, "usersState"> & {
-  usersState: ReturnedUserState[];
-};
 
 export type DroppedItem = {
   itemId: string;

@@ -85,7 +85,7 @@ describe("legacy fallback (no isSummonTemplate flag)", () => {
 
 describe("isSummonTemplate is server-internal (stripped by masking)", () => {
   it("is absent from the masked public state of a non-controller viewer", () => {
-    const summon = mk({ userId: "s1", controllerId: "p1", isSummon: true, isSummonTemplate: true, curHealth: 50 });
+    const summon = mk({ userId: "s1", controllerId: "p1", isSummon: true, isSummonTemplate: false, curHealth: 50 });
     const battle = { usersState: [summon] } as unknown as Battle;
     const masked = maskBattle(battle, "opponentX");
     expect("isSummonTemplate" in (masked.usersState[0] as object)).toBe(false);
@@ -93,7 +93,7 @@ describe("isSummonTemplate is server-internal (stripped by masking)", () => {
   it("is absent even from the controller's own (full) masked state", () => {
     // The controller gets allState (public+private); isSummonTemplate is in
     // neither list, so it must be stripped for them too.
-    const summon = mk({ userId: "s1", controllerId: "p1", isSummon: true, isSummonTemplate: true, curHealth: 50 });
+    const summon = mk({ userId: "s1", controllerId: "p1", isSummon: true, isSummonTemplate: false, curHealth: 50 });
     const battle = { usersState: [summon] } as unknown as Battle;
     const masked = maskBattle(battle, "p1");
     expect("isSummonTemplate" in (masked.usersState[0] as object)).toBe(false);

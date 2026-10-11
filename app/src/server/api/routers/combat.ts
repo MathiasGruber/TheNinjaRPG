@@ -33,15 +33,6 @@ import {
   COMBAT_BIOMES,
   type CombatBiome,
   CombatStatNames,
-  ID_ANIMATION_HEAL,
-  ID_ANIMATION_HIT,
-  ID_ANIMATION_SMOKE,
-  ID_SFX_CLEANSE,
-  ID_SFX_CLEAR,
-  ID_SFX_HEAL,
-  ID_SFX_HIT,
-  ID_SFX_MOVE,
-  ID_SFX_SMOKE,
   MAP_RESERVED_SECTORS,
   MAP_WAKE_ISLAND_SECTOR,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
@@ -148,7 +139,6 @@ import {
   getTurnControl,
   isEffectActive,
   maskBattle,
-  maskBattleDynamic,
   reconcileLobbyPools,
   refreshMasteries,
   resetMasteriesToBase,
@@ -851,9 +841,7 @@ export const combatRouter = createTRPCRouter({
               result ? updateRaidProgress(db, newBattle, suid) : Promise.resolve(),
               finishBattle(),
             ]);
-            // Return dynamic battle update (excludes extraState for efficiency)
-            // Frontend should merge this with existing extraState
-            const newMaskedBattle = maskBattleDynamic(newBattle, suid);
+            const newMaskedBattle = maskBattle(newBattle, suid);
 
             // Ping users on websocket
             if (!battleOver) {
@@ -873,7 +861,6 @@ export const combatRouter = createTRPCRouter({
             after(() => Sentry.flush(15000));
 
             // Return the new battle + result state if applicable
-            // Note: battleUpdate excludes extraState - frontend merges with existing
             return {
               result: result,
               updateClient: true,
@@ -2651,68 +2638,6 @@ export const initiateBattle = async (
   // Insert battle entry into DB
   const battleId = nanoid();
 
-  // Figure out all textures used by items/jutsus effects (in appearAnimation, disappearAnimation, staticAnimation) for all users
-  // Collect all unique texture and sfx asset paths from item and jutsu effects for all users
-  const textureAssets = [
-    ...users.flatMap((u) =>
-      u.items.flatMap((i) =>
-        (i.item?.effects ?? []).flatMap((e) => [
-          e.appearAnimation,
-          e.disappearAnimation,
-          e.staticAnimation,
-          e.staticAssetPath,
-        ]),
-      ),
-    ),
-    ...users.flatMap((u) =>
-      u.jutsus.flatMap((j) =>
-        (j.jutsu?.effects ?? []).flatMap((e) => [
-          e.appearAnimation,
-          e.disappearAnimation,
-          e.staticAnimation,
-          e.staticAssetPath,
-        ]),
-      ),
-    ),
-    ...Object.values(extraState.enemySkills ?? {}).flatMap((effects) =>
-      effects.flatMap((e) => [
-        e.appearAnimation,
-        e.disappearAnimation,
-        e.staticAnimation,
-        e.staticAssetPath,
-      ]),
-    ),
-    // Include staticAssetPath from ground effects (barriers, etc.)
-    ...groundEffects.map((e) => e.staticAssetPath),
-  ]
-    .filter((asset): asset is string => !!asset)
-    .concat([ID_ANIMATION_SMOKE, ID_ANIMATION_HIT, ID_ANIMATION_HEAL]);
-
-  const sfxAssets = [
-    ...Object.values(extraState.enemySkills ?? {}).flatMap((effects) =>
-      effects.flatMap((e) => [e.appearSfx, e.disappearSfx]),
-    ),
-    ...users.flatMap((u) =>
-      u.items.flatMap((i) =>
-        (i.item?.effects ?? []).flatMap((e) => [e.appearSfx, e.disappearSfx]),
-      ),
-    ),
-    ...users.flatMap((u) =>
-      u.jutsus.flatMap((j) =>
-        (j.jutsu?.effects ?? []).flatMap((e) => [e.appearSfx, e.disappearSfx]),
-      ),
-    ),
-  ]
-    .filter((asset): asset is string => !!asset)
-    .concat([
-      ID_SFX_SMOKE,
-      ID_SFX_HIT,
-      ID_SFX_HEAL,
-      ID_SFX_MOVE,
-      ID_SFX_CLEANSE,
-      ID_SFX_CLEAR,
-    ]);
-
   // Rows the status update below is expected to claim, used as the CAS guard
   const allParticipantIds = getBattleClaimIds({
     battleType,
@@ -2869,7 +2794,7 @@ export const initiateBattle = async (
     }
   }
 
-  // Publish only catalog availability; opponents never receive the private skill build.
+  // Capture injectable jutsu availability for the controller's action prediction.
   for (const user of usersState) {
     user.skillLockedJutsuIds =
       user.activeSkillIds === undefined
@@ -2903,8 +2828,6 @@ export const initiateBattle = async (
         },
         dmgConfig: dmgConfig,
         settings: settings,
-        textureAssets: textureAssets,
-        sfxAssets: sfxAssets,
         initialDurability: initialDurability,
         raidQuestId: info.raidQuestId,
         raidInitialBossHp: raidInitialBossHp,

@@ -843,7 +843,8 @@ export const handleInjectedJutsus = (
     user.sageModeId &&
     !SAGE_MODE_DISABLED_BATTLES.includes(battle.battleType) &&
     user.sageModeUsedThisBattle !== true &&
-    (user.dailySageActivations ?? 0) < getSageDailyCap(user.sageMasteryExperience) &&
+    (user.dailySageActivations ?? 0) <
+      getSageDailyCap(user.sageMasteryExperience ?? 0) &&
     allJutsus[sageActivationId]
   ) {
     // Only offer Activation when the user can pay its chakra/stamina cost. Those pool
@@ -1173,15 +1174,23 @@ export const insertAction = (info: {
       updateStatUsage(user, effect as UserEffect);
     });
     recordMasteryUsage(user, action);
-    user.usedActions.push({
-      id: action.id,
-      type: action.type,
-      ...(action.type === "jutsu" && action.data
-        ? { masteryTypes: jutsuMasteryTypes(action.data) }
-        : {}),
-    });
     // Check if action affected anything
     if (affectedTiles.size > 0) {
+      user.usedActions.push({
+        id: action.id,
+        type: action.type,
+        ...(action.type === "jutsu" && action.data
+          ? { masteryTypes: jutsuMasteryTypes(action.data) }
+          : {}),
+      });
+      // Combat logs outlive summons and clones; retain definitions of revealed
+      // actions even when their caster is removed from usersState.
+      if (action.type === "jutsu" || action.type === "item") {
+        battle.extraState.revealedActions ??= { jutsuIds: [], itemIds: [] };
+        const revealed = battle.extraState.revealedActions;
+        const ids = action.type === "jutsu" ? revealed.jutsuIds : revealed.itemIds;
+        if (!ids.includes(action.id)) ids.push(action.id);
+      }
       // If this was an item, check if we should destroy on use
       if (action.type === "item") {
         const useritem = user.items.find((i) => i.itemId === action.id);

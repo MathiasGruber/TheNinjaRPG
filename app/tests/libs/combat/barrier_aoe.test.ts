@@ -79,6 +79,7 @@ const makeBattle = (): CompleteBattle =>
     createdAt: new Date("2020-01-01T00:00:00Z"),
     updatedAt: new Date("2020-01-01T00:00:00Z"),
     roundStartAt: new Date("2020-01-01T00:00:00Z"),
+    extraState: {} as CompleteBattle["extraState"],
     usersState: [makeActor()],
     usersEffects: [],
     groundEffects: [makeBarrier()],

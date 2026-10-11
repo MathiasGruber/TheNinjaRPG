@@ -180,6 +180,13 @@ export const updateBattle = async (
           usersState: newBattle.usersState,
           usersEffects: newBattle.usersEffects,
           groundEffects: newBattle.groundEffects,
+          // Keep revealed action definitions available after a summon despawns.
+          // Update only this subtree within the same version-guarded write.
+          ...(newBattle.extraState.revealedActions
+            ? {
+                extraState: sql`JSON_SET(${battle.extraState}, '$.revealedActions', CAST(${JSON.stringify(newBattle.extraState.revealedActions)} AS JSON))`,
+              }
+            : {}),
           activeUserId: newBattle.activeUserId,
           roundStartAt: newBattle.roundStartAt,
           round: newBattle.round,
