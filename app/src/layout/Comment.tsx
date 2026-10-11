@@ -102,7 +102,7 @@ export const CommentOnConversation: React.FC<ConversationCommentProps> = (props)
       isEditPending={editComment.isPending}
       deleteComment={handleDelete}
       isDeletePending={deleteComment.isPending}
-      editing={editing}
+      editing={editing && props.canEdit !== false}
       setEditing={setEditing}
     />
   );
