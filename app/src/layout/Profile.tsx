@@ -304,18 +304,6 @@ function CharacterProfile() {
           <div className="flex flex-col items-start">
             <b>Activity</b>
             <p>Exp: {userData.experience?.toLocaleString()}</p>
-            <button
-              type="button"
-              className="flex items-center gap-1 text-left underline decoration-dotted underline-offset-4"
-              onClick={() => setPvpInfoModal("experience")}
-            >
-              PvP XP:{" "}
-              {userData.pvpExperience.toLocaleString(undefined, {
-                maximumFractionDigits: 2,
-              })}{" "}
-              · Boost: +{userData.pvpBoost?.totalPercent ?? 0}%{" "}
-              <Info className="h-4 w-4" />
-            </button>
             <p>Exp for lvl: {expRequired ? expRequired.toFixed(2) : "--"}</p>
             <p>PvE Fights: {userData.pveFights}</p>
             <TooltipProvider delayDuration={50}>
@@ -341,6 +329,18 @@ function CharacterProfile() {
                 </Tooltip>
               </div>
             </TooltipProvider>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-left underline decoration-dotted underline-offset-4"
+              onClick={() => setPvpInfoModal("experience")}
+            >
+              PvP XP:{" "}
+              {userData.pvpExperience.toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+              })}{" "}
+              · Boost: +{userData.pvpBoost?.totalPercent ?? 0}%{" "}
+              <Info className="h-4 w-4" />
+            </button>
             {topPlayers && (
               <TooltipProvider delayDuration={50}>
                 <div className="flex flex-row items-center gap-1">
