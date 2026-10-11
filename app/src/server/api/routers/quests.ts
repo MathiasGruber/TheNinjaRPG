@@ -1551,7 +1551,7 @@ export const updateRewards = async (info: {
   user: UserData;
   reason: string;
   rewards: GetRewardResult;
-  /** Quest previews and frozen choices already carry their completion-time boost. */
+  /** Skip for existing treasury transfers or rewards with their boost already applied. */
   pvpBoostApplied?: boolean;
   questCounterField?: QuestCounterFieldName;
   questFinishedAt?: Date;
@@ -1596,10 +1596,12 @@ export const updateRewards = async (info: {
     itemIdCounts.set(id, (itemIdCounts.get(id) ?? 0) + 1);
   }
   const uniqueItemIds = [...itemIdCounts.keys()];
+  const hasRecruiterPrestige = !!user.recruiterId && rewards.reward_prestige > 0;
 
   // Fetch names from the database
   const [
     pvpAverage,
+    recruiter,
     villageData,
     hunterItems,
     gatheringItems,
@@ -1610,9 +1612,21 @@ export const updateRewards = async (info: {
     activeWars,
     sageModes,
   ] = await Promise.all([
-    !pvpBoostApplied &&
-    ((user.pvpExperience ?? 0) > 0 || (user.weeklyPvpKills ?? 0) > 0)
+    hasRecruiterPrestige ||
+    (!pvpBoostApplied &&
+      ((user.pvpExperience ?? 0) > 0 || (user.weeklyPvpKills ?? 0) > 0))
       ? fetchPvpExperienceAverage(client)
+      : undefined,
+    hasRecruiterPrestige && user.recruiterId
+      ? client.query.userData.findFirst({
+          columns: {
+            pvpExperience: true,
+            weeklyPvpKills: true,
+            weeklyPvpKillsAt: true,
+            isAi: true,
+          },
+          where: eq(userData.userId, user.recruiterId),
+        })
       : undefined,
     // Fetch villages if needed
     rewards.reward_village_membership !== "NONE"
@@ -1855,7 +1869,12 @@ export const updateRewards = async (info: {
   }
 
   // Recruitment logic
-  const prestigeReward = Math.ceil(rewards.reward_prestige * 0.1);
+  const prestigeReward = Math.floor(
+    boostPvpGain(
+      Math.ceil(rewards.reward_prestige * 0.1),
+      getPvpBoost(recruiter ?? {}, pvpAverage ? [pvpAverage] : []).totalPercent,
+    ),
+  );
 
   // Update database
   await Promise.all([

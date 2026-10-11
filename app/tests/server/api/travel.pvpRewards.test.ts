@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { MAP_WAR_TORN_BATTLEGROUND_SECTOR } from "@/drizzle/constants";
 import { actionLog, userData, village } from "@/drizzle/schema";
-import { getServerPusher } from "@/libs/pusher";
+import { Pusher } from "@/libs/pusher";
 import { travelRouter } from "@/server/api/routers/travel";
 import { insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
@@ -13,15 +13,34 @@ const VICTIM = "pvp-victim";
 const location = { sector: MAP_WAR_TORN_BATTLEGROUND_SECTOR, longitude: 10, latitude: 10 };
 const readRobber = async () => (await getTestDatabase()).query.userData.findFirst({ where: eq(userData.userId, ROBBER) });
 
+const stubRateLimitTransport = () => {
+  const realFetch = globalThis.fetch;
+  // Keep rate-limit middleware active, stubbing only Redis transport for this test.
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) {
+      return realFetch(input, init);
+    }
+    const commands = JSON.parse(init.body) as unknown[];
+    const resultFor = (command: unknown[]) => ({
+      result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1,
+    });
+    const response = Array.isArray(commands[0])
+      ? commands.map((command) => resultFor(command as unknown[]))
+      : resultFor(commands);
+    return Response.json(response);
+  });
+};
+
 describeWithDatabase("robbery generated prestige PvP boost", () => {
   beforeEach(async () => {
+    stubRateLimitTransport();
     await resetTables(actionLog, userData, village);
     await insertUsers([
       { userId: ROBBER, username: ROBBER, rank: "JONIN", isOutlaw: true, status: "AWAKE", ...location, pvpExperience: 1400, money: 500, villagePrestige: 0 },
       { userId: VICTIM, username: VICTIM, rank: "JONIN", status: "AWAKE", ...location, pvpExperience: 600, money: 1000, immunityUntil: new Date(0), robImmunityUntil: new Date(0) },
     ]);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    vi.spyOn(getServerPusher(), "trigger").mockResolvedValue({} as never);
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
   });
   afterEach(() => vi.restoreAllMocks());
 

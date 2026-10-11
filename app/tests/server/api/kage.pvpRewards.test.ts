@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { and, eq } from "drizzle-orm";
 import { userData, userRequest, village } from "@/drizzle/schema";
-import { getServerPusher } from "@/libs/pusher";
+import { Pusher } from "@/libs/pusher";
 import * as combat from "@/server/api/routers/combat";
 import { kageRouter } from "@/server/api/routers/kage";
 import * as sparring from "@/server/api/routers/sparring";
@@ -24,7 +24,7 @@ describeWithDatabase("kage acceptance generated prestige PvP boost", () => {
       if (!request) throw new Error("Missing challenge fixture");
       return request;
     });
-    vi.spyOn(getServerPusher(), "trigger").mockResolvedValue({} as never);
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
   });
   afterEach(() => vi.restoreAllMocks());
 

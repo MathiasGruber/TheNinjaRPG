@@ -139,7 +139,7 @@ import {
   scaleUserStats,
 } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
-import { getPvpBoost } from "@/libs/pvpExperience";
+import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import {
   filterQuestTrackersForDbPersist,
   getNewTrackers,
@@ -650,16 +650,32 @@ export const profileRouter = createTRPCRouter({
     .output(userDeltaResponseSchema)
     .mutation(async ({ ctx }) => {
       // Query
+      const recruiterData = alias(userData, "recruiter");
+      const [snapshot, recruiter] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+        }),
+        ctx.drizzle
+          .select({
+            pvpExperience: recruiterData.pvpExperience,
+            weeklyPvpKills: recruiterData.weeklyPvpKills,
+            weeklyPvpKillsAt: recruiterData.weeklyPvpKillsAt,
+            isAi: recruiterData.isAi,
+          })
+          .from(userData)
+          .innerJoin(recruiterData, eq(userData.recruiterId, recruiterData.userId))
+          .where(eq(userData.userId, ctx.userId))
+          .then((rows) => rows[0]),
+      ]);
       const {
         user,
+        settings,
         requiresProgressionRefresh,
         publishedAchievementIds,
         progressionQuestCandidates,
         questBootstrap,
-      } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
+      } = snapshot;
       // Guard
       if (!user) return errorResponse("User not found");
       const block = levelUpBlockMessage(user);
@@ -712,7 +728,12 @@ export const profileRouter = createTRPCRouter({
         ],
       });
       if (result.success && user.recruiterId) {
-        const amount = 10 * newLevel * newLevel * newLevel;
+        const amount = Math.floor(
+          boostPvpGain(
+            10 * newLevel * newLevel * newLevel,
+            getPvpBoost(recruiter ?? {}, settings).totalPercent,
+          ),
+        );
         await Promise.all([
           ctx.drizzle
             .update(userData)

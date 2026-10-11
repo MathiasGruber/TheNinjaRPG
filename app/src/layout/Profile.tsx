@@ -536,10 +536,12 @@ function CharacterProfile() {
           <p>
             Earn {PVP_EXPERIENCE_PARTICIPATION_REWARD} PvP XP for a match, plus{" "}
             {PVP_EXPERIENCE_WIN_REWARD} for winning. Repeated opponents give diminishing
-            XP. Sparring, AI battles and fleeing give none.
+            XP. Sparring, AI battles and fleeing give none. Open-world combat against
+            your own village gives no PvP XP or weekly kill credit outside the war-torn
+            sector.
           </p>
           <p>
-            Each kill adds {PVP_WEEKLY_KILL_BOOST}% to your boost, up to +
+            Each eligible kill adds {PVP_WEEKLY_KILL_BOOST}% to your boost, up to +
             {PVP_WEEKLY_KILL_BOOST_CAP}%. The kill bonus resets on Monday at 00:00 UTC.
             PvP XP decays by {PVP_EXPERIENCE_DAILY_DECAY * 100}% at the daily reset.
           </p>
