@@ -15,10 +15,11 @@ describe("masked battle payload", () => {
         completedQuests: { me: [{ id: "completed", questId: "quest", completed: 1 }] },
         questData: { me: [] }, bounties: { me: [] }, bountySignups: { me: [] },
         sectorExclusiveRaids: [{ id: "raid" } as Quest],
-        textureAssets: ["texture"], sfxAssets: ["sound"], jutsus: {}, items: {},
+        jutsus: {}, items: {},
         bloodlines: { line: { id: "line", name: "Visible bloodline", effects: [], bloodrightTiers: [{ id: "hidden-tier", hidden: true, description: "Secret catalog" }] } as unknown as Bloodline },
       },
     });
+    Object.assign(battle.extraState, {textureAssets: ["texture"], sfxAssets: ["sound"]});
     const snapshot = structuredClone(battle);
     const masked = maskBattle(battle, "me");
     expect(masked.extraState.userQuests).toEqual({});

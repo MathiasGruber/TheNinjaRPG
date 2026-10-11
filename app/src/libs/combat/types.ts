@@ -410,8 +410,6 @@ export type ExtraState = {
   /** Per-user pre-battle gear/keystone % mods folded into the damage pipeline at battle start. */
   preBattleGearModifiers?: Record<string, PreBattleGearModifiers>;
   settings?: GameSetting[];
-  textureAssets?: string[];
-  sfxAssets?: string[];
   initialDurability?: Record<string, Record<string, number>>; // userId -> userItemId -> durability
   // Raid-specific data
   raidQuestId?: string; // The quest ID for raid battles
@@ -456,6 +454,8 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
 export type ReturnedExtraState = Omit<ExtraState, "villages" | "clans"> & {
   villages: Record<string, Pick<CombatQueryVillage, "id" | "hexColor">>;
   clans: Record<string, Pick<Clan, "id" | "image">>;
+  textureAssets?: string[];
+  sfxAssets?: string[];
 };
 
 export type ReturnedBattle = Omit<CompleteBattle, "usersState" | "extraState"> & {
