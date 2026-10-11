@@ -227,14 +227,23 @@ const Combat: React.FC<CombatProps> = (props) => {
       ? battleMaps.userEffectsByUserId.get(hoveredEffect.userId) || []
       : [];
 
-    if (groundEffects.length === 0 && userEffects.length === 0) return null;
+    const diffuseDamage = battleState.battle?.usersState.find(
+      (user) => user.userId === hoveredEffect.userId,
+    )?.diffuseDamage;
+    if (
+      groundEffects.length === 0 &&
+      userEffects.length === 0 &&
+      !diffuseDamage?.length
+    )
+      return null;
 
     return {
       groundEffects,
       userEffects,
+      diffuseDamage,
       userId: hoveredEffect.userId,
     };
-  }, [hoveredEffect, battleMaps]);
+  }, [hoveredEffect, battleMaps, battleState.battle]);
 
   // Store precomputed maps in refs for use in render loop
   const battleMapsRef = useRef(battleMaps);
@@ -1471,10 +1480,11 @@ const Combat: React.FC<CombatProps> = (props) => {
             transform: "translateY(-100%)",
           }}
         >
-          {hoveredEffects.userId && hoveredEffects.userEffects.length > 0 && (
+          {hoveredEffects.userId && (
             <VisualizeEffects
               effects={hoveredEffects.userEffects}
               userId={hoveredEffects.userId}
+              diffuseDamage={hoveredEffects.diffuseDamage}
             />
           )}
           {hoveredEffects.groundEffects.length > 0 && (

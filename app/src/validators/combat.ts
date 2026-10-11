@@ -720,7 +720,7 @@ export const DiffuseTag = z.object({
   ...BaseAttributes,
   type: z.literal("diffuse").prefault("diffuse"),
   description: msg(
-    "Defer a percentage of nonlethal incoming damage over subsequent turns. Cannot be cleansed, prevented, or copied.",
+    "Defer a percentage of nonlethal incoming damage over subsequent turns. Damage reduction applies before deferral; shields and absorption apply to the immediate portion. Repayment survives expiry, bypasses defenses, and respects Final Stand. Cannot be cleansed, prevented, or copied.",
   ),
   calculation: z.enum(["percentage"]).prefault("percentage"),
   power: z.coerce.number().gt(0).max(DIFFUSE_MAX_PERCENTAGE).prefault(25),

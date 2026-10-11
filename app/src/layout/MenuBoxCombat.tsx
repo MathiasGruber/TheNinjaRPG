@@ -148,7 +148,11 @@ const MenuBoxCombat: React.FC = () => {
       {/* Active Effects on opponent */}
       {battle?.usersEffects && (
         <div className="mt-2">
-          <VisualizeEffects effects={battle.usersEffects} userId={battleUser.userId} />
+          <VisualizeEffects
+            effects={battle.usersEffects}
+            userId={battleUser.userId}
+            diffuseDamage={battleUser.diffuseDamage}
+          />
         </div>
       )}
     </>

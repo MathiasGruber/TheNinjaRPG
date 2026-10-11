@@ -309,8 +309,6 @@ export const applyEffects = (
   const newUsersEffects: UserEffect[] = [];
   const actionEffects: ActionEffect[] = [];
 
-  repayDiffuseDamage(newUsersState, usersEffects, actorId, round, actionEffects);
-
   // Convert all ground effects to user effects on the users standing on the tile
   groundEffects.sort(sortEffects).forEach((e) => {
     // Get the round information for the effect
@@ -473,6 +471,9 @@ export const applyEffects = (
       action,
     );
   });
+
+  // Resolve activation and prevention before Final Stand can protect debt repayment.
+  repayDiffuseDamage(newUsersState, newUsersEffects, actorId, round, actionEffects);
 
   const sealEffects = getActiveSealEffects(usersEffects);
   const diffuseEffects = usersEffects.filter(
@@ -1781,12 +1782,8 @@ export const buildDamagePacketModifierLists = (
 
 type DamagePacketComputeContext = {
   rawDamage: number;
-  /** Scale incoming damage before percentage/static defenses (including static increases). */
-  damageScale?: number;
   /** Preview incoming damage without player defenses; retain the system's base normalization. */
   ignoreDamageReduction?: boolean;
-  /** Secondary damage has already been generated; apply defenses without boosting it again. */
-  reductionsOnly?: boolean;
   damageEffect: UserEffect;
   usersEffects: UserEffect[];
   attackerId: string;
@@ -1844,48 +1841,39 @@ const applyDiffuseToConsequences = ({
       if (!effects.some((e) => e.targetId === targetId)) continue;
       const isPrimary = key === "damage" || key === "residual";
       const isPierce = consequence.types?.includes("pierce") ?? false;
-      const context = source
-        ? {
-            rawDamage: isPrimary
-              ? (consequence.baseDamageForModifiers ?? originalDamage)
-              : originalDamage,
-            damageEffect: source,
-            usersEffects: battle.usersEffects,
-            attackerId,
-            defenderId: targetId,
-            preBattleGearModifiers: battle.extraState.preBattleGearModifiers ?? {},
-            battleRound: battle.round,
-            modifierLists: buildDamagePacketModifierLists(
-              battle.usersEffects,
-              attackerId,
-              targetId,
-              eligibilityById,
-            ),
-            reductionsOnly: !isPrimary || isPierce,
-          }
-        : undefined;
       // Reflect is capped against the source hit before splitting the returned damage.
       const cappedDamage =
         key === "reflect"
           ? Math.min(originalDamage, (consequence.damage ?? 0) * 0.6)
           : originalDamage;
       const damage =
-        isPrimary && context && !isPierce
-          ? computeDamagePacket({ ...context, ignoreDamageReduction: true }).damage
+        isPrimary && source && !isPierce
+          ? computeDamagePacket({
+              rawDamage: consequence.baseDamageForModifiers ?? originalDamage,
+              damageEffect: source,
+              usersEffects: battle.usersEffects,
+              attackerId,
+              defenderId: targetId,
+              preBattleGearModifiers: battle.extraState.preBattleGearModifiers ?? {},
+              battleRound: battle.round,
+              modifierLists: buildDamagePacketModifierLists(
+                battle.usersEffects,
+                attackerId,
+                targetId,
+                eligibilityById,
+              ),
+              ignoreDamageReduction: true,
+            }).damage
           : cappedDamage;
       packets.push({
         targetId,
         attackerId,
         damage,
+        deferredDamage: cappedDamage,
         creditDamage: !isReturnDamage,
         applyRemaining: (fraction) => {
-          const remaining = context
-            ? computeDamagePacket({
-                ...context,
-                rawDamage: isPrimary ? context.rawDamage : cappedDamage,
-                damageScale: fraction,
-              }).damage
-            : cappedDamage * fraction;
+          // Preserve the source's existing DR and bypass rules; mitigation runs only once.
+          const remaining = cappedDamage * fraction;
           if (isReturnDamage) {
             // Return damage must pass through the recipient's absorb/shield handling,
             // without granting damage-dealt credit or sharing the original target's defenses.
@@ -1955,12 +1943,6 @@ export const computeDamagePacket = (
     modifierLists.staticDrEffects = [];
     modifierLists.bloodlineDrEffects = [];
   }
-  if (ctx.reductionsOnly) {
-    modifierLists.stage1PreBattleIncreases = [];
-    modifierLists.inBattleIncreases = [];
-    modifierLists.staticIncEffects = [];
-    modifierLists.bloodlineIncreases = [];
-  }
   const attackerGear =
     preBattleGearModifiers[attackerId] ?? emptyPreBattleGearModifiers();
   const defenderGear =
@@ -1974,8 +1956,7 @@ export const computeDamagePacket = (
         (reduction ? Math.abs(power) : power) * getEfficiencyRatio(damageEffect, effect)
       );
     }, 0);
-  const damageScale = ctx.damageScale ?? 1;
-  let damage = ctx.rawDamage * damageScale;
+  let damage = ctx.rawDamage;
 
   for (const effect of modifierLists.stage1PreBattleIncreases) {
     const ratio = getEfficiencyRatio(damageEffect, effect);
@@ -1989,7 +1970,7 @@ export const computeDamagePacket = (
     attackerGear.incDamageGivenFromGear +
     defenderGear.incDamageTakenFromGear +
     elementalPoints(modifierLists.elementalGearIncreases);
-  if (!ctx.reductionsOnly) damage *= 1 + incPoints / 100;
+  damage *= 1 + incPoints / 100;
 
   for (const effect of modifierLists.inBattleIncreases) {
     const ratio = getEfficiencyRatio(damageEffect, effect);
@@ -2001,7 +1982,7 @@ export const computeDamagePacket = (
 
   const baseDamageAfterBoosts = damage;
 
-  const systemDr = ctx.reductionsOnly ? 0 : OUT_OF_COMBAT_BASE_DAMAGE_REDUCTION;
+  const systemDr = OUT_OF_COMBAT_BASE_DAMAGE_REDUCTION;
   const drPoints =
     systemDr +
     (ctx.ignoreDamageReduction
@@ -2045,7 +2026,7 @@ export const computeDamagePacket = (
     ) {
       continue;
     }
-    totalStaticIncrease += power * ratio * damageScale;
+    totalStaticIncrease += power * ratio;
   }
   damage += totalStaticIncrease;
 
@@ -2063,7 +2044,7 @@ export const computeDamagePacket = (
     (attackerGear.incDamageGivenFromKeystone ?? 0) +
     (defenderGear.incDamageTakenFromKeystone ?? 0) +
     elementalPoints(modifierLists.elementalKeystoneIncreases);
-  if (!ctx.reductionsOnly) damage *= 1 + keystoneIncPoints / 100;
+  damage *= 1 + keystoneIncPoints / 100;
 
   const keystoneDrPoints =
     (defenderGear.drTakenFromKeystone ?? 0) +

@@ -7,11 +7,13 @@ export type DiffusePacket = {
   targetId: string;
   attackerId: string;
   damage: number;
+  /** Damage after the source's normal mitigation, before shields and absorption. */
+  deferredDamage: number;
   creditDamage: boolean;
   applyRemaining: (fraction: number) => void;
 };
 
-/** Split the whole incoming hit before defenses, so multiple packets cannot hide a lethal hit. */
+/** Reject hits lethal before player defenses, then split the normally mitigated damage. */
 export const deferDiffuseDamage = (
   packets: DiffusePacket[],
   effects: UserEffect[],
@@ -38,13 +40,15 @@ export const deferDiffuseDamage = (
     if (fraction <= 0) continue;
     target.diffuseDamage ??= [];
     const debts = target.diffuseDamage;
+    let deferred = 0;
     for (const packet of packets) {
       if (packet.targetId !== target.userId || packet.damage <= 0) continue;
       const attacker = users.find((u) => u.userId === packet.attackerId);
       const attackerId = attacker
         ? resolveDamageCreditUser(users, attacker).userId
         : packet.attackerId;
-      const damage = packet.damage * fraction;
+      const damage = packet.deferredDamage * fraction;
+      deferred += damage;
       const existing = debts.find(
         (debt) =>
           debt.attackerId === attackerId &&
@@ -64,7 +68,7 @@ export const deferDiffuseDamage = (
       packet.applyRemaining(1 - fraction);
     }
     messages.push({
-      txt: `${target.username} diffuses ${(total * fraction).toFixed(2)} damage over ${effect.delayRounds} turns`,
+      txt: `${target.username} diffuses ${deferred.toFixed(2)} damage over ${effect.delayRounds} turns`,
       color: "blue",
       types: ["diffuse"],
     });

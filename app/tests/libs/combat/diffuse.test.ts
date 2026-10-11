@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { DIFFUSE_MAX_PERCENTAGE } from "@/drizzle/constants";
 import { applyEffects } from "@/libs/combat/process";
 import { cleanse, clear, copy, mirror } from "@/libs/combat/tags";
@@ -8,6 +8,7 @@ import type {
   CompleteBattle,
   UserEffect,
 } from "@/libs/combat/types";
+import { alignBattle } from "@/libs/combat/util";
 import { DiffuseTag, getTagSchema, tagTypes } from "@/validators/combat";
 import { makeBattleUser, makeDamageEffect, makeEffect } from "./helpers/battleScenario";
 
@@ -123,7 +124,7 @@ describe("Diffuse damage resolution", () => {
     expect(debt(defender(newBattle))).toBe(0);
     expect(defender(newBattle).curHealth).toBe(80);
   });
-  it("subtracts static reduction from the immediate portion, then consumes shields", () => {
+  it("defers already reduced damage, then consumes shields", () => {
     const dr = makeEffect(
       "decreasedamagetaken",
       {
@@ -135,9 +136,56 @@ describe("Diffuse damage resolution", () => {
     );
     const shield = makeEffect("shield", { power: 10, health: 10 }, runtime());
     const { newBattle } = run([attack(), diffuse(), dr, shield]);
-    expect(debt(defender(newBattle))).toBeCloseTo(40);
-    expect(defender(newBattle).curHealth).toBeCloseTo(990);
+    expect(debt(defender(newBattle))).toBeCloseTo(30);
+    expect(defender(newBattle).curHealth).toBeCloseTo(980);
   });
+  it.each(["percentage", "static"] as const)(
+    "preserves total damage under %s DR, including residual hits",
+    (calculation) => {
+      for (const isResidual of [false, true]) {
+        const hit = () => attack(isResidual ? { isNew: false, createdRound: 1, rounds: 3 } : {});
+        const reduction = () => makeEffect("decreasedamagetaken", { power: 50, calculation, rounds: 3 }, runtime());
+        const actorId = isResidual ? "defender" : "attacker";
+        const baseline = run([hit(), reduction()], 1000, actorId).newBattle;
+        let current = run([hit(), reduction(), diffuse({ power: 25, delayRounds: 2 })], 1000, actorId).newBattle;
+        const totalDamage = 1000 - defender(baseline).curHealth;
+        expect(debt(defender(current))).toBeCloseTo(totalDamage * 0.25);
+        expect(defender(current).curHealth).toBeCloseTo(1000 - totalDamage * 0.75);
+        current.usersEffects = [];
+        for (let tick = 0; tick < 2; tick += 1) {
+          current.round += 1;
+          current = applyEffects(current, "defender").newBattle;
+        }
+        expect(defender(current).curHealth).toBeCloseTo(defender(baseline).curHealth);
+      }
+    },
+  );
+  it.each(["pierce", "wound", "drain", "afterburn", "poison"] as const)(
+    "keeps %s damage unchanged by DR on a one-percent Diffuse remainder",
+    (type) => {
+      const secondary = () => {
+        const effect = makeEffect(type, {
+          power: 100,
+          rounds: type === "pierce" ? 0 : 3,
+          calculation: type === "wound" || type === "poison" ? "percentage" : "static",
+        }, { ...runtime(), creatorId: "attacker", ...(type === "pierce" ? { isNew: true, createdRound: ROUND } : {}) });
+        if ("statTypes" in effect) effect.statTypes = ["Ninjutsu"];
+        if (effect.type === "drain") effect.poolsAffected = ["Health"];
+        if (effect.type === "wound") effect.timeTracker = { originalDamage: 100 };
+        return effect;
+      };
+      const dr = () => makeEffect("decreasedamagetaken", { power: 50, calculation: "percentage", rounds: 3 }, runtime());
+      const effects = () => [...(type === "afterburn" ? [attack()] : []), secondary(), dr()];
+      const action = { chakraCost: 100, staminaCost: 100 } as CombatAction;
+      const actorId = type === "pierce" ? "attacker" : "defender";
+      const baseline = applyEffects(battle(effects()), actorId, action).newBattle;
+      const current = applyEffects(battle([...effects(), diffuse({ power: 1 })]), actorId, action).newBattle;
+      const totalDamage = 1000 - defender(baseline).curHealth;
+      expect(totalDamage).toBeGreaterThan(0);
+      expect(defender(current).curHealth).toBeCloseTo(1000 - totalDamage * 0.99);
+      expect(debt(defender(current))).toBeCloseTo(totalDamage * 0.01);
+    },
+  );
   it("calculates absorb from the immediate portion", () => {
     const absorb = makeEffect(
       "absorb",
@@ -197,7 +245,7 @@ describe("Diffuse damage resolution", () => {
       0,
     );
   });
-  it("diffuses wound damage and applies damage reduction to the immediate portion", () => {
+  it("preserves wound damage reduction bypass when diffusing", () => {
     const wound = makeEffect(
       "wound",
       {
@@ -219,7 +267,7 @@ describe("Diffuse damage resolution", () => {
     );
     const { newBattle } = run([wound, diffuse(), dr], 1000, "defender");
     expect(debt(defender(newBattle))).toBeCloseTo(10);
-    expect(defender(newBattle).curHealth).toBeCloseTo(995);
+    expect(defender(newBattle).curHealth).toBeCloseTo(990);
   });
   it("diffuses HP drain but does not defer chakra or stamina drain", () => {
     const drain = makeEffect(
@@ -354,7 +402,7 @@ describe("Diffuse damage resolution", () => {
       90,
     );
   });
-  it("applies defenses to a diffused pierce remainder", () => {
+  it("preserves pierce damage reduction bypass but allows shields on the remainder", () => {
     const pierce = makeEffect(
       "pierce",
       {
@@ -377,7 +425,7 @@ describe("Diffuse damage resolution", () => {
     const shield = makeEffect("shield", { power: 10, health: 10 }, runtime());
     const { newBattle } = run([pierce, diffuse(), dr, shield]);
     expect(debt(defender(newBattle))).toBeCloseTo(50);
-    expect(defender(newBattle).curHealth).toBeCloseTo(985);
+    expect(defender(newBattle).curHealth).toBeCloseTo(960);
   });
   it.each(["reflect", "recoil"] as const)(
     "uses the %s recipient's absorb and shield",
@@ -511,7 +559,7 @@ describe("Diffuse repayment and restrictions", () => {
       expectedHp: 0,
     },
     {
-      name: "permanent bloodline",
+      name: "untriggered bloodline",
       rounds: undefined,
       targetId: "defender",
       fromType: "bloodline",
@@ -564,6 +612,17 @@ describe("Diffuse repayment and restrictions", () => {
     expect(defender(expiredBattle).curHealth).toBe(0);
     expect(debt(defender(expiredBattle))).toBe(0);
   });
+  it("does not protect a repayment when Final Stand fails its activation on that turn", () => {
+    const current = run([attack(), diffuse({ delayRounds: 1 })]).newBattle;
+    current.round += 1;
+    defender(current).curHealth = 20;
+    current.usersEffects = [makeEffect("finalstand", { power: 0, rounds: 3 }, {
+      ...runtime(), createdRound: current.round, isNew: true, castThisRound: true,
+    })];
+    const result = applyEffects(current, "defender").newBattle;
+    expect(defender(result).curHealth).toBe(0);
+    expect(debt(defender(result))).toBe(0);
+  });
   it("ignores buff and debuff prevention", () => {
     const prevents = (["buffprevent", "debuffprevent"] as const).map((type) =>
       makeEffect(type, { power: 100, rounds: 3 }, runtime()),
@@ -606,6 +665,20 @@ describe("Diffuse repayment and restrictions", () => {
 });
 
 describe("Final Stand bloodline activation", () => {
+  it("expires a triggered bloodline Final Stand at the next round transition", () => {
+    const effect = makeEffect("finalstand", { power: 100 }, {
+      ...runtime(), fromType: "bloodline", isNew: true, createdRound: ROUND,
+    });
+    const current = run([attack(), effect], 20).newBattle;
+    expect(defender(current).curHealth).toBe(1);
+    current.usersState.forEach((user) => { user.actionPoints = 0; user.round = ROUND; });
+    const transition = alignBattle(current, [], "defender");
+    expect(transition.progressRound).toBe(true);
+    expect(current.usersEffects.find((e) => e.type === "finalstand")?.rounds).toBe(0);
+    current.usersEffects.push(attack({ createdRound: current.round }));
+    expect(defender(applyEffects(current, "attacker").newBattle).curHealth).toBe(0);
+  });
+
   it.each([0, 100])(
     "respects a %i percent activation chance before lethal damage",
     (power) => {
@@ -616,7 +689,7 @@ describe("Final Stand bloodline activation", () => {
       );
       const { newBattle, actionEffects } = run([attack(), effect], 20);
       expect(defender(newBattle).curHealth).toBe(power === 0 ? 0 : 1);
-      expect(effect.rounds).toBe(power === 0 ? 0 : undefined);
+      expect(effect.rounds).toBe(power === 0 ? 0 : 1);
       expect(
         actionEffects.some((e) => e.txt.includes("final stand failed to activate")),
       ).toBe(power === 0);

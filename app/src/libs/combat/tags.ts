@@ -2265,16 +2265,19 @@ export const applyFinalStandDamage = (
   damage: number,
   messages: ActionEffect[],
 ): number => {
+  if (target.curHealth <= 0) return damage;
   const finalStandEffect = effects.find((effect) => {
     if (effect.type !== "finalstand" || effect.targetId !== target.userId) return false;
     if (effect.fromType === "bloodline") {
-      // Permanent bloodline effects omit rounds; zero marks a failed activation.
-      return isEffectActive(effect);
+      if (effect.rounds === 0) return false;
+      // Bloodline Final Stand lasts until the next round, including debt repayment.
+      effect.rounds = 1;
+      return true;
     }
     return (effect.rounds ?? 0) > 0;
   });
   if (finalStandEffect && target.curHealth - damage < 1) {
-    const remainingDamage = target.curHealth - 1;
+    const remainingDamage = Math.max(0, target.curHealth - 1);
     messages.push({
       txt: `${target.username}'s final stand prevents ${(damage - remainingDamage).toFixed(2)} damage`,
       color: "orange",

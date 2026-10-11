@@ -37,6 +37,7 @@ import type {
   UserStatuses,
 } from "@/drizzle/constants";
 import {
+  DIFFUSE_MAX_PERCENTAGE,
   DISCORD_INVITE_URL,
   ERRANDS_PER_DAY,
   IMG_ICON_DISCORD,
@@ -62,7 +63,7 @@ import LevelUpBtn from "@/layout/LevelUpBtn";
 import Link from "@/layout/Link";
 import StatusBar from "@/layout/StatusBar";
 import { sealCheck } from "@/libs/combat/tags";
-import type { GroundEffect, UserEffect } from "@/libs/combat/types";
+import type { BattleUserState, GroundEffect, UserEffect } from "@/libs/combat/types";
 import {
   getPreventTypeName,
   getStatTypeLabels,
@@ -367,6 +368,10 @@ const MenuBoxProfile: React.FC = () => {
               <VisualizeEffects
                 effects={battle.usersEffects}
                 userId={userData.userId}
+                diffuseDamage={
+                  battle.usersState.find((u) => u.userId === userData.userId)
+                    ?.diffuseDamage
+                }
               />
             </ul>
           </>
@@ -813,11 +818,13 @@ type CollapsedEffect = {
 interface VisualizeEffectsProps {
   effects: UserEffect[];
   userId: string;
+  diffuseDamage?: BattleUserState["diffuseDamage"];
 }
 
 export const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({
   effects,
   userId,
+  diffuseDamage = [],
 }) => {
   // ------------- Toggle states -------------
   const [includeJutsu, setIncludeJutsu] = useLocalStorage<boolean>(
@@ -916,6 +923,7 @@ export const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({
         } else {
           // Standard processing for all other effects
           value = Math.abs(val.power + val.level * val.powerPerLevel) * sign;
+          if (val.type === "diffuse") value = Math.min(DIFFUSE_MAX_PERCENTAGE, value);
         }
         cats.forEach((cat) => {
           const valBlocks = "blocks" in val ? (val.blocks as string) : undefined;
@@ -928,7 +936,11 @@ export const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({
               e.blocks === valBlocks,
           );
           if (found) {
-            found.value += value;
+            // Diffuse uses the strongest active percentage rather than adding effects.
+            found.value =
+              val.type === "diffuse"
+                ? Math.max(found.value, value)
+                : found.value + value;
             if (val.rounds) found.rounds.push(val.rounds);
           } else {
             acc.push({
@@ -1005,6 +1017,7 @@ export const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({
   // ------------ Categorisation ------------
   const STATUS_TYPES = new Set([
     "shield",
+    "diffuse",
     "absorb",
     "reflect",
     "recoil",
@@ -1101,6 +1114,7 @@ export const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({
 
   const statusLabel: Record<string, string> = {
     reflect: "Reflect",
+    diffuse: "Diffuse",
     shield: "Shield",
     absorb: "Absorb",
     recoil: "Recoil",
@@ -1158,6 +1172,20 @@ export const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({
       >{`${getEffectLabel(e)} ${valueTxt(e)} ${roundsTxt(e)}`}</div>
     </div>
   ));
+
+  const pendingDiffuseDamage = diffuseDamage.filter((debt) => debt.remainingTurns > 0);
+  const diffuseDebt = pendingDiffuseDamage.reduce(
+    (sum, debt) => sum + debt.remainingDamage,
+    0,
+  );
+  const nextDiffuseRepayment = pendingDiffuseDamage.reduce(
+    (sum, debt) => sum + debt.remainingDamage / debt.remainingTurns,
+    0,
+  );
+  const diffuseTurns = Math.max(
+    0,
+    ...pendingDiffuseDamage.map((debt) => debt.remainingTurns),
+  );
 
   // ------------ Render ------------
   return (
@@ -1225,6 +1253,19 @@ export const VisualizeEffects: React.FC<VisualizeEffectsProps> = ({
         <div>
           <div className="mb-1 font-semibold">Statuses</div>
           <div className="flex flex-col gap-1">{statusVisuals}</div>
+        </div>
+      )}
+
+      {diffuseDebt > 0 && (
+        <div>
+          <div className="mb-1 font-semibold">Deferred Damage</div>
+          <div className="text-red-500 text-xs">
+            {diffuseDebt.toFixed(2)} HP over {diffuseTurns}{" "}
+            {diffuseTurns === 1 ? "turn" : "turns"}
+          </div>
+          <div className="text-xs">
+            Next repayment: {nextDiffuseRepayment.toFixed(2)} HP
+          </div>
         </div>
       )}
 
