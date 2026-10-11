@@ -1,4 +1,5 @@
 import { ensureDom } from "../setup-dom.mjs";
+import { createToastMock } from "../setup/toastMock";
 const { cleanup, fireEvent, render, waitFor } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { DamageTag, HealTag, type ZodAllTags } from "@/validators/combat";
@@ -23,7 +24,7 @@ vi.mock("@/app/_trpc/client", () => ({
   },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/libs/toast", () => ({ showMutationToast: toast }));
+vi.mock("@/libs/toast", () => ({ ...createToastMock(), showMutationToast: toast }));
 vi.mock("@/layout/ContentImageSelector", () => ({ default: () => null }));
 
 const { MassEffectEditor } = await import("@/layout/EditContent");

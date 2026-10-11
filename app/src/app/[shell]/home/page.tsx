@@ -200,9 +200,6 @@ export default function HomePage() {
   const inventoryMaterialBadges = userItemActionBadges(nonStoredMaterials);
   const inventoryCookingBadges = userItemActionBadges(nonStoredCooking);
 
-  // Calculate total stored items (excluding materials and cooking)
-  const totalStoredItems = storedItems.length;
-
   // Filter upgrades and downgrades
   const upgrades = availableUpgrades?.filter((upgrade) => upgrade.isUpgrade) || [];
   const downgrades = availableUpgrades?.filter((upgrade) => !upgrade.isUpgrade) || [];
@@ -452,7 +449,6 @@ export default function HomePage() {
 
           <ContentBox
             title="Item Storage"
-            subtitle={`Items in home (${totalStoredItems}/${homeStorage} slots used) | Materials in home (${storedMaterials.length}/${maxHouseMaterials} slots used) | Cooking in home (${storedCooking.length}/${maxHouseCooking} slots used)`}
             initialBreak={true}
             topRightContent={
               homeData ? (
@@ -522,18 +518,45 @@ export default function HomePage() {
                     Clear filters
                   </Button>
                 </div>
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-                  <TabsTrigger value="stored">
-                    <Package className="mr-2 h-5 w-5" /> Stored Items
+                <TabsList className="grid w-full grid-cols-2 items-stretch sm:grid-cols-4">
+                  <TabsTrigger
+                    value="stored"
+                    className="min-w-0 flex-wrap gap-x-1 px-2"
+                    aria-label={`Stored Items (${storedItems.length} / ${homeStorage} slots used)`}
+                  >
+                    <span className="inline-flex items-center">
+                      <Package className="mr-1 h-4 w-4 shrink-0" /> Stored Items
+                    </span>
+                    <span className="font-normal text-xs tabular-nums">
+                      ({storedItems.length} / {homeStorage})
+                    </span>
                   </TabsTrigger>
-                  <TabsTrigger value="materials">
-                    <Hammer className="mr-2 h-5 w-5" /> Materials
+                  <TabsTrigger
+                    value="materials"
+                    className="min-w-0 flex-wrap gap-x-1 px-2"
+                    aria-label={`Materials (${storedMaterials.length} / ${maxHouseMaterials} slots used)`}
+                  >
+                    <span className="inline-flex items-center">
+                      <Hammer className="mr-1 h-4 w-4 shrink-0" /> Materials
+                    </span>
+                    <span className="font-normal text-xs tabular-nums">
+                      ({storedMaterials.length} / {maxHouseMaterials})
+                    </span>
                   </TabsTrigger>
-                  <TabsTrigger value="cooking">
-                    <ChefHat className="mr-2 h-5 w-5" /> Cooking
+                  <TabsTrigger
+                    value="cooking"
+                    className="min-w-0 flex-wrap gap-x-1 px-2"
+                    aria-label={`Cooking (${storedCooking.length} / ${maxHouseCooking} slots used)`}
+                  >
+                    <span className="inline-flex items-center">
+                      <ChefHat className="mr-1 h-4 w-4 shrink-0" /> Cooking
+                    </span>
+                    <span className="font-normal text-xs tabular-nums">
+                      ({storedCooking.length} / {maxHouseCooking})
+                    </span>
                   </TabsTrigger>
-                  <TabsTrigger value="inventory">
-                    <ShoppingBag className="mr-2 h-5 w-5" /> Inventory
+                  <TabsTrigger value="inventory" className="min-w-0 px-2">
+                    <ShoppingBag className="mr-1 h-4 w-4 shrink-0" /> Inventory
                   </TabsTrigger>
                 </TabsList>
 

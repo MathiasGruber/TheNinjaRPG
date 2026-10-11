@@ -491,43 +491,41 @@ describeWithDatabase("Energy and mastery training against a real MySQL", () => {
     expect(result.userPatch?.questData?.find(tracker => tracker.id === "training-consequence")?.goals).toEqual(expect.arrayContaining([expect.objectContaining({ id: "train-goal", done: true, value: 8.5 }), expect.objectContaining({ id: "next-quest", done: false })]));
   });
 
-  it("recomputes effective gear masteries when collecting timed training unlocks a worn item", async () => {
+  it("recomputes effective gear masteries when automatic timed training completion unlocks a worn item", async () => {
     await trainee({ ninjutsuMastery: 10, currentlyTrainingMastery: "ninjutsuMastery", masteryTrainingStartedAt: minutesAgo(30), regeneration: 0 });
     const tag = { type: "increasemastery", masteryTypes: ["Ninjutsu"], power: 500, powerPerLevel: 0, calculation: "static", rounds: 1 } as const;
     await insertItems([{ id: "mastery-unlock-armor", itemType: "ARMOR", effects: [tag, { type: "increasemaxpools", poolsAffected: ["Energy"], power: 50, powerPerLevel: 0, calculation: "static", rounds: 1 }], requiredNinjutsuMastery: 100 } as never]);
     await insertUserItems([{ id: "unlock-armor", userId: USER_ID, itemId: "mastery-unlock-armor", equipped: "CHEST", durability: 100, level: 1 }]);
-    const result = await (await caller()).stopMasteryTraining(await masterySession());
-    expect(result.success).toBe(true);
-    expect(result.userPatch?.ninjutsuMastery).toBe(110);
-    expect(result.userPatch?.effectiveMasteries?.ninjutsuMastery).toBe(610);
-    expect(result.userPatch?.maxEnergy).toBe(150);
-    expect(result.userPatch?.currentlyTrainingMastery).toBeNull();
-    expect(result.userPatch?.masteryTrainingStartedAt).toBeNull();
-    expect(result.userPatch?.dailyTrainings).toBe(1);
+    const result = await fetchUpdatedUser({ client: await getTestDatabase(), userId: USER_ID });
+    expect(result.user?.ninjutsuMastery).toBe(110);
+    expect(result.user?.effectiveMasteries?.ninjutsuMastery).toBe(610);
+    expect(result.user?.maxEnergy).toBe(150);
+    expect(result.user?.currentlyTrainingMastery).toBeNull();
+    expect(result.user?.masteryTrainingStartedAt).toBeNull();
+    expect(result.user?.dailyTrainings).toBe(1);
     expect((await readUser()).ninjutsuMastery).toBe(110);
   });
 
 
-  it("returns the guarded capped mastery gain without lowering an over-cap stored value", async () => {
+  it("automatically clears a capped session without lowering an over-cap stored value", async () => {
     await trainee({ ninjutsuMastery: MAX_MASTERY_CAP + 10, currentlyTrainingMastery: "ninjutsuMastery", masteryTrainingStartedAt: minutesAgo(30), regeneration: 0 });
-    const result = await (await caller()).stopMasteryTraining(await masterySession());
-    expect(result.success).toBe(true);
-    expect(result.userPatch?.ninjutsuMastery).toBe(MAX_MASTERY_CAP + 10);
-    expect(result.userPatch?.effectiveMasteries?.ninjutsuMastery).toBe(MAX_MASTERY_CAP);
-    expect(result.userPatch?.dailyTrainings).toBe(0);
-    expect(result.userPatch?.currentlyTrainingMastery).toBeNull();
+    const result = await fetchUpdatedUser({ client: await getTestDatabase(), userId: USER_ID });
+    expect(result.user?.ninjutsuMastery).toBe(MAX_MASTERY_CAP + 10);
+    expect(result.user?.effectiveMasteries?.ninjutsuMastery).toBe(MAX_MASTERY_CAP);
+    expect(result.user?.dailyTrainings).toBe(0);
+    expect(result.user?.currentlyTrainingMastery).toBeNull();
     expect((await readUser()).ninjutsuMastery).toBe(MAX_MASTERY_CAP + 10);
     expect(await readLogs()).toHaveLength(0);
   });
 
   it("does not patch an unclaimed concurrent mastery collection", async () => {
-    await trainee({ ninjutsuMastery: 10, currentlyTrainingMastery: "ninjutsuMastery", masteryTrainingStartedAt: minutesAgo(30), regeneration: 0 });
+    await trainee({ ninjutsuMastery: 10, currentlyTrainingMastery: "ninjutsuMastery", masteryTrainingStartedAt: minutesAgo(14), regeneration: 0 });
     const api = await caller();
     const session = await masterySession();
     const results = await Promise.all([api.stopMasteryTraining(session), api.stopMasteryTraining(session)]);
     expect(results.filter(result => result.success)).toHaveLength(1);
     expect(results.find(result => !result.success)?.userPatch).toBeUndefined();
-    expect((await readUser()).ninjutsuMastery).toBe(110);
+    expect((await readUser()).ninjutsuMastery).toBe(103);
     expect(await readLogs()).toHaveLength(1);
   });
 
@@ -707,10 +705,9 @@ describeWithDatabase("Energy and mastery training against a real MySQL", () => {
     expect((await api.startTraining({stat: "offence", energy: 10})).success).toBe(true);
     await backdate({masteryTrainingStartedAt: minutesAgo(30)});
     const before = await readUser();
-    const result = await api.stopMasteryTraining(await masterySession());
-    expect(result.success).toBe(true);
-    expect(result.userPatch?.ninjutsuMastery).toBe(before.ninjutsuMastery + 100);
-    expect(result.userPatch?.currentlyTrainingMastery).toBeNull();
+    const result = await fetchUpdatedUser({ client: await getTestDatabase(), userId: USER_ID });
+    expect(result.user?.ninjutsuMastery).toBe(before.ninjutsuMastery + 100);
+    expect(result.user?.currentlyTrainingMastery).toBeNull();
     const after = await readUser();
     expect(after.curEnergy).toBe(before.curEnergy);
     expect(after.experience).toBe(before.experience);

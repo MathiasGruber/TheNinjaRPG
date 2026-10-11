@@ -220,7 +220,13 @@ export const reviewStatsSchema = z.object({
     .min(1)
     .max(CONTENT_PROPOSAL_RETENTION_DAYS)
     .prefault(CONTENT_PROPOSAL_RETENTION_DAYS),
+  interval: z.enum(["daily", "weekly", "monthly"]).prefault("weekly"),
+  category: z.enum(ContentProposalCategories).nullish(),
+  entityType: z.enum(ContentProposalEntityTypes).nullish(),
+  source: z.enum(ContentProposalSources).nullish(),
+  agentName: z.string().max(191).nullish(),
 });
+export type ReviewStatsInput = z.infer<typeof reviewStatsSchema>;
 
 export const proposalIdSchema = z.object({ id: z.string() });
 

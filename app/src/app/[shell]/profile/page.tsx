@@ -43,7 +43,7 @@ const tutorialProfileTabs = ["Character", "Achievements", "History"] as const;
 type ProfileTab = (typeof profileTabs)[number];
 
 export default function Profile() {
-  const { data: userData, updateUser } = useRequiredUserData();
+  const { data: userData, updateUser, notifications } = useRequiredUserData();
   const [tab, setTab] = useState<ProfileTab | null>(null);
 
   if (!userData) return <Loader explanation="Loading profile page..." />;
@@ -53,6 +53,9 @@ export default function Profile() {
   const activeTab =
     tutorialActive && selectedTab === "Dashboard" ? "Character" : selectedTab;
   const visibleTabs = tutorialActive ? tutorialProfileTabs : profileTabs;
+  const newInRecruit =
+    notifications?.find((n) => n.href.includes("/profile/recruit"))
+      ?.notificationCount || 0;
 
   const dashboardSettings = !tutorialActive ? (
     <Popover>
@@ -78,7 +81,7 @@ export default function Profile() {
 
   return (
     <div id="tutorial-profile">
-      <div className="mb-3 flex items-center justify-end gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
         <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <NavTabs
             id={`profileTab:${userData.userId}`}
@@ -96,7 +99,30 @@ export default function Profile() {
             className="min-h-11 px-3 sm:text-base"
           />
         </div>
-        {activeTab !== "Dashboard" && dashboardSettings}
+        <div className="flex shrink-0 items-center gap-1 text-foreground">
+          <Link
+            href="/profile/recruit"
+            aria-label="Share profile"
+            title="Share profile"
+            className="relative inline-flex h-11 w-11 items-center justify-center rounded-md hover:text-orange-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Share2 className="h-6 w-6 animate-[wiggle_1s_ease-in-out_infinite]" />
+            {newInRecruit > 0 && (
+              <span className="absolute top-0 right-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-orange-100 text-xs">
+                {newInRecruit}
+              </span>
+            )}
+          </Link>
+          <Link
+            href="/profile/edit"
+            aria-label="Edit profile"
+            title="Edit profile"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md hover:text-orange-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Wrench className="h-6 w-6" />
+          </Link>
+          <DeleteUserButton userData={userData} className="h-11 w-11 justify-center" />
+        </div>
       </div>
       {activeTab === "Character" ? (
         <CharacterProfile />
@@ -119,7 +145,7 @@ export default function Profile() {
 
 function CharacterProfile() {
   // State
-  const { data: userData, notifications, timeDiff } = useRequiredUserData();
+  const { data: userData, timeDiff } = useRequiredUserData();
   const [pvpInfoModal, setPvpInfoModal] = useState<"activity" | "rank" | null>(null);
 
   // Query
@@ -143,35 +169,11 @@ function CharacterProfile() {
     return <Loader explanation="Loading profile page..." />;
   }
 
-  // News in profile/recruit
-  const newInRecruit =
-    notifications?.find((n) => n.href.includes("/profile/recruit"))
-      ?.notificationCount || 0;
-
   const equippedSageMode = userData.sageMode;
 
   return (
     <>
-      <ContentBox
-        title="Profile"
-        subtitle="An overview of basic information"
-        topRightContent={
-          <div className="flex flex-row gap-3">
-            <Link href="/profile/recruit" className="relative">
-              <Share2 className="h-6 w-6 animate-[wiggle_1s_ease-in-out_infinite] cursor-pointer hover:text-orange-500" />
-              {newInRecruit > 0 && (
-                <div className="absolute top-[-10px] right-[-10px] z-50 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-orange-100 text-sm">
-                  {newInRecruit}
-                </div>
-              )}
-            </Link>
-            <Link href="/profile/edit">
-              <Wrench className="h-6 w-6 cursor-pointer hover:text-orange-500" />
-            </Link>
-            <DeleteUserButton userData={userData} />
-          </div>
-        }
-      >
+      <ContentBox title="Profile" subtitle="An overview of basic information">
         <div className="grid grid-cols-2 gap-2">
           <div>
             <b>General</b>

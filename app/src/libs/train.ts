@@ -909,11 +909,10 @@ export const queuedMasteryStartBlockMessage = (
 
 /**
  * Advance the mastery queue (`entries`, oldest first) past every session that ran its
- * full interval. Each finished
- * session is collected as if stopped at its end, and the next entry starts at that moment,
- * so the result does not depend on when the account is next refreshed. A session with
- * nothing queued behind it stays active for the player to collect. Capped entries are
- * dropped; a blocked start (daily limit, banned interval) pauses the queue.
+ * full interval, including the final session when nothing is queued behind it. Each
+ * finished session is collected at its end, and the next entry starts at that moment,
+ * so the result does not depend on when the account is next refreshed. Capped entries
+ * are dropped; a blocked start (daily limit, banned interval) pauses the queue.
  */
 export const settleMasteryTrainingQueue = (
   user: NonNullable<UserWithRelations>,
@@ -949,8 +948,6 @@ export const settleMasteryTrainingQueue = (
     );
   while (current && startedAt) {
     while (queue[0] && room(queue[0].stat) === 0) queue.shift();
-    const next = queue[0];
-    if (!next) break;
     const seconds = trainingSpeedSeconds(speed);
     const finishedAt = secondsFromDate(seconds, startedAt);
     if (finishedAt > now) break;
@@ -1069,8 +1066,9 @@ export const settleEnergyTrainingQueue = (
 };
 
 /**
- * The single in-memory settlement of a user's MASTERY and ENERGY queue rows, shared by
- * the account refresh and combat setup. Works on the user and rows already loaded, so it
+ * The single in-memory settlement of active mastery training and MASTERY and ENERGY
+ * queue rows, shared by the account refresh and combat setup. Works on the user and
+ * rows already loaded, so it
  * costs no query; the caller persists the result together with the new queue heads,
  * which consume the settled rows in the same write as the gains.
  */
@@ -1086,20 +1084,22 @@ export const settleQueuedTraining = (
   const energy = energyRows.length
     ? settleEnergyTrainingQueue(user, toEnergyEntries(energyRows), settings, ticks)
     : null;
-  const mastery =
-    masteryRows.length && user.currentlyTrainingMastery
-      ? settleMasteryTrainingQueue(user, toMasteryEntries(masteryRows), settings, now)
-      : null;
+  const mastery = user.currentlyTrainingMastery
+    ? settleMasteryTrainingQueue(user, toMasteryEntries(masteryRows), settings, now)
+    : null;
   return {
     energy: energy && {
       ...energy,
       head: queueHeadAfter(energyRows, energy.consumed, user.energyQueueHead),
     },
-    mastery: mastery?.consumed
-      ? {
-          ...mastery,
-          head: queueHeadAfter(masteryRows, mastery.consumed, user.masteryQueueHead),
-        }
-      : null,
+    mastery:
+      mastery &&
+      (mastery.consumed > 0 ||
+        mastery.currentlyTrainingMastery !== user.currentlyTrainingMastery)
+        ? {
+            ...mastery,
+            head: queueHeadAfter(masteryRows, mastery.consumed, user.masteryQueueHead),
+          }
+        : null,
   };
 };

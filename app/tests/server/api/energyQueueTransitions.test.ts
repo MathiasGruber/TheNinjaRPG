@@ -436,6 +436,41 @@ describeWithDatabase("Energy queue state transitions", () => {
     }
   });
 
+  it("collects an offline opponent's final mastery session before combat without queue rows", async () => {
+    await prepare([]);
+    const db = await getTestDatabase();
+    await patch({
+      isOutlaw: true,
+      stealthActive: false,
+      trainingSpeed: "15min",
+      currentlyTrainingMastery: "ninjutsuMastery",
+      masteryTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+    });
+    await insertUsers([{ userId: "attacker", username: "Attacker", rank: "JONIN", level: 1, status: "AWAKE", isOutlaw: true, sector: HOME, longitude: 25, latitude: 10 }]);
+    await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
+    await insertItems([{ id: "mastery-energy-armor", itemType: "ARMOR", requiredNinjutsuMastery: 100, effects: [makeEffect("increasemaxpools", { power: 200, powerPerLevel: 0, calculation: "static", rounds: 1, poolsAffected: ["Energy"] })] }]);
+    await insertUserItems([{ userId: USER, itemId: "mastery-energy-armor", equipped: "ITEM_1", durability: 100 }]);
+    const trigger = vi.spyOn(getServerPusher(), "trigger").mockResolvedValue({} as never);
+    try {
+      const result = await initiateBattle({
+        client: db, userIds: ["attacker"], targetIds: [USER], sector: HOME,
+        longitude: 25, latitude: 10, biome: "default",
+      }, "SPARRING");
+      expect(result.success).toBe(true);
+      const state = (await db.query.battle.findFirst({ where: eq(battle.id, result.battleId!) }))!;
+      expect(state.extraState.energyCapacity?.[USER]).toBe(300);
+      const user = (await read())!;
+      expect(user.currentlyTrainingMastery).toBeNull();
+      expect(user.masteryTrainingStartedAt).toBeNull();
+      expect(user.ninjutsuMastery).toBeGreaterThan(0);
+      expect(user.dailyTrainings).toBe(1);
+      expect(await db.select().from(userQueue)).toEqual([]);
+      expect((await db.select().from(trainingLog)).map(log => log.stat)).toEqual(["ninjutsuMastery"]);
+    } finally {
+      trigger.mockRestore();
+    }
+  });
+
   it("settles an offline opponent's due jutsu level and mastery queue before the fight", async () => {
     await prepare([]);
     const db = await getTestDatabase();

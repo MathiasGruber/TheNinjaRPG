@@ -6,10 +6,12 @@ import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import Confirm from "@/layout/Confirm";
 import Countdown from "@/layout/Countdown";
+import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 interface DeleteUserButtonProps {
+  className?: string;
   userData: {
     userId: string;
     isBanned: boolean;
@@ -77,16 +79,30 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
     new Date(userData.deletionAt) < new Date();
 
   if (isTogglingDelete || isDeleting) {
-    return <Loader2 className="h-6 w-6 animate-spin" />;
+    return (
+      <span
+        className={cn("inline-flex items-center", props.className)}
+        aria-busy="true"
+      >
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <span className="sr-only">Updating character deletion</span>
+      </span>
+    );
   }
 
   return (
     <Confirm
       title="Confirm Deletion"
       button={
-        <Trash2
-          className={`h-6 w-6 cursor-pointer hover:text-orange-500 ${userData.deletionAt ? "animate-pulse text-red-500" : ""}`}
-        />
+        <span
+          className={cn("inline-flex items-center", props.className)}
+          title="Delete character"
+        >
+          <Trash2
+            className={`h-6 w-6 cursor-pointer hover:text-orange-500 ${userData.deletionAt ? "animate-pulse text-red-500" : ""}`}
+          />
+          <span className="sr-only">Delete character</span>
+        </span>
       }
       proceed_label={
         canDelete

@@ -430,3 +430,7 @@ export const nextUtcDayAt = (now = new Date()) =>
 
 /** UTC key shared by monthly Skills and Bloodright reset claims. */
 export const getUtcMonthKey = (now = new Date()) => now.toISOString().slice(0, 7);
+
+/** Start of a UTC calendar window including today and the preceding days. */
+export const getUtcDayWindowStart = (days: number, now = new Date()) =>
+  new Date(periodStart("daily", now).getTime() - (days - 1) * DAY_S * 1000);

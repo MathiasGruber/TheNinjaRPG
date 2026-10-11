@@ -1,4 +1,5 @@
 import { ensureDom } from "../setup-dom.mjs";
+import { createToastMock } from "../setup/toastMock";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
@@ -21,7 +22,7 @@ vi.mock("@/app/_trpc/client", () => ({
   },
 }));
 vi.mock("@/utils/UserContext", () => ({ useRequiredUserData: () => ({ data: { role: "CONTENT-ADMIN" } }) }));
-vi.mock("@/libs/toast", () => ({ showMutationToast: vi.fn() }));
+vi.mock("@/libs/toast", createToastMock);
 vi.mock("@/layout/ContentBox", () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 
 beforeEach(() => {
