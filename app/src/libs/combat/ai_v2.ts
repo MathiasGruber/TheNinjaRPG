@@ -11,11 +11,9 @@ import { areBattleAllies } from "@/libs/combat/participants";
 import { hasLiveSummon, isSummonActionCastable } from "@/libs/combat/summon";
 import type {
   ActionEffect,
-  BattleUserState,
   CombatAction,
   CompleteBattle,
   GroundEffect,
-  UserEffect,
 } from "@/libs/combat/types";
 import {
   calcPoolCost,
@@ -106,18 +104,11 @@ export const performAIaction = (
     });
     // User hex
     const origin = findHex(grid, user);
-    // Get user enemies - use nextBattle to get latest state after earlier actions
-    const enemies = getEnemies(
-      nextBattle.usersState,
-      user.userId,
-      nextBattle.usersEffects,
-    ).map((u) => mapDistancesToTarget(grid, astar, u, origin));
-    // Get user allies - use nextBattle to get latest state after earlier actions
-    const allies = getAllies(
-      nextBattle.usersState,
-      user.userId,
-      nextBattle.usersEffects,
-    ).map((u) => mapDistancesToTarget(grid, astar, u, origin));
+    const combatants = nextBattle.usersState
+      .filter((u) => stillInBattle(u, nextBattle.usersEffects))
+      .map((u) => mapDistancesToTarget(grid, astar, u, origin));
+    const enemies = combatants.filter((u) => !areBattleAllies(u, user));
+    const allies = combatants.filter((u) => areBattleAllies(u, user));
     // Derived for convenience
     const userWithDistance = { ...user, path: undefined, distance: 0 };
     const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
@@ -560,32 +551,6 @@ const attemptBattleAction = (props: Parameters<typeof performBattleAction>[0]) =
     if (error instanceof ActionNotPossibleError) return undefined;
     throw error;
   }
-};
-
-/** Living members of the opposing battle team, including summons. */
-const getEnemies = (
-  usersState: BattleUserState[],
-  userId: string,
-  effects?: UserEffect[],
-) => {
-  const user = usersState.find((u) => u.userId === userId);
-  if (!user) return [];
-  return usersState.filter(
-    (u) => !areBattleAllies(u, user) && stillInBattle(u, effects),
-  );
-};
-
-/** Living members of the actor's battle team, including self and summons. */
-const getAllies = (
-  usersState: BattleUserState[],
-  userId: string,
-  effects?: UserEffect[],
-) => {
-  const user = usersState.find((u) => u.userId === userId);
-  if (!user) return [];
-  return usersState.filter(
-    (u) => areBattleAllies(u, user) && stillInBattle(u, effects),
-  );
 };
 
 const getBarriers = (

@@ -268,18 +268,6 @@ export const getWar = (battle: CompleteBattle | ReturnedBattle, warId: string) =
   return battle.extraState.wars?.[warId];
 };
 
-/**
- * Get all wars for a user as array
- */
-export const getWarsArray = (
-  battle: CompleteBattle | ReturnedBattle,
-  user: BattleUserState,
-) => {
-  return (user.warIds ?? [])
-    .map((id) => battle.extraState.wars?.[id])
-    .filter((w): w is BattleWar => Boolean(w));
-};
-
 /** Stable faction precedence survives initiative sorting and loadout reordering. */
 const getBattleTeamMembers = (battle: CompleteBattle, user: BattleUserState) =>
   battle.usersState
