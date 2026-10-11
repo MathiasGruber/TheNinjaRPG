@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { htmlToModerationInput } from "@/utils/sanitize";
+import sanitize, { htmlToModerationInput } from "@/utils/sanitize";
 import { buildModerationEvidence } from "@/libs/moderation/evidence";
 import { moderationDecisionSchema } from "@/validators/moderation";
 import type { AdditionalContext } from "@/validators/reports";
@@ -34,6 +34,21 @@ describe("moderation evidence", () => {
     const content = '<a href="https://prohibited.example/path?a=1&amp;b=2">guide</a>';
     expect(htmlToModerationInput(content)).toContain("https://prohibited.example/path?a=1&b=2");
     expect(buildModerationEvidence({ system: "forumPost", infraction: { content } }).linkDestinations).toEqual(["https://prohibited.example/path?a=1&b=2"]);
+  });
+  it.each([
+    ['<p>Game guide</p><iframe src="https://embed.example/video?a=1&amp;b=2"></iframe>', "https://embed.example/video?a=1&b=2"],
+    ['<img src="https://images.example/guide.png" onerror="alert(1)" />', "https://images.example/guide.png"],
+  ])("preserves supported media destinations in gate, target and context evidence: %s", (html, destination) => {
+    const content = sanitize(html);
+    expect(content).toContain("src=");
+    expect(content).not.toContain("onerror");
+    expect(htmlToModerationInput(content)).toContain(`Link destination: ${destination}`);
+    const evidence = buildModerationEvidence({
+      system: "forumPost", infraction: { content },
+      context: [context(content, "2026-01-01T12:00Z")],
+    });
+    expect(evidence.linkDestinations).toEqual([destination]);
+    expect(evidence.conversation[0]?.linkDestinations).toEqual([destination]);
   });
   it("describes missing account, image and linked battle evidence explicitly", () => {
     for (const system of ["user_profile", "concept_art", "battle_log"]) {

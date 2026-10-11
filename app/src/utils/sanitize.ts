@@ -128,15 +128,19 @@ export const stripBlockquotes = (html: string) =>
     exclusiveFilter: (frame) => frame.tag === "blockquote",
   });
 
-/** Preserve link destinations as untrusted evidence even when anchor labels hide them. */
+/** Preserve link and supported embed destinations as untrusted evidence. */
 export const moderationLinks = (html: string): string[] => {
   const links: string[] = [];
+  const preserveDestination: sanitizeHtml.Transformer = (tagName, attribs) => {
+    const destination = tagName === "a" ? attribs.href : attribs.src;
+    if (destination) links.push(destination);
+    return { tagName, attribs };
+  };
   sanitizeHtml(html, {
     transformTags: {
-      a: (tagName, attribs) => {
-        if (attribs.href) links.push(attribs.href);
-        return { tagName, attribs };
-      },
+      a: preserveDestination,
+      img: preserveDestination,
+      iframe: preserveDestination,
     },
   });
   return [...new Set(links)];
