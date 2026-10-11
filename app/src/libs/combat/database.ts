@@ -641,7 +641,7 @@ export const updateWars = async (
   const userVillageId = user?.villageId;
   // Guard
   if (!user) return;
-  if (!user.villageId) return;
+  if (!userVillageId) return;
   if (!result) return;
   // Skip war updates if kill happened in war-torn sector
   if (user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR) return;
@@ -735,30 +735,33 @@ export const updateWars = async (
           sectorsWithDefeatedShrine.add(w.sector);
         }
 
+        const updateShrine = async (db: Pick<DrizzleClient, "update">) => {
+          await db
+            .update(war)
+            .set({
+              defenderShrineHp: sql`GREATEST(LEAST(defenderShrineHp + ${result.shrineChangeHp}, defenderShrineMaxHp), 0)`,
+            })
+            .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+        };
+        const shouldCreditMission =
+          result.shrineChangeHp < 0 &&
+          killerSideVillageId === w.attackerVillageId &&
+          !user.isAi;
         otherPromises.push(
           retryOnDeadlock(() =>
-            client.transaction(async (tx) => {
-              if (
-                result.shrineChangeHp < 0 &&
-                killerSideVillageId === w.attackerVillageId &&
-                !user.isAi
-              ) {
-                await recordVillageMissionShrineDamage(
-                  tx,
-                  userVillageId as string,
-                  userId,
-                  w.id,
-                  "defenderShrineHp",
-                  -result.shrineChangeHp,
-                );
-              }
-              await tx
-                .update(war)
-                .set({
-                  defenderShrineHp: sql`GREATEST(LEAST(defenderShrineHp + ${result.shrineChangeHp}, defenderShrineMaxHp), 0)`,
+            shouldCreditMission
+              ? client.transaction(async (tx) => {
+                  await recordVillageMissionShrineDamage(
+                    tx,
+                    userVillageId,
+                    userId,
+                    w.id,
+                    "defenderShrineHp",
+                    -result.shrineChangeHp,
+                  );
+                  await updateShrine(tx);
                 })
-                .where(and(eq(war.id, w.id), isNull(war.endedAt)));
-            }),
+              : updateShrine(client),
           ),
         );
       }
@@ -808,64 +811,61 @@ export const updateWars = async (
                   : (w.defenderVillage?.name ?? "Defender");
 
               if (change < 0) {
-                await retryOnDeadlock(() =>
-                  client.transaction(async (tx) => {
-                    const ownerVillageId =
-                      shrineType === "attacker"
-                        ? w.attackerVillageId
-                        : w.defenderVillageId;
-                    if (killerSideVillageId !== ownerVillageId && !user.isAi) {
-                      await recordVillageMissionShrineDamage(
-                        tx,
-                        userVillageId as string,
-                        userId,
-                        w.id,
-                        hpCol,
-                        -change,
-                      );
-                    }
+                const updateShrine = async (db: Pick<DrizzleClient, "update">) => {
+                  // Attacking: reduce shrine HP, apply war health damage if crossing to 0 and status changes
+                  // First, try to update only if status is ACTIVE and HP will cross to 0
+                  const captureResult = await db
+                    .update(war)
+                    .set({
+                      [hpCol]: sql`GREATEST(${sql.raw(hpCol)} + ${change}, 0)`,
+                      [statusCol]: "CAPTURED",
+                      [warHealthCol]: sql`GREATEST(${sql.raw(warHealthCol)} - ${WAR_SHRINE_CAPTURE_WARHEALTH_DMG}, 0)`,
+                    })
+                    .where(
+                      and(
+                        eq(war.id, w.id),
+                        isNull(war.endedAt),
+                        sql`${sql.raw(statusCol)} = 'ACTIVE'`,
+                        sql`${sql.raw(hpCol)} + ${change} <= 0`,
+                      ),
+                    );
 
-                    // Attacking: reduce shrine HP, apply war health damage if crossing to 0 and status changes
-                    // First, try to update only if status is ACTIVE and HP will cross to 0
-                    const captureResult = await tx
-                      .update(war)
-                      .set({
-                        [hpCol]: sql`GREATEST(${sql.raw(hpCol)} + ${change}, 0)`,
-                        [statusCol]: "CAPTURED",
+                  if (captureResult.rowsAffected > 0) {
+                    return true;
+                  }
+                  // Already captured or above the threshold: apply only shrine damage.
+                  await db
+                    .update(war)
+                    .set({
+                      [hpCol]: sql`GREATEST(${sql.raw(hpCol)} + ${change}, 0)`,
+                    })
+                    .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+                  return false;
+                };
+                const ownerVillageId =
+                  shrineType === "attacker" ? w.attackerVillageId : w.defenderVillageId;
+                const shouldCreditMission =
+                  killerSideVillageId !== ownerVillageId && !user.isAi;
+                const captured = await retryOnDeadlock(() =>
+                  shouldCreditMission
+                    ? client.transaction(async (tx) => {
+                        await recordVillageMissionShrineDamage(
+                          tx,
+                          userVillageId,
+                          userId,
+                          w.id,
+                          hpCol,
+                          -change,
+                        );
+                        return updateShrine(tx);
                       })
-                      .where(
-                        and(
-                          eq(war.id, w.id),
-                          isNull(war.endedAt),
-                          sql`${sql.raw(statusCol)} = 'ACTIVE'`,
-                          sql`${sql.raw(hpCol)} + ${change} <= 0`,
-                        ),
-                      );
-
-                    if (captureResult.rowsAffected > 0) {
-                      // This battle caused the shrine to be captured (ACTIVE -> CAPTURED)
-                      // Apply damage to the shrine owner's war health
-                      await tx
-                        .update(war)
-                        .set({
-                          [warHealthCol]: sql`GREATEST(${sql.raw(warHealthCol)} - ${WAR_SHRINE_CAPTURE_WARHEALTH_DMG}, 0)`,
-                        })
-                        .where(and(eq(war.id, w.id), isNull(war.endedAt)));
-                      result.notifications.push(
-                        `${villageName}'s shrine captured! ${villageName} lost ${WAR_SHRINE_CAPTURE_WARHEALTH_DMG} war HP!`,
-                      );
-                    } else {
-                      // Didn't capture - either already CAPTURED or didn't cross threshold
-                      // Still update shrine HP
-                      await tx
-                        .update(war)
-                        .set({
-                          [hpCol]: sql`GREATEST(${sql.raw(hpCol)} + ${change}, 0)`,
-                        })
-                        .where(and(eq(war.id, w.id), isNull(war.endedAt)));
-                    }
-                  }),
+                    : updateShrine(client),
                 );
+                if (captured) {
+                  result.notifications.push(
+                    `${villageName}'s shrine captured! ${villageName} lost ${WAR_SHRINE_CAPTURE_WARHEALTH_DMG} war HP!`,
+                  );
+                }
               } else {
                 // Defending/Recovering: increase shrine HP, apply war health heal if crossing recapture threshold
                 // First, try to update only if status is CAPTURED and HP will cross above 25%

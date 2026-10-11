@@ -44,6 +44,8 @@ export const recordVillageMissionProgress = async (
  * Credit only HP removed by the following shrine write in the same short transaction.
  * The locking scalar subquery reads current HP inside the UPDATE: combat adds no fetch,
  * and concurrent attackers cannot credit the same remaining HP twice.
+ * A joined multi-table UPDATE has no defined assignment order, so it cannot safely
+ * calculate credit from the shrine's HP before the damage assignment.
  */
 export const recordVillageMissionShrineDamage = async (
   client: Pick<DrizzleClient, "update">,

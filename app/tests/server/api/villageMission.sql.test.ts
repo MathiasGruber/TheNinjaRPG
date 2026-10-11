@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, spyOn } from "bun:test";
 import { eq } from "drizzle-orm";
-import { battle, userData, village, villageStructure, quest, questHistory, war, warKill } from "@/drizzle/schema";
+import { BUILDING_UPGRADE_BASE_COST, BUILDING_UPGRADE_PER_LEVEL_COST, WAR_SHRINE_CAPTURE_WARHEALTH_DMG } from "@/drizzle/constants";
+import { battle, clan, userData, village, villageStructure, quest, questHistory, war, warKill } from "@/drizzle/schema";
 import { updateBattle, updateWars } from "@/libs/combat/database";
 import type { CompleteBattle, CombatResult } from "@/libs/combat/types";
 import { SimpleObjective } from "@/validators/objectives";
@@ -12,7 +13,7 @@ import * as socials from "@/libs/socials";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import { accrueVillageStructureMaintenance } from "@/server/utils/villageMaintenance";
 import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/factories";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 import { makeBattleUser, makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 
 const state = async () => (await getTestDatabase()).query.village.findFirst({ where: eq(village.id, "v1") });
@@ -21,7 +22,7 @@ const objective = { id: "effort", task: "combined_mission_effort", description: 
 
 describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
   beforeEach(async () => {
-    await resetTables(battle, userData, village, villageStructure, quest, questHistory, war, warKill);
+    await resetTables(battle, clan, userData, village, villageStructure, quest, questHistory, war, warKill);
     const db = await getTestDatabase();
     await insertUsers([
       { userId: "leader", username: "leader", villageId: "v1" },
@@ -92,6 +93,46 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     expect(results.filter((r) => r.success)).toHaveLength(1);
     expect((await state())?.activeMission).not.toBeNull();
     expect(await (await callerFor(villageMissionRouter, "outsider")).get({ id: "v1" })).toBeNull();
+  });
+
+  it.each([true, false])("rejects a stale personal reward snapshot after content conversion (resolved=%s)", async (resolved) => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ role: "OWNER" }).where(eq(userData.userId, "leader"));
+    await db.update(userData).set({ money: 100 }).where(eq(userData.userId, "member"));
+    await db.update(quest).set({ questType: "mission", questRank: "D" }).where(eq(quest.id, "mission-1"));
+    await insertQuestHistory([{ id: "personal", userId: "member", questId: "mission-1", questType: "mission" }]);
+    const user = await db.query.userData.findFirst({
+      where: eq(userData.userId, "member"),
+      with: { userQuests: { with: { quest: true } }, completedQuests: true, items: { with: { item: true } } },
+    });
+    const history = user?.userQuests[0];
+    if (!user || !history) throw new Error("Missing personal quest fixture");
+    const discord = spyOn(socials, "callDiscordContent").mockResolvedValue(undefined);
+    try {
+      const editor = await callerFor(questsRouter, "leader");
+      expect((await editor.update({ id: history.questId, data: { ...history.quest, questType: "village_mission", questRank: "S" } })).success).toBe(true);
+    } finally {
+      discord.mockRestore();
+    }
+    const retired = await db.query.questHistory.findFirst({ where: eq(questHistory.id, history.id) });
+    const claim = await commitQuestObjectiveRewards({
+      client: db, userId: user.userId, user: user as never,
+      rewards: PostProcessedRewardSchema.parse({ reward_money: 25 }),
+      trackers: [], userQuest: history as never, resolved,
+      notifications: [], consequences: [], existingHistory: history,
+    });
+    expect(claim.outcome).toBe("state_changed");
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "member") }))?.money).toBe(100);
+    expect(await db.query.questHistory.findFirst({ where: eq(questHistory.id, history.id) })).toEqual(retired);
+    // The current content guard also rejects a legacy attempt whose endAt was never retired.
+    await db.update(questHistory).set({ endAt: null }).where(eq(questHistory.id, history.id));
+    expect((await commitQuestObjectiveRewards({
+      client: db, userId: user.userId, user: user as never,
+      rewards: PostProcessedRewardSchema.parse({ reward_money: 25 }),
+      trackers: [], userQuest: history as never, resolved,
+      notifications: [], consequences: [], existingHistory: history,
+    })).outcome).toBe("state_changed");
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "member") }))?.money).toBe(100);
   });
 
   it("pays a completed quest while skipping chained Village Missions, retired S-rank missions and NPC-only destinations", async () => {
@@ -219,22 +260,120 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
   it("credits only shrine HP actually removed, including simultaneous overkill and ended wars", async () => {
     const db = await getTestDatabase();
     await (await leader()).select({ villageId: "v1" });
-    await db.insert(war).values({ id: "w1", attackerVillageId: "v1", defenderVillageId: "v2", type: "VILLAGE_WAR", status: "ACTIVE", sector: 12, defenderShrineHp: 15, defenderShrineMaxHp: 100 });
-    const persisted = await db.query.war.findFirst({ where: eq(war.id, "w1") });
-    const battle = { battleType: "COMBAT", usersState: [
-      { userId: "member", villageId: "v1", isAi: false, sector: 12, warIds: ["w1"] },
-      { userId: "outsider", villageId: "v2", isAi: false, sector: 12, warIds: ["w1"] },
-    ], extraState: { wars: { w1: { ...persisted, warAllies: [] } } } } as unknown as CompleteBattle;
-    const settle = () => updateWars(db, {} as never, battle, { didWin: 1, shrineChangeHp: -10, villageWarShrineInfo: { w1: { attacker: 0, defender: -10 } }, warHealthChange: 0, notifications: [] } as unknown as CombatResult, "member");
+    const battle = await shrineBattle("VILLAGE_WAR");
+    const notifications: string[] = [];
+    const settle = async () => {
+      const result = shrineResult(-10);
+      await updateWars(db, {} as never, battle, result, "member");
+      notifications.push(...result.notifications);
+    };
     await Promise.all([settle(), settle()]);
     expect((await state())?.missionCounters.siege_operation).toBe(15);
-    expect((await db.query.war.findFirst({ where: eq(war.id, "w1") }))?.defenderShrineHp).toBe(0);
+    const captured = await db.query.war.findFirst({ where: eq(war.id, "w1") });
+    expect(captured?.defenderShrineHp).toBe(0);
+    expect(captured?.defenderShrineStatus).toBe("CAPTURED");
+    expect(captured?.defenderWarHealth).toBe(WAR_SHRINE_CAPTURE_WARHEALTH_DMG * 2);
+    expect(notifications.filter((message) => message.includes("shrine captured"))).toHaveLength(1);
     await settle();
     expect((await state())?.missionCounters.siege_operation).toBe(15);
+    expect(notifications.filter((message) => message.includes("shrine captured"))).toHaveLength(1);
     await db.update(war).set({ defenderShrineHp: 50, endedAt: new Date() }).where(eq(war.id, "w1"));
     await settle();
     expect((await state())?.missionCounters.siege_operation).toBe(15);
     expect((await db.query.war.findFirst({ where: eq(war.id, "w1") }))?.defenderShrineHp).toBe(50);
   });
 
+  it("rolls back shrine credit, capture and war health together without publishing a capture", async () => {
+    const db = await getTestDatabase();
+    await (await leader()).select({ villageId: "v1" });
+    const battle = await shrineBattle("VILLAGE_WAR");
+    const aborted = new Error("Abort settlement before commit");
+    const aborting = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property === "transaction") {
+          return (callback: Parameters<typeof db.transaction>[0]) => db.transaction(async (tx) => {
+            await callback(tx);
+            throw aborted;
+          });
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const result = shrineResult(-20);
+    await expect(updateWars(aborting, {} as never, battle, result, "member")).rejects.toThrow(aborted.message);
+    expect((await state())?.missionCounters.siege_operation ?? 0).toBe(0);
+    const saved = await db.query.war.findFirst({ where: eq(war.id, "w1") });
+    expect(saved?.defenderShrineHp).toBe(15);
+    expect(saved?.defenderShrineStatus).toBe("ACTIVE");
+    expect(saved?.defenderWarHealth).toBe(WAR_SHRINE_CAPTURE_WARHEALTH_DMG * 3);
+    expect(result.notifications).toEqual([]);
+  });
+
+  it.each([
+    { type: "SECTOR_WAR" as const, isAi: false, change: 10 },
+    { type: "SECTOR_WAR" as const, isAi: true, change: -10 },
+    { type: "VILLAGE_WAR" as const, isAi: true, change: -10 },
+  ])("settles $type shrine changes without a transaction when no player mission credit is due (AI=$isAi, change=$change)", async ({ type, isAi, change }) => {
+    const db = await getTestDatabase();
+    await (await leader()).select({ villageId: "v1" });
+    const battle = await shrineBattle(type);
+    battle.usersState[0]!.isAi = isAi;
+    const noTransactions = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property === "transaction") throw new Error("Unexpected transaction for a single-row shrine change");
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    await updateWars(noTransactions, {} as never, battle, shrineResult(change), "member");
+    expect((await db.query.war.findFirst({ where: eq(war.id, "w1") }))?.defenderShrineHp).toBe(15 + change);
+    expect((await state())?.missionCounters.siege_operation ?? 0).toBe(0);
+  });
+
+  it("upgrades a town with clan points in one guarded write, charging only one concurrent upgrade", async () => {
+    const db = await getTestDatabase();
+    await db.update(village).set({ type: "TOWN", leaderUpdatedAt: new Date("2020-01-01") }).where(eq(village.id, "v1"));
+    await db.insert(clan).values({ id: "c1", name: "Faction", image: "", villageId: "v1", founderId: "leader", leaderId: "leader", leaderOrderId: "order", points: 500_000 });
+    await db.update(userData).set({ clanId: "c1" }).where(eq(userData.userId, "leader"));
+    const noTransactions = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property === "transaction") throw new Error("Unexpected upgrade transaction");
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const caller = callerForDatabase(kageRouter, "leader", noTransactions);
+    const results = await Promise.all([1, 2].map(() => caller.upgradeStructure({ structureId: "bank", villageId: "v1", clanId: "c1" })));
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect((await db.query.clan.findFirst({ where: eq(clan.id, "c1") }))?.points).toBe(500_000 - BUILDING_UPGRADE_BASE_COST - BUILDING_UPGRADE_PER_LEVEL_COST);
+    expect((await state())?.tokens).toBe(500_000);
+    expect((await db.query.villageStructure.findFirst({ where: eq(villageStructure.id, "bank") }))?.level).toBe(2);
+    // Membership can change after the endpoint's upfront reads but before the guarded write.
+    await db.update(villageStructure).set({ level: 1 }).where(eq(villageStructure.id, "bank"));
+    await db.update(clan).set({ points: 500_000 }).where(eq(clan.id, "c1"));
+    const revoked = new Proxy(noTransactions, {
+      get(target, property, receiver) {
+        if (property === "execute") return async (...args: Parameters<typeof db.execute>) => {
+          await db.update(userData).set({ clanId: null }).where(eq(userData.userId, "leader"));
+          return db.execute(...args);
+        };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const staleCaller = callerForDatabase(kageRouter, "leader", revoked);
+    expect((await staleCaller.upgradeStructure({ structureId: "bank", villageId: "v1", clanId: "c1" })).success).toBe(false);
+    expect((await db.query.clan.findFirst({ where: eq(clan.id, "c1") }))?.points).toBe(500_000);
+    expect((await db.query.villageStructure.findFirst({ where: eq(villageStructure.id, "bank") }))?.level).toBe(1);
+  });
+
 });
+
+const shrineBattle = async (type: "SECTOR_WAR" | "VILLAGE_WAR") => {
+  const db = await getTestDatabase();
+  await db.insert(war).values({ id: "w1", attackerVillageId: "v1", defenderVillageId: "v2", type, status: "ACTIVE", sector: 12, defenderShrineHp: 15, defenderShrineMaxHp: 100, defenderWarHealth: WAR_SHRINE_CAPTURE_WARHEALTH_DMG * 3 });
+  const persisted = await db.query.war.findFirst({ where: eq(war.id, "w1") });
+  return { battleType: "COMBAT", usersState: [
+    { userId: "member", villageId: "v1", isAi: false, sector: 12, warIds: ["w1"] },
+    { userId: "outsider", villageId: "v2", isAi: false, sector: 12, warIds: ["w1"] },
+  ], extraState: { wars: { w1: { ...persisted, warAllies: [] } } } } as unknown as CompleteBattle;
+};
+
+const shrineResult = (change: number) => ({ didWin: 1, shrineChangeHp: change, villageWarShrineInfo: { w1: { attacker: 0, defender: change } }, warHealthChange: 0, notifications: [] } as unknown as CombatResult);

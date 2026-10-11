@@ -1,5 +1,5 @@
 import { randomInt } from "crypto";
-import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
@@ -595,49 +595,36 @@ export const kageRouter = createTRPCRouter({
           isHideoutOrTown ? "Not enough clan points" : "Not enough tokens",
         );
       }
-      // Funds and the structure level belong to different rows and must commit together.
-      const changed = new Error("Structure or funds changed; refresh and try again");
-      try {
-        await retryOnDeadlock(() =>
-          ctx.drizzle.transaction(async (tx) => {
-            const payment =
-              isHideoutOrTown && clanData
-                ? await tx
-                    .update(clan)
-                    .set({ points: sql`${clan.points} - ${total}` })
-                    .where(and(eq(clan.id, clanData.id), gte(clan.points, total)))
-                : await tx
-                    .update(village)
-                    .set({ tokens: sql`${village.tokens} - ${total}` })
-                    .where(
-                      and(
-                        eq(village.id, input.villageId),
-                        eq(village.kageId, ctx.userId),
-                        gte(village.tokens, total),
-                        eq(village.structureMaintenanceDue, 0),
-                      ),
-                    );
-            if (payment.rowsAffected === 0) throw changed;
-            const upgrade = await tx
-              .update(villageStructure)
-              .set({ level: structure.level + 1, lastUpgradedAt: new Date() })
-              .where(
-                and(
-                  eq(villageStructure.id, input.structureId),
-                  eq(villageStructure.villageId, input.villageId),
-                  eq(villageStructure.level, structure.level),
-                  gte(villageStructure.maxLevel, structure.level + 1),
-                  sql`EXISTS (SELECT 1 FROM ${village} WHERE ${village.id} = ${input.villageId} AND ${village.kageId} = ${ctx.userId})`,
-                  sql`EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${ctx.userId} AND ${userData.villageId} = ${input.villageId} AND ${userData.isBanned} = false)`,
-                ),
-              );
-            if (upgrade.rowsAffected === 0) throw changed;
-          }),
-        );
-      } catch (error) {
-        if (error === changed) return errorResponse(changed.message);
-        throw error;
-      }
+      const fundingClan = isHideoutOrTown ? clanData : null;
+      const balance = fundingClan ? clan.points : village.tokens;
+      const guards = and(
+        eq(villageStructure.id, input.structureId),
+        eq(villageStructure.villageId, input.villageId),
+        eq(villageStructure.level, structure.level),
+        gte(villageStructure.maxLevel, structure.level + 1),
+        eq(village.kageId, ctx.userId),
+        eq(village.type, userVillage.type),
+        gte(balance, total),
+        fundingClan
+          ? lte(village.leaderUpdatedAt, new Date(Date.now() - lockout * 1000))
+          : eq(village.structureMaintenanceDue, 0),
+        sql`EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${ctx.userId} AND ${userData.villageId} = ${village.id} AND ${userData.isBanned} = false ${fundingClan ? sql`AND ${userData.clanId} = ${fundingClan.id}` : sql``})`,
+      );
+      // Drizzle has no multi-table UPDATE builder. A joined write debits funds and
+      // upgrades the guarded level together, without a transaction or partial payment.
+      const result = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+          UPDATE ${villageStructure}
+          INNER JOIN ${village} ON ${village.id} = ${villageStructure.villageId}
+          ${fundingClan ? sql`INNER JOIN ${clan} ON ${clan.id} = ${fundingClan.id}` : sql``}
+          SET ${balance} = ${balance} - ${total},
+              ${villageStructure.level} = ${structure.level + 1},
+              ${villageStructure.lastUpgradedAt} = ${new Date()}
+          WHERE ${guards}
+        `),
+      );
+      if (result.rowsAffected === 0)
+        return errorResponse("Structure or funds changed; refresh and try again");
 
       return { success: true, message: "Structure upgraded" };
     }),

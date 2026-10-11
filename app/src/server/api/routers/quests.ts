@@ -3113,6 +3113,9 @@ export const commitQuestObjectiveRewards = async (info: {
           eq(questHistory.questId, userQuest?.questId ?? ""),
           eq(questHistory.userId, userId),
           eq(questHistory.completed, 0),
+          isNull(questHistory.endAt),
+          // Content conversion can retire a personal attempt after its reward snapshot was loaded.
+          sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${questHistory.questId} AND ${quest.questType} != 'village_mission')`,
           ...(rewardChoice ? [isNull(questHistory.pendingRewardChoice)] : []),
         ),
       );
@@ -3142,7 +3145,21 @@ export const commitQuestObjectiveRewards = async (info: {
     user,
     consequences,
     notifications,
-    { alwaysClaimUserState: true },
+    {
+      alwaysClaimUserState: true,
+      // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
+      claimConditions:
+        !resolved && userQuest
+          ? [
+              sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${userQuest.questId} AND ${quest.questType} != 'village_mission')`,
+              ...(userQuest.quest.questType === "achievement"
+                ? []
+                : [
+                    sql`EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.questId} = ${userQuest.questId} AND ${questHistory.userId} = ${userId} AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL)`,
+                  ]),
+            ]
+          : [],
+    },
   );
 
   if (!claimed) {
@@ -3493,6 +3510,8 @@ export const handleQuestConsequences = async (
   notifications: string[],
   options?: {
     alwaysClaimUserState?: boolean;
+    /** Conditions that must still hold when the reward/consequence snapshot is claimed. */
+    claimConditions?: QueryCondition[];
     /** Roll the active objectives' ambush attackers; only the travel movement check sets it. */
     rollObjectiveAttackers?: boolean;
   },
@@ -3559,6 +3578,7 @@ export const handleQuestConsequences = async (
       client,
       userId: user.userId,
       updatedAt: user.updatedAt,
+      where: options?.claimConditions,
       set: {
         questData: filterQuestTrackersForDbPersist(user.questData ?? [], user),
       },
