@@ -4,9 +4,11 @@ import {
   desc,
   eq,
   exists,
+  inArray,
   isNotNull,
   isNull,
   ne,
+  notExists,
   or,
   sql,
 } from "drizzle-orm";
@@ -170,6 +172,32 @@ export const generateReportEmbeddings = async (
 
 type EmbedReports = typeof generateReportEmbeddings;
 
+/** Remove the stored summaries before their reports disappear during account cleanup. */
+export const deleteUserReportEmbeddings = async (
+  client: DrizzleClient,
+  userId: string,
+) => {
+  try {
+    await client.delete(userReportEmbedding).where(
+      inArray(
+        userReportEmbedding.reportId,
+        client
+          .select({ id: userReport.id })
+          .from(userReport)
+          .where(
+            or(
+              eq(userReport.reporterUserId, userId),
+              eq(userReport.reportedUserId, userId),
+            ),
+          ),
+      ),
+    );
+  } catch (error) {
+    // Account cleanup also works before the optional embedding table is deployed.
+    if (!isFeatureUnavailable(error, "vector")) throw error;
+  }
+};
+
 /** Prefer semantic matches, then full-text ranking, then literal word matches. */
 export const getRelatedReports = async (
   client: DrizzleClient,
@@ -267,6 +295,18 @@ export const indexReportEmbeddings = async (
   embed: EmbedReports = generateReportEmbeddings,
 ) => {
   if (!(await supportsReportVectorSearch(client))) return;
+  // A report can disappear while an embedding request is in flight. Sweep any
+  // resulting orphan so account cleanup does not retain a separate summary.
+  await client
+    .delete(userReportEmbedding)
+    .where(
+      notExists(
+        client
+          .select({ id: userReport.id })
+          .from(userReport)
+          .where(eq(userReport.id, userReportEmbedding.reportId)),
+      ),
+    );
   const reports = await client
     .select({ id: userReport.id, text: userReport.aiInterpretation })
     .from(userReport)
@@ -290,12 +330,22 @@ export const indexReportEmbeddings = async (
       const embedding = sql`TO_VECTOR(${JSON.stringify(embeddings[index])})`;
       return client
         .insert(userReportEmbedding)
-        .values({
-          reportId: report.id,
-          sourceText: report.text,
-          model: OPENAI_REPORT_EMBEDDING_MODEL,
-          embedding,
-        })
+        .select(
+          client
+            .select({
+              reportId: userReport.id,
+              sourceText: userReport.aiInterpretation,
+              model: sql`${OPENAI_REPORT_EMBEDDING_MODEL}`.as("model"),
+              embedding: embedding.as("embedding"),
+            })
+            .from(userReport)
+            .where(
+              and(
+                eq(userReport.id, report.id),
+                eq(userReport.aiInterpretation, report.text),
+              ),
+            ),
+        )
         .onDuplicateKeyUpdate({
           set: {
             sourceText: report.text,

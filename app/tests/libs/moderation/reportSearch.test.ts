@@ -179,6 +179,10 @@ describe("moderation report search capabilities", () => {
   it("backfills summaries in one embedding batch and upserts their source and model", async () => {
     const { client, queries } = database((query, params) => {
       if (query.includes("DISTANCE")) return [];
+      if (query.startsWith("delete")) {
+        expect(query).toContain("not exists");
+        return [[{ insertId: 0, affectedRows: 1 }]];
+      }
       if (query.startsWith("select")) {
         expect(query).toContain("left join `UserReportEmbedding`");
         expect(query).toContain("`sourceText` <> `UserReport`.`aiInterpretation`");
@@ -189,6 +193,7 @@ describe("moderation report search capabilities", () => {
       }
       expect(query).toContain("TO_VECTOR(?)");
       expect(query).toContain("on duplicate key update");
+      expect(query).toContain("from `UserReport` where");
       expect(params).toContain("text-embedding-3-small");
       expect(params.some((param) => param === "[1,0]" || param === "[0,1]")).toBe(true);
       return [[{ insertId: 0, affectedRows: 1 }]];

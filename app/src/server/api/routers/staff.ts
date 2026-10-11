@@ -83,6 +83,7 @@ import {
   village,
   warKill,
 } from "@/drizzle/schema";
+import { deleteUserReportEmbeddings } from "@/libs/moderation/reportSearch";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { fetchBadge } from "@/routers/badge";
 import { fetchAttributes, fetchUpdatedUser, fetchUser } from "@/routers/profile";
@@ -1365,6 +1366,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
   ]);
 
   // Batch 6: Reports & moderation
+  await deleteUserReportEmbeddings(client, userId);
   await Promise.all([
     client.delete(reportLog).where(eq(reportLog.targetUserId, userId)),
     client.delete(reportLog).where(eq(reportLog.staffUserId, userId)),

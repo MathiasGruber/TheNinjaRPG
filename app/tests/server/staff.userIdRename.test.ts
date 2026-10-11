@@ -1,5 +1,5 @@
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { beforeEach, expect, it } from "bun:test";
 import {
@@ -16,9 +16,11 @@ import {
   userDevice,
   userLiveActivity,
   userPushPreference,
+  userReport,
+  userReportEmbedding,
   village,
 } from "@/drizzle/schema";
-import { STARTING_REPUTATION_POINTS } from "@/drizzle/constants";
+import { OPENAI_REPORT_EMBEDDING_MODEL, REPORT_EMBEDDING_DIMENSIONS, STARTING_REPUTATION_POINTS } from "@/drizzle/constants";
 import { registerRouter } from "@/server/api/routers/register";
 import { deleteUser, staffRouter } from "@/server/api/routers/staff";
 import { pushRouter } from "@/server/api/routers/push";
@@ -49,6 +51,8 @@ describeWithDatabase("staff user-id rename", () => {
       auctionOffer,
       bloodline,
       notification,
+      userReportEmbedding,
+      userReport,
       userLiveActivity,
       userPushPreference,
       userDevice,
@@ -81,6 +85,27 @@ describeWithDatabase("staff user-id rename", () => {
     await deleteUser(database, OLD_USER_ID);
     expect((await database.select().from(auctionOffer))[0]?.status).toBe("CANCELLED");
     expect(await database.select().from(userData).where(eq(userData.userId, OLD_USER_ID))).toHaveLength(0);
+  });
+
+  it("removes stored moderation summaries for a deleted reporter or reported user", async () => {
+    const database = await getTestDatabase();
+    await database.insert(userReport).values([
+      { id: "reported", reportedUserId: OLD_USER_ID, reason: "Reported user" },
+      { id: "reporter", reporterUserId: OLD_USER_ID, reason: "Reporter" },
+      { id: "retained", reason: "Other users' report" },
+    ].map((report) => ({ ...report, system: "comment", infraction: {}, aiInterpretation: "Moderation summary" })));
+    const embedding = sql`TO_VECTOR(${JSON.stringify(Array(REPORT_EMBEDDING_DIMENSIONS).fill(1))})`;
+    await database.insert(userReportEmbedding).values(
+      ["reported", "reporter", "retained"].map((reportId) => ({
+        reportId,
+        sourceText: "Moderation summary",
+        model: OPENAI_REPORT_EMBEDDING_MODEL,
+        embedding,
+      })),
+    );
+    await deleteUser(database, OLD_USER_ID);
+    expect((await database.select().from(userReport)).map((row) => row.id)).toEqual(["retained"]);
+    expect((await database.select().from(userReportEmbedding)).map((row) => row.reportId)).toEqual(["retained"]);
   });
 
   it("reserves every retired alias against later reuse", async () => {
