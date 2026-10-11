@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import type { Bloodline, Quest, UserQuest } from "@/drizzle/schema";
 import { availableUserActions } from "@/libs/combat/actions";
-import { maskBattle, maskBattleDynamic } from "@/libs/combat/util";
+import { maskBattle } from "@/libs/combat/util";
 import { makeBattleUser, makeCompleteBattle } from "./helpers/battleScenario";
 
 describe("masked battle payload", () => {
@@ -29,7 +29,6 @@ describe("masked battle payload", () => {
     expect(masked.extraState.bloodlines.line).toEqual<Pick<Bloodline, "id" | "name" | "effects">>({ id: "line", name: "Visible bloodline", effects: [] });
     expect(JSON.stringify(masked)).not.toContain("Secret catalog");
     expect(availableUserActions(masked, "me")).toEqual(availableUserActions(battle, "me"));
-    expect(masked.usersState).toEqual(maskBattleDynamic(battle, "me").usersState);
     expect(JSON.stringify(masked).length).toBeLessThan(JSON.stringify(battle).length - 10000);
     expect(battle).toEqual(snapshot);
   });

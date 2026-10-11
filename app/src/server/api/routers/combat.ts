@@ -148,7 +148,6 @@ import {
   getTurnControl,
   isEffectActive,
   maskBattle,
-  maskBattleDynamic,
   reconcileLobbyPools,
   refreshMasteries,
   resetMasteriesToBase,
@@ -851,8 +850,7 @@ export const combatRouter = createTRPCRouter({
               result ? updateRaidProgress(db, newBattle, suid) : Promise.resolve(),
               finishBattle(),
             ]);
-            // Return dynamic state and the viewer's current visible action catalogs.
-            const newMaskedBattle = maskBattleDynamic(newBattle, suid);
+            const newMaskedBattle = maskBattle(newBattle, suid);
 
             // Ping users on websocket
             if (!battleOver) {
@@ -872,7 +870,6 @@ export const combatRouter = createTRPCRouter({
             after(() => Sentry.flush(15000));
 
             // Return the new battle + result state if applicable
-            // The frontend merges visible catalogs into existing rendering data.
             return {
               result: result,
               updateClient: true,
@@ -2868,7 +2865,7 @@ export const initiateBattle = async (
     }
   }
 
-  // Publish only catalog availability; opponents never receive the private skill build.
+  // Capture injectable jutsu availability for the controller's action prediction.
   for (const user of usersState) {
     user.skillLockedJutsuIds =
       user.activeSkillIds === undefined

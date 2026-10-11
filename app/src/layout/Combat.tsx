@@ -540,22 +540,14 @@ const Combat: React.FC<CombatProps> = (props) => {
           await handleNextStepAsync(currentStep.onCombatLoss);
         }
       }
-      // Merge refreshed visible catalogs with static rendering data.
-      if (data.updateClient && data.battleUpdate && battleRef.current?.extraState) {
-        const mergedBattle = {
-          ...data.battleUpdate,
-          extraState: {
-            ...battleRef.current.extraState,
-            ...data.battleUpdate.extraState,
-          },
-        };
-        battleRef.current = mergedBattle;
+      if (data.updateClient && data.battleUpdate) {
+        battleRef.current = data.battleUpdate;
         setBattleState({
-          battle: mergedBattle,
+          battle: data.battleUpdate,
           result: data.result,
           isPending: false,
         });
-        setBattleAtom(battleRef.current);
+        setBattleAtom(data.battleUpdate);
       }
     },
   });

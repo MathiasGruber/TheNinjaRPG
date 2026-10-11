@@ -3,7 +3,7 @@ import type { Item, Jutsu, JutsuReskin, SageMode } from "@/drizzle/schema";
 import { SAGE_MODE_ACTIVATION_JUTSU_ID } from "@/drizzle/constants";
 import { availableUserActions, handleInjectedJutsus } from "@/libs/combat/actions";
 import type { BattleUserJutsu } from "@/libs/combat/types";
-import { getJutsu, maskBattle, maskBattleDynamic } from "@/libs/combat/util";
+import { getJutsu, maskBattle } from "@/libs/combat/util";
 import { InjectJutsusTag, VisualTag } from "@/validators/combat";
 import {
   makeBattleUser,
@@ -27,6 +27,7 @@ const privateUser = (id: string) => makeBattleUser(id, {
   sector: 83, location: "VILLAGE", jutsus: [ref(`${id}-jutsu`)],
   items: [makeBattleUserItem({ id: `${id}-row`, itemId: `${id}-item` })],
   basicActions: [{ id: "basicHeal", lastUsedRound: 2 }],
+  activeSkillIds: [`${id}-skill`], skillLockedJutsuIds: [`${id}-locked-jutsu`],
   sageMasteryExperience: 999, dailySageActivations: 3,
 });
 const battleWithLoadouts = () => makeCompleteBattle({
@@ -45,22 +46,22 @@ const battleWithLoadouts = () => makeCompleteBattle({
 describe("battle response privacy", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("hides other participants' world location, loadouts, cooldowns and stats in both response paths", () => {
+  it("hides other participants' world location, loadouts, cooldowns and stats", () => {
     const battle = battleWithLoadouts();
     const before = structuredClone(battle);
-    for (const response of [maskBattle(battle, "me"), maskBattleDynamic(battle, "me")]) {
-      const foe = response.usersState.find(u => u.userId === "foe")!;
-      for (const field of ["sector", "location", "items", "jutsus", "basicActions", "strength", "highestGenerals", "sageMasteryExperience", "dailySageActivations"])
-        expect(foe).not.toHaveProperty(field);
-      expect(foe).toMatchObject({userId: "foe", longitude: 1, latitude: 0, curHealth: 5000, controllerId: "foe"});
-      expect(response.extraState.jutsus).toHaveProperty("me-jutsu");
-      expect(response.extraState.jutsus).not.toHaveProperty("foe-jutsu");
-      expect(response.extraState.items).not.toHaveProperty("foe-item");
-      expect(JSON.stringify(response)).not.toContain("secret-ai-rule");
-    }
-    expect(maskBattle(battle, "me").extraState.energyRegeneration).toEqual({me: 20});
-    expect(maskBattle(battle, "me").extraState).not.toHaveProperty("initialDurability");
-    expect(maskBattle(battle, "me").extraState).not.toHaveProperty("preBattleGearModifiers");
+    const response = maskBattle(battle, "me");
+    const foe = response.usersState.find(u => u.userId === "foe")!;
+    for (const field of ["sector", "location", "items", "jutsus", "basicActions", "strength", "highestGenerals", "sageMasteryExperience", "dailySageActivations", "activeSkillIds", "skillLockedJutsuIds"])
+      expect(foe).not.toHaveProperty(field);
+    expect(foe).toMatchObject({userId: "foe", longitude: 1, latitude: 0, curHealth: 5000, controllerId: "foe"});
+    expect(response.usersState[0]).toMatchObject({activeSkillIds: ["me-skill"], skillLockedJutsuIds: ["me-locked-jutsu"]});
+    expect(response.extraState.jutsus).toHaveProperty("me-jutsu");
+    expect(response.extraState.jutsus).not.toHaveProperty("foe-jutsu");
+    expect(response.extraState.items).not.toHaveProperty("foe-item");
+    expect(JSON.stringify(response)).not.toContain("secret-ai-rule");
+    expect(response.extraState.energyRegeneration).toEqual({me: 20});
+    expect(response.extraState).not.toHaveProperty("initialDurability");
+    expect(response.extraState).not.toHaveProperty("preBattleGearModifiers");
     expect(battle).toEqual(before);
   });
 
@@ -92,7 +93,7 @@ describe("battle response privacy", () => {
     expect(masked.usersState[1]).not.toHaveProperty("jutsus");
     battle.extraState.revealedActions = {jutsuIds: ["foe-jutsu"], itemIds: ["foe-item"]};
     battle.usersState.pop();
-    const afterDespawn = maskBattleDynamic(battle, "spectator");
+    const afterDespawn = maskBattle(battle, "spectator");
     expect(afterDespawn.extraState.jutsus).toHaveProperty("foe-jutsu");
     expect(afterDespawn.extraState.items).toHaveProperty("foe-item");
     expect(afterDespawn.extraState.jutsus).not.toHaveProperty("me-jutsu");
@@ -106,11 +107,10 @@ describe("battle response privacy", () => {
     battle.usersState.push(summon);
     battle.extraState.jutsus["granted"] = jutsu("granted");
     battle.usersEffects = [makeEffect("injectjutsus", {jutsuIds:["granted"]}, {targetId:"summon", creatorId:"foe"})];
-    const dynamic = maskBattleDynamic(battle, "me");
-    const merged = {...maskBattle(battle, "me"), ...dynamic, extraState: {...maskBattle(battle, "me").extraState, ...dynamic.extraState}};
-    const actor = merged.usersState.find(u=>u.userId === "summon")!;
+    const masked = maskBattle(battle, "me");
+    const actor = masked.usersState.find(u=>u.userId === "summon")!;
     expect(actor.jutsus).toEqual(summon.jutsus);
-    expect(handleInjectedJutsus(merged, actor).map(j=>j.jutsuId)).toContain("granted");
+    expect(handleInjectedJutsus(masked, actor).map(j=>j.jutsuId)).toContain("granted");
     const publicBattle = maskBattle(battle, "spectator");
     expect(publicBattle.extraState.jutsus).not.toHaveProperty("granted");
     expect(InjectJutsusTag.parse(publicBattle.usersEffects[0]).jutsuIds).toEqual([]);

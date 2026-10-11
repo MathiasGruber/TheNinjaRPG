@@ -112,7 +112,6 @@ import type {
   Consequence,
   DroppedItem,
   ReturnedBattle,
-  ReturnedBattleDynamic,
   ReturnedExtraState,
   ReturnedUserState,
 } from "./types";
@@ -1750,47 +1749,6 @@ export const maskBattle = (battle: Battle, userId: string): ReturnedBattle => ({
   usersEffects: maskBattleEffects(battle.usersEffects, battle, userId),
   groundEffects: maskBattleEffects(battle.groundEffects, battle, userId),
 });
-
-/**
- * Include the visible action catalogs in dynamic updates: granting injected jutsu
- * or piloting a summon can reveal definitions absent from the initial response.
- */
-export const maskBattleDynamic = (
-  battle: Battle,
-  userId: string,
-): ReturnedBattleDynamic => {
-  const { extraState: _extraState, ...dynamicBattle } = battle;
-  const {
-    jutsus,
-    items,
-    jutsuReskins,
-    sageModes,
-    bloodlines,
-    keystoneItems,
-    villages,
-    clans,
-    textureAssets,
-    sfxAssets,
-  } = maskBattleExtraState(battle, userId);
-  return {
-    ...dynamicBattle,
-    extraState: {
-      jutsus,
-      items,
-      jutsuReskins,
-      sageModes,
-      bloodlines,
-      keystoneItems,
-      villages,
-      clans,
-      textureAssets,
-      sfxAssets,
-    },
-    usersState: maskUsersState(dynamicBattle.usersState, userId),
-    usersEffects: maskBattleEffects(battle.usersEffects, battle, userId),
-    groundEffects: maskBattleEffects(battle.groundEffects, battle, userId),
-  };
-};
 
 /**
  * Figure out if user is still in battle, and if not whether the user won or lost

@@ -46,7 +46,6 @@ export type DmgConfig = typeof dmgConfig;
  * Battlefield state needed to render participants and their visible status.
  */
 export const publicState = [
-  "skillLockedJutsuIds",
   "actionPoints",
   "avatar",
   "avatarFacing",
@@ -92,6 +91,7 @@ export const publicState = [
  */
 export const privateState = [
   "activeSkillIds",
+  "skillLockedJutsuIds",
   "anbuId",
   "basicActions",
   "sageModeId",

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "bun:test";
 import type { AiProfile, Jutsu } from "@/drizzle/schema";
 import { availableUserActions, calcActiveUser } from "@/libs/combat/actions";
 import type { CombatQueryUser, ReturnedBattle } from "@/libs/combat/types";
-import { hasNoAvailableActions, maskBattle, maskBattleDynamic } from "@/libs/combat/util";
+import { hasNoAvailableActions, maskBattle } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
 import { makeBattleUser, makeCompleteBattle, makeEffect, makeTag } from "./helpers/battleScenario";
@@ -80,15 +80,14 @@ describe("battle privacy regressions", () => {
     });
     const before = structuredClone(battle);
     for (const viewer of ["me", "spectator"]) {
-      for (const response of [maskBattle(battle, viewer), maskBattleDynamic(battle, viewer)]) {
-        const catalogs = [response.extraState.bloodlines.line, response.extraState.items.keystone,
-          response.extraState.keystoneItems.keystone];
-        for (const definition of catalogs) {
-          expect(definition?.effects).toHaveLength(1);
-          expect(definition?.effects[0]).toMatchObject(authored);
-          expect(definition?.effects[0]).not.toHaveProperty("highestGenerals");
-          expect(definition?.effects[0]).not.toHaveProperty("targetHighestGenerals");
-        }
+      const response = maskBattle(battle, viewer);
+      const catalogs = [response.extraState.bloodlines.line, response.extraState.items.keystone,
+        response.extraState.keystoneItems.keystone];
+      for (const definition of catalogs) {
+        expect(definition?.effects).toHaveLength(1);
+        expect(definition?.effects[0]).toMatchObject(authored);
+        expect(definition?.effects[0]).not.toHaveProperty("highestGenerals");
+        expect(definition?.effects[0]).not.toHaveProperty("targetHighestGenerals");
       }
     }
     expect(battle).toEqual(before);
@@ -100,17 +99,15 @@ describe("battle privacy regressions", () => {
       const battle = battleWithPrivateAction(isAi);
       expect(hasNoAvailableActions(battle, "foe")).toBe(false);
       expect(calcActiveUser(battle, "me").actor.userId).toBe("foe");
-      for (const response of [maskBattle(battle, "me"), maskBattleDynamic(battle, "me")]) {
-        const complete = { ...battle, ...response } as ReturnedBattle;
-        expect(complete.extraState.jutsus).not.toHaveProperty("attack");
-        expect(hasNoAvailableActions(complete, "foe")).toBe(false);
-        expect(calcActiveUser(complete, "me").actor.userId).toBe("foe");
-        // CombatTimeline asks for public actors' actions and fills missing jutsus with [].
-        availableUserActions(complete, "foe");
-        expect(complete.usersState[0]?.jutsus).toEqual([]);
-        expect(hasNoAvailableActions(complete, "foe")).toBe(false);
-        expect(calcActiveUser(complete, "me").actor.userId).toBe("foe");
-      }
+      const response = maskBattle(battle, "me");
+      expect(response.extraState.jutsus).not.toHaveProperty("attack");
+      expect(hasNoAvailableActions(response, "foe")).toBe(false);
+      expect(calcActiveUser(response, "me").actor.userId).toBe("foe");
+      // CombatTimeline asks for public actors' actions and fills missing jutsus with [].
+      availableUserActions(response, "foe");
+      expect(response.usersState[0]?.jutsus).toEqual([]);
+      expect(hasNoAvailableActions(response, "foe")).toBe(false);
+      expect(calcActiveUser(response, "me").actor.userId).toBe("foe");
     });
   }
 
@@ -148,11 +145,6 @@ describe("battle privacy regressions", () => {
     vi.spyOn(Date, "now").mockReturnValue(now.getTime());
     const battle = battleWithPrivateAction(true);
     battle.roundStartAt = new Date(now.getTime() - 10 * 60 * 1000);
-    for (const response of [maskBattle(battle, "me"), maskBattleDynamic(battle, "me")]) {
-      const complete = { ...battle, ...response, extraState: {
-        ...maskBattle(battle, "me").extraState, ...response.extraState,
-      } };
-      expect(calcActiveUser(complete, "me").actor.userId).toBe("me");
-    }
+    expect(calcActiveUser(maskBattle(battle, "me"), "me").actor.userId).toBe("me");
   });
 });

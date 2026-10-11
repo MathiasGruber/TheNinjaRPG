@@ -3,7 +3,7 @@ import { Grid, rectangle } from "honeycomb-grid";
 import { performAIaction } from "@/libs/combat/ai_v2";
 import { ActionEndTurn, ActionUseSpecificJutsu } from "@/validators/ai";
 import type { BattleUserState, CompleteBattle } from "@/libs/combat/types";
-import { maskBattle, maskBattleDynamic } from "@/libs/combat/util";
+import { maskBattle } from "@/libs/combat/util";
 
 /**
  * Integration cover for auto combat at the ai_v2 CALL SITE: a human with
@@ -125,12 +125,7 @@ describe("performAIaction auto combat", () => {
     ]);
     expect(nextBattle.extraState.revealedActions).toBeUndefined();
     for (const viewer of ["foe", "spectator"]) {
-      for (const response of [
-        maskBattle(nextBattle, viewer),
-        maskBattleDynamic(nextBattle, viewer),
-      ]) {
-        expect(response.extraState.jutsus).not.toHaveProperty(DAMAGE_JUTSU);
-      }
+      expect(maskBattle(nextBattle, viewer).extraState.jutsus).not.toHaveProperty(DAMAGE_JUTSU);
     }
     const actor = nextBattle.usersState.find((u) => u.userId === "user_h1")!;
     expect(actor.usedActions).toEqual([{ id: "wait", type: "basic" }]);
@@ -161,12 +156,7 @@ describe("performAIaction auto combat", () => {
     expect(actor.jutsus[0]?.lastUsedRound).toBe(nextBattle.round);
     expect(actor.curStamina).toBeLessThan(5000);
     for (const viewer of ["foe", "spectator"]) {
-      for (const response of [
-        maskBattle(nextBattle, viewer),
-        maskBattleDynamic(nextBattle, viewer),
-      ]) {
-        expect(response.extraState.jutsus).toHaveProperty(DAMAGE_JUTSU);
-      }
+      expect(maskBattle(nextBattle, viewer).extraState.jutsus).toHaveProperty(DAMAGE_JUTSU);
     }
   });
 

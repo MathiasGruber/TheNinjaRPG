@@ -185,7 +185,7 @@ export type CombatUserFields = {
   enemySkillIds?: string[];
   /** Activated skills captured at initiation for use gates, including injected jutsu. */
   activeSkillIds?: string[];
-  /** Catalog jutsu blocked by skill requirements, safe for masked action prediction. */
+  /** Catalog jutsu blocked by skill requirements for the controller's action prediction. */
   skillLockedJutsuIds?: string[];
   /** Total damage this user dealt to opponents this battle (for damage_dealt tracker). */
   damageDealt: number;
@@ -465,33 +465,6 @@ export type ReturnedBattle = Omit<CompleteBattle, "usersState" | "extraState"> &
 
 /** Minimal battle context for per-round effect logic (e.g. castThisRound). */
 export type BattleRoundContext = Pick<ReturnedBattle, "round">;
-
-/**
- * Dynamic battle state - only the fields that change during battle.
- * Used for efficient updates from performAction (excludes static extraState).
- */
-export type BattleDynamicUpdate = Omit<CompleteBattle, "extraState">;
-
-/**
- * Returned dynamic battle update with masked user state.
- * Used for performAction responses with refreshed visible action catalogs.
- */
-export type ReturnedBattleDynamic = Omit<BattleDynamicUpdate, "usersState"> & {
-  usersState: ReturnedUserState[];
-  extraState: Pick<
-    ReturnedExtraState,
-    | "jutsus"
-    | "items"
-    | "jutsuReskins"
-    | "sageModes"
-    | "bloodlines"
-    | "keystoneItems"
-    | "villages"
-    | "clans"
-    | "textureAssets"
-    | "sfxAssets"
-  >;
-};
 
 export type DroppedItem = {
   itemId: string;
