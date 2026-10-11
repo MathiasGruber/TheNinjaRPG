@@ -465,6 +465,8 @@ export const applyEffects = (
     (e) => e.type === "increaseheal" || e.type === "decreaseheal",
   );
 
+  const consumeByUser: ConsumeByUser = new Map();
+
   // Apply non-damage-modifier effects first (maintains existing ordering)
   nonDamageModifierEffects.sort(sortEffects).forEach((effect) => {
     applySingleEffect(
@@ -478,11 +480,11 @@ export const applyEffects = (
       actorId,
       effect,
       action,
+      consumeByUser,
     );
   });
 
   // Register Consume after activation and prevention, before accumulating damage.
-  const consumeByUser: ConsumeByUser = new Map();
   usersEffects
     .filter(
       (e) => e.type === "consume" && (isEffectActive(e) || instantConsumeIds.has(e.id)),
@@ -1442,6 +1444,7 @@ export const applySingleEffect = (
             effect,
             action,
             newTarget,
+            consumeByUser,
           );
         } else if (effect.type === "copy") {
           info = copy(effect, usersEffects, curUser, curTarget);
@@ -2302,6 +2305,7 @@ function applyActivateSageMode(
   effect: UserEffect,
   action: CombatAction | undefined,
   newTarget: BattleUserState,
+  consumeByUser?: ConsumeByUser,
 ): ActionEffect | undefined {
   if (effect.actionId !== SAGE_MODE_ACTIVATION_JUTSU_ID) {
     return {
@@ -2392,6 +2396,7 @@ function applyActivateSageMode(
       actorId,
       realized,
       action,
+      consumeByUser,
     );
   }
 
