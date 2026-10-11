@@ -1,5 +1,16 @@
 import * as Sentry from "@sentry/nextjs";
-import { and, asc, eq, gt, gte, isNotNull, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   JUTSU_LEVEL_CAP,
@@ -702,7 +713,8 @@ const settleWaitingJobs = async <
   }
   // Different queue rows must not start in parallel. Lock the existing owner row,
   // then read the active deadline: the upfront reads can come from different snapshots.
-  // Claim, rewards and active job commit together, so a failed start retains its receipt.
+  // Claim, rewards and active job span different tables and must commit together:
+  // a failed output/reward write must retain the prepaid receipt for a retry.
   return retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       await tx
@@ -768,14 +780,26 @@ const rescheduleWaiting = async (
   const moved = rescheduleQueue(entries, startsAt).filter(
     ({ entry, startsAt: next }) => entry.startsAt.getTime() !== next.getTime(),
   );
-  // This client may be a single-session PlanetScale transaction. Finish each write
-  // before dispatching the next so rescheduling cannot abort the job-start transaction.
-  for (const { entry, startsAt: next, finishesAt } of moved) {
-    await client
-      .update(userQueue)
-      .set({ startsAt: next, finishesAt })
-      .where(eq(userQueue.id, entry.id));
-  }
+  if (moved.length === 0) return;
+  // One statement works on a single-session transaction and keeps the round-trip
+  // count independent of queue length. Encode dates as the datetime columns do.
+  const scheduleCase = (column: "startsAt" | "finishesAt") =>
+    sql`CASE ${userQueue.id} ${sql.join(
+      moved.map(
+        (schedule) =>
+          sql`WHEN ${schedule.entry.id} THEN ${sql.param(schedule[column], userQueue[column])}`,
+      ),
+      sql` `,
+    )} END`;
+  await client
+    .update(userQueue)
+    .set({ startsAt: scheduleCase("startsAt"), finishesAt: scheduleCase("finishesAt") })
+    .where(
+      inArray(
+        userQueue.id,
+        moved.map(({ entry }) => entry.id),
+      ),
+    );
 };
 
 /**
@@ -784,7 +808,7 @@ const rescheduleWaiting = async (
  * is refunded. A level that can no longer be trained is dropped with a full refund.
  */
 const startQueuedJutsu = async (
-  client: QueueClient,
+  client: Transaction,
   entry: QueuedJutsu,
   startsAt: Date,
   students: Awaited<ReturnType<typeof fetchStudents>>,
@@ -862,14 +886,14 @@ const startQueuedJutsu = async (
  * materials were taken on enqueue; a craft that is no longer possible returns them.
  */
 const startQueuedCraft = async (
-  client: QueueClient,
+  client: Transaction,
   entry: QueuedCraft,
   startsAt: Date,
 ): Promise<JobOutcome> => {
   if (!(await claimQueueRow(client, entry.id))) return "conflict";
   const craftable = !!entry.item && !entry.item.hidden && entry.item.canBeCrafted;
   if (!entry.item || !craftable) {
-    await returnMaterials(client, entry.userId, entry.materials);
+    await returnMaterials(client, entry.userId, entry.materials, true);
     return "dropped";
   }
   const user = await fetchQuestUser(client, entry.userId);
@@ -891,16 +915,12 @@ const startQueuedCraft = async (
       (row) => !row.storedAtHome && row.item?.itemType === "COOKING",
     ).length;
     if (carried + outputs.length > getInventoryBucketCapacity("cooking", user)) {
-      await returnMaterials(client, entry.userId, entry.materials);
+      await returnMaterials(client, entry.userId, entry.materials, true);
       return "dropped";
     }
   }
-  try {
-    await client.insert(userItem).values(outputs);
-  } catch (error) {
-    await returnMaterials(client, entry.userId, entry.materials);
-    throw error;
-  }
+  // Rollback retains the queue receipt and its reserved materials on insert failure.
+  await client.insert(userItem).values(outputs);
   // Clan boosts apply to the experience as they do for a direct craft.
   const clanBoost = user.isOutlaw ? 0 : (user.clan?.craftingExpBoost ?? 0) / 100;
   const expGain = Math.floor(
@@ -932,7 +952,7 @@ const claimQueueRow = async (client: QueueClient, id: string) => {
  * cancelled instead and its ryo or materials are returned.
  */
 const restoreQueueRow = async (
-  client: QueueClient,
+  client: Transaction,
   entry: QueuedJutsu | QueuedCraft,
 ) => {
   const { jutsu: _jutsu, item: _item, ...row } = entry as QueuedJutsu & QueuedCraft;
@@ -942,7 +962,7 @@ const restoreQueueRow = async (
     if (!isMysqlDuplicateKeyError(error)) throw error;
     if (entry.kind === "JUTSU")
       await refundRyo(client, entry.userId, row.reservedRyo ?? 0);
-    else await returnMaterials(client, entry.userId, row.materials ?? []);
+    else await returnMaterials(client, entry.userId, row.materials ?? [], true);
   }
 };
 
@@ -1012,35 +1032,42 @@ const refundRyo = async (client: QueueClient, userId: string, amount: number) =>
 /**
  * Put taken materials back on the stacks they came from while those exist, are in a
  * normal state and have room, otherwise as new stacks in the same place. The merges run
- * in parallel (each is one guarded statement); the rest go in one insert.
+ * in parallel outside transactions; a transaction must await them because its session
+ * cannot execute concurrent statements. Per-stack results determine which materials
+ * need new stacks; the rest go in one insert.
  */
 const returnMaterials = async (
   client: QueueClient,
   userId: string,
   materials: CraftingQueueMaterial[],
+  inTransaction = false,
 ) => {
   if (materials.length === 0) return;
-  const merged = await Promise.all(
-    materials.map((material) => {
-      // The material's stack size, read in the same statement; 0 means unlimited.
-      const stackSize = sql`(SELECT NULLIF(${item.stackSize}, 0) FROM ${item} WHERE ${item.id} = ${material.itemId})`;
-      return client
-        .update(userItem)
-        .set({ quantity: sql`${userItem.quantity} + ${material.quantity}` })
-        .where(
-          and(
-            eq(userItem.id, material.userItemId),
-            eq(userItem.userId, userId),
-            eq(userItem.itemId, material.itemId),
-            // Not mid-merge, not in an auction, not moved between home and carried.
-            gt(userItem.quantity, 0),
-            eq(userItem.isInAuction, false),
-            eq(userItem.storedAtHome, material.storedAtHome),
-            sql`${userItem.quantity} + ${material.quantity} <= COALESCE(${stackSize}, ${userItem.quantity} + ${material.quantity})`,
-          ),
-        );
-    }),
-  );
+  const merge = (material: CraftingQueueMaterial) => {
+    // The material's stack size, read in the same statement; 0 means unlimited.
+    const stackSize = sql`(SELECT NULLIF(${item.stackSize}, 0) FROM ${item} WHERE ${item.id} = ${material.itemId})`;
+    return client
+      .update(userItem)
+      .set({ quantity: sql`${userItem.quantity} + ${material.quantity}` })
+      .where(
+        and(
+          eq(userItem.id, material.userItemId),
+          eq(userItem.userId, userId),
+          eq(userItem.itemId, material.itemId),
+          // Not mid-merge, not in an auction, not moved between home and carried.
+          gt(userItem.quantity, 0),
+          eq(userItem.isInAuction, false),
+          eq(userItem.storedAtHome, material.storedAtHome),
+          sql`${userItem.quantity} + ${material.quantity} <= COALESCE(${stackSize}, ${userItem.quantity} + ${material.quantity})`,
+        ),
+      );
+  };
+  const merged: Awaited<ReturnType<typeof merge>>[] = [];
+  if (inTransaction) {
+    for (const material of materials) merged.push(await merge(material));
+  } else {
+    merged.push(...(await Promise.all(materials.map(merge))));
+  }
   const unmerged = materials.filter((_, index) => merged[index]?.rowsAffected !== 1);
   if (unmerged.length === 0) return;
   await client.insert(userItem).values(
