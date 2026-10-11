@@ -6,7 +6,7 @@ services:
   # MySQL database - Local placeholder for PlanetScale service
   db:
     container_name: tnr_mysql
-    image: mysql:latest
+    image: mysql:26.7.0
     restart: always
     env_file:
       - .env
@@ -27,7 +27,9 @@ services:
   # PHPMyAdmin - local database management
   phpmyadmin:
     container_name: tnr_phpmyadmin
-    image: phpmyadmin:latest
+    image: tnr-phpmyadmin:5.2.3-php8.5
+    build:
+      context: ./phpmyadmin
     restart: always
     ports:
       - "3001:80"

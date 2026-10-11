@@ -1,6 +1,6 @@
 import { openai as openaiSdk } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 import OpenAI from "openai";
 import type { AutomoderationCategory } from "@/drizzle/constants";
 import {
@@ -9,13 +9,13 @@ import {
   REPORT_CONTEXT_WINDOW,
   TERR_BOT_ID,
 } from "@/drizzle/constants";
-import type { UserReport } from "@/drizzle/schema";
 import {
   conversationComment,
   forumPost,
   userData,
   userReportComment,
 } from "@/drizzle/schema";
+import { getRelatedReports, type PreviousReport } from "@/libs/moderation/reportSearch";
 import { insertAutomatedModeration, insertUserReport } from "@/routers/reports";
 import type { DrizzleClient } from "@/server/db";
 import { evaluateImageModeration } from "@/utils/imageModeration";
@@ -28,11 +28,6 @@ import type { AdditionalContext } from "@/validators/reports";
 
 // OpenAI client
 const openai = new OpenAI();
-
-/**
- * Previous report with score and comment
- */
-type PreviousReport = UserReport & { score: number; comment: string };
 
 // Moderator Prompt
 const getSystemPrompt = (
@@ -350,44 +345,6 @@ export const generateAiSummary = async (
 };
 
 /**
- * Get related reports from the database
- * @param client - The database client
- * @param aiInterpretation - The AI interpretation of the content
- * @returns The related reports
- */
-export const getRelatedReports = async (
-  client: DrizzleClient,
-  aiInterpretation: string,
-) => {
-  try {
-    const results = await client.execute(sql`
-      SELECT 
-        UserReport.createdAt,
-        UserReport.id,
-        UserReport.aiInterpretation, 
-        UserReport.reason,
-        UserReport.infraction, 
-        UserReport.status,
-        UserReportComment.content as comment,
-        MATCH(UserReport.aiInterpretation) AGAINST(${aiInterpretation}) as score
-      FROM UserReport
-      INNER JOIN UserReportComment ON UserReport.id = UserReportComment.reportId
-      WHERE 
-        MATCH(UserReport.aiInterpretation) AGAINST(${aiInterpretation}) AND
-        UserReport.aiInterpretation != "" AND
-        json_length(UserReport.additionalContext) > 0 AND
-        UserReport.system != "user_profile" AND
-        UserReport.status != 'UNVIEWED'
-      ORDER BY score DESC
-      LIMIT 10`);
-    return results.rows as PreviousReport[];
-  } catch (error) {
-    console.error(error);
-    return [];
-  }
-};
-
-/**
  * Generate a moderation decision for a given content
  * @param client - The database client
  * @param content - The content to moderate
@@ -404,7 +361,7 @@ export const generateModerationDecision = async (
 }> => {
   // Step 1: Generate summary of the content
   const aiInterpretation = await generateAiSummary({ content, context });
-  // Step 2: Fetch related userReport using full text search
+  // Step 2: Fetch related moderation precedents
   const prevReports = await getRelatedReports(client, aiInterpretation);
   // Step 3: Create decision with AI based on summary and related reports
   const { output } = await generateText({

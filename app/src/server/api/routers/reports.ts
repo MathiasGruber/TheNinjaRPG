@@ -28,11 +28,8 @@ import {
   userReportComment,
   userReview,
 } from "@/drizzle/schema";
-import {
-  generateModerationDecision,
-  getAdditionalContext,
-  getRelatedReports,
-} from "@/libs/moderator";
+import { getRelatedReports } from "@/libs/moderation/reportSearch";
+import { generateModerationDecision, getAdditionalContext } from "@/libs/moderator";
 import { getServerPusher } from "@/libs/pusher";
 import { createUserAvatar } from "@/routers/avatar";
 import {
@@ -412,7 +409,9 @@ export const reportsRouter = createTRPCRouter({
     if (!report || !canSeeReport(user, report)) return null;
     // Get previous reports
     const prevReports = canSeeSecretData(user.role)
-      ? await getRelatedReports(ctx.drizzle, report.aiInterpretation)
+      ? await getRelatedReports(ctx.drizzle, report.aiInterpretation, {
+          excludeReportId: report.id,
+        })
       : [];
     // Return
     return { report, prevReports };

@@ -58,13 +58,15 @@ export const vector = customType<{
   data: ArrayBuffer;
   config: { length: number };
   configRequired: true;
-  driverData: Buffer;
+  driverData: Uint8Array | number[];
 }>({
   dataType(config) {
     return `VECTOR(${config.length})`;
   },
   fromDriver(value) {
-    return value.buffer as ArrayBuffer;
+    // mysql2 decodes VECTOR into floats; PlanetScale returns binary bytes.
+    if (Array.isArray(value)) return new Float32Array(value).buffer;
+    return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
   },
   toDriver(value) {
     return Buffer.from(value);
@@ -3372,6 +3374,15 @@ export const userReport = mysqlTable(
 );
 export type UserReport = InferSelectModel<typeof userReport>;
 export type ReportAction = UserReport["status"];
+
+// Keep vectors out of ordinary report reads and API responses. Source text and
+// model identify stale embeddings without relying on report-update timestamps.
+export const userReportEmbedding = mysqlTable("UserReportEmbedding", {
+  reportId: varchar("reportId", { length: 191 }).primaryKey().notNull(),
+  sourceText: text("sourceText").notNull(),
+  model: varchar("model", { length: 191 }).notNull(),
+  embedding: vector("embedding", { length: consts.REPORT_EMBEDDING_DIMENSIONS }).notNull(),
+});
 
 export const userReportRelations = relations(userReport, ({ one }) => ({
   reportedUser: one(userData, {
