@@ -377,6 +377,81 @@ describe("coordinate casts and preview", () => {
       ),
     ).toHaveLength(1);
   });
+  it.each(["GROUND", "OPPONENT"] as const)(
+    "applies self tags once when only independent coordinates accept a %s cast",
+    (target) => {
+      const { actor, battle, cast } = scenario();
+      const before = { chakra: actor.curChakra, ap: actor.actionPoints };
+      expect(
+        cast(
+          action({
+            target,
+            coordinateTargeting: pattern({
+              origin: "CASTER",
+              coordinates: [coordinate(-1, 0)],
+            }),
+            effects: [
+              HealTag.parse({ target: "SELF" }),
+              DamageTag.parse({}),
+              DamageTag.parse({
+                target: "COORDINATES",
+                coordinateTargeting: pattern({
+                  coordinates: [coordinate(3, 3), coordinate(4, 4)],
+                }),
+              }),
+            ],
+          }),
+        ),
+      ).toBe(true);
+      expect(
+        battle.usersEffects.filter(
+          (effect) => effect.type === "heal" && effect.targetId === "actor",
+        ),
+      ).toHaveLength(1);
+      expect(battle.usersEffects).toHaveLength(1);
+      expect(
+        battle.groundEffects.map((effect) => [effect.longitude, effect.latitude]),
+      ).toEqual([[3, 3], [4, 4]]);
+      expect(actor.curChakra).toBe(before.chakra - 10);
+      expect(actor.actionPoints).toBe(before.ap - 10);
+      expect(actor.usedActions).toHaveLength(1);
+    },
+  );
+  it("rejects self tags when all coordinate patterns are empty without spending costs", () => {
+    const { actor, battle, cast } = scenario();
+    const before = {
+      health: actor.curHealth,
+      chakra: actor.curChakra,
+      stamina: actor.curStamina,
+      ap: actor.actionPoints,
+    };
+    expect(
+      cast(
+        action({
+          healthCost: 10,
+          staminaCost: 10,
+          coordinateTargeting: pattern({
+            origin: "CASTER",
+            coordinates: [coordinate(-1, 0)],
+          }),
+          effects: [
+            HealTag.parse({ target: "SELF" }),
+            DamageTag.parse({
+              target: "COORDINATES",
+              coordinateTargeting: pattern({ coordinates: [coordinate(99, 99)] }),
+            }),
+          ],
+        }),
+      ),
+    ).toBe(false);
+    expect(actor.curHealth).toBe(before.health);
+    expect(actor.curChakra).toBe(before.chakra);
+    expect(actor.curStamina).toBe(before.stamina);
+    expect(actor.actionPoints).toBe(before.ap);
+    expect(actor.usedActions).toEqual([]);
+    expect(battle.usersEffects).toEqual([]);
+    expect(battle.groundEffects).toEqual([]);
+  });
   it("rejects empty patterns before spending pools, AP, or recording usage", () => {
     const { actor, battle, cast } = scenario();
     const before = { chakra: actor.curChakra, ap: actor.actionPoints };

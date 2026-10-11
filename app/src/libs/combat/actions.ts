@@ -998,7 +998,8 @@ export const insertAction = (info: {
         : EMPTY_BARRIER_RESULT;
 
       castTags.forEach((tag, tagIndex) => {
-        if (!effectTiles[tagIndex]?.has(tile)) return;
+        // SELF tags apply once per accepted cast, even when the parent pattern is empty.
+        if (tag.target !== "SELF" && !effectTiles[tagIndex]?.has(tile)) return;
         // ADD EFFECTS
         if (
           action.target === "GROUND" ||
