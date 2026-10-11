@@ -3828,7 +3828,7 @@ export const fetchPublishedAchievements = async (client: DrizzleClient) =>
     (achievement) => !questHasOverworldObjectives(achievement),
   );
 
-const fetchAllGameSettings = (client: DrizzleClient) =>
+export const fetchAllGameSettings = (client: DrizzleClient) =>
   scopedRead("gameSettings", async () => {
     const [settings, average] = await Promise.all([
       client.select().from(gameSetting),

@@ -305,6 +305,28 @@ describeWithDatabase("Energy queue state transitions", () => {
     expect(await read()).toEqual(arrived);
   });
 
+  it("cleaner applies the population PvP boost before consuming travel recovery ticks", async () => {
+    await prepare();
+    const db = await getTestDatabase();
+    const regenAt = new Date(Date.now() - 195_000);
+    await insertUsers([{ userId: "pvp-population", pvpExperience: 600 }]);
+    await patch({
+      status: "TRAVEL", travelFinishAt: new Date(Date.now() - 1000), regenAt,
+      pvpExperience: 1400, joinedVillageAt: new Date(0),
+      curHealth: 0, curChakra: 0, curStamina: 0,
+      maxHealth: 1000, maxChakra: 1000, maxStamina: 1000,
+    });
+
+    await completeExpiredGlobalTravel(db);
+    const arrived = (await read())!;
+    expect(arrived.status).toBe("AWAKE");
+    expect([arrived.curHealth, arrived.curChakra, arrived.curStamina]).toEqual([345, 345, 345]);
+    expect(arrived.regenAt.getTime()).toBe(regenAt.getTime() + 180_000);
+    expect(await readEnergyQueue(USER)).toEqual(entries);
+    await completeExpiredGlobalTravel(db);
+    expect(await read()).toEqual(arrived);
+  });
+
   it("cleaner leaves future travel untouched", async () => {
     await prepare();
     await patch({ status: "TRAVEL", travelFinishAt: new Date(Date.now() + 60_000), regenAt: new Date(Date.now() - 195_000) });

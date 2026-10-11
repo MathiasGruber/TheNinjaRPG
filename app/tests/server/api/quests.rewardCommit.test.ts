@@ -2,7 +2,7 @@
 import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { quest, questHistory, userData } from "@/drizzle/schema";
+import { bankTransfers, quest, questHistory, userData } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import {
@@ -684,9 +684,42 @@ describe("commitQuestObjectiveRewards compatibility", () => {
   });
 });
 
-describeWithDatabase("quest Energy reward snapshots", () => {
+describeWithDatabase("quest reward claims", () => {
   beforeEach(async () => {
-    await resetTables(questHistory, quest, userData);
+    await resetTables(bankTransfers, questHistory, quest, userData);
+  });
+
+  it.each([
+    { studentXp: 600, senseiXp: 1400, kills: 0, bonus: 115 },
+    { studentXp: 1400, senseiXp: 600, kills: 0, bonus: 100 },
+    { studentXp: 600, senseiXp: 1400, kills: 5, bonus: 116 },
+  ])("uses the sensei's own PvP boost and records the integer bonus $bonus", async ({ studentXp, senseiXp, kills, bonus }) => {
+    const client = await getTestDatabase();
+    await insertUsers([
+      { userId: "mission-sensei", pvpExperience: senseiXp, weeklyPvpKills: kills, weeklyPvpKillsAt: new Date(), money: 500 },
+      { userId: "mission-student", rank: "GENIN", senseiId: "mission-sensei", pvpExperience: studentXp, money: 500 },
+    ]);
+    await insertQuests([{ id: "sensei-mission", questType: "mission" }, { id: "sensei-tier", questType: "tier" }]);
+    await insertQuestHistory([
+      { userId: "mission-student", questId: "sensei-mission", questType: "mission" },
+      { userId: "mission-student", questId: "sensei-tier", questType: "tier" },
+    ]);
+    const user = (await client.query.userData.findFirst({
+      where: eq(userData.userId, "mission-student"),
+      with: { userQuests: { with: { quest: true } }, completedQuests: true, items: { with: { item: true } } },
+    }))!;
+    const history = user.userQuests.find(q => q.questId === "sensei-mission")!;
+    const claim = () => commitQuestObjectiveRewards({
+      client, userId: user.userId, user: user as never, rewards: rewards(), trackers: [],
+      userQuest: history as never, resolved: true, notifications: [], consequences: [], existingHistory: history,
+    });
+    expect((await claim()).outcome).toBe("claimed");
+    expect(await client.query.userData.findFirst({ where: eq(userData.userId, "mission-sensei") })).toMatchObject({ money: 500 + bonus });
+    expect(await client.query.userData.findFirst({ where: eq(userData.userId, "mission-student") })).toMatchObject({ money: 500 });
+    expect(await client.query.bankTransfers.findMany()).toMatchObject([{ senderId: "mission-student", receiverId: "mission-sensei", amount: bonus, type: "sensei" }]);
+    expect((await claim()).outcome).toBe("already_completed");
+    expect(await client.query.userData.findFirst({ where: eq(userData.userId, "mission-sensei") })).toMatchObject({ money: 500 + bonus });
+    expect(await client.query.bankTransfers.findMany()).toHaveLength(1);
   });
 
   it("invalidates regeneration read between the quest claim and Energy payout", async () => {

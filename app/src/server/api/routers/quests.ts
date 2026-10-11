@@ -76,7 +76,7 @@ import {
   isSupportedOverworldBindingTask,
   validateFriendlyPlacementBindings,
 } from "@/libs/overworldAi";
-import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
+import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
   combineTrackerResults,
@@ -2969,6 +2969,30 @@ export const commitQuestObjectiveRewards = async (info: {
     consequences,
   } = info;
   const rewardChoice = resolved ? (info.rewardChoice ?? null) : null;
+  const senseiId =
+    user.rank === "GENIN" && userQuest?.quest.questType === "mission"
+      ? user.senseiId
+      : null;
+  const [sensei, pvpAverage] = await Promise.all([
+    senseiId
+      ? client.query.userData.findFirst({
+          columns: {
+            pvpExperience: true,
+            weeklyPvpKills: true,
+            weeklyPvpKillsAt: true,
+            isAi: true,
+          },
+          where: eq(userData.userId, senseiId),
+        })
+      : undefined,
+    senseiId ? fetchPvpExperienceAverage(client) : undefined,
+  ]);
+  const senseiReward = Math.floor(
+    boostPvpGain(
+      SENSEI_STUDENT_RYO_PER_MISSION,
+      getPvpBoost(sensei ?? {}, pvpAverage ? [pvpAverage] : []).totalPercent,
+    ),
+  );
   const userDelta = getRewardUserDelta(rewards, 0, true);
   // Consequences can start battles or change inventory/quest relations outside this snapshot.
   const userCacheEligible =
@@ -3091,11 +3115,6 @@ export const commitQuestObjectiveRewards = async (info: {
     return { outcome: "state_changed" };
   }
 
-  // Sensei rewards
-  const hasSensei = user.senseiId && user.rank === "GENIN";
-  const isMission = userQuest?.quest.questType === "mission";
-  const senseiId = hasSensei && isMission ? user.senseiId : null;
-
   const changedQuestAssignments = await runCheckRewardsPrepInParallel(
     client,
     user,
@@ -3187,13 +3206,13 @@ export const commitQuestObjectiveRewards = async (info: {
           client
             .update(userData)
             .set({
-              money: sql`${userData.money} + ${SENSEI_STUDENT_RYO_PER_MISSION}`,
+              money: sql`${userData.money} + ${senseiReward}`,
             })
             .where(eq(userData.userId, senseiId)),
           client.insert(bankTransfers).values({
             senderId: userId,
             receiverId: senseiId,
-            amount: SENSEI_STUDENT_RYO_PER_MISSION,
+            amount: senseiReward,
             type: "sensei",
           }),
         ]
