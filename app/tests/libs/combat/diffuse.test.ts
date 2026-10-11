@@ -683,17 +683,49 @@ describe("Diffuse repayment and restrictions", () => {
     expect(defender(expiredBattle).curHealth).toBe(0);
     expect(debt(defender(expiredBattle))).toBe(0);
   });
-  it("does not protect a repayment when Final Stand fails its activation on that turn", () => {
-    const current = run([attack(), diffuse({ delayRounds: 1 })]).newBattle;
-    current.round += 1;
-    defender(current).curHealth = 20;
-    current.usersEffects = [makeEffect("finalstand", { power: 0, rounds: 3 }, {
-      ...runtime(), createdRound: current.round, isNew: true, castThisRound: true,
-    })];
-    const result = applyEffects(current, "defender").newBattle;
-    expect(defender(result).curHealth).toBe(0);
-    expect(debt(defender(result))).toBe(0);
-  });
+  it.each([0, 100])(
+    "respects a %i percent ground Final Stand activation during repayment",
+    (power) => {
+      const current = run([attack(), diffuse({ delayRounds: 1 })]).newBattle;
+      current.round += 1;
+      defender(current).curHealth = 20;
+      current.usersEffects = [];
+      current.groundEffects = [
+        makeEffect("finalstand", { power, rounds: 3 }, {
+          ...runtime(), longitude: 1, latitude: 0,
+        }),
+      ];
+      const { newBattle, actionEffects } = applyEffects(current, "defender");
+      expect(defender(newBattle).curHealth).toBe(power === 100 ? 1 : 0);
+      expect(debt(defender(newBattle))).toBe(0);
+      expect(newBattle.usersEffects.some((e) => e.type === "finalstand")).toBe(false);
+      expect(newBattle.groundEffects.find((e) => e.type === "finalstand")?.rounds).toBe(3);
+      expect(actionEffects.some((e) => e.txt.includes("final stand prevents"))).toBe(
+        power === 100,
+      );
+      expect(actionEffects.some((e) => e.txt.includes("final stand failed to activate"))).toBe(
+        power === 0,
+      );
+    },
+  );
+  it.each(["jutsu", "bloodline"] as const)(
+    "does not protect a repayment when %s Final Stand fails its activation on that turn",
+    (fromType) => {
+      const current = run([attack(), diffuse({ delayRounds: 1 })]).newBattle;
+      current.round += 1;
+      defender(current).curHealth = 20;
+      current.usersEffects = [makeEffect("finalstand", {
+        power: 0, rounds: fromType === "bloodline" ? undefined : 3,
+      }, {
+        ...runtime(), fromType, createdRound: current.round, isNew: true, castThisRound: true,
+      })];
+      const { newBattle, actionEffects } = applyEffects(current, "defender");
+      expect(defender(newBattle).curHealth).toBe(0);
+      expect(debt(defender(newBattle))).toBe(0);
+      expect(actionEffects.some((e) => e.txt.includes("final stand failed to activate"))).toBe(true);
+      expect(actionEffects.some((e) => e.txt.includes("final stand prevents"))).toBe(false);
+    },
+  );
   it("ignores buff and debuff prevention", () => {
     const prevents = (["buffprevent", "debuffprevent"] as const).map((type) =>
       makeEffect(type, { power: 100, rounds: 3 }, runtime()),

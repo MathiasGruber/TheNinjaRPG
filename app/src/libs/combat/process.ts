@@ -473,7 +473,7 @@ export const applyEffects = (
   });
 
   // Resolve activation and prevention before Final Stand can protect debt repayment.
-  repayDiffuseDamage(newUsersState, newUsersEffects, actorId, round, actionEffects);
+  repayDiffuseDamage(newUsersState, usersEffects, actorId, round, actionEffects);
 
   const sealEffects = getActiveSealEffects(usersEffects);
   const diffuseEffects = usersEffects.filter(
