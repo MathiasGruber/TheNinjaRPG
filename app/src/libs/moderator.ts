@@ -188,6 +188,7 @@ export const getAdditionalContext = async (
       return await client
         .select({
           userId: conversationComment.userId,
+          authorId: conversationComment.authorId,
           username: userData.username,
           avatar: userData.avatar,
           level: userData.level,
@@ -214,6 +215,7 @@ export const getAdditionalContext = async (
       return await client
         .select({
           userId: forumPost.userId,
+          authorId: forumPost.authorId,
           username: userData.username,
           avatar: userData.avatar,
           level: userData.level,

@@ -45,6 +45,7 @@ export type UserReviewSchema = z.infer<typeof userReviewSchema>;
 
 export type AdditionalContext = {
   userId: string;
+  authorId?: string;
   username: string;
   avatar: string | null;
   level: number;

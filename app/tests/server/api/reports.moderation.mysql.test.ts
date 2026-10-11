@@ -23,7 +23,7 @@ describeWithDatabase("moderation report evidence and dashboard", () => {
     await insertUsers([{ userId: "reporter" }, { userId: "target" }, { userId: "staff", role: "MODERATOR" }]);
     stubProfile("fetchUser", async (_client: unknown, id: string) => db.query.userData.findFirst({ where: eq(userData.userId, id) }));
     await db.insert(forumPost).values([
-      { id: "context-post", threadId: "thread", userId: "reporter", authorId: "reporter", content: "Earlier conversation", createdAt: new Date(Date.now() - 60_000) },
+      { id: "context-post", threadId: "thread", userId: "reporter", authorId: "staff", content: "Earlier conversation", createdAt: new Date(Date.now() - 60_000) },
       { id: "target-post", threadId: "thread", userId: "target", authorId: "target", content: "The actual reported message", createdAt: new Date(Date.now() - 30_000) },
     ]);
   });
@@ -37,6 +37,8 @@ describeWithDatabase("moderation report evidence and dashboard", () => {
     expect(evidence.target.content).toBe("The actual reported message");
     expect(evidence.reporterAllegation).toBe(reportInput.reason);
     expect(evidence.conversation[0]?.content).toBe("Earlier conversation");
+    expect(evidence.conversation[0]?.authorId).toBe("staff");
+    expect(evidence.conversation[0]?.displayedSpeakerId).toBe("reporter");
     const stored = await db.query.userReport.findFirst();
     expect(stored?.predictedAt).toBeInstanceOf(Date);
     expect(stored?.predictionModel).toBe("gpt-4o-mini");
