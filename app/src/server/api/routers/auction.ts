@@ -45,10 +45,12 @@ import {
   createAuctionListingSchema,
   getAuctionListingsSchema,
 } from "@/validators/auction";
+import { auctionOfferProcedures } from "./auctionOffers";
 import { splitItemStack } from "./item";
 import { fetchUser } from "./profile";
 
 export const auctionRouter = createTRPCRouter({
+  ...auctionOfferProcedures,
   // Get single auction listing with all bids
   getAuctionListing: protectedProcedure
     .meta({

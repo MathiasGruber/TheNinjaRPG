@@ -429,6 +429,8 @@ describe("BotID protected procedures", () => {
   });
 
   it("attaches the challenge to protected mutations, alone or batched", () => {
+    expect(matchedBy("/api/trpc/auction.createAuctionOffer")).toHaveLength(1);
+    expect(matchedBy("/api/trpc/auction.acceptAuctionOffer")).toHaveLength(1);
     expect(matchedBy("/api/trpc/train.startTraining")).toHaveLength(1);
     expect(matchedBy("/api/trpc/train.startMasteryTraining")).toHaveLength(1);
     expect(matchedBy("/api/trpc/profile.getUser,merch.addToCart")).toHaveLength(1);

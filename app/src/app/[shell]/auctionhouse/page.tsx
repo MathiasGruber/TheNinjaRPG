@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
+  ArrowLeftRight,
   Gavel,
   Hammer,
   Handshake,
@@ -13,6 +14,7 @@ import {
   Loader2,
   Plus,
   Search,
+  ShoppingCart,
   Timer,
   TrendingDown,
   TrendingUp,
@@ -79,12 +81,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AUCTION_BIDDER_LEVEL_MAX,
   AUCTION_BIDDER_LEVEL_MIN,
   AUCTION_HOUSE_MIN_LEVEL,
   AUCTION_LISTING_STATES,
   AUCTION_LISTING_TYPES,
+  type AuctionListingState,
   auctionHouseLevelMessage,
   IMG_AVATAR_DEFAULT,
   ItemRarities,
@@ -112,6 +116,7 @@ import {
   type createAuctionListingSchema,
 } from "@/validators/auction";
 import { getSearchValidator } from "@/validators/register";
+import { AuctionOffers, NewOfferDialog } from "./Offers";
 
 type AuctionListingRow = RouterOutputs["auction"]["getAuctionListings"]["data"][number];
 
@@ -160,36 +165,61 @@ export default function AuctionHousePage() {
   // Settings
   const { userData, access } = useRequireInVillage("/auctionhouse");
 
+  const [browseTab, setBrowseTab] = useState<BrowseTab>("AUCTION");
+
   // State
-  const [selectedStatus, setSelectedStatus] = useState<string>("ACTIVE");
+  const [selectedStatus, setSelectedStatus] = useState<AuctionListingState>("ACTIVE");
 
   // Guards
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Auction House" />;
 
   const belowAuctionMinLevel = userData.level < AUCTION_HOUSE_MIN_LEVEL;
+  const isOfferTab = browseTab === "REQUEST" || browseTab === "TRADE";
 
   return (
     <ContentBox
       title="Auction House"
-      subtitle="Live floor • Open bidding • Buy-it-now when listed"
+      subtitle="Buy, sell or exchange items"
       defaultBackHref="/village"
-      padding={false}
       topRightContent={
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="h-10 w-[9.5rem] rounded-full border-amber-500/40 bg-background/80 shadow-sm">
+        <div className="mb-2 flex items-center justify-end gap-2">
+          <Select
+            value={selectedStatus}
+            onValueChange={(value) => setSelectedStatus(value as AuctionListingState)}
+          >
+            <SelectTrigger aria-label="Listing status" className="w-28 px-2">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {AUCTION_LISTING_STATES.map((status, i) => (
-                <SelectItem key={`${status}-${i}`} value={status}>
-                  {capitalizeFirstLetter(status)}
+              {AUCTION_LISTING_STATES.filter(
+                (status) => !isOfferTab || status !== "EXPIRED",
+              ).map((status) => (
+                <SelectItem key={status} value={status}>
+                  {isOfferTab && status === "SOLD"
+                    ? "Completed"
+                    : capitalizeFirstLetter(status)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {!belowAuctionMinLevel && <NewAuctionListingDialog />}
+          {!belowAuctionMinLevel &&
+            (browseTab === "REQUEST" || browseTab === "TRADE" ? (
+              <NewOfferDialog
+                key={browseTab}
+                offerType={browseTab}
+                onCreated={() => setSelectedStatus("ACTIVE")}
+              />
+            ) : (
+              <NewAuctionListingDialog
+                key={browseTab === "DIRECT" ? "DIRECT" : "AUCTION"}
+                defaultListingType={browseTab === "DIRECT" ? "DIRECT" : "AUCTION"}
+                onCreated={() => {
+                  setSelectedStatus("ACTIVE");
+                  if (browseTab === "MY_BIDS") setBrowseTab("MINE");
+                }}
+              />
+            ))}
         </div>
       }
     >
@@ -198,33 +228,120 @@ export default function AuctionHousePage() {
           {auctionHouseLevelMessage}
         </p>
       )}
-      <AuctionListing selectedStatus={selectedStatus} />
+      <Tabs
+        value={browseTab}
+        onValueChange={(value) => {
+          setBrowseTab(value as BrowseTab);
+          if (
+            (value === "REQUEST" || value === "TRADE") &&
+            selectedStatus === "EXPIRED"
+          ) {
+            setSelectedStatus("ACTIVE");
+          }
+        }}
+      >
+        <div className="border-b pb-3">
+          <div className="flex flex-col gap-2">
+            <TabsList
+              className="grid grid-cols-3 xl:grid-cols-6"
+              aria-label="Auction House"
+            >
+              {BROWSE_TAB_OPTIONS.map(({ key, label, Icon }) => (
+                <TabsTrigger
+                  key={key}
+                  value={key}
+                  className="min-h-[44px] flex-col gap-1 whitespace-normal rounded-lg px-1 py-2.5 font-semibold text-[11px] sm:text-xs xl:flex-row xl:gap-2 xl:py-3 xl:text-sm"
+                >
+                  <Icon aria-hidden="true" className="h-4 w-4 shrink-0 opacity-90" />
+                  <span className="text-center leading-tight">{label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            <p className="text-balance text-center text-muted-foreground text-xs leading-relaxed">
+              {
+                BROWSE_TAB_OPTIONS.find((option) => option.key === browseTab)
+                  ?.description
+              }
+            </p>
+          </div>
+        </div>
+        <TabsContent value={browseTab} className="mt-0">
+          {browseTab === "REQUEST" || browseTab === "TRADE" ? (
+            <AuctionOffers
+              key={browseTab}
+              offerType={browseTab}
+              status={selectedStatus}
+            />
+          ) : (
+            <AuctionListing browseTab={browseTab} selectedStatus={selectedStatus} />
+          )}
+        </TabsContent>
+      </Tabs>
     </ContentBox>
   );
 }
 
 interface AuctionListingProps {
-  selectedStatus: string;
+  selectedStatus: AuctionListingState;
+  browseTab: Exclude<BrowseTab, "REQUEST" | "TRADE">;
 }
 
-type BrowseTab = "AUCTION" | "DIRECT" | "MINE" | "MY_BIDS";
+type BrowseTab = "AUCTION" | "DIRECT" | "REQUEST" | "TRADE" | "MINE" | "MY_BIDS";
 
 const BROWSE_TAB_OPTIONS: {
   key: BrowseTab;
-  id: string;
   label: string;
   Icon: LucideIcon;
+  description: string;
 }[] = [
-  { key: "AUCTION", id: "tab-auctions", label: "Auctions", Icon: Gavel },
-  { key: "DIRECT", id: "tab-direct", label: "Direct sales", Icon: Handshake },
-  { key: "MINE", id: "tab-mine", label: "My auctions", Icon: List },
-  { key: "MY_BIDS", id: "tab-my-bids", label: "My bids", Icon: Hammer },
+  {
+    key: "AUCTION",
+    label: "Auctions",
+    Icon: Gavel,
+    description: "Bid on items until the timer ends, or buy out at the listed price.",
+  },
+  {
+    key: "DIRECT",
+    label: "Direct sales",
+    Icon: Handshake,
+    description: "Private sales — only the chosen player can accept the offer.",
+  },
+  {
+    key: "REQUEST",
+    label: "Requests",
+    Icon: ShoppingCart,
+    description:
+      "Buy materials at a fixed total price, or supply another player's request to earn ryo.",
+  },
+  {
+    key: "TRADE",
+    label: "Trades",
+    Icon: ArrowLeftRight,
+    description:
+      "Exchange items without currency. Inspect the offered item before accepting.",
+  },
+  {
+    key: "MINE",
+    label: "My auctions",
+    Icon: List,
+    description:
+      "Your auctions and direct sales. Find your requests and trades in their own tabs.",
+  },
+  {
+    key: "MY_BIDS",
+    label: "My bids",
+    Icon: Hammer,
+    description:
+      "Auctions you have bid on — see whether you are leading or have been outbid.",
+  },
 ];
 
-const AuctionListing: React.FC<AuctionListingProps> = ({ selectedStatus }) => {
+const AuctionListing: React.FC<AuctionListingProps> = ({
+  selectedStatus,
+  browseTab,
+}) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sellerSearchTerm, setSellerSearchTerm] = useState("");
-  const [browseTab, setBrowseTab] = useState<BrowseTab>("AUCTION");
   const { timeDiff, data: userData } = useRequiredUserData();
 
   // State
@@ -263,7 +380,7 @@ const AuctionListing: React.FC<AuctionListingProps> = ({ selectedStatus }) => {
               onlyBidOn: undefined,
               listingType: browseTab,
             }),
-      status: selectedStatus as "ACTIVE" | "SOLD" | "EXPIRED" | "CANCELLED",
+      status: selectedStatus,
       limit: 10,
     },
     {
@@ -285,75 +402,11 @@ const AuctionListing: React.FC<AuctionListingProps> = ({ selectedStatus }) => {
 
   return (
     <div>
-      <div className="relative overflow-hidden border-b bg-linear-to-br from-amber-950/25 via-card to-card px-4 py-6 md:px-6 md:py-8">
-        <div className="pointer-events-none absolute -top-24 right-0 h-48 w-48 rounded-full bg-amber-500/10 blur-3xl" />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-amber-500/15 p-3 ring-1 ring-amber-500/35">
-              <Gavel className="h-7 w-7 text-amber-700 dark:text-amber-400" />
-            </div>
-            <div className="space-y-1">
-              <p className="font-semibold text-lg tracking-tight md:text-xl">
-                Village auction floor
-              </p>
-              <p className="max-w-xl text-muted-foreground text-sm leading-relaxed">
-                Open lots with live timers. Tap a lot to inspect the item, review bids,
-                and raise your paddle — or buy out at the listed price when available.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-b bg-linear-to-b from-amber-950/10 to-muted/30 px-3 py-4 md:px-6">
-        <div className="mx-auto flex max-w-4xl flex-col gap-2">
-          <div
-            className="grid grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/50 sm:grid-cols-4 dark:bg-muted/40"
-            role="tablist"
-            aria-label="Listing type"
-          >
-            {BROWSE_TAB_OPTIONS.map(({ key, id, label, Icon }) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={browseTab === key}
-                id={id}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 font-semibold text-[11px] transition-all sm:flex-row sm:gap-2 sm:py-3 sm:text-sm",
-                  browseTab === key
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border/60"
-                    : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
-                )}
-                onClick={() => setBrowseTab(key)}
-              >
-                <Icon className="h-4 w-4 shrink-0 opacity-90" />
-                <span className="text-center leading-tight">{label}</span>
-              </button>
-            ))}
-          </div>
-          <p className="text-balance text-center text-muted-foreground text-xs leading-relaxed">
-            {browseTab === "AUCTION"
-              ? "Open lots — anyone eligible can bid until the timer ends or someone buys out."
-              : browseTab === "DIRECT"
-                ? "Private listings — only the chosen player can accept the offer."
-                : browseTab === "MINE"
-                  ? "Everything you currently have listed — open auctions and direct offers together."
-                  : "Auctions where you have placed a bid — see if you are leading or have been outbid."}
-          </p>
-        </div>
-      </div>
-
-      <div className="border-b bg-muted/25 px-3 py-4 md:px-5">
+      <div className="border-b py-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
             <div className="min-w-0">
-              <Label
-                htmlFor="search"
-                className="text-muted-foreground text-xs uppercase"
-              >
-                Search catalog
-              </Label>
+              <Label htmlFor="search">Search catalog</Label>
               <div className="relative mt-1">
                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -369,17 +422,12 @@ const AuctionListing: React.FC<AuctionListingProps> = ({ selectedStatus }) => {
                   }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-11 rounded-xl border-border/80 bg-background pl-10 shadow-sm"
+                  className="pl-10"
                 />
               </div>
             </div>
             <div className="min-w-0">
-              <Label
-                htmlFor="search-seller"
-                className="text-muted-foreground text-xs uppercase"
-              >
-                Search seller
-              </Label>
+              <Label htmlFor="search-seller">Search seller</Label>
               <div className="relative mt-1">
                 <UserSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -387,19 +435,14 @@ const AuctionListing: React.FC<AuctionListingProps> = ({ selectedStatus }) => {
                   placeholder="Seller username…"
                   value={sellerSearchTerm}
                   onChange={(e) => setSellerSearchTerm(e.target.value)}
-                  className="h-11 rounded-xl border-border/80 bg-background pl-10 shadow-sm"
+                  className="pl-10"
                 />
               </div>
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2 sm:gap-3">
             <div className="w-[7.5rem]">
-              <Label
-                htmlFor="minPrice"
-                className="text-muted-foreground text-xs uppercase"
-              >
-                Min
-              </Label>
+              <Label htmlFor="minPrice">Min</Label>
               <NumberInput
                 id="minPrice"
                 optional
@@ -407,16 +450,11 @@ const AuctionListing: React.FC<AuctionListingProps> = ({ selectedStatus }) => {
                 placeholder="0"
                 value={minPrice}
                 onTextChange={setMinPrice}
-                className="mt-1 h-11 rounded-xl shadow-sm"
+                className="mt-1"
               />
             </div>
             <div className="w-[7.5rem]">
-              <Label
-                htmlFor="maxPrice"
-                className="text-muted-foreground text-xs uppercase"
-              >
-                Max
-              </Label>
+              <Label htmlFor="maxPrice">Max</Label>
               <NumberInput
                 id="maxPrice"
                 optional
@@ -424,27 +462,27 @@ const AuctionListing: React.FC<AuctionListingProps> = ({ selectedStatus }) => {
                 placeholder="∞"
                 value={maxPrice}
                 onTextChange={setMaxPrice}
-                className="mt-1 h-11 rounded-xl shadow-sm"
+                className="mt-1"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-3 md:p-5">
+      <div className="pt-3">
         {isLoading && allListings.length === 0 ? (
           <div className="flex min-h-[40vh] items-center justify-center">
             <Loader explanation="Loading lots…" />
           </div>
         ) : allListings.length === 0 ? (
-          <div className="flex min-h-[36vh] flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 px-6 py-16 text-center">
+          <div className="flex min-h-[36vh] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
             <Landmark className="mb-3 h-12 w-12 text-muted-foreground opacity-60" />
             <p className="font-medium text-lg">No lots match your filters</p>
             <p className="mt-1 max-w-sm text-muted-foreground text-sm">
               {browseTab === "MINE"
                 ? sellerSearchTerm.trim()
                   ? "No listings match the seller search. Try clearing the seller filter."
-                  : "You have no listings in this status. Create one from List item, or switch status above."
+                  : "You have no listings in this status. Use the + button to create one, or switch status above."
                 : browseTab === "MY_BIDS"
                   ? sellerSearchTerm.trim()
                     ? "No bids match the seller search. Try clearing the seller filter."
@@ -529,8 +567,8 @@ const AuctionLotCard: React.FC<AuctionLotCardProps> = ({
       type="button"
       onClick={onOpen}
       className={cn(
-        "group flex h-full w-full flex-col rounded-2xl border border-border/80 bg-card text-left shadow-sm transition-all",
-        "hover:border-amber-500/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60",
+        "group flex h-full w-full flex-col rounded-xl border bg-card text-left shadow-sm transition-all",
+        "hover:border-primary/50 hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
       <div className="flex min-h-0 flex-1 gap-3 p-3">
@@ -936,7 +974,7 @@ const AuctionDetailsDialog: React.FC<AuctionDetailsDialogProps> = ({
           />
         </div>
 
-        <Card className="overflow-hidden border-amber-500/25 bg-linear-to-br from-amber-950/10 via-card to-card shadow-sm">
+        <Card className="overflow-hidden">
           <CardHeader className="space-y-0.5 p-3 pb-2">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
               <CardTitle className="flex items-center gap-1.5 font-semibold text-xs">
@@ -1397,7 +1435,10 @@ const AuctionDetailsDialog: React.FC<AuctionDetailsDialogProps> = ({
   );
 };
 
-export const NewAuctionListingDialog: React.FC = () => {
+export const NewAuctionListingDialog: React.FC<{
+  defaultListingType?: CreateAuctionListingSchema["listingType"];
+  onCreated?: () => void;
+}> = ({ defaultListingType = "AUCTION", onCreated }) => {
   const { data: userItems } = api.item.getUserItems.useQuery();
   const ignoreNextPopoverOpenRef = useRef(false);
   const itemSearchInputRef = useRef<HTMLInputElement>(null);
@@ -1422,7 +1463,7 @@ export const NewAuctionListingDialog: React.FC = () => {
       )(values, context, options);
     },
     defaultValues: {
-      listingType: "AUCTION",
+      listingType: defaultListingType,
       durationHours: 24,
       currencyType: TRADEABLE_CURRENCY_TYPES[0],
       bidderMinLevel: AUCTION_BIDDER_LEVEL_MIN,
@@ -1475,6 +1516,7 @@ export const NewAuctionListingDialog: React.FC = () => {
           setItemSearchTerm("");
           setDropdownOpen(false);
           userSearchMethods.reset();
+          onCreated?.();
           await Promise.all([
             utils.auction.getAuctionListings.invalidate(),
             utils.item.getUserItems.invalidate(),
@@ -1568,9 +1610,8 @@ export const NewAuctionListingDialog: React.FC = () => {
       }}
     >
       <DialogTrigger asChild>
-        <Button className="rounded-full shadow-sm">
-          <Plus className="mr-2 h-4 w-4" />
-          List item
+        <Button size="icon" aria-label="List item" hoverText="List item">
+          <Plus aria-hidden="true" className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">

@@ -395,6 +395,7 @@ export const occupationRouter = createTRPCRouter({
             const itemWhere = and(
               eq(userItem.id, consumption.userItemId),
               eq(userItem.userId, ctx.userId),
+              eq(userItem.isInAuction, false),
               eq(
                 userItem.quantity,
                 consumption.consumeQuantity + consumption.newQuantity,
@@ -626,6 +627,9 @@ export const occupationRouter = createTRPCRouter({
       if (crystalUserItem.quantity <= 0) {
         return errorResponse("You don't have this crystal");
       }
+      if (crystalUserItem.isInAuction) {
+        return errorResponse("Cannot use a crystal reserved for auction or trade");
+      }
       if (
         crystalUserItem.craftingFinishedAt &&
         new Date(crystalUserItem.craftingFinishedAt) > new Date()
@@ -718,6 +722,7 @@ export const occupationRouter = createTRPCRouter({
         userItemId: crystalUserItem.id,
         expectedQuantity: crystalUserItem.quantity,
         nextQuantity: crystalUserItem.quantity - 1,
+        where: [eq(userItem.isInAuction, false)],
       });
       if (!consumeCrystal) {
         return errorResponse("Crystal no longer available");
@@ -881,6 +886,12 @@ export const occupationRouter = createTRPCRouter({
         return errorResponse("You don't own this item");
       }
 
+      if (ownedUserItem.isInAuction) {
+        return errorResponse(
+          "Cannot remove imbuement from an item reserved for auction or trade",
+        );
+      }
+
       // Check if item is equipped
       if (ownedUserItem.equipped !== "NONE") {
         return errorResponse("Cannot remove imbuement from equipped item");
@@ -900,10 +911,13 @@ export const occupationRouter = createTRPCRouter({
           and(
             eq(userItemImbuement.id, input.userItemImbuementId),
             eq(userItemImbuement.userItemId, ownedUserItem.id),
+            sql`EXISTS (SELECT 1 FROM UserItem WHERE UserItem.id = ${ownedUserItem.id} AND UserItem.userId = ${ctx.userId} AND UserItem.isInAuction = 0 AND UserItem.equipped = 'NONE')`,
           ),
         );
       if (deleteResult.rowsAffected === 0) {
-        return errorResponse("Imbuement already removed");
+        return errorResponse(
+          "Item availability changed or imbuement already removed; please refresh",
+        );
       }
 
       if (returnsCrystal) {

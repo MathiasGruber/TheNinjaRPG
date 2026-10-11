@@ -1411,8 +1411,8 @@ export const itemRouter = createTRPCRouter({
 
       // Guards — mirror the consume mutation's state checks so a token cannot be
       // spent while the user is not AWAKE (covers TRAVEL/BATTLE/ASLEEP/etc.), while
-      // the token stack is still crafting, or while it is tied to an active auction
-      // (consumeUserItemAtomically only guards id/userId/quantity).
+      // the token stack is still crafting, or while it is tied to an active auction.
+      // The atomic consumption below also rechecks auction availability.
       if (!user) return errorResponse("User not found");
       if (user.isBanned) return errorResponse("You are banned");
       if (user.status !== "AWAKE") {
@@ -1460,6 +1460,7 @@ export const itemRouter = createTRPCRouter({
           userId: ctx.userId,
           userItemId: input.tokenUserItemId,
           expectedQuantity: tokenItem.quantity,
+          where: [eq(userItem.isInAuction, false)],
         });
       } catch {
         return errorResponse("Could not consume Variant Token — please try again");
@@ -1898,6 +1899,9 @@ export const itemRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!useritem) return errorResponse("User item not found");
       if (useritem.userId !== user.userId) return errorResponse("Not yours to consume");
+      if (useritem.isInAuction) {
+        return errorResponse("Cannot consume an item listed in an auction");
+      }
       if (user.status !== "AWAKE")
         return errorResponse(`Cannot use items while ${user.status.toLowerCase()}`);
       if (useritem.craftingFinishedAt && useritem.craftingFinishedAt > new Date()) {
@@ -1942,9 +1946,10 @@ export const itemRouter = createTRPCRouter({
         userId: ctx.userId,
         userItemId: input.userItemId,
         expectedQuantity: useritem.quantity,
+        where: [eq(userItem.isInAuction, false)],
       });
       if (!consumeResult) {
-        return errorResponse("User item not found");
+        return errorResponse("Item no longer available — please refresh and try again");
       }
 
       // Bookkeeping
