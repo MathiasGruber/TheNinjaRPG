@@ -368,7 +368,7 @@ export const clearActiveNpcQuest = async ({
  * their queue status rather than AWAKE, so the queue entry they came from stays
  * usable:
  * - RANKED_PVP rows were claimed from QUEUED and only return to QUEUED while
- *   their `rankedPvpQueue` row still exists (the user may have left the queue).
+ *   their claimed `rankedPvpQueue` row still exists (the user may have left the queue).
  * - KAGE_PVP challengers were claimed from KAGE_QUEUED and only return to it
  *   while their kage challenge request is still PENDING, keeping the request
  *   acceptable on a retry (accepting requires a KAGE_QUEUED challenger). A
@@ -389,7 +389,12 @@ export const battleClaimRollbackStatus = (
       client
         .select({ one: sql`1` })
         .from(rankedPvpQueue)
-        .where(eq(rankedPvpQueue.userId, userData.userId)),
+        .where(
+          and(
+            eq(rankedPvpQueue.userId, userData.userId),
+            eq(rankedPvpQueue.hasClaimed, true),
+          ),
+        ),
     )} THEN "QUEUED" ELSE "AWAKE" END`;
   }
   if (battleType === "KAGE_PVP") {

@@ -77,8 +77,8 @@ export const deleteClanBattle = async (
   await retryOnDeadlock(async () => {
     if (snapshot.battleId !== null) await clearClanCombat(client, snapshot.battleId);
     // Completed lobbies retain memberships after participants can join ranked PvP.
-    // Ranked publishes its row before claiming QUEUED, so both joins and existing
-    // ranked queues are protected from this old lobby's wake-up.
+    // Only a claimed ranked row owns QUEUED. A provisional ranked join may have
+    // lost its claim to this clan lobby and must not block the lobby's wake-up.
     await client
       .update(userData)
       .set({ status: "AWAKE" })
@@ -97,7 +97,12 @@ export const deleteClanBattle = async (
             client
               .select({ id: rankedPvpQueue.id })
               .from(rankedPvpQueue)
-              .where(eq(rankedPvpQueue.userId, userData.userId)),
+              .where(
+                and(
+                  eq(rankedPvpQueue.userId, userData.userId),
+                  eq(rankedPvpQueue.hasClaimed, true),
+                ),
+              ),
           ),
         ),
       );

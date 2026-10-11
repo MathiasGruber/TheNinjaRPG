@@ -1,10 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
-import { userRequest, village, war, warAlly } from "@/drizzle/schema";
+import {
+  mpvpBattleUser,
+  rankedPvpQueue,
+  userData,
+  userRequest,
+  village,
+  war,
+  warAlly,
+} from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import { acceptWarAllyOffer } from "@/server/utils/warAlly";
-import { describeWithDatabase, getTestDatabase, resetTables } from "../../../setup/testDatabase";
 import * as contentReviewCleanup from "@/libs/contentReview/cleanup";
 import * as gamesettings from "@/libs/gamesettings";
 import * as travel from "@/routers/travel";
@@ -13,6 +20,12 @@ import * as grant from "@/server/utils/purchases/grant";
 import * as processor from "@/server/utils/accountDeletion/process";
 import { stubDatabase, resetServerModuleStubs } from "../../../setup/serverModules";
 import { GET } from "@/app/api/cleaner/route";
+import { insertUsers } from "../../../setup/factories";
+import {
+  describeWithDatabase,
+  getTestDatabase,
+  resetTables,
+} from "../../../setup/testDatabase";
 
 const originalEnv = { ...process.env };
 
@@ -173,5 +186,46 @@ describe("account deletion in the existing cleaner", () => {
     mocks.process.mockResolvedValue({ processed: 0, failed: 1 });
     expect((await GET(request())).status).toBe(500);
     expect(mocks.reset).toHaveBeenCalledWith(expect.anything(), "cleaner-hourly", 0, previous);
+  });
+  describeWithDatabase("ranked queue status repair", () => {
+    it("releases an orphan with a provisional ranked row while preserving a claimed queue", async () => {
+      const db = await getTestDatabase();
+      await resetTables(mpvpBattleUser, rankedPvpQueue, userData);
+      await insertUsers([
+        { userId: "provisional", username: "provisional", status: "QUEUED" },
+        { userId: "claimed", username: "claimed", status: "QUEUED" },
+      ]);
+      await db.insert(rankedPvpQueue).values([
+        { id: "provisional", userId: "provisional", rankedLp: 1000, hasClaimed: false },
+        { id: "claimed", userId: "claimed", rankedLp: 1000, hasClaimed: true },
+      ]);
+      let repairs = 0;
+      const dialect = new MySqlDialect();
+      mocks.execute.mockImplementation(async (query: SQL) => {
+        // Execute the route's queue repair against SQL; unrelated maintenance stays stubbed.
+        if (
+          /^UPDATE `UserData` a SET a.status="AWAKE" WHERE a.status="QUEUED"/.test(
+            dialect.sqlToQuery(query).sql,
+          )
+        ) {
+          repairs += 1;
+          return db.execute(query);
+        }
+        return [];
+      });
+      mocks.lock.mockResolvedValueOnce({ isNewHour: true, prevTime: new Date(0) });
+      expect((await GET(request())).status).toBe(200);
+      expect(repairs).toBe(1);
+      expect(
+        (await db.query.userData.findFirst({
+          where: eq(userData.userId, "provisional"),
+        }))?.status,
+      ).toBe("AWAKE");
+      expect(
+        (await db.query.userData.findFirst({
+          where: eq(userData.userId, "claimed"),
+        }))?.status,
+      ).toBe("QUEUED");
+    });
   });
 });

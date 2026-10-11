@@ -3048,7 +3048,12 @@ export const initiateBattle = async (
                     client
                       .select({ one: sql`1` })
                       .from(rankedPvpQueue)
-                      .where(eq(rankedPvpQueue.userId, userData.userId)),
+                      .where(
+                        and(
+                          eq(rankedPvpQueue.userId, userData.userId),
+                          eq(rankedPvpQueue.hasClaimed, true),
+                        ),
+                      ),
                   ),
                 )
               : or(

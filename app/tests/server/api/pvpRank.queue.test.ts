@@ -68,22 +68,25 @@ describeWithDatabase("ranked queue claims and cleanup", () => {
     expect((await storedQueue()).map((entry) => entry.id)).toEqual([winningQueueId]);
   });
 
-  it("rejects a join whose provisional row was removed by a matcher", async () => {
+  it("ignores a provisional row until its join claims QUEUED", async () => {
     const db = await getTestDatabase();
     const matcher = await callerFor(pvpRankRouter, USER);
     const client = beforeStatements(db, userData, [
       async () => {
         expect((await storedUser())?.status).toBe("AWAKE");
         expect(await storedQueue()).toHaveLength(1);
-        await matcher.checkRankedPvpMatches();
-        expect(await storedQueue()).toHaveLength(0);
+        expect((await storedQueue())[0]?.hasClaimed).toBe(false);
+        expect((await matcher.checkRankedPvpMatches()).success).toBe(false);
+        expect(await storedQueue()).toHaveLength(1);
       },
     ]);
     expect(
       await callerForDatabase(pvpRankRouter, USER, client).queueForRankedPvp(),
-    ).toMatchObject({ success: false, message: "Need to be awake to queue" });
-    expect((await storedUser())?.status).toBe("AWAKE");
-    expect(await storedQueue()).toHaveLength(0);
+    ).toMatchObject({ success: true });
+    expect((await storedUser())?.status).toBe("QUEUED");
+    expect(await storedQueue()).toEqual([
+      expect.objectContaining({ hasClaimed: true }),
+    ]);
   });
 
   it("rejects a preloaded join after a concurrent leave removes its row", async () => {
@@ -118,8 +121,13 @@ describeWithDatabase("ranked queue claims and cleanup", () => {
       const wait = new Promise<void>((resolve) => {
         releaseClaim = resolve;
       });
-      const joiningClient = beforeStatements(db, userData, [
+      const joiningClient = beforeStatements(db, rankedPvpQueue, [
         async () => {
+          // The join has preloaded an empty queue. Publish an old claimed orphan
+          // for cleanup to read while this new join waits before its own insert.
+          await db
+            .insert(rankedPvpQueue)
+            .values({ id: "orphan", userId: USER, rankedLp: 1000 });
           claimReady();
           await wait;
         },
@@ -135,7 +143,9 @@ describeWithDatabase("ranked queue claims and cleanup", () => {
         expect(await storedQueue()).toHaveLength(1);
         const cleanerClient = beforeStatements(db, rankedPvpQueue, [
           async () => {
-            // Cleanup read AWAKE, but its DELETE executes only after this join wins.
+            // Another cleanup removes the old row; the guarded DELETE must preserve
+            // the fresh owner that claims QUEUED after this endpoint read AWAKE.
+            await db.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, "orphan"));
             releaseClaim();
             expect((await joining).success).toBe(true);
             expect((await storedUser())?.status).toBe("QUEUED");
@@ -143,7 +153,9 @@ describeWithDatabase("ranked queue claims and cleanup", () => {
         ]);
         await callerForDatabase(pvpRankRouter, USER, cleanerClient)[endpoint]();
         expect((await storedUser())?.status).toBe("QUEUED");
-        expect(await storedQueue()).toHaveLength(1);
+        expect(await storedQueue()).toEqual([
+          expect.objectContaining({ hasClaimed: true }),
+        ]);
       } finally {
         releaseClaim();
         await joining;
