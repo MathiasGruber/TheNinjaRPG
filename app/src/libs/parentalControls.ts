@@ -32,11 +32,12 @@ export const privateConversationRestriction = (
 export const conversationReadRestriction = (
   policy: CommunicationPolicy | undefined,
   convo: { isPublic: boolean; isStaffAvailable: boolean; users: { userId: string }[] },
+  senderIds: string[] = [],
 ) => {
   if (!policy?.enabled || convo.isStaffAvailable) return null;
   if (convo.isPublic) return policy.tavernDisabled ? TAVERN_PARENTAL_MESSAGE : null;
   return privateConversationRestriction(
     [policy],
-    convo.users.map((u) => u.userId),
+    [...convo.users.map((u) => u.userId), ...senderIds],
   );
 };

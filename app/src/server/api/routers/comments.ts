@@ -289,7 +289,7 @@ export const commentsRouter = createTRPCRouter({
     .input(z.object({ selectedConvo: z.string().nullish().optional() }))
     .query(async ({ ctx }) => {
       // Query
-      const [data, policies] = await Promise.all([
+      const [data, policies, senders] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
           with: {
@@ -317,6 +317,7 @@ export const commentsRouter = createTRPCRouter({
           },
         }),
         fetchCommunicationPolicies(ctx.drizzle, [ctx.userId]),
+        fetchPrivateConversationSenders(ctx.drizzle, ctx.userId),
         // Remove the counter of new conversations
         ctx.drizzle
           .update(userData)
@@ -328,7 +329,13 @@ export const commentsRouter = createTRPCRouter({
         .filter(
           (c) =>
             c.conversation &&
-            !conversationReadRestriction(policies[0], c.conversation) &&
+            !conversationReadRestriction(
+              policies[0],
+              c.conversation,
+              senders
+                .filter((sender) => sender.conversationId === c.conversation.id)
+                .map((sender) => sender.userId),
+            ) &&
             !c.conversation.users
               .filter((u) => u.userData)
               .every((u) =>
@@ -1071,17 +1078,53 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
   const convo = await getConvo();
   if (!convo) return undefined;
   const participantIds = [...new Set([userId, ...convo.users.map((u) => u.userId)])];
-  const policies = await fetchCommunicationPolicies(client, participantIds);
+  const [policies, senders] = await Promise.all([
+    fetchCommunicationPolicies(client, participantIds),
+    convo.isPublic || convo.isStaffAvailable
+      ? []
+      : fetchPrivateConversationSenders(client, userId, convo.id),
+  ]);
+  const senderIds = senders.map((sender) => sender.userId);
   const readRestriction = conversationReadRestriction(
     policies.find((p) => p.userId === userId),
     convo,
+    senderIds,
   );
   const sendRestriction =
     convo.isPublic || convo.isStaffAvailable
       ? readRestriction
-      : privateConversationRestriction(policies, participantIds);
+      : privateConversationRestriction(policies, [...participantIds, ...senderIds]);
   return { ...convo, readRestriction, sendRestriction };
 };
+
+// Leaving removes membership but retains messages while other members remain.
+const fetchPrivateConversationSenders = (
+  client: DrizzleClient,
+  userId: string,
+  conversationId?: string,
+) =>
+  client
+    .selectDistinct({
+      conversationId: conversationComment.conversationId,
+      userId: conversationComment.userId,
+    })
+    .from(conversationComment)
+    .innerJoin(conversation, eq(conversation.id, conversationComment.conversationId))
+    .where(
+      and(
+        eq(conversation.isPublic, false),
+        eq(conversation.isStaffAvailable, false),
+        conversationId
+          ? eq(conversationComment.conversationId, conversationId)
+          : inArray(
+              conversationComment.conversationId,
+              client
+                .select({ conversationId: user2conversation.conversationId })
+                .from(user2conversation)
+                .where(eq(user2conversation.userId, userId)),
+            ),
+      ),
+    );
 
 /**
  * Creates a conversation with the given parameters and performs necessary database operations.

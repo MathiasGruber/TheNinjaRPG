@@ -107,7 +107,7 @@ describeWithDatabase("parental controls", () => {
       const { users, ...values } = convo;
       await db.insert(conversation).values({ ...values, createdById: "child" });
       if (users.length) await db.insert(user2conversation).values(users.map((userId) => ({ userId, conversationId: convo.id })));
-      await db.insert(conversationComment).values({ id: `${convo.id}-message`, conversationId: convo.id, content: "Original", userId: "child", authorId: "child" });
+      await db.insert(conversationComment).values({ id: `${convo.id}-message`, conversationId: convo.id, content: "Original", userId: convo.id === "support" ? "stranger" : "child", authorId: convo.id === "support" ? "stranger" : "child" });
     }
     const api = await callerFor(commentsRouter, "child");
     expect((await api.getUserConversations({})).map((c) => c.id).sort()).toEqual(["approved", "support"]);
@@ -125,7 +125,46 @@ describeWithDatabase("parental controls", () => {
     const outsider = await callerFor(commentsRouter, "stranger");
     expect(await outsider.fetchConversationComment({ commentId: "approved-message" })).toBeNull();
     expect((await outsider.reactConversationComment({ commentId: "approved-message", emoji: "👍" })).success).toBe(false);
+    expect((await outsider.exitConversation({ convo_id: "support" })).success).toBe(true);
+    await db.update(parentalControl).set({ privateMessages: "NONE" }).where(eq(parentalControl.userId, "child"));
+    expect((await api.getConversationComments({ convo_id: "support", limit: 10 })).data).toHaveLength(1);
+    expect(await api.fetchConversationComment({ commentId: "support-message" })).not.toBeNull();
   });
+  for (const mode of ["NONE", "APPROVED"] as const) {
+    it(`keeps retained stranger history restricted after leaving (${mode})`, async () => {
+      const db = await getTestDatabase();
+      const participants = mode === "NONE" ? ["child", "stranger"] : ["child", "friend", "stranger"];
+      await db.insert(conversation).values({ id: "retained", title: "Retained history", isPublic: false, createdById: "child" });
+      await db.insert(user2conversation).values(participants.map((userId) => ({ userId, conversationId: "retained" })));
+      await db.insert(conversationComment).values({ id: "retained-message", conversationId: "retained", content: "Original stranger message", userId: "stranger", authorId: "stranger" });
+      const parent = await callerFor(parentalControlsRouter, "child");
+      expect((await parent.save({ ...settings, privateMessages: mode })).success).toBe(true);
+      const child = await callerFor(commentsRouter, "child");
+      expect((await child.getConversationComments({ convo_id: "retained", limit: 10 })).restrictionMessage).toBeTruthy();
+      const stranger = await callerFor(commentsRouter, "stranger");
+      expect((await stranger.exitConversation({ convo_id: "retained" })).success).toBe(true);
+      const page = await child.getConversationComments({ convo_id: "retained", limit: 10 });
+      expect(page.data).toEqual([]);
+      expect(page.restrictionMessage).toBeTruthy();
+      expect(await child.fetchConversationComment({ commentId: "retained-message" })).toBeNull();
+      expect(await child.getUserConversations({})).toEqual([]);
+      expect((await child.reactConversationComment({ commentId: "retained-message", emoji: "👍" })).success).toBe(false);
+      expect((await child.sendTypingIndicator({ conversationId: "retained" })).success).toBe(false);
+      const sender = mode === "APPROVED" ? await callerFor(commentsRouter, "friend") : child;
+      expect((await sender.createConversationComment({ object_id: "retained", comment: "Additional conversation reply", quoteIds: null, senderId: null })).success).toBe(false);
+      expect((await db.query.userData.findFirst({ where: eq(userData.userId, "child") }))?.inboxNews).toBe(0);
+      if (mode === "APPROVED") {
+        expect((await sender.getConversationComments({ convo_id: "retained", limit: 10 })).data).toHaveLength(1);
+      }
+      expect((await parent.save({ ...settings, version: 1, privateMessages: mode === "NONE" ? "EVERYONE" : mode, approvedUserIds: ["friend", "stranger"] })).success).toBe(true);
+      expect((await child.getConversationComments({ convo_id: "retained", limit: 10 })).data).toHaveLength(1);
+      expect(await child.fetchConversationComment({ commentId: "retained-message" })).not.toBeNull();
+      expect((await child.getUserConversations({})).map((c) => c.id)).toEqual(["retained"]);
+      expect(await stranger.fetchConversationComment({ commentId: "retained-message" })).toBeNull();
+      await db.insert(user2conversation).values({ userId: "stranger", conversationId: "retained" });
+      expect((await child.getConversationComments({ convo_id: "retained", limit: 10 })).data).toHaveLength(1);
+    });
+  }
   it("preserves approved/private and support notifications while restricting tavern notifications", async () => {
     const db = await getTestDatabase();
     await db.insert(parentalControl).values({ userId: "child", ...settings, pinHash: await hashParentalPin(settings.pin) });
