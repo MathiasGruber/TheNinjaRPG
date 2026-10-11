@@ -23,7 +23,7 @@ import {
 } from "@/libs/sageMode";
 import type { ShieldTagType } from "@/validators/combat";
 import { ShieldTag, VisualTag } from "@/validators/combat";
-import { creditDamageEnmity } from "./aggro";
+import { creditConsequenceEnmity, creditDamageEnmity } from "./aggro";
 import {
   BARRIER_DAMAGE_TAG_TYPES,
   DAMAGE_LEECH_CAP_RATIO,
@@ -769,6 +769,17 @@ export const applyEffects = (
       // Store pre-shield damage for later use (preserve if already set, e.g. by vamp)
       c.preShieldDamage = c.preShieldDamage ?? preShieldDamage;
       c.diffuseImmediateDamage ??= preShieldDamage;
+      c.enmitySources = [
+        {
+          userId: c.userId,
+          damage: c.damage,
+          residual: c.residual,
+          wound: c.wound,
+          afterburn: c.afterburn,
+          drain_hp: c.drain_hp,
+          poison: c.poison,
+        },
+      ];
       return c;
     })
     .reduce(collapseConsequences, [] as Consequence[])
@@ -797,12 +808,7 @@ export const applyEffects = (
         // spawn, so the opponent predicate is evaluated from the controller too.
         const damageCreditUser = resolveDamageCreditUser(newUsersState, user);
         if (c.damage !== undefined && c.damage >= 0) {
-          creditDamageEnmity(
-            user,
-            target,
-            Math.min(target.curHealth, c.damage),
-            usersEffects,
-          );
+          creditConsequenceEnmity(c, "damage", newUsersState, usersEffects);
           target.curHealth -= c.damage;
           target.curHealth = Math.max(0, target.curHealth);
           // Accumulate per-attacker damage dealt to real opponents (non-self, non-summon)
@@ -865,12 +871,7 @@ export const applyEffects = (
           });
         }
         if (c.residual !== undefined && c.residual >= 0) {
-          creditDamageEnmity(
-            user,
-            target,
-            Math.min(target.curHealth, c.residual),
-            usersEffects,
-          );
+          creditConsequenceEnmity(c, "residual", newUsersState, usersEffects);
           target.curHealth -= c.residual;
           target.curHealth = Math.max(0, target.curHealth);
           creditDamageDealt(damageCreditUser, target, c.residual);
@@ -895,12 +896,7 @@ export const applyEffects = (
           }
         }
         if (c.wound !== undefined && c.wound >= 0) {
-          creditDamageEnmity(
-            user,
-            target,
-            Math.min(target.curHealth, c.wound),
-            usersEffects,
-          );
+          creditConsequenceEnmity(c, "wound", newUsersState, usersEffects);
           target.curHealth -= c.wound;
           target.curHealth = Math.max(0, target.curHealth);
           creditDamageDealt(damageCreditUser, target, c.wound);
@@ -975,12 +971,7 @@ export const applyEffects = (
           });
         }
         if (c.afterburn !== undefined && c.afterburn >= 0) {
-          creditDamageEnmity(
-            user,
-            target,
-            Math.min(target.curHealth, c.afterburn),
-            usersEffects,
-          );
+          creditConsequenceEnmity(c, "afterburn", newUsersState, usersEffects);
           target.curHealth -= c.afterburn;
           target.curHealth = Math.max(0, target.curHealth);
           creditDamageDealt(damageCreditUser, target, c.afterburn);
@@ -1040,12 +1031,7 @@ export const applyEffects = (
         }
         // Handle drain effects for each pool
         if (c.drain_hp !== undefined && c.drain_hp >= 0 && target.curHealth > 0) {
-          creditDamageEnmity(
-            user,
-            target,
-            Math.min(target.curHealth, c.drain_hp),
-            usersEffects,
-          );
+          creditConsequenceEnmity(c, "drain_hp", newUsersState, usersEffects);
           target.curHealth = Math.max(0, target.curHealth - c.drain_hp);
           creditDamageDealt(damageCreditUser, target, c.drain_hp);
           actionEffects.push({
@@ -1068,12 +1054,7 @@ export const applyEffects = (
           });
         }
         if (c.poison !== undefined && c.poison >= 0) {
-          creditDamageEnmity(
-            user,
-            target,
-            Math.min(target.curHealth, c.poison),
-            usersEffects,
-          );
+          creditConsequenceEnmity(c, "poison", newUsersState, usersEffects);
           target.curHealth = Math.max(
             0,
             Math.min(cap(target, "Health"), target.curHealth - c.poison),
@@ -1927,6 +1908,7 @@ const applyDiffuseToConsequences = ({
         damage,
         deferredDamage: cappedDamage,
         creditDamage: !isReturnDamage,
+        creditEnmity: key !== "recoil",
         applyRemaining: (fraction) => {
           // Preserve the source's existing DR and bypass rules; mitigation runs only once.
           const remaining = cappedDamage * fraction;

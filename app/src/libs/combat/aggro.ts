@@ -1,6 +1,11 @@
 import { COMBAT_ENMITY_PER_DAMAGE } from "@/drizzle/constants";
 import { getPower, sealCheck } from "./tags";
-import type { BattleUserState, UserEffect } from "./types";
+import type {
+  BattleUserState,
+  Consequence,
+  EnmityDamageKey,
+  UserEffect,
+} from "./types";
 import { canStackEffect, getEffectStackKey, isEffectActive } from "./util";
 
 /** Damage threat belongs to the actor, including summons, and excludes friendly fire. */
@@ -42,4 +47,31 @@ export const creditDamageEnmity = (
   attacker.enmity =
     (attacker.enmity ?? 0) +
     Math.max(0, base * Math.max(0, 1 + percentage / 100) + flat);
+};
+
+/** Allocate a merged HP loss in packet order, then apply generation once per actor. */
+export const creditConsequenceEnmity = (
+  consequence: Consequence,
+  key: EnmityDamageKey,
+  users: BattleUserState[],
+  effects: UserEffect[],
+): void => {
+  if (consequence.damageSource === "recoil") return;
+  const target = users.find((u) => u.userId === consequence.targetId);
+  if (!target) return;
+  let remaining = Math.min(target.curHealth, consequence[key] ?? 0);
+  const healthLostByUser = new Map<string, number>();
+  for (const source of consequence.enmitySources ?? [consequence]) {
+    const healthLost = Math.min(remaining, Math.max(0, source[key] ?? 0));
+    if (healthLost <= 0) continue;
+    remaining -= healthLost;
+    healthLostByUser.set(
+      source.userId,
+      (healthLostByUser.get(source.userId) ?? 0) + healthLost,
+    );
+  }
+  for (const [userId, healthLost] of healthLostByUser) {
+    const attacker = users.find((u) => u.userId === userId);
+    if (attacker) creditDamageEnmity(attacker, target, healthLost, effects);
+  }
 };

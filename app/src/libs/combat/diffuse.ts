@@ -1,4 +1,5 @@
 import { DIFFUSE_MAX_PERCENTAGE } from "@/drizzle/constants";
+import { creditDamageEnmity } from "./aggro";
 import { applyFinalStandDamage, getPower } from "./tags";
 import type { ActionEffect, BattleUserState, UserEffect } from "./types";
 import { creditDamageDealt, resolveDamageCreditUser } from "./util";
@@ -10,6 +11,7 @@ export type DiffusePacket = {
   /** Damage after the source's normal mitigation, before shields and absorption. */
   deferredDamage: number;
   creditDamage: boolean;
+  creditEnmity: boolean;
   applyRemaining: (fraction: number) => void;
 };
 
@@ -47,11 +49,13 @@ export const deferDiffuseDamage = (
       const attackerId = attacker
         ? resolveDamageCreditUser(users, attacker).userId
         : packet.attackerId;
+      const enmityUserId = packet.creditEnmity ? packet.attackerId : undefined;
       const damage = packet.deferredDamage * fraction;
       deferred += damage;
       const existing = debts.find(
         (debt) =>
           debt.attackerId === attackerId &&
+          debt.enmityUserId === enmityUserId &&
           debt.remainingTurns === effect.delayRounds &&
           debt.lastAppliedRound === round &&
           debt.creditDamage === packet.creditDamage,
@@ -60,6 +64,7 @@ export const deferDiffuseDamage = (
       else
         debts.push({
           attackerId,
+          enmityUserId,
           remainingDamage: damage,
           remainingTurns: effect.delayRounds,
           lastAppliedRound: round,
@@ -92,9 +97,12 @@ export const repayDiffuseDamage = (
     debt.remainingTurns -= 1;
     debt.lastAppliedRound = round;
     const damage = applyFinalStandDamage(effects, target, repayment, messages);
+    const healthLost = Math.min(target.curHealth, damage);
     target.curHealth = Math.max(0, target.curHealth - damage);
     const attacker = users.find((u) => u.userId === debt.attackerId);
     if (attacker && debt.creditDamage) creditDamageDealt(attacker, target, damage);
+    const enmityUser = users.find((u) => u.userId === debt.enmityUserId);
+    if (enmityUser) creditDamageEnmity(enmityUser, target, healthLost, effects);
     messages.push({
       txt: `${target.username} takes ${damage.toFixed(2)} diffuse damage`,
       color: "red",

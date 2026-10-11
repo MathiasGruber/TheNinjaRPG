@@ -1442,6 +1442,9 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
     (c) => c.targetId === val.targetId && c.damageSource === val.damageSource,
   );
   if (current) {
+    if (val.enmitySources) {
+      current.enmitySources = (current.enmitySources ?? []).concat(val.enmitySources);
+    }
     if (val.damage) {
       current.damage = current.damage ? current.damage + val.damage : val.damage;
     }

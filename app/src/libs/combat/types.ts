@@ -157,6 +157,8 @@ export type CombatUserFields = {
   /** Damage already deferred by Diffuse; survives the granting effect's expiry. */
   diffuseDamage?: {
     attackerId: string;
+    /** Original damage actor; absent for recoil or debts without threat attribution. */
+    enmityUserId?: string;
     remainingDamage: number;
     remainingTurns: number;
     lastAppliedRound: number;
@@ -560,6 +562,14 @@ export interface BattleState {
   isPending: boolean;
 }
 
+export type EnmityDamageKey =
+  | "damage"
+  | "residual"
+  | "wound"
+  | "afterburn"
+  | "drain_hp"
+  | "poison";
+
 /**
  * Battle Consequence, i.e. the permanent things that happen to a user as a result of an action
  */
@@ -586,6 +596,8 @@ export type Consequence = {
   diffuseSourceEffectId?: string;
   /** Returned damage normalized onto its recipient after Diffuse; excluded from quest credit. */
   damageSource?: "reflect" | "recoil";
+  /** Post-defense contributions retained independently of target-level damage aggregation. */
+  enmitySources?: Pick<Consequence, "userId" | EnmityDamageKey>[];
   lifesteal_hp?: number;
   vampRatio?: number;
   vampHeal?: number;
