@@ -147,7 +147,7 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
             <div className="flex flex-col">
               <p className="font-semibold text-sm">Show aggro halos</p>
               <p className="text-muted-foreground text-xs">
-                Compare team aggro around characters; hover or tap for details
+                Compare team aggro against NPCs; hover or tap for details
               </p>
             </div>
             <Switch
