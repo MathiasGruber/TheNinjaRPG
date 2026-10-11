@@ -13,7 +13,7 @@ import * as socials from "@/libs/socials";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import { accrueVillageStructureMaintenance } from "@/server/utils/villageMaintenance";
 import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/factories";
-import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, recordQueries, resetTables, runRawSql } from "../../setup/testDatabase";
 import { makeBattleUser, makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 
 const state = async () => (await getTestDatabase()).query.village.findFirst({ where: eq(village.id, "v1") });
@@ -283,24 +283,17 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     expect((await db.query.war.findFirst({ where: eq(war.id, "w1") }))?.defenderShrineHp).toBe(50);
   });
 
-  it("rolls back shrine credit, capture and war health together without publishing a capture", async () => {
+  it("rejects a failed shrine statement without partial damage, credit, capture or notification", async () => {
     const db = await getTestDatabase();
     await (await leader()).select({ villageId: "v1" });
     const battle = await shrineBattle("VILLAGE_WAR");
-    const aborted = new Error("Abort settlement before commit");
-    const aborting = new Proxy(db, {
-      get(target, property, receiver) {
-        if (property === "transaction") {
-          return (callback: Parameters<typeof db.transaction>[0]) => db.transaction(async (tx) => {
-            await callback(tx);
-            throw aborted;
-          });
-        }
-        return Reflect.get(target, property, receiver);
-      },
-    });
     const result = shrineResult(-20);
-    await expect(updateWars(aborting, {} as never, battle, result, "member")).rejects.toThrow(aborted.message);
+    await runRawSql("CREATE TRIGGER reject_shrine_credit BEFORE UPDATE ON Village FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Reject shrine credit'");
+    try {
+      await expect(updateWars(db, {} as never, battle, result, "member")).rejects.toMatchObject({ cause: { message: "Reject shrine credit" } });
+    } finally {
+      await runRawSql("DROP TRIGGER reject_shrine_credit");
+    }
     expect((await state())?.missionCounters.siege_operation ?? 0).toBe(0);
     const saved = await db.query.war.findFirst({ where: eq(war.id, "w1") });
     expect(saved?.defenderShrineHp).toBe(15);
@@ -313,20 +306,52 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     { type: "SECTOR_WAR" as const, isAi: false, change: 10 },
     { type: "SECTOR_WAR" as const, isAi: true, change: -10 },
     { type: "VILLAGE_WAR" as const, isAi: true, change: -10 },
-  ])("settles $type shrine changes without a transaction when no player mission credit is due (AI=$isAi, change=$change)", async ({ type, isAi, change }) => {
+    { type: "SECTOR_WAR" as const, isAi: false, change: -10 },
+    { type: "VILLAGE_WAR" as const, isAi: false, change: -10 },
+  ])("settles $type shrine changes without a transaction (AI=$isAi, change=$change)", async ({ type, isAi, change }) => {
     const db = await getTestDatabase();
     await (await leader()).select({ villageId: "v1" });
     const battle = await shrineBattle(type);
     battle.usersState[0]!.isAi = isAi;
     const noTransactions = new Proxy(db, {
       get(target, property, receiver) {
-        if (property === "transaction") throw new Error("Unexpected transaction for a single-row shrine change");
+        if (property === "transaction") throw new Error("Unexpected shrine transaction");
         return Reflect.get(target, property, receiver);
       },
     });
     await updateWars(noTransactions, {} as never, battle, shrineResult(change), "member");
     expect((await db.query.war.findFirst({ where: eq(war.id, "w1") }))?.defenderShrineHp).toBe(15 + change);
+    expect((await state())?.missionCounters.siege_operation ?? 0).toBe(!isAi && change < 0 ? -change : 0);
+  });
+
+  it("captures a shrine and credits its remaining HP with one update and no application fetch", async () => {
+    const db = await getTestDatabase();
+    await (await leader()).select({ villageId: "v1" });
+    const battle = await shrineBattle("VILLAGE_WAR");
+    const result = shrineResult(-20);
+    const queries = await recordQueries(() => updateWars(db, {} as never, battle, result, "member"));
+    expect(queries.statements.filter((statement) => /^\s*UPDATE\b/i.test(statement))).toHaveLength(1);
+    expect(queries.statements.some((statement) => /^\s*(SELECT|BEGIN|START TRANSACTION|COMMIT)\b/i.test(statement))).toBe(false);
+    expect((await state())?.missionCounters.siege_operation).toBe(15);
+    expect(result.notifications.filter((message) => message.includes("shrine captured"))).toHaveLength(1);
+  });
+
+  it.each(["outlaw", "membership", "inactive", "town"])("applies shrine damage without mission credit when the current village eligibility changed (%s)", async (reason) => {
+    const db = await getTestDatabase();
+    await (await leader()).select({ villageId: "v1" });
+    const battle = await shrineBattle("VILLAGE_WAR");
+    if (reason === "outlaw") await db.update(userData).set({ isOutlaw: true }).where(eq(userData.userId, "member"));
+    if (reason === "membership") await db.update(userData).set({ villageId: "v2" }).where(eq(userData.userId, "member"));
+    if (reason === "inactive") await db.update(village).set({ activeMission: null }).where(eq(village.id, "v1"));
+    if (reason === "town") await db.update(village).set({ type: "TOWN" }).where(eq(village.id, "v1"));
+    const result = shrineResult(-20);
+    await updateWars(db, {} as never, battle, result, "member");
+    const saved = await db.query.war.findFirst({ where: eq(war.id, "w1") });
+    expect(saved?.defenderShrineHp).toBe(0);
+    expect(saved?.defenderShrineStatus).toBe("CAPTURED");
+    expect(saved?.defenderWarHealth).toBe(WAR_SHRINE_CAPTURE_WARHEALTH_DMG * 2);
     expect((await state())?.missionCounters.siege_operation ?? 0).toBe(0);
+    expect(result.notifications.filter((message) => message.includes("shrine captured"))).toHaveLength(1);
   });
 
   it("upgrades a town with clan points in one guarded write, charging only one concurrent upgrade", async () => {

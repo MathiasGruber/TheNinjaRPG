@@ -86,8 +86,8 @@ import { masteryGainUpdates } from "@/server/utils/masteryProgression";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { purgeRaidChatMembership } from "@/server/utils/raidChat";
 import {
+  applyVillageMissionShrineDamage,
   recordVillageMissionProgress,
-  recordVillageMissionShrineDamage,
 } from "@/server/utils/villageMission";
 import { extendWarParticipantSql } from "@/server/utils/war";
 import { periodStart } from "@/utils/time";
@@ -735,34 +735,28 @@ export const updateWars = async (
           sectorsWithDefeatedShrine.add(w.sector);
         }
 
-        const updateShrine = async (db: Pick<DrizzleClient, "update">) => {
-          await db
-            .update(war)
-            .set({
-              defenderShrineHp: sql`GREATEST(LEAST(defenderShrineHp + ${result.shrineChangeHp}, defenderShrineMaxHp), 0)`,
-            })
-            .where(and(eq(war.id, w.id), isNull(war.endedAt)));
-        };
         const shouldCreditMission =
-          result.shrineChangeHp < 0 &&
-          killerSideVillageId === w.attackerVillageId &&
-          !user.isAi;
+          killerSideVillageId === w.attackerVillageId && !user.isAi;
         otherPromises.push(
-          retryOnDeadlock(() =>
-            shouldCreditMission
-              ? client.transaction(async (tx) => {
-                  await recordVillageMissionShrineDamage(
-                    tx,
-                    userVillageId,
-                    userId,
-                    w.id,
-                    "defenderShrineHp",
-                    -result.shrineChangeHp,
-                  );
-                  await updateShrine(tx);
+          retryOnDeadlock(async () => {
+            if (result.shrineChangeHp < 0) {
+              await applyVillageMissionShrineDamage(
+                client,
+                shouldCreditMission ? userVillageId : null,
+                userId,
+                w.id,
+                "defenderShrineHp",
+                -result.shrineChangeHp,
+              );
+            } else {
+              await client
+                .update(war)
+                .set({
+                  defenderShrineHp: sql`GREATEST(LEAST(defenderShrineHp + ${result.shrineChangeHp}, defenderShrineMaxHp), 0)`,
                 })
-              : updateShrine(client),
-          ),
+                .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+            }
+          }),
         );
       }
 
@@ -811,55 +805,20 @@ export const updateWars = async (
                   : (w.defenderVillage?.name ?? "Defender");
 
               if (change < 0) {
-                const updateShrine = async (db: Pick<DrizzleClient, "update">) => {
-                  // Attacking: reduce shrine HP, apply war health damage if crossing to 0 and status changes
-                  // First, try to update only if status is ACTIVE and HP will cross to 0
-                  const captureResult = await db
-                    .update(war)
-                    .set({
-                      [hpCol]: sql`GREATEST(${sql.raw(hpCol)} + ${change}, 0)`,
-                      [statusCol]: "CAPTURED",
-                      [warHealthCol]: sql`GREATEST(${sql.raw(warHealthCol)} - ${WAR_SHRINE_CAPTURE_WARHEALTH_DMG}, 0)`,
-                    })
-                    .where(
-                      and(
-                        eq(war.id, w.id),
-                        isNull(war.endedAt),
-                        sql`${sql.raw(statusCol)} = 'ACTIVE'`,
-                        sql`${sql.raw(hpCol)} + ${change} <= 0`,
-                      ),
-                    );
-
-                  if (captureResult.rowsAffected > 0) {
-                    return true;
-                  }
-                  // Already captured or above the threshold: apply only shrine damage.
-                  await db
-                    .update(war)
-                    .set({
-                      [hpCol]: sql`GREATEST(${sql.raw(hpCol)} + ${change}, 0)`,
-                    })
-                    .where(and(eq(war.id, w.id), isNull(war.endedAt)));
-                  return false;
-                };
                 const ownerVillageId =
                   shrineType === "attacker" ? w.attackerVillageId : w.defenderVillageId;
                 const shouldCreditMission =
                   killerSideVillageId !== ownerVillageId && !user.isAi;
                 const captured = await retryOnDeadlock(() =>
-                  shouldCreditMission
-                    ? client.transaction(async (tx) => {
-                        await recordVillageMissionShrineDamage(
-                          tx,
-                          userVillageId,
-                          userId,
-                          w.id,
-                          hpCol,
-                          -change,
-                        );
-                        return updateShrine(tx);
-                      })
-                    : updateShrine(client),
+                  applyVillageMissionShrineDamage(
+                    client,
+                    shouldCreditMission ? userVillageId : null,
+                    userId,
+                    w.id,
+                    hpCol,
+                    -change,
+                    true,
+                  ),
                 );
                 if (captured) {
                   result.notifications.push(
