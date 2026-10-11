@@ -62,7 +62,7 @@ export const useCombatPreferences = () => {
     "combatShowTimeline",
     true,
   );
-  const [showAggro, setShowAggro] = useLocalStorage<boolean>("combatShowAggro", false);
+  const [showAggro, setShowAggro] = useLocalStorage<boolean>("combatShowAggro", true);
   const [showBasicActions, setShowBasicActions] = useLocalStorage<boolean>(
     "combatShowBasicActions",
     true,

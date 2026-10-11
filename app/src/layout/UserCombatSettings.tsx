@@ -145,15 +145,15 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
           </div>
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
-              <p className="font-semibold text-sm">Show aggro meter</p>
+              <p className="font-semibold text-sm">Show aggro halos</p>
               <p className="text-muted-foreground text-xs">
-                Compare enmity below the action menu
+                Compare team aggro around characters; hover or tap for details
               </p>
             </div>
             <Switch
               checked={config.showAggro}
               onCheckedChange={config.toggleAggro}
-              aria-label="Toggle aggro meter visibility"
+              aria-label="Toggle aggro halo visibility"
             />
           </div>
           <div className="flex items-center justify-between gap-3">

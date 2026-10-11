@@ -282,6 +282,7 @@ export type CachedIntersections = {
   tiles: Intersection<Object3D>[];
   battleTiles: Intersection<Object3D>[];
   ground: Intersection<Object3D>[];
+  users?: Intersection<Object3D>[];
 };
 
 /**
