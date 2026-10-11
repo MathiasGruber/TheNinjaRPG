@@ -1857,6 +1857,7 @@ export const initiateBattle = async (
     forceKeepPools?: boolean;
     raidQuestId?: string;
     topPlayersLP?: number[];
+    /** Reserved lobby/combat IDs used to reject participants after lobby deletion. */
     clanBattle?: { queueId: string; battleId: string };
     /** Human users whose turns should be driven by their own AI profile (auto combat) */
     autoCombatUserIds?: string[];

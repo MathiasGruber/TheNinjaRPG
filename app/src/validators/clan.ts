@@ -14,11 +14,13 @@ export const clanBankDepositSchema = z.object({
   clanId: z.string(),
 });
 
+/** Whole, positive points within the signed SQL integer range stored by the clan. */
 export const clanPointConversionSchema = z.object({
   clanId: z.string(),
   points: z.number().int().positive().max(2147483647),
 });
 
+/** Shared lobby identifier for clan battle membership, startup and deletion actions. */
 export const clanBattleIdSchema = z.object({ clanBattleId: z.string() });
 
 export const strictClanNameField = createReservedNameField({

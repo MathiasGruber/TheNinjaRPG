@@ -2063,8 +2063,10 @@ export const ELDER_VOTE_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
 export type ElderVoteStatus = (typeof ELDER_VOTE_STATUSES)[number];
 export const CLANS_PER_STRUCTURE_LEVEL = 999999;
 export const CLAN_LOBBY_SECONDS = 30;
+/** Shared clan rewards, credited once per victory rather than once per participant. */
 export const CLAN_BATTLE_REWARD_POINTS = 4000;
 export const CLAN_BATTLE_REWARD_RYO = 1000000;
+/** Banked ryo received for each spendable clan point converted by leadership. */
 export const CLAN_POINT_RYO_RATE = 200;
 
 // Clan boost system - Ryo-based

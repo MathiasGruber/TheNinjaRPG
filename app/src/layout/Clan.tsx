@@ -354,6 +354,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
   const [deletingBattleId, setDeletingBattleId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState("");
+  // Hide successful deletions while a refetch can still expose its cached rows.
   const [deletedBattleIds, setDeletedBattleIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -390,6 +391,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
 
   const { mutateAsync: removeBattle, isPending: isDeletingBattle } =
     api.clan.deleteClanBattle.useMutation();
+  /** Keep rejection feedback in the dialog and refresh combat/profile after deletion. */
   const onDeleteBattle = async () => {
     if (!deletingBattleId || deleteSubmissionInFlight.current) return;
     deleteSubmissionInFlight.current = true;
@@ -3373,10 +3375,12 @@ const BoostRow: React.FC<BoostRowProps> = ({
   );
 };
 
+/** Confirm a clan-bank conversion and keep expected rejections visible for retry. */
 function ClanPointConversion({ clanId, points }: { clanId: string; points: number }) {
   const [isOpen, setIsOpen] = useState(false);
   const [amount, setAmount] = useState(1);
   const [error, setError] = useState("");
+  // Modal callbacks can repeat before React renders the mutation's pending state.
   const submitting = useRef(false);
   const utils = api.useUtils();
   const { mutateAsync: convert, isPending } = api.clan.convertPointsToRyo.useMutation();
@@ -3394,6 +3398,7 @@ function ClanPointConversion({ clanId, points }: { clanId: string; points: numbe
       }
       setIsOpen(false);
       setAmount(1);
+      // Profile data also embeds clan balances used outside the clan hall.
       await Promise.all([
         utils.clan.get.invalidate(),
         utils.profile.getUser.invalidate(),

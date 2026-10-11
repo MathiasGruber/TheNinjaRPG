@@ -1094,6 +1094,7 @@ export const clanRouter = createTRPCRouter({
         "CLAN_CHALLENGE",
       );
     }),
+  /** Convert spendable clan points into banked ryo for current clan leadership. */
   convertPointsToRyo: protectedProcedure
     .meta({ mcp: { description: "Convert clan points into clan bank ryo" } })
     .input(clanPointConversionSchema)
@@ -1112,6 +1113,8 @@ export const clanRouter = createTRPCRouter({
         return errorResponse("Only clan leaders and co-leaders can convert points");
       }
       const ryo = input.points * CLAN_POINT_RYO_RATE;
+      // Recheck both balance and leadership in the write so stale reads cannot spend
+      // points twice or authorize a leader whose appointment has been revoked.
       const converted = await ctx.drizzle
         .update(clan)
         .set({
@@ -1393,7 +1396,7 @@ export const clanRouter = createTRPCRouter({
     }),
   joinClanBattle: protectedProcedure
     .meta({ mcp: { description: "Join ongoing clan battle queue" } })
-    .input(z.object({ clanBattleId: z.string() }))
+    .input(clanBattleIdSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
@@ -1464,7 +1467,7 @@ export const clanRouter = createTRPCRouter({
     }),
   leaveClanBattle: protectedProcedure
     .meta({ mcp: { description: "Leave clan battle queue" } })
-    .input(z.object({ clanBattleId: z.string() }))
+    .input(clanBattleIdSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
@@ -1534,6 +1537,7 @@ export const clanRouter = createTRPCRouter({
       );
       return { success: true, message: `Kicked from ${groupLabel} battle` };
     }),
+  /** Authorize staff or participating leadership, then remove the observed battle. */
   deleteClanBattle: protectedProcedure
     .meta({ mcp: { description: "Delete a clan battle and release its participants" } })
     .input(clanBattleIdSchema)
@@ -1584,7 +1588,7 @@ export const clanRouter = createTRPCRouter({
     }),
   initiateClanBattle: protectedProcedure
     .meta({ mcp: { description: "Start clan battle combat" } })
-    .input(z.object({ clanBattleId: z.string() }))
+    .input(clanBattleIdSchema)
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Fetch
@@ -1775,6 +1779,11 @@ export const clanRouter = createTRPCRouter({
     }),
 });
 
+/**
+ * Compensate a failed join or challenge without disturbing another queue or combat.
+ * Only the membership created by this request is removed; the wake-up guard leaves
+ * a user alone if another active clan lobby or combat has already claimed them.
+ */
 const undoClanBattleJoin = async (
   client: DrizzleClient,
   userId: string,

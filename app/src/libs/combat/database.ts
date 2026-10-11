@@ -461,7 +461,9 @@ export const saveUsage = async (
 };
 
 /**
- * Insert directly into the data model for speed (i.e. no SELECT subsequently)
+ * Persist action history in one write and return its payload in descending version order.
+ * Clan logs require a live lobby in the same statement, preventing late inserts after
+ * deletion. The returned payload is unchanged even when that lobby no longer exists.
  */
 export const createAction = async (
   client: DrizzleClient,
@@ -496,7 +498,8 @@ export const createAction = async (
     });
   if (newBattle.battleType === "CLAN_BATTLE") {
     // INSERT ... SELECT shares the lobby row with deletion for the duration of
-    // the statement. A delayed action cannot recreate a deleted combat log.
+    // the statement. A delayed action cannot recreate a deleted combat log;
+    // UNION ALL batches every guarded selection into the same round trip.
     const selections = actions.map((entry) =>
       client
         .select({

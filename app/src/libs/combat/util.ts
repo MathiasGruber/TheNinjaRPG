@@ -2026,7 +2026,8 @@ export const calcBattleResult = (
         }
       }
 
-      // Check for clan points
+      // Clan battles pay the clan once through shared settlement, rather than
+      // awarding additional clan points for each participant's result.
       if (didWin && !allOpponentsFled && battleType !== "CLAN_BATTLE") {
         if (user.clanId) clanPoints += 1;
       }
