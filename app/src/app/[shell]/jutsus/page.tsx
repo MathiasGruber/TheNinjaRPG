@@ -148,9 +148,6 @@ export default function MyJutsu() {
     undefined,
     { enabled: !!userData },
   );
-  const { data: userSkills } = api.skillTree.getUserSkills.useQuery(undefined, {
-    enabled: !!userData,
-  });
   const { data: userReskins } = api.jutsu.getUserReskins.useQuery(undefined, {
     enabled: !!userData,
   });
@@ -367,12 +364,7 @@ export default function MyJutsu() {
   const isFetching = l1 || l2;
 
   // Use the profile snapshot so hidden activated skills still satisfy use gates.
-  const activeSkills = useMemo(
-    () =>
-      userData?.userSkills ??
-      userSkills?.skills.filter((userSkill) => userSkill.activated),
-    [userData?.userSkills, userSkills],
-  );
+  const activeSkills = userData?.userSkills;
 
   // Categorize jutsu for organized display
   const categorizedJutsus = useMemo(() => {

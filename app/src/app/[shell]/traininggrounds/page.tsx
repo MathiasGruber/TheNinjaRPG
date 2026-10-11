@@ -1109,15 +1109,9 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   const { data: userItems } = api.item.getUserItems.useQuery(undefined, {
     enabled: !!userData,
   });
-  const { data: userSkills } = api.skillTree.getUserSkills.useQuery(undefined, {
-    enabled: !!userData,
-  });
   const masteries = effectiveMasteries({
     ...userData,
     items: userItems ?? [],
-    userSkills:
-      userData.userSkills ??
-      userSkills?.skills.filter((userSkill) => userSkill.activated),
   });
 
   // User Jutsus
