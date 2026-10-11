@@ -115,21 +115,13 @@ export const VillageMission = ({
                 aria-label={objectiveImageMap[objective.task].title}
               />
               {objective.task === "combined_mission_effort" && (
-                <div className="pt-2">
-                  <p className="mb-1.5 text-muted-foreground text-xs">
-                    Points per completed mission
-                  </p>
-                  <dl className="grid grid-cols-4 gap-2 text-center text-xs">
-                    {Object.entries(VILLAGE_MISSION_RANK_POINTS).map(
-                      ([rank, points]) => (
-                        <div key={rank} className="rounded bg-muted/50 px-1 py-1.5">
-                          <dt className="text-muted-foreground">{rank}-rank</dt>
-                          <dd className="font-semibold tabular-nums">{points}</dd>
-                        </div>
-                      ),
-                    )}
-                  </dl>
-                </div>
+                <p className="text-muted-foreground text-sm">
+                  Points per mission:{" "}
+                  {Object.entries(VILLAGE_MISSION_RANK_POINTS)
+                    .map(([rank, points]) => `${rank}-rank ${points}`)
+                    .join(" · ")}
+                  .
+                </p>
               )}
               {objective.task === "siege_operation" && (
                 <p className="text-muted-foreground text-sm">
