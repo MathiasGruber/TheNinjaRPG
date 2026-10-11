@@ -5,7 +5,7 @@ import type { Grid } from "honeycomb-grid";
 import { useSetAtom } from "jotai";
 import { Check, HelpCircle, Loader2 } from "lucide-react";
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Clock, Group, OrthographicCamera, Vector2 } from "three";
 import { api, type RouterInputs, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { useLocalStorage } from "@/hooks/localstorage";
 import { usePerformanceMonitor } from "@/hooks/performance-monitor";
 import { useTutorialStep } from "@/hooks/tutorial";
 import { usePageActive } from "@/hooks/usePageActive";
+import { CombatAggro } from "@/layout/CombatAggro";
 import Image from "@/layout/Image";
 import ItemLoadoutSelector from "@/layout/ItemLoadoutSelector";
 import JutsuLoadoutSelector from "@/layout/JutsuLoadoutSelector";
@@ -29,6 +30,7 @@ import { VisualizeEffects, VisualizeGroundEffects } from "@/layout/MenuBoxProfil
 import Modal from "@/layout/Modal";
 import WebGlError from "@/layout/WebGLError";
 import { availableUserActions, calcActiveUser } from "@/libs/combat/actions";
+import { getAggroDisplay } from "@/libs/combat/aggroDisplay";
 import { COMBAT_LOBBY_SECONDS, COMBAT_SECONDS } from "@/libs/combat/constants";
 import { mergeBattleEntries } from "@/libs/combat/log";
 import type {
@@ -115,6 +117,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     userId?: string;
     position: { x: number; y: number };
   } | null>(null);
+  const hoverTooltipRef = useRef<HTMLDivElement | null>(null);
 
   // Light layout preference state
   const [lightLayout] = useLocalStorage<boolean>(LIGHT_LAYOUT_STORAGE_KEY, false);
@@ -216,6 +219,16 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // Precompute maps for ground effects, user effects, and user positions
   const battleMaps = useBattleMaps(battleState.battle ?? null);
+  const aggro = useMemo(
+    () =>
+      getAggroDisplay(
+        battleState.battle?.usersState ?? [],
+        battleState.battle?.usersEffects,
+      ),
+    [battleState.battle],
+  );
+  const aggroRef = useRef(config.showAggro ? aggro : undefined);
+  aggroRef.current = config.showAggro ? aggro : undefined;
 
   // Get effects for hovered element (can include both user and ground effects)
   const hoveredEffects = useMemo(() => {
@@ -233,7 +246,8 @@ const Combat: React.FC<CombatProps> = (props) => {
     if (
       groundEffects.length === 0 &&
       userEffects.length === 0 &&
-      !diffuseDamage?.length
+      !diffuseDamage?.length &&
+      !(config.showAggro && hoveredEffect.userId && aggro.has(hoveredEffect.userId))
     )
       return null;
 
@@ -243,7 +257,17 @@ const Combat: React.FC<CombatProps> = (props) => {
       diffuseDamage,
       userId: hoveredEffect.userId,
     };
-  }, [hoveredEffect, battleMaps, battleState.battle]);
+  }, [hoveredEffect, battleMaps, battleState.battle, config.showAggro, aggro]);
+
+  useLayoutEffect(() => {
+    const tooltip = hoverTooltipRef.current;
+    if (!tooltip || !hoveredEffect) return;
+    const { width, height } = tooltip.getBoundingClientRect();
+    const { x, y } = hoveredEffect.position;
+    const above = y - height - 10;
+    tooltip.style.left = `${Math.max(8, Math.min(x + 15, window.innerWidth - width - 8))}px`;
+    tooltip.style.top = `${Math.max(8, Math.min(above >= 8 ? above : y + 15, window.innerHeight - height - 8))}px`;
+  }, [hoveredEffect, hoveredEffects]);
 
   // Store precomputed maps in refs for use in render loop
   const battleMapsRef = useRef(battleMaps);
@@ -1193,6 +1217,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             sfxEnabled: Boolean(userData?.sfxOn ?? true),
             sfxVolume: sfxVolume,
             gameAssets: gameAssetsRef.current.assets,
+            aggro: aggroRef.current,
           });
           endDrawUsers();
 
@@ -1238,6 +1263,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             tiles: tilesIntersects,
             battleTiles: tilesIntersects,
             ground: raycaster.intersectObjects(group_effects.children),
+            users: raycaster.intersectObjects(group_users.children),
           };
           endRaycast();
 
@@ -1285,6 +1311,7 @@ const Combat: React.FC<CombatProps> = (props) => {
           // Highlight tile tooltips when hovering on tiles with ground effects or users
           highlightTileTooltips({
             group_tiles,
+            group_users,
             cachedIntersections,
             battleMaps: battleMapsRef.current,
             mouseX: mouseScreenRef.current.x,
@@ -1470,16 +1497,16 @@ const Combat: React.FC<CombatProps> = (props) => {
     <>
       <div id="tutorial-combat-field" ref={mountRef}></div>
 
-      {/* Effect hover tooltip (can show both user and ground effects) */}
+      {/* Character aggro and effects share the same hover/touch details. */}
       {hoveredEffect && hoveredEffects && (
         <div
-          className="pointer-events-none fixed z-50 flex max-w-xs flex-col gap-3 rounded-lg bg-black/90 p-3 text-white shadow-xl"
-          style={{
-            left: `${hoveredEffect.position.x + 15}px`,
-            top: `${hoveredEffect.position.y - 10}px`,
-            transform: "translateY(-100%)",
-          }}
+          role="tooltip"
+          ref={hoverTooltipRef}
+          className="pointer-events-none fixed z-50 flex max-h-[calc(100dvh-1rem)] w-64 max-w-[calc(100vw-1rem)] flex-col gap-3 overflow-y-auto rounded-lg bg-black/90 p-3 text-white shadow-xl"
         >
+          {config.showAggro && hoveredEffects.userId && (
+            <CombatAggro aggro={aggro} userId={hoveredEffects.userId} />
+          )}
           {hoveredEffects.userId && (
             <VisualizeEffects
               effects={hoveredEffects.userEffects}

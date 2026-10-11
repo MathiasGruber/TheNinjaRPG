@@ -119,6 +119,7 @@ describe("highlightTileTooltips user detection", () => {
     const hovers: (CombatHoverData | null)[] = [];
     highlightTileTooltips({
       group_tiles: info.group_tiles,
+      group_users: new Group(),
       cachedIntersections: {
         battleTiles: [{ object: meshes[0]!, distance: 0, point: new Vector3() }],
         tiles: [],
@@ -136,6 +137,44 @@ describe("highlightTileTooltips user detection", () => {
     expect(hovers).toEqual([hasUser ? {
       tileKey: "0,0", userId: "user-1", position: { x: 12, y: 34 },
     } : null]);
+  });
+
+  it.each([true, false])("prefers a visible halo owner over the adjacent tile (%p)", (visible) => {
+    const { info, meshes } = createScene();
+    const group_users = new Group();
+    const owner = new Group();
+    owner.name = "halo-owner";
+    owner.userData.hex = { col: 1, row: 1 };
+    owner.visible = visible;
+    const halo = new Group();
+    const arc = new Mesh(new PlaneGeometry(), new MeshBasicMaterial());
+    halo.add(arc);
+    owner.add(halo);
+    group_users.add(owner);
+    const hovers: (CombatHoverData | null)[] = [];
+    highlightTileTooltips({
+      group_tiles: info.group_tiles,
+      group_users,
+      cachedIntersections: {
+        users: [{ object: arc, distance: 0, point: new Vector3() }],
+        battleTiles: [{ object: meshes[0]!, distance: 1, point: new Vector3() }],
+        tiles: [],
+        ground: [],
+      },
+      battleMaps: {
+        usersByTile: new Map([["0,0", "neighbor"]]),
+        userEffectsByUserId: new Map(),
+        groundEffectsByTile: new Map(),
+      },
+      mouseX: 12,
+      mouseY: 34,
+      onHoverChange: (value) => { hovers.push(value); },
+    });
+    expect(hovers).toEqual([{
+      tileKey: visible ? "1,1" : "0,0",
+      userId: visible ? "halo-owner" : "neighbor",
+      position: { x: 12, y: 34 },
+    }]);
   });
 });
 

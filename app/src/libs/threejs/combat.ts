@@ -39,6 +39,7 @@ import {
   calcActiveUser,
   stillInBattle,
 } from "@/libs/combat/actions";
+import type { AggroDisplay } from "@/libs/combat/aggroDisplay";
 import {
   COMBAT_BORDER_BOTTOM,
   COMBAT_BORDER_LEFT,
@@ -63,6 +64,7 @@ import {
   getVillage,
 } from "@/libs/combat/util";
 import { builtinTerrainDepression } from "@/libs/sector-map/terrains";
+import { createAggroHalo, updateAggroHalo } from "@/libs/threejs/aggroHalo";
 import { getTileInfo } from "@/libs/threejs/biome";
 import {
   calculateHexUVCoordinates,
@@ -82,6 +84,7 @@ import {
   createTexture,
   disposeAnimatedGroup,
   drawStatusBar,
+  isObjectChainVisible,
   loadTexture,
   profiler,
   showAnimation,
@@ -982,6 +985,7 @@ export const createUserSprite = (
   tomb_sprite.position.set(w / 2, h * 0.6, USER_LAYER);
   tomb_sprite.visible = false;
   group.add(tomb_sprite);
+  group.add(createAggroHalo(w, h, !noMarker));
 
   // Name
   group.name = userData.userId;
@@ -1245,6 +1249,7 @@ export const drawCombatUsers = (info: {
   sfxEnabled?: boolean;
   sfxVolume?: number;
   gameAssets?: GameAsset[];
+  aggro?: AggroDisplay;
 }): boolean => {
   const endMark = profiler.mark("drawCombatUsers");
 
@@ -1377,6 +1382,11 @@ export const drawCombatUsers = (info: {
           const curChakra = getEffectiveCurPool(user, usersEffects, "Chakra");
           updateStatusBar("cp_current", userMesh, curChakra / maxChakra);
         }
+        const halo = userMesh.getObjectByName("aggro_halo") as Group;
+        updateAggroHalo(
+          halo,
+          user.hidden ? undefined : info.aggro?.get(user.userId)?.ratio,
+        );
 
         drawnIds.add(userMesh.name);
       }
@@ -1893,6 +1903,7 @@ export type CombatHoverData = {
  */
 export const highlightTileTooltips = (info: {
   group_tiles: Group;
+  group_users: Group;
   cachedIntersections: CachedIntersections;
   battleMaps: BattleMaps;
   mouseX?: number;
@@ -1901,6 +1912,21 @@ export const highlightTileTooltips = (info: {
 }) => {
   const { groundEffectsByTile, usersByTile } = info.battleMaps;
   const { onHoverChange } = info;
+  // Portraits and halos extend beyond their terrain tile. Resolve their owner
+  // first so an adjacent tile cannot replace the hovered character's details.
+  for (const hit of info.cachedIntersections.users ?? []) {
+    if (!isObjectChainVisible(hit.object)) continue;
+    let object = hit.object;
+    while (object.parent && object.parent !== info.group_users) object = object.parent;
+    const hex = object.userData.hex as TerrainHex | undefined;
+    if (object.parent !== info.group_users || !hex) continue;
+    onHoverChange?.({
+      tileKey: `${hex.col},${hex.row}`,
+      userId: object.name,
+      position: { x: info.mouseX ?? 0, y: info.mouseY ?? 0 },
+    });
+    return;
+  }
   const battleTileIntersects = info.cachedIntersections.battleTiles;
 
   // Check if we're hovering over a battle tile (not border tiles)

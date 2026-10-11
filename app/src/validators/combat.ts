@@ -263,6 +263,30 @@ export const DecreaseDamageTakenTag = z.object({
   calculation: z.enum(["static", "percentage"]).prefault("percentage"),
 });
 
+const AggroAttributes = {
+  ...BaseAttributes,
+  ...PowerAttributes,
+  target: z.enum(BaseTagTargets).prefault("SELF"),
+  calculation: z.enum(["static", "percentage"]).prefault("percentage"),
+  aggroMode: z.enum(["ENMITY", "GENERATION"]).prefault("GENERATION"),
+};
+
+export const IncreaseAggroTag = z.object({
+  ...AggroAttributes,
+  type: z.literal("increaseaggro").prefault("increaseaggro"),
+  description: msg(
+    "Increase current enmity or damage-generated enmity. ENMITY applies once per round; GENERATION modifies each damage packet. Omit rounds for passive gear.",
+  ),
+});
+
+export const DecreaseAggroTag = z.object({
+  ...AggroAttributes,
+  type: z.literal("decreaseaggro").prefault("decreaseaggro"),
+  description: msg(
+    "Decrease current enmity or damage-generated enmity. ENMITY applies once per round; GENERATION modifies each damage packet. Omit rounds for passive gear.",
+  ),
+});
+
 export const IncreaseHealGivenTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -993,6 +1017,7 @@ export const AllTags = z.union([
   CopyTag.prefault({}),
   DamageTag.prefault({}),
   DebuffPreventTag.prefault({}),
+  DecreaseAggroTag.prefault({}),
   DecreaseCooldownTag.prefault({}),
   DecreaseDamageGivenTag.prefault({}),
   DecreaseDamageTakenTag.prefault({}),
@@ -1011,6 +1036,7 @@ export const AllTags = z.union([
   FleeTag.prefault({}),
   HealPreventTag.prefault({}),
   HealTag.prefault({}),
+  IncreaseAggroTag.prefault({}),
   IncreaseCooldownTag.prefault({}),
   IncreaseDamageGivenTag.prefault({}),
   IncreaseDamageTakenTag.prefault({}),
@@ -1085,6 +1111,8 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       // "clearprevent",
       "consume",
       "debuffprevent",
+      "increaseaggro",
+      "decreaseaggro",
       "decreasedamagetaken",
       "decreasepoolcost",
       "heal",

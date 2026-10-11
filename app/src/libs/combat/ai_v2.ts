@@ -139,21 +139,23 @@ export const performAIaction = (
           prev.distance < current.distance ? prev : current,
         )
       : undefined;
-    const healthTarget = (
+    const metricTarget = (
       candidates: typeof allies,
-      pool: "current" | "max",
+      metric: "current" | "max" | "enmity",
       highest: boolean,
     ) =>
       candidates.reduce<(typeof allies)[number] | undefined>((best, candidate) => {
-        const health = (target: (typeof allies)[number]) =>
-          pool === "max"
-            ? getEffectiveMaxPool(target, nextBattle.usersEffects, "Health")
-            : getEffectiveCurPool(target, nextBattle.usersEffects, "Health");
+        const value = (target: (typeof allies)[number]) =>
+          metric === "enmity"
+            ? (target.enmity ?? 0)
+            : metric === "max"
+              ? getEffectiveMaxPool(target, nextBattle.usersEffects, "Health")
+              : getEffectiveCurPool(target, nextBattle.usersEffects, "Health");
         if (!best) return candidate;
         return (
           highest
-            ? health(candidate) > health(best)
-            : health(candidate) < health(best)
+            ? value(candidate) > value(best)
+            : value(candidate) < value(best)
         )
           ? candidate
           : best;
@@ -261,14 +263,21 @@ export const performAIaction = (
           return randomAlly;
         case "CLOSEST_ALLY":
           return closestAlly;
+        case "HIGHEST_ENMITY_OPPONENT":
+        case "LOWEST_ENMITY_OPPONENT":
+          return metricTarget(
+            enemies,
+            "enmity",
+            entry.target === "HIGHEST_ENMITY_OPPONENT",
+          );
         case "HIGHEST_MAX_HEALTH_ALLY":
-          return healthTarget(allies, "max", true);
+          return metricTarget(allies, "max", true);
         case "HIGHEST_MAX_HEALTH_OPPONENT":
-          return healthTarget(enemies, "max", true);
+          return metricTarget(enemies, "max", true);
         case "LOWEST_HEALTH_OPPONENT":
-          return healthTarget(enemies, "current", false);
+          return metricTarget(enemies, "current", false);
         case "LOWEST_MAX_HEALTH_ALLY":
-          return healthTarget(allies, "max", false);
+          return metricTarget(allies, "max", false);
         case "BARRIER_BLOCKING_CLOSEST_OPPONENT":
           return barriers[0];
         case "SELF":

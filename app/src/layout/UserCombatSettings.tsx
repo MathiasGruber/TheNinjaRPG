@@ -145,6 +145,19 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
           </div>
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
+              <p className="font-semibold text-sm">Show aggro halos</p>
+              <p className="text-muted-foreground text-xs">
+                Compare team aggro against NPCs; hover or tap for details
+              </p>
+            </div>
+            <Switch
+              checked={config.showAggro}
+              onCheckedChange={config.toggleAggro}
+              aria-label="Toggle aggro halo visibility"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col">
               <p className="font-semibold text-sm">Show basic actions</p>
               <p className="text-muted-foreground text-xs">
                 Include basic actions in timeline

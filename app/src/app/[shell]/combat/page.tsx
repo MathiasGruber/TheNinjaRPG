@@ -158,7 +158,7 @@ export default function CombatPage() {
   // Battle scene. Pass the CONTROLLED actor (self, or the piloted summon on its
   // turn) so Combat does not have to re-derive it from the same battle object.
   // Depend on battleState so isPending / result reach Combat; do not depend on
-  // the whole config object — Combat only reads showGridNumbers, and the WebGL
+  // the whole config object — Combat reads grid and aggro visibility, and the WebGL
   // scene stays mounted while newly revealed action assets load.
   const combat = useMemo(() => {
     return (
@@ -173,7 +173,14 @@ export default function CombatPage() {
         />
       )
     );
-  }, [battleState, actionId, controlledActorId, config.showGridNumbers, actions]);
+  }, [
+    battleState,
+    actionId,
+    controlledActorId,
+    config.showGridNumbers,
+    config.showAggro,
+    actions,
+  ]);
 
   // Handle key-presses
   useEffect(() => {
@@ -315,6 +322,7 @@ export default function CombatPage() {
       </div>
     );
   }, [
+    userId,
     isInBattle,
     battle,
     isAutoCombatActive,

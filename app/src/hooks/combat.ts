@@ -62,6 +62,7 @@ export const useCombatPreferences = () => {
     "combatShowTimeline",
     true,
   );
+  const [showAggro, setShowAggro] = useLocalStorage<boolean>("combatShowAggro", true);
   const [showBasicActions, setShowBasicActions] = useLocalStorage<boolean>(
     "combatShowBasicActions",
     true,
@@ -88,6 +89,10 @@ export const useCombatPreferences = () => {
     () => setShowTimeline(!showTimeline),
     [showTimeline, setShowTimeline],
   );
+  const toggleAggro = useCallback(
+    () => setShowAggro(!showAggro),
+    [showAggro, setShowAggro],
+  );
   const toggleBasicActions = useCallback(
     () => setShowBasicActions(!showBasicActions),
     [showBasicActions, setShowBasicActions],
@@ -112,6 +117,9 @@ export const useCombatPreferences = () => {
       showTimeline,
       setShowTimeline,
       toggleTimeline,
+      showAggro,
+      setShowAggro,
+      toggleAggro,
       showBasicActions,
       setShowBasicActions,
       toggleBasicActions,
@@ -135,6 +143,9 @@ export const useCombatPreferences = () => {
       showTimeline,
       setShowTimeline,
       toggleTimeline,
+      showAggro,
+      setShowAggro,
+      toggleAggro,
       showBasicActions,
       setShowBasicActions,
       toggleBasicActions,
