@@ -54,7 +54,9 @@ interface StatDistributionProps {
   id?: string;
   userData: NonNullable<UserWithRelations>;
   availableStats: number;
-  onAccept: (data: AssignableUserStats) => void;
+  onAccept: (
+    data: AssignableUserStats,
+  ) => void | Promise<void> | Promise<boolean | undefined>;
   includeMasteries?: boolean;
   forceUseAll?: boolean;
   isRedistribution?: boolean;
@@ -101,7 +103,7 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
 
       if (formSum === availableStats) {
         handleNextStep();
-        onAccept(data);
+        return onAccept(data);
       } else {
         showMutationToast({
           success: false,
@@ -109,7 +111,7 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
         });
       }
     } else {
-      onAccept(data);
+      return onAccept(data);
     }
   };
 
@@ -193,7 +195,7 @@ interface SimpleDistributionProps {
   includeMasteries?: boolean;
   userData: NonNullable<UserWithRelations>;
   availableStats: number;
-  onAccept: (data: AssignableUserStats) => void;
+  onAccept: StatDistributionProps["onAccept"];
   isPending: boolean;
   pendingLabel?: string;
 }
@@ -461,7 +463,7 @@ const SimpleDistribution: React.FC<SimpleDistributionProps> = (props) => {
 interface AdvancedDistributionProps {
   userData: NonNullable<UserWithRelations>;
   availableStats: number;
-  onAccept: (data: AssignableUserStats) => void;
+  onAccept: StatDistributionProps["onAccept"];
   includeMasteries?: boolean;
   forceUseAll?: boolean;
   isRedistribution?: boolean;
@@ -548,8 +550,8 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
     Object.values(formValues).some((value) => !Number.isFinite(Number(value)));
 
   // Submit handler
-  const onSubmit = form.handleSubmit((data) => {
-    onAccept(data);
+  const onSubmit = form.handleSubmit(async (data) => {
+    if ((await onAccept(data)) === true) form.reset(defaultValues);
   });
 
   // Show component
