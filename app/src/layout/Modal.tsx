@@ -105,6 +105,7 @@ export const Modal: React.FC<ModalProps> = (props) => {
       // by an accept handler, so it never dismisses a plain info/edit dialog.
       if (
         event.key === "Enter" &&
+        !event.isComposing &&
         props.proceed_label &&
         props.onAccept &&
         !isButton &&

@@ -95,6 +95,37 @@ describe("Modal", () => {
     expect(close).toHaveBeenCalledWith(false);
   });
 
+  for (const value of ["", 3]) {
+    it(`ignores composing Enter with a ${value === "" ? "blank" : "valid"} numeric draft`, () => {
+      const accept = vi.fn();
+      const close = vi.fn();
+      const invalid = vi.fn();
+      const { getByRole } = render(
+        <Modal isOpen setIsOpen={close} title="Quantity" proceed_label="Proceed" onAccept={accept}>
+          <NumberInput value={value} min={1} onInvalid={invalid} />
+        </Modal>,
+      );
+      const input = getByRole("spinbutton");
+      input.focus();
+      expect(fireEvent.keyDown(input, { key: "Enter", isComposing: true })).toBe(true);
+      expect(invalid).not.toHaveBeenCalled();
+      expect(accept).not.toHaveBeenCalled();
+      expect(close).not.toHaveBeenCalled();
+
+      fireEvent.keyDown(input, { key: "Enter" });
+      if (value === "") {
+        expect(invalid).toHaveBeenCalled();
+        expect(accept).not.toHaveBeenCalled();
+        expect(close).not.toHaveBeenCalled();
+      } else {
+        expect(invalid).not.toHaveBeenCalled();
+        expect(accept).toHaveBeenCalledTimes(1);
+        expect(close).toHaveBeenCalledTimes(1);
+        expect(close).toHaveBeenCalledWith(false);
+      }
+    });
+  }
+
   it("keeps invalid auto-attack drafts out of storage and commits before enabling", () => {
     const originalCustomEvent = globalThis.CustomEvent;
     globalThis.CustomEvent = window.CustomEvent;
