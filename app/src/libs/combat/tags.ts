@@ -2054,6 +2054,7 @@ export const consume = (
   consumeByUser.set(effect.creatorId, {
     ratio: Math.min(1, (previous?.ratio ?? 0) + power / 100),
     rounds: Math.max(previous?.rounds ?? 0, shieldRounds),
+    hp: 0,
   });
   return undefined;
 };

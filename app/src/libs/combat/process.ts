@@ -709,15 +709,10 @@ export const applyEffects = (
 
   // Accumulate before collapseConsequences merges hits from different casters.
   // Grant shields after damage resolves so they cannot absorb the generating action.
-  const consumeShieldByUser = new Map<string, { hp: number; rounds: number }>();
   const accumulateConsumeShield = (userId: string, damage: number) => {
     const consume = consumeByUser.get(userId);
     if (!consume || damage <= 0) return;
-    const previous = consumeShieldByUser.get(userId);
-    consumeShieldByUser.set(userId, {
-      hp: (previous?.hp ?? 0) + damage * consume.ratio,
-      rounds: consume.rounds,
-    });
+    consume.hp += damage * consume.ratio;
   };
   diffuseRepayments.forEach(({ userId, damage }) => {
     accumulateConsumeShield(userId, damage);
@@ -1145,7 +1140,7 @@ export const applyEffects = (
 
   // Grant the accumulated consume shields: one effect and one log line per attacker,
   // sized off the total pre-shield damage the action dealt across every target.
-  consumeShieldByUser.forEach(({ hp, rounds }, userId) => {
+  consumeByUser.forEach(({ hp, rounds }, userId) => {
     const user = newUsersState.find((u) => u.userId === userId);
     if (!user || user.curHealth <= 0) return;
     const shieldHp = Math.min(Math.floor(hp), SHIELD_MAX_HEALTH);
