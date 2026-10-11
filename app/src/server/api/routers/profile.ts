@@ -4344,7 +4344,7 @@ export const getUserProgressionUpdate = (
       errands: publicUser.errands,
       pveFights: publicUser.pveFights,
       pvpFights: publicUser.pvpFights,
-      pvpActivity: publicUser.pvpActivity,
+      pvpExperience: publicUser.pvpExperience,
       pvpStreak: publicUser.pvpStreak,
       offence: user.offence,
       defence: user.defence,

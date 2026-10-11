@@ -251,9 +251,7 @@ export function Profile() {
 function CharacterProfile() {
   // State
   const { data: userData, timeDiff } = useRequiredUserData();
-  const [pvpInfoModal, setPvpInfoModal] = useState<
-    "activity" | "rank" | "experience" | null
-  >(null);
+  const [pvpInfoModal, setPvpInfoModal] = useState<"rank" | "experience" | null>(null);
 
   // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
@@ -306,29 +304,8 @@ function CharacterProfile() {
             <p>Exp: {userData.experience?.toLocaleString()}</p>
             <p>Exp for lvl: {expRequired ? expRequired.toFixed(2) : "--"}</p>
             <p>PvE Fights: {userData.pveFights}</p>
-            <TooltipProvider delayDuration={50}>
-              <div className="flex flex-row items-center gap-1">
-                <p>PvP Activity: {userData.pvpActivity}</p>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground"
-                      aria-label="PvP activity details"
-                      onClick={() => setPvpInfoModal("activity")}
-                    >
-                      <Info className="mb-1 h-4 w-4 shrink-0" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div>
-                      <p>PVP Fights: {userData.pvpFights}</p>
-                      <p>PvP Streak: {userData.pvpStreak}</p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </TooltipProvider>
+            <p>PvP Fights: {userData.pvpFights}</p>
+            <p>PvP Streak: {userData.pvpStreak}</p>
             <button
               type="button"
               className="flex items-center gap-1 text-left underline decoration-dotted underline-offset-4"
@@ -473,29 +450,6 @@ function CharacterProfile() {
         </div>
         <LevelUpBtn id="tutorial-level-up-btn" />
       </ContentBox>
-
-      <Modal
-        title="PvP activity"
-        className="md:!max-w-[16rem] w-full max-w-[min(16rem,calc(100%-2rem))] gap-2 p-4"
-        centerText
-        isOpen={pvpInfoModal === "activity"}
-        setIsOpen={(open) => setPvpInfoModal(open ? "activity" : null)}
-      >
-        <div className="space-y-1 text-sm">
-          <p>
-            <span className="text-muted-foreground">Activity score:</span>{" "}
-            {userData.pvpActivity}
-          </p>
-          <p>
-            <span className="text-muted-foreground">PVP fights:</span>{" "}
-            {userData.pvpFights}
-          </p>
-          <p>
-            <span className="text-muted-foreground">PvP streak:</span>{" "}
-            {userData.pvpStreak}
-          </p>
-        </div>
-      </Modal>
 
       <Modal
         title="PvP experience & boost"

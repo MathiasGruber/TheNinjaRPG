@@ -42,9 +42,6 @@ export async function GET(request: Request) {
         .where(
           and(eq(userData.isAi, false), lt(userData.pvpExperienceDecayAt, dayStart)),
         ),
-      drizzleDB.update(userData).set({
-        pvpActivity: sql`${userData.pvpActivity} * 0.95`,
-      }),
       drizzleDB.update(anbuSquad).set({
         pvpActivity: sql`${anbuSquad.pvpActivity} * 0.95`,
       }),

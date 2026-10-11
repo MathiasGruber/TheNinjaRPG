@@ -2877,7 +2877,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
               { key: "avatar", header: "", type: "avatar" },
               { key: "username", header: "Username", type: "string" },
               { key: "rank", header: "Rank", type: "capitalized" },
-              { key: "pvpActivity", header: "PVP Activity", type: "string" },
+              { key: "pvpExperience", header: "PvP XP", type: "number" },
               { key: "actions", header: "Actions", type: "jsx" },
             ]}
             linkPrefix="/username/"

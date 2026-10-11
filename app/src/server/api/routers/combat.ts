@@ -2884,9 +2884,6 @@ export const initiateBattle = async (
         ...queueUpdate,
         status: "BATTLE",
         battleId: battleId,
-        pvpActivity: ["COMBAT"].includes(battleType)
-          ? sql`${userData.pvpActivity} + 1`
-          : sql`${userData.pvpActivity}`,
         pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
           ? sql`${userData.pvpFights} + 1`
           : sql`${userData.pvpFights}`,

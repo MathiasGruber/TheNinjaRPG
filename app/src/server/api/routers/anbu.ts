@@ -1334,7 +1334,7 @@ export const fetchSquad = async (client: DrizzleClient, squadId: string) => {
           rank: true,
           avatar: true,
           avatarLight: true,
-          pvpActivity: true,
+          pvpExperience: true,
         },
       },
       kageOrder: true,

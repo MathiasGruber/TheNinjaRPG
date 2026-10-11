@@ -1982,7 +1982,7 @@ export const fetchClan = async (client: DrizzleClient, clanId: string) => {
           level: true,
           rank: true,
           avatar: true,
-          pvpActivity: true,
+          pvpExperience: true,
           isOutlaw: true,
           anbuId: true,
         },

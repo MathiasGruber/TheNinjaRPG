@@ -2605,7 +2605,6 @@ export const userData = mysqlTable(
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),
-    pvpActivity: int("pvpActivity").default(0).notNull(),
     pvpStreak: smallint("pvpStreak", { unsigned: true }).default(0).notNull(),
     pvpExperience: float("pvpExperience").default(0).notNull(),
     pvpExperienceDecayAt: datetime("pvpExperienceDecayAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),

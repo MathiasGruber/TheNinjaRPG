@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "0ef1b7ee-50dc-4042-9f68-1360c033c0b8",
+  "id": "2725b0b3-0173-4c34-9bde-70f413457914",
   "prevId": "9e222ead-9cde-42e9-a97d-25647be2bf0e",
   "tables": {
     "AbEvent": {
@@ -14613,14 +14613,6 @@
         },
         "pveFights": {
           "name": "pveFights",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "pvpActivity": {
-          "name": "pvpActivity",
           "type": "int",
           "primaryKey": false,
           "notNull": true,
