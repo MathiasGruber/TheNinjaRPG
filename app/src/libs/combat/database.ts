@@ -497,39 +497,35 @@ export const createAction = async (
   if (newBattle.battleType === "CLAN_BATTLE") {
     // INSERT ... SELECT shares the lobby row with deletion for the duration of
     // the statement. A delayed action cannot recreate a deleted combat log.
-    await Promise.all(
-      actions.map((entry) =>
-        client
-          .insert(battleAction)
-          .select(
-            client
-              .select({
-                id: sql<string>`${entry.id}`.as("id"),
-                createdAt: sql<Date>`${entry.createdAt}`.as("createdAt"),
-                updatedAt: sql<Date>`${entry.updatedAt}`.as("updatedAt"),
-                battleId: sql<string>`${entry.battleId}`.as("battleId"),
-                battleVersion: sql<number>`${entry.battleVersion}`.as("battleVersion"),
-                battleRound: sql<number>`${entry.battleRound}`.as("battleRound"),
-                actionId: sql<string>`${entry.actionId}`.as("actionId"),
-                userId: sql<string>`${entry.userId}`.as("userId"),
-                description: sql<string>`${entry.description}`.as("description"),
-                appliedEffects: sql<
-                  ActionEffect[]
-                >`CAST(${JSON.stringify(entry.appliedEffects)} AS JSON)`.as(
-                  "appliedEffects",
-                ),
-              })
-              .from(mpvpBattleQueue)
-              .where(
-                and(
-                  eq(mpvpBattleQueue.battleId, newBattle.id),
-                  eq(mpvpBattleQueue.battleType, "CLAN_BATTLE"),
-                ),
-              ),
-          )
-          .onDuplicateKeyUpdate({ set: { id: sql`${battleAction.id}` } }),
-      ),
+    const selections = actions.map((entry) =>
+      client
+        .select({
+          id: sql<string>`${entry.id}`.as("id"),
+          createdAt: sql<Date>`${entry.createdAt}`.as("createdAt"),
+          updatedAt: sql<Date>`${entry.updatedAt}`.as("updatedAt"),
+          battleId: sql<string>`${entry.battleId}`.as("battleId"),
+          battleVersion: sql<number>`${entry.battleVersion}`.as("battleVersion"),
+          battleRound: sql<number>`${entry.battleRound}`.as("battleRound"),
+          actionId: sql<string>`${entry.actionId}`.as("actionId"),
+          userId: sql<string>`${entry.userId}`.as("userId"),
+          description: sql<string>`${entry.description}`.as("description"),
+          appliedEffects: sql<
+            ActionEffect[]
+          >`CAST(${JSON.stringify(entry.appliedEffects)} AS JSON)`.as("appliedEffects"),
+        })
+        .from(mpvpBattleQueue)
+        .where(
+          and(
+            eq(mpvpBattleQueue.battleId, newBattle.id),
+            eq(mpvpBattleQueue.battleType, "CLAN_BATTLE"),
+          ),
+        )
+        .$dynamic(),
     );
+    await client
+      .insert(battleAction)
+      .select(selections.reduce((combined, next) => combined.unionAll(next)))
+      .onDuplicateKeyUpdate({ set: { id: sql`${battleAction.id}` } });
     return actions;
   }
   await client
