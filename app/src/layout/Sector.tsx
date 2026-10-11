@@ -65,7 +65,7 @@ import {
   isArrivalPromptStale,
   resolveArrivalPromptCta,
 } from "@/libs/overworldAi";
-import { calcLevel, getExpBracket, passesBracketFilter } from "@/libs/profile";
+import { calcLevel, getExpBracket, getScoutingUsers } from "@/libs/profile";
 import {
   GATHERING_CANCEL_PREFIX,
   getBoundObjectiveCandidates,
@@ -3106,14 +3106,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   const watchedBracket = round(useWatch({ control, name: "value" }));
   const isBracketFilterActive = watchedBracket >= 0;
 
-  // Filter users
-  const users = props.users
-    // Overworld NPCs ride along in this list to render on the map; they are not
-    // scoutable players (their userId is the AI template's), so exclude them here.
-    .filter((user) => !user.isNpc)
-    .filter((user) => user.userId !== userData.userId)
-    .filter((user) => user.status === "AWAKE")
-    .filter((user) => passesBracketFilter(user, watchedBracket));
+  const users = getScoutingUsers(props.users, userData.userId, watchedBracket);
 
   // Update the localStorage whenever we change
   useEffect(() => {

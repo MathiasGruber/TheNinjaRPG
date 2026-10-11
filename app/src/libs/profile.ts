@@ -40,6 +40,7 @@ import {
 } from "@/libs/mastery";
 import { masteryGainRoom } from "@/libs/masteryProgression";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
+import type { SectorUser } from "@/libs/threejs/types";
 import { getReducedGainsDays } from "@/libs/train";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { getStrucBoost } from "@/utils/village";
@@ -137,6 +138,32 @@ export const passesBracketFilter = (
   if (user.experience == null) return false;
   return getExpBracket(user.experience, user.rank) === filterBracket;
 };
+
+/** Awake players in the selected bracket, ordered by displayed level then name. */
+export const getScoutingUsers = <
+  T extends Pick<
+    SectorUser,
+    "userId" | "username" | "experience" | "rank" | "status" | "isNpc"
+  >,
+>(
+  users: readonly T[],
+  currentUserId: string,
+  filterBracket: number,
+) =>
+  users
+    .filter(
+      (user) =>
+        !user.isNpc &&
+        user.userId !== currentUserId &&
+        user.status === "AWAKE" &&
+        passesBracketFilter(user, filterBracket),
+    )
+    .sort((a, b) => {
+      // Partial map updates can omit XP; keep unknown levels after known levels.
+      const aLevel = a.experience == null ? Infinity : calcLevel(a.experience);
+      const bLevel = b.experience == null ? Infinity : calcLevel(b.experience);
+      return aLevel - bLevel || a.username.localeCompare(b.username);
+    });
 
 export const calcHP = (level: number) => {
   return 100 + HP_PER_LVL * (level - 1);

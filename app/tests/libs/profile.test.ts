@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, test } from "bun:test";
+import { describe, expect, it, test } from "bun:test";
 import {
   getUserCaps,
   MAX_MASTERY_CAP,
@@ -8,6 +8,7 @@ import {
   SCALED_AI_STAT_BUDGET_SHARE,
 } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
+import type { SectorUser } from "@/libs/threejs/types";
 import {
   calcLevel,
   calcLevelRequirements,
@@ -16,6 +17,7 @@ import {
   capUserStats,
   getAssignedCombatStatTotal,
   getExpBracket,
+  getScoutingUsers,
   manuallyAssignUserStats,
   passesBracketFilter,
   scaleUserStats,
@@ -83,6 +85,112 @@ test("passesBracketFilter matches exact bracket only", () => {
   expect(passesBracketFilter({ experience: 0, rank: "STUDENT" }, -1)).toBe(true);
   expect(passesBracketFilter({ experience: 0, rank: "STUDENT" }, 0)).toBe(true);
   expect(passesBracketFilter({ experience: 0, rank: "STUDENT" }, 1)).toBe(false);
+});
+
+describe("getScoutingUsers", () => {
+  type ScoutingUser = Pick<
+    SectorUser,
+    "userId" | "username" | "experience" | "rank" | "status" | "isNpc" | "level"
+  >;
+  const makeUser = (
+    username: string,
+    level: number,
+    patch: Partial<ScoutingUser> = {},
+  ): ScoutingUser => ({
+    userId: username,
+    username,
+    experience: calcLevelRequirements(level),
+    level,
+    rank: "JONIN",
+    status: "AWAKE",
+    ...patch,
+  });
+
+  it("sorts exact displayed levels ascending when the bracket filter is off", () => {
+    const users = [
+      makeUser("First", 50),
+      makeUser("Last", 10, { level: 100 }),
+      makeUser("Middle", 31),
+      makeUser("Lower", 30),
+    ];
+
+    expect(getScoutingUsers(users, "self", -1).map((user) => user.username)).toEqual([
+      "Last",
+      "Lower",
+      "Middle",
+      "First",
+    ]);
+  });
+
+  it("orders equal levels by username rather than their experience", () => {
+    const users = [
+      makeUser("Zeta", 30),
+      makeUser("Alpha", 30, { experience: calcLevelRequirements(30) + 1 }),
+    ];
+
+    expect(getScoutingUsers(users, "self", -1).map((user) => user.username)).toEqual([
+      "Alpha",
+      "Zeta",
+    ]);
+  });
+
+  it("retains the awake-player and exact-bracket filters", () => {
+    const users = [
+      makeUser("High", 90),
+      makeUser("Low", 10),
+      makeUser("self", 1),
+      makeUser("Sleeping", 1, { status: "ASLEEP" }),
+      makeUser("Fighting", 1, { status: "BATTLE" }),
+      makeUser("Npc", 1, { isNpc: true }),
+      makeUser("Unknown", 1, { experience: undefined }),
+      makeUser("Other bracket", 1, { experience: 500_001 }),
+    ];
+
+    expect(getScoutingUsers(users, "self", 1).map((user) => user.username)).toEqual([
+      "Low",
+    ]);
+  });
+
+  it("retains rank-restricted bracket zero", () => {
+    const users = [
+      makeUser("Jonin", 10),
+      makeUser("Genin", 10, { rank: "GENIN" }),
+      makeUser("Student", 1, { rank: "STUDENT" }),
+    ];
+
+    expect(getScoutingUsers(users, "self", 0).map((user) => user.username)).toEqual([
+      "Student",
+      "Genin",
+    ]);
+  });
+
+  it("places unknown levels last and sorts them by username", () => {
+    const users = [
+      makeUser("Unknown Z", 1, { experience: undefined }),
+      makeUser("Known", 100),
+      makeUser("Unknown A", 1, { experience: undefined }),
+    ];
+
+    expect(getScoutingUsers(users, "self", -1).map((user) => user.username)).toEqual([
+      "Known",
+      "Unknown A",
+      "Unknown Z",
+    ]);
+  });
+
+  it("preserves the source array and player objects", () => {
+    const high = Object.freeze(makeUser("High", 50));
+    const low = Object.freeze(makeUser("Low", 10));
+    const users = Object.freeze([high, low]);
+
+    const sorted = getScoutingUsers(users, "self", -1);
+
+    expect(sorted).toEqual([low, high]);
+    expect(users).toEqual([high, low]);
+    expect(sorted[0]).toBe(low);
+    expect(sorted[1]).toBe(high);
+    expect(getScoutingUsers([], "self", -1)).toEqual([]);
+  });
 });
 
 test("getAssignedCombatStatTotal sums only combat stats", () => {
