@@ -157,6 +157,7 @@ import {
 import { createThumbnail } from "@/libs/replicate";
 import { callDiscordContent } from "@/libs/socials";
 import {
+  applyMasteryTrainingGains,
   getReducedGainsDays,
   inferJutsuTrainingStartedAt,
   settleQueuedTraining,
@@ -184,7 +185,10 @@ import {
 } from "@/server/utils/concurrency";
 import { setEmptyStringsToNulls } from "@/server/utils/emptyStrings";
 import { hashIp } from "@/server/utils/ipHash";
-import { masteryGainUpdates } from "@/server/utils/masteryProgression";
+import {
+  elementalSnapshotConditions,
+  masteryGainUpdates,
+} from "@/server/utils/masteryProgression";
 import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoverySummaryCandidates } from "@/server/utils/questDiscovery";
@@ -3354,6 +3358,10 @@ export const fetchUpdatedUser = async (props: {
       currentlyTrainingMastery: user.currentlyTrainingMastery,
       masteryTrainingStartedAt: user.masteryTrainingStartedAt,
       masteryRanks: user.masteryRanks,
+      elementalMastery: user.elementalMastery,
+      bloodlineId: user.bloodlineId,
+      primaryElement: user.primaryElement,
+      secondaryElement: user.secondaryElement,
       ...Object.fromEntries(MasteryNames.map((stat) => [stat, user[stat]])),
     };
     if (
@@ -3395,9 +3403,7 @@ export const fetchUpdatedUser = async (props: {
           );
       }
       if (queuedMastery) {
-        for (const [stat, amount] of Object.entries(queuedMastery.gains)) {
-          user[stat as MasteryName] += amount;
-        }
+        Object.assign(user, applyMasteryTrainingGains(user, queuedMastery.gains));
         user.masteryQueueHead = queuedMastery.head;
         user.currentlyTrainingMastery = queuedMastery.currentlyTrainingMastery;
         user.masteryTrainingStartedAt = queuedMastery.masteryTrainingStartedAt;
@@ -3578,7 +3584,13 @@ const persistPassiveRegenToDb = async ({
     | (NonNullable<ReturnType<typeof settleQueuedTraining>["mastery"]> & {
         original: Pick<
           UserData,
-          "currentlyTrainingMastery" | "masteryTrainingStartedAt" | "masteryRanks"
+          | "currentlyTrainingMastery"
+          | "masteryTrainingStartedAt"
+          | "masteryRanks"
+          | "elementalMastery"
+          | "bloodlineId"
+          | "primaryElement"
+          | "secondaryElement"
         > &
           Partial<Record<MasteryName, number>>;
       })
@@ -3650,6 +3662,7 @@ const persistPassiveRegenToDb = async ({
     derivedUserUpdate.trainingSpeed = queuedMastery.trainingSpeed;
     derivedUserUpdate.dailyTrainings = queuedMastery.dailyTrainings;
     Object.assign(derivedUserUpdate, masteryGainUpdates(queuedMastery.gains));
+    derivedUserUpdate.elementalMastery = user.elementalMastery;
   }
 
   // A delayed regeneration must not restore pools from before a heal or another user claim.
@@ -3681,6 +3694,7 @@ const persistPassiveRegenToDb = async ({
             ...MasteryNames.map((stat) =>
               eq(userData[stat], queuedMastery.original[stat] ?? 0),
             ),
+            ...elementalSnapshotConditions(queuedMastery.original),
             sql`${userData.masteryRanks} = CAST(${JSON.stringify(queuedMastery.original.masteryRanks)} AS JSON)`,
             queuedMastery.original.currentlyTrainingMastery
               ? eq(
@@ -4226,9 +4240,6 @@ export const getUserProgressionUpdate = (
       regeneration: publicUser.regeneration,
       elementalMastery: publicUser.elementalMastery,
       activeTrainedElement: publicUser.activeTrainedElement,
-      currentlyTrainingElement: publicUser.currentlyTrainingElement,
-      elementalTrainingStartedAt: publicUser.elementalTrainingStartedAt,
-      elementalTrainingSpeed: publicUser.elementalTrainingSpeed,
       primaryElement: publicUser.primaryElement,
       secondaryElement: publicUser.secondaryElement,
       ...(publicUser.queue ? { queue: publicUser.queue } : {}),

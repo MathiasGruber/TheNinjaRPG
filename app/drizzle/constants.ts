@@ -1004,6 +1004,10 @@ export const BasicElementName = [
 ] as const;
 
 export type BasicElement = (typeof BasicElementName)[number];
+
+/** Disciplines and elements share one timed mastery training queue. */
+export const TimedMasteryNames = [...MasteryNames, ...BasicElementName] as const;
+export type TimedMasteryName = (typeof TimedMasteryNames)[number];
 export const ELEMENTAL_MASTERY_CAP = 300_000;
 export const ELEMENTAL_MASTERY_BOOST = 15;
 

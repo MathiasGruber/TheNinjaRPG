@@ -1,6 +1,6 @@
 /** Helpers shared by every queue in `UserQueue`. */
 
-import type { CombatStatName, MasteryName, QueueKind } from "@/drizzle/constants";
+import type { CombatStatName, QueueKind, TimedMasteryName } from "@/drizzle/constants";
 import type { UserQueue } from "@/drizzle/schema";
 import type {
   EnergyTrainingQueueEntry,
@@ -104,7 +104,10 @@ export const toEnergyEntries = (
 export const toMasteryEntries = (
   rows: readonly Pick<UserQueue, "stat" | "speed">[],
 ): MasteryTrainingQueueEntry[] =>
-  rows.map((row) => ({ stat: row.stat as MasteryName, speed: row.speed ?? "15min" }));
+  rows.map((row) => ({
+    stat: row.stat as TimedMasteryName,
+    speed: row.speed ?? "15min",
+  }));
 
 /**
  * Whether `entries` only removes entries from `expected`: every entry appears in

@@ -180,6 +180,7 @@ import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
 import {
+  applyMasteryTrainingGains,
   calcJutsuEquipLimit,
   canUseJutsu,
   checkJutsuBloodlineItem,
@@ -212,7 +213,10 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { battleClaimRollbackStatus } from "@/server/utils/concurrency";
-import { masteryGainUpdates } from "@/server/utils/masteryProgression";
+import {
+  elementalSnapshotConditions,
+  masteryGainUpdates,
+} from "@/server/utils/masteryProgression";
 import { fetchSanninRankedPlayers } from "@/server/utils/ranked";
 import { hasDueTimedJob, settleDueTimedQueues } from "@/server/utils/userQueue";
 import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/war";
@@ -2079,7 +2083,7 @@ export const initiateBattle = async (
       user.energyQueueHead = energy.head;
     }
     if (mastery) {
-      for (const stat of MasteryNames) user[stat] += mastery.gains[stat] ?? 0;
+      Object.assign(user, applyMasteryTrainingGains(user, mastery.gains));
       user.masteryQueueHead = mastery.head;
       user.currentlyTrainingMastery = mastery.currentlyTrainingMastery;
       user.masteryTrainingStartedAt = mastery.masteryTrainingStartedAt;
@@ -2789,6 +2793,11 @@ export const initiateBattle = async (
           (entry) => entry.mastery?.[column] ?? null,
         );
       }
+      queueUpdate.elementalMastery = queueCase(
+        "elementalMastery",
+        masteryParticipants,
+        (entry) => JSON.stringify(entry.user.elementalMastery),
+      );
       for (const stat of MasteryNames) {
         queueUpdate[stat] = queueCase(
           stat,
@@ -2926,6 +2935,7 @@ export const initiateBattle = async (
                 eq(userData.latitude, original.latitude),
                 eq(userData.rank, original.rank),
                 ...MasteryNames.map((stat) => eq(userData[stat], original[stat])),
+                ...elementalSnapshotConditions(original),
                 sql`${userData.masteryRanks} = CAST(${JSON.stringify(original.masteryRanks)} AS JSON)`,
                 eq(userData.isBanned, original.isBanned),
                 eq(userData.isOutlaw, original.isOutlaw),

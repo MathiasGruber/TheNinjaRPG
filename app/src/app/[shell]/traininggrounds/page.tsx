@@ -7,6 +7,7 @@ import {
   DoorOpen,
   Eye,
   Fingerprint,
+  Flame,
   Handshake,
   Medal,
   Search,
@@ -40,9 +41,16 @@ import { NumberInput } from "@/components/ui/number-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import type { CombatStatName, MasteryName, TrainingSpeed } from "@/drizzle/constants";
+import type {
+  CombatStatName,
+  TimedMasteryName,
+  TrainingSpeed,
+} from "@/drizzle/constants";
 import {
+  BasicElementName,
   CombatStatNames,
+  ELEMENTAL_MASTERY_BOOST,
+  ELEMENTAL_MASTERY_CAP,
   IMG_TRAIN_BUKI_DEF,
   IMG_TRAIN_BUKI_OFF,
   IMG_TRAIN_GEN_DEF,
@@ -76,7 +84,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
-import { ElementalMastery } from "@/layout/ElementalMastery";
+import { getElementImg } from "@/layout/ElementImage";
 import {
   EnergyTrainingQueue,
   useEnergyTrainingQueue,
@@ -100,12 +108,9 @@ import { TimedQueue } from "@/layout/TimedQueue";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { showTrainingCapcha } from "@/libs/captcha";
+import { providedElements } from "@/libs/elementalMastery";
 import { effectiveMasteries } from "@/libs/mastery";
-import {
-  getMasteryRank,
-  masteryGainRoom,
-  masteryTotal,
-} from "@/libs/masteryProgression";
+import { getMasteryRank, masteryTotal } from "@/libs/masteryProgression";
 import { useInfinitePagination } from "@/libs/pagination";
 import { getEnergyQueue, getMasteryQueue } from "@/libs/queue";
 import { cn } from "@/libs/shadui";
@@ -126,6 +131,7 @@ import {
   isJutsuTrainToLearnRestricted,
   isStatTrainingCapped,
   masteryTrainingBlockMessage,
+  masteryTrainingGainRoom,
   queuedMasteryStartBlockMessage,
   statTrainingBlockMessage,
   trainEfficiency,
@@ -133,6 +139,7 @@ import {
 } from "@/libs/train";
 import { isTutorialJutsuPickStep } from "@/libs/tutorial";
 import type { UserWithRelations } from "@/routers/profile";
+import { isInArray } from "@/utils/array";
 import { getQueueTotalCapacity, getQueueWaitingSlots } from "@/utils/paypal";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
@@ -201,8 +208,21 @@ export default function Training() {
               counts={{
                 Stats: energyQueueLength,
                 Masteries:
-                  getMasteryQueue(userData).length +
-                  (userData.currentlyTrainingMastery ? 1 : 0),
+                  getMasteryQueue(userData).filter((entry) =>
+                    isInArray(entry.stat, MasteryNames),
+                  ).length +
+                  (userData.currentlyTrainingMastery &&
+                  isInArray(userData.currentlyTrainingMastery, MasteryNames)
+                    ? 1
+                    : 0),
+                Elements:
+                  getMasteryQueue(userData).filter((entry) =>
+                    isInArray(entry.stat, BasicElementName),
+                  ).length +
+                  (userData.currentlyTrainingMastery &&
+                  isInArray(userData.currentlyTrainingMastery, BasicElementName)
+                    ? 1
+                    : 0),
                 Jutsu:
                   (sidebarTimers?.jutsuQueue.count ?? 0) +
                   (sidebarTimers?.jutsuTraining &&
@@ -214,6 +234,7 @@ export default function Training() {
               icons={{
                 Stats: <Swords aria-hidden="true" className="h-4 w-4" />,
                 Masteries: <Medal aria-hidden="true" className="h-4 w-4" />,
+                Elements: <Flame aria-hidden="true" className="h-4 w-4" />,
                 Jutsu: <Zap aria-hidden="true" className="h-4 w-4" />,
                 [trainingSections.covertSection]: (
                   <Eye aria-hidden="true" className="h-4 w-4" />
@@ -225,7 +246,9 @@ export default function Training() {
         </div>
       </ContentBox>
       <TabsContent value={activeSection ?? ""} className="mt-0">
-        {(activeSection === "Stats" || activeSection === "Masteries") && (
+        {(activeSection === "Stats" ||
+          activeSection === "Masteries" ||
+          activeSection === "Elements") && (
           <StatsTraining
             userData={userData}
             timeDiff={timeDiff}
@@ -234,7 +257,6 @@ export default function Training() {
             section={activeSection}
           />
         )}
-        {activeSection === "Elements" && <ElementalMastery timeDiff={timeDiff} />}
         {activeSection === "Jutsu" && (
           <JutsuTraining
             userData={userData}
@@ -510,9 +532,9 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
 };
 
 /** Each tile gets its own art; the per-type images are matched by look, not by name */
-const StatsTraining: React.FC<TrainingProps & { section: "Stats" | "Masteries" }> = (
-  props,
-) => {
+const StatsTraining: React.FC<
+  TrainingProps & { section: "Stats" | "Masteries" | "Elements" }
+> = (props) => {
   // Settings
   const { userData, timeDiff } = props;
   const { prepareUserUpdate, updateUser } = useRequiredUserData();
@@ -921,7 +943,7 @@ const StatsTraining: React.FC<TrainingProps & { section: "Stats" | "Masteries" }
           {pendingOverlay}
         </ContentBox>
       )}
-      {props.section === "Masteries" && (
+      {props.section !== "Stats" && (
         <MasteryTrainingQueue
           user={userData}
           timeDiff={timeDiff}
@@ -930,9 +952,9 @@ const StatsTraining: React.FC<TrainingProps & { section: "Stats" | "Masteries" }
           isProcessing={isPending}
         />
       )}
-      {props.section === "Masteries" && (
+      {props.section !== "Stats" && (
         <ContentBox
-          title="Masteries"
+          title={props.section}
           subtitle="Timed training · No Energy cost"
           initialBreak={true}
           topRightCorntentBreakpoint="sm"
@@ -962,80 +984,117 @@ const StatsTraining: React.FC<TrainingProps & { section: "Stats" | "Masteries" }
               {userData.status === "ASLEEP"
                 ? "Wake up to add training. Existing queues continue while asleep."
                 : userData.currentlyTrainingMastery
-                  ? "Choose an interval, then select a mastery image to add a session to the queue."
-                  : "Choose an interval, then select a mastery image to start training."}
+                  ? `Choose an interval, then select ${props.section === "Elements" ? "an element" : "a mastery"} image to add a session to the queue.`
+                  : `Choose an interval, then select ${props.section === "Elements" ? "an element" : "a mastery"} image to start training.`}
             </p>
           </div>
           <div inert={isPending}>
             <div className="grid grid-cols-3 text-center font-bold">
-              {MasteryNames.map((stat, i) => {
-                const label = getTrainingLabel(stat);
-                const overCap = masteryGainRoom(userData, stat) <= 0;
-                const masteryRank = getMasteryRank(userData, stat);
-                return (
-                  <button
-                    type="button"
-                    id={`tutorial-traininggrounds-${stat.toLowerCase()}`}
-                    key={`${stat}-${i}`}
-                    onClick={() => {
-                      const entry = { stat, speed: selectedMasterySpeed };
-                      const block =
-                        userData.status !== "AWAKE"
-                          ? "Must be awake to train"
-                          : userData.currentlyTrainingMastery
-                            ? (queuedMasteryStartBlockMessage(userData, entry) ??
-                              (masteryEntries.length >= getQueueWaitingSlots(userData)
-                                ? "Mastery queue is full"
-                                : null))
-                            : masteryTrainingBlockMessage(userData);
-                      if (block) showMutationToast({ success: false, message: block });
-                      else if (overCap)
-                        showMutationToast({
-                          success: false,
-                          message:
-                            "Mastery capped. Complete its rank-up exam or free space under the total cap.",
-                        });
-                      else if (userData.currentlyTrainingMastery)
-                        queueMasteryTraining({
-                          expectedEntries: masteryEntries,
-                          entries: [...masteryEntries, entry],
-                        });
-                      else startMasteryTraining({ stat });
-                    }}
-                    className="relative"
-                  >
-                    <div
-                      className={cn(
-                        trainItemClassName,
-                        overCap ? "opacity-50 grayscale" : "",
-                      )}
+              {(props.section === "Elements" ? BasicElementName : MasteryNames).map(
+                (stat, i) => {
+                  const label = getTrainingLabel(stat);
+                  const overCap = masteryTrainingGainRoom(userData, stat) <= 0;
+                  const isElement = isInArray(stat, BasicElementName);
+                  const masteryRank = !isElement
+                    ? getMasteryRank(userData, stat)
+                    : null;
+                  const value = isElement
+                    ? (userData.elementalMastery[stat] ?? 0)
+                    : userData[stat];
+                  const cap = masteryRank
+                    ? MASTERY_RANK_CAPS[masteryRank]
+                    : ELEMENTAL_MASTERY_CAP;
+                  return (
+                    <button
+                      type="button"
+                      id={`tutorial-traininggrounds-${stat.toLowerCase()}`}
+                      key={`${stat}-${i}`}
+                      onClick={() => {
+                        const entry = { stat, speed: selectedMasterySpeed };
+                        const block =
+                          userData.status !== "AWAKE"
+                            ? "Must be awake to train"
+                            : userData.currentlyTrainingMastery
+                              ? (queuedMasteryStartBlockMessage(userData, entry) ??
+                                (masteryEntries.length >= getQueueWaitingSlots(userData)
+                                  ? "Mastery queue is full"
+                                  : null))
+                              : masteryTrainingBlockMessage(userData);
+                        if (block)
+                          showMutationToast({ success: false, message: block });
+                        else if (overCap)
+                          showMutationToast({
+                            success: false,
+                            message: isElement
+                              ? providedElements(userData).includes(stat)
+                                ? "Already provided by your innate elements or bloodline"
+                                : "Elemental mastery is fully capped"
+                              : "Mastery capped. Complete its rank-up exam or free space under the total cap.",
+                          });
+                        else if (userData.currentlyTrainingMastery)
+                          queueMasteryTraining({
+                            expectedEntries: masteryEntries,
+                            entries: [...masteryEntries, entry],
+                          });
+                        else startMasteryTraining({ stat });
+                      }}
+                      className="relative"
                     >
-                      <Image
-                        src={getTrainingImage(stat)}
-                        alt={label}
-                        width={256}
-                        height={256}
-                      />
-                      <Medal className={iconClassName} />
-                      {label}
-                      <div className="font-normal text-xs">
-                        {capitalizeFirstLetter(masteryRank)} ·{" "}
-                        {userData[stat].toLocaleString()} /{" "}
-                        {MASTERY_RANK_CAPS[masteryRank].toLocaleString()}
+                      <div
+                        className={cn(
+                          trainItemClassName,
+                          overCap ? "opacity-50 grayscale" : "",
+                        )}
+                      >
+                        <Image
+                          src={getTrainingImage(stat)}
+                          alt={label}
+                          width={256}
+                          height={256}
+                        />
+                        <Medal className={iconClassName} />
+                        {label}
+                        <div className="font-normal text-xs">
+                          {isElement && providedElements(userData).includes(stat)
+                            ? "Already provided · "
+                            : masteryRank && `${capitalizeFirstLetter(masteryRank)} · `}
+                          {value.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          / {cap.toLocaleString()}
+                        </div>
                       </div>
-                    </div>
-                    {overCap && (
-                      <UserRoundCheck className="absolute top-[50%] left-[50%] h-10 w-10 translate-x-[-50%] translate-y-[-50%] text-slate-100 hover:cursor-pointer" />
-                    )}
-                  </button>
-                );
-              })}
+                      {overCap && (
+                        <UserRoundCheck className="absolute top-[50%] left-[50%] h-10 w-10 translate-x-[-50%] translate-y-[-50%] text-slate-100 hover:cursor-pointer" />
+                      )}
+                    </button>
+                  );
+                },
+              )}
             </div>
           </div>
           <p className="mt-3 text-sm">
-            Earned mastery total: {masteryTotal(userData).toLocaleString()} /{" "}
-            {TOTAL_MASTERY_CAP.toLocaleString()}. Rank-up exams use earned mastery;
-            equipment and bloodline bonuses do not count.
+            {props.section === "Elements" ? (
+              <>
+                Each element has its own cap and adds no character XP. Fully mastering
+                it unlocks an additional element with a {ELEMENTAL_MASTERY_BOOST}%
+                damage boost; select one in{" "}
+                <Link href="/profile/edit" className="underline">
+                  Combat Preferences
+                </Link>
+                .{" "}
+                <Link href="/profile/experience" className="underline">
+                  Invest unused experience
+                </Link>
+                .
+              </>
+            ) : (
+              <>
+                Earned mastery total: {masteryTotal(userData).toLocaleString()} /{" "}
+                {TOTAL_MASTERY_CAP.toLocaleString()}. Rank-up exams use earned mastery;
+                equipment and bloodline bonuses do not count.
+              </>
+            )}
           </p>
           {pendingOverlay}
         </ContentBox>
@@ -1776,7 +1835,8 @@ const CovertTraining: React.FC<TrainingProps> = (props) => {
   );
 };
 
-const getTrainingImage = (stat: CombatStatName | MasteryName) => {
+const getTrainingImage = (stat: CombatStatName | TimedMasteryName) => {
+  if (isInArray(stat, BasicElementName)) return getElementImg(stat);
   switch (stat) {
     case "intelligence":
       return IMG_TRAIN_INTELLIGENCE;
@@ -1822,7 +1882,7 @@ const currentTrainingEnergy = (
     ).current,
   );
 
-const getTrainingLabel = (stat: CombatStatName | MasteryName) => {
+const getTrainingLabel = (stat: CombatStatName | TimedMasteryName) => {
   switch (stat) {
     case "offence":
       return "Offence";

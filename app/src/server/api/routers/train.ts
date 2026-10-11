@@ -1,15 +1,15 @@
 import { and, eq, gt, gte, isNull, sql } from "drizzle-orm";
 import {
+  BasicElementName,
   getUserCaps,
   MAX_DAILY_TRAININGS,
-  type MasteryName,
   MasteryNames,
   STATS_PER_ENERGY,
+  type TimedMasteryName,
 } from "@/drizzle/constants";
 import { trainingLog, userData } from "@/drizzle/schema";
 import { showTrainingCapcha } from "@/libs/captcha";
 import { activeTrainedElement, elementalGainRoom } from "@/libs/elementalMastery";
-import { masteryGainRoom } from "@/libs/masteryProgression";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
 import {
   getEnergyQueue,
@@ -19,9 +19,11 @@ import {
   toMasteryEntries,
 } from "@/libs/queue";
 import {
+  applyMasteryTrainingGains,
   calcMasteryTrainingAmount,
   getTrainingMultiplierBoost,
   masteryTrainingBlockMessage,
+  masteryTrainingGainRoom,
   queuedMasteryStartBlockMessage,
   statTrainingBlockMessage,
   trainingBoost,
@@ -37,15 +39,17 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
-import { masteryGainUpdates } from "@/server/utils/masteryProgression";
+import {
+  elementalSnapshotConditions,
+  masteryGainUpdates,
+} from "@/server/utils/masteryProgression";
 import { editTrainingQueue } from "@/server/utils/userQueue";
+import { isInArray } from "@/utils/array";
 import { getQueueTotalCapacity, getQueueWaitingSlots } from "@/utils/paypal";
 import { secondsPassed } from "@/utils/time";
 import {
-  collectElementalTrainingSchema,
   investElementalExperienceSchema,
   selectTrainedElementSchema,
-  startElementalTrainingSchema,
 } from "@/validators/elementalMastery";
 import {
   startMasteryTrainingInputSchema,
@@ -59,120 +63,6 @@ import {
 import { userDeltaResponseSchema } from "@/validators/userCache";
 
 export const trainRouter = createTRPCRouter({
-  startElementalTraining: protectedProcedure
-    .input(startElementalTrainingSchema)
-    .output(userDeltaResponseSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        forceRegen: true,
-      });
-      if (!user) return errorResponse("User not found");
-      const block = masteryTrainingBlockMessage({
-        ...user,
-        trainingSpeed: input.speed,
-      });
-      if (block) return errorResponse(block);
-      if (user.currentlyTrainingElement)
-        return errorResponse("You are already training an element");
-      if (elementalGainRoom(user, input.element) <= 0)
-        return errorResponse("This element is already provided or fully mastered");
-      const result = await claimUserSnapshot({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        updatedAt: user.updatedAt,
-        set: {
-          currentlyTrainingElement: input.element,
-          elementalTrainingStartedAt: new Date(),
-          elementalTrainingSpeed: input.speed,
-        },
-        where: [
-          ...elementalSnapshotConditions(user),
-          isNull(userData.currentlyTrainingElement),
-          isNull(userData.currentlyTrainingMastery),
-          eq(userData.status, "AWAKE"),
-          sql`${userData.dailyTrainings} < ${MAX_DAILY_TRAININGS}`,
-        ],
-      });
-      return result.success
-        ? { success: true, message: "Started elemental training" }
-        : errorResponse("Your training changed. Please try again");
-    }),
-  collectElementalTraining: protectedProcedure
-    .input(collectElementalTrainingSchema)
-    .output(userDeltaResponseSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { user, settings } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        forceRegen: true,
-      });
-      if (!user) return errorResponse("User not found");
-      if (user.status !== "AWAKE") return errorResponse("Must be awake");
-      if (
-        user.currentlyTrainingElement !== input.element ||
-        user.elementalTrainingStartedAt?.getTime() !== input.startedAt.getTime() ||
-        !user.elementalTrainingSpeed
-      )
-        return errorResponse(
-          "Your elemental training changed. Please refresh and try again",
-        );
-      if (showTrainingCapcha(user)) {
-        if (!input.guess) return errorResponse("Captcha required");
-        if (!(await validateCaptcha(ctx.drizzle, ctx.userId, input.guess)))
-          return errorResponse("Invalid captcha");
-      }
-      const amount = Math.max(
-        0,
-        Math.min(
-          elementalGainRoom(user, input.element),
-          calcMasteryTrainingAmount(
-            { ...user, trainingSpeed: user.elementalTrainingSpeed },
-            settings,
-            Math.max(0, secondsPassed(input.startedAt, undefined, false)),
-          ),
-        ),
-      );
-      const elementalMastery = {
-        ...user.elementalMastery,
-        [input.element]: (user.elementalMastery[input.element] ?? 0) + amount,
-      };
-      const result = await claimUserSnapshot({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        updatedAt: user.updatedAt,
-        set: {
-          elementalMastery,
-          currentlyTrainingElement: null,
-          elementalTrainingStartedAt: null,
-          elementalTrainingSpeed: null,
-          ...(amount > 0
-            ? { dailyTrainings: sql`${userData.dailyTrainings} + 1` }
-            : {}),
-        },
-        where: [
-          ...elementalSnapshotConditions(user),
-          eq(userData.currentlyTrainingElement, input.element),
-          eq(userData.elementalTrainingStartedAt, input.startedAt),
-          eq(userData.elementalTrainingSpeed, user.elementalTrainingSpeed),
-          eq(userData.status, "AWAKE"),
-        ],
-      });
-      if (!result.success)
-        return errorResponse("Your training changed. Please try again");
-      if (amount > 0)
-        await ctx.drizzle.insert(trainingLog).values({
-          userId: ctx.userId,
-          stat: input.element,
-          amount,
-          speed: user.elementalTrainingSpeed,
-        });
-      return {
-        success: true,
-        message: `Collected ${amount.toFixed(2)} ${input.element} elemental mastery`,
-      };
-    }),
   investElementalExperience: protectedProcedure
     .input(investElementalExperienceSchema)
     .output(userDeltaResponseSchema)
@@ -322,7 +212,11 @@ export const trainRouter = createTRPCRouter({
             return "Start a mastery training before queueing more";
           if (input.entries.length > getQueueWaitingSlots(user))
             return "Mastery queue is full";
-          if (input.entries.some((entry) => masteryGainRoom(user, entry.stat) <= 0))
+          if (
+            input.entries.some(
+              (entry) => masteryTrainingGainRoom(user, entry.stat) <= 0,
+            )
+          )
             return "A queued mastery is already capped";
           return (
             input.entries
@@ -330,7 +224,7 @@ export const trainRouter = createTRPCRouter({
               .find(Boolean) ?? null
           );
         },
-        where: [eq(userData.status, user.status)],
+        where: [eq(userData.status, user.status), ...elementalSnapshotConditions(user)],
         messages: {
           stale: "Your mastery queue changed. Please refresh and try again",
           conflict: "Your mastery queue changed. Please try again",
@@ -444,11 +338,11 @@ export const trainRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       const block = masteryTrainingBlockMessage(user);
       if (block) return errorResponse(block);
-      if (user.currentlyTrainingElement)
-        return errorResponse("You are already training an element");
-      if (masteryGainRoom(user, input.stat) <= 0)
+      if (masteryTrainingGainRoom(user, input.stat) <= 0)
         return errorResponse(
-          "Mastery capped. Complete its rank-up quest or free space under the total cap.",
+          isInArray(input.stat, BasicElementName)
+            ? "Element is already provided or fully mastered"
+            : "Mastery capped. Complete its rank-up quest or free space under the total cap.",
         );
       const data = {
         masteryTrainingStartedAt: new Date(),
@@ -460,8 +354,8 @@ export const trainRouter = createTRPCRouter({
         updatedAt: user.updatedAt,
         set: data,
         where: [
+          ...elementalSnapshotConditions(user),
           isNull(userData.currentlyTrainingMastery),
-          isNull(userData.currentlyTrainingElement),
           eq(userData.status, "AWAKE"),
           sql`${userData.dailyTrainings} < ${MAX_DAILY_TRAININGS}`,
         ],
@@ -516,7 +410,7 @@ export const trainRouter = createTRPCRouter({
       const { trainingAmount } = calcTrainingAmount(user, settings, startedAt);
       const gained = Math.max(
         0,
-        Math.min(trainingAmount, masteryGainRoom(user, trained)),
+        Math.min(trainingAmount, masteryTrainingGainRoom(user, trained)),
       );
       const creditedMinutes =
         gained > 0 ? Math.max(0, (Date.now() - startedAt.getTime()) / 60_000) : 0;
@@ -534,10 +428,12 @@ export const trainRouter = createTRPCRouter({
       // The next queued mastery starts as this session is collected. Capped entries at
       // the front are dropped; one further back is dropped when it reaches the front.
       const queue = liveQueueRows(user.queue ?? [], "MASTERY", user.masteryQueueHead);
-      const isCapped = (stat: MasteryName) =>
-        masteryGainRoom({ ...user, [trained]: user[trained] + gained }, stat) <= 0;
+      const balances = applyMasteryTrainingGains(user, { [trained]: gained });
+      const isCapped = (stat: TimedMasteryName) =>
+        masteryTrainingGainRoom({ ...user, ...balances }, stat) <= 0;
       let skipped = 0;
-      while (queue[skipped] && isCapped(queue[skipped]?.stat as MasteryName)) skipped++;
+      while (queue[skipped] && isCapped(queue[skipped]?.stat as TimedMasteryName))
+        skipped++;
       const nextRow = queue[skipped];
       const next = nextRow ? toMasteryEntries([nextRow])[0] : undefined;
       const startsNext =
@@ -569,12 +465,14 @@ export const trainRouter = createTRPCRouter({
                 // Apply both live progression caps without lowering stored entitlement;
                 // the snapshot guards keep the gain and queued-session handoff consistent.
                 ...masteryGainUpdates({ [trained]: gained }),
+                elementalMastery: balances.elementalMastery,
               }
             : {}),
           ...(questData ? { questData } : {}),
         },
         where: [
           ...MasteryNames.map((stat) => eq(userData[stat], user[stat])),
+          ...elementalSnapshotConditions(user),
           sql`${userData.masteryRanks} = CAST(${JSON.stringify(user.masteryRanks)} AS JSON)`,
           eq(userData.currentlyTrainingMastery, trained),
           eq(userData.masteryTrainingStartedAt, startedAt),
@@ -594,7 +492,7 @@ export const trainRouter = createTRPCRouter({
         });
       }
       const capNote =
-        gained < trainingAmount ? ` (mastery rank or total cap reached)` : "";
+        gained < trainingAmount ? " (training cap or eligibility reached)" : "";
       const nextNote = startsNext ? `. Started queued ${next.stat} training` : "";
       return {
         success: true,
@@ -605,7 +503,7 @@ export const trainRouter = createTRPCRouter({
           ? getUserProgressionUpdate(
               {
                 ...user,
-                [trained]: user[trained] + gained,
+                ...balances,
                 dailyTrainings: user.dailyTrainings + (gained > 0 ? 1 : 0),
                 masteryTrainingStartedAt: startsNext ? startedNextAt : null,
                 currentlyTrainingMastery: startsNext ? next.stat : null,
@@ -687,22 +585,3 @@ const withSavedQueue = (
       : {}),
   };
 };
-
-/** Guard sources that other profile mutations can change without advancing updatedAt. */
-const elementalSnapshotConditions = (
-  user: Pick<
-    NonNullable<UserWithRelations>,
-    "elementalMastery" | "bloodlineId" | "primaryElement" | "secondaryElement"
-  >,
-) => [
-  sql`${userData.elementalMastery} = CAST(${JSON.stringify(user.elementalMastery)} AS JSON)`,
-  user.bloodlineId
-    ? eq(userData.bloodlineId, user.bloodlineId)
-    : isNull(userData.bloodlineId),
-  user.primaryElement
-    ? eq(userData.primaryElement, user.primaryElement)
-    : isNull(userData.primaryElement),
-  user.secondaryElement
-    ? eq(userData.secondaryElement, user.secondaryElement)
-    : isNull(userData.secondaryElement),
-];

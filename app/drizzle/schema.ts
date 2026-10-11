@@ -2451,9 +2451,6 @@ export const userData = mysqlTable(
       .default({})
       .notNull(),
     activeTrainedElement: mysqlEnum("activeTrainedElement", consts.BasicElementName),
-    currentlyTrainingElement: mysqlEnum("currentlyTrainingElement", consts.BasicElementName),
-    elementalTrainingStartedAt: datetime("elementalTrainingStartedAt", { mode: "date", fsp: 3 }),
-    elementalTrainingSpeed: mysqlEnum("elementalTrainingSpeed", consts.TrainingSpeeds),
     /** Earned discipline ranks; absent entries are NONE and temporary modifiers never change them. */
     masteryRanks: json("masteryRanks")
       .$type<Partial<Record<consts.MasteryName, consts.MasteryRank>>>()
@@ -2567,7 +2564,7 @@ export const userData = mysqlTable(
     }),
     currentlyTrainingMastery: mysqlEnum(
       "currentlyTrainingMastery",
-      consts.MasteryNames,
+      consts.TimedMasteryNames,
     ),
     unreadNotifications: smallint("unreadNotifications").default(0).notNull(),
     // Recruit rank milestone rewards received since the player last loaded their profile
@@ -2728,9 +2725,6 @@ export const userData = mysqlTable(
 );
 export const insertAiSchema = createInsertSchema(userData)
   .omit({
-    elementalTrainingStartedAt: true,
-    currentlyTrainingElement: true,
-    elementalTrainingSpeed: true,
     occupationSignupAt: true,
     masteryTrainingStartedAt: true,
     currentlyTrainingMastery: true,

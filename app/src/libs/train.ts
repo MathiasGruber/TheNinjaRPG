@@ -4,9 +4,11 @@ import type {
   ElementName,
   LetterRank,
   MasteryName,
+  TimedMasteryName,
   TrainingSpeed,
 } from "@/drizzle/constants";
 import {
+  BasicElementName,
   CombatStatNames,
   DURABILITY_USABILITY_THR,
   ElementNames,
@@ -39,6 +41,7 @@ import type {
   UserQueue,
   UserRank,
 } from "@/drizzle/schema";
+import { elementalGainRoom } from "@/libs/elementalMastery";
 import { isEvolution, meetsEvolutionStatRequirements } from "@/libs/evolution";
 import { getGameSettingBoost } from "@/libs/gameSettingBoost";
 import type { MasterySources, MasteryStatSource } from "@/libs/mastery";
@@ -54,6 +57,7 @@ import {
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { calcIsInVillage } from "@/libs/travel";
 import type { UserWithRelations } from "@/routers/profile";
+import { isInArray } from "@/utils/array";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { secondsFromDate, secondsPassed } from "@/utils/time";
 import { getShrineBoost, getStrucBoost } from "@/utils/village";
@@ -844,6 +848,36 @@ export const masteryTrainingEndsAt = (
       )
     : null;
 
+/** Timed training keeps elemental progress independent of discipline caps. */
+export const masteryTrainingGainRoom = (
+  user: Parameters<typeof masteryGainRoom>[0] & Parameters<typeof elementalGainRoom>[0],
+  stat: TimedMasteryName,
+) =>
+  isInArray(stat, BasicElementName)
+    ? elementalGainRoom(user, stat)
+    : masteryGainRoom(user, stat);
+
+/** Stored balances after timed gains, shared by collection and queue settlement. */
+export const applyMasteryTrainingGains = (
+  user: Parameters<typeof masteryTrainingGainRoom>[0],
+  gains: Partial<Record<TimedMasteryName, number>>,
+) => ({
+  ...Object.fromEntries(
+    Object.entries(gains)
+      .filter(([stat]) => !isInArray(stat, BasicElementName))
+      .map(([stat, gain]) => [stat, (user[stat as MasteryName] ?? 0) + gain]),
+  ),
+  elementalMastery: {
+    ...user.elementalMastery,
+    ...Object.fromEntries(
+      BasicElementName.filter((stat) => (gains[stat] ?? 0) > 0).map((stat) => [
+        stat,
+        (user.elementalMastery?.[stat] ?? 0) + (gains[stat] ?? 0),
+      ]),
+    ),
+  },
+});
+
 export const trainingBoost = (
   user: NonNullable<UserWithRelations>,
   settings: GameSetting[],
@@ -921,9 +955,9 @@ export const settleMasteryTrainingQueue = (
   now = new Date(),
 ) => {
   const queue = [...entries];
-  const gains: Partial<Record<MasteryName, number>> = {};
+  const gains: Partial<Record<TimedMasteryName, number>> = {};
   const completed: {
-    stat: MasteryName;
+    stat: TimedMasteryName;
     amount: number;
     minutes: number;
     speed: TrainingSpeed;
@@ -933,16 +967,11 @@ export const settleMasteryTrainingQueue = (
   let startedAt = user.masteryTrainingStartedAt;
   let speed = user.trainingSpeed;
   let dailyTrainings = user.dailyTrainings;
-  const room = (stat: MasteryName, pendingGains = gains) =>
-    masteryGainRoom(
+  const room = (stat: TimedMasteryName, pendingGains = gains) =>
+    masteryTrainingGainRoom(
       {
         ...user,
-        ...Object.fromEntries(
-          Object.entries(pendingGains).map(([name, gain]) => [
-            name,
-            user[name as MasteryName] + gain,
-          ]),
-        ),
+        ...applyMasteryTrainingGains(user, pendingGains),
       },
       stat,
     );

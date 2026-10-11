@@ -1,8 +1,8 @@
 import { z } from "zod";
 import {
   CombatStatNames,
-  MasteryNames,
   QUEUE_WAITING_SLOTS,
+  TimedMasteryNames,
   TrainingSpeeds,
 } from "@/drizzle/constants";
 
@@ -21,7 +21,7 @@ export const updateEnergyTrainingQueueInputSchema = z.object({
 });
 
 export const masteryTrainingQueueEntrySchema = z.object({
-  stat: z.enum(MasteryNames),
+  stat: z.enum(TimedMasteryNames),
   speed: z.enum(TrainingSpeeds),
 });
 export type MasteryTrainingQueueEntry = z.infer<typeof masteryTrainingQueueEntrySchema>;
@@ -90,11 +90,11 @@ export const startTrainingInputSchema = z.object({
 });
 
 export const startMasteryTrainingInputSchema = z.object({
-  stat: z.enum(MasteryNames),
+  stat: z.enum(TimedMasteryNames),
 });
 
 export const stopTrainingInputSchema = z.object({
-  stat: z.enum(MasteryNames),
+  stat: z.enum(TimedMasteryNames),
   startedAt: z.date(),
   guess: z.string().optional(),
 });

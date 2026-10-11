@@ -6,6 +6,7 @@ import {
   MasteryNames,
   OCCUPATIONS,
   TavernColorPresets,
+  TimedMasteryNames,
   TrainingSpeeds,
   UserRanks,
   UserStatuses,
@@ -73,9 +74,6 @@ export type UserDelta = z.infer<typeof userDeltaSchema>;
 export const userPatchSchema = z.object({
   elementalMastery: z.partialRecord(z.enum(BasicElementName), z.number()).optional(),
   activeTrainedElement: z.enum(BasicElementName).nullable().optional(),
-  currentlyTrainingElement: z.enum(BasicElementName).nullable().optional(),
-  elementalTrainingStartedAt: z.date().nullable().optional(),
-  elementalTrainingSpeed: z.enum(TrainingSpeeds).nullable().optional(),
   dailySageActivations: z.number().optional(),
   dailyMedicalMissions: z.number().optional(),
   dailyWarMissions: z.number().optional(),
@@ -138,7 +136,7 @@ export const userPatchSchema = z.object({
   sageMasteryExperience: z.number().optional(),
   questFinishAt: z.date().optional(),
   masteryTrainingStartedAt: z.date().nullable().optional(),
-  currentlyTrainingMastery: z.enum(MasteryNames).nullable().optional(),
+  currentlyTrainingMastery: z.enum(TimedMasteryNames).nullable().optional(),
   /** Every queue entry; the client derives each queue with the heads below */
   queue: z.custom<UserQueue[]>(Array.isArray).optional(),
   energyQueueHead: z.number().optional(),
