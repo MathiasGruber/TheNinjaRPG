@@ -65,7 +65,11 @@ const expireRequests = async (db: DrizzleClient) => {
         ? db.execute(query)
         : Promise.resolve({ rowsAffected: 0 });
     },
-    delete: (table: object) => table === userRequest ? db.delete(userRequest) : ({ where: vi.fn().mockResolvedValue(undefined) }),
+    delete: (table: object) => table === userRequest ? db.delete(userRequest) : ({
+      where: vi.fn(() => Object.assign(Promise.resolve(undefined), {
+        limit: vi.fn().mockResolvedValue(undefined),
+      })),
+    }),
     update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }),
   });
   vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ isNewHour: true, prevTime: new Date(0) } as Awaited<ReturnType<typeof gamesettings.lockWithHourlyTimer>>);
@@ -161,7 +165,15 @@ afterEach(() => { process.env = { ...originalEnv }; vi.restoreAllMocks(); resetS
 describe("account deletion in the existing cleaner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    stubDatabase({ execute: mocks.execute, delete: () => ({ where: vi.fn().mockResolvedValue(undefined) }), update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }) });
+    stubDatabase({
+      execute: mocks.execute,
+      delete: () => ({
+        where: vi.fn(() => Object.assign(Promise.resolve(undefined), {
+          limit: vi.fn().mockResolvedValue(undefined),
+        })),
+      }),
+      update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }),
+    });
     vi.spyOn(gamesettings, "lockWithHourlyTimer").mockImplementation(mocks.lock);
     vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({ isNewDay: false } as Awaited<ReturnType<typeof gamesettings.lockWithDailyTimer>>);
     vi.spyOn(gamesettings, "updateGameSetting").mockImplementation(mocks.reset);
@@ -259,7 +271,11 @@ describe("account deletion in the existing cleaner", () => {
       })));
       stubDatabase({
         execute: mocks.execute,
-        delete: () => ({ where: vi.fn().mockResolvedValue(undefined) }),
+        delete: () => ({
+          where: vi.fn(() => Object.assign(Promise.resolve(undefined), {
+            limit: vi.fn().mockResolvedValue(undefined),
+          })),
+        }),
         update: (table: object) => ({
           set: (values: Record<string, unknown>) => ({
             // Only the missing-fight repair runs against SQL; other cron work stays stubbed.

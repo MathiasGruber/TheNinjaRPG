@@ -10,6 +10,7 @@ import {
 import { trainingLog, userData } from "@/drizzle/schema";
 import { showTrainingCapcha } from "@/libs/captcha";
 import { activeTrainedElement } from "@/libs/elementalMastery";
+import { petExperienceGainSql } from "@/libs/pets/experience";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
 import {
   getEnergyQueue,
@@ -252,6 +253,7 @@ export const trainRouter = createTRPCRouter({
           curEnergy: sql`${userData.curEnergy} - ${spent}`,
           [input.stat]: sql`${userData[input.stat]} + ${amount}`,
           experience: sql`${userData.experience} + ${amount}`,
+          petExperience: petExperienceGainSql(amount),
           questData: filterQuestTrackersForDbPersist(trackers, user),
         },
         where: [

@@ -70,6 +70,38 @@ const form = (onAccept: Accept, userData = trainee) => (
 );
 
 describe("advanced experience assignment drafts", () => {
+  it.each([false, true])("explains an over-budget allocation and allows correction with masteries=%s", async (includeMasteries) => {
+    const accept = vi.fn();
+    const view = render(
+      <DistributeStatsForm
+        includeMasteries={includeMasteries}
+        showWrapper={false}
+        userData={trainee}
+        availableStats={8000}
+        onAccept={accept}
+        isPending={false}
+      />,
+    );
+    if (!includeMasteries) fireEvent.click(view.getByRole("button", { name: "Advanced" }));
+    const offence = view.getByRole("spinbutton", { name: /^Offence/ }) as HTMLInputElement;
+    await act(async () => {
+      fireEvent.input(offence, { target: { value: "9000" } });
+    });
+    expect(offence.value).toBe("9000");
+    await waitFor(() => expect(view.getByRole("button", { name: "Remove 1,000 points" }).hasAttribute("disabled")).toBe(true));
+    expect(view.queryByText(/received NaN/)).toBeNull();
+    await act(async () => {
+      fireEvent.submit(view.container.querySelector("form")!);
+    });
+    expect(accept).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.input(offence, { target: { value: "7000" } });
+    });
+    fireEvent.click(view.getByRole("button", { name: "Assign points" }));
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
+    expect(accept.mock.lastCall?.[0]).toMatchObject({ offence: 7000 });
+  });
+
   it.each([
     ["input", "cap"], ["slider", "cap"],
     ["input", "provided element"], ["slider", "provided element"],

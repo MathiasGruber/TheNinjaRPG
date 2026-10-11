@@ -1,0 +1,226 @@
+import { nanoid } from "nanoid";
+import type { BattleType, PetSpawnPosition, UserRank } from "@/drizzle/constants";
+import {
+  CombatStatNames,
+  PET_BASE_STAT,
+  RANKED_LOADOUT_MAX_SUMMON_JUTSUS,
+} from "@/drizzle/constants";
+import type { UserPet } from "@/drizzle/schema";
+import { getDefaultBasicActions } from "@/libs/combat/actions";
+import { summonsAllowedInBattle } from "@/libs/combat/summon";
+import type { BattleUserState, ExtraState } from "@/libs/combat/types";
+import { rollInitiative } from "@/libs/combat/util";
+import {
+  canUsePet,
+  getPetLevel,
+  getPetRank,
+  getPetStatCaps,
+} from "@/libs/pets/progression";
+import { calcCP, calcHP, calcSP } from "@/libs/profile";
+
+/** Owned pets follow modes that disallow additional summoned combatants. */
+export const petsAllowedInBattle = (battleType: BattleType) =>
+  summonsAllowedInBattle({ battleType }) &&
+  !(
+    RANKED_LOADOUT_MAX_SUMMON_JUTSUS === 0 &&
+    (battleType === "RANKED_PVP" || battleType === "RANKED_SPARRING")
+  );
+
+/** Add independently configured pets from initiation's preload; no turn-time reads. */
+export const addPetsToBattle = (info: {
+  pets: UserPet[];
+  usersState: BattleUserState[];
+  extraState: ExtraState;
+  battleType: BattleType;
+  width: number;
+  height: number;
+  ownerRanks?: Record<string, UserRank>;
+}) => {
+  const { pets, usersState, extraState, battleType, width, height, ownerRanks } = info;
+  extraState.petIdsByOwner = {};
+  if (!petsAllowedInBattle(battleType)) return;
+  for (const pet of pets) {
+    const owner = usersState.find((u) => u.userId === pet.userId && !u.isAi);
+    // Some modes normalize combat rank; eligibility uses the real preloaded rank.
+    if (!owner || !canUsePet(pet, { rank: ownerRanks?.[owner.userId] ?? owner.rank }))
+      continue;
+    const location = getPetSpawnLocation(
+      owner,
+      pet.spawnPosition,
+      usersState,
+      width,
+      height,
+    );
+    // A crowded team must not overlap combatants or prevent the owner's fight.
+    if (!location) continue;
+    const actor = createPetBattleUser(pet, owner, location);
+    actor.initiative = rollInitiative(actor, usersState);
+    const aiProfileId = `pet:${pet.id}`;
+    extraState.aiProfiles[aiProfileId] = {
+      id: aiProfileId,
+      userId: owner.userId,
+      rules: structuredClone(pet.aiRules),
+      includeDefaultRules: pet.includeDefaultRules,
+    };
+    extraState.petIdsByOwner[owner.userId] = pet.id;
+    usersState.push(actor);
+  }
+};
+
+/** Position relative to the owner's forward direction, falling back to the nearest free cell. */
+export const getPetSpawnLocation = (
+  owner: Pick<BattleUserState, "longitude" | "latitude" | "direction">,
+  position: PetSpawnPosition,
+  usersState: Pick<BattleUserState, "longitude" | "latitude" | "curHealth">[],
+  width: number,
+  height: number,
+) => {
+  const forward = owner.direction === "left" ? 1 : -1;
+  const offset = {
+    BEHIND: { x: -forward, y: 0 },
+    FRONT: { x: forward, y: 0 },
+    LEFT: { x: 0, y: -forward },
+    RIGHT: { x: 0, y: forward },
+  }[position];
+  const desired = { x: owner.longitude + offset.x, y: owner.latitude + offset.y };
+  // Pet offsets may fall outside the narrower random starting columns. Every
+  // grid cell is playable, so search the owner's half rather than those columns.
+  const halfWidth = Math.floor(width / 2);
+  const locations: { x: number; y: number }[] = [];
+  const minX = owner.direction === "left" ? 0 : halfWidth + 1;
+  const maxX = owner.direction === "left" ? halfWidth : width - 1;
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = 0; y < height; y++) locations.push({ x, y });
+  }
+  return locations
+    .filter(
+      (location) =>
+        !usersState.some(
+          (u) =>
+            u.curHealth > 0 && u.longitude === location.x && u.latitude === location.y,
+        ),
+    )
+    .sort(
+      (a, b) =>
+        Math.abs(a.x - desired.x) +
+        Math.abs(a.y - desired.y) -
+        Math.abs(b.x - desired.x) -
+        Math.abs(b.y - desired.y),
+    )[0];
+};
+
+const createPetBattleUser = (
+  pet: UserPet,
+  owner: BattleUserState,
+  location: { x: number; y: number },
+): BattleUserState => {
+  const level = getPetLevel(pet);
+  const caps = getPetStatCaps(pet);
+  const actor: BattleUserState = {
+    ...structuredClone(owner),
+    userId: nanoid(),
+    controllerId: owner.userId,
+    petId: pet.id,
+    username: pet.name,
+    avatar: pet.avatar,
+    avatarLight: pet.avatar,
+    avatar3d: null,
+    avatarFacing: pet.avatarFacing,
+    isAi: true,
+    isSummon: true,
+    isOriginal: true,
+    isPiloted: false,
+    isAutoCombat: false,
+    isSummonTemplate: false,
+    summonSourceId: `pet:${pet.id}`,
+    rank: getPetRank(pet.rank).minUserRank,
+    level,
+    originalLevel: level,
+    experience: pet.experience,
+    earnedExperience: 0,
+    petExperience: 0,
+    longitude: location.x,
+    latitude: location.y,
+    originalLongitude: location.x,
+    originalLatitude: location.y,
+    curHealth: calcHP(level),
+    maxHealth: calcHP(level),
+    curStamina: calcSP(level),
+    maxStamina: calcSP(level),
+    curChakra: calcCP(level),
+    maxChakra: calcCP(level),
+    statsMultiplier: 1,
+    poolsMultiplier: 1,
+    money: 0,
+    originalMoney: 0,
+    medicalExperience: 0,
+    sageMasteryExperience: 0,
+    bloodlineId: null,
+    bloodlineReskinId: null,
+    bloodlineMastery: 0,
+    sageModeId: null,
+    sageMastery: 0,
+    sageModeActivated: false,
+    sageModeActivatedRound: null,
+    sageModeExpiresRound: null,
+    sageModeUsedThisBattle: false,
+    primaryElement: null,
+    secondaryElement: null,
+    activeTrainedElement: null,
+    elementalMastery: {},
+    masteryRanks: {},
+    bloodright: [],
+    bloodrightSpent: 0,
+    jutsus: [],
+    items: [],
+    basicActions: [],
+    effects: [],
+    enemySkillIds: [],
+    activeSkillIds: [],
+    skillLockedJutsuIds: [],
+    keystoneItemId: null,
+    keystoneName: null,
+    jutsuLoadout: null,
+    itemLoadout: null,
+    preferredGeneral1: null,
+    preferredGeneral2: null,
+    baseStatsForModifiers: undefined,
+    diffuseDamage: undefined,
+    fledBattle: false,
+    leftBattle: false,
+    hidden: false,
+    isAggressor: false,
+    actionPoints: 100,
+    round: 0,
+    iAmHere: true,
+    usedActions: [],
+    usedTagTypes: [],
+    usedMasteries: {},
+    usedStats: { offence: 0, defence: 0 },
+    usedGenerals: { strength: 0, intelligence: 0, willpower: 0, speed: 0 },
+    damageDealt: 0,
+    enmity: 0,
+    moneyStolen: 0,
+    pvpStreak: 0,
+    stealthActive: false,
+    aiProfileId: `pet:${pet.id}`,
+    ninjutsuMastery: PET_BASE_STAT,
+    genjutsuMastery: PET_BASE_STAT,
+    taijutsuMastery: PET_BASE_STAT,
+    bukijutsuMastery: PET_BASE_STAT,
+  };
+  for (const stat of CombatStatNames)
+    actor[stat] = Math.min(
+      pet[stat],
+      stat === "offence" || stat === "defence" ? caps.stats_cap : caps.gens_cap,
+    );
+  actor.highestGenerals = (["strength", "intelligence", "willpower", "speed"] as const)
+    .slice()
+    .sort((a, b) => actor[b] - actor[a])
+    .slice(0, 2);
+  actor.basicActions = Object.values(getDefaultBasicActions(actor)).map((action) => ({
+    id: action.id,
+    lastUsedRound: action.lastUsedRound ?? -10,
+  }));
+  return actor;
+};

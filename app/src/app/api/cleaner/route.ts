@@ -35,6 +35,7 @@ import {
   userItem,
   userJutsu,
   userLiveActivity,
+  userPet,
   userRequest,
   village,
   warAlly,
@@ -296,6 +297,14 @@ export async function GET(request: Request) {
     await drizzleDB.execute(
       sql`DELETE FROM ${userData} WHERE experience < 10000 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY AND reputationPointsTotal <= 5`,
     );
+
+    // Inactive-character purges bypass the account cleaner; remove their owned pets.
+    await drizzleDB
+      .delete(userPet)
+      .where(
+        sql`NOT EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${userPet.userId})`,
+      )
+      .limit(cleanupBatchSize);
 
     // Step 15: Clear bloodline rolls without a user
     await drizzleDB.execute(

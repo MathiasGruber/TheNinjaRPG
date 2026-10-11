@@ -471,6 +471,7 @@ export const StructureRoutes = [
   "/missionhall",
   "/ramenshop",
   "/science",
+  "/pets",
   "/souvenirs",
   "/townhall",
   "/traininggrounds",
@@ -618,6 +619,42 @@ export const UserRanks = [
   "NONE",
 ] as const;
 export type UserRank = (typeof UserRanks)[number];
+
+export const EMAIL_REMINDER_EXPERIENCE_REWARD = 10_000;
+
+export const PET_BASE_STAT = 10;
+export const PET_REPLACEMENT_COST = 100;
+export const PET_MAX_GENERATION_ATTEMPTS = 3;
+export const PET_GENERATION_LEASE_MS = 15 * 60 * 1000;
+export const PET_GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
+export const PET_GENERATION_RETRY_MS = 60 * 1000;
+export const PET_SANCTUARY_NAME = "Bondkeeper Sanctuary";
+export const PET_SANCTUARY_IMAGE = "/bondkeeper-sanctuary.svg";
+export const PET_SANCTUARY_LONGITUDE = 3;
+export const PET_SANCTUARY_LATITUDE = 6;
+export const PET_SANCTUARY_LORE =
+  "Beneath Wake Island's wind-bent cedars, the Bondkeepers shelter creatures touched by Seichi's wandering chakra. Their sanctuary was founded after the island's keepers learned that a willing pact could steady both shinobi and beast. No creature is bought or bound here: choose the signs of the companion you hope to meet, and the keepers will guide your first bond. A released companion returns to the sanctuary's wild groves.";
+export const PET_OPTION_COUNTS: Record<FederalStatus, number> = {
+  NONE: 3, NORMAL: 5, SILVER: 6, GOLD: 8,
+};
+export const PetSpawnPositions = ["BEHIND", "LEFT", "RIGHT", "FRONT"] as const;
+export type PetSpawnPosition = (typeof PetSpawnPositions)[number];
+export const PetGenerationStatuses = ["PENDING", "GENERATING", "READY", "FAILED"] as const;
+
+/** Pet progression follows the player experience curve at each previous rank's level cap. */
+export const PET_RANKS = [
+  { rank: 1, name: "Companion", minUserRank: "STUDENT", levelCap: 5, experienceRequired: 0 },
+  { rank: 2, name: "Scout", minUserRank: "GENIN", levelCap: 10, experienceRequired: 7500 },
+  { rank: 3, name: "Tracker", minUserRank: "GENIN", levelCap: 15, experienceRequired: 27500 },
+  { rank: 4, name: "Guardian", minUserRank: "CHUNIN", levelCap: 20, experienceRequired: 60000 },
+  { rank: 5, name: "Hunter", minUserRank: "CHUNIN", levelCap: 30, experienceRequired: 105000 },
+  { rank: 6, name: "Warden", minUserRank: "JONIN", levelCap: 40, experienceRequired: 232500 },
+  { rank: 7, name: "Sentinel", minUserRank: "JONIN", levelCap: 50, experienceRequired: 410000 },
+  { rank: 8, name: "Mythic", minUserRank: "ELITE JONIN", levelCap: 60, experienceRequired: 637500 },
+  { rank: 9, name: "Sovereign", minUserRank: "ELITE JONIN", levelCap: 80, experienceRequired: 915000 },
+  { rank: 10, name: "Celestial", minUserRank: "ELDER", levelCap: 100, experienceRequired: 1620000 },
+] as const satisfies readonly { rank: number; name: string; minUserRank: UserRank; levelCap: number; experienceRequired: number }[];
+
 
 export const ItemTypes = [
   "WEAPON",

@@ -190,6 +190,7 @@ describe("confirmed combat profile reconciliation", () => {
     const result = calcBattleResult(battle, "viewer", [])!;
     result.villagePrestige = 0; result.villageTokens = 0; result.anbuPoints = 0; result.clanPoints = 0;
     expect(canCacheCombatCompletion(battle, result, "viewer")).toBe(true);
+    expect(canCacheCombatCompletion({ ...battle, extraState: { ...battle.extraState, petIdsByOwner: { viewer: "pet-1" } } }, result, "viewer")).toBe(false);
     expect(canCacheCombatCompletion({ ...battle, battleType: "COMBAT" }, result, "viewer")).toBe(false);
     expect(canCacheCombatCompletion(battle, { ...result, curHealth: 0 }, "viewer")).toBe(false);
     expect(canCacheCombatCompletion({ ...battle, usersState: [...battle.usersState, makeBattleUser("other", { isAi: false })] }, result, "viewer")).toBe(false);

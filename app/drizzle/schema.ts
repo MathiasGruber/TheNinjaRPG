@@ -2497,6 +2497,8 @@ export const userData = mysqlTable(
     bank: bigint("bank", { mode: "number" }).default(1000).notNull(),
     experience: int("experience").default(0).notNull(),
     earnedExperience: int("earnedExperience").default(2000).notNull(),
+    petExperience: double("petExperience").default(0).notNull(),
+    petAcquisitions: int("petAcquisitions", { unsigned: true }).default(0).notNull(),
     rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
     isOutlaw: boolean("isOutlaw").default(false).notNull(),
     level: int("level").default(1).notNull(),
@@ -2876,9 +2878,52 @@ export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
+export const userPet = mysqlTable(
+  "UserPet",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    name: varchar("name", { length: 40 }).notNull(),
+    speciesIndex: tinyint("speciesIndex", { unsigned: true }).notNull(),
+    paletteIndex: tinyint("paletteIndex", { unsigned: true }).notNull(),
+    characteristicIndex: tinyint("characteristicIndex", { unsigned: true }).notNull(),
+    auraIndex: tinyint("auraIndex", { unsigned: true }).notNull(),
+    rank: tinyint("rank", { unsigned: true }).default(1).notNull(),
+    experience: double("experience").default(0).notNull(),
+    offence: double("offence").default(consts.PET_BASE_STAT).notNull(),
+    defence: double("defence").default(consts.PET_BASE_STAT).notNull(),
+    strength: double("strength").default(consts.PET_BASE_STAT).notNull(),
+    speed: double("speed").default(consts.PET_BASE_STAT).notNull(),
+    intelligence: double("intelligence").default(consts.PET_BASE_STAT).notNull(),
+    willpower: double("willpower").default(consts.PET_BASE_STAT).notNull(),
+    avatar: varchar("avatar", { length: 191 }),
+    avatarFacing: mysqlEnum("avatarFacing", consts.AvatarFacings).default("left").notNull(),
+    battleEnabled: boolean("battleEnabled").default(true).notNull(),
+    spawnPosition: mysqlEnum("spawnPosition", consts.PetSpawnPositions).default("BEHIND").notNull(),
+    aiRules: json("aiRules").$type<AiRuleType[]>().default([]).notNull(),
+    includeDefaultRules: boolean("includeDefaultRules").default(true).notNull(),
+    generationStatus: mysqlEnum("generationStatus", consts.PetGenerationStatuses).default("PENDING").notNull(),
+    generationToken: varchar("generationToken", { length: 191 }),
+    generationStartedAt: datetime("generationStartedAt", { mode: "date", fsp: 3 }),
+    generationAttempts: tinyint("generationAttempts", { unsigned: true }).default(0).notNull(),
+    generationDay: varchar("generationDay", { length: 10 }),
+    artRank: tinyint("artRank", { unsigned: true }).default(0).notNull(),
+    revision: int("revision", { unsigned: true }).default(0).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  },
+  (table) => ({ userIdIdx: uniqueIndex("UserPet_userId_idx").on(table.userId) }),
+);
+export type UserPet = InferSelectModel<typeof userPet>;
+export type UserPetInsert = InferInsertModel<typeof userPet>;
+export const userPetRelations = relations(userPet, ({ one }) => ({
+  user: one(userData, { fields: [userPet.userId], references: [userData.userId] }),
+}));
+
 export const userDataRelations = relations(userData, ({ one, many }) => ({
   home: one(userHome, { fields: [userData.userId], references: [userHome.userId] }),
   questParty: one(questParty, { fields: [userData.questPartyId], references: [questParty.id] }),
+  pet: one(userPet),
   queue: many(userQueue),
   ips: many(historicalIp),
   bloodline: one(bloodline, {

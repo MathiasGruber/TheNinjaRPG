@@ -81,6 +81,7 @@ import {
   isSupportedOverworldBindingTask,
   validateFriendlyPlacementBindings,
 } from "@/libs/overworldAi";
+import { petExperienceGainSql } from "@/libs/pets/experience";
 import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
@@ -2108,6 +2109,7 @@ export const updateRewards = async (info: {
     money: sql`${userData.money} + ${rewards.reward_money ?? 0}`,
     seichiSilver: sql`${userData.seichiSilver} + ${rewards.reward_seichi_silver ?? 0}`,
     earnedExperience: sql`${userData.earnedExperience} + ${rewards.reward_exp ?? 0}`,
+    petExperience: petExperienceGainSql(rewards.reward_exp ?? 0),
     villagePrestige: sql`${userData.villagePrestige} + ${rewards.reward_prestige ?? 0}`,
     reputationPoints: sql`${userData.reputationPoints} + ${rewards.reward_reputation ?? 0}`,
     reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${rewards.reward_reputation ?? 0}`,

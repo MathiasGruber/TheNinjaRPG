@@ -90,6 +90,7 @@ import {
   userData,
   userItem,
   userJutsu,
+  userPet,
   village,
   villageAlliance,
   war,
@@ -121,6 +122,7 @@ import {
 } from "@/libs/combat/database";
 import { advanceEncounterWave, prepareEncounterWaves } from "@/libs/combat/encounters";
 import { getBattleSpawnLocations, supportsNpcAllies } from "@/libs/combat/participants";
+import { addPetsToBattle, petsAllowedInBattle } from "@/libs/combat/pets";
 import {
   applyEffects,
   applySageModeAfterRoundTransition,
@@ -184,6 +186,7 @@ import {
   getWarSide,
   isObjectiveWarActive,
 } from "@/libs/objectiveWar";
+import { petExperienceGainSql } from "@/libs/pets/experience";
 import {
   calcActiveUserRegen,
   calcCP,
@@ -1328,9 +1331,10 @@ export const combatRouter = createTRPCRouter({
             })
           : undefined;
 
-      // Split out user from current usersState & usersEffects
+      // Loadout processing rebuilds the owner and summon templates; owned pets
+      // retain their independently preloaded identity, progression and AI state.
       const otherUserState = userBattle.usersState.filter(
-        (u) => u.controllerId !== ctx.userId,
+        (u) => u.controllerId !== ctx.userId || !!u.petId,
       );
       const preservedEffects = userBattle.usersEffects.filter(
         (e) =>
@@ -2136,6 +2140,7 @@ export const initiateBattle = async (
     rankedTopPlayersLP,
     entryInventory,
     activeEventTournaments,
+    pets,
   ] = await Promise.all([
     // Essentials
     fetchBattleEssentials(client),
@@ -2263,6 +2268,11 @@ export const initiateBattle = async (
           ),
           columns: { eventData: true },
           limit: 100,
+        })
+      : [],
+    petsAllowedInBattle(battleType)
+      ? client.query.userPet.findMany({
+          where: inArray(userPet.userId, [...userIds, ...targetIds]),
         })
       : [],
   ]);
@@ -3037,6 +3047,18 @@ export const initiateBattle = async (
     extraState.tournamentAiOnly = info.tournamentGame.aiOnly;
   }
 
+  addPetsToBattle({
+    pets,
+    usersState,
+    extraState,
+    battleType,
+    width: gridSize.width,
+    height: gridSize.height,
+    ownerRanks: Object.fromEntries(
+      fetchedUsers.filter((user) => !user.isAi).map((user) => [user.userId, user.rank]),
+    ),
+  });
+
   // Hand requested users' turns to their own AI profile (auto combat). Gated on
   // AutoCombatBattleTypes so callers cannot enable it for unsupported battles.
   const autoCombatUserIds = [
@@ -3319,6 +3341,11 @@ export const initiateBattle = async (
         "experience",
         energyParticipants,
         (entry) => sql`${userData.experience} + ${entry.amount}`,
+      );
+      queueUpdate.petExperience = queueCase(
+        "petExperience",
+        energyParticipants,
+        (entry) => petExperienceGainSql(entry.amount),
       );
       for (const stat of CombatStatNames) {
         queueUpdate[stat] = queueCase(

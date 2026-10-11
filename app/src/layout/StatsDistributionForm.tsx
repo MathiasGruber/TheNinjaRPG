@@ -66,6 +66,8 @@ interface StatDistributionProps {
   defaultBackHref?: string;
   isPending: boolean;
   pendingLabel?: string;
+  advanceTutorial?: boolean;
+  disabled?: boolean;
 }
 
 const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
@@ -84,6 +86,8 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
     defaultBackHref,
     isPending,
     pendingLabel = "Assigning",
+    advanceTutorial = true,
+    disabled = false,
   } = props;
 
   // Tab state - force Advanced mode for redistribution
@@ -96,7 +100,7 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
 
   // Wrapper function to handle tutorial logic before calling onAccept
   const handleAcceptWithTutorial = (data: AssignableUserStats) => {
-    if (currentStep?.title === "Assigning Stats") {
+    if (advanceTutorial && currentStep?.title === "Assigning Stats") {
       const formSum = Object.values(data)
         .map((v) => (Number.isFinite(Number(v)) ? Number(v) : 0))
         .reduce((a, b) => a + b, 0);
@@ -118,8 +122,9 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
   // NavTabs component - hide for redistribution
   const navTabs = !isRedistribution ? (
     <div
-      aria-disabled={isPending}
-      className={isPending ? "pointer-events-none opacity-50" : undefined}
+      aria-disabled={isPending || disabled}
+      inert={disabled || undefined}
+      className={isPending || disabled ? "pointer-events-none opacity-50" : undefined}
     >
       <NavTabs
         id="stats-distribution-tab"
@@ -180,12 +185,26 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
         defaultBackHref={defaultBackHref}
         topRightContent={navTabs}
       >
-        {content}
+        <fieldset
+          disabled={disabled}
+          inert={disabled || undefined}
+          className={disabled ? "opacity-60" : undefined}
+        >
+          {content}
+        </fieldset>
       </ContentBox>
     );
   }
 
-  return content;
+  return (
+    <fieldset
+      disabled={disabled}
+      inert={disabled || undefined}
+      className={disabled ? "opacity-60" : undefined}
+    >
+      {content}
+    </fieldset>
+  );
 };
 
 /**
@@ -451,7 +470,9 @@ const SimpleDistribution: React.FC<SimpleDistributionProps> = (props) => {
         );
       })}
       <p className="col-span-2 mt-2 text-center text-muted-foreground text-xs sm:col-span-4">
-        Use Advanced to split points across multiple stats, masteries and elements.
+        {includeMasteries
+          ? "Use Advanced to split points across multiple stats, masteries and elements."
+          : "Use Advanced to choose how many points go into each stat."}
       </p>
     </div>
   );
@@ -551,6 +572,7 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
 
   // Submit handler
   const onSubmit = form.handleSubmit(async (data) => {
+    if (isDisabled || isPending) return;
     if ((await onAccept(data)) === true) form.reset(defaultValues);
   });
 
@@ -610,7 +632,14 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
                           max={dynamicMax}
                           step={step}
                           value={(field.value as number) ?? 0}
-                          onValueChange={field.onChange}
+                          // Retain numeric range failures for schema and budget feedback.
+                          onChange={(event) =>
+                            field.onChange(
+                              event.currentTarget.validity.stepMismatch
+                                ? Number.NaN
+                                : event.currentTarget.valueAsNumber,
+                            )
+                          }
                           onBlur={field.onBlur}
                           name={field.name}
                           className="w-full"

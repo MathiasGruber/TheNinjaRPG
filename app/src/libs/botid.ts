@@ -65,6 +65,8 @@ export const BOTID_PROTECTED_PROCEDURES = [
   "pvpRank.claimSeasonRewards",
   // Account creation and value transfer
   "register.createCharacter",
+  "pets.acquirePet",
+  "pets.generateAppearance",
   "bank.transfer",
   "blackmarket.createOffer",
   "blackmarket.takeOffer",

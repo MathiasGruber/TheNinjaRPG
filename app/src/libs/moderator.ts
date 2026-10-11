@@ -342,16 +342,27 @@ Allowed: action/combat scenes, anime-style characters in appropriate clothing, f
 
 /**
  * Classify if an uploaded image contains unsafe content
- * @param imageUrl - The public image URL to classify
+ * @param imageUrl - A public image URL or base64 image data URL to classify
+ * @param requireResult - Reject an unavailable moderation result for generated assets
  * @returns Whether the image is NSFW and the reason
  */
 export const classifyNsfwImage = async (
   imageUrl: string,
+  requireResult = false,
+  signal?: AbortSignal,
 ): Promise<{ isNsfw: boolean; reason: string }> => {
-  const moderation = await openai.moderations.create({
-    model: "omni-moderation-latest",
-    input: [{ type: "image_url", image_url: { url: imageUrl } }],
-  });
+  signal?.throwIfAborted();
+  const moderation = await openai.moderations.create(
+    {
+      model: "omni-moderation-latest",
+      input: [{ type: "image_url", image_url: { url: imageUrl } }],
+    },
+    signal ? { signal, timeout: 30_000, maxRetries: 0 } : undefined,
+  );
+  signal?.throwIfAborted();
+  if (requireResult && !moderation.results?.[0]) {
+    throw new Error("Image moderation did not return a result");
+  }
   // Do not use `result.flagged` directly: it trips on generic `violence` for
   // ordinary ninja art (swords, red themes). See utils/imageModeration.ts.
   const { isNsfw, reason } = evaluateImageModeration(moderation.results?.[0]);

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { RANKED_PVP_STATS } from "@/drizzle/constants";
 import { userJutsuToAction } from "@/libs/combat/actions";
+import { addPetsToBattle } from "@/libs/combat/pets";
 import { applyEffects } from "@/libs/combat/process";
 import { refreshMasteries } from "@/libs/combat/util";
 import { effectiveMasteries } from "@/libs/mastery";
@@ -21,6 +22,7 @@ import {
   userData,
   userItem,
   userJutsu,
+  userPet,
 } from "@/drizzle/schema";
 import type { CombatQueryUser } from "@/libs/combat/types";
 import { Pusher } from "@/libs/pusher";
@@ -32,6 +34,7 @@ import {
 import { fetchUserItemsWithVariants } from "@/server/api/routers/item";
 import { fetchUserJutsus } from "@/server/api/routers/jutsu";
 import { getTagSchema } from "@/validators/combat";
+import { AiRule } from "@/validators/ai";
 import { makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import {
@@ -189,6 +192,7 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
       itemLoadout,
       item,
       userData,
+      userPet,
     );
   });
   afterEach(() => vi.restoreAllMocks());
@@ -278,6 +282,51 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
     const updated = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
     expect(updated.usersState.find((member) => member.userId === USER)?.isAggressor).toBe(true);
     expect(updated.usersState.find((member) => member.userId === USER)?.direction).toBe("left");
+  });
+
+  it.each(["COMBAT", "SPARRING"] as const)("retains the exact preloaded pet across %s loadout changes without retaining old summon templates", async (battleType) => {
+    await seedLobby();
+    const db = await getTestDatabase();
+    await db.update(battle).set({ battleType }).where(eq(battle.id, BATTLE));
+    await db.insert(userPet).values({
+      id: "lobby-pet", userId: USER, name: "Nami", rank: 1, artRank: 1,
+      speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+      experience: 1000, offence: 50, defence: 40, strength: 30, speed: 25,
+      avatar: "https://example.com/pet.webp", generationStatus: "READY",
+      aiRules: [AiRule.parse({ conditions: [], action: { type: "end_turn" } })],
+      includeDefaultRules: false,
+    });
+    const pet = await db.query.userPet.findFirst({ where: eq(userPet.userId, USER) });
+    const initial = await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) });
+    if (!pet || !initial) throw new Error("Missing pet lobby fixture");
+    addPetsToBattle({ ...initial, pets: [pet] });
+    const petActor = initial.usersState.find((actor) => actor.petId === pet.id);
+    if (!petActor?.aiProfileId) throw new Error("Missing preloaded pet AI identity");
+    const aiProfileId = petActor.aiProfileId;
+    const petProfile = initial.extraState.aiProfiles[aiProfileId];
+    if (!petProfile) throw new Error("Missing preloaded pet AI profile");
+    petActor.curHealth = 73;
+    petActor.curChakra = 61;
+    petActor.curStamina = 57;
+    petActor.enmity = 17;
+    const originalPet = structuredClone(petActor);
+    const originalProfile = structuredClone(petProfile);
+    initial.usersState.push({
+      ...structuredClone(initial.usersState[0]!),
+      userId: "old-owner-summon-template", isAi: true, isSummon: true,
+      isSummonTemplate: true,
+    });
+    await db.update(battle).set({ usersState: initial.usersState, extraState: initial.extraState }).where(eq(battle.id, BATTLE));
+    const caller = await callerFor(combatRouter, USER);
+    for (const itemLoadoutId of ["with-armor", "without-armor"]) {
+      expect((await caller.updateCombatLoadout({ battleId: BATTLE, itemLoadoutId })).success).toBe(true);
+      const stored = await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) });
+      if (!stored) throw new Error("Missing updated battle");
+      expect(stored.usersState.filter((actor) => actor.petId === pet.id)).toEqual([originalPet]);
+      expect(stored.usersState.some((actor) => actor.userId === "old-owner-summon-template")).toBe(false);
+      expect(stored.extraState.aiProfiles[aiProfileId]).toEqual(originalProfile);
+      expect(stored.extraState.petIdsByOwner).toEqual({ [USER]: pet.id });
+    }
   });
 
   it.each([[true, false], [false, false], [true, true], [false, true]])("keeps cosmetics with their owner (owner switches first: %s, opponent reskinned: %s)", async (ownerFirst, opponentReskinned) => {

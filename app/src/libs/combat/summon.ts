@@ -66,6 +66,7 @@ export const liveSummonsOf = (
     (u) =>
       isLiveSummon(u, usersState, effects) &&
       !isClone(u) &&
+      !u.petId &&
       u.controllerId === controllerId,
   );
 

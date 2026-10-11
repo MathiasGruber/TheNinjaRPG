@@ -70,6 +70,7 @@ import {
 import { claimVillageMissionCombatEvents } from "@/libs/combat/villageMission";
 import { getPvpFarmActivityReductionSeconds } from "@/libs/farming";
 import { allocateMasteryGains } from "@/libs/masteryProgression";
+import { petExperienceGainSql } from "@/libs/pets/experience";
 import type { PusherClient } from "@/libs/pusher";
 import { broadcastRaidAvailability, updateUserOnMap } from "@/libs/pusher";
 import { boostPvpGain } from "@/libs/pvpExperience";
@@ -1889,6 +1890,10 @@ export const updateUser = async (
           ),
           experience: sql`experience + ${result.experience}`,
           earnedExperience: sql`earnedExperience + ${result.earnedExperience}`,
+          petExperience: petExperienceGainSql(
+            Math.round(result.experience) + Math.round(result.earnedExperience),
+            curBattle.extraState.petIdsByOwner?.[userId] ?? null,
+          ),
           pvpStreak: result.pvpStreak,
           ...(curBattle.battleType === "COMBAT" && hasHumanOpponent
             ? {

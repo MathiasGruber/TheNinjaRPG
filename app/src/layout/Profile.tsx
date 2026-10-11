@@ -5,6 +5,7 @@ import {
   History,
   Info,
   LayoutDashboard,
+  PawPrint,
   Settings,
   Share2,
   Trash2,
@@ -69,6 +70,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 const profileTabs = [
   "Dashboard",
   "Character",
+  "Pet",
   "Achievements",
   "History",
   "Edit Character",
@@ -82,11 +84,12 @@ const iconProfileTabs = [
   "Sharing",
   "Delete Character",
 ] as const;
-const tutorialProfileTabs = ["Character", ...iconProfileTabs] as const;
+const tutorialProfileTabs = ["Character", "Pet", ...iconProfileTabs] as const;
 type ProfileTab = (typeof profileTabs)[number];
 const profileTabValues: Record<ProfileTab, string> = {
   Dashboard: "dashboard",
   Character: "character",
+  Pet: "pet",
   Achievements: "achievements",
   History: "history",
   "Edit Character": "edit",
@@ -180,6 +183,12 @@ export function Profile() {
                   aria-hidden="true"
                 />
               ),
+              Pet: (
+                <PawPrint
+                  className="@min-[480px]:hidden h-[20px] w-[20px]"
+                  aria-hidden="true"
+                />
+              ),
               Achievements: <Trophy className="h-[20px] w-[20px]" aria-hidden="true" />,
               History: <History className="h-[20px] w-[20px]" aria-hidden="true" />,
               "Edit Character": (
@@ -192,7 +201,7 @@ export function Profile() {
             }}
             iconOnlyOptions={profileTabs}
             labelClassName={(option) =>
-              option === "Dashboard" || option === "Character"
+              option === "Dashboard" || option === "Character" || option === "Pet"
                 ? "@min-[480px]:not-sr-only"
                 : ""
             }
@@ -200,7 +209,7 @@ export function Profile() {
             counts={{ Sharing: newInRecruit }}
             listClassName="w-full flex-nowrap justify-start gap-[4px]"
             itemClassName={(option) =>
-              `shrink-0 w-[min(44px,calc((100cqw_-_24px)/7))] ${option === "Character" ? "mr-auto" : "mr-0"} ${option === "Dashboard" || option === "Character" ? "@min-[480px]:w-auto" : ""}`
+              `shrink-0 w-[min(44px,calc((100cqw_-_28px)/8))] ${option === "Pet" ? "mr-auto" : "mr-0"} ${option === "Dashboard" || option === "Character" || option === "Pet" ? "@min-[480px]:w-auto" : ""}`
             }
             className="min-h-[44px] w-full min-w-0 @min-[480px]:px-[12px] px-0 text-base"
           />
@@ -212,6 +221,11 @@ export function Profile() {
         </TabsContent>
         <TabsContent value="character">
           <CharacterProfile />
+        </TabsContent>
+        <TabsContent value="pet">
+          <Suspense fallback={<Loader explanation="Loading your companion..." />}>
+            <PetProfile />
+          </Suspense>
         </TabsContent>
         <TabsContent value="achievements">
           <ContentBox title="Achievements" padding={false}>
@@ -680,6 +694,9 @@ function RegenerationCountdown({
 
 const ProfileEdit = lazy(() =>
   import("@/layout/ProfileEdit").then((module) => ({ default: module.ProfileEdit })),
+);
+const PetProfile = lazy(() =>
+  import("@/layout/PetProfile").then((module) => ({ default: module.PetProfile })),
 );
 const ProfileSharing = lazy(() =>
   import("@/layout/ProfileSharing").then((module) => ({
