@@ -713,8 +713,11 @@ function Travel() {
 
   // Whether world-travel can be started toward a given sector
   const canTravelTo = useCallback(
-    (sector: number) =>
-      sector !== userData?.sector && userData?.status === "AWAKE" && !isStartingTravel,
+    (sector: number | undefined) =>
+      Number.isFinite(sector) &&
+      sector !== userData?.sector &&
+      userData?.status === "AWAKE" &&
+      !isStartingTravel,
     [userData?.sector, userData?.status, isStartingTravel],
   );
 
@@ -1074,9 +1077,10 @@ function Travel() {
                           type="submit"
                           size="sm"
                           className="flex-1"
-                          disabled={findSectorValue === undefined}
+                          disabled={!Number.isFinite(findSectorValue)}
                         >
-                          Find Sector {findSectorValue ?? "..."}
+                          Find Sector{" "}
+                          {Number.isFinite(findSectorValue) ? findSectorValue : "..."}
                         </Button>
                         {focusSector !== null && (
                           <Button
@@ -1247,12 +1251,10 @@ function Travel() {
                     <Button
                       type="submit"
                       size="sm"
-                      disabled={
-                        quickTravelSector === undefined ||
-                        !canTravelTo(quickTravelSector)
-                      }
+                      disabled={!canTravelTo(quickTravelSector)}
                     >
-                      Travel to Sector {quickTravelSector ?? "..."}
+                      Travel to Sector{" "}
+                      {Number.isFinite(quickTravelSector) ? quickTravelSector : "..."}
                     </Button>
                   </form>
                 </Form>

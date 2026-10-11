@@ -315,7 +315,7 @@ export const WarMap: React.FC<{
   const findSectorValue = useWatch({
     control: findSectorForm.control,
     name: "sector",
-  });
+  }) as number | undefined;
 
   // Query data
   const { data: userData } = useRequiredUserData();
@@ -565,9 +565,10 @@ export const WarMap: React.FC<{
                     type="submit"
                     size="sm"
                     className="flex-1"
-                    disabled={findSectorValue === undefined}
+                    disabled={!Number.isFinite(findSectorValue)}
                   >
-                    Find Sector {(findSectorValue as number | undefined) ?? "..."}
+                    Find Sector{" "}
+                    {Number.isFinite(findSectorValue) ? findSectorValue : "..."}
                   </Button>
                   {focusSector !== null && (
                     <Button
