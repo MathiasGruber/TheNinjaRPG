@@ -132,6 +132,8 @@ const Conversation: React.FC<ConversationProps> = (props) => {
     refetch,
   } = api.comments.getConversationComments.useInfiniteQuery(queryKey, {
     enabled: props.convo_id !== undefined || props.convo_title !== undefined,
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     placeholderData: (previousData) => previousData,
   });
@@ -144,17 +146,21 @@ const Conversation: React.FC<ConversationProps> = (props) => {
       props.supportTicketCreatedByUserId,
     );
   const canComposeMessage =
-    !!userData && (!composeRestriction || canComposeDespiteRestriction);
+    !!userData &&
+    !conversation?.sendRestriction &&
+    (!composeRestriction || canComposeDespiteRestriction);
   // Single source of truth for toast + inline copy when compose is blocked.
-  const composeRestrictionMessage = !composeRestriction
-    ? null
-    : conversation?.isStaffAvailable &&
-        (userData?.isBanned || userData?.isSilenced) &&
-        !canComposeDespiteRestriction
-      ? props.supportTicketCreatedByUserId
-        ? RESTRICTED_SUPPORT_TICKET_REPLY_MESSAGE
-        : RESTRICTED_STAFF_CONVERSATION_MESSAGE
-      : composeRestriction;
+  const composeRestrictionMessage =
+    conversation?.sendRestriction ??
+    (!composeRestriction
+      ? null
+      : conversation?.isStaffAvailable &&
+          (userData?.isBanned || userData?.isSilenced) &&
+          !canComposeDespiteRestriction
+        ? props.supportTicketCreatedByUserId
+          ? RESTRICTED_SUPPORT_TICKET_REPLY_MESSAGE
+          : RESTRICTED_STAFF_CONVERSATION_MESSAGE
+        : composeRestriction);
   type ReturnedComment = ArrayElement<
     NonNullable<typeof comments>["pages"][number]["data"]
   >;
@@ -314,6 +320,13 @@ const Conversation: React.FC<ConversationProps> = (props) => {
           userData.username,
         );
       },
+      onSuccess: (result) => {
+        if (!result.success) {
+          showMutationToast(result);
+          void refetch();
+        }
+      },
+      onError: () => void refetch(),
     });
 
   // Mutation for typing indicator
@@ -738,14 +751,14 @@ const Conversation: React.FC<ConversationProps> = (props) => {
           )}
           {!conversation && (
             <div className="text-center text-muted-foreground">
-              Conversation not found
+              {comments?.pages[0]?.restrictionMessage ?? "Conversation not found"}
             </div>
           )}
           {conversation &&
             !conversation.isLocked &&
             userData &&
             !canComposeMessage &&
-            composeRestriction && (
+            composeRestrictionMessage && (
               <p className="mb-2 text-center text-muted-foreground text-sm">
                 {composeRestrictionMessage}
               </p>
@@ -842,6 +855,7 @@ const Conversation: React.FC<ConversationProps> = (props) => {
             onReact={reactConversationComment}
             onToggleQuote={toggleQuoteId}
             onDeleted={handleConversationCommentDeleted}
+            canInteract={canComposeMessage}
           />
         </ContentBox>
       )}
@@ -860,6 +874,7 @@ interface ConversationCommentsProps {
   onReact: (reaction: { commentId: string; emoji: string }) => void;
   onToggleQuote: (quoteId: string) => void;
   onDeleted: (commentId: string) => void;
+  canInteract: boolean;
 }
 
 /**
@@ -867,6 +882,7 @@ interface ConversationCommentsProps {
  * one does not re-render every comment.
  */
 const ConversationComments: React.FC<ConversationCommentsProps> = ({
+  canInteract,
   pages,
   conversationId,
   deletedCommentIds,
@@ -908,8 +924,13 @@ const ConversationComments: React.FC<ConversationCommentsProps> = ({
                 ? "poppopover"
                 : undefined
             }
-            toggleReaction={(emoji) => onReact({ commentId: comment.id, emoji })}
-            setQuoteId={onToggleQuote}
+            toggleReaction={
+              canInteract
+                ? (emoji) => onReact({ commentId: comment.id, emoji })
+                : undefined
+            }
+            canEdit={canInteract}
+            setQuoteId={canInteract ? onToggleQuote : undefined}
             onDeleted={onDeleted}
           >
             {parseHtml(comment.content)}

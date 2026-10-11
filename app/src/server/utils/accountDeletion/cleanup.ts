@@ -11,6 +11,7 @@ import {
   historicalSoundEffect,
   itemLoadout,
   jutsuReskin,
+  parentalControl,
   rankedLoadout,
   recruitmentRewards,
   referralSource,
@@ -103,6 +104,7 @@ export const removeAccountGameData = async (userId: string) => {
   ]);
   await Promise.all(
     [
+      parentalControl,
       sageModeRolls,
       historicalSoundEffect,
       userItemVariant,

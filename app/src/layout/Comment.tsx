@@ -51,6 +51,7 @@ interface ConversationCommentProps extends PostProps {
   setQuoteId?: (id: string) => void;
   quoteIds?: string[] | null;
   onDeleted?: (commentId: string) => void;
+  canEdit?: boolean;
 }
 export const CommentOnConversation: React.FC<ConversationCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
@@ -97,7 +98,7 @@ export const CommentOnConversation: React.FC<ConversationCommentProps> = (props)
     <BaseComment
       {...props}
       system="conversation_comment"
-      editComment={editComment.mutate}
+      editComment={props.canEdit === false ? undefined : editComment.mutate}
       isEditPending={editComment.isPending}
       deleteComment={handleDelete}
       isDeletePending={deleteComment.isPending}

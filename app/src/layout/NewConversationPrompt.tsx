@@ -262,6 +262,11 @@ export const NewConversationPrompt: React.FC<NewConversationPromptProps> = (prop
                   error={create.formState.errors.comment?.message}
                 />
               </Form>
+              {createConversation.data && !createConversation.data.success && (
+                <p role="alert" className="mt-3 text-destructive text-sm">
+                  {createConversation.data.message}
+                </p>
+              )}
               {createConversation.isPending && (
                 <div
                   role="status"

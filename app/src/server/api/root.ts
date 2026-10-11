@@ -37,6 +37,7 @@ import { miscRouter } from "./routers/misc";
 import { occupationRouter } from "./routers/occupation";
 import { generativeAiRouter } from "./routers/openai";
 import { overworldAiRouter } from "./routers/overworldAi";
+import { parentalControlsRouter } from "./routers/parentalControls";
 import { paypalRouter } from "./routers/paypal";
 import { pollRouter } from "./routers/poll";
 import { profileRouter } from "./routers/profile";
@@ -102,6 +103,7 @@ export const appRouter = createTRPCRouter({
   merch: merchRouter,
   generativeAi: generativeAiRouter,
   paypal: paypalRouter,
+  parentalControls: parentalControlsRouter,
   poll: pollRouter,
   profile: profileRouter,
   push: pushRouter,

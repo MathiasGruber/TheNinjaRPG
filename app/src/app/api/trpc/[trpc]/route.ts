@@ -12,6 +12,7 @@ import {
   withBotIdGuard,
 } from "@/server/utils/botid";
 import { flushSafe, isExpectedTrpcRouteError, logError } from "@/server/utils/sentry";
+import { diagnosticTrpcInput } from "@/server/utils/trpcInput";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -47,6 +48,7 @@ const handler = async (req: NextRequest) => {
           return createAppTRPCContext({ req, readHeaders, readCookies });
         },
         onError: ({ error, path, input, ctx }) => {
+          const diagnosticInput = diagnosticTrpcInput(path, input);
           if (
             !isExpectedTrpcRouteError({
               code: error.code,
@@ -57,8 +59,8 @@ const handler = async (req: NextRequest) => {
           ) {
             logError(
               error,
-              `❌ tRPC failed with ${error.code} on ${path ?? "<no-path>"}. Message: ${error.message}. Input: ${JSON.stringify(input)}. Stack: ${error.stack}`,
-              { input, path, error, ctx },
+              `❌ tRPC failed with ${error.code} on ${path ?? "<no-path>"}. Message: ${error.message}. Input: ${JSON.stringify(diagnosticInput)}. Stack: ${error.stack}`,
+              { input: diagnosticInput, path, error, ctx },
             );
             shouldFlush = true;
           }
