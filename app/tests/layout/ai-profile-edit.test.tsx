@@ -108,13 +108,7 @@ describe("AI profile rule organization", () => {
 
 const changeCoordinate = (view: ReturnType<typeof mount>, name: string, value: string) => {
   const input = view.getByRole("spinbutton", { name });
-  // The server preload imports react-dom before jsdom, enabling its legacy
-  // change-event adapter. Supply the adapter methods on this input only.
-  Object.assign(input, { attachEvent: () => undefined, detachEvent: () => undefined });
-  fireEvent.focusIn(input);
-  fireEvent.change(input, { target: { value } });
-  fireEvent.keyUp(input, { key: "0" });
-  fireEvent.focusOut(input);
+  fireEvent.input(input, { target: { value } });
 };
 
 describe("AI coordinate editor", () => {

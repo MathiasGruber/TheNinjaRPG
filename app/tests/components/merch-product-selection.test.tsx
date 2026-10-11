@@ -9,7 +9,7 @@ vi.mock("@/layout/Image", () => ({ default: () => null }));
 vi.mock("@/layout/Link", () => ({
   default: (props: ComponentProps<"a">) => <a {...props} />,
 }));
-vi.mock("@/layout/Table", () => ({ default: () => null }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/merch/MerchCollection", () => ({ MerchProductCard: () => null }));
 vi.mock("@/components/merch/MerchProvider", () => ({
   useMerch: () => ({

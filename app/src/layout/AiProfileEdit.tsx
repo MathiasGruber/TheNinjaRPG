@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { NumberInput } from "@/components/ui/number-input";
 import {
   Select,
   SelectContent,
@@ -157,7 +158,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
     ruleIndex: number,
     conditionIdx: number,
     field: string,
-    value: string,
+    value: string | number,
   ) => {
     setRules((prevRules) =>
       prevRules.map((rule, i) => {
@@ -482,34 +483,32 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                           <div className="grid grid-cols-2 gap-2">
                             <Label>
                               Minimum range
-                              <Input
+                              <NumberInput
                                 aria-label="Minimum range"
-                                type="number"
                                 min={0}
                                 value={condition.minRange}
-                                onChange={(event) =>
+                                onValueChange={(value) =>
                                   updateCondition(
                                     ruleIndex,
                                     conditionIndex,
                                     "minRange",
-                                    event.target.value,
+                                    value,
                                   )
                                 }
                               />
                             </Label>
                             <Label>
                               Maximum range
-                              <Input
+                              <NumberInput
                                 aria-label="Maximum range"
-                                type="number"
                                 min={0}
                                 value={condition.maxRange}
-                                onChange={(event) =>
+                                onValueChange={(value) =>
                                   updateCondition(
                                     ruleIndex,
                                     conditionIndex,
                                     "maxRange",
-                                    event.target.value,
+                                    value,
                                   )
                                 }
                               />
@@ -541,18 +540,17 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                           </Select>
                         )}
                         {"threshold" in condition && (
-                          <Input
+                          <NumberInput
                             id="threshold"
-                            type="number"
                             min="0"
                             max="100"
                             value={condition.threshold}
-                            onChange={(e) => {
+                            onValueChange={(value) => {
                               updateCondition(
                                 ruleIndex,
                                 conditionIndex,
                                 "threshold",
-                                (parseInt(e.target.value, 10) || 0).toString(),
+                                value,
                               );
                             }}
                             placeholder="Effect threshold (0-100)"
@@ -734,20 +732,14 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                               {(["longitude", "latitude"] as const).map((axis) => (
                                 <Label key={axis}>
                                   {axis === "longitude" ? "X (column)" : "Y (row)"}
-                                  <Input
+                                  <NumberInput
                                     aria-label={
                                       axis === "longitude" ? "X (column)" : "Y (row)"
                                     }
-                                    type="number"
                                     min={0}
                                     step={1}
-                                    value={
-                                      Number.isFinite(coordinates?.[axis])
-                                        ? coordinates?.[axis]
-                                        : ""
-                                    }
-                                    onChange={(event) => {
-                                      const value = event.target.valueAsNumber;
+                                    value={coordinates?.[axis]}
+                                    onValueChange={(value) => {
                                       updateAction(ruleIndex, (action) => {
                                         if (!("target" in action)) return action;
                                         return {

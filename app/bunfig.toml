@@ -1,2 +1,3 @@
 [test]
-preload = ["./tests/setup/serverModules.ts", "./tests/setup/preload.ts"]
+# Initialize server modules before DOM globals; React DOM needs those globals before suites load.
+preload = ["./tests/setup/serverModules.ts", "./tests/setup-dom.mjs", "./tests/setup/preload.ts"]
