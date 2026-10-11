@@ -196,7 +196,6 @@ export const StatsTab: React.FC<StatsTabProps> = ({ userData }) => {
               <p>- 2nd element at Chunin</p>
             </>
           )}
-          <ElementalMasteryProgress userData={userData} />
         </div>
       </div>
       <div className="space-y-3">
@@ -244,6 +243,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ userData }) => {
           </div>
         </div>
       </div>
+      <ElementalMasteryProgress userData={userData} />
     </div>
   );
 };
@@ -432,45 +432,49 @@ export const GraphsTab: React.FC<GraphsTabProps> = ({ userData }) => {
 };
 
 const ElementalMasteryProgress = ({ userData }: StatsTabProps) => {
+  const userElements = getUserElements(userData);
   const elements = BasicElementName.filter(
     (element) =>
-      (userData.elementalMastery[element] ?? 0) > 0 ||
-      userData.currentlyTrainingElement === element,
+      ((userData.elementalMastery[element] ?? 0) > 0 ||
+        userData.currentlyTrainingElement === element) &&
+      !(
+        (userData.elementalMastery[element] ?? 0) >= ELEMENTAL_MASTERY_CAP &&
+        userElements.includes(element)
+      ),
   );
-  const active = activeTrainedElement(userData);
   const provided = providedElements(userData);
   if (elements.length === 0) return null;
 
   return (
-    <div className="mt-3 space-y-2 border-t pt-2">
+    <div className="col-span-2 mt-3 space-y-2 border-t pt-2">
       <b>Elemental Mastery</b>
-      {elements.map((element) => {
-        const progress = userData.elementalMastery[element] ?? 0;
-        return (
-          <div key={element}>
-            <div className="flex items-center gap-2 text-sm">
-              <ElementImage element={element} className="h-6 w-6" />
-              {element}: {Number(progress.toFixed(2)).toLocaleString()} /{" "}
-              {ELEMENTAL_MASTERY_CAP.toLocaleString()}
-            </div>
-            <Progress
-              aria-label={`${element} mastery`}
-              value={(progress / ELEMENTAL_MASTERY_CAP) * 100}
-              className="my-1 h-2"
-            />
-            <p className="text-muted-foreground text-xs">
-              {provided.includes(element)
-                ? "Provided by innate elements or bloodline"
-                : active === element
-                  ? `Active (+${ELEMENTAL_MASTERY_BOOST}% damage)`
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {elements.map((element) => {
+          const progress = userData.elementalMastery[element] ?? 0;
+          return (
+            <div key={element}>
+              <div className="flex items-center gap-2 text-sm">
+                <ElementImage element={element} className="h-6 w-6" />
+                {element}: {Number(progress.toFixed(2)).toLocaleString()} /{" "}
+                {ELEMENTAL_MASTERY_CAP.toLocaleString()}
+              </div>
+              <Progress
+                aria-label={`${element} mastery`}
+                value={(progress / ELEMENTAL_MASTERY_CAP) * 100}
+                className="my-1 h-2"
+              />
+              <p className="text-muted-foreground text-xs">
+                {provided.includes(element)
+                  ? "Provided by innate elements or bloodline"
                   : progress >= ELEMENTAL_MASTERY_CAP
                     ? "Mastered (inactive)"
                     : "Not yet proficient"}
-              {userData.currentlyTrainingElement === element ? " · Training" : ""}
-            </p>
-          </div>
-        );
-      })}
+                {userData.currentlyTrainingElement === element ? " · Training" : ""}
+              </p>
+            </div>
+          );
+        })}
+      </div>
       <p className="text-muted-foreground text-xs">
         Fully master an element and select it in Combat Preferences to use it.
       </p>
