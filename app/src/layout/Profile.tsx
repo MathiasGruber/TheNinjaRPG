@@ -1,7 +1,17 @@
 "use client";
 
 import { differenceInDays, differenceInHours } from "date-fns";
-import { History, Info, Settings, Share2, Trash2, Trophy, Wrench } from "lucide-react";
+import {
+  History,
+  Info,
+  LayoutDashboard,
+  Settings,
+  Share2,
+  Trash2,
+  Trophy,
+  UserRound,
+  Wrench,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { lazy, Suspense, useState } from "react";
 import { api } from "@/app/_trpc/client";
@@ -132,7 +142,7 @@ export function Profile() {
         value={profileTabValues[activeTab]}
         onValueChange={(value) => selectTab(value)}
       >
-        <div className="mb-3">
+        <div className="@container mb-3">
           <NavTabs
             id={`profileTab:${userData.userId}`}
             remember={userData.rememberProfileTab}
@@ -142,6 +152,18 @@ export function Profile() {
             accessibleTabs
             label="Profile sections"
             icons={{
+              Dashboard: (
+                <LayoutDashboard
+                  className="h-[20px] w-[20px] @min-[480px]:hidden"
+                  aria-hidden="true"
+                />
+              ),
+              Character: (
+                <UserRound
+                  className="h-[20px] w-[20px] @min-[480px]:hidden"
+                  aria-hidden="true"
+                />
+              ),
               Achievements: <Trophy className="h-[20px] w-[20px]" aria-hidden="true" />,
               History: <History className="h-[20px] w-[20px]" aria-hidden="true" />,
               "Edit Character": (
@@ -152,13 +174,19 @@ export function Profile() {
                 <Trash2 className="h-[20px] w-[20px]" aria-hidden="true" />
               ),
             }}
-            iconOnlyOptions={iconProfileTabs}
-            keepIconTabsTogether
+            iconOnlyOptions={profileTabs}
+            labelClassName={(option) =>
+              option === "Dashboard" || option === "Character"
+                ? "@min-[480px]:not-sr-only"
+                : ""
+            }
             values={profileTabValues}
             counts={{ Sharing: newInRecruit }}
-            listClassName="w-full flex-wrap justify-end gap-[4px]"
-            itemClassName={() => "mr-0 shrink-0"}
-            className="min-h-[44px] min-w-[44px] px-[12px] text-base"
+            listClassName="w-full flex-nowrap justify-start gap-[4px]"
+            itemClassName={(option) =>
+              `shrink-0 w-[min(44px,calc((100cqw_-_24px)/7))] ${option === "Character" ? "mr-auto" : "mr-0"} ${option === "Dashboard" || option === "Character" ? "@min-[480px]:w-auto" : ""}`
+            }
+            className="min-h-[44px] min-w-0 w-full px-0 text-base @min-[480px]:px-[12px]"
           />
         </div>
         <TabsContent value="dashboard">

@@ -49,16 +49,16 @@ afterEach(() => {
 const options = ["Dashboard", "Character", "Achievements"];
 
 describe("optional tab remembering", () => {
-  it("keeps keyboard navigation and panel names working across an icon group", async () => {
-    const iconOptions = ["Achievements", "Sharing", "Delete Character"];
+  it("keeps responsive icon tabs named and keyboard accessible", async () => {
+    const iconOptions = ["Dashboard", "Character", "Achievements", "Sharing", "Delete Character"];
     const view = render(
       <Tabs defaultValue="Character">
         <NavTabs
           current="Character"
-          options={["Dashboard", "Character", ...iconOptions]}
+          options={iconOptions}
           icons={Object.fromEntries(iconOptions.map((option) => [option, <span aria-hidden="true">★</span>]))}
           iconOnlyOptions={iconOptions}
-          keepIconTabsTogether
+          labelClassName={(option) => option === "Dashboard" || option === "Character" ? "@min-[480px]:not-sr-only" : ""}
           accessibleTabs
           label="Profile sections"
           values={{ "Delete Character": "delete" }}

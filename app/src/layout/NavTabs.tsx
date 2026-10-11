@@ -13,8 +13,8 @@ interface NavTabsProps {
   icons?: Partial<Record<string, React.ReactNode>>;
   /** Keep icon tabs named for assistive technology and hover discovery. */
   iconOnlyOptions?: readonly string[];
-  /** Wrap adjacent icon tabs together instead of leaving a lone icon on a new row. */
-  keepIconTabsTogether?: boolean;
+  /** Customize icon labels, including showing them only in wider containers. */
+  labelClassName?: (option: string) => string;
   /** Stable Radix values keep labels containing spaces out of generated ID references. */
   values?: Partial<Record<string, string>>;
   listClassName?: string;
@@ -84,7 +84,11 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
         {props.icons?.[option] ? (
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
             {props.icons[option]}
-            <span className={isIconOnly ? "sr-only" : undefined}>{option}</span>
+            <span
+              className={cn(isIconOnly && "sr-only", props.labelClassName?.(option))}
+            >
+              {option}
+            </span>
           </span>
         ) : (
           option
@@ -129,33 +133,6 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
     );
   });
 
-  const renderedItems = props.keepIconTabsTogether
-    ? options.flatMap((option, index) => {
-        if (!props.iconOnlyOptions?.includes(option)) return [tabItems[index]];
-        if (index > 0 && props.iconOnlyOptions.includes(options[index - 1] ?? "")) {
-          return [];
-        }
-        let end = index + 1;
-        while (
-          end < options.length &&
-          props.iconOnlyOptions.includes(options[end] ?? "")
-        ) {
-          end++;
-        }
-        return [
-          <li
-            key={`icon-group-${index}`}
-            role="presentation"
-            className="min-w-0 [gap:inherit]"
-          >
-            <ul role="presentation" className="flex flex-wrap [gap:inherit]">
-              {tabItems.slice(index, end)}
-            </ul>
-          </li>,
-        ];
-      })
-    : tabItems;
-
   // Render
   return (
     <div
@@ -170,12 +147,10 @@ const NavTabs: React.FC<NavTabsProps> = (props) => {
             props.listClassName,
           )}
         >
-          <ul className="-mb-px flex flex-row">{renderedItems}</ul>
+          <ul className="-mb-px flex flex-row">{tabItems}</ul>
         </TabsList>
       ) : (
-        <ul className={cn("-mb-px flex flex-row", props.listClassName)}>
-          {renderedItems}
-        </ul>
+        <ul className={cn("-mb-px flex flex-row", props.listClassName)}>{tabItems}</ul>
       )}
     </div>
   );
