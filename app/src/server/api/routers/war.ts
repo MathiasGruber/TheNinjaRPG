@@ -207,7 +207,7 @@ export const warRouter = createTRPCRouter({
 
       // Handle war end
       activeWar.defenderVillage.tokens = 0;
-      await handleWarEnd(activeWar);
+      await handleWarEnd(activeWar, ctx.drizzle);
       return { success: true, message: "Shrine built successfully" };
     }),
 
@@ -1085,7 +1085,7 @@ export const warRouter = createTRPCRouter({
         } else {
           activeWar.defenderVillage.tokens = 0;
         }
-        await handleWarEnd(activeWar);
+        await handleWarEnd(activeWar, ctx.drizzle);
       } else if (warAllyData) {
         // Ally surrendering
         const endedAt = new Date();
@@ -1551,7 +1551,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
         }
         // Update war
         if (war.attackerVillage.tokens <= 0 || war.defenderVillage.tokens <= 0) {
-          return handleWarEnd(war);
+          return handleWarEnd(war, client);
         }
         return war;
       }),
