@@ -1,157 +1,648 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { eq } from "drizzle-orm";
-import { WAR_VICTORY_TOKEN_BONUS } from "@/drizzle/constants";
-import { notification, village, war, warAlly } from "@/drizzle/schema";
-import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
+import { readFileSync } from "node:fs";
+import { afterEach, beforeEach, expect, it } from "bun:test";
+import { eq, type SQL } from "drizzle-orm";
+import { MySqlDialect } from "drizzle-orm/mysql-core";
+import {
+  WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS,
+  WAR_PURCHASE_SHRINE_TOKEN_COST,
+  WAR_SECTOR_LOSS_TOWNHALL_DAMAGE,
+  WAR_VICTORY_BOOSTED_STRUCTURES,
+  WAR_VICTORY_STRUCTURE_BOOST_LEVELS,
+  WAR_VICTORY_TOKEN_BONUS,
+  WAR_WINNING_BOOST_REGEN_PERC,
+  WAR_WINNING_BOOST_TRAINING_PERC,
+  type WarType,
+} from "@/drizzle/constants";
+import {
+  gameSetting,
+  mpvpBattleQueue,
+  mpvpBattleUser,
+  notification,
+  questHistory,
+  sector,
+  userData,
+  userRequest,
+  village,
+  villageStructure,
+  war,
+  warAlly,
+} from "@/drizzle/schema";
+import {
+  fetchActiveWar,
+  fetchActiveWars,
+  fetchEndedWars,
+  warRouter,
+} from "@/server/api/routers/war";
 import type { DrizzleClient } from "@/server/db";
 import { handleWarEnd } from "@/server/utils/war";
+import { acceptWarAllyOffer, withdrawWarAlly } from "@/server/utils/warAlly";
+import { insertUsers } from "../../setup/factories";
+import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
 import {
+  callerForDatabase,
   describeWithDatabase,
   getTestDatabase,
+  recordQueries,
   resetTables,
+  runRawSql,
 } from "../../setup/testDatabase";
 
-const snapshot = {
-  id: "settlement-war",
-  type: "VILLAGE_WAR",
-  status: "ACTIVE",
-  attackerVillageId: "attacker",
-  defenderVillageId: "defender",
-  attackerVillage: { id: "attacker", name: "Attacker", tokens: 100 },
-  defenderVillage: { id: "defender", name: "Defender", tokens: 100 },
-  attackerWarHealth: 100,
-  defenderWarHealth: 0,
-  warAllies: [],
-} as unknown as FetchActiveWarsReturnType;
-
-describe("war settlement claim", () => {
-  it("waits for the claim and skips every effect when another caller settled", async () => {
-    let resolveClaim!: (value: { rowsAffected: number }) => void;
-    const pendingClaim = new Promise<{ rowsAffected: number }>((resolve) => {
-      resolveClaim = resolve;
-    });
-    const saved = { status: "DEFENDER_VICTORY", endedAt: new Date() };
-    const tx = {
-      update: mock(() => ({ set: () => ({ where: () => pendingClaim }) })),
-      insert: mock(),
-      delete: mock(),
-      execute: mock(),
-      query: { war: { findFirst: mock(async () => saved) } },
-    };
-    const client = {
-      transaction: async (run: (value: typeof tx) => unknown) => run(tx),
-    };
-    const result = handleWarEnd(snapshot, client as unknown as DrizzleClient);
-    expect(tx.update).toHaveBeenCalledTimes(1);
-    expect(tx.insert).not.toHaveBeenCalled();
-    expect(tx.query.war.findFirst).not.toHaveBeenCalled();
-    resolveClaim({ rowsAffected: 0 });
-    expect(await result).toMatchObject(saved);
-    expect(tx.update).toHaveBeenCalledTimes(1);
-    expect(tx.insert).not.toHaveBeenCalled();
-    expect(tx.delete).not.toHaveBeenCalled();
-    expect(tx.execute).not.toHaveBeenCalled();
+const warId = "settlement-war";
+const sectorId = 205;
+const tokens = WAR_PURCHASE_SHRINE_TOKEN_COST * 3;
+const dialect = new MySqlDialect();
+const statement = (query: SQL) => dialect.sqlToQuery(query).sql;
+const intercept = (
+  db: DrizzleClient,
+  run: (
+    query: SQL,
+    execute: () => ReturnType<DrizzleClient["execute"]>,
+  ) => ReturnType<DrizzleClient["execute"]>,
+) =>
+  new Proxy(db, {
+    get(target, property, receiver) {
+      if (property === "execute")
+        return (query: SQL) => run(query, () => target.execute(query));
+      if (property === "transaction")
+        return () => {
+          throw new Error("Settlement must not open a transaction");
+        };
+      return Reflect.get(target, property, receiver);
+    },
   });
-});
+const seed = async (type: WarType = "VILLAGE_WAR") => {
+  const db = await getTestDatabase();
+  await db.insert(village).values(
+    ["attacker", "defender", "ally", "other"].map((id, i) => ({
+      id,
+      name: id,
+      sector: 101 + i,
+      kageId: `${id}-kage`,
+      tokens,
+    })),
+  );
+  await db.insert(war).values({
+    id: warId,
+    type,
+    status: "ACTIVE",
+    sector: sectorId,
+    attackerVillageId: "attacker",
+    defenderVillageId: "defender",
+    attackerWarHealth: 100,
+    defenderWarHealth: type === "SECTOR_WAR" ? 100 : 0,
+    defenderShrineHp: 0,
+  });
+  await db.insert(sector).values({ sector: sectorId, villageId: "defender" });
+  await insertUsers([
+    { userId: "attacker-user", villageId: "attacker" },
+    { userId: "defender-user", villageId: "defender" },
+  ]);
+  await db.insert(gameSetting).values(
+    ["war-attacker-regen", "war-ally-regen", "war-attacker-train"].map((name) => ({
+      id: name,
+      name,
+      value: 0,
+      time: new Date(0),
+    })),
+  );
+  await db.insert(villageStructure).values(
+    ["attacker", "defender"].flatMap((id) =>
+      ["/townhall", ...WAR_VICTORY_BOOSTED_STRUCTURES]
+        .filter((route, index, all) => all.indexOf(route) === index)
+        .map((route) => ({
+          id: `${id}${route}`,
+          name: route,
+          route,
+          image: "",
+          villageId: id,
+          curSp: WAR_SECTOR_LOSS_TOWNHALL_DAMAGE * 2,
+        })),
+    ),
+  );
+  return db;
+};
+const snapshot = async (db: DrizzleClient) => {
+  const value = await fetchActiveWar(db, warId);
+  if (!value) throw new Error("Missing seeded war");
+  return value;
+};
+const savedWar = (db: DrizzleClient) =>
+  db.query.war.findFirst({ where: eq(war.id, warId) });
+const balance = async (db: DrizzleClient, id: string) =>
+  (await db.query.village.findFirst({ where: eq(village.id, id) }))?.tokens;
+const addAlly = (db: DrizzleClient) =>
+  db.insert(warAlly).values({
+    id: "ally-membership",
+    warId,
+    villageId: "ally",
+    supportVillageId: "attacker",
+    tokensPaid: 0,
+  });
+const offer = {
+  offerId: "offer",
+  warId,
+  villageId: "ally",
+  supportVillageId: "attacker",
+  userId: "ally-kage",
+};
+const addOffer = (db: DrizzleClient, value = 100) =>
+  db.insert(userRequest).values({
+    id: offer.offerId,
+    type: "WAR_ALLY",
+    status: "PENDING",
+    senderId: "attacker-kage",
+    receiverId: offer.userId,
+    relatedId: warId,
+    value,
+  });
 
-describeWithDatabase("atomic war settlement delivery", () => {
+describeWithDatabase("guarded war settlement and delivery", () => {
   beforeEach(async () => {
-    await resetTables(notification, warAlly, war, village);
+    await resetTables(
+      notification,
+      gameSetting,
+      mpvpBattleUser,
+      mpvpBattleQueue,
+      questHistory,
+      sector,
+      userData,
+      userRequest,
+      villageStructure,
+      warAlly,
+      war,
+      village,
+    );
+  });
+  afterEach(resetServerModuleStubs);
+
+  it("withdrawal overlapping settlement either leaves before rewards or loses its claim", async () => {
+    const db = await seed();
+    await addAlly(db);
+    const initial = await snapshot(db);
+    const [settled, withdrawn] = await Promise.all([
+      handleWarEnd(initial, db),
+      withdrawWarAlly(db, warId, "ally", "ally-kage"),
+    ]);
+    expect(settled.status).toBe("ATTACKER_VICTORY");
+    expect(await balance(db, "ally")).toBe(
+      tokens + (withdrawn.success ? 0 : WAR_VICTORY_TOKEN_BONUS / 2),
+    );
+    expect((await savedWar(db))?.settlement?.winningVillageIds.includes("ally")).toBe(
+      !withdrawn.success,
+    );
   });
 
-  const seed = async () => {
-    const database = await getTestDatabase();
-    await database.insert(village).values(
-      ["attacker", "defender", "winning-ally", "losing-ally"].map((id, i) => ({
-        id,
-        name: id,
-        kageId: `${id}-kage`,
-        sector: 101 + i,
-        tokens: 100,
-      })),
+  it("acceptance overlapping settlement cannot deliver a late membership or partial payment", async () => {
+    const db = await seed();
+    await addOffer(db);
+    const initial = await snapshot(db);
+    const [settled, admitted] = await Promise.all([
+      handleWarEnd(initial, db),
+      acceptWarAllyOffer(db, offer),
+    ]);
+    expect(settled.status).toBe("ATTACKER_VICTORY");
+    const receipt = (await savedWar(db))?.settlement;
+    expect(receipt?.winningVillageIds.includes("ally")).toBe(admitted.success);
+    expect(await balance(db, "ally")).toBe(
+      tokens + (admitted.success ? 100 + WAR_VICTORY_TOKEN_BONUS / 2 : 0),
     );
-    await database.insert(war).values({
-      id: snapshot.id,
-      attackerVillageId: "attacker",
-      defenderVillageId: "defender",
-      status: "ACTIVE",
-      type: "VILLAGE_WAR",
-      attackerWarHealth: 100,
-      defenderWarHealth: 0,
-    });
-    await database.insert(warAlly).values([
-      {
-        id: "ally-a",
-        warId: snapshot.id,
-        villageId: "winning-ally",
+  });
+
+  it("the uniqueness migration retains one active legacy membership and preserves history", async () => {
+    const db = await seed();
+    await runRawSql("ALTER TABLE WarAlly DROP INDEX WarAlly_active_village_key");
+    try {
+      await addAlly(db);
+      await db.insert(warAlly).values({
+        id: "duplicate-membership",
+        warId,
+        villageId: "ally",
         supportVillageId: "attacker",
         tokensPaid: 0,
-      },
-      {
-        id: "ally-b",
-        warId: snapshot.id,
-        villageId: "losing-ally",
-        supportVillageId: "defender",
-        tokensPaid: 0,
-      },
-    ]);
-    const activeWar = await database.query.war.findFirst({
-      where: eq(war.id, snapshot.id),
-      with: {
-        attackerVillage: { with: { structures: true } },
-        defenderVillage: { with: { structures: true } },
-        warAllies: { with: { village: true } },
-      },
-    });
-    if (!activeWar) throw new Error("Missing seeded war");
-    return { database, activeWar };
-  };
-
-  const expectDeliveredOnce = async () => {
-    const database = await getTestDatabase();
-    const villages = await database.select().from(village);
-    for (const row of villages) {
-      const wins = ["attacker", "winning-ally"].includes(row.id);
-      expect(row.tokens).toBe(100 + (wins ? WAR_VICTORY_TOKEN_BONUS / 2 : 0));
+      });
+      const migration = readFileSync(
+        new URL("../../../drizzle/migrations/0072_powerful_lake.sql", import.meta.url),
+        "utf8",
+      );
+      const deduplicate = migration.match(/UPDATE `WarAlly`[\s\S]+?;/)?.[0];
+      if (!deduplicate) throw new Error("Missing membership migration");
+      await runRawSql(deduplicate);
+      expect(await db.select().from(warAlly)).toHaveLength(2);
+      expect((await snapshot(db)).warAllies).toHaveLength(1);
+    } finally {
+      await runRawSql(
+        "ALTER TABLE WarAlly ADD CONSTRAINT WarAlly_active_village_key UNIQUE(warId, activeVillageId)",
+      );
     }
-    expect(await database.select().from(notification)).toHaveLength(1);
-  };
-
-  it("delivers once across concurrent callers and stale retries", async () => {
-    const { database, activeWar } = await seed();
-    const results = await Promise.all([
-      handleWarEnd(activeWar, database),
-      handleWarEnd(activeWar, database),
-    ]);
-    expect(results[0]?.endedAt).toEqual(results[1]?.endedAt);
-    await handleWarEnd(activeWar, database);
-    await expectDeliveredOnce();
   });
 
-  it("rolls back delivered effects and the claim on late failure, then permits retry", async () => {
-    const { database, activeWar } = await seed();
-    const failure = new Error("Settlement commit failed");
-    const failingClient = new Proxy(database, {
-      get(target, property, receiver) {
-        if (property === "transaction") {
-          return (async (run) =>
-            target.transaction(async (tx) => {
-              await run(tx);
-              throw failure;
-            })) as typeof database.transaction;
-        }
-        return Reflect.get(target, property, receiver);
+  it("pays the winning side once across concurrent claims and stale retries, without transactions", async () => {
+    const db = await seed();
+    await addAlly(db);
+    await db.insert(warAlly).values({
+      id: "losing-membership",
+      warId,
+      villageId: "other",
+      supportVillageId: "defender",
+      tokensPaid: 0,
+    });
+    const initial = await snapshot(db);
+    const client = intercept(db, (_query, execute) => execute());
+    const recorded = await recordQueries(() =>
+      Promise.all([handleWarEnd(initial, client), handleWarEnd(initial, client)]),
+    );
+    expect(recorded.result.every((row) => row.status === "ATTACKER_VICTORY")).toBe(
+      true,
+    );
+    await handleWarEnd(initial, client);
+    expect(await balance(db, "attacker")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS / 2);
+    expect(await balance(db, "ally")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS / 2);
+    expect(await balance(db, "defender")).toBe(tokens);
+    expect(await balance(db, "other")).toBe(tokens);
+    expect(await db.select().from(notification)).toHaveLength(1);
+    expect(
+      (await db.select().from(userData)).every(
+        (user) => user.unreadNotifications === 1,
+      ),
+    ).toBe(true);
+    expect(await savedWar(db)).toMatchObject({
+      settlementPending: false,
+      settlement: { boostsDelivered: true, structuresDelivered: true, notified: true },
+    });
+    expect(
+      recorded.statements.some((query) => /^(begin|start transaction)/i.test(query)),
+    ).toBe(false);
+    const settings = await db.select().from(gameSetting);
+    expect(settings.find((row) => row.name === "war-ally-regen")?.value).toBe(
+      WAR_WINNING_BOOST_REGEN_PERC,
+    );
+    expect(settings.find((row) => row.name === "war-attacker-train")?.value).toBe(
+      WAR_WINNING_BOOST_TRAINING_PERC,
+    );
+  });
+
+  it("rolls back every balance and the claim if the core SQL update fails", async () => {
+    const db = await seed();
+    await addAlly(db);
+    await db
+      .update(village)
+      .set({ tokens: 2_147_483_647 })
+      .where(eq(village.id, "ally"));
+    const initial = await snapshot(db);
+    await expect(handleWarEnd(initial, db)).rejects.toThrow();
+    expect(await savedWar(db)).toMatchObject({
+      status: "ACTIVE",
+      endedAt: null,
+      settlement: null,
+    });
+    expect(await balance(db, "attacker")).toBe(tokens);
+    expect(await db.select().from(notification)).toHaveLength(0);
+    await db.update(village).set({ tokens }).where(eq(village.id, "ally"));
+    await handleWarEnd(initial, db);
+    expect(await balance(db, "attacker")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS / 2);
+  });
+
+  it("resumes failed cleanup through active-war reads without paying or notifying twice", async () => {
+    const db = await seed();
+    const client = intercept(db, async (query, execute) => {
+      if (statement(query).includes("DELETE qh"))
+        throw new Error("Quest cleanup unavailable");
+      return execute();
+    });
+    expect((await handleWarEnd(await snapshot(db), client)).status).toBe(
+      "ATTACKER_VICTORY",
+    );
+    expect(await savedWar(db)).toMatchObject({ settlementPending: true });
+    expect(await fetchActiveWars(db, "attacker")).toHaveLength(0);
+    expect(await savedWar(db)).toMatchObject({ settlementPending: false });
+    expect(await balance(db, "attacker")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS);
+    expect(await db.select().from(notification)).toHaveLength(1);
+    expect(
+      (await db.select().from(userData)).every(
+        (user) => user.unreadNotifications === 1,
+      ),
+    ).toBe(true);
+  });
+
+  it("excludes a withdrawn ally when the supplied roster is stale", async () => {
+    const db = await seed();
+    await addAlly(db);
+    const initial = await snapshot(db);
+    expect((await withdrawWarAlly(db, warId, "ally", "ally-kage")).success).toBe(true);
+    await handleWarEnd(initial, db);
+    expect(await balance(db, "ally")).toBe(tokens);
+    expect(await balance(db, "attacker")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS);
+    expect(
+      (
+        await db.query.gameSetting.findFirst({
+          where: eq(gameSetting.name, "war-ally-regen"),
+        })
+      )?.value,
+    ).toBe(0);
+    expect((await savedWar(db))?.settlement?.winningVillageIds).toEqual(["attacker"]);
+    expect((await db.select().from(warAlly))[0]?.endedAt).not.toBeNull();
+    expect(await fetchEndedWars(db, "ally")).toHaveLength(0);
+  });
+
+  it("includes an ally accepted after the supplied roster was read", async () => {
+    const db = await seed();
+    const initial = await snapshot(db);
+    await addOffer(db);
+    expect((await acceptWarAllyOffer(db, offer)).success).toBe(true);
+    await handleWarEnd(initial, db);
+    expect(await balance(db, "attacker")).toBe(
+      tokens - 100 + WAR_VICTORY_TOKEN_BONUS / 2,
+    );
+    expect(await balance(db, "ally")).toBe(tokens + 100 + WAR_VICTORY_TOKEN_BONUS / 2);
+  });
+
+  it("conserves the complete reward pool when the recipient count does not divide it", async () => {
+    const db = await seed();
+    for (let i = 0; i < 6; i++) {
+      await db.insert(village).values({
+        id: `recipient-${i}`,
+        name: `recipient-${i}`,
+        sector: 110 + i,
+        kageId: `recipient-${i}-kage`,
+        tokens,
+      });
+      await db.insert(warAlly).values({
+        id: `membership-${i}`,
+        warId,
+        villageId: `recipient-${i}`,
+        supportVillageId: "attacker",
+        tokensPaid: 0,
+      });
+    }
+    await handleWarEnd(await snapshot(db), db);
+    expect(
+      (await db.select().from(village)).reduce(
+        (sum, row) => sum + row.tokens - tokens,
+        0,
+      ),
+    ).toBe(WAR_VICTORY_TOKEN_BONUS);
+    expect(await balance(db, "attacker")).toBe(
+      tokens + Math.floor(WAR_VICTORY_TOKEN_BONUS / 7) + (WAR_VICTORY_TOKEN_BONUS % 7),
+    );
+  });
+
+  it("a draw pays no rewards and penalizes both villages", async () => {
+    const db = await seed();
+    await db.update(war).set({ attackerWarHealth: 0 }).where(eq(war.id, warId));
+    expect((await handleWarEnd(await snapshot(db), db)).status).toBe("DRAW");
+    expect(
+      (await db.select().from(village)).every((row) => row.tokens === tokens),
+    ).toBe(true);
+    expect(
+      (await db.select().from(villageStructure)).every(
+        (row) => row.temporaryLevelBonus === -WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS,
+      ),
+    ).toBe(true);
+  });
+
+  it("a raid limits the losing penalty to its target and preserves all winner boosts", async () => {
+    const db = await seed("WAR_RAID");
+    await handleWarEnd(await snapshot(db), db);
+    const structures = await db.select().from(villageStructure);
+    expect(
+      structures
+        .filter(
+          (row) =>
+            row.villageId === "attacker" &&
+            WAR_VICTORY_BOOSTED_STRUCTURES.includes(row.route as never),
+        )
+        .every((row) => row.temporaryLevelBonus === WAR_VICTORY_STRUCTURE_BOOST_LEVELS),
+    ).toBe(true);
+    expect(
+      structures.find((row) => row.id === "defender/townhall")?.temporaryLevelBonus,
+    ).toBe(-WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS);
+    expect(
+      structures
+        .filter((row) => row.villageId === "defender" && row.route !== "/townhall")
+        .every((row) => row.temporaryLevelBonus === 0),
+    ).toBe(true);
+  });
+
+  it("closing sibling sector wars clears participation after all their outcomes commit", async () => {
+    const db = await seed("SECTOR_WAR");
+    await db.insert(war).values({
+      id: "other-war",
+      type: "SECTOR_WAR",
+      status: "ACTIVE",
+      sector: sectorId,
+      attackerVillageId: "other",
+      defenderVillageId: "defender",
+    });
+    await db.update(userData).set({
+      warParticipantUntil: new Date(Date.now() + 86_400_000),
+      status: "QUEUED",
+    });
+    await db.insert(mpvpBattleQueue).values({
+      id: "queue",
+      battleType: "SHRINE_BATTLE",
+      sector: sectorId,
+      attackerEntityId: "attacker",
+      defenderEntityId: "defender",
+    });
+    await db.insert(mpvpBattleUser).values({
+      id: "queued-user",
+      clanBattleId: "queue",
+      userId: "attacker-user",
+      side: "ATTACKER",
+      slot: 0,
+    });
+    await handleWarEnd(await snapshot(db), db, { shrineBuilderId: "attacker-kage" });
+    expect((await db.select().from(war)).every((row) => row.status !== "ACTIVE")).toBe(
+      true,
+    );
+    expect(
+      (await db.select().from(userData)).every(
+        (user) => user.warParticipantUntil.getTime() === 0,
+      ),
+    ).toBe(true);
+    expect(
+      (
+        await db.query.userData.findFirst({
+          where: eq(userData.userId, "attacker-user"),
+        })
+      )?.status,
+    ).toBe("AWAKE");
+    expect(await db.select().from(mpvpBattleQueue)).toHaveLength(0);
+    expect(await db.select().from(mpvpBattleUser)).toHaveLength(0);
+    expect((await db.query.sector.findFirst())?.villageId).toBe("attacker");
+    expect(
+      (
+        await db.query.villageStructure.findFirst({
+          where: eq(villageStructure.id, "defender/townhall"),
+        })
+      )?.curSp,
+    ).toBe(WAR_SECTOR_LOSS_TOWNHALL_DAMAGE);
+  });
+
+  it("retains participation in an unrelated active war", async () => {
+    const db = await seed();
+    const until = new Date(Date.now() + 86_400_000);
+    await db.update(userData).set({ warParticipantUntil: until });
+    await db.insert(war).values({
+      id: "other-war",
+      type: "SECTOR_WAR",
+      status: "ACTIVE",
+      sector: 206,
+      attackerVillageId: "attacker",
+      defenderVillageId: "other",
+    });
+    await handleWarEnd(await snapshot(db), db);
+    expect(
+      (
+        await db.query.userData.findFirst({
+          where: eq(userData.userId, "attacker-user"),
+        })
+      )?.warParticipantUntil,
+    ).toEqual(until);
+    expect(
+      (
+        await db.query.userData.findFirst({
+          where: eq(userData.userId, "defender-user"),
+        })
+      )?.warParticipantUntil.getTime(),
+    ).toBe(0);
+  });
+
+  it("a failed shrine claim leaves tokens intact; overlapping requests charge once", async () => {
+    const db = await seed("SECTOR_WAR");
+    stubProfile("fetchUpdatedUser", async () => ({
+      user: {
+        userId: "attacker-kage",
+        villageId: "attacker",
+        village: await db.query.village.findFirst({
+          where: eq(village.id, "attacker"),
+        }),
       },
+      requiresUserRefresh: false,
+    }));
+    const fail = intercept(db, async (query, execute) => {
+      if (statement(query).trimStart().startsWith("UPDATE `War`"))
+        throw new Error("Claim unavailable");
+      return execute();
     });
-    await expect(handleWarEnd(activeWar, failingClient)).rejects.toThrow(failure);
-    const saved = await database.query.war.findFirst({
-      where: eq(war.id, snapshot.id),
+    await expect(
+      callerForDatabase(warRouter, "attacker-kage", fail).buildShrine({ warId }),
+    ).rejects.toThrow("Claim unavailable");
+    expect(await balance(db, "attacker")).toBe(tokens);
+    expect(await savedWar(db)).toMatchObject({ status: "ACTIVE", endedAt: null });
+    const caller = callerForDatabase(warRouter, "attacker-kage", db);
+    const results = await Promise.all([
+      caller.buildShrine({ warId }),
+      caller.buildShrine({ warId }),
+    ]);
+    expect(results.some((row) => row.success)).toBe(true);
+    expect(await balance(db, "attacker")).toBe(tokens - WAR_PURCHASE_SHRINE_TOKEN_COST);
+    expect(await db.select().from(notification)).toHaveLength(1);
+  });
+
+  it("acceptance creates one membership and moves a payment once under concurrent retries", async () => {
+    const db = await seed();
+    await addOffer(db);
+    expect(
+      (
+        await Promise.all([
+          acceptWarAllyOffer(db, offer),
+          acceptWarAllyOffer(db, offer),
+        ])
+      ).every((row) => row.success),
+    ).toBe(true);
+    expect(await db.select().from(warAlly)).toHaveLength(1);
+    expect(await balance(db, "attacker")).toBe(tokens - 100);
+    expect(await balance(db, "ally")).toBe(tokens + 100);
+    expect((await db.query.userRequest.findFirst())?.status).toBe("ACCEPTED");
+  });
+
+  it("an interrupted payment leaves a hidden receipt that retry can deliver", async () => {
+    const db = await seed();
+    await addOffer(db);
+    const client = intercept(db, async (query, execute) => {
+      if (statement(query).includes("UPDATE UserRequest r"))
+        throw new Error("Payment unavailable");
+      return execute();
     });
-    expect(saved).toMatchObject({ status: "ACTIVE", endedAt: null });
-    expect(await database.select().from(notification)).toHaveLength(0);
-    for (const row of await database.select().from(village))
-      expect(row.tokens).toBe(100);
-    await handleWarEnd(activeWar, database);
-    await expectDeliveredOnce();
+    await expect(acceptWarAllyOffer(client, offer)).rejects.toThrow(
+      "Payment unavailable",
+    );
+    expect((await snapshot(db)).warAllies).toHaveLength(0);
+    expect(await balance(db, "ally")).toBe(tokens);
+    expect((await acceptWarAllyOffer(db, offer)).success).toBe(true);
+    expect((await snapshot(db)).warAllies).toHaveLength(1);
+    expect(await balance(db, "ally")).toBe(tokens + 100);
+  });
+
+  it("insufficient funds and an ended war reject admission without moving tokens", async () => {
+    const db = await seed();
+    await addOffer(db, tokens + 1);
+    expect((await acceptWarAllyOffer(db, offer)).success).toBe(false);
+    expect(await db.select().from(warAlly)).toHaveLength(0);
+    expect(await balance(db, "ally")).toBe(tokens);
+    await db.update(userRequest).set({ value: 100 });
+    await handleWarEnd(await snapshot(db), db);
+    expect((await acceptWarAllyOffer(db, offer)).success).toBe(false);
+    expect(await balance(db, "ally")).toBe(tokens);
+  });
+
+  it("delayed delivery preserves quests and shrine queues created after the settlement", async () => {
+    const db = await seed();
+    const client = intercept(db, async (query, execute) => {
+      if (statement(query).includes("DELETE qh"))
+        throw new Error("Cleanup unavailable");
+      return execute();
+    });
+    const ended = await handleWarEnd(await snapshot(db), client);
+    if (!ended.endedAt) throw new Error("Missing settlement date");
+    const later = new Date(ended.endedAt.getTime() + 60_000);
+    await db.insert(questHistory).values([
+      {
+        id: "old-quest",
+        userId: "attacker-user",
+        questId: "old",
+        questType: "war",
+        startedAt: new Date(0),
+      },
+      {
+        id: "new-quest",
+        userId: "attacker-user",
+        questId: "new",
+        questType: "war",
+        startedAt: later,
+      },
+    ]);
+    await db.insert(mpvpBattleQueue).values({
+      id: "new-queue",
+      battleType: "SHRINE_BATTLE",
+      attackerEntityId: "attacker",
+      defenderEntityId: "defender",
+      createdAt: later,
+    });
+    await db.insert(mpvpBattleUser).values({
+      id: "new-user",
+      userId: "attacker-user",
+      clanBattleId: "new-queue",
+      side: "ATTACKER",
+      slot: 0,
+    });
+    await db
+      .update(userData)
+      .set({ status: "QUEUED" })
+      .where(eq(userData.userId, "attacker-user"));
+    await fetchActiveWars(db);
+    expect((await db.select().from(questHistory)).map((row) => row.id)).toEqual([
+      "new-quest",
+    ]);
+    expect(await db.select().from(mpvpBattleQueue)).toHaveLength(1);
+    expect(await db.select().from(mpvpBattleUser)).toHaveLength(1);
+    expect(
+      (
+        await db.query.userData.findFirst({
+          where: eq(userData.userId, "attacker-user"),
+        })
+      )?.status,
+    ).toBe("QUEUED");
   });
 });

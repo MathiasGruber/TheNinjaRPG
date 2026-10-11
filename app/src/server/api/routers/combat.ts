@@ -222,6 +222,7 @@ import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { fetchSanninRankedPlayers } from "@/server/utils/ranked";
 import { hasDueTimedJob, settleDueTimedQueues } from "@/server/utils/userQueue";
 import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/war";
+import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
 import { getRandomElement } from "@/utils/array";
 import { randomInt } from "@/utils/math";
@@ -4149,7 +4150,7 @@ export const fetchBattleEssentials = async (client: DrizzleClient) => {
     client.query.war.findMany({
       where: eq(war.status, "ACTIVE"),
       with: {
-        warAllies: true,
+        warAllies: { where: activeWarAllyWhere() },
         attackerVillage: { columns: { name: true, sector: true } },
         defenderVillage: { columns: { name: true, sector: true } },
       },

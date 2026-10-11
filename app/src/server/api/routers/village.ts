@@ -51,6 +51,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { canAlly, canEnemy, canSurrender, findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
 import { canAdministrateWars, canSwapVillage } from "@/utils/permissions";
@@ -165,6 +166,7 @@ export const villageRouter = createTRPCRouter({
           },
           with: {
             warAllies: {
+              where: activeWarAllyWhere(),
               columns: {
                 villageId: true,
               },

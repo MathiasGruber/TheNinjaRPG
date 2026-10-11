@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { RouterOutputs } from "@/app/_trpc/client";
@@ -13,7 +13,6 @@ import {
   WAR_DECLARATION_COOLDOWN_HOURS,
   WAR_DECLARATION_COST,
   WAR_FACTION_MAX_SECTORS,
-  WAR_LOSING_COOLDOWN_DAYS,
   WAR_MINIMUM_MEMBERS_REQUIRED,
   WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
@@ -26,6 +25,7 @@ import {
   quest,
   sector,
   userData,
+  userRequest,
   village,
   villageElderVote,
   war,
@@ -41,12 +41,7 @@ import {
   isVillageInvolvedInAnyWar,
 } from "@/libs/war";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
-import {
-  fetchRequest,
-  fetchRequests,
-  insertRequest,
-  updateRequestState,
-} from "@/routers/sparring";
+import { fetchRequest, fetchRequests, insertRequest } from "@/routers/sparring";
 import {
   countVillageSectors,
   fetchAlliances,
@@ -63,10 +58,15 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { handleWarEnd, startDeclaredWar } from "@/server/utils/war";
+import {
+  acceptWarAllyOffer,
+  activeWarAllyWhere,
+  withdrawWarAlly,
+} from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
 import { canAdministrateWars, canSeeSecretData } from "@/utils/permissions";
-import { DAY_S, secondsFromDate, secondsFromNow } from "@/utils/time";
+import { secondsFromNow } from "@/utils/time";
 
 export const warRouter = createTRPCRouter({
   // Get active wars for a village
@@ -191,23 +191,14 @@ export const warRouter = createTRPCRouter({
         return errorResponse("Only the attacking village can build shrines");
       }
 
-      // First deduct the price
-      const result = await ctx.drizzle
-        .update(village)
-        .set({ tokens: user.village.tokens - WAR_PURCHASE_SHRINE_TOKEN_COST })
-        .where(
-          and(
-            eq(village.id, user.villageId),
-            gte(village.tokens, WAR_PURCHASE_SHRINE_TOKEN_COST),
-          ),
+      const settled = await handleWarEnd(activeWar, ctx.drizzle, {
+        shrineBuilderId: ctx.userId,
+      });
+      if (settled.status !== "ATTACKER_VICTORY") {
+        return errorResponse(
+          "War or village changed. Refresh before building the shrine.",
         );
-      if (result.rowsAffected === 0) {
-        return errorResponse("Not enough tokens to build a shrine");
       }
-
-      // Handle war end
-      activeWar.defenderVillage.tokens = 0;
-      await handleWarEnd(activeWar, ctx.drizzle);
       return { success: true, message: "Shrine built successfully" };
     }),
 
@@ -890,7 +881,14 @@ export const warRouter = createTRPCRouter({
       if (request.receiverId !== user.userId) return errorResponse("Not your request");
 
       // Update request
-      await updateRequestState(ctx.drizzle, request.id, "REJECTED", "WAR_ALLY");
+      const changed = await ctx.drizzle
+        .update(userRequest)
+        .set({ status: "REJECTED" })
+        .where(and(eq(userRequest.id, request.id), eq(userRequest.status, "PENDING")));
+      if (!changed.rowsAffected) return errorResponse("Offer is no longer pending");
+      await ctx.drizzle
+        .delete(warAlly)
+        .where(and(eq(warAlly.id, request.id), isNull(warAlly.acceptedAt)));
 
       // Return
       return { success: true, message: "Faction offer rejected" };
@@ -935,7 +933,14 @@ export const warRouter = createTRPCRouter({
       }
 
       // Update request
-      await updateRequestState(ctx.drizzle, input.offerId, "CANCELLED", "WAR_ALLY");
+      const changed = await ctx.drizzle
+        .update(userRequest)
+        .set({ status: "CANCELLED" })
+        .where(and(eq(userRequest.id, offer.id), eq(userRequest.status, "PENDING")));
+      if (!changed.rowsAffected) return errorResponse("Offer is no longer pending");
+      await ctx.drizzle
+        .delete(warAlly)
+        .where(and(eq(warAlly.id, offer.id), isNull(warAlly.acceptedAt)));
 
       return { success: true, message: "Offer delisted" };
     }),
@@ -998,6 +1003,8 @@ export const warRouter = createTRPCRouter({
       if (request.receiverId !== user.userId) {
         return errorResponse("This offer is not for your village");
       }
+      if (request.status !== "PENDING")
+        return errorResponse("Offer is no longer pending");
       if (request.senderId === user.userId) {
         return errorResponse("Cannot accept your own offer");
       }
@@ -1012,27 +1019,13 @@ export const warRouter = createTRPCRouter({
         senderVillage,
       );
       if (!check) return errorResponse(message);
-      // Create ally and delete offer
-      await Promise.all([
-        ctx.drizzle.insert(warAlly).values({
-          id: nanoid(),
-          warId: activeWar.id,
-          villageId: user.villageId,
-          supportVillageId: senderVillage.id,
-          tokensPaid: request.value || 0,
-        }),
-        ctx.drizzle
-          .update(village)
-          .set({ tokens: sql`tokens + ${request.value}` })
-          .where(eq(village.id, user.villageId)),
-        ctx.drizzle
-          .update(village)
-          .set({ tokens: sql`tokens - ${request.value}` })
-          .where(eq(village.kageId, request.senderId)),
-        updateRequestState(ctx.drizzle, input.offerId, "ACCEPTED", "WAR_ALLY"),
-      ]);
-
-      return { success: true, message: "Offer accepted and alliance formed" };
+      return acceptWarAllyOffer(ctx.drizzle, {
+        offerId: request.id,
+        warId: activeWar.id,
+        villageId: user.villageId,
+        supportVillageId: senderVillage.id,
+        userId: ctx.userId,
+      });
     }),
 
   // Surrender war
@@ -1079,30 +1072,9 @@ export const warRouter = createTRPCRouter({
       }
       // Mutate
       if (isMainCompetitor) {
-        // Main participant surrendering
-        if (user.villageId === activeWar.attackerVillageId) {
-          activeWar.attackerVillage.tokens = 0;
-        } else {
-          activeWar.defenderVillage.tokens = 0;
-        }
-        await handleWarEnd(activeWar, ctx.drizzle);
+        await handleWarEnd(activeWar, ctx.drizzle, { losingVillageId: user.villageId });
       } else if (warAllyData) {
-        // Ally surrendering
-        const endedAt = new Date();
-        const warExhaustionEnd = secondsFromDate(
-          WAR_LOSING_COOLDOWN_DAYS * DAY_S,
-          endedAt,
-        );
-        await Promise.all([
-          ctx.drizzle.delete(warAlly).where(eq(warAlly.id, warAllyData.id)),
-          ctx.drizzle
-            .update(village)
-            .set({
-              warExhaustionEndedAt: warExhaustionEnd,
-              lastWarEndedAt: endedAt,
-            })
-            .where(eq(village.id, user.villageId)),
-        ]);
+        return withdrawWarAlly(ctx.drizzle, activeWar.id, user.villageId, ctx.userId);
       } else {
         // Not part of the war
         return errorResponse("You are not part of this war");
@@ -1519,7 +1491,7 @@ export const warRouter = createTRPCRouter({
 export const fetchActiveWars = async (client: DrizzleClient, villageId?: string) => {
   // Fetch from database the active ones
   let activeWars = await client.query.war.findMany({
-    where: eq(war.status, "ACTIVE"),
+    where: or(eq(war.status, "ACTIVE"), eq(war.settlementPending, true)),
     with: {
       attackerVillage: {
         with: { structures: true },
@@ -1528,6 +1500,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
         with: { structures: true },
       },
       warAllies: {
+        where: activeWarAllyWhere(),
         with: {
           village: true,
         },
@@ -1539,18 +1512,13 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
     activeWars
       .filter((war) => war.attackerVillage && war.defenderVillage)
       .map((war) => {
-        // For village wars and raids, check war health instead of townhall
-        if (["VILLAGE_WAR", "WAR_RAID"].includes(war.type)) {
-          // Set tokens to 0 when war health reaches 0 to trigger war end
-          if (war.attackerWarHealth <= 0) {
-            war.attackerVillage.tokens = 0;
-          }
-          if (war.defenderWarHealth <= 0) {
-            war.defenderVillage.tokens = 0;
-          }
-        }
-        // Update war
-        if (war.attackerVillage.tokens <= 0 || war.defenderVillage.tokens <= 0) {
+        if (
+          war.settlementPending ||
+          war.attackerVillage.tokens <= 0 ||
+          war.defenderVillage.tokens <= 0 ||
+          war.attackerWarHealth <= 0 ||
+          war.defenderWarHealth <= 0
+        ) {
           return handleWarEnd(war, client);
         }
         return war;
@@ -1558,6 +1526,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
   );
   // Final active wars
   activeWars = activeWars.filter((war) => {
+    if (war.status !== "ACTIVE") return false;
     if (villageId) {
       return isVillageInvolvedInAnyWar([war], villageId);
     }
@@ -1591,6 +1560,7 @@ export const fetchActiveWar = async (client: DrizzleClient, warId: string) => {
         with: { structures: true },
       },
       warAllies: {
+        where: activeWarAllyWhere(),
         with: {
           village: true,
         },
@@ -1616,6 +1586,7 @@ export const fetchEndedWars = async (client: DrizzleClient, villageId?: string) 
         with: { structures: true },
       },
       warAllies: {
+        where: activeWarAllyWhere(),
         with: {
           village: true,
         },

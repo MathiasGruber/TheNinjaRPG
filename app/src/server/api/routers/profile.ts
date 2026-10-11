@@ -206,6 +206,7 @@ import {
   settleDueTimedQueues,
   settleJutsuTrainingQueue,
 } from "@/server/utils/userQueue";
+import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
 import {
@@ -3896,7 +3897,7 @@ const fetchAllActiveWars = (client: DrizzleClient) =>
       with: {
         attackerVillage: { columns: { id: true, name: true, sector: true } },
         defenderVillage: { columns: { id: true, name: true, sector: true } },
-        warAllies: true,
+        warAllies: { where: activeWarAllyWhere() },
       },
     }),
   );
