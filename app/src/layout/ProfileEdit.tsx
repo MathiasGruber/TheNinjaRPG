@@ -389,7 +389,7 @@ export function ProfileEdit() {
           icon={Swords}
           onClick={setActiveElement}
         >
-          <ElementalMastery mode="settings" />
+          <ElementalMastery />
           <BattleSettingsEdit userId={userData.userId} />
         </Accordion>
         <Accordion

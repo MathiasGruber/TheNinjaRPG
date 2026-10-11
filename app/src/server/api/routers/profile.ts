@@ -114,6 +114,7 @@ import {
   outdateProposalsFor,
 } from "@/libs/contentReview/outdate";
 import { getWorldCyclePosition } from "@/libs/dayNight";
+import { elementalGainRoom } from "@/libs/elementalMastery";
 import { getGameSettingBoost } from "@/libs/gameSettingBoost";
 import { getGameSetting, updateGameSetting } from "@/libs/gamesettings";
 import { getLayoutExperimentAssignments } from "@/libs/layoutPreference";
@@ -2000,9 +2001,9 @@ export const profileRouter = createTRPCRouter({
         message: `Tavern ${input.target} color updated for ${cost} reputation points`,
       };
     }),
-  // Use earned experience points for stats
+  // Use earned experience points for stats and elemental mastery
   useUnusedExperiencePoints: protectedProcedure
-    .meta({ mcp: { description: "Assign earned experience to stats" } })
+    .meta({ mcp: { description: "Assign earned experience to stats and elements" } })
     .input(createAssignedExperienceSchema().schema)
     .output(userDeltaResponseSchema)
     .mutation(async ({ ctx, input }) => {
@@ -2029,6 +2030,12 @@ export const profileRouter = createTRPCRouter({
       if (user.earnedExperience <= 0) return errorResponse("No experience left");
       if (inputSum > user.earnedExperience) {
         return errorResponse("Trying to assign more stats than available");
+      }
+      const hasElementAllocation = BasicElementName.some(
+        (element) => Math.floor(input[element]) > 0,
+      );
+      if (hasElementAllocation && user.status !== "AWAKE") {
+        return errorResponse("Must be awake to assign elemental experience");
       }
       // Mutate: points stop at the rank cap and only the points that land are spent. A
       // stat already stored above its cap keeps its value; it counts again after a rank-up.
@@ -2063,13 +2070,39 @@ export const profileRouter = createTRPCRouter({
       const combatSpent = Math.round(
         getAssignedCombatStatTotal(stats) - getAssignedCombatStatTotal(user),
       );
+      let elementalSpent = 0;
+      const elementalGains = Object.fromEntries(
+        BasicElementName.flatMap((element) => {
+          const room = elementalGainRoom(user, element);
+          // Whole unused-XP points can finish fractional room left by timed training.
+          const points = Math.min(Math.floor(input[element]), Math.ceil(room));
+          elementalSpent += points;
+          return points > 0
+            ? [
+                [
+                  element,
+                  (user.elementalMastery[element] ?? 0) + Math.min(points, room),
+                ],
+              ]
+            : [];
+        }),
+      );
+      const elementalUpdate =
+        elementalSpent > 0
+          ? { elementalMastery: { ...user.elementalMastery, ...elementalGains } }
+          : {};
       const spent =
         combatSpent +
-        assignableMasteryNames.reduce((sum, name) => sum + stats[name] - user[name], 0);
+        assignableMasteryNames.reduce(
+          (sum, name) => sum + stats[name] - user[name],
+          0,
+        ) +
+        elementalSpent;
       if (spent <= 0) return errorResponse("Those stats are already capped");
       // Update
       const data = {
         ...stats,
+        ...elementalUpdate,
         experience: user.experience + combatSpent,
         earnedExperience: Math.round(user.earnedExperience - spent),
       };
@@ -2079,10 +2112,14 @@ export const profileRouter = createTRPCRouter({
         updatedAt: user.updatedAt,
         set: {
           ...stats,
+          ...elementalUpdate,
           experience: sql`${userData.experience} + ${combatSpent}`,
           earnedExperience: sql`${userData.earnedExperience} - ${spent}`,
         },
         where: [
+          ...(hasElementAllocation
+            ? [...elementalSnapshotConditions(user), eq(userData.status, "AWAKE")]
+            : []),
           eq(userData.rank, user.rank),
           sql`${userData.masteryRanks} = CAST(${JSON.stringify(user.masteryRanks)} AS JSON)`,
           ...[...CombatStatNames, ...MasteryNames].map((stat) =>

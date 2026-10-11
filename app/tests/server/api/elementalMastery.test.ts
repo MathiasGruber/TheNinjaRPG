@@ -1,9 +1,9 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
-import { ELEMENTAL_MASTERY_CAP, MAX_DAILY_TRAININGS } from "@/drizzle/constants";
+import { type BasicElement, ELEMENTAL_MASTERY_CAP, MAX_DAILY_TRAININGS } from "@/drizzle/constants";
 import { bloodline, gameSetting, trainingLog, userData, userQueue, userVote } from "@/drizzle/schema";
 import { masteryTotal } from "@/libs/masteryProgression";
-import { fetchUpdatedUser } from "@/server/api/routers/profile";
+import { fetchUpdatedUser, profileRouter } from "@/server/api/routers/profile";
 import { getMasteryQueue } from "@/libs/queue";
 import { trainRouter } from "@/server/api/routers/train";
 import { IncreaseDamageGivenTag } from "@/validators/combat";
@@ -13,6 +13,8 @@ import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from ".
 
 const ID = "elemental-trainee";
 const api = () => callerFor(trainRouter, ID);
+const assign = async (element: BasicElement, amount: number) =>
+  (await callerFor(profileRouter, ID)).useUnusedExperiencePoints({ [element]: amount });
 const readUser = async () => (await (await getTestDatabase()).select().from(userData).where(eq(userData.userId, ID)))[0]!;
 const patch = async (data: Partial<typeof userData.$inferInsert>) => (await getTestDatabase()).update(userData).set(data).where(eq(userData.userId, ID));
 const session = async (element: "Wind" = "Wind") => ({ stat: element, startedAt: (await readUser()).elementalTrainingStartedAt! });
@@ -27,23 +29,23 @@ describeWithDatabase("elemental mastery guarded progression", () => {
   it("rejects innate, bloodline-provided and capped elements without spending XP", async () => {
     const caller = await api();
     expect((await caller.startMasteryTraining({ stat: "Fire" })).success).toBe(false);
-    expect((await caller.investElementalExperience({ element: "Water", amount: 100 })).success).toBe(false);
+    expect((await assign("Water", 100)).success).toBe(false);
     await (await getTestDatabase()).insert(bloodline).values({ id: "wind-line", name: "Wind Line", image: "/test.png", rank: "C", description: "test", effects: [IncreaseDamageGivenTag.parse({ elements: ["Wind"] })] });
     await patch({ bloodlineId: "wind-line", elementalMastery: { Earth: ELEMENTAL_MASTERY_CAP } });
     expect((await caller.startMasteryTraining({ stat: "Wind" })).success).toBe(false);
-    expect((await caller.investElementalExperience({ element: "Wind", amount: 100 })).success).toBe(false);
-    expect((await caller.investElementalExperience({ element: "Earth", amount: 100 })).success).toBe(false);
+    expect((await assign("Wind", 100)).success).toBe(false);
+    expect((await assign("Earth", 100)).success).toBe(false);
     expect((await readUser()).earnedExperience).toBe(600_000);
   });
 
   it("invests independently, unlocks only at cap and selects one active element", async () => {
     const caller = await api();
     const before = await readUser();
-    expect((await caller.investElementalExperience({ element: "Wind", amount: 100 })).success).toBe(true);
+    expect((await assign("Wind", 100)).success).toBe(true);
     expect((await caller.selectTrainedElement({ element: "Wind" })).success).toBe(false);
     expect(getUserElements(await readUser() as never)).not.toContain("Wind");
-    expect((await caller.investElementalExperience({ element: "Wind", amount: ELEMENTAL_MASTERY_CAP })).success).toBe(true);
-    expect((await caller.investElementalExperience({ element: "Earth", amount: ELEMENTAL_MASTERY_CAP })).success).toBe(true);
+    expect((await assign("Wind", ELEMENTAL_MASTERY_CAP)).success).toBe(true);
+    expect((await assign("Earth", ELEMENTAL_MASTERY_CAP)).success).toBe(true);
     expect((await caller.selectTrainedElement({ element: "Wind" })).success).toBe(true);
     expect(getUserElements(await readUser() as never)).toContain("Wind");
     expect((await caller.selectTrainedElement({ element: "Earth" })).success).toBe(true);
@@ -57,7 +59,7 @@ describeWithDatabase("elemental mastery guarded progression", () => {
 
   it("finishes a fractional timed balance with one whole unused XP point", async () => {
     await patch({ elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP - 0.5 } });
-    expect((await (await api()).investElementalExperience({ element: "Wind", amount: 1 })).success).toBe(true);
+    expect((await assign("Wind", 1)).success).toBe(true);
     const user = await readUser();
     expect(user.elementalMastery.Wind).toBe(ELEMENTAL_MASTERY_CAP);
     expect(user.earnedExperience).toBe(599_999);
@@ -66,8 +68,8 @@ describeWithDatabase("elemental mastery guarded progression", () => {
   it("guards concurrent XP spending and rejects overspending", async () => {
     await patch({ earnedExperience: 100 });
     const caller = await api();
-    expect((await caller.investElementalExperience({ element: "Wind", amount: 101 })).success).toBe(false);
-    const results = await Promise.all([caller.investElementalExperience({ element: "Wind", amount: 100 }), caller.investElementalExperience({ element: "Earth", amount: 100 })]);
+    expect((await assign("Wind", 101)).success).toBe(false);
+    const results = await Promise.all([assign("Wind", 100), assign("Earth", 100)]);
     expect(results.filter(result => result.success)).toHaveLength(1);
     const user = await readUser();
     expect(user.earnedExperience).toBe(0);
@@ -135,7 +137,7 @@ describeWithDatabase("elemental mastery guarded progression", () => {
     const caller = await api();
     await patch({ status: "ASLEEP" });
     expect((await caller.startMasteryTraining({ stat: "Wind" })).success).toBe(false);
-    expect((await caller.investElementalExperience({ element: "Wind", amount: 1 })).success).toBe(false);
+    expect((await assign("Wind", 1)).success).toBe(false);
     expect((await caller.selectTrainedElement({ element: null })).success).toBe(false);
     await patch({ status: "AWAKE", isBanned: true });
     expect((await caller.startMasteryTraining({ stat: "Wind" })).success).toBe(false);

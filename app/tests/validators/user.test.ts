@@ -1,14 +1,40 @@
 import { describe, expect, it } from "bun:test";
-import { TavernColorPresets } from "@/drizzle/constants";
+import { BasicElementName, ELEMENTAL_MASTERY_CAP, TavernColorPresets } from "@/drizzle/constants";
 import type { UserWithRelations } from "@/routers/profile";
 import { AllTags } from "@/validators/combat";
 import { getSearchValidator } from "@/validators/register";
 import {
   getPublicUsersSchema,
   getBloodlineElements,
+  createAssignedExperienceSchema,
   tavernColorChangeSchema,
   updateUserSchema,
 } from "@/validators/user";
+
+describe("createAssignedExperienceSchema", () => {
+  it("defaults every element to zero for existing stat-only callers", () => {
+    const { schema, maxValues } = createAssignedExperienceSchema();
+    const values = schema.parse({ offence: 10 });
+    for (const element of BasicElementName) {
+      expect(values[element]).toBe(0);
+      expect(maxValues[element]).toBe(ELEMENTAL_MASTERY_CAP);
+    }
+  });
+
+  it("limits provided and capped elements while allowing a whole point to finish timed progress", () => {
+    const { schema, maxValues } = createAssignedExperienceSchema({
+      rank: "GENIN", primaryElement: "Fire", secondaryElement: "Water",
+      bloodline: { effects: [AllTags.parse({ type: "increasedamagegiven", elements: ["Wind"], power: 40 })] },
+      elementalMastery: { Earth: ELEMENTAL_MASTERY_CAP - 0.5, Lightning: ELEMENTAL_MASTERY_CAP },
+    } as NonNullable<UserWithRelations>);
+    expect(maxValues).toMatchObject({ Fire: 0, Water: 0, Wind: 0, Earth: 1, Lightning: 0 });
+    expect(schema.safeParse({ Earth: 1 }).success).toBe(true);
+    expect(schema.safeParse({ Earth: 2 }).success).toBe(false);
+    for (const element of ["Fire", "Water", "Wind", "Lightning"] as const) {
+      expect(schema.safeParse({ [element]: 1 }).success).toBe(false);
+    }
+  });
+});
 
 describe("getPublicUsersSchema", () => {
   it("accepts farming as a public-user leaderboard order", () => {

@@ -20,6 +20,9 @@ import { Label } from "@/components/ui/label";
 import { NumberInput } from "@/components/ui/number-input";
 import { Switch } from "@/components/ui/switch";
 import {
+  BasicElementName,
+  ELEMENTAL_MASTERY_BOOST,
+  ELEMENTAL_MASTERY_CAP,
   IMG_TRAIN_BUKI_OFF,
   IMG_TRAIN_GEN_OFF,
   IMG_TRAIN_INTELLIGENCE,
@@ -33,19 +36,18 @@ import { useLocalStorage } from "@/hooks/localstorage";
 import { useTutorialStep } from "@/hooks/tutorial";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
+import { getElementImg } from "@/layout/ElementImage";
 import Image from "@/layout/Image";
 import NavTabs from "@/layout/NavTabs";
 import SliderField from "@/layout/SliderField";
+import { providedElements } from "@/libs/elementalMastery";
 import { withCappedStats } from "@/libs/profile";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
+import { isInArray } from "@/utils/array";
 import { round } from "@/utils/math";
 import { capitalizeFirstLetter } from "@/utils/string";
-import {
-  type AssignableUserStats,
-  createStatSchema,
-  type StatSchemaType,
-} from "@/validators/combat";
+import { type AssignableUserStats, createStatSchema } from "@/validators/combat";
 import { createAssignedExperienceSchema } from "@/validators/user";
 
 interface StatDistributionProps {
@@ -133,6 +135,14 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
     <>
       {!showWrapper && navTabs && (
         <div className="mb-2 flex justify-end">{navTabs}</div>
+      )}
+      {includeMasteries && (
+        <p className="mb-3 text-muted-foreground text-sm">
+          Masteries and elements use unused XP without granting level XP. Elements have
+          their own {ELEMENTAL_MASTERY_CAP.toLocaleString()} cap and unlock a{" "}
+          {ELEMENTAL_MASTERY_BOOST}% damage boost at full mastery. Select one mastered
+          element in Combat Preferences.
+        </p>
       )}
       {tab === "Simple" && !isRedistribution ? (
         <SimpleDistribution
@@ -270,6 +280,15 @@ const SimpleDistribution: React.FC<SimpleDistributionProps> = (props) => {
             description: "Unlock Bukijutsu content",
             stats: ["bukijutsuMastery"] as const,
           },
+          ...BasicElementName.map((element) => ({
+            id: element,
+            name: `${element} Mastery`,
+            image: getElementImg(element),
+            description: providedElements(userData).includes(element)
+              ? "Provided by innate elements or bloodline"
+              : `Unlock ${element}`,
+            stats: [element],
+          })),
         ]
       : []),
   ];
@@ -278,6 +297,8 @@ const SimpleDistribution: React.FC<SimpleDistributionProps> = (props) => {
   // All presets share offence/defence, so treating a single capped combat stat as
   // "maxed" would hide every Simple option.
   const isSpecializationDisabled = (option: (typeof specializationOptions)[number]) => {
+    if (isInArray(option.id, BasicElementName) && userData.status !== "AWAKE")
+      return true;
     return option.stats.every((stat) => {
       const maxValue = maxValues[stat];
       const currentValue = defaultValues[stat] ?? 0;
@@ -383,7 +404,13 @@ const SimpleDistribution: React.FC<SimpleDistributionProps> = (props) => {
                 )}
                 {isDisabled && (
                   <p className="mt-1 text-center font-semibold text-red-500 text-xs">
-                    Stats maxed
+                    {isInArray(option.id, BasicElementName)
+                      ? userData.status !== "AWAKE"
+                        ? "Must be awake"
+                        : providedElements(userData).includes(option.id)
+                          ? "Already provided"
+                          : "Fully mastered"
+                      : "Stats maxed"}
                   </p>
                 )}
               </div>
@@ -413,8 +440,8 @@ const SimpleDistribution: React.FC<SimpleDistributionProps> = (props) => {
               </ul>
               {isCapLimited && (
                 <p>
-                  Rank caps leave the other{" "}
-                  {round(availableStats - placed).toLocaleString()} points unassigned.
+                  Caps leave the other {round(availableStats - placed).toLocaleString()}{" "}
+                  points unassigned.
                 </p>
               )}
             </div>
@@ -422,8 +449,7 @@ const SimpleDistribution: React.FC<SimpleDistributionProps> = (props) => {
         );
       })}
       <p className="col-span-2 mt-2 text-center text-muted-foreground text-xs sm:col-span-4">
-        Masteries unlock content without granting level XP. Use Advanced to split points
-        across multiple masteries and stats.
+        Use Advanced to split points across multiple stats, masteries and elements.
       </p>
     </div>
   );
@@ -464,19 +490,26 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
   // Stats Schema: redistribution works in absolute rank caps, assignment in remaining room.
   // Only a copy is capped, so the cached user keeps its stored values.
   const cappedUser = withCappedStats(userData);
-  const { schema: statSchema, maxValues } = includeMasteries
+  const { schema: statSchema, maxValues: caps } = includeMasteries
     ? createAssignedExperienceSchema(userData)
     : createStatSchema(
         isRedistribution ? 10 : 0,
         isRedistribution ? 10 : 0,
         isRedistribution ? { rank: userData.rank } : cappedUser,
       );
-  const defaultValues = statSchema.parse(isRedistribution ? cappedUser : {});
+  const defaultValues: Partial<
+    z.output<ReturnType<typeof createAssignedExperienceSchema>["schema"]>
+  > = statSchema.parse(isRedistribution ? cappedUser : {});
+  const maxValues: Partial<Record<keyof typeof defaultValues, number>> = caps;
   const statNames = Object.keys(defaultValues) as (keyof typeof defaultValues)[];
 
   // Form setup
-  const form = useForm<z.input<typeof statSchema>, unknown, AssignableUserStats>({
-    defaultValues: defaultValues as z.input<typeof statSchema>,
+  const form = useForm<
+    z.input<ReturnType<typeof createAssignedExperienceSchema>["schema"]>,
+    unknown,
+    AssignableUserStats
+  >({
+    defaultValues,
     mode: "all",
     resolver: zodResolver(statSchema),
   });
@@ -504,6 +537,11 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
     buttonText = `Place ${(-misalignment).toLocaleString()} more points`;
   } else if (isDefault) {
     buttonText = "Nothing changed";
+  } else if (
+    userData.status !== "AWAKE" &&
+    BasicElementName.some((element) => Number(formValues[element]) >= 1)
+  ) {
+    buttonText = "Must be awake to assign elemental XP";
   }
   const isDisabled =
     buttonText !== "Assign points" ||
@@ -536,6 +574,7 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
         {statNames.map((stat, i) => {
           const maxValue = maxValues[stat];
           const minValue = 0;
+          const step = isInArray(stat, BasicElementName) ? 1 : 0.01;
           const currentValue = Number.isFinite(Number(formValues[stat]))
             ? Number(formValues[stat])
             : 0;
@@ -566,7 +605,7 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
                         <NumberInput
                           min={minValue}
                           max={dynamicMax}
-                          step={0.01}
+                          step={step}
                           value={(field.value as number) ?? 0}
                           onValueChange={field.onChange}
                           onBlur={field.onBlur}
@@ -582,7 +621,7 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
                         default={defaultValues[stat] ?? 0}
                         min={minValue}
                         max={dynamicMax}
-                        step={0.01}
+                        step={step}
                         watchedValue={currentValue}
                         watchedTotal={availableStats}
                         setValue={form.setValue}
@@ -603,7 +642,11 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
                 <FormLabel>{capitalizeFirstLetter(stat)}</FormLabel>
                 <FormControl>
                   <div className="text-muted-foreground text-sm">
-                    - Max for {capitalizeFirstLetter(userData.rank)}
+                    {isInArray(stat, BasicElementName)
+                      ? providedElements(userData).includes(stat)
+                        ? "Provided by innate elements or bloodline"
+                        : "Fully mastered"
+                      : `- Max for ${capitalizeFirstLetter(userData.rank)}`}
                   </div>
                 </FormControl>
                 <FormMessage />

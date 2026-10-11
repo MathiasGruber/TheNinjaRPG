@@ -1,7 +1,7 @@
 
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, it } from "bun:test";
-import { getUserCaps, MAX_MASTERY_CAP } from "@/drizzle/constants";
+import { ELEMENTAL_MASTERY_CAP, getUserCaps, MAX_MASTERY_CAP } from "@/drizzle/constants";
 import { userData } from "@/drizzle/schema";
 import { profileRouter } from "@/server/api/routers/profile";
 import { insertUsers } from "../../setup/factories";
@@ -18,7 +18,7 @@ import {
 const USER_ID = "assigner";
 const { stats_cap: GENIN_STATS_CAP } = getUserCaps("GENIN");
 
-const assigner = async (over: Record<string, number>) => {
+const assigner = async (over: Partial<typeof userData.$inferInsert>) => {
   await insertUsers([
     {
       userId: USER_ID,
@@ -66,6 +66,78 @@ describeWithDatabase("profile useUnusedExperiencePoints against a real MySQL", (
     const user = await readUser();
     expect(user).toMatchObject({ ninjutsuMastery: 20, genjutsuMastery: 30, taijutsuMastery: 40, bukijutsuMastery: 50, earnedExperience: 0, experience: 5000 });
     expect(result.userPatch).toMatchObject({ ninjutsuMastery: 20, earnedExperience: 0 });
+  });
+
+  it("assigns combat, discipline and multiple elements with one XP debit", async () => {
+    await assigner({ ninjutsuMastery: 10, elementalMastery: { Wind: 10, Earth: 20 } });
+    const result = await (await callerFor(profileRouter, USER_ID)).useUnusedExperiencePoints({
+      ...assign(10, 0), ninjutsuMastery: 20, Wind: 30, Earth: 40,
+    });
+    expect(result.success).toBe(true);
+    const user = await readUser();
+    expect(user).toMatchObject({ offence: 1010, ninjutsuMastery: 30, elementalMastery: { Wind: 40, Earth: 60 }, earnedExperience: 0, experience: 5010 });
+    expect(result.userPatch).toMatchObject({ offence: 1010, ninjutsuMastery: 30, elementalMastery: user.elementalMastery, earnedExperience: 0, experience: 5010, updatedAt: user.updatedAt });
+  });
+
+  it("clamps each element to its own cap independently of discipline capacity", async () => {
+    await assigner({
+      ninjutsuMastery: MAX_MASTERY_CAP,
+      elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP - 5, Earth: ELEMENTAL_MASTERY_CAP + 10 },
+    });
+    const result = await (await callerFor(profileRouter, USER_ID)).useUnusedExperiencePoints({ ninjutsuMastery: 10, Wind: 20, Earth: 20, Lightning: 20 });
+    expect(result.success).toBe(true);
+    expect(await readUser()).toMatchObject({ ninjutsuMastery: MAX_MASTERY_CAP, elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP, Earth: ELEMENTAL_MASTERY_CAP + 10, Lightning: 20 }, earnedExperience: 75, experience: 5000 });
+  });
+
+  it("charges one whole XP point to finish fractional elemental room in a mixed allocation", async () => {
+    await assigner({ elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP - 0.5 } });
+    const result = await (await callerFor(profileRouter, USER_ID)).useUnusedExperiencePoints({ offence: 10, ninjutsuMastery: 20, Wind: 10 });
+    expect(result.success).toBe(true);
+    expect(await readUser()).toMatchObject({ offence: 1010, ninjutsuMastery: 30, elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP }, earnedExperience: 69, experience: 5010 });
+    expect(result.userPatch).toMatchObject({ elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP }, earnedExperience: 69 });
+  });
+
+  it("keeps combat and discipline allocation available asleep while rejecting mixed elemental allocation", async () => {
+    await assigner({ status: "ASLEEP" });
+    const api = await callerFor(profileRouter, USER_ID);
+    const rejected = await api.useUnusedExperiencePoints({ offence: 10, ninjutsuMastery: 10, Wind: 10 });
+    expect(rejected.success).toBe(false);
+    expect(rejected.message).toContain("awake");
+    expect(rejected.userPatch).toBeUndefined();
+    expect(await readUser()).toMatchObject({ offence: 1000, ninjutsuMastery: 10, elementalMastery: {}, earnedExperience: 100, experience: 5000 });
+    expect((await api.useUnusedExperiencePoints({ offence: 10, ninjutsuMastery: 10 })).success).toBe(true);
+    expect(await readUser()).toMatchObject({ offence: 1010, ninjutsuMastery: 20, earnedExperience: 80, experience: 5010, status: "ASLEEP" });
+  });
+
+  it.each([
+    ["elemental progress", { elementalMastery: { Wind: 50 } }],
+    ["primary element", { primaryElement: "Wind" }],
+    ["secondary element", { secondaryElement: "Wind" }],
+    ["bloodline", { bloodlineId: "new-line" }],
+    ["status", { status: "ASLEEP" }],
+  ] satisfies Array<[string, Partial<typeof userData.$inferInsert>]>)("rejects all parts of a mixed allocation after concurrent %s changes", async (_name, change) => {
+    await assigner({});
+    const database = await getTestDatabase();
+    const stale = callerForDatabase(profileRouter, USER_ID, beforeStatements(database, userData, [async () => {
+      await database.update(userData).set(change).where(eq(userData.userId, USER_ID));
+    }]));
+    const result = await stale.useUnusedExperiencePoints({ offence: 10, ninjutsuMastery: 10, Wind: 10 });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("Please try again");
+    expect(result.userPatch).toBeUndefined();
+    expect(await readUser()).toMatchObject({ offence: 1000, ninjutsuMastery: 10, earnedExperience: 100, experience: 5000, ...change });
+  });
+
+  it("preserves concurrent elemental progress when only combat and discipline points are assigned", async () => {
+    await assigner({});
+    const database = await getTestDatabase();
+    const api = callerForDatabase(profileRouter, USER_ID, beforeStatements(database, userData, [async () => {
+      await database.update(userData).set({ elementalMastery: { Wind: 50 } }).where(eq(userData.userId, USER_ID));
+    }]));
+    const result = await api.useUnusedExperiencePoints({ offence: 10, ninjutsuMastery: 10 });
+    expect(result.success).toBe(true);
+    expect(result.userPatch).not.toHaveProperty("elementalMastery");
+    expect(await readUser()).toMatchObject({ offence: 1010, ninjutsuMastery: 20, elementalMastery: { Wind: 50 }, earnedExperience: 80, experience: 5010 });
   });
 
   it("spends only mastery cap room and guards concurrent mastery changes", async () => {

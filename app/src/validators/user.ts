@@ -1,6 +1,13 @@
 import { z } from "zod";
-import type { ElementName, LetterRank, QuestType } from "@/drizzle/constants";
+import type {
+  BasicElement,
+  ElementName,
+  LetterRank,
+  QuestType,
+} from "@/drizzle/constants";
 import {
+  BasicElementName,
+  ELEMENTAL_MASTERY_CAP,
   GeneralTypes,
   MAX_MASTERY_CAP,
   SEICHI_SILVER_ADJUST_LIMIT,
@@ -12,7 +19,7 @@ import { getBloodlineElements } from "@/libs/userElements";
 
 export { getBloodlineElements, isBloodlineEffectBeneficial } from "@/libs/userElements";
 
-import { activeTrainedElement } from "@/libs/elementalMastery";
+import { activeTrainedElement, elementalGainRoom } from "@/libs/elementalMastery";
 import { masteryGainRoom } from "@/libs/masteryProgression";
 import type { UserWithRelations } from "@/routers/profile";
 import { createStatSchema } from "@/validators/combat";
@@ -49,9 +56,21 @@ export const createAssignedExperienceSchema = (
     (typeof assignableMasteryNames)[number],
     z.ZodPrefault<z.ZodCoercedNumber>
   >;
+  const elementalRoom = Object.fromEntries(
+    BasicElementName.map((element) => [
+      element,
+      user ? Math.ceil(elementalGainRoom(user, element)) : ELEMENTAL_MASTERY_CAP,
+    ]),
+  ) as Record<BasicElement, number>;
+  const elementalFields = Object.fromEntries(
+    BasicElementName.map((element) => [
+      element,
+      z.coerce.number().min(0).max(elementalRoom[element]).prefault(0),
+    ]),
+  ) as Record<BasicElement, z.ZodPrefault<z.ZodCoercedNumber>>;
   return {
-    schema: schema.extend(masteryFields),
-    maxValues: { ...maxValues, ...masteryRoom },
+    schema: schema.extend(masteryFields).extend(elementalFields),
+    maxValues: { ...maxValues, ...masteryRoom, ...elementalRoom },
   };
 };
 

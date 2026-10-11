@@ -9,7 +9,7 @@ import {
 } from "@/drizzle/constants";
 import { trainingLog, userData } from "@/drizzle/schema";
 import { showTrainingCapcha } from "@/libs/captcha";
-import { activeTrainedElement, elementalGainRoom } from "@/libs/elementalMastery";
+import { activeTrainedElement } from "@/libs/elementalMastery";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
 import {
   getEnergyQueue,
@@ -50,10 +50,7 @@ import { editTrainingQueue } from "@/server/utils/userQueue";
 import { isInArray } from "@/utils/array";
 import { getQueueTotalCapacity, getQueueWaitingSlots } from "@/utils/paypal";
 import { secondsPassed } from "@/utils/time";
-import {
-  investElementalExperienceSchema,
-  selectTrainedElementSchema,
-} from "@/validators/elementalMastery";
+import { selectTrainedElementSchema } from "@/validators/elementalMastery";
 import {
   startMasteryTrainingInputSchema,
   startTrainingInputSchema,
@@ -66,50 +63,6 @@ import {
 import { userDeltaResponseSchema } from "@/validators/userCache";
 
 export const trainRouter = createTRPCRouter({
-  investElementalExperience: protectedProcedure
-    .input(investElementalExperienceSchema)
-    .output(userDeltaResponseSchema)
-    .mutation(async ({ ctx, input }) => {
-      const user = await ctx.drizzle.query.userData.findFirst({
-        where: eq(userData.userId, ctx.userId),
-        with: { bloodline: true },
-      });
-      if (!user) return errorResponse("User not found");
-      if (user.status !== "AWAKE") return errorResponse("Must be awake");
-      const amount = Math.min(
-        input.amount,
-        Math.ceil(elementalGainRoom(user, input.element)),
-      );
-      if (amount <= 0)
-        return errorResponse("This element is already provided or fully mastered");
-      if (input.amount > user.earnedExperience)
-        return errorResponse("Not enough unused experience");
-      // Whole unused-XP points can finish fractional room left by timed training.
-      const gained = Math.min(amount, elementalGainRoom(user, input.element));
-      const result = await claimUserSnapshot({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        updatedAt: user.updatedAt,
-        set: {
-          elementalMastery: {
-            ...user.elementalMastery,
-            [input.element]: (user.elementalMastery[input.element] ?? 0) + gained,
-          },
-          earnedExperience: sql`${userData.earnedExperience} - ${amount}`,
-        },
-        where: [
-          ...elementalSnapshotConditions(user),
-          eq(userData.status, "AWAKE"),
-          gte(userData.earnedExperience, amount),
-        ],
-      });
-      return result.success
-        ? {
-            success: true,
-            message: `Invested ${amount.toLocaleString()} unused XP in ${input.element}`,
-          }
-        : errorResponse("Your progress changed. Please try again");
-    }),
   selectTrainedElement: protectedProcedure
     .input(selectTrainedElementSchema)
     .output(userDeltaResponseSchema)

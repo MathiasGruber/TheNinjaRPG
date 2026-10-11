@@ -2,7 +2,6 @@
 
 import { useRef } from "react";
 import { api } from "@/app/_trpc/client";
-import { ElementalMastery } from "@/layout/ElementalMastery";
 import Loader from "@/layout/Loader";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import { showMutationToast } from "@/libs/toast";
@@ -47,20 +46,17 @@ export default function AssignExperience() {
 
   // Show component
   return (
-    <>
-      <DistributeStatsForm
-        includeMasteries
-        id="tutorial-unassigned-stats-contentbox"
-        userData={userData}
-        onAccept={submitStats}
-        availableStats={userData.earnedExperience}
-        title="Assign Experience Points"
-        subtitle={`You have ${userData.earnedExperience.toLocaleString()} unused experience points`}
-        defaultBackHref="/profile"
-        isPending={isPending}
-        pendingLabel="Assigning"
-      />
-      <ElementalMastery mode="experience" />
-    </>
+    <DistributeStatsForm
+      includeMasteries
+      id="tutorial-unassigned-stats-contentbox"
+      userData={userData}
+      onAccept={submitStats}
+      availableStats={userData.earnedExperience}
+      title="Assign Experience Points"
+      subtitle={`You have ${userData.earnedExperience.toLocaleString()} unused experience points`}
+      defaultBackHref="/profile"
+      isPending={isPending}
+      pendingLabel="Assigning"
+    />
   );
 }
