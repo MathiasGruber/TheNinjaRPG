@@ -315,8 +315,7 @@ function CharacterProfile() {
               {userData.pvpExperience.toLocaleString(undefined, {
                 maximumFractionDigits: 2,
               })}{" "}
-              · Boost: +{userData.pvpBoost?.totalPercent ?? 0}%{" "}
-              <Info className="h-4 w-4" />
+              (+{userData.pvpBoost?.totalPercent ?? 0}%) <Info className="h-4 w-4" />
             </button>
             {topPlayers && (
               <TooltipProvider delayDuration={50}>
