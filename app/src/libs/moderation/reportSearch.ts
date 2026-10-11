@@ -17,12 +17,7 @@ import {
   OPENAI_REPORT_EMBEDDING_MODEL,
   REPORT_EMBEDDING_DIMENSIONS,
 } from "@/drizzle/constants";
-import {
-  type UserReport,
-  userReport,
-  userReportComment,
-  userReportEmbedding,
-} from "@/drizzle/schema";
+import { userReport, userReportComment, userReportEmbedding } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 
 const capabilityTtl = 5 * 60 * 1000;
@@ -55,17 +50,7 @@ const reportColumns = (client: DrizzleClient) => ({
     .limit(1)})`,
 });
 
-export type PreviousReport = Pick<
-  UserReport,
-  | "id"
-  | "createdAt"
-  | "aiInterpretation"
-  | "reason"
-  | "infraction"
-  | "status"
-  | "system"
-  | "predictedStatus"
-> & { score: number; comment: string };
+export type PreviousReport = Awaited<ReturnType<typeof getRelatedReports>>[number];
 
 const eligibleReports = (client: DrizzleClient) =>
   and(
@@ -203,7 +188,7 @@ export const getRelatedReports = async (
   client: DrizzleClient,
   aiInterpretation: string,
   options: { excludeReportId?: string; embed?: EmbedReports } = {},
-): Promise<PreviousReport[]> => {
+) => {
   const text = aiInterpretation.trim();
   if (!text) return [];
   const eligible = and(
