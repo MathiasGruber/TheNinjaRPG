@@ -377,6 +377,77 @@ describe("Diffuse damage resolution", () => {
       expect(debt(defender(newBattle))).toBe(0);
     },
   );
+  it.each([25, 50, 100])(
+    "preserves Reflect power %i and its cap when either or both combatants diffuse",
+    (power) => {
+      for (const targetIds of [[], ["defender"], ["attacker"], ["attacker", "defender"]]) {
+        for (const hitCount of [1, 2]) {
+          const effects = [
+            ...Array.from({ length: hitCount }, (_, i) => attack({ id: `hit-${i}` })),
+            makeEffect("reflect", { power, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, runtime()),
+            ...targetIds.map((targetId) => ({ ...diffuse({ delayRounds: 1 }), ...runtime(targetId), id: `diffuse-${targetId}` })),
+          ];
+          let current = run(effects).newBattle;
+          const attacker = current.usersState.find((u) => u.userId === "attacker")!;
+          const reflected = 80 * hitCount * Math.min(power / 100, 0.6);
+          const deferred = targetIds.includes("attacker") ? reflected / 2 : 0;
+          expect(1000 - attacker.curHealth).toBeCloseTo(reflected - deferred);
+          expect(debt(attacker)).toBeCloseTo(deferred);
+          current.usersEffects = [];
+          current.round += 1;
+          current = applyEffects(current, "attacker").newBattle;
+          current = applyEffects(current, "defender").newBattle;
+          expect(1000 - current.usersState.find((u) => u.userId === "attacker")!.curHealth).toBeCloseTo(reflected);
+          expect(debt(current.usersState.find((u) => u.userId === "attacker")!)).toBe(0);
+          expect(defender(current).curHealth).toBeCloseTo(1000 - 80 * hitCount);
+        }
+      }
+    },
+  );
+  it("caps returned damage before both Diffuse splits and applies recipient defenses once", () => {
+    const effects = [
+      attack(),
+      diffuse({ delayRounds: 1 }),
+      { ...diffuse({ delayRounds: 1 }), ...runtime("attacker"), id: "diffuse-attacker" },
+      makeEffect("reflect", { power: 100, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, runtime()),
+      makeEffect("decreasedamagetaken", { power: 50, calculation: "percentage", rounds: 3 }, runtime()),
+      ...["attacker", "defender"].flatMap((targetId) => [
+        makeEffect("shield", { power: 5, health: 5 }, { ...runtime(targetId), id: `shield-${targetId}` }),
+        makeEffect("absorb", { power: 50, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, { ...runtime(targetId), id: `absorb-${targetId}` }),
+      ]),
+    ];
+    let current = run(effects).newBattle;
+    const attacker = current.usersState.find((u) => u.userId === "attacker")!;
+    // DR leaves a 40 HP source hit; Reflect caps at 24, with 12 deferred and 12 immediate.
+    expect(attacker.curHealth).toBeCloseTo(999);
+    expect(debt(attacker)).toBeCloseTo(12);
+    expect(defender(current).curHealth).toBeCloseTo(995);
+    expect(debt(defender(current))).toBeCloseTo(20);
+    expect(defender(current).damageDealt).toBe(0);
+    current.usersEffects = [];
+    current.round += 1;
+    current = applyEffects(current, "attacker").newBattle;
+    current = applyEffects(current, "defender").newBattle;
+    expect(current.usersState.find((u) => u.userId === "attacker")!.curHealth).toBeCloseTo(987);
+    expect(defender(current).curHealth).toBeCloseTo(975);
+    expect(defender(current).damageDealt).toBe(0);
+  });
+  it("keeps Reflect's source cap while leech uses the immediate hit before shields", () => {
+    const initial = battle([
+      attack(),
+      diffuse(),
+      makeEffect("reflect", { power: 100, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, runtime()),
+      makeEffect("lifesteal", { power: 100, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, runtime("attacker")),
+      makeEffect("vamp", { power: 100, calculation: "percentage" }, { ...runtime("attacker"), isNew: true, castThisRound: true, createdRound: ROUND }),
+      makeEffect("shield", { power: 40, health: 40 }, runtime()),
+    ]);
+    initial.usersState.find((u) => u.userId === "attacker")!.curHealth = 500;
+    const { newBattle } = applyEffects(initial, "attacker");
+    // The shield stops the 40 HP remainder; leech heals 24 HP, and Reflect returns 48 HP.
+    expect(newBattle.usersState.find((u) => u.userId === "attacker")!.curHealth).toBeCloseTo(476);
+    expect(defender(newBattle).curHealth).toBe(1000);
+    expect(debt(defender(newBattle))).toBeCloseTo(40);
+  });
   it("does not defer hits once Diffuse expires", () => {
     const d = diffuse();
     d.rounds = 0;

@@ -1481,6 +1481,11 @@ export const collapseConsequences = (acc: Consequence[], val: Consequence) => {
         val.consumeRounds ?? 0,
       );
     }
+    if (current.preDiffuseDamage !== undefined || val.preDiffuseDamage !== undefined) {
+      current.preDiffuseDamage =
+        (current.preDiffuseDamage ?? current.preShieldDamage ?? 0) +
+        (val.preDiffuseDamage ?? val.preShieldDamage ?? 0);
+    }
     if (val.preShieldDamage) {
       current.preShieldDamage = current.preShieldDamage
         ? current.preShieldDamage + val.preShieldDamage

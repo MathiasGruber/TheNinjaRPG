@@ -576,6 +576,8 @@ export type Consequence = {
   reflect?: number;
   recoil?: number;
   afterburn?: number;
+  /** Post-mitigation source hit before Diffuse, retained for Reflect's cap. */
+  preDiffuseDamage?: number;
   /** Immediate damage eligible for defenses after a Diffuse split, before shields. */
   diffuseImmediateDamage?: number;
   diffuseSourceEffectId?: string;

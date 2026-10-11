@@ -929,8 +929,8 @@ export const applyEffects = (
           });
         }
         if (c.reflect !== undefined && c.reflect >= 0) {
-          // Use pre-shield damage for the 60% cap calculation to avoid shield interference
-          const preShieldDamage = c.preShieldDamage ?? 0;
+          // Reflect caps against the source hit before Diffuse and shields; leech uses the remainder.
+          const preShieldDamage = c.preDiffuseDamage ?? c.preShieldDamage ?? 0;
           const maxReflect = preShieldDamage * 0.6;
           const finalReflect = Math.min(c.reflect, maxReflect);
           user.curHealth -= finalReflect;
@@ -1892,6 +1892,7 @@ const applyDiffuseToConsequences = ({
           }
           consequence[key] = remaining;
           if (key === "damage") {
+            consequence.preDiffuseDamage = originalDamage;
             consequence.preShieldDamage = remaining;
             // Damage-derived leech uses the immediate hit. Absorb is resolved after this pass.
             if (consequence.lifesteal_hp !== undefined) {
