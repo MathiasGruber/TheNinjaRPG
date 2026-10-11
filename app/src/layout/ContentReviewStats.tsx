@@ -30,6 +30,13 @@ export const ContentReviewStats: React.FC<{ canView: boolean }> = ({ canView }) 
     });
   const update = (value: Partial<ReviewStatsInput>) =>
     setFilters((previous) => ({ ...previous, ...value }));
+  // Keep an active agent filter visible even when the new window has no submissions.
+  const agents = [
+    ...new Set([
+      ...(data?.agents ?? []),
+      ...(filters.agentName == null ? [] : [filters.agentName]),
+    ]),
+  ].sort();
   if (!canView) return <p>Only content staff can see review statistics.</p>;
   const summary = data?.summary;
   return (
@@ -162,7 +169,7 @@ export const ContentReviewStats: React.FC<{ canView: boolean }> = ({ canView }) 
             }
             options={[
               ["ALL", "All agents"],
-              ...(data?.agents ?? []).map((agent): [string, string] => [
+              ...agents.map((agent): [string, string] => [
                 `agent:${agent}`,
                 agent || "Unnamed agent",
               ]),
