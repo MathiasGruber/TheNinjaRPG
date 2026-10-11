@@ -382,10 +382,13 @@ export const trainRouter = createTRPCRouter({
         settings,
         startedAt,
       );
-      const gained = Math.max(
-        0,
-        Math.min(trainingAmount, masteryTrainingGainRoom(user, trained)),
-      );
+      const gained =
+        user.dailyTrainings < MAX_DAILY_TRAININGS
+          ? Math.max(
+              0,
+              Math.min(trainingAmount, masteryTrainingGainRoom(user, trained)),
+            )
+          : 0;
       const creditedMinutes =
         gained > 0 ? Math.max(0, (Date.now() - startedAt.getTime()) / 60_000) : 0;
       const trackerResult =
@@ -449,6 +452,9 @@ export const trainRouter = createTRPCRouter({
           ...(questData ? { questData } : {}),
         },
         where: [
+          ...(gained > 0
+            ? [sql`${userData.dailyTrainings} < ${MAX_DAILY_TRAININGS}`]
+            : []),
           ...MasteryNames.map((stat) => eq(userData[stat], user[stat])),
           ...elementalSnapshotConditions(user),
           sql`${userData.masteryRanks} = CAST(${JSON.stringify(user.masteryRanks)} AS JSON)`,

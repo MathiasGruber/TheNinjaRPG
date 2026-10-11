@@ -586,7 +586,8 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
           const remainingPoints = availableStats - formSum + currentValue;
           const dynamicMax = Math.min(maxValue ?? Infinity, remainingPoints);
 
-          if (maxValue && maxValue > 0) {
+          // Keep stale or invalid drafts editable after a cap or eligibility refresh.
+          if ((maxValue ?? 0) > 0 || Number(formValues[stat]) !== 0) {
             return (
               <FormField
                 key={`${stat}-${i}`}

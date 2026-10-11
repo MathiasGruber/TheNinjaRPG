@@ -1,7 +1,7 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import { type BasicElement, ELEMENTAL_MASTERY_CAP, MAX_DAILY_TRAININGS } from "@/drizzle/constants";
-import { bloodline, gameSetting, trainingLog, userData, userQueue, userVote } from "@/drizzle/schema";
+import { bloodline, captcha, gameSetting, trainingLog, userData, userQueue, userVote } from "@/drizzle/schema";
 import { masteryTotal } from "@/libs/masteryProgression";
 import { fetchUpdatedUser, profileRouter } from "@/server/api/routers/profile";
 import { getMasteryQueue } from "@/libs/queue";
@@ -21,7 +21,7 @@ const session = async (element: "Wind" = "Wind") => ({ stat: element, startedAt:
 
 describeWithDatabase("elemental mastery guarded progression", () => {
   beforeEach(async () => {
-    await resetTables(userData, userQueue, userVote, trainingLog, bloodline, gameSetting);
+    await resetTables(userData, userQueue, userVote, trainingLog, bloodline, gameSetting, captcha);
     await insertUsers([{ userId: ID, username: ID, rank: "JONIN", status: "AWAKE", isOutlaw: true, primaryElement: "Fire", secondaryElement: "Water", earnedExperience: 600_000, trainingSpeed: "1hr", elementalTrainingSpeed: "1hr" }]);
     await (await getTestDatabase()).insert(userVote).values({ id: "vote-elemental", userId: ID, secret: "secret01", lastVoteAt: new Date() });
   });
@@ -229,5 +229,53 @@ describeWithDatabase("elemental mastery guarded progression", () => {
     expect(user!.currentlyTrainingElement).toBe("Wind");
     expect(getMasteryQueue(user!, "ELEMENT")).toEqual([{ stat: "Earth", speed: "1hr" }]);
     expect(user!.elementalMastery.Wind ?? 0).toBe(0);
+  });
+
+  it("collects only one standalone session when both were started with one daily allowance left", async () => {
+    const caller = await api();
+    await patch({ dailyTrainings: MAX_DAILY_TRAININGS - 1 });
+    expect((await caller.updateTrainingSpeed({ speed: "15min" })).success).toBe(true);
+    expect((await caller.startMasteryTraining({ stat: "ninjutsuMastery" })).success).toBe(true);
+    expect((await caller.startMasteryTraining({ stat: "Wind", speed: "15min" })).success).toBe(true);
+    const before = await readUser();
+    const startedAt = new Date(Date.now() - 901_000);
+    await patch({ masteryTrainingStartedAt: startedAt, elementalTrainingStartedAt: startedAt });
+    const db = await getTestDatabase();
+    const { user } = await fetchUpdatedUser({ client: db, userId: ID });
+    expect(user!.dailyTrainings).toBe(MAX_DAILY_TRAININGS);
+    expect(user!.ninjutsuMastery).toBeGreaterThan(before.ninjutsuMastery);
+    expect(user!.elementalMastery.Wind ?? 0).toBe(0);
+    expect(user!.currentlyTrainingMastery).toBeNull();
+    expect(user!.currentlyTrainingElement).toBeNull();
+    expect((await db.select().from(trainingLog)).map(log => log.stat)).toEqual(["ninjutsuMastery"]);
+    const refreshed = await fetchUpdatedUser({ client: db, userId: ID });
+    expect(refreshed.user!.dailyTrainings).toBe(MAX_DAILY_TRAININGS);
+    expect(refreshed.user!.ninjutsuMastery).toBe(user!.ninjutsuMastery);
+    expect((await readUser()).dailyTrainings).toBe(MAX_DAILY_TRAININGS);
+  });
+
+  it.each(["ninjutsuMastery", "Wind"] as const)("stops unfinished %s without gains after the daily allowance is exhausted", async (stat) => {
+    const caller = await api();
+    await patch({ dailyTrainings: MAX_DAILY_TRAININGS - 1 });
+    expect((await caller.startMasteryTraining({ stat })).success).toBe(true);
+    const startedAt = new Date(Date.now() - 14 * 60_000);
+    await patch({
+      dailyTrainings: MAX_DAILY_TRAININGS,
+      ...(stat === "Wind"
+        ? { elementalTrainingStartedAt: startedAt }
+        : { masteryTrainingStartedAt: startedAt }),
+    });
+    const db = await getTestDatabase();
+    await db.insert(captcha).values({ userId: ID, value: "stop-test" });
+    const before = await readUser();
+    const result = await caller.stopMasteryTraining({ stat, startedAt, guess: "stop-test" });
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("gained 0.00");
+    const after = await readUser();
+    expect(after.dailyTrainings).toBe(MAX_DAILY_TRAININGS);
+    expect(after.ninjutsuMastery).toBe(before.ninjutsuMastery);
+    expect(after.elementalMastery).toEqual(before.elementalMastery);
+    expect(stat === "Wind" ? after.currentlyTrainingElement : after.currentlyTrainingMastery).toBeNull();
+    expect(await db.select().from(trainingLog)).toEqual([]);
   });
 });

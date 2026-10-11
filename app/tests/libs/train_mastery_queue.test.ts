@@ -100,6 +100,25 @@ const refreshQueues = (
   }, user);
 
 describe("combined mastery and elemental queue settlement", () => {
+  it("shares the last daily allowance between standalone sessions in finish order", () => {
+    const user = trainee({ dailyTrainings: MAX_DAILY_TRAININGS - 1 });
+    const result = settleQueuedTraining(user, [], [], 0, after(16)).mastery;
+    expect(result?.gains).toEqual({ ninjutsuMastery: fullSession("15min") });
+    expect(result?.completed.map(entry => entry.stat)).toEqual(["ninjutsuMastery"]);
+    expect(result?.update).toMatchObject({
+      dailyTrainings: MAX_DAILY_TRAININGS,
+      currentlyTrainingMastery: null,
+      masteryTrainingStartedAt: null,
+      currentlyTrainingElement: null,
+      elementalTrainingStartedAt: null,
+    });
+    const earlierElement = settleQueuedTraining(
+      { ...user, trainingSpeed: "1hr" }, [], [], 0, after(61),
+    ).mastery;
+    expect(earlierElement?.gains).toEqual({ Wind: fullSession("15min") });
+    expect(earlierElement?.update.dailyTrainings).toBe(MAX_DAILY_TRAININGS);
+  });
+
   it("uses the shared daily allowance in finish order regardless of refresh cadence", () => {
     const user = trainee({
       dailyTrainings: MAX_DAILY_TRAININGS - 2,
@@ -292,6 +311,22 @@ describe("mastery training queue settlement", () => {
     expect(result.currentlyTrainingMastery).toBeNull();
     expect(result.dailyTrainings).toBe(MAX_DAILY_TRAININGS);
     expect(result.completed).toHaveLength(1);
+  });
+
+  it("clears an exhausted final session but keeps a queued successor paused", () => {
+    const user = trainee({ dailyTrainings: MAX_DAILY_TRAININGS });
+    const final = settleMasteryTrainingQueue(user, [], [], after(16));
+    expect(final.currentlyTrainingMastery).toBeNull();
+    expect(final.masteryTrainingStartedAt).toBeNull();
+    expect(final.gains).toEqual({});
+    expect(final.completed).toEqual([]);
+    expect(final.dailyTrainings).toBe(MAX_DAILY_TRAININGS);
+    const paused = settleMasteryTrainingQueue(user, genjutsuHour, [], after(16));
+    expect(paused.currentlyTrainingMastery).toBe("ninjutsuMastery");
+    expect(paused.remaining).toEqual(genjutsuHour);
+    expect(paused.consumed).toBe(0);
+    expect(paused.gains).toEqual({});
+    expect(paused.dailyTrainings).toBe(MAX_DAILY_TRAININGS);
   });
 
   it("drops capped masteries and caps the collected gain", () => {

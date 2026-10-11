@@ -1050,10 +1050,17 @@ export const settleMasteryTrainingQueue = (
     const seconds = trainingSpeedSeconds(speed);
     const finishedAt = secondsFromDate(seconds, startedAt);
     if (finishedAt > now) break;
-    const amount = Math.min(
-      room(current),
-      calcMasteryTrainingAmount({ ...user, trainingSpeed: speed }, settings, seconds),
-    );
+    const amount =
+      dailyTrainings < MAX_DAILY_TRAININGS
+        ? Math.min(
+            room(current),
+            calcMasteryTrainingAmount(
+              { ...user, trainingSpeed: speed },
+              settings,
+              seconds,
+            ),
+          )
+        : 0;
     const nextDaily = dailyTrainings + (amount > 0 ? 1 : 0);
     // Both the discipline cap and shared total use the post-completion balance.
     // Keep these gains provisional until the successor's start guards pass.
