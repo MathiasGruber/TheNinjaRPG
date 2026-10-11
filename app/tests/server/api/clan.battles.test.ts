@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { CLAN_BATTLE_REWARD_POINTS, CLAN_BATTLE_REWARD_RYO } from "@/drizzle/constants";
 import {
   actionLog,
+  aiProfile,
   battle,
   battleAction,
   battleHistory,
@@ -15,6 +16,7 @@ import {
   userData,
 } from "@/drizzle/schema";
 import { createAction } from "@/libs/combat/database";
+import { Pusher } from "@/libs/pusher";
 import { clanRouter } from "@/server/api/routers/clan";
 import { pvpRankRouter } from "@/server/api/routers/pvprank";
 import { deleteClanBattle, rewardClanBattleVictory } from "@/server/utils/clanBattle";
@@ -446,6 +448,180 @@ describeWithDatabase("clan economy and battle lifecycle", () => {
       battleId: null,
     });
     expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(0);
+  });
+
+  describe("sole-member queue cleanup", () => {
+    beforeEach(async () => {
+      const db = await getTestDatabase();
+      await resetTables(aiProfile);
+      await db.insert(aiProfile).values({
+        id: "Default",
+        userId: "default-ai",
+        rules: [],
+      });
+      await db.update(userData).set({ rank: "JONIN", isOutlaw: true });
+      await db
+        .update(userData)
+        .set({ status: "QUEUED" })
+        .where(eq(userData.userId, "leader"));
+      vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    });
+
+    afterEach(() => vi.restoreAllMocks());
+
+    for (const operation of ["leave", "kick"] as const) {
+      const remove = (client: Awaited<ReturnType<typeof getTestDatabase>>) => {
+        const caller = callerForDatabase(clanRouter, "leader", client);
+        return operation === "leave"
+          ? caller.leaveClanBattle({ clanBattleId: "q" })
+          : caller.kickFromClanBattle({
+              clanBattleId: "q",
+              targetId: "leader",
+              clanId: "a",
+            });
+      };
+
+      for (const hasStarted of [false, true]) {
+        it(`preserves ${hasStarted ? "active combat" : "a pending join"} after a late sole-member ${operation}`, async () => {
+          const db = await getTestDatabase();
+          let interleaved: Promise<void> | undefined;
+          let combatId: string | undefined;
+          const joinAndStart = () =>
+            (interleaved ??= (async () => {
+              expect(
+                (
+                  await callerForDatabase(clanRouter, "enemy", db).joinClanBattle({
+                    clanBattleId: "q",
+                  })
+                ).success,
+              ).toBe(true);
+              if (hasStarted) {
+                const result = await callerForDatabase(
+                  clanRouter,
+                  "leader",
+                  db,
+                ).initiateClanBattle({ clanBattleId: "q" });
+                expect(result.success).toBe(true);
+                combatId = result.battleId;
+              }
+            })());
+          // Hold both parallel cleanup branches after preload until the real join/start finishes.
+          let client = beforeStatements(db, mpvpBattleQueue, [joinAndStart]);
+          client = beforeStatements(client, mpvpBattleUser, [joinAndStart]);
+          client = beforeStatements(client, userData, [joinAndStart]);
+          expect((await remove(client)).success).toBe(true);
+          expect(await db.query.mpvpBattleQueue.findFirst()).toMatchObject({
+            id: "q",
+            battleId: combatId ?? null,
+          });
+          expect(await db.query.mpvpBattleUser.findMany()).toEqual([
+            expect.objectContaining({ userId: "enemy", clanBattleId: "q" }),
+          ]);
+          expect(await storedUser("enemy")).toMatchObject({
+            status: hasStarted ? "BATTLE" : "QUEUED",
+            battleId: combatId ?? null,
+          });
+          if (hasStarted) {
+            const active = await db.query.battle.findFirst();
+            expect(active?.id).toBe(combatId);
+            if (!active || !combatId) throw new Error("Combat was not published");
+            await createAction(db, active, [
+              {
+                battleRound: 1,
+                battleVersion: 1,
+                description: "combat action",
+                appliedEffects: [],
+              },
+            ]);
+            expect(await db.query.battleAction.findMany()).toHaveLength(1);
+            expect(await rewardClanBattleVictory(db, combatId, "a")).toBe(true);
+            expect(await storedClan()).toMatchObject({
+              points: 100 + CLAN_BATTLE_REWARD_POINTS,
+              bank: 50 + CLAN_BATTLE_REWARD_RYO,
+            });
+          }
+          expect(
+            (
+              await callerForDatabase(clanRouter, "leader", db).deleteClanBattle({
+                clanBattleId: "q",
+              })
+            ).success,
+          ).toBe(true);
+          expect(await storedUser("enemy")).toMatchObject({
+            status: "AWAKE",
+            battleId: null,
+          });
+          expect(await db.query.mpvpBattleQueue.findMany()).toHaveLength(0);
+          expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(0);
+          expect(await db.query.battle.findMany()).toHaveLength(0);
+          expect(await db.query.battleAction.findMany()).toHaveLength(0);
+        });
+      }
+
+      for (const membershipFirst of [false, true]) {
+        it(`cleans the last member's ${operation} with ${membershipFirst ? "membership" : "lobby"} deletion first`, async () => {
+          const db = await getTestDatabase();
+          const client = beforeStatements(
+            db,
+            membershipFirst ? mpvpBattleQueue : mpvpBattleUser,
+            [
+              async () => {
+                const hasFinished = async () =>
+                  membershipFirst
+                    ? (await storedUser("leader"))?.status === "AWAKE"
+                    : !(await db.query.mpvpBattleQueue.findFirst());
+                for (let attempts = 0; !(await hasFinished()) && attempts < 100; attempts++) {
+                  await new Promise((resolve) => setTimeout(resolve, 1));
+                }
+                expect(await hasFinished()).toBe(true);
+                if (membershipFirst) throw new Error("Deadlock found when trying to get lock");
+              },
+            ],
+          );
+          expect((await remove(client)).success).toBe(true);
+          expect(await storedUser("leader")).toMatchObject({
+            status: "AWAKE",
+            battleId: null,
+          });
+          expect(await db.query.mpvpBattleQueue.findMany()).toHaveLength(0);
+          expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(0);
+        });
+      }
+
+      it(`preserves a replacement membership in the same lobby after a late ${operation}`, async () => {
+        const db = await getTestDatabase();
+        let interleaved: Promise<void> | undefined;
+        const rejoin = () =>
+          (interleaved ??= (async () => {
+            await db.delete(mpvpBattleUser).where(eq(mpvpBattleUser.id, "u"));
+            await db
+              .update(userData)
+              .set({ status: "AWAKE" })
+              .where(eq(userData.userId, "leader"));
+            expect(
+              (
+                await callerForDatabase(clanRouter, "leader", db).joinClanBattle({
+                  clanBattleId: "q",
+                })
+              ).success,
+            ).toBe(true);
+          })());
+        let client = beforeStatements(db, mpvpBattleQueue, [rejoin]);
+        client = beforeStatements(client, mpvpBattleUser, [rejoin]);
+        client = beforeStatements(client, userData, [rejoin]);
+        expect((await remove(client)).success).toBe(true);
+        expect(await db.query.mpvpBattleQueue.findMany()).toHaveLength(1);
+        const members = await db.query.mpvpBattleUser.findMany();
+        expect(members).toEqual([
+          expect.objectContaining({ userId: "leader", clanBattleId: "q" }),
+        ]);
+        expect(members[0]?.id).not.toBe("u");
+        expect(await storedUser("leader")).toMatchObject({
+          status: "QUEUED",
+          battleId: null,
+        });
+      });
+    }
   });
 
   it("cleans a challenge deleted before its initial member was inserted", async () => {

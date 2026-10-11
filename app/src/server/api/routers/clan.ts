@@ -2108,6 +2108,8 @@ export const removeFromClan = async (
 /**
  * Remove the observed membership and an empty lobby, then release its queue ownership.
  * A delayed leave or kick must preserve a newer membership, ranked claim or combat.
+ * The preloaded member count only permits a deletion attempt: recheck pending combat
+ * and all entries except the departing ID, which parallel member cleanup may already remove.
  */
 export const removeFromClanBattle = async (
   client: DrizzleClient,
@@ -2119,7 +2121,29 @@ export const removeFromClanBattle = async (
   if (!entry) return;
   await Promise.all([
     ...(currentQueue.length === 1
-      ? [client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanBattleId))]
+      ? [
+          retryOnDeadlock(() =>
+            client.delete(mpvpBattleQueue).where(
+              and(
+                eq(mpvpBattleQueue.id, clanBattleId),
+                eq(mpvpBattleQueue.battleType, "CLAN_BATTLE"),
+                isNull(mpvpBattleQueue.battleId),
+                isNull(mpvpBattleQueue.winnerId),
+                notExists(
+                  client
+                    .select({ id: mpvpBattleUser.id })
+                    .from(mpvpBattleUser)
+                    .where(
+                      and(
+                        eq(mpvpBattleUser.clanBattleId, clanBattleId),
+                        ne(mpvpBattleUser.id, entry.id),
+                      ),
+                    ),
+                ),
+              ),
+            ),
+          ),
+        ]
       : []),
     undoClanBattleJoin(client, userId, entry.id),
   ]);
