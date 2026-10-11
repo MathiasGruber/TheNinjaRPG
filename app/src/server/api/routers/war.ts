@@ -1499,27 +1499,14 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
   activeWars = await Promise.all(
     activeWars
       .filter((war) => war.attackerVillage && war.defenderVillage)
-      .map((war) => {
-        if (
-          war.settlementPending ||
-          war.attackerVillage.tokens <= 0 ||
-          war.defenderVillage.tokens <= 0 ||
-          war.attackerWarHealth <= 0 ||
-          war.defenderWarHealth <= 0
-        ) {
-          return handleWarEnd(war, client);
-        }
-        return war;
-      }),
+      .map((war) => handleWarEnd(war, client)),
   );
   // Final active wars
-  activeWars = activeWars.filter((war) => {
-    if (war.status !== "ACTIVE") return false;
-    if (villageId) {
-      return isVillageInvolvedInAnyWar([war], villageId);
-    }
-    return war.status === "ACTIVE";
-  });
+  activeWars = activeWars.filter(
+    (war) =>
+      war.status === "ACTIVE" &&
+      (!villageId || isVillageInvolvedInAnyWar([war], villageId)),
+  );
 
   // Return active wars
   return activeWars;

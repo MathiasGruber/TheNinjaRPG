@@ -36,16 +36,7 @@ vi.mock("@/libs/pusher", () => ({
   }),
 }));
 
-vi.mock("@/routers/sparring", () => ({
-  fetchRequest: (...args: unknown[]) =>
-    (getAnbuTestMocks().fetchRequest as (...values: unknown[]) => unknown)(...args),
-  fetchRequests: (...args: unknown[]) =>
-    (getAnbuTestMocks().fetchRequests as (...values: unknown[]) => unknown)(...args),
-  insertRequest: (...args: unknown[]) =>
-    (getAnbuTestMocks().insertRequest as (...values: unknown[]) => unknown)(...args),
-}));
-
-import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
+import { resetServerModuleStubs, stubProfile, stubSparring } from "../../setup/serverModules";
 import {
   acceptAnbuRequest,
   createAnbuRequest,
@@ -92,6 +83,9 @@ describe("ANBU request squad identity", () => {
       (getAnbuTestMocks().fetchUser as unknown as (...a: never[]) => unknown)(...args),
     );
     stubProfile("updateNindo", (() => undefined) as never);
+    for (const name of ["fetchRequest", "fetchRequests", "insertRequest"] as const) {
+      stubSparring(name, getAnbuTestMocks()[name]);
+    }
     vi.clearAllMocks();
   });
 
@@ -347,6 +341,9 @@ describe("ANBU router request permissions and concurrency", () => {
       (getAnbuTestMocks().fetchUser as unknown as (...a: never[]) => unknown)(...args),
     );
     stubProfile("updateNindo", (() => undefined) as never);
+    for (const name of ["fetchRequest", "fetchRequests", "insertRequest"] as const) {
+      stubSparring(name, getAnbuTestMocks()[name]);
+    }
     vi.clearAllMocks();
   });
 
@@ -695,6 +692,9 @@ describe("ANBU membership invariants", () => {
       (getAnbuTestMocks().fetchUser as unknown as (...a: never[]) => unknown)(...args),
     );
     stubProfile("updateNindo", (() => undefined) as never);
+    for (const name of ["fetchRequest", "fetchRequests", "insertRequest"] as const) {
+      stubSparring(name, getAnbuTestMocks()[name]);
+    }
     vi.clearAllMocks();
   });
 

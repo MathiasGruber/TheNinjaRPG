@@ -13,6 +13,7 @@
 import { vi } from "bun:test";
 import * as actualDb from "@/server/db";
 import * as actualProfile from "@/routers/profile";
+import * as actualSparring from "@/routers/sparring";
 import * as actualCron from "@/server/utils/cron";
 import { peekTestDatabase } from "./testDatabase";
 
@@ -32,6 +33,7 @@ const delegating = <T extends object>(actual: T) =>
   );
 
 vi.mock("@/routers/profile", () => delegating(actualProfile));
+vi.mock("@/routers/sparring", () => delegating(actualSparring));
 
 /** Cron authentication stays real until a suite answers it with `stubCronAuth`. */
 vi.mock("@/server/utils/cron", () => delegating(actualCron));
@@ -67,6 +69,14 @@ export const stubDatabase = (stub: object) => {
 /** Route one `@/routers/profile` export to `implementation` for the current suite. */
 export const stubProfile = (
   name: keyof typeof actualProfile & string,
+  implementation: AnyFn,
+) => {
+  stubs.set(name, implementation);
+};
+
+/** Route one `@/routers/sparring` export to `implementation` for the current suite. */
+export const stubSparring = (
+  name: keyof typeof actualSparring & string,
   implementation: AnyFn,
 ) => {
   stubs.set(name, implementation);
