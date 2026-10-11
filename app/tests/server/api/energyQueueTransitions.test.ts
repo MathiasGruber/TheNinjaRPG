@@ -471,7 +471,7 @@ describeWithDatabase("Energy queue state transitions", () => {
     }
   });
 
-  it("settles an offline opponent's due jutsu level and mastery queue before the fight", async () => {
+  it.each(["ninjutsuMastery", "Wind"] as const)("settles an offline opponent's due jutsu level and %s queue before the fight", async stat => {
     await prepare([]);
     const db = await getTestDatabase();
     const finished = new Date(Date.now() - 30 * 60_000);
@@ -479,7 +479,7 @@ describeWithDatabase("Energy queue state transitions", () => {
       isOutlaw: true,
       stealthActive: false,
       trainingSpeed: "15min",
-      currentlyTrainingMastery: "ninjutsuMastery",
+      currentlyTrainingMastery: stat,
       masteryTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
     });
     await insertUsers([{ userId: "attacker", username: "Attacker", rank: "JONIN", level: 1, status: "AWAKE", isOutlaw: true, sector: HOME, longitude: 25, latitude: 10 }]);
@@ -512,12 +512,12 @@ describeWithDatabase("Energy queue state transitions", () => {
       const user = (await read())!;
       expect(user.currentlyTrainingMastery).toBe("genjutsuMastery");
       expect(user.trainingSpeed).toBe("1hr");
-      expect(user.ninjutsuMastery).toBeGreaterThan(0);
+      expect(stat === "Wind" ? user.elementalMastery.Wind : user.ninjutsuMastery).toBeGreaterThan(stat === "Wind" ? 0 : 10);
       expect(user.masteryQueueHead).toBe(1);
       expect(await readMasteryQueue(USER)).toEqual([]);
       // The started jutsu row is gone; the consumed mastery row waits for the next edit.
       expect((await db.select().from(userQueue)).map((row) => row.kind)).toEqual(["MASTERY"]);
-      expect((await db.select().from(trainingLog)).map((log) => log.stat)).toEqual(["ninjutsuMastery"]);
+      expect((await db.select().from(trainingLog)).map((log) => log.stat)).toEqual([stat]);
     } finally {
       trigger.mockRestore();
     }
