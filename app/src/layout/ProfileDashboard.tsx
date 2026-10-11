@@ -33,7 +33,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { COST_STREAK_CATCHUP_DAY } from "@/drizzle/constants";
+import { COST_STREAK_CATCHUP_DAY, MasteryQueueKinds } from "@/drizzle/constants";
 import { safeLocalStorageGetItem, safeLocalStorageSetItem } from "@/hooks/localstorage";
 import { useActivityStreaks, useClaimStreakDay } from "@/hooks/useActivityStreaks";
 import { useClaimBankInterest, usePendingBankInterest } from "@/hooks/useBankInterest";
@@ -63,7 +63,7 @@ import {
   selectDashboardHighlights,
 } from "@/libs/profileDashboard";
 import { cn } from "@/libs/shadui";
-import { masteryTrainingEndsAt } from "@/libs/train";
+import { getMasteryTrainingState, masteryTrainingEndsAt } from "@/libs/train";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { nextUtcDayAt } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -149,14 +149,22 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
     jutsuQueue?.next && jutsuQueue.count > 0
       ? `Next: ${jutsuQueue.next.name} to level ${jutsuQueue.next.level}${jutsuQueue.count > 1 ? ` (+${jutsuQueue.count - 1} more queued)` : ""}`
       : null;
-  const masteryTrainingFinish = userData ? masteryTrainingEndsAt(userData) : null;
-  const masteryTraining = userData?.currentlyTrainingMastery
-    ? {
-        title: capitalizeFirstLetter(noCase(userData.currentlyTrainingMastery)),
-        startedAt: userData.masteryTrainingStartedAt,
-        endsAt: masteryTrainingFinish,
-      }
-    : null;
+  const masteryTraining = userData
+    ? MasteryQueueKinds.flatMap((kind) => {
+        const session = getMasteryTrainingState(userData, kind);
+        return session.stat
+          ? [
+              {
+                kind,
+                label: kind === "ELEMENT" ? "Elemental" : "Mastery",
+                title: capitalizeFirstLetter(noCase(session.stat)),
+                startedAt: session.startedAt,
+                endsAt: masteryTrainingEndsAt(userData, kind),
+              },
+            ]
+          : [];
+      })
+    : [];
   const craftingTimers = [
     ...(sidebarTimers.data?.crafting
       ? [
@@ -540,24 +548,25 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                 }
               />
             )}
-            {masteryTraining && (
+            {masteryTraining.map((session) => (
               <StatusRow
-                label="Mastery"
-                title={masteryTraining.title}
+                key={session.kind}
+                label={session.label}
+                title={session.title}
                 detail={
-                  masteryTraining.endsAt ? (
+                  session.endsAt ? (
                     <Countdown
-                      targetDate={masteryTraining.endsAt}
+                      targetDate={session.endsAt}
                       timeDiff={timeDiff}
                       onEndShow="Ready"
                     />
                   ) : null
                 }
                 meter={
-                  masteryTraining.startedAt && masteryTraining.endsAt ? (
+                  session.startedAt && session.endsAt ? (
                     <ElapsedMeter
-                      startedAt={masteryTraining.startedAt}
-                      endsAt={masteryTraining.endsAt}
+                      startedAt={session.startedAt}
+                      endsAt={session.endsAt}
                       timeDiff={timeDiff}
                     />
                   ) : null
@@ -568,7 +577,7 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                   </RowAction>
                 }
               />
-            )}
+            ))}
             <StatusRow
               label={occupationLine.label}
               title={occupationLine.title}

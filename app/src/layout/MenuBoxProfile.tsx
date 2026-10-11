@@ -4,6 +4,7 @@ import {
   ClipboardList,
   EyeOff,
   Filter,
+  Flame,
   Gem,
   Hammer,
   LayoutList,
@@ -45,6 +46,7 @@ import {
   IMG_ICON_TIKTOK,
   IMG_ICON_TWITTER,
   IMG_ICON_YOUTUBE,
+  MasteryQueueKinds,
   MEDICAL_MISSIONS_PER_DAY,
   MISSIONS_PER_DAY,
   PVP_MISSIONS_PER_DAY,
@@ -443,27 +445,28 @@ const MenuBoxProfile: React.FC = () => {
               </Tooltip>
             </TooltipProvider>
           )}
-          {userData?.masteryTrainingStartedAt && userData?.currentlyTrainingMastery && (
-            <TooltipProvider delayDuration={50}>
-              <Tooltip>
-                <TooltipTrigger className="w-full">
-                  <div className="flex flex-row items-center hover:text-orange-500">
-                    <Medal className="mr-2 h-6 w-6" />
-                    <Link href="/traininggrounds">
-                      <Countdown
-                        targetDate={
-                          masteryTrainingEndsAt(userData) ??
-                          userData.masteryTrainingStartedAt
-                        }
-                        timeDiff={timeDiff}
-                      />
-                    </Link>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Mastery training</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          {userData &&
+            MasteryQueueKinds.map((kind) => {
+              const endsAt = masteryTrainingEndsAt(userData, kind);
+              const Icon = kind === "ELEMENT" ? Flame : Medal;
+              return endsAt ? (
+                <TooltipProvider key={kind} delayDuration={50}>
+                  <Tooltip>
+                    <TooltipTrigger className="w-full">
+                      <div className="flex flex-row items-center hover:text-orange-500">
+                        <Icon className="mr-2 h-6 w-6" />
+                        <Link href="/traininggrounds">
+                          <Countdown targetDate={endsAt} timeDiff={timeDiff} />
+                        </Link>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {kind === "ELEMENT" ? "Elemental" : "Mastery"} training
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null;
+            })}
           {trainingJutsu && (
             <TooltipProvider delayDuration={50}>
               <Tooltip>

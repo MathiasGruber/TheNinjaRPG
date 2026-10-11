@@ -1,6 +1,13 @@
 import { z } from "zod";
-import type { ElementName, LetterRank, QuestType } from "@/drizzle/constants";
+import type {
+  BasicElement,
+  ElementName,
+  LetterRank,
+  QuestType,
+} from "@/drizzle/constants";
 import {
+  BasicElementName,
+  ELEMENTAL_MASTERY_CAP,
   GeneralTypes,
   MAX_MASTERY_CAP,
   SEICHI_SILVER_ADJUST_LIMIT,
@@ -8,9 +15,14 @@ import {
   UserRanks,
   UserRoles,
 } from "@/drizzle/constants";
+import { getBloodlineElements } from "@/libs/userElements";
+
+export { getBloodlineElements, isBloodlineEffectBeneficial } from "@/libs/userElements";
+
+import { activeTrainedElement, elementalGainRoom } from "@/libs/elementalMastery";
 import { masteryGainRoom } from "@/libs/masteryProgression";
 import type { UserWithRelations } from "@/routers/profile";
-import { createStatSchema, type ZodAllTags } from "@/validators/combat";
+import { createStatSchema } from "@/validators/combat";
 import { dashboardContentPrioritySchema } from "@/validators/dashboard";
 import { genders, usernameSchema } from "@/validators/register";
 import {
@@ -29,24 +41,25 @@ export const createAssignedExperienceSchema = (
   user?: NonNullable<UserWithRelations>,
 ) => {
   const { schema, maxValues } = createStatSchema(0, 0, user);
-  const masteryRoom = Object.fromEntries(
-    assignableMasteryNames.map((name) => [
+  const additionalRoom = Object.fromEntries([
+    ...assignableMasteryNames.map((name) => [
       name,
       user ? masteryGainRoom(user, name) : MAX_MASTERY_CAP,
     ]),
-  ) as Record<(typeof assignableMasteryNames)[number], number>;
-  const masteryFields = Object.fromEntries(
-    assignableMasteryNames.map((name) => [
-      name,
-      z.coerce.number().min(0).max(masteryRoom[name]).prefault(0),
+    ...BasicElementName.map((element) => [
+      element,
+      user ? Math.ceil(elementalGainRoom(user, element)) : ELEMENTAL_MASTERY_CAP,
     ]),
-  ) as Record<
-    (typeof assignableMasteryNames)[number],
-    z.ZodPrefault<z.ZodCoercedNumber>
-  >;
+  ]) as Record<(typeof assignableMasteryNames)[number] | BasicElement, number>;
+  const additionalFields = Object.fromEntries(
+    Object.entries(additionalRoom).map(([name, room]) => [
+      name,
+      z.coerce.number().min(0).max(room).prefault(0),
+    ]),
+  ) as Record<keyof typeof additionalRoom, z.ZodPrefault<z.ZodCoercedNumber>>;
   return {
-    schema: schema.extend(masteryFields),
-    maxValues: { ...maxValues, ...masteryRoom },
+    schema: schema.extend(additionalFields),
+    maxValues: { ...maxValues, ...additionalRoom },
   };
 };
 
@@ -127,38 +140,10 @@ export const getUserElements = (user: UserWithRelations) => {
     finalElements = userElements;
   }
 
+  const trained = user && activeTrainedElement(user);
+  if (trained) finalElements.push(trained);
   finalElements.push("None");
   return Array.from(new Set(finalElements));
-};
-
-export const getBloodlineElements = (user: UserWithRelations) => {
-  const bloodlineElements: ElementName[] = [];
-  user?.bloodline?.effects.forEach((effect) => {
-    if ("elements" in effect && effect.elements) {
-      if (isBloodlineEffectBeneficial(effect)) {
-        bloodlineElements.push(...effect.elements);
-      }
-    }
-  });
-  return bloodlineElements;
-};
-
-export const isBloodlineEffectBeneficial = (effect: ZodAllTags) => {
-  // Default to beneficial, as should be true for most bloodline effects
-  let isStrength = true;
-  // Certains tags are negative in a bloodline context
-  if (
-    [
-      "decreasedamagegiven",
-      "increasedamagetaken",
-      "decreaseheal",
-      "decreasestat",
-      "decreasemastery",
-      "damage",
-    ].includes(effect.type)
-  )
-    isStrength = false;
-  return isStrength;
 };
 
 export const getPublicUsersSchema = z.object({

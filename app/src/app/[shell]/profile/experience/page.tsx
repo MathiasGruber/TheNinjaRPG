@@ -29,13 +29,14 @@ export default function AssignExperience() {
     });
 
   const submitStats = async (data: Parameters<typeof updateStats>[0]) => {
-    if (submissionInFlight.current) return;
+    if (submissionInFlight.current) return false;
 
     submissionInFlight.current = true;
     try {
-      await updateStats(data);
+      return (await updateStats(data)).success;
     } catch {
       // The shared tRPC error handler reports failures; retain the current draft.
+      return false;
     } finally {
       submissionInFlight.current = false;
     }

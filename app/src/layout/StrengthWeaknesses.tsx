@@ -10,7 +10,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Progress } from "@/components/ui/progress";
 import type { MasteryType } from "@/drizzle/constants";
 import {
+  BasicElementName,
   CombatStatNames,
+  ELEMENTAL_MASTERY_BOOST,
+  ELEMENTAL_MASTERY_CAP,
   getUserCaps,
   MAX_MASTERY_CAP,
   MasteryNames,
@@ -26,6 +29,7 @@ import ElementImage from "@/layout/ElementImage";
 import NavTabs from "@/layout/NavTabs";
 import SkillTreeFolderGrid from "@/layout/SkillTreeFolderGrid";
 import SkillTreeFolderModal from "@/layout/SkillTreeFolderModal";
+import { activeTrainedElement, providedElements } from "@/libs/elementalMastery";
 import { getMasteryRank, masteryTotal } from "@/libs/masteryProgression";
 import { withCappedStats } from "@/libs/profile";
 import { getSageMasteryDisplayRank } from "@/libs/sageMode";
@@ -177,7 +181,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({ userData }) => {
             {userElements.map((element, i) => (
               <div key={`${element}-${i}`} className="flex flex-row pt-1">
                 <ElementImage element={element} className="w-6" />
-                <p className="pl-2">{element}</p>
+                <p className="pl-2">
+                  {element}
+                  {activeTrainedElement(userData) === element
+                    ? ` (+${ELEMENTAL_MASTERY_BOOST}% damage)`
+                    : ""}
+                </p>
               </div>
             ))}
           </div>
@@ -234,6 +243,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ userData }) => {
           </div>
         </div>
       </div>
+      <ElementalMasteryProgress userData={userData} />
     </div>
   );
 };
@@ -401,7 +411,12 @@ export const GraphsTab: React.FC<GraphsTabProps> = ({ userData }) => {
           {userElements.map((element) => (
             <div key={element} className="flex items-center gap-2 text-sm">
               <ElementImage element={element} className="w-8" />
-              <span>{element}</span>
+              <span>
+                {element}
+                {activeTrainedElement(userData) === element
+                  ? ` (+${ELEMENTAL_MASTERY_BOOST}% damage)`
+                  : ""}
+              </span>
             </div>
           ))}
         </div>
@@ -410,7 +425,59 @@ export const GraphsTab: React.FC<GraphsTabProps> = ({ userData }) => {
             First element unlocks at Genin; second at Chunin.
           </p>
         )}
+        <ElementalMasteryProgress userData={userData} />
       </section>
+    </div>
+  );
+};
+
+const ElementalMasteryProgress = ({ userData }: StatsTabProps) => {
+  const userElements = getUserElements(userData);
+  const elements = BasicElementName.filter(
+    (element) =>
+      ((userData.elementalMastery[element] ?? 0) > 0 ||
+        userData.currentlyTrainingElement === element) &&
+      !(
+        (userData.elementalMastery[element] ?? 0) >= ELEMENTAL_MASTERY_CAP &&
+        userElements.includes(element)
+      ),
+  );
+  const provided = providedElements(userData);
+  if (elements.length === 0) return null;
+
+  return (
+    <div className="col-span-2 mt-3 space-y-2 border-t pt-2">
+      <b>Elemental Mastery</b>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {elements.map((element) => {
+          const progress = userData.elementalMastery[element] ?? 0;
+          return (
+            <div key={element}>
+              <div className="flex items-center gap-2 text-sm">
+                <ElementImage element={element} className="h-6 w-6" />
+                {element}: {Number(progress.toFixed(2)).toLocaleString()} /{" "}
+                {ELEMENTAL_MASTERY_CAP.toLocaleString()}
+              </div>
+              <Progress
+                aria-label={`${element} mastery`}
+                value={(progress / ELEMENTAL_MASTERY_CAP) * 100}
+                className="my-1 h-2"
+              />
+              <p className="text-muted-foreground text-xs">
+                {provided.includes(element)
+                  ? "Provided by innate elements or bloodline"
+                  : progress >= ELEMENTAL_MASTERY_CAP
+                    ? "Mastered (inactive)"
+                    : "Not yet proficient"}
+                {userData.currentlyTrainingElement === element ? " · Training" : ""}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-muted-foreground text-xs">
+        Fully master an element and select it in Combat Preferences to use it.
+      </p>
     </div>
   );
 };

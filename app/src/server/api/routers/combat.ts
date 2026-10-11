@@ -33,6 +33,7 @@ import {
   COMBAT_BIOMES,
   type CombatBiome,
   CombatStatNames,
+  ELEMENTAL_MASTERY_BOOST,
   MAP_RESERVED_SECTORS,
   MAP_WAKE_ISLAND_SECTOR,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
@@ -144,6 +145,7 @@ import {
   resetMasteriesToBase,
   rollInitiative,
 } from "@/libs/combat/util";
+import { activeTrainedElement } from "@/libs/elementalMastery";
 import { fetchDmgConfig } from "@/libs/gamesettings";
 import { computeJutsuLoadoutCapAssignments } from "@/libs/jutsu";
 import {
@@ -178,6 +180,7 @@ import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
 import {
+  applyMasteryTrainingGains,
   calcJutsuEquipLimit,
   canUseJutsu,
   checkJutsuBloodlineItem,
@@ -210,7 +213,10 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { battleClaimRollbackStatus } from "@/server/utils/concurrency";
-import { masteryGainUpdates } from "@/server/utils/masteryProgression";
+import {
+  elementalSnapshotConditions,
+  masteryGainUpdates,
+} from "@/server/utils/masteryProgression";
 import { fetchSanninRankedPlayers } from "@/server/utils/ranked";
 import { hasDueTimedJob, settleDueTimedQueues } from "@/server/utils/userQueue";
 import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/war";
@@ -220,7 +226,12 @@ import { randomInt } from "@/utils/math";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
 import { canAccessStructure } from "@/utils/village";
 import type { AssignableUserStats } from "@/validators/combat";
-import { BarrierTag, performActionSchema, statSchema } from "@/validators/combat";
+import {
+  BarrierTag,
+  IncreaseDamageGivenTag,
+  performActionSchema,
+  statSchema,
+} from "@/validators/combat";
 import { sectorIdSchema } from "@/validators/travel";
 import { fetchUpdatedUser, fetchUser, type UserWithRelations } from "./profile";
 
@@ -2046,7 +2057,12 @@ export const initiateBattle = async (
   // The same settlement as an account refresh (`settleQueuedTraining`), written back in
   // bulk with the battle claim below.
   const queuedTraining = fetchedUsers.flatMap((user) => {
-    if (user.isAi || (user.queue.length === 0 && !user.currentlyTrainingMastery))
+    if (
+      user.isAi ||
+      (user.queue.length === 0 &&
+        !user.currentlyTrainingMastery &&
+        !user.currentlyTrainingElement)
+    )
       return [];
     const original = { ...user };
     const ticks = Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
@@ -2072,12 +2088,8 @@ export const initiateBattle = async (
       user.energyQueueHead = energy.head;
     }
     if (mastery) {
-      for (const stat of MasteryNames) user[stat] += mastery.gains[stat] ?? 0;
-      user.masteryQueueHead = mastery.head;
-      user.currentlyTrainingMastery = mastery.currentlyTrainingMastery;
-      user.masteryTrainingStartedAt = mastery.masteryTrainingStartedAt;
-      user.trainingSpeed = mastery.trainingSpeed;
-      user.dailyTrainings = mastery.dailyTrainings;
+      Object.assign(user, applyMasteryTrainingGains(user, mastery.gains));
+      Object.assign(user, mastery.update);
       // Completion can make already worn Energy capacity gear eligible before loadouts change.
       energyCapacity[user.userId] = calcMaxEnergy(user);
     }
@@ -2765,23 +2777,32 @@ export const initiateBattle = async (
     }
     const masteryParticipants = queuedParticipants.filter((entry) => entry.mastery);
     if (masteryParticipants.length) {
-      queueUpdate.masteryQueueHead = queueCase(
-        "masteryQueueHead",
-        masteryParticipants,
-        (entry) => entry.mastery?.head,
-      );
       for (const column of [
+        "masteryQueueHead",
+        "elementalQueueHead",
+        "currentlyTrainingElement",
+        "elementalTrainingStartedAt",
+        "elementalTrainingSpeed",
         "currentlyTrainingMastery",
         "masteryTrainingStartedAt",
         "trainingSpeed",
         "dailyTrainings",
       ] as const) {
+        const participants = masteryParticipants.filter(
+          (entry) => entry.mastery && column in entry.mastery.update,
+        );
+        if (!participants.length) continue;
         queueUpdate[column] = queueCase(
           column,
-          masteryParticipants,
-          (entry) => entry.mastery?.[column] ?? null,
+          participants,
+          (entry) => entry.user[column],
         );
       }
+      queueUpdate.elementalMastery = queueCase(
+        "elementalMastery",
+        masteryParticipants,
+        (entry) => JSON.stringify(entry.user.elementalMastery),
+      );
       for (const stat of MasteryNames) {
         queueUpdate[stat] = queueCase(
           stat,
@@ -2919,6 +2940,7 @@ export const initiateBattle = async (
                 eq(userData.latitude, original.latitude),
                 eq(userData.rank, original.rank),
                 ...MasteryNames.map((stat) => eq(userData[stat], original[stat])),
+                ...elementalSnapshotConditions(original),
                 sql`${userData.masteryRanks} = CAST(${JSON.stringify(original.masteryRanks)} AS JSON)`,
                 eq(userData.isBanned, original.isBanned),
                 eq(userData.isOutlaw, original.isOutlaw),
@@ -3385,6 +3407,27 @@ export const processUsersForBattle = async (
         ui.equipped = "NONE";
       });
     const gateMasteries = effectiveMasteries(wearer);
+
+    // Capture the unlocked element's passive once; action processing uses only battle state.
+    const trainedElement = activeTrainedElement(user);
+    if (trainedElement && !isRankedBattle) {
+      const realized = realizeTag({
+        tag: IncreaseDamageGivenTag.parse({
+          power: ELEMENTAL_MASTERY_BOOST,
+          elements: [trainedElement],
+          target: "SELF",
+        }) as UserEffect,
+        user,
+        actionId: "elemental-mastery",
+        target: user,
+        level: user.level,
+      });
+      realized.isNew = false;
+      realized.castThisRound = false;
+      realized.targetId = user.userId;
+      realized.fromType = "elementalMastery";
+      userEffects.push(realized);
+    }
 
     // Add bloodline efects
     if (

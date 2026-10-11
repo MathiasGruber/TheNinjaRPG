@@ -1003,6 +1003,14 @@ export const BasicElementName = [
   "Lightning",
 ] as const;
 
+export type BasicElement = (typeof BasicElementName)[number];
+
+/** Targets supported by timed training; each section has an independent queue. */
+export const TimedMasteryNames = [...MasteryNames, ...BasicElementName] as const;
+export type TimedMasteryName = (typeof TimedMasteryNames)[number];
+export const ELEMENTAL_MASTERY_CAP = 300_000;
+export const ELEMENTAL_MASTERY_BOOST = 15;
+
 export const ElementNames = [
   ...BasicElementName,
   "Ice",
@@ -1031,7 +1039,9 @@ export const CP_PER_LVL = 50;
 export const ENERGY_PER_LVL = 50;
 export const STATS_PER_ENERGY = 0.085;
 /** Kinds of entries held in `UserQueue`. */
-export const QueueKinds = ["JUTSU", "CRAFT", "MASTERY", "ENERGY"] as const;
+export const QueueKinds = ["JUTSU", "CRAFT", "MASTERY", "ENERGY", "ELEMENT"] as const;
+export const MasteryQueueKinds = ["MASTERY", "ELEMENT"] as const;
+export type MasteryQueueKind = (typeof MasteryQueueKinds)[number];
 export type QueueKind = (typeof QueueKinds)[number];
 /** Queue kinds started on a timer and settled in the database. */
 export const TimedQueueKinds = ["JUTSU", "CRAFT"] as const satisfies readonly QueueKind[];
@@ -3382,6 +3392,7 @@ export const TRANSFER_EXCLUDED_SOURCE_TYPES: ReadonlySet<string> = new Set([
   "village",
   "skill",
   "ranked",
+  "elementalMastery",
   "sageMode",
   "sageModeAfter",
 ]);

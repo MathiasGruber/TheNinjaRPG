@@ -1,5 +1,5 @@
 /** Atomic SQL counterparts to the earned-mastery calculations in libs/masteryProgression. */
-import { type SQL, sql } from "drizzle-orm";
+import { eq, isNull, type SQL, sql } from "drizzle-orm";
 import {
   MASTERY_RANK_CAPS,
   MASTERY_RANKS,
@@ -8,7 +8,7 @@ import {
   type MasteryRank,
   TOTAL_MASTERY_CAP,
 } from "@/drizzle/constants";
-import { userData } from "@/drizzle/schema";
+import { type UserData, userData } from "@/drizzle/schema";
 
 /**
  * Build positive mastery increments for a single UserData update using live row values.
@@ -51,3 +51,22 @@ export const masteryRankUpdate = (stat: MasteryName, rank: MasteryRank): SQL => 
   const previous = MASTERY_RANKS[MASTERY_RANKS.indexOf(rank) - 1];
   return sql`CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(${userData.masteryRanks}, ${`$.${stat}`})), 'NONE') = ${previous ?? "NONE"} THEN JSON_SET(${userData.masteryRanks}, ${`$.${stat}`}, ${rank}) ELSE ${userData.masteryRanks} END`;
 };
+
+/** Guard sources that other profile mutations can change without advancing updatedAt. */
+export const elementalSnapshotConditions = (
+  user: Pick<
+    UserData,
+    "elementalMastery" | "bloodlineId" | "primaryElement" | "secondaryElement"
+  >,
+) => [
+  sql`${userData.elementalMastery} = CAST(${JSON.stringify(user.elementalMastery)} AS JSON)`,
+  user.bloodlineId
+    ? eq(userData.bloodlineId, user.bloodlineId)
+    : isNull(userData.bloodlineId),
+  user.primaryElement
+    ? eq(userData.primaryElement, user.primaryElement)
+    : isNull(userData.primaryElement),
+  user.secondaryElement
+    ? eq(userData.secondaryElement, user.secondaryElement)
+    : isNull(userData.secondaryElement),
+];

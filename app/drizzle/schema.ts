@@ -2330,7 +2330,7 @@ export const trainingLog = mysqlTable(
     id: int("id").autoincrement().primaryKey().notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     amount: double("amount").notNull(),
-    stat: mysqlEnum("stat", consts.UserStatNames),
+    stat: mysqlEnum("stat", [...consts.UserStatNames, ...consts.BasicElementName]),
     speed: mysqlEnum("speed", consts.TrainingSpeeds),
     trainingFinishedAt: datetime("trainingFinishedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
@@ -2446,6 +2446,11 @@ export const userData = mysqlTable(
     speed: double("speed").default(10).notNull(),
     offence: double("offence").default(10).notNull(),
     defence: double("defence").default(10).notNull(),
+    elementalMastery: json("elementalMastery")
+      .$type<Partial<Record<consts.BasicElement, number>>>()
+      .default({})
+      .notNull(),
+    activeTrainedElement: mysqlEnum("activeTrainedElement", consts.BasicElementName),
     /** Earned discipline ranks; absent entries are NONE and temporary modifiers never change them. */
     masteryRanks: json("masteryRanks")
       .$type<Partial<Record<consts.MasteryName, consts.MasteryRank>>>()
@@ -2553,6 +2558,16 @@ export const userData = mysqlTable(
     energyQueueTail: int("energyQueueTail", { unsigned: true }).default(0).notNull(),
     /** Last consumed MASTERY `UserQueue.position`; rows at or below it are dead. */
     masteryQueueHead: int("masteryQueueHead", { unsigned: true }).default(0).notNull(),
+    /** Last consumed ELEMENT `UserQueue.position`; rows at or below it are dead. */
+    elementalQueueHead: int("elementalQueueHead", { unsigned: true }).default(0).notNull(),
+    elementalTrainingStartedAt: datetime("elementalTrainingStartedAt", {
+      mode: "date",
+      fsp: 3,
+    }),
+    currentlyTrainingElement: mysqlEnum("currentlyTrainingElement", consts.BasicElementName),
+    elementalTrainingSpeed: mysqlEnum("elementalTrainingSpeed", consts.TrainingSpeeds)
+      .default("15min")
+      .notNull(),
     masteryTrainingStartedAt: datetime("masteryTrainingStartedAt", {
       mode: "date",
       fsp: 3,
@@ -2723,6 +2738,8 @@ export const insertAiSchema = createInsertSchema(userData)
     occupationSignupAt: true,
     masteryTrainingStartedAt: true,
     currentlyTrainingMastery: true,
+    elementalTrainingStartedAt: true,
+    currentlyTrainingElement: true,
     deletionAt: true,
     travelFinishAt: true,
     questData: true,
@@ -3204,12 +3221,12 @@ export type UserJutsuWithRelations = UserJutsu & {
  * - CRAFT: `itemId`, `quantity` and the `materials` taken on enqueue (kept so a
  *   cancellation can return them). Output, experience and quest progress are granted when
  *   it starts; the row is deleted at that moment.
- * - MASTERY: `stat` (mastery) and `speed`, started when the session ahead of it ends. Its
+ * - MASTERY / ELEMENT: `stat` (discipline / element) and `speed`, started when the session ahead of it ends. Its
  *   timing is derived from the active session, so `startsAt`/`finishesAt` stay null.
  * - ENERGY: `stat` (combat stat) and `energy`, spent as soon as enough Energy recovers.
  *   Energy-triggered, so `startsAt`/`finishesAt` stay null.
- * MASTERY and ENERGY rows are settled in memory from the loaded user. They are consumed
- * by advancing `UserData.masteryQueueHead` / `energyQueueHead` in the same write as the
+ * MASTERY, ELEMENT and ENERGY rows are settled in memory from the loaded user. They are consumed
+ * by advancing `UserData.masteryQueueHead` / `elementalQueueHead` / `energyQueueHead` in the same write as the
  * gains, so a settlement can never apply twice. Rows at or below the head are dead; the
  * next edit of that queue replaces all its rows and removes them.
  */

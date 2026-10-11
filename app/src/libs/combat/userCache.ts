@@ -100,8 +100,12 @@ export const captureCombatCacheSnapshot = (
     })),
   }),
   regenAt: user.regenAt.toISOString(),
-  // Queued Energy or mastery training may settle with the battle claim.
-  hadTrainingQueue: hasEnergyQueue(user) || getMasteryQueue(user).length > 0,
+  // Training may settle while profile refreshes are paused during combat.
+  hadTrainingQueue:
+    hasEnergyQueue(user) ||
+    getMasteryQueue(user).length > 0 ||
+    getMasteryQueue(user, "ELEMENT").length > 0 ||
+    !!user.currentlyTrainingElement,
   items: user.items.map(
     ({ id, quantity, durability, level, experience, equipped }) => ({
       id,
@@ -133,6 +137,9 @@ export const combatProfilePatch = (
   if (
     hasEnergyQueue(current) ||
     getMasteryQueue(current).length > 0 ||
+    getMasteryQueue(current, "ELEMENT").length > 0 ||
+    // Arena initiation may finish an elemental session before capturing its baseline.
+    current.currentlyTrainingElement ||
     update.baseline.hadTrainingQueue
   )
     return;

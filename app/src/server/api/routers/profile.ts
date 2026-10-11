@@ -114,6 +114,7 @@ import {
   outdateProposalsFor,
 } from "@/libs/contentReview/outdate";
 import { getWorldCyclePosition } from "@/libs/dayNight";
+import { elementalGainRoom } from "@/libs/elementalMastery";
 import { getGameSettingBoost } from "@/libs/gameSettingBoost";
 import { getGameSetting, updateGameSetting } from "@/libs/gamesettings";
 import { getLayoutExperimentAssignments } from "@/libs/layoutPreference";
@@ -157,6 +158,7 @@ import {
 import { createThumbnail } from "@/libs/replicate";
 import { callDiscordContent } from "@/libs/socials";
 import {
+  applyMasteryTrainingGains,
   getReducedGainsDays,
   inferJutsuTrainingStartedAt,
   settleQueuedTraining,
@@ -184,7 +186,10 @@ import {
 } from "@/server/utils/concurrency";
 import { setEmptyStringsToNulls } from "@/server/utils/emptyStrings";
 import { hashIp } from "@/server/utils/ipHash";
-import { masteryGainUpdates } from "@/server/utils/masteryProgression";
+import {
+  elementalSnapshotConditions,
+  masteryGainUpdates,
+} from "@/server/utils/masteryProgression";
 import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoverySummaryCandidates } from "@/server/utils/questDiscovery";
@@ -1996,9 +2001,9 @@ export const profileRouter = createTRPCRouter({
         message: `Tavern ${input.target} color updated for ${cost} reputation points`,
       };
     }),
-  // Use earned experience points for stats
+  // Use earned experience points for stats and elemental mastery
   useUnusedExperiencePoints: protectedProcedure
-    .meta({ mcp: { description: "Assign earned experience to stats" } })
+    .meta({ mcp: { description: "Assign earned experience to stats and elements" } })
     .input(createAssignedExperienceSchema().schema)
     .output(userDeltaResponseSchema)
     .mutation(async ({ ctx, input }) => {
@@ -2025,6 +2030,12 @@ export const profileRouter = createTRPCRouter({
       if (user.earnedExperience <= 0) return errorResponse("No experience left");
       if (inputSum > user.earnedExperience) {
         return errorResponse("Trying to assign more stats than available");
+      }
+      const hasElementAllocation = BasicElementName.some(
+        (element) => Math.floor(input[element]) > 0,
+      );
+      if (hasElementAllocation && user.status !== "AWAKE") {
+        return errorResponse("Must be awake to assign elemental experience");
       }
       // Mutate: points stop at the rank cap and only the points that land are spent. A
       // stat already stored above its cap keeps its value; it counts again after a rank-up.
@@ -2059,13 +2070,30 @@ export const profileRouter = createTRPCRouter({
       const combatSpent = Math.round(
         getAssignedCombatStatTotal(stats) - getAssignedCombatStatTotal(user),
       );
+      let elementalSpent = 0;
+      const elementalMastery = { ...user.elementalMastery };
+      for (const element of BasicElementName) {
+        const room = elementalGainRoom(user, element);
+        // Whole unused-XP points can finish fractional room left by timed training.
+        const points = Math.min(Math.floor(input[element]), Math.ceil(room));
+        if (points <= 0) continue;
+        elementalSpent += points;
+        elementalMastery[element] =
+          (elementalMastery[element] ?? 0) + Math.min(points, room);
+      }
+      const elementalUpdate = elementalSpent > 0 ? { elementalMastery } : {};
       const spent =
         combatSpent +
-        assignableMasteryNames.reduce((sum, name) => sum + stats[name] - user[name], 0);
+        assignableMasteryNames.reduce(
+          (sum, name) => sum + stats[name] - user[name],
+          0,
+        ) +
+        elementalSpent;
       if (spent <= 0) return errorResponse("Those stats are already capped");
       // Update
       const data = {
         ...stats,
+        ...elementalUpdate,
         experience: user.experience + combatSpent,
         earnedExperience: Math.round(user.earnedExperience - spent),
       };
@@ -2075,10 +2103,14 @@ export const profileRouter = createTRPCRouter({
         updatedAt: user.updatedAt,
         set: {
           ...stats,
+          ...elementalUpdate,
           experience: sql`${userData.experience} + ${combatSpent}`,
           earnedExperience: sql`${userData.earnedExperience} - ${spent}`,
         },
         where: [
+          ...(hasElementAllocation
+            ? [...elementalSnapshotConditions(user), eq(userData.status, "AWAKE")]
+            : []),
           eq(userData.rank, user.rank),
           sql`${userData.masteryRanks} = CAST(${JSON.stringify(user.masteryRanks)} AS JSON)`,
           ...[...CombatStatNames, ...MasteryNames].map((stat) =>
@@ -3353,7 +3385,13 @@ export const fetchUpdatedUser = async (props: {
     const masteryTrainingSession = {
       currentlyTrainingMastery: user.currentlyTrainingMastery,
       masteryTrainingStartedAt: user.masteryTrainingStartedAt,
+      currentlyTrainingElement: user.currentlyTrainingElement,
+      elementalTrainingStartedAt: user.elementalTrainingStartedAt,
       masteryRanks: user.masteryRanks,
+      elementalMastery: user.elementalMastery,
+      bloodlineId: user.bloodlineId,
+      primaryElement: user.primaryElement,
+      secondaryElement: user.secondaryElement,
       ...Object.fromEntries(MasteryNames.map((stat) => [stat, user[stat]])),
     };
     if (
@@ -3395,14 +3433,8 @@ export const fetchUpdatedUser = async (props: {
           );
       }
       if (queuedMastery) {
-        for (const [stat, amount] of Object.entries(queuedMastery.gains)) {
-          user[stat as MasteryName] += amount;
-        }
-        user.masteryQueueHead = queuedMastery.head;
-        user.currentlyTrainingMastery = queuedMastery.currentlyTrainingMastery;
-        user.masteryTrainingStartedAt = queuedMastery.masteryTrainingStartedAt;
-        user.trainingSpeed = queuedMastery.trainingSpeed;
-        user.dailyTrainings = queuedMastery.dailyTrainings;
+        Object.assign(user, applyMasteryTrainingGains(user, queuedMastery.gains));
+        Object.assign(user, queuedMastery.update);
         const minutes = queuedMastery.completed.reduce((sum, e) => sum + e.minutes, 0);
         if (minutes > 0)
           user.questData = filterQuestTrackersForDbPersist(
@@ -3578,7 +3610,15 @@ const persistPassiveRegenToDb = async ({
     | (NonNullable<ReturnType<typeof settleQueuedTraining>["mastery"]> & {
         original: Pick<
           UserData,
-          "currentlyTrainingMastery" | "masteryTrainingStartedAt" | "masteryRanks"
+          | "currentlyTrainingMastery"
+          | "masteryTrainingStartedAt"
+          | "currentlyTrainingElement"
+          | "elementalTrainingStartedAt"
+          | "masteryRanks"
+          | "elementalMastery"
+          | "bloodlineId"
+          | "primaryElement"
+          | "secondaryElement"
         > &
           Partial<Record<MasteryName, number>>;
       })
@@ -3644,12 +3684,9 @@ const persistPassiveRegenToDb = async ({
   }
 
   if (queuedMastery) {
-    derivedUserUpdate.masteryQueueHead = queuedMastery.head;
-    derivedUserUpdate.currentlyTrainingMastery = queuedMastery.currentlyTrainingMastery;
-    derivedUserUpdate.masteryTrainingStartedAt = queuedMastery.masteryTrainingStartedAt;
-    derivedUserUpdate.trainingSpeed = queuedMastery.trainingSpeed;
-    derivedUserUpdate.dailyTrainings = queuedMastery.dailyTrainings;
+    Object.assign(derivedUserUpdate, queuedMastery.update);
     Object.assign(derivedUserUpdate, masteryGainUpdates(queuedMastery.gains));
+    derivedUserUpdate.elementalMastery = user.elementalMastery;
   }
 
   // A delayed regeneration must not restore pools from before a heal or another user claim.
@@ -3681,6 +3718,19 @@ const persistPassiveRegenToDb = async ({
             ...MasteryNames.map((stat) =>
               eq(userData[stat], queuedMastery.original[stat] ?? 0),
             ),
+            ...elementalSnapshotConditions(queuedMastery.original),
+            queuedMastery.original.currentlyTrainingElement
+              ? eq(
+                  userData.currentlyTrainingElement,
+                  queuedMastery.original.currentlyTrainingElement,
+                )
+              : isNull(userData.currentlyTrainingElement),
+            queuedMastery.original.elementalTrainingStartedAt
+              ? eq(
+                  userData.elementalTrainingStartedAt,
+                  queuedMastery.original.elementalTrainingStartedAt,
+                )
+              : isNull(userData.elementalTrainingStartedAt),
             sql`${userData.masteryRanks} = CAST(${JSON.stringify(queuedMastery.original.masteryRanks)} AS JSON)`,
             queuedMastery.original.currentlyTrainingMastery
               ? eq(
@@ -4224,12 +4274,18 @@ export const getUserProgressionUpdate = (
       maxChakra: publicUser.maxChakra,
       maxStamina: publicUser.maxStamina,
       regeneration: publicUser.regeneration,
+      elementalMastery: publicUser.elementalMastery,
+      activeTrainedElement: publicUser.activeTrainedElement,
       primaryElement: publicUser.primaryElement,
       secondaryElement: publicUser.secondaryElement,
       ...(publicUser.queue ? { queue: publicUser.queue } : {}),
       energyQueueHead: publicUser.energyQueueHead,
       energyQueueTail: publicUser.energyQueueTail,
       masteryQueueHead: publicUser.masteryQueueHead,
+      elementalQueueHead: publicUser.elementalQueueHead,
+      currentlyTrainingElement: publicUser.currentlyTrainingElement,
+      elementalTrainingStartedAt: publicUser.elementalTrainingStartedAt,
+      elementalTrainingSpeed: publicUser.elementalTrainingSpeed,
       trainingSpeed: publicUser.trainingSpeed,
       currentlyTrainingMastery: publicUser.currentlyTrainingMastery,
       masteryTrainingStartedAt: publicUser.masteryTrainingStartedAt,

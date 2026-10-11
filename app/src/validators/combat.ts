@@ -3,6 +3,7 @@ import {
   AdjustableBasicActions,
   AttackMethods,
   AttackTargets,
+  type BasicElement,
   BattleUsageTypes,
   BloodlineDifficultyRatings,
   ElementNames,
@@ -1814,6 +1815,7 @@ export const { schema: statSchema, maxValues: defaultStatMaxValues } =
   createStatSchema();
 export type StatSchemaType = z.infer<typeof statSchema>;
 export type AssignableUserStats = StatSchemaType &
+  Partial<Record<BasicElement, number>> &
   Partial<{
     ninjutsuMastery: number;
     genjutsuMastery: number;

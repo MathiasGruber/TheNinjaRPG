@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import {
   aiProfile,
   battle,
@@ -22,12 +22,14 @@ import { getServerPusher } from "@/libs/pusher";
 import { getEnergyQueue } from "@/libs/queue";
 import { initiateBattle } from "@/server/api/routers/combat";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
+import { trainRouter } from "@/server/api/routers/train";
 import { completeExpiredGlobalTravel, travelRouter } from "@/server/api/routers/travel";
 import {
   invalidatePublishedMapCache,
   getSectorNeighborIds,
 } from "@/server/utils/sectorMap";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
+import { beforeStatements } from "../../setup/statements";
 import {
   queueEnergy,
   queueMasteries,
@@ -436,15 +438,19 @@ describeWithDatabase("Energy queue state transitions", () => {
     }
   });
 
-  it("collects an offline opponent's final mastery session before combat without queue rows", async () => {
+  it.each(["ninjutsuMastery", "Wind"] as const)("collects an offline opponent's final %s session before combat without queue rows", async stat => {
     await prepare([]);
     const db = await getTestDatabase();
     await patch({
       isOutlaw: true,
       stealthActive: false,
       trainingSpeed: "15min",
-      currentlyTrainingMastery: "ninjutsuMastery",
-      masteryTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      ...(stat === "Wind" ? {
+        currentlyTrainingElement: stat, elementalTrainingSpeed: "15min" as const,
+        elementalTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      } : {
+        currentlyTrainingMastery: stat, masteryTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      }),
     });
     await insertUsers([{ userId: "attacker", username: "Attacker", rank: "JONIN", level: 1, status: "AWAKE", isOutlaw: true, sector: HOME, longitude: 25, latitude: 10 }]);
     await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
@@ -458,20 +464,21 @@ describeWithDatabase("Energy queue state transitions", () => {
       }, "SPARRING");
       expect(result.success).toBe(true);
       const state = (await db.query.battle.findFirst({ where: eq(battle.id, result.battleId!) }))!;
-      expect(state.extraState.energyCapacity?.[USER]).toBe(300);
+      expect(state.extraState.energyCapacity?.[USER]).toBe(stat === "Wind" ? 100 : 300);
       const user = (await read())!;
-      expect(user.currentlyTrainingMastery).toBeNull();
-      expect(user.masteryTrainingStartedAt).toBeNull();
-      expect(user.ninjutsuMastery).toBeGreaterThan(0);
+      expect(stat === "Wind" ? user.currentlyTrainingElement : user.currentlyTrainingMastery).toBeNull();
+      expect(stat === "Wind" ? user.elementalTrainingStartedAt : user.masteryTrainingStartedAt).toBeNull();
+      expect(stat === "Wind" ? user.elementalMastery.Wind : user.ninjutsuMastery).toBeGreaterThan(0);
       expect(user.dailyTrainings).toBe(1);
       expect(await db.select().from(userQueue)).toEqual([]);
-      expect((await db.select().from(trainingLog)).map(log => log.stat)).toEqual(["ninjutsuMastery"]);
+      expect((await db.select().from(trainingLog)).map(log => log.stat)).toEqual([stat]);
     } finally {
       trigger.mockRestore();
     }
   });
 
-  it("settles an offline opponent's due jutsu level and mastery queue before the fight", async () => {
+  it.each(["ninjutsuMastery", "Wind"] as const)("settles an offline opponent's due jutsu level and %s queue before the fight", async stat => {
+    const kind = stat === "Wind" ? "ELEMENT" : "MASTERY";
     await prepare([]);
     const db = await getTestDatabase();
     const finished = new Date(Date.now() - 30 * 60_000);
@@ -479,8 +486,12 @@ describeWithDatabase("Energy queue state transitions", () => {
       isOutlaw: true,
       stealthActive: false,
       trainingSpeed: "15min",
-      currentlyTrainingMastery: "ninjutsuMastery",
-      masteryTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      ...(stat === "Wind" ? {
+        currentlyTrainingElement: stat, elementalTrainingSpeed: "15min" as const,
+        elementalTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      } : {
+        currentlyTrainingMastery: stat, masteryTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      }),
     });
     await insertUsers([{ userId: "attacker", username: "Attacker", rank: "JONIN", level: 1, status: "AWAKE", isOutlaw: true, sector: HOME, longitude: 25, latitude: 10 }]);
     await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
@@ -493,7 +504,7 @@ describeWithDatabase("Energy queue state transitions", () => {
       id: "q-jutsu", userId: USER, kind: "JUTSU", position: 1, jutsuId: "queued-jutsu", reservedRyo: 0,
       durationSeconds: 60, startsAt: finished, finishesAt: new Date(finished.getTime() + 60_000),
     });
-    await queueMasteries(USER, [{ stat: "genjutsuMastery", speed: "1hr" }]);
+    await queueMasteries(USER, [{ stat: stat === "Wind" ? "Earth" : "genjutsuMastery", speed: "1hr" }], kind);
     const trigger = vi.spyOn(getServerPusher(), "trigger").mockResolvedValue({} as never);
     try {
       const result = await initiateBattle({
@@ -510,15 +521,80 @@ describeWithDatabase("Energy queue state transitions", () => {
       expect(fighter.jutsus.find((j) => j.jutsuId === "queued-jutsu")?.level).toBe(3);
       // The finished mastery session was collected and the queued one started at its end.
       const user = (await read())!;
-      expect(user.currentlyTrainingMastery).toBe("genjutsuMastery");
-      expect(user.trainingSpeed).toBe("1hr");
-      expect(user.ninjutsuMastery).toBeGreaterThan(0);
-      expect(user.masteryQueueHead).toBe(1);
-      expect(await readMasteryQueue(USER)).toEqual([]);
+      expect(stat === "Wind" ? user.currentlyTrainingElement : user.currentlyTrainingMastery).toBe(stat === "Wind" ? "Earth" : "genjutsuMastery");
+      expect(stat === "Wind" ? user.elementalTrainingSpeed : user.trainingSpeed).toBe("1hr");
+      expect(stat === "Wind" ? user.elementalMastery.Wind : user.ninjutsuMastery).toBeGreaterThan(stat === "Wind" ? 0 : 10);
+      expect(stat === "Wind" ? user.elementalQueueHead : user.masteryQueueHead).toBe(1);
+      expect(await readMasteryQueue(USER, kind)).toEqual([]);
       // The started jutsu row is gone; the consumed mastery row waits for the next edit.
-      expect((await db.select().from(userQueue)).map((row) => row.kind)).toEqual(["MASTERY"]);
-      expect((await db.select().from(trainingLog)).map((log) => log.stat)).toEqual(["ninjutsuMastery"]);
+      expect((await db.select().from(userQueue)).map((row) => row.kind)).toEqual([kind]);
+      expect((await db.select().from(trainingLog)).map((log) => log.stat)).toEqual([stat]);
     } finally {
+      trigger.mockRestore();
+    }
+  });
+
+  it("preserves a concurrent discipline speed change when combat advances only the element queue", async () => {
+    const now = new Date();
+    setSystemTime(now);
+    let speedWriteReady!: () => void;
+    const ready = new Promise<void>((resolve) => { speedWriteReady = resolve; });
+    let releaseSpeedWrite!: () => void;
+    const release = new Promise<void>((resolve) => { releaseSpeedWrite = resolve; });
+    const trigger = vi.spyOn(getServerPusher(), "trigger").mockResolvedValue({} as never);
+    try {
+      await prepare([]);
+      const db = await getTestDatabase();
+      await patch({
+        isOutlaw: true,
+        stealthActive: false,
+        primaryElement: "Fire",
+        secondaryElement: "Water",
+        trainingSpeed: "15min",
+        currentlyTrainingElement: "Wind",
+        elementalTrainingSpeed: "15min",
+        elementalTrainingStartedAt: new Date(now.getTime() - 14 * 60_000),
+      });
+      await queueMasteries(USER, [{ stat: "Earth", speed: "1hr" }], "ELEMENT");
+      await insertUsers([{ userId: "attacker", username: "Attacker", rank: "JONIN", level: 1, status: "AWAKE", isOutlaw: true, sector: HOME, longitude: 25, latitude: 10 }]);
+      await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
+      const speedDb = beforeStatements(db, userData, [async () => {
+        speedWriteReady();
+        await release;
+      }]);
+      // The speed request reads before the element finishes, then waits to commit.
+      const speedChange = trainRouter.createCaller({ drizzle: speedDb, userId: USER } as never)
+        .updateTrainingSpeed({ speed: "4hrs" });
+      await ready;
+      setSystemTime(new Date(now.getTime() + 2 * 60_000));
+      let raced = false;
+      const racingDb = beforeStatements(db, userData, [async () => {
+        // Commit the real speed mutation after preload and before the battle claim.
+        releaseSpeedWrite();
+        expect((await speedChange).success).toBe(true);
+        expect((await read())!.trainingSpeed).toBe("4hrs");
+        raced = true;
+      }]);
+      const result = await initiateBattle({
+        client: racingDb, userIds: ["attacker"], targetIds: [USER], sector: HOME,
+        longitude: 25, latitude: 10, biome: "default",
+      }, "SPARRING");
+      expect(result.success).toBe(true);
+      expect(raced).toBe(true);
+      const user = (await read())!;
+      expect(user.trainingSpeed).toBe("4hrs");
+      expect(user.currentlyTrainingMastery).toBeNull();
+      expect(user.masteryTrainingStartedAt).toBeNull();
+      expect(user.masteryQueueHead).toBe(0);
+      expect(user.currentlyTrainingElement).toBe("Earth");
+      expect(user.elementalTrainingSpeed).toBe("1hr");
+      expect(user.elementalQueueHead).toBe(1);
+      expect(user.elementalMastery.Wind).toBeGreaterThan(0);
+      expect(user.dailyTrainings).toBe(1);
+      expect((await db.select().from(trainingLog)).map((log) => log.stat)).toEqual(["Wind"]);
+    } finally {
+      releaseSpeedWrite();
+      setSystemTime();
       trigger.mockRestore();
     }
   });
