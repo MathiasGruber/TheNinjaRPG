@@ -49,6 +49,18 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     const rows = await (await getTestDatabase()).select().from(userData);
     return Object.fromEntries(rows.map((row) => [row.userId, row.bank]));
   };
+  const prepareImbuing = async (quantity = 1) => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ status: "AWAKE", sector: 1, occupation: "CRAFTING", craftingExperience: 100000, updatedAt: new Date(Date.now() - 60000) }).where(eq(userData.userId, "owner"));
+    await db.update(item).set({ canBeImbued: true }).where(eq(item.id, "sword"));
+    await insertItems([{ id: "crystal", name: "Crystal", itemType: "CRYSTAL", canBeTraded: true, canStack: quantity > 1, crystalTargetTypes: "WEAPON", craftingExperience: 20 }]);
+    await insertUserItems([{ id: "owner-crystal", userId: "owner", itemId: "crystal", quantity }, { id: "owner-sword", userId: "owner", itemId: "sword" }]);
+  };
+  const postCrystalTrade = async (quantity = 1) => {
+    const owner = await callerFor(auctionRouter, "owner");
+    expect((await owner.createAuctionOffer({ offerType: "TRADE", requestedItemId: "ore", requestedQuantity: 1, offeredUserItemId: "owner-crystal", offeredQuantity: quantity })).success).toBe(true);
+    return (await (await getTestDatabase()).select().from(auctionOffer))[0]!;
+  };
 
   it("reserves a request's bank funds, transfers only the requested quantity and pays once", async () => {
     const offer = await postRequest();
@@ -265,6 +277,46 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     expect((await owner.removeImbuement({ userItemImbuementId: "reserved-imbuement" })).success).toBe(false);
     expect(await db.select().from(userItemImbuement)).toHaveLength(1);
   });
+
+  it("preserves a reserved crystal and permits imbuing after the trade is cancelled", async () => {
+    await prepareImbuing();
+    const offer = await postCrystalTrade();
+    const db = await getTestDatabase();
+    const [userBefore] = await db.select().from(userData).where(eq(userData.userId, "owner"));
+    const [targetBefore] = await db.select().from(userItem).where(eq(userItem.id, "owner-sword"));
+    const crafter = await callerFor(occupationRouter, "owner");
+    const input = { userItemId: "owner-sword", userCrystalItemId: "owner-crystal" };
+    expect(await crafter.imbueItem(input)).toMatchObject({ success: false, message: "Cannot use a crystal reserved for auction or trade" });
+    expect((await db.select().from(userItem).where(eq(userItem.id, "owner-crystal")))[0]).toMatchObject({ quantity: 1, isInAuction: true });
+    expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]).toEqual(userBefore);
+    expect((await db.select().from(userItem).where(eq(userItem.id, "owner-sword")))[0]).toEqual(targetBefore);
+    expect(await db.select().from(userItemImbuement)).toHaveLength(0);
+    const owner = await callerFor(auctionRouter, "owner");
+    expect((await owner.cancelAuctionOffer({ offerId: offer.id })).success).toBe(true);
+    expect((await crafter.imbueItem(input)).success).toBe(true);
+    expect(await db.select().from(userItem).where(eq(userItem.id, "owner-crystal"))).toHaveLength(0);
+    expect(await db.select().from(userItemImbuement)).toHaveLength(1);
+    expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]?.craftingExperience).toBe(100010);
+  });
+
+  for (const quantity of [1, 2]) {
+    it(`does not consume a ${quantity}-crystal stack reserved after the imbue snapshot`, async () => {
+      await prepareImbuing(quantity);
+      const db = await getTestDatabase();
+      // Reserve after the target guard but before the crystal's delete or decrement executes.
+      const imbueDb = beforeStatements(db, userItem, [async () => {}, () => postCrystalTrade(quantity)]);
+      const crafter = callerForDatabase(occupationRouter, "owner", imbueDb);
+      expect(await crafter.imbueItem({ userItemId: "owner-sword", userCrystalItemId: "owner-crystal" })).toMatchObject({ success: false, message: "Crystal no longer available" });
+      expect((await db.select().from(userItem).where(eq(userItem.id, "owner-crystal")))[0]).toMatchObject({ quantity, isInAuction: true });
+      expect(await db.select().from(userItemImbuement)).toHaveLength(0);
+      expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]?.craftingExperience).toBe(100000);
+      const [offer] = await db.select().from(auctionOffer);
+      const supplier = await callerFor(auctionRouter, "supplier");
+      expect((await supplier.acceptAuctionOffer({ offerId: offer!.id, userItemId: "supplier-ore" })).success).toBe(true);
+      expect((await db.select().from(userItem).where(eq(userItem.id, "owner-crystal")))[0]).toMatchObject({ quantity, userId: "supplier", isInAuction: false });
+      expect((await db.select().from(auctionOffer))[0]?.status).toBe("SOLD");
+    });
+  }
 
   it("rejects a retired account identity while allowing its escrow refund", async () => {
     const offer = await postRequest();

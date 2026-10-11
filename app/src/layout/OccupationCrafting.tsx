@@ -243,7 +243,10 @@ export default function OccupationCrafting() {
 
   // Derive crystals and imbuable items from user inventory
   const crystals = (userItems || []).filter(
-    (userItem) => userItem.item?.itemType === "CRYSTAL" && userItem.quantity > 0,
+    (userItem) =>
+      userItem.item?.itemType === "CRYSTAL" &&
+      userItem.quantity > 0 &&
+      !userItem.isInAuction,
   );
   const imbuableItems = (userItems || []).filter(
     (userItem) => userItem.item?.canBeImbued && userItem.quantity > 0,
