@@ -415,6 +415,7 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
 
 });
 
+/** Persist the war and preload opposing teams for shrine capture and mission-credit tests. */
 const shrineBattle = async (type: "SECTOR_WAR" | "VILLAGE_WAR" | "WAR_RAID") => {
   const db = await getTestDatabase();
   await db.insert(war).values({ id: "w1", attackerVillageId: "v1", defenderVillageId: "v2", type, status: "ACTIVE", sector: 12, defenderShrineHp: 15, defenderShrineMaxHp: 100, defenderWarHealth: WAR_SHRINE_CAPTURE_WARHEALTH_DMG * 3 });

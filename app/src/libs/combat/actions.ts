@@ -1298,6 +1298,8 @@ export const insertAction = (info: {
 
 /**
  * Resolve a tile occupant eligible for the action's target category.
+ * ALLY includes the caster's fixed team and self; OPPONENT selects the other team.
+ * OTHER_USER accepts either team but excludes the caster.
  */
 export const getTargetUser = (
   users: BattleUserState[],

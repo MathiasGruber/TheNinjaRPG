@@ -8,6 +8,7 @@ import { calcBattleResult, getDistanceToClosestEnemy, getOpposingBattleWars, isV
 import { TerrainHex } from "@/libs/hexgrid";
 import { makeBattleUser, makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
 
+/** Build teams whose faction identities disagree with allegiance, including summons. */
 const scenario = () => {
   const users = [
     makeBattleUser("hero", { direction: "left", isAggressor: true, villageId: "home", clanId: "home-clan", longitude: 1, latitude: 1 }),

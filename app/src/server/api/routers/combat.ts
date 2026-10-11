@@ -375,6 +375,7 @@ export const combatRouter = createTRPCRouter({
               ...(result
                 ? [
                     updateUser(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
+                    // Polling settlement pays the same faction counters as an action.
                     updateVillageAnbuClan(
                       ctx.drizzle,
                       settledBattle,
@@ -1321,6 +1322,7 @@ export const combatRouter = createTRPCRouter({
         reconcileLobbyPools(usersState[0], originalPools, completeUserEffects);
         usersState[0].initiative = originalInitiative;
         usersState[0].direction = originalDirection;
+        // Keep initiating-team reward eligibility across loadout reconstruction.
         usersState[0].isAggressor = user.isAggressor;
       }
 

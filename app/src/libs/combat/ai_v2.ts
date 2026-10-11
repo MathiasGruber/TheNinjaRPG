@@ -42,8 +42,8 @@ const debug = false;
 
 /**
  * Choose and perform an AI-driven turn using profiles preloaded into battle state.
- * In battles supporting authored NPC allies, target allegiance follows battlefield
- * side rather than the NPC template's village or controller identity.
+ * Target allegiance follows fixed battlefield sides in every mode, including
+ * authored NPC allies, summons and players using auto combat.
  */
 export const performAIaction = (
   battle: CompleteBattle,
@@ -104,6 +104,7 @@ export const performAIaction = (
     });
     // User hex
     const origin = findHex(grid, user);
+    // Prepare living combatants once from the state after earlier actions.
     const combatants = nextBattle.usersState
       .filter((u) => stillInBattle(u, nextBattle.usersEffects))
       .map((u) => mapDistancesToTarget(grid, astar, u, origin));

@@ -115,7 +115,7 @@ const isRaidBossDefeated = (battle: CompleteBattle) =>
 
 /**
  * Claim the battle version; return cleanup to run alongside independent reward writes.
- * In NPC ally battles, battle-length analytics select an enemy rather than a friendly NPC.
+ * Battle-length analytics select an opposing non-summon combatant.
  */
 export const updateBattle = async (
   client: DrizzleClient,
@@ -301,6 +301,7 @@ export const updateBattle = async (
             // Raid deletion prevents teammates from polling their own settlement.
             // The battle claim and guarded release exclude stale or prior claims.
             if (raidBossDefeated && released.rowsAffected > 0) {
+              // Result calculation marks departure; preserve the cleanup snapshot.
               const teammateResult = calcBattleResult(
                 structuredClone(newBattle),
                 teammate.userId,
@@ -636,6 +637,10 @@ export const updateClanLeaders = async (
   ]);
 };
 
+/**
+ * Persist team-attributed war kills and shrine/war health from preloaded state.
+ * Siege mission credit requires the acting village's participation on that war side.
+ */
 export const updateWars = async (
   client: DrizzleClient,
   pusher: PusherClient,
@@ -1061,6 +1066,11 @@ export const updateTournament = async (
     .where(eq(tournamentMatch.battleId, curBattle.id));
 };
 
+/**
+ * Apply a winning participant's calculated village, ANBU and clan counters.
+ * The caller must own the battle-version claim; raid teammates also require a
+ * successful guarded release. SQL increments preserve concurrent faction grants.
+ */
 export const updateVillageAnbuClan = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,

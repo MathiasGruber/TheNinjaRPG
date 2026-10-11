@@ -268,7 +268,11 @@ export const getWar = (battle: CompleteBattle | ReturnedBattle, warId: string) =
   return battle.extraState.wars?.[warId];
 };
 
-/** Stable faction precedence survives initiative sorting and loadout reordering. */
+/**
+ * Return non-summon teammates in stable faction-sponsorship order.
+ * Aggressors precede other members; immutable IDs break ties so initiative
+ * sorting and loadout edits cannot change the team's faction context.
+ */
 const getBattleTeamMembers = (battle: CompleteBattle, user: BattleUserState) =>
   battle.usersState
     .filter((member) => !member.isSummon && areBattleAllies(member, user))
@@ -279,9 +283,9 @@ const getBattleTeamMembers = (battle: CompleteBattle, user: BattleUserState) =>
     );
 
 /**
- * Share preloaded faction participation across a battle team. The initiator has
- * first precedence, followed by immutable combatant IDs when factions conflict.
- * This never changes persistent village/war membership.
+ * Resolve preloaded wars and their sponsored sides for the user's battle team.
+ * The first matching member in sponsorship order chooses each war's side,
+ * including registered supporters. Persistent village/war membership is unchanged.
  */
 export const getBattleTeamWars = (battle: CompleteBattle, user: BattleUserState) => {
   const wars = new Map<string, { war: BattleWar; sideVillageId: string }>();
@@ -309,7 +313,10 @@ export const getBattleTeamWars = (battle: CompleteBattle, user: BattleUserState)
   return [...wars.values()];
 };
 
-/** Only opposing combat teams can share credit for fighting a faction war. */
+/**
+ * Return team wars whose opposite war side sponsors the target's combat team.
+ * Summons and same-team targets never qualify as war opponents.
+ */
 export const getOpposingBattleWars = (
   battle: CompleteBattle,
   user: BattleUserState,
@@ -1823,7 +1830,8 @@ export const maskBattle = (battle: Battle, userId: string): ReturnedBattle => ({
 });
 
 /**
- * Figure out if user is still in battle, and if not whether the user won or lost
+ * Return null while the user's battle is undecided or already settled.
+ * A result marks the user's departure in the supplied battle state.
  * Battle teams determine victory and shared credit; summons cannot outlive their
  * controller and are excluded from settlement participants.
  */

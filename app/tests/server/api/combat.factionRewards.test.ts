@@ -21,6 +21,7 @@ import {
 const participants = ["credit-actor", "credit-ally", "credit-enemy"];
 const winners = participants.slice(0, 2);
 
+/** Read persisted faction counters to verify that settlement writes reached the DB. */
 const factionTotals = async (userId: string) => {
   const db = await getTestDatabase();
   const [home, squad, family] = await Promise.all([
@@ -125,6 +126,7 @@ describeWithDatabase("combat team faction rewards", () => {
       expect(polling.clanPoints).toBe(acting.result.clanPoints);
     },
   );
+  /** Start a public raid and arrange its terminal state to exercise settlement eligibility. */
   const startDecidedRaid = async (teammateState?: "dead" | "fled" | "settled") => {
     const db = await getTestDatabase();
     const [actorId, allyId, enemyId] = participants as [string, string, string];
@@ -192,6 +194,7 @@ describeWithDatabase("combat team faction rewards", () => {
   it.each(["actor", "ally"] as const)("RAID rejects a stale %s finalizer captured before the winning deletion claim", async (staleUser) => {
     const db = await getTestDatabase();
     const saved = await startDecidedRaid();
+    // Pause one finalizer at deletion so the other deterministically wins the claim.
     let unblock!: () => void;
     let reached!: () => void;
     const gate = new Promise<void>((resolve) => { unblock = resolve; });
