@@ -8,7 +8,7 @@ ALTER TABLE `Notification` ADD CONSTRAINT `Notification_warId_key` UNIQUE(`warId
 -- Preserve prior membership records while retaining one active row per village.
 UPDATE `WarAlly` duplicateAlly
 INNER JOIN `WarAlly` retainedAlly ON retainedAlly.warId = duplicateAlly.warId
-  AND retainedAlly.villageId = duplicateAlly.villageId AND retainedAlly.id < duplicateAlly.id
+  AND retainedAlly.villageId = duplicateAlly.villageId AND STRCMP(retainedAlly.id, duplicateAlly.id) < 0
 SET duplicateAlly.endedAt = CURRENT_TIMESTAMP(3)
 WHERE duplicateAlly.endedAt IS NULL;
 ALTER TABLE `WarAlly` ADD CONSTRAINT `WarAlly_active_village_key` UNIQUE(`warId`,`activeVillageId`);

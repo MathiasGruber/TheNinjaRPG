@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { RouterOutputs } from "@/app/_trpc/client";
@@ -25,7 +25,6 @@ import {
   quest,
   sector,
   userData,
-  userRequest,
   village,
   villageElderVote,
   war,
@@ -57,11 +56,11 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
-import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { handleWarEnd, startDeclaredWar } from "@/server/utils/war";
 import {
   acceptWarAllyOffer,
   activeWarAllyWhere,
+  closeWarAllyOffer,
   withdrawWarAlly,
 } from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
@@ -878,27 +877,11 @@ export const warRouter = createTRPCRouter({
       if (!isKage(user)) return errorResponse("Not kage");
       if (!request) return errorResponse("Request not found");
       if (request.type !== "WAR_ALLY") return errorResponse("Not a war ally request");
-      if (!["PENDING", "REJECTED"].includes(request.status))
-        return errorResponse("Request not pending");
+      if (request.status !== "PENDING") return errorResponse("Request not pending");
       if (request.receiverId !== user.userId) return errorResponse("Not your request");
 
-      // Close before release to block admission; closed requests can retry cleanup.
-      if (request.status === "PENDING") {
-        const changed = await retryOnDeadlock(() =>
-          ctx.drizzle
-            .update(userRequest)
-            .set({ status: "REJECTED" })
-            .where(
-              and(eq(userRequest.id, request.id), eq(userRequest.status, "PENDING")),
-            ),
-        );
-        if (!changed.rowsAffected) return errorResponse("Offer is no longer pending");
-      }
-      await retryOnDeadlock(() =>
-        ctx.drizzle
-          .delete(warAlly)
-          .where(and(eq(warAlly.id, request.id), isNull(warAlly.acceptedAt))),
-      );
+      if (!(await closeWarAllyOffer(ctx.drizzle, request.id, user.userId, "REJECTED")))
+        return errorResponse("Offer is no longer pending");
 
       // Return
       return { success: true, message: "Faction offer rejected" };
@@ -941,26 +924,11 @@ export const warRouter = createTRPCRouter({
       if (offer.senderId !== user.userId) {
         return errorResponse("Not your offer to delist");
       }
-      if (!["PENDING", "CANCELLED"].includes(offer.status))
+      if (offer.status !== "PENDING")
         return errorResponse("Offer is no longer pending");
 
-      // Close before release to block admission; closed requests can retry cleanup.
-      if (offer.status === "PENDING") {
-        const changed = await retryOnDeadlock(() =>
-          ctx.drizzle
-            .update(userRequest)
-            .set({ status: "CANCELLED" })
-            .where(
-              and(eq(userRequest.id, offer.id), eq(userRequest.status, "PENDING")),
-            ),
-        );
-        if (!changed.rowsAffected) return errorResponse("Offer is no longer pending");
-      }
-      await retryOnDeadlock(() =>
-        ctx.drizzle
-          .delete(warAlly)
-          .where(and(eq(warAlly.id, offer.id), isNull(warAlly.acceptedAt))),
-      );
+      if (!(await closeWarAllyOffer(ctx.drizzle, offer.id, user.userId, "CANCELLED")))
+        return errorResponse("Offer is no longer pending");
 
       return { success: true, message: "Offer delisted" };
     }),

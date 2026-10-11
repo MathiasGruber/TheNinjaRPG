@@ -217,14 +217,22 @@ describeWithDatabase("guarded war settlement and delivery", () => {
     const db = await seed();
     await runRawSql("ALTER TABLE WarAlly DROP INDEX WarAlly_active_village_key");
     try {
-      await addAlly(db);
-      await db.insert(warAlly).values({
-        id: "duplicate-membership",
-        warId,
-        villageId: "ally",
-        supportVillageId: "attacker",
-        tokensPaid: 0,
-      });
+      await db.insert(warAlly).values([
+        ...["legacy-a", "legacy-b", "legacy-c"].map((id) => ({
+          id,
+          warId,
+          villageId: "ally",
+          supportVillageId: "attacker",
+          tokensPaid: 0,
+        })),
+        {
+          id: "other-war-a",
+          warId: "other-war",
+          villageId: "ally",
+          supportVillageId: "attacker",
+          tokensPaid: 0,
+        },
+      ]);
       const migration = readFileSync(
         new URL("../../../drizzle/migrations/0072_powerful_lake.sql", import.meta.url),
         "utf8",
@@ -232,13 +240,37 @@ describeWithDatabase("guarded war settlement and delivery", () => {
       const deduplicate = migration.match(/UPDATE `WarAlly`[\s\S]+?;/)?.[0];
       if (!deduplicate) throw new Error("Missing membership migration");
       await runRawSql(deduplicate);
-      expect(await db.select().from(warAlly)).toHaveLength(2);
+      const memberships = await db.select().from(warAlly);
+      expect(memberships).toHaveLength(4);
+      expect(memberships.every((row) => row.acceptedAt !== null)).toBe(true);
+      expect(memberships.filter((row) => row.endedAt !== null)).toHaveLength(2);
+      expect(
+        memberships.filter((row) => row.warId === warId && row.villageId === "ally"),
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "legacy-a", endedAt: null }),
+          expect.objectContaining({ id: "legacy-b", activeVillageId: null }),
+          expect.objectContaining({ id: "legacy-c", activeVillageId: null }),
+        ]),
+      );
       expect((await snapshot(db)).warAllies).toHaveLength(1);
     } finally {
       await runRawSql(
         "ALTER TABLE WarAlly ADD CONSTRAINT WarAlly_active_village_key UNIQUE(warId, activeVillageId)",
       );
     }
+    await expect(
+      Promise.resolve(
+        db.insert(warAlly).values({
+          id: "conflicting-membership",
+          warId,
+          villageId: "ally",
+          supportVillageId: "attacker",
+          tokensPaid: 0,
+        }),
+      ),
+    ).rejects.toThrow();
+    expect(await db.select().from(warAlly)).toHaveLength(4);
   });
 
   it("pays the winning side once across concurrent claims and stale retries, without transactions", async () => {
@@ -716,83 +748,115 @@ describeWithDatabase("guarded war settlement and delivery", () => {
         : caller.rejectAllyOffer({ id: offer.offerId });
     };
 
-    it(`${operation} retries an interrupted reservation release and allows replacement admission`, async () => {
+    for (const failure of ["write", "response"] as const)
+      it(`${operation} keeps closure and reservation release atomic after a failed ${failure}`, async () => {
+        const db = await seed();
+        await db.update(war).set({ defenderWarHealth: 100 });
+        await addOffer(db);
+        let actorVillageId = "ally";
+        stubProfile("fetchUpdatedUser", async () => ({
+          user: {
+            userId: `${actorVillageId}-kage`,
+            villageId: actorVillageId,
+            village: await db.query.village.findFirst({
+              where: eq(village.id, actorVillageId),
+            }),
+          },
+          requiresUserRefresh: false,
+        }));
+        const paymentFailure = intercept(db, async (query, execute) => {
+          if (statement(query).includes("UPDATE UserRequest r"))
+            throw new Error("Payment unavailable");
+          return execute();
+        });
+        await expect(
+          callerForDatabase(warRouter, "ally-kage", paymentFailure).acceptAllyOffer({
+            offerId: offer.offerId,
+          }),
+        ).rejects.toThrow("Payment unavailable");
+        const closeFailure = intercept(db, async (_query, execute) => {
+          if (failure === "response") await execute();
+          throw new Error("Closure unavailable");
+        });
+        actorVillageId = closingVillageId;
+        await expect(closeOffer(closeFailure)).rejects.toThrow("Closure unavailable");
+        const refreshed = await callerForDatabase(
+          warRouter,
+          `${closingVillageId}-kage`,
+          db,
+        ).getAllyOffers();
+        expect(refreshed[0]?.status).toBe(
+          failure === "write" ? "PENDING" : closedStatus,
+        );
+        const reservation = await db.query.warAlly.findFirst();
+        expect(reservation?.acceptedAt).toBeNull();
+        expect(reservation?.endedAt !== null).toBe(failure === "response");
+        expect(reservation?.activeVillageId).toBe(
+          failure === "write" ? "ally" : null,
+        );
+        expect((await snapshot(db)).warAllies).toHaveLength(0);
+        expect(await balance(db, "ally")).toBe(tokens);
+        expect(await balance(db, "attacker")).toBe(tokens);
+
+        actorVillageId = "other";
+        expect((await closeOffer(db, "other-kage")).success).toBe(false);
+        expect(await db.select().from(warAlly)).toHaveLength(1);
+        actorVillageId = closingVillageId;
+        if (failure === "write") expect((await closeOffer(db)).success).toBe(true);
+        expect((await closeOffer(db)).success).toBe(false);
+        expect((await db.query.warAlly.findFirst())?.endedAt).not.toBeNull();
+
+        await db.insert(userRequest).values({
+          id: "replacement-offer",
+          type: "WAR_ALLY",
+          status: "PENDING",
+          senderId: "attacker-kage",
+          receiverId: "ally-kage",
+          relatedId: warId,
+          value: 100,
+        });
+        actorVillageId = "ally";
+        expect(
+          (
+            await callerForDatabase(warRouter, "ally-kage", db).acceptAllyOffer({
+              offerId: "replacement-offer",
+            })
+          ).success,
+        ).toBe(true);
+        expect(await balance(db, "ally")).toBe(tokens + 100);
+        expect(await balance(db, "attacker")).toBe(tokens - 100);
+        expect((await snapshot(db)).warAllies).toHaveLength(1);
+      });
+
+    it(`${operation} overlapping acceptance commits either closure or the complete payment`, async () => {
       const db = await seed();
-      await db.update(war).set({ defenderWarHealth: 100 });
       await addOffer(db);
-      let actorVillageId = "ally";
       stubProfile("fetchUpdatedUser", async () => ({
         user: {
-          userId: `${actorVillageId}-kage`,
-          villageId: actorVillageId,
+          userId: `${closingVillageId}-kage`,
+          villageId: closingVillageId,
           village: await db.query.village.findFirst({
-            where: eq(village.id, actorVillageId),
+            where: eq(village.id, closingVillageId),
           }),
         },
         requiresUserRefresh: false,
       }));
-      const paymentFailure = intercept(db, async (query, execute) => {
-        if (statement(query).includes("UPDATE UserRequest r"))
-          throw new Error("Payment unavailable");
-        return execute();
-      });
-      await expect(
-        callerForDatabase(warRouter, "ally-kage", paymentFailure).acceptAllyOffer({
-          offerId: offer.offerId,
-        }),
-      ).rejects.toThrow("Payment unavailable");
-      const releaseFailure = new Proxy(db, {
-        get(target, property, receiver) {
-          if (property === "delete")
-            return (table: typeof warAlly) => {
-              if (table === warAlly)
-                return {
-                  where: () => Promise.reject(new Error("Release unavailable")),
-                };
-              return target.delete(table);
-            };
-          return Reflect.get(target, property, receiver);
-        },
-      });
-      actorVillageId = closingVillageId;
-      await expect(closeOffer(releaseFailure)).rejects.toThrow("Release unavailable");
-      expect((await db.query.userRequest.findFirst())?.status).toBe(closedStatus);
-      expect(await db.query.warAlly.findFirst()).toMatchObject({
-        acceptedAt: null,
-        endedAt: null,
-      });
-      expect((await snapshot(db)).warAllies).toHaveLength(0);
-      expect(await balance(db, "ally")).toBe(tokens);
-      expect(await balance(db, "attacker")).toBe(tokens);
-
-      actorVillageId = "other";
-      expect((await closeOffer(db, "other-kage")).success).toBe(false);
-      expect(await db.select().from(warAlly)).toHaveLength(1);
-      actorVillageId = closingVillageId;
-      expect((await closeOffer(db)).success).toBe(true);
-      expect((await closeOffer(db)).success).toBe(true);
-      expect(await db.select().from(warAlly)).toHaveLength(0);
-
-      await db.insert(userRequest).values({
-        id: "replacement-offer",
-        type: "WAR_ALLY",
-        status: "PENDING",
-        senderId: "attacker-kage",
-        receiverId: "ally-kage",
-        relatedId: warId,
-        value: 100,
-      });
-      actorVillageId = "ally";
+      const [closed, accepted] = await Promise.all([
+        closeOffer(db),
+        acceptWarAllyOffer(db, offer),
+      ]);
+      expect(closed.success).toBe(!accepted.success);
+      expect((await db.query.userRequest.findFirst())?.status).toBe(
+        closed.success ? closedStatus : "ACCEPTED",
+      );
+      expect((await snapshot(db)).warAllies).toHaveLength(accepted.success ? 1 : 0);
       expect(
-        (
-          await callerForDatabase(warRouter, "ally-kage", db).acceptAllyOffer({
-            offerId: "replacement-offer",
-          })
-        ).success,
-      ).toBe(true);
-      expect(await balance(db, "ally")).toBe(tokens + 100);
-      expect(await balance(db, "attacker")).toBe(tokens - 100);
-      expect((await snapshot(db)).warAllies).toHaveLength(1);
+        (await db.select().from(warAlly)).some(
+          (row) => !row.acceptedAt && !row.endedAt,
+        ),
+      ).toBe(false);
+      expect(await balance(db, "ally")).toBe(tokens + (accepted.success ? 100 : 0));
+      expect(await balance(db, "attacker")).toBe(tokens - (accepted.success ? 100 : 0));
     });
 
     it(`${operation} cannot remove membership or payment when acceptance wins its status claim`, async () => {
@@ -808,24 +872,9 @@ describeWithDatabase("guarded war settlement and delivery", () => {
         },
         requiresUserRefresh: false,
       }));
-      const acceptanceFirst = new Proxy(db, {
-        get(target, property, receiver) {
-          if (property === "update")
-            return (table: typeof userRequest) => {
-              const update = target.update(table);
-              if (table === userRequest)
-                return {
-                  set: (values: Parameters<typeof update.set>[0]) => ({
-                    where: async (condition: SQL) => {
-                      expect((await acceptWarAllyOffer(db, offer)).success).toBe(true);
-                      return update.set(values).where(condition);
-                    },
-                  }),
-                };
-              return update;
-            };
-          return Reflect.get(target, property, receiver);
-        },
+      const acceptanceFirst = intercept(db, async (_query, execute) => {
+        expect((await acceptWarAllyOffer(db, offer)).success).toBe(true);
+        return execute();
       });
       expect((await closeOffer(acceptanceFirst)).success).toBe(false);
       expect((await closeOffer(db)).success).toBe(false);
@@ -838,10 +887,10 @@ describeWithDatabase("guarded war settlement and delivery", () => {
       expect(await balance(db, "attacker")).toBe(tokens - 100);
       expect((await db.query.userRequest.findFirst())?.status).toBe("ACCEPTED");
 
-      // A retry also preserves paid history if its request was closed separately.
+      // Closed requests preserve paid history and cannot claim closure again.
       await db.update(userRequest).set({ status: closedStatus });
       await db.update(warAlly).set({ endedAt: new Date(0) });
-      expect((await closeOffer(db)).success).toBe(true);
+      expect((await closeOffer(db)).success).toBe(false);
       expect(await db.query.warAlly.findFirst()).toMatchObject({
         tokensPaid: 100,
         endedAt: new Date(0),

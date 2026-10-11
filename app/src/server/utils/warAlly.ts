@@ -9,6 +9,27 @@ import { DAY_S, secondsFromDate } from "@/utils/time";
 export const activeWarAllyWhere = () =>
   and(isNotNull(warAlly.acceptedAt), isNull(warAlly.endedAt));
 
+/** Closing the request must release its unpaid slot in the same status claim. */
+export const closeWarAllyOffer = async (
+  client: DrizzleClient,
+  offerId: string,
+  userId: string,
+  status: "CANCELLED" | "REJECTED",
+) => {
+  // Drizzle cannot express a multi-table write. Ending only an unpaid reservation
+  // preserves accepted history and frees the unique slot even if the response fails.
+  const closed = await retryOnDeadlock(() =>
+    client.execute(sql`
+    UPDATE UserRequest r
+    LEFT JOIN WarAlly wa ON wa.id = r.id AND wa.acceptedAt IS NULL AND wa.endedAt IS NULL
+    SET r.status = ${status}, wa.endedAt = CURRENT_TIMESTAMP(3)
+    WHERE r.id = ${offerId} AND r.type = 'WAR_ALLY' AND r.status = 'PENDING'
+      AND ${status === "CANCELLED" ? sql`r.senderId` : sql`r.receiverId`} = ${userId}
+  `),
+  );
+  return closed.rowsAffected > 0;
+};
+
 /** A pending membership is a durable receipt; admission and its payment commit in one UPDATE. */
 export const acceptWarAllyOffer = async (
   client: DrizzleClient,
