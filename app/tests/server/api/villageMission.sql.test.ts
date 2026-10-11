@@ -336,6 +336,30 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     expect(result.notifications.filter((message) => message.includes("shrine captured"))).toHaveLength(1);
   });
 
+  for (const type of ["SECTOR_WAR", "VILLAGE_WAR", "WAR_RAID"] as const) {
+    it.each(["unrelated", "opposing", "supporting", "opposing-supporter"] as const)(`${type} keeps siege missions with participating villages (%s teammate)`, async (affiliation) => {
+      const db = await getTestDatabase();
+      await (await leader()).select({ villageId: "v1" });
+      const activeMission = (await state())!.activeMission;
+      await db.insert(village).values([
+        { id: "v2", name: "Defending village", sector: 2, kageId: "outsider", type: "VILLAGE", activeMission },
+        { id: "v3", name: "Third village", sector: 3, kageId: "teammate", type: "VILLAGE", activeMission },
+      ]);
+      const teammateVillageId = affiliation === "opposing" ? "v2" : "v3";
+      await insertUsers([{ userId: "teammate", username: "teammate", villageId: teammateVillageId }]);
+      const battle = await shrineBattle(type);
+      battle.usersState[0]!.isAggressor = true;
+      battle.usersState.push(makeBattleUser("teammate", { direction: "left", villageId: teammateVillageId, sector: 12 }));
+      if (affiliation === "supporting" || affiliation === "opposing-supporter") {
+        battle.extraState.wars.w1!.warAllies.push({ villageId: "v3", supportVillageId: affiliation === "supporting" ? "v1" : "v2" } as never);
+      }
+      await updateWars(db, {} as never, battle, shrineResult(-10), "teammate");
+      expect((await db.query.war.findFirst({ where: eq(war.id, "w1") }))?.defenderShrineHp).toBe(5);
+      expect((await db.query.village.findFirst({ where: eq(village.id, teammateVillageId) }))?.missionCounters.siege_operation ?? 0).toBe(affiliation === "supporting" ? 10 : 0);
+      expect((await state())?.missionCounters.siege_operation ?? 0).toBe(0);
+    });
+  }
+
   it.each(["outlaw", "membership", "inactive", "town"])("applies shrine damage without mission credit when the current village eligibility changed (%s)", async (reason) => {
     const db = await getTestDatabase();
     await (await leader()).select({ villageId: "v1" });
@@ -391,7 +415,7 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
 
 });
 
-const shrineBattle = async (type: "SECTOR_WAR" | "VILLAGE_WAR") => {
+const shrineBattle = async (type: "SECTOR_WAR" | "VILLAGE_WAR" | "WAR_RAID") => {
   const db = await getTestDatabase();
   await db.insert(war).values({ id: "w1", attackerVillageId: "v1", defenderVillageId: "v2", type, status: "ACTIVE", sector: 12, defenderShrineHp: 15, defenderShrineMaxHp: 100, defenderWarHealth: WAR_SHRINE_CAPTURE_WARHEALTH_DMG * 3 });
   const persisted = await db.query.war.findFirst({ where: eq(war.id, "w1") });

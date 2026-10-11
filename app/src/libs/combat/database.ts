@@ -656,6 +656,16 @@ export const updateWars = async (
 
   warResults.forEach((warResult) => {
     warResult.wars.forEach(({ war: w, sideVillageId: killerSideVillageId }) => {
+      // Village missions belong to a participating village, even when battle
+      // teammates from unrelated factions share the team's war/shrine credit.
+      const canCreditVillageMission =
+        !user.isAi &&
+        (userVillageId === killerSideVillageId ||
+          w.warAllies.some(
+            (ally) =>
+              ally.villageId === userVillageId &&
+              ally.supportVillageId === killerSideVillageId,
+          ));
       // Insert war kill for tracking purposes
       // Use per-war shrine HP change for village wars/raids (includes level diff adjustment)
       // For sector wars, use the total accumulated shrineChangeHp value
@@ -707,7 +717,7 @@ export const updateWars = async (
         }
 
         const shouldCreditMission =
-          killerSideVillageId === w.attackerVillageId && !user.isAi;
+          killerSideVillageId === w.attackerVillageId && canCreditVillageMission;
         otherPromises.push(
           retryOnDeadlock(async () => {
             if (result.shrineChangeHp < 0) {
@@ -779,7 +789,7 @@ export const updateWars = async (
                 const ownerVillageId =
                   shrineType === "attacker" ? w.attackerVillageId : w.defenderVillageId;
                 const shouldCreditMission =
-                  killerSideVillageId !== ownerVillageId && !user.isAi;
+                  killerSideVillageId !== ownerVillageId && canCreditVillageMission;
                 const captured = await retryOnDeadlock(() =>
                   applyVillageMissionShrineDamage(
                     client,
