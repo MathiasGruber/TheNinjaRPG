@@ -268,6 +268,30 @@ describeWithDatabase("clan queue claim ownership", () => {
       expect(await db.query.mpvpBattleQueue.findMany()).toHaveLength(2);
     });
 
+    it(`rejects ${operation} until a leaving ranked owner's row is removed`, async () => {
+      const db = await getTestDatabase();
+      const ranked = callerForDatabase(pvpRankRouter, "leader", db);
+      expect((await ranked.queueForRankedPvp()).success).toBe(true);
+      const client = beforeStatements(db, rankedPvpQueue, [
+        async () => {
+          // Ranked leave wakes in parallel; keep its old claimed row until clan queuing finishes.
+          for (let attempts = 0; attempts < 100; attempts++) {
+            if ((await storedUser())?.status === "AWAKE") break;
+            await new Promise((resolve) => setTimeout(resolve, 1));
+          }
+          expect(await storedUser()).toEqual({ status: "AWAKE", battleId: null });
+          expect((await join(db)).success).toBe(false);
+        },
+      ]);
+      expect(
+        (await callerForDatabase(pvpRankRouter, "leader", client).leaveRankedPvpQueue())
+          .success,
+      ).toBe(true);
+      expect(await storedUser()).toEqual({ status: "AWAKE", battleId: null });
+      expect(await db.query.rankedPvpQueue.findMany()).toHaveLength(0);
+      expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(0);
+    });
+
     it(`preserves newer combat when ${operation} loses its status claim`, async () => {
       const db = await getTestDatabase();
       const client = beforeStatements(db, mpvpBattleUser, [

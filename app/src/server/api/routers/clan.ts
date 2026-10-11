@@ -1350,7 +1350,7 @@ export const clanRouter = createTRPCRouter({
       if (queries.length > 0) return errorResponse("Already in queue");
       if (user.clanId !== challenger.id)
         return errorResponse(`Not in ${groupLabel} clan`);
-      // Retained memberships block reuse of the unique user slot until cleanup finishes.
+      // Wait for retained clan memberships and claimed ranked owners to finish cleanup.
       const clanBattleId = nanoid();
       const entryId = nanoid();
       const result = await retryOnDeadlock(() =>
@@ -1366,6 +1366,17 @@ export const clanRouter = createTRPCRouter({
                   .select({ id: mpvpBattleUser.id })
                   .from(mpvpBattleUser)
                   .where(eq(mpvpBattleUser.userId, user.userId)),
+              ),
+              notExists(
+                ctx.drizzle
+                  .select({ id: rankedPvpQueue.id })
+                  .from(rankedPvpQueue)
+                  .where(
+                    and(
+                      eq(rankedPvpQueue.userId, user.userId),
+                      eq(rankedPvpQueue.hasClaimed, true),
+                    ),
+                  ),
               ),
             ),
           ),
@@ -1398,8 +1409,13 @@ export const clanRouter = createTRPCRouter({
         failedInsert ||
         !(await hasClanBattleJoin(ctx.drizzle, clanBattleId, user.userId, entryId))
       ) {
-        await deleteClanBattle(ctx.drizzle, { id: clanBattleId, battleId: null });
-        await undoClanBattleJoin(ctx.drizzle, user.userId, entryId);
+        const deleted = await deleteClanBattle(ctx.drizzle, {
+          id: clanBattleId,
+          battleId: null,
+        });
+        // A failed member insert leaves no row for lobby deletion to find and release.
+        if (!deleted || failedInsert)
+          await undoClanBattleJoin(ctx.drizzle, user.userId, entryId);
         if (failedInsert && !isMysqlDuplicateKeyError(failedInsert.reason))
           throw failedInsert.reason;
         return errorResponse(
@@ -1462,7 +1478,7 @@ export const clanRouter = createTRPCRouter({
         availableSlot++;
       }
 
-      // Retained memberships block reuse of the unique user slot until cleanup finishes.
+      // Wait for retained clan memberships and claimed ranked owners to finish cleanup.
       const result = await retryOnDeadlock(() =>
         ctx.drizzle
           .update(userData)
@@ -1476,6 +1492,17 @@ export const clanRouter = createTRPCRouter({
                   .select({ id: mpvpBattleUser.id })
                   .from(mpvpBattleUser)
                   .where(eq(mpvpBattleUser.userId, user.userId)),
+              ),
+              notExists(
+                ctx.drizzle
+                  .select({ id: rankedPvpQueue.id })
+                  .from(rankedPvpQueue)
+                  .where(
+                    and(
+                      eq(rankedPvpQueue.userId, user.userId),
+                      eq(rankedPvpQueue.hasClaimed, true),
+                    ),
+                  ),
               ),
             ),
           ),
