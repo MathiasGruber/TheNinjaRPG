@@ -6,7 +6,15 @@ The main game provides a Streamable HTTP Model Context Protocol (MCP) server:
 https://www.theninja-rpg.com/api/mcp
 ```
 
-Connect an MCP client that supports remote HTTP servers and OAuth, then sign in with your main-game account through Clerk and approve the connection. Actions affect that account in the persistent game, including combat, purchases, messages and account settings. Review actions before allowing your assistant to execute them.
+Connect an MCP client that supports remote HTTP servers and OAuth, then sign in with your main-game account through Clerk and approve the connection. Actions affect that account in the persistent game, including combat, purchases, messages and account settings. Review the scope of actions you authorize your assistant to perform.
+
+## Fair play for AI players
+
+With authorization from their human owner, AI players may choose and execute game actions through this official MCP server without approval for each action or the owner remaining continuously present. The allowance covers every exposed endpoint the account is authorized to use under its normal access checks and gameplay prerequisites; there is no separate AI-only endpoint ban. Follow the server's rate limits and game cooldowns; do not bypass limits or restrictions.
+
+All other [game rules](https://www.theninja-rpg.com/rules), including account limits, identification of AI players and their human owner, authorized information access, bug reporting and conduct, still apply. The human owner remains responsible for the account. Outside the official API allowance, AI may advise, but the human owner must choose and manually initiate each gameplay action. Automated play and scripted presence remain prohibited even under supervision. Game-managed timers and queued progress started through permitted play are allowed; session length alone does not establish prohibited automation.
+
+API and MCP clients accessing the official server within this allowance are authorized tools. Each human owner may own up to two accounts in total, including AI-played accounts; using multiple agents or clients does not increase that limit. Permitted AI play does not count as sharing with another human player. Multiple accounts on the same IP must still be reported to moderators, but a shared IP, including shared API hosting, does not by itself establish account sharing or common ownership.
 
 ## Client setup
 
@@ -215,6 +223,19 @@ The server exposes four tools that discover and invoke every registered game tRP
 4. `callEndpoint`: supply `endpointName` and its `input` object when required.
 
 A first read can use `callEndpoint` with `{"endpointName":"profile.getUser"}`. Ask your assistant to inspect schemas before performing mutations. Endpoint metadata supplies descriptions and custom response formats; endpoints without metadata are also available. The underlying tRPC caller enforces the same account authentication, staff permissions, prerequisites and Zod validation as the website. Listing an endpoint does not grant permission to use it.
+
+### Which endpoints AI players may use
+
+The complete current catalogue is returned by `listGameRouters` followed by `listRouterEndpoints` for each returned router. It includes every registered game tRPC endpoint, both queries and mutations. `getEndpointSchema` describes the input for a named endpoint; discovery is not filtered to the signed-in account's role. There is no additional AI-only endpoint allowlist or denylist.
+
+| Endpoint scope | Permission under the AI rules |
+| --- | --- |
+| Any endpoint in the catalogue | Permitted when the signed-in account meets that endpoint's normal access checks and gameplay prerequisites and the use follows the game rules. |
+| `profile.getUser` | An authenticated account may read its own profile. |
+| `staff.pushBackupToDev` | Requires the ordinary backup-control role permission and backup prerequisites; appearing in the catalogue does not grant that permission. |
+| An endpoint absent from the catalogue | Not exposed through this MCP server; calling another interface is outside the official MCP allowance. |
+
+An access rejection must be respected. Do not switch identities or interfaces to bypass it. A successful request does not permit exploitation, accessing unauthorized private data, account sharing or any other breach of the game rules. If an endpoint appears to expose unintended access or a bug, stop using that behavior and report it as required by section 7.4.
 
 Authenticated requests are limited to 30 requests per 60 seconds per IP and per user. A `429` means the client should wait before retrying. A connection that cannot authenticate should be reconnected through the client's OAuth flow; game-specific rejections are returned by the endpoint and should be shown to the player.
 
