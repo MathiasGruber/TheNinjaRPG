@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, setSystemTime } from "bun:test";
 import { eq } from "drizzle-orm";
+import { RANKED_LOADOUT_MAX_HEAL_JUTSUS } from "@/drizzle/constants";
 import {
   item,
   jutsu,
@@ -20,6 +21,10 @@ import {
 } from "../../setup/testDatabase";
 
 const USER = "ranked-cleanup-user";
+const FAVORITE_HEAL_IDS = Array.from(
+  { length: RANKED_LOADOUT_MAX_HEAL_JUTSUS },
+  (_, index) => `favorite-heal-${index}`,
+);
 const loadout = (jutsuIds: string[], weaponIds: string[] = []) => ({
   jutsuIds,
   weaponIds,
@@ -45,18 +50,12 @@ describeWithDatabase("ranked prohibited loadout cleanup", () => {
     const db = await getTestDatabase();
     await db.insert(jutsu).values(
       [
-        {
-          id: "usable",
+        ...["usable", "usable-two", ...FAVORITE_HEAL_IDS].map((id) => ({
+          id,
           requiredSkillId: null,
           villageId: null,
           battleUsageType: "BOTH" as const,
-        },
-        {
-          id: "usable-two",
-          requiredSkillId: null,
-          villageId: null,
-          battleUsageType: "BOTH" as const,
-        },
+        })),
         {
           id: "skill-jutsu",
           requiredSkillId: "skill",
@@ -80,7 +79,10 @@ describeWithDatabase("ranked prohibited loadout cleanup", () => {
         name: entry.id,
         description: entry.id,
         battleDescription: entry.id,
-        effects: entry.id.startsWith("usable") ? [HealTag.parse({})] : [],
+        effects:
+          entry.id.startsWith("usable") || FAVORITE_HEAL_IDS.includes(entry.id)
+            ? [HealTag.parse({})]
+            : [],
         target: "SELF" as const,
         range: 0,
         jutsuType: "NORMAL" as const,
@@ -134,7 +136,7 @@ describeWithDatabase("ranked prohibited loadout cleanup", () => {
       const original = await storedLoadout();
       const selected = needsCleanup ? original.loadout : loadout(["usable"], ["weapon"]);
       const favorites = {
-        favoriteJutsuIds: [...(selected.favoriteJutsuIds ?? []), "usable-two"],
+        favoriteJutsuIds: [...(selected.favoriteJutsuIds ?? []), ...FAVORITE_HEAL_IDS],
         favoriteWeaponIds: [...(selected.favoriteWeaponIds ?? []), "weapon-two"],
         favoriteConsumableIds: ["favorite-consumable"],
       };
@@ -149,7 +151,7 @@ describeWithDatabase("ranked prohibited loadout cleanup", () => {
       expect(result.success).toBe(true);
       expect((await storedLoadout()).loadout).toEqual({
         ...loadout(["usable"], ["weapon"]),
-        favoriteJutsuIds: ["usable", "usable-two"],
+        favoriteJutsuIds: ["usable", ...FAVORITE_HEAL_IDS],
         favoriteWeaponIds: ["weapon", "weapon-two"],
         favoriteConsumableIds: ["favorite-consumable"],
       });
