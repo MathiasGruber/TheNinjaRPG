@@ -498,6 +498,13 @@
       "when": 1791728980196,
       "tag": "0070_rare_bloodstrike",
       "breakpoints": false
+    },
+    {
+      "idx": 71,
+      "version": "5",
+      "when": 1791733168405,
+      "tag": "0071_mushy_argent",
+      "breakpoints": false
     }
   ]
 }
