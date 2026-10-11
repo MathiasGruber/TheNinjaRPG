@@ -732,20 +732,14 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                               {(["longitude", "latitude"] as const).map((axis) => (
                                 <Label key={axis}>
                                   {axis === "longitude" ? "X (column)" : "Y (row)"}
-                                  <Input
+                                  <NumberInput
                                     aria-label={
                                       axis === "longitude" ? "X (column)" : "Y (row)"
                                     }
-                                    type="number"
                                     min={0}
                                     step={1}
-                                    value={
-                                      Number.isFinite(coordinates?.[axis])
-                                        ? coordinates?.[axis]
-                                        : ""
-                                    }
-                                    onChange={(event) => {
-                                      const value = event.target.valueAsNumber;
+                                    value={coordinates?.[axis]}
+                                    onValueChange={(value) => {
                                       updateAction(ruleIndex, (action) => {
                                         if (!("target" in action)) return action;
                                         return {
