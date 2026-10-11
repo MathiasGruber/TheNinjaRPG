@@ -1761,14 +1761,18 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     // Calculate diff
     const newEffects = [...effects];
     const tagSchema = getTagSchema(watchType);
-    const parsedTag = tagSchema.safeParse(watchAll);
     // Coordinate drafts must reach the parent validator so Save cannot persist an
     // older valid pattern while duplicate or incomplete coordinates are on screen.
     const hasCoordinateDraft = watchAll.target === "COORDINATES";
+    const leftCoordinateTarget = tag.target === "COORDINATES" && !hasCoordinateDraft;
+    const draft = leftCoordinateTarget
+      ? { ...watchAll, coordinateTargeting: null }
+      : watchAll;
+    const parsedTag = tagSchema.safeParse(draft);
     const shownTag = parsedTag.success
       ? parsedTag.data
       : hasCoordinateDraft
-        ? watchAll
+        ? draft
         : tag;
     newEffects[idx] = shownTag;
     const diff = calculateContentDiff(effects, newEffects);
@@ -1777,9 +1781,13 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         if (form.formState.isDirty) {
           void form.trigger();
         }
-        if (hasCoordinateDraft || form.formState.isValid) {
+        if (
+          hasCoordinateDraft ||
+          (leftCoordinateTarget && parsedTag.success) ||
+          form.formState.isValid
+        ) {
           setEffects(newEffects);
-          if (parsedTag.success) form.reset(watchAll);
+          if (parsedTag.success) form.reset(draft);
         }
       }
     }

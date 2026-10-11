@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import {
@@ -140,6 +140,19 @@ export const useItemEditForm = (
 
   // Object for form values
   const targetingMethod = useWatch({ control: form.control, name: "method" });
+  const previousTargetingMethod = useRef(targetingMethod);
+  useEffect(() => {
+    if (
+      previousTargetingMethod.current === "COORDINATES" &&
+      targetingMethod !== "COORDINATES"
+    ) {
+      form.setValue("coordinateTargeting", null, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    previousTargetingMethod.current = targetingMethod;
+  }, [targetingMethod, form]);
 
   const formData: FormEntry<keyof ZodItemType>[] = [
     { id: "name", label: "Item Name", type: "text" },

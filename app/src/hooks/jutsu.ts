@@ -163,6 +163,19 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
 
   const { data: requiredSkills } = api.skillTree.getAllNames.useQuery();
   const targetingMethod = useWatch({ control: form.control, name: "method" });
+  const previousTargetingMethod = useRef(targetingMethod);
+  useEffect(() => {
+    if (
+      previousTargetingMethod.current === "COORDINATES" &&
+      targetingMethod !== "COORDINATES"
+    ) {
+      form.setValue("coordinateTargeting", null, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    previousTargetingMethod.current = targetingMethod;
+  }, [targetingMethod, form]);
 
   // Object for form values
   const formData: FormEntry<keyof ZodJutsuType>[] = [

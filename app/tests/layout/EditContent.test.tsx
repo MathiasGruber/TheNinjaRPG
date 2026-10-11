@@ -202,6 +202,83 @@ const CoordinateDraftForm = () => {
 };
 
 describe("coordinate effect drafts", () => {
+  const globals = [
+    "Event",
+    "CustomEvent",
+    "ResizeObserver",
+    "requestAnimationFrame",
+    "cancelAnimationFrame",
+  ] as const;
+  const descriptors = globals.map((key) =>
+    Object.getOwnPropertyDescriptor(globalThis, key),
+  );
+  const scrollDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "scrollIntoView",
+  );
+  beforeEach(() => {
+    Object.defineProperties(globalThis, {
+      Event: { configurable: true, value: window.Event },
+      CustomEvent: { configurable: true, value: window.CustomEvent },
+      requestAnimationFrame: {
+        configurable: true,
+        value: (callback: FrameRequestCallback) =>
+          Number(setTimeout(() => callback(Date.now()), 0)),
+      },
+      cancelAnimationFrame: {
+        configurable: true,
+        value: (id: number) => clearTimeout(id),
+      },
+      ResizeObserver: {
+        configurable: true,
+        value: class {
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+        },
+      },
+    });
+    HTMLElement.prototype.scrollIntoView = () => {};
+  });
+  afterEach(() => {
+    cleanup();
+    globals.forEach((key, index) => {
+      const descriptor = descriptors[index];
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    });
+    if (scrollDescriptor)
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", scrollDescriptor);
+    else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+  });
+
+  for (const target of ["INHERIT", "SELF"] as const) {
+    it(`discards invalid coordinates when changing target to ${target}`, async () => {
+      const view = render(<CoordinateDraftForm />);
+      fireEvent.input(view.getByRole("spinbutton", { name: "Coordinate 2 column" }), {
+        target: { value: "1" },
+      });
+      await waitFor(() =>
+        expect(view.getByText("Coordinates must be unique.")).toBeDefined(),
+      );
+      fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
+      expect(save).not.toHaveBeenCalled();
+      fireEvent.click(view.getByRole("combobox", { name: "target" }));
+      fireEvent.click(await view.findByRole("option", { name: target }));
+      await waitFor(() =>
+        expect(
+          view.queryByRole("spinbutton", { name: "Coordinate 2 column" }),
+        ).toBeNull(),
+      );
+      fireEvent.click(view.getByRole("button", { name: "Save coordinate effects" }));
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({
+        target,
+        coordinateTargeting: null,
+      });
+    });
+  }
+
   it("blocks duplicate coordinates in parent validation and saves corrected drafts", async () => {
     const view = render(<CoordinateDraftForm />);
     fireEvent.input(view.getByRole("spinbutton", { name: "Coordinate 2 column" }), {
