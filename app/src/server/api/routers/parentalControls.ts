@@ -137,8 +137,12 @@ export const parentalControlsRouter = createTRPCRouter({
         return errorResponse(
           "Settings changed in another tab. Reload them before saving.",
         );
-      void getServerPusher()
-        .trigger(ctx.userId, "event", { type: "parentalControlsChanged" })
+      void Promise.resolve()
+        .then(() =>
+          getServerPusher().trigger(ctx.userId, "event", {
+            type: "parentalControlsChanged",
+          }),
+        )
         .catch(() => undefined);
       return {
         success: true,
