@@ -59,7 +59,9 @@ export const ownedUploadKey = (
     const key = match[1];
     return {
       key,
-      keyType: /^[A-Za-z0-9_-]{21}\.[a-z0-9]+$/.test(key) ? "customId" : "fileKey",
+      keyType: /^(?:(?:preview|pet|content)-)?[A-Za-z0-9_-]{21}\.[a-z0-9]+$/.test(key)
+        ? "customId"
+        : "fileKey",
     };
   } catch {
     return null;

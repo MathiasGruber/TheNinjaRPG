@@ -126,6 +126,27 @@ describe("AI targeting and clauses", () => {
     });
   }
 
+  it.each([
+    ["same-village", "HIGHEST_MAX_HEALTH_OPPONENT", "boss"],
+    ["same-village", "HIGHEST_MAX_HEALTH_ALLY", "ally-boss"],
+    ["opposing-village", "HIGHEST_MAX_HEALTH_OPPONENT", "boss"],
+    ["opposing-village", "HIGHEST_MAX_HEALTH_ALLY", "ally-boss"],
+  ] as const)("clan AI in %s uses %s to select %s on its battlefield team", (enemyVillage, target, id) => {
+    const { battle, run } = setup(target);
+    battle.battleType = "CLAN_BATTLE";
+    for (const user of battle.usersState) {
+      user.direction = user.userId.startsWith("ally") || user.userId === "actor" ? "left" : "right";
+      user.villageId = user.direction === "left" ? "same-village" : enemyVillage;
+    }
+    const result = run();
+    expect(result.nextActionId).toBe(DAMAGE_JUTSU);
+    for (const user of battle.usersState) {
+      const health = result.nextBattle.usersState.find((u) => u.userId === user.userId)!.curHealth;
+      if (user.userId === id) expect(health).toBeLessThan(user.curHealth);
+      else expect(health).toBe(user.curHealth);
+    }
+  });
+
   it("ignores dead and fled targets", () => {
     const { battle, run } = setup("HIGHEST_MAX_HEALTH_OPPONENT");
     battle.usersState.push(

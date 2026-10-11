@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, vi } from "bun:test";
 import { Grid, rectangle } from "honeycomb-grid";
 import { COMBAT_ENMITY_PER_DAMAGE, PET_BASE_STAT } from "@/drizzle/constants";
 import type { UserPet } from "@/drizzle/schema";
@@ -162,6 +162,38 @@ describe("owned pets in combat", () => {
     const moved = nextBattle.usersState.find((u) => u.userId === actor.userId)!;
     expect(moved.curHealth).toBeGreaterThan(0);
     expect({ x: moved.longitude, y: moved.latitude }).not.toEqual(start);
+  });
+
+  it.each(["same-village", "opposing-village"])("default clan pet AI approaches opponents and spares its teammates in %s matches", (enemyVillage) => {
+    const battle = scenario();
+    battle.battleType = "CLAN_BATTLE";
+    battle.width = 12; battle.height = 10;
+    battle.usersState = [
+      makeBattleUser("owner", { isAi: false, rank: "ELITE JONIN", villageId: "same-village", clanId: "clan-1", direction: "left", longitude: 3, latitude: 3, initiative: 22 }),
+      makeBattleUser("ally", { isAi: false, rank: "ELITE JONIN", villageId: "same-village", clanId: "clan-1", direction: "left", longitude: 4, latitude: 3, initiative: 20.9 }),
+      makeBattleUser("enemy-1", { isAi: false, rank: "ELITE JONIN", villageId: enemyVillage, clanId: "clan-2", direction: "right", longitude: 9, latitude: 3, initiative: 19.8 }),
+      makeBattleUser("enemy-2", { isAi: false, rank: "ELITE JONIN", villageId: enemyVillage, clanId: "clan-2", direction: "right", longitude: 9, latitude: 5, initiative: 18.7 }),
+    ];
+    add(battle, [petFixture({ spawnPosition: "FRONT" }), petFixture({ id: "ally-pet", userId: "ally", spawnPosition: "FRONT" })]);
+    const actor = battle.usersState.find((u) => u.petId === "pet-1")!;
+    expect(actor).toMatchObject({ controllerId: "owner", clanId: "clan-1", villageId: "same-village", direction: "left", longitude: 4, latitude: 2 });
+    expect(battle.extraState.aiProfiles[actor.aiProfileId!]!).toMatchObject({ rules: [], includeDefaultRules: true });
+    battle.usersState.sort((left, right) => right.initiative - left.initiative);
+    battle.activeUserId = actor.userId;
+    const grid = new Grid(TerrainHex, rectangle({ width: battle.width, height: battle.height }))
+      .map((tile) => { tile.cost = 1; return tile; });
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const { nextBattle, nextActionId } = performAIaction(battle, grid, actor.userId);
+      expect(nextActionId).toBe("move");
+      const moved = nextBattle.usersState.find((u) => u.userId === actor.userId)!;
+      expect(moved.longitude).toBeGreaterThan(actor.longitude);
+      for (const teammate of battle.usersState.filter((u) => u.direction === "left")) {
+        expect(nextBattle.usersState.find((u) => u.userId === teammate.userId)?.curHealth).toBe(teammate.curHealth);
+      }
+    } finally {
+      random.mockRestore();
+    }
   });
 
   it("retreats with its defeated owner while retaining the frozen settlement identity", () => {
