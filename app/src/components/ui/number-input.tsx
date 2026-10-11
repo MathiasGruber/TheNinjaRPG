@@ -15,7 +15,8 @@ import { Input, type InputProps } from "@/components/ui/input";
  * required is explicitly supplied. Step defaults to 1; use a fractional step or
  * "any" for decimals. The keyboard hint follows step unless inputMode is supplied.
  *
- * Invalid Enter presses show native feedback and stop submission. Custom save
+ * Invalid Enter presses outside IME composition show native feedback and stop
+ * submission. Composing key events are forwarded without validation. Custom save
  * buttons must also call validateNumberInputs before acting on numeric drafts.
  *
  * @example
@@ -97,7 +98,11 @@ export function NumberInput({
         onBlur?.(event);
       }}
       onKeyDown={(event) => {
-        if (event.key === "Enter" && !event.currentTarget.checkValidity()) {
+        if (
+          event.key === "Enter" &&
+          !event.nativeEvent.isComposing &&
+          !event.currentTarget.checkValidity()
+        ) {
           event.preventDefault();
           event.stopPropagation();
           event.currentTarget.reportValidity();

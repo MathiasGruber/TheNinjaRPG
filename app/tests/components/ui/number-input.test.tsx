@@ -109,8 +109,18 @@ describe("NumberInput", () => {
   it("blocks Enter callbacks when the native input is invalid", () => {
     const keyDown = mock();
     const { getByRole } = render(<NumberInput value="" onKeyDown={keyDown} />);
-    fireEvent.keyDown(getByRole("spinbutton"), { key: "Enter" });
+    expect(fireEvent.keyDown(getByRole("spinbutton"), { key: "Enter" })).toBe(false);
     expect(keyDown).not.toHaveBeenCalled();
+  });
+
+  it("forwards composing Enter without blocking confirmation or triggering validation", () => {
+    const keyDown = mock();
+    const invalid = mock();
+    const { getByRole } = render(<NumberInput value="" onKeyDown={keyDown} onInvalid={invalid} />);
+    expect(fireEvent.keyDown(getByRole("spinbutton"), { key: "Enter", isComposing: true })).toBe(true);
+    expect(keyDown).toHaveBeenCalledTimes(1);
+    expect(keyDown.mock.calls[0]?.[0].nativeEvent.isComposing).toBe(true);
+    expect(invalid).not.toHaveBeenCalled();
   });
 
   it("supports string-backed values without parsing in callers", () => {
