@@ -43,6 +43,7 @@ import {
   userRequest,
   village,
   villageStructure,
+  type War,
   war,
 } from "@/drizzle/schema";
 import { isVillageInvolvedInAnyWar } from "@/libs/war";
@@ -191,28 +192,18 @@ export const handleWarEnd = async (
       structuresDelivered: isSector,
       notified: false,
     };
-    const winnerCooldown = secondsFromDate(
-      WAR_WINNING_COOLDOWN_DAYS *
+    const attackerCooldown = secondsFromDate(
+      (status === "ATTACKER_VICTORY"
+        ? WAR_WINNING_COOLDOWN_DAYS
+        : WAR_LOSING_COOLDOWN_DAYS) *
         DAY_S *
-        (winnerId === current.attackerVillageId
-          ? WAR_ATTACKER_EXHAUSTION_MULTIPLIER
-          : 1),
+        WAR_ATTACKER_EXHAUSTION_MULTIPLIER,
       endedAt,
     );
-    const loserCooldown = secondsFromDate(
-      WAR_LOSING_COOLDOWN_DAYS *
-        DAY_S *
-        (loserId === current.attackerVillageId
-          ? WAR_ATTACKER_EXHAUSTION_MULTIPLIER
-          : 1),
-      endedAt,
-    );
-    const attackerDrawCooldown = secondsFromDate(
-      WAR_LOSING_COOLDOWN_DAYS * DAY_S * WAR_ATTACKER_EXHAUSTION_MULTIPLIER,
-      endedAt,
-    );
-    const defenderDrawCooldown = secondsFromDate(
-      WAR_LOSING_COOLDOWN_DAYS * DAY_S,
+    const defenderCooldown = secondsFromDate(
+      (status === "DEFENDER_VICTORY"
+        ? WAR_WINNING_COOLDOWN_DAYS
+        : WAR_LOSING_COOLDOWN_DAYS) * DAY_S,
       endedAt,
     );
     const recipient = alias(village, "recipient");
@@ -267,10 +258,8 @@ export const handleWarEnd = async (
           ${
             !isSector
               ? sql`, ${recipient.warExhaustionEndedAt} = CASE
-            WHEN ${recipient.id} = ${current.attackerVillageId} AND ${isDraw} THEN ${attackerDrawCooldown}
-            WHEN ${recipient.id} = ${current.defenderVillageId} AND ${isDraw} THEN ${defenderDrawCooldown}
-            WHEN ${recipient.id} = ${winnerId} THEN ${winnerCooldown}
-            WHEN ${recipient.id} = ${loserId} THEN ${loserCooldown}
+            WHEN ${recipient.id} = ${current.attackerVillageId} THEN ${attackerCooldown}
+            WHEN ${recipient.id} = ${current.defenderVillageId} THEN ${defenderCooldown}
             ELSE ${recipient.warExhaustionEndedAt} END,
             ${recipient.lastWarEndedAt} = CASE WHEN ${inArray(recipient.id, [winnerId, loserId])} THEN ${endedAt} ELSE ${recipient.lastWarEndedAt} END`
               : sql`,
@@ -320,20 +309,12 @@ const fetchSettlementWar = (client: DrizzleClient, warId: string) =>
 export const resumePendingWarSettlements = async (client: DrizzleClient) => {
   const pending = await client.query.war.findMany({
     where: eq(war.settlementPending, true),
-    with: {
-      attackerVillage: { with: { structures: true } },
-      defenderVillage: { with: { structures: true } },
-      warAllies: { where: activeWarAllyWhere(), with: { village: true } },
-    },
   });
   await Promise.all(pending.map((endedWar) => finishWarSettlement(client, endedWar)));
 };
 
 /** Every effect is repeatable or coupled to its own receipt in one statement. */
-const finishWarSettlement = async (
-  client: DrizzleClient,
-  endedWar: FetchActiveWarsReturnType,
-) => {
+const finishWarSettlement = async (client: DrizzleClient, endedWar: War) => {
   const receipt = endedWar.settlement;
   if (!receipt || !endedWar.endedAt || !endedWar.settlementPending) return;
   const endedAt = endedWar.endedAt;
@@ -351,8 +332,7 @@ const finishWarSettlement = async (
       : endedWar.attackerVillageId;
   const boostEnd = secondsFromDate(WAR_WINNING_BOOST_DAYS * DAY_S, endedAt);
   const structureEnd = secondsFromDate(
-    (isDraw ? WAR_DEFEAT_STRUCTURE_PENALTY_DAYS : WAR_VICTORY_STRUCTURE_BOOST_DAYS) *
-      DAY_S,
+    WAR_VICTORY_STRUCTURE_BOOST_DAYS * DAY_S,
     endedAt,
   );
   const penaltyEnd = secondsFromDate(
@@ -383,7 +363,7 @@ const finishWarSettlement = async (
         ? retryOnDeadlock(() =>
             client.execute(sql`
         UPDATE ${war} LEFT JOIN ${gameSetting} ON ${inArray(gameSetting.name, [...winningIds.map((id) => `war-${id}-regen`), `war-${winnerId}-train`])}
-        SET ${gameSetting.value} = CASE WHEN ${gameSetting.time} <= ${endedAt} OR ${gameSetting.time} < ${boostEnd}
+        SET ${gameSetting.value} = CASE WHEN ${gameSetting.time} < ${boostEnd}
           THEN CASE WHEN ${gameSetting.name} = ${`war-${winnerId}-train`} THEN ${WAR_WINNING_BOOST_TRAINING_PERC} ELSE ${WAR_WINNING_BOOST_REGEN_PERC} END ELSE ${gameSetting.value} END,
             ${gameSetting.time} = GREATEST(${gameSetting.time}, ${boostEnd}),
             ${war.settlement} = ${stepReceipt("boostsDelivered")}
@@ -434,12 +414,9 @@ const finishWarSettlement = async (
       ),
       retryOnDeadlock(() =>
         client.execute(sql`
-        DELETE qh FROM QuestHistory qh INNER JOIN UserData ud ON qh.userId = ud.userId
+        DELETE qh FROM QuestHistory qh INNER JOIN ${userData} ON qh.userId = ${userData.userId}
         WHERE qh.questType = 'war' AND qh.completed = 0 AND qh.startedAt <= ${cleanupCutoff}
-          AND ud.villageId IN (${sql.join(
-            receipt.villageIds.map((id) => sql`${id}`),
-            sql`, `,
-          )})
+          AND ${inArray(userData.villageId, receipt.villageIds)}
       `),
       ),
     ]);
