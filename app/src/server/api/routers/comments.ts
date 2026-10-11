@@ -9,6 +9,7 @@ import {
   IMG_AVATAR_DEFAULT,
 } from "@/drizzle/constants";
 import {
+  type Conversation,
   conversation,
   conversationComment,
   forumPost,
@@ -22,6 +23,10 @@ import {
 } from "@/drizzle/schema";
 import { resolveSenderId } from "@/libs/comments";
 import { moderateContent } from "@/libs/moderator";
+import {
+  conversationReadRestriction,
+  privateConversationRestriction,
+} from "@/libs/parentalControls";
 import { getServerPusher } from "@/libs/pusher";
 import { isRaidChatConversationId } from "@/libs/raids";
 import { fetchThread } from "@/routers/forum";
@@ -37,6 +42,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { fetchCommunicationPolicies } from "@/server/utils/parentalControls";
 import { getNewReactions, processMentions } from "@/utils/chat";
 import {
   canDeleteComment,
@@ -283,7 +289,7 @@ export const commentsRouter = createTRPCRouter({
     .input(z.object({ selectedConvo: z.string().nullish().optional() }))
     .query(async ({ ctx }) => {
       // Query
-      const [data] = await Promise.all([
+      const [data, policies, senders] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
           with: {
@@ -310,6 +316,8 @@ export const commentsRouter = createTRPCRouter({
             },
           },
         }),
+        fetchCommunicationPolicies(ctx.drizzle, [ctx.userId]),
+        fetchPrivateConversationSenders(ctx.drizzle, ctx.userId),
         // Remove the counter of new conversations
         ctx.drizzle
           .update(userData)
@@ -321,6 +329,13 @@ export const commentsRouter = createTRPCRouter({
         .filter(
           (c) =>
             c.conversation &&
+            !conversationReadRestriction(
+              policies[0],
+              c.conversation,
+              senders
+                .filter((sender) => sender.conversationId === c.conversation.id)
+                .map((sender) => sender.userId),
+            ) &&
             !c.conversation.users
               .filter((u) => u.userData)
               .every((u) =>
@@ -345,16 +360,25 @@ export const commentsRouter = createTRPCRouter({
     .output(baseServerResponse.extend({ conversationId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [user, sender, titleCheck, moderationResult] = await Promise.all([
+      const [user, sender, titleCheck, moderationResult, policies] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         input.senderId ? fetchUser(ctx.drizzle, input.senderId) : null,
         checkForBadWords(input.title),
         checkForBadWords(input.comment),
+        fetchCommunicationPolicies(ctx.drizzle, [
+          ctx.userId,
+          ...input.users,
+          ...(input.senderId ? [input.senderId] : []),
+        ]),
       ]);
       // Guard
       const messagingRestriction = getMessagingRestriction(user);
       if (messagingRestriction) return errorResponse(messagingRestriction);
       const effectiveUserId = resolveSenderId(user, sender);
+      const parentalRestriction = privateConversationRestriction(policies, [
+        ...new Set([ctx.userId, effectiveUserId, ...input.users]),
+      ]);
+      if (parentalRestriction) return errorResponse(parentalRestriction);
       if (!titleCheck.success) return titleCheck;
       if (!moderationResult.success) return moderationResult;
       const { processedContent } = processMentions(input.comment);
@@ -483,7 +507,23 @@ export const commentsRouter = createTRPCRouter({
             isNull(posterBlacklist.id),
           ),
         );
-      return comment?.[0] || null;
+      const found = comment?.[0];
+      if (!found?.conversationId) return null;
+      const [convo, user] = await Promise.all([
+        fetchConversation({
+          client: ctx.drizzle,
+          id: found.conversationId,
+          userId: ctx.userId,
+        }),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      if (
+        !convo ||
+        convo.readRestriction ||
+        !canViewConversation(convo, ctx.userId, user.role)
+      )
+        return null;
+      return found;
     }),
   getConversationComments: protectedProcedure
     .meta({ mcp: { description: "Get messages in a conversation" } })
@@ -525,6 +565,7 @@ export const commentsRouter = createTRPCRouter({
       // Guard
       if (!convo) {
         return {
+          restrictionMessage: null,
           convo: null,
           data: [],
           nextCursor: null,
@@ -532,12 +573,21 @@ export const commentsRouter = createTRPCRouter({
       }
       if (!canViewConversation(convo, ctx.userId, user.role)) {
         return {
+          restrictionMessage: null,
           convo: null,
           data: [],
           nextCursor: null,
         };
       }
 
+      if (convo.readRestriction) {
+        return {
+          convo: null,
+          data: [],
+          nextCursor: null,
+          restrictionMessage: convo.readRestriction,
+        };
+      }
       // Build aliases
       const posterBlacklist = alias(userBlackList, "posterBlacklist");
       const readerBlacklist = alias(userBlackList, "readerBlacklist");
@@ -631,6 +681,7 @@ export const commentsRouter = createTRPCRouter({
       // Fetch
       const nextCursor = comments.length < input.limit ? null : currentCursor + 1;
       return {
+        restrictionMessage: null,
         convo: convo,
         data: comments,
         nextCursor: nextCursor,
@@ -661,6 +712,7 @@ export const commentsRouter = createTRPCRouter({
         sender && effectiveUserId === sender.userId ? sender.username : user.username;
       // Guard
       if (!convo) return errorResponse("Conversation not found");
+      if (convo.sendRestriction) return errorResponse(convo.sendRestriction);
       const messagingRestriction = getMessagingRestriction(user);
       if (messagingRestriction) {
         // Only banned/silenced users may post in staff conversations (own help tickets).
@@ -695,6 +747,23 @@ export const commentsRouter = createTRPCRouter({
       }
       if (quotes.some((quote) => quote.conversationId !== convo.id)) {
         return errorResponse("Quote not found");
+      }
+      if (
+        !convo.isPublic &&
+        !convo.isStaffAvailable &&
+        effectiveUserId !== ctx.userId
+      ) {
+        // The history guard has passed; an authorized AI reply also needs approval
+        // from current participants before its new sender enters retained history.
+        const participantIds = [
+          ...new Set([ctx.userId, ...convo.users.map((u) => u.userId)]),
+        ];
+        const policies = await fetchCommunicationPolicies(ctx.drizzle, participantIds);
+        const restriction = privateConversationRestriction(policies, [
+          ...participantIds,
+          effectiveUserId,
+        ]);
+        if (restriction) return errorResponse(restriction);
       }
 
       // Update conversation & update user notifications
@@ -734,7 +803,13 @@ export const commentsRouter = createTRPCRouter({
         .filter((id): id is string => !!id);
 
       const [notifiedUserIds] = await Promise.all([
-        fetchUsersToNotify(ctx.drizzle, ctx.userId, mentionedUserNames, quotedUserIds),
+        fetchUsersToNotify(
+          ctx.drizzle,
+          ctx.userId,
+          mentionedUserNames,
+          quotedUserIds,
+          convo,
+        ),
         // Insert into DB
         ctx.drizzle.insert(conversationComment).values({
           id: commentId,
@@ -816,6 +891,16 @@ export const commentsRouter = createTRPCRouter({
       if (user.isBanned) return errorResponse("You are banned");
       if (user.isSilenced) return errorResponse("You are silenced");
       if (!comment) return errorResponse("Comment not found");
+      const convo = comment.conversationId
+        ? await fetchConversation({
+            client: ctx.drizzle,
+            id: comment.conversationId,
+            userId: ctx.userId,
+          })
+        : null;
+      if (!convo || !canViewConversation(convo, ctx.userId, user.role))
+        return errorResponse("Conversation not found");
+      if (convo.sendRestriction) return errorResponse(convo.sendRestriction);
       // Figure out new reactions
       const newReactions = getNewReactions(
         comment.reactions,
@@ -829,17 +914,13 @@ export const commentsRouter = createTRPCRouter({
           .update(conversationComment)
           .set({ reactions: newReactions })
           .where(eq(conversationComment.id, input.commentId)),
-        ...(comment?.conversationId
-          ? [
-              pusher.trigger(comment.conversationId, "event", {
-                message: "reaction",
-                fromId: ctx.userId,
-                commentId: comment.id,
-                emoji: input.emoji,
-                username: user.username,
-              }),
-            ]
-          : []),
+        pusher.trigger(convo.id, "event", {
+          message: "reaction",
+          fromId: ctx.userId,
+          commentId: comment.id,
+          emoji: input.emoji,
+          username: user.username,
+        }),
       ]);
       return { success: true, message: "Reaction added" };
     }),
@@ -851,7 +932,17 @@ export const commentsRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .mutation(async ({ ctx, input }) => {
       if (!ctx.userId) return errorResponse("You are not logged in");
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, convo] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchConversation({
+          client: ctx.drizzle,
+          id: input.conversationId,
+          userId: ctx.userId,
+        }),
+      ]);
+      if (!convo || !canViewConversation(convo, ctx.userId, user.role))
+        return errorResponse("Conversation not found");
+      if (convo.sendRestriction) return errorResponse(convo.sendRestriction);
       const pusher = getServerPusher();
       void pusher.trigger(input.conversationId, "event", {
         message: "typing",
@@ -880,6 +971,16 @@ export const commentsRouter = createTRPCRouter({
       if (user.isBanned) return errorResponse("You are banned");
       if (user.isSilenced) return errorResponse("You are silenced");
       if (!comment) return errorResponse("Comment not found");
+      const convo = comment.conversationId
+        ? await fetchConversation({
+            client: ctx.drizzle,
+            id: comment.conversationId,
+            userId: ctx.userId,
+          })
+        : null;
+      if (!convo || !canViewConversation(convo, ctx.userId, user.role))
+        return errorResponse("Conversation not found");
+      if (convo.sendRestriction) return errorResponse(convo.sendRestriction);
       if (!moderated.success) return moderated;
       // Mutate
       const commentId = input.object_id;
@@ -954,17 +1055,16 @@ interface FetchConvoOptions {
   client: DrizzleClient;
   id?: string;
   title?: string;
-  userId?: string;
+  userId: string;
 }
 
 /**
- * Fetches a conversation based on the provided options.
- * @param params - The options for fetching the conversation.
- * @returns The fetched conversation if it exists and the user is authorized, otherwise throws an error.
- * @throws {ServerError} If the request is invalid or the conversation is not found.
+ * Loads a conversation with the requesting account's read and participant-wide send restrictions.
+ * Callers still enforce conversation membership or staff authorization before returning data.
+ * Returns undefined when absent; throws BAD_REQUEST when neither an ID nor a title is supplied.
  */
 export const fetchConversation = async (params: FetchConvoOptions) => {
-  const { client, id, title } = params;
+  const { client, id, title, userId } = params;
   const getConvo = async () => {
     if (id) {
       return await client.query.conversation.findFirst({
@@ -987,8 +1087,59 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
       throw serverError("BAD_REQUEST", "Invalid request");
     }
   };
-  return await getConvo();
+  const convo = await getConvo();
+  if (!convo) return undefined;
+  const participantIds = [...new Set([userId, ...convo.users.map((u) => u.userId)])];
+  const [policies, senders] = await Promise.all([
+    fetchCommunicationPolicies(client, participantIds),
+    convo.isPublic || convo.isStaffAvailable
+      ? []
+      : fetchPrivateConversationSenders(client, userId, convo.id),
+  ]);
+  const senderIds = senders.map((sender) => sender.userId);
+  const readRestriction = conversationReadRestriction(
+    policies.find((p) => p.userId === userId),
+    convo,
+    senderIds,
+  );
+  const sendRestriction =
+    convo.isPublic || convo.isStaffAvailable
+      ? readRestriction
+      : privateConversationRestriction(policies, [...participantIds, ...senderIds]);
+  return { ...convo, readRestriction, sendRestriction };
 };
+
+/**
+ * Retained senders must stay subject to approval after leaving a private conversation.
+ * Without an explicit conversation ID, loads senders across the account's memberships.
+ */
+const fetchPrivateConversationSenders = (
+  client: DrizzleClient,
+  userId: string,
+  conversationId?: string,
+) =>
+  client
+    .selectDistinct({
+      conversationId: conversationComment.conversationId,
+      userId: conversationComment.userId,
+    })
+    .from(conversationComment)
+    .innerJoin(conversation, eq(conversation.id, conversationComment.conversationId))
+    .where(
+      and(
+        eq(conversation.isPublic, false),
+        eq(conversation.isStaffAvailable, false),
+        conversationId
+          ? eq(conversationComment.conversationId, conversationId)
+          : inArray(
+              conversationComment.conversationId,
+              client
+                .select({ conversationId: user2conversation.conversationId })
+                .from(user2conversation)
+                .where(eq(user2conversation.userId, userId)),
+            ),
+      ),
+    );
 
 /**
  * Creates a conversation with the given parameters and performs necessary database operations.
@@ -1074,15 +1225,15 @@ interface NotifiedUser {
 }
 
 /**
- * Fetches users to notify about mentions and quotes, checking for blacklists
- * @param options - The options for fetching users to notify
- * @returns Array of user IDs with notification types
+ * Returns mention/quote recipients allowed by their blacklist and parental policy.
+ * Staff conversations preserve support access; mentions take priority over quotes.
  */
 export const fetchUsersToNotify = async (
   client: DrizzleClient,
   currentUserId: string,
   mentionedUserNames: string[],
   quotedUserIds: string[],
+  convo: Pick<Conversation, "isPublic" | "isStaffAvailable">,
 ) => {
   const notifiedUserIds: NotifiedUser[] = [];
 
@@ -1119,6 +1270,12 @@ export const fetchUsersToNotify = async (
     },
   });
 
+  const policies = usersWithBlacklist.length
+    ? await fetchCommunicationPolicies(
+        client,
+        usersWithBlacklist.map((u) => u.userId),
+      )
+    : [];
   // Process results - filtering out those who have blacklisted the current user
   for (const user of usersWithBlacklist) {
     // Skip if user has blacklisted the sender or it's the current user
@@ -1126,6 +1283,14 @@ export const fetchUsersToNotify = async (
       continue;
     }
 
+    const policy = policies.find((p) => p.userId === user.userId);
+    if (
+      conversationReadRestriction(policy, {
+        ...convo,
+        users: [{ userId: currentUserId }, { userId: user.userId }],
+      })
+    )
+      continue;
     // Determine notification type (prioritize mentions over quotes if both apply)
     let type: "mentioned" | "quoted" = "quoted";
 

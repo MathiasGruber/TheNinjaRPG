@@ -6399,3 +6399,19 @@ export const contentProposalMediaRelations = relations(contentProposalMedia, ({ 
     references: [contentProposal.id],
   }),
 }));
+
+/** PIN credentials stay separate from public profiles and general preferences. */
+export const parentalControl = mysqlTable("ParentalControl", {
+  userId: varchar("userId", { length: 191 }).primaryKey(),
+  enabled: boolean("enabled").default(false).notNull(),
+  tavernDisabled: boolean("tavernDisabled").default(false).notNull(),
+  privateMessages: mysqlEnum("privateMessages", ["EVERYONE", "APPROVED", "NONE"])
+    .default("EVERYONE").notNull(),
+  approvedUserIds: json("approvedUserIds").$type<string[]>().default([]).notNull(),
+  pinHash: varchar("pinHash", { length: 191 }),
+  failedAttempts: int("failedAttempts").default(0).notNull(),
+  attemptWindowStart: datetime("attemptWindowStart", { mode: "date", fsp: 3 })
+    .default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  version: int("version").default(0).notNull(),
+});
+export type ParentalControl = InferSelectModel<typeof parentalControl>;

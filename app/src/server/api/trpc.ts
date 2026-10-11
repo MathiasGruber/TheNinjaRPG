@@ -37,6 +37,7 @@ import {
  */
 import { drizzleDB } from "@/server/db";
 import { enforceBotId } from "@/server/utils/botid";
+import { hasSensitiveTrpcInput } from "@/server/utils/trpcInput";
 import { getClientIp } from "@/utils/network";
 
 /**
@@ -135,10 +136,11 @@ const ratelimit = new Ratelimit({
   prefix: "trpc-ratelimit",
 });
 
-export const sentryMiddleware = t.middleware(
+export const sentryMiddleware = t.middleware((opts) =>
   Sentry.trpcMiddleware({
-    attachRpcInput: true,
-  }),
+    // Parental settings contain PIN credentials; keep them out of error telemetry.
+    attachRpcInput: !hasSensitiveTrpcInput(opts.path),
+  })(opts),
 );
 
 /**
@@ -245,20 +247,17 @@ export const cdnCachedProcedure = publicProcedure
     }),
   );
 
-const enforceUserIsAuthed = t.middleware(
-  async ({ ctx: context, path, getRawInput, next }) => {
-    // Check that the user is authed
-    if (!context.userId) {
-      const rawInput = await getRawInput();
-      throw new TRPCError({
-        message: `Unauthorized for tRPC endpoint. Path: ${path}. Data: ${JSON.stringify(rawInput)}`,
-        code: "UNAUTHORIZED",
-        cause: rawInput,
-      });
-    }
-    return next({ ctx: { userId: context.userId } });
-  },
-);
+const enforceUserIsAuthed = t.middleware(async ({ ctx: context, path, next }) => {
+  // Check that the user is authed
+  if (!context.userId) {
+    throw new TRPCError({
+      // Expired sessions can still submit credentials; never echo unauthenticated input.
+      message: `Unauthorized for tRPC endpoint. Path: ${path}.`,
+      code: "UNAUTHORIZED",
+    });
+  }
+  return next({ ctx: { userId: context.userId } });
+});
 
 export const protectedProcedure = t.procedure
   .use(enforceUserIsAuthed)

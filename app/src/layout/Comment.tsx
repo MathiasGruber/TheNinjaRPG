@@ -51,6 +51,8 @@ interface ConversationCommentProps extends PostProps {
   setQuoteId?: (id: string) => void;
   quoteIds?: string[] | null;
   onDeleted?: (commentId: string) => void;
+  /** Revoking edit permission hides an open editor without discarding its unsaved draft. */
+  canEdit?: boolean;
 }
 export const CommentOnConversation: React.FC<ConversationCommentProps> = (props) => {
   const [editing, setEditing] = useState(false);
@@ -97,11 +99,11 @@ export const CommentOnConversation: React.FC<ConversationCommentProps> = (props)
     <BaseComment
       {...props}
       system="conversation_comment"
-      editComment={editComment.mutate}
+      editComment={props.canEdit === false ? undefined : editComment.mutate}
       isEditPending={editComment.isPending}
       deleteComment={handleDelete}
       isDeletePending={deleteComment.isPending}
-      editing={editing}
+      editing={editing && props.canEdit !== false}
       setEditing={setEditing}
     />
   );

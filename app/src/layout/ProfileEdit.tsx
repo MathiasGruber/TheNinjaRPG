@@ -99,6 +99,7 @@ import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import NindoChange from "@/layout/NindoChange";
+import { ParentalControls } from "@/layout/ParentalControls";
 import { CurrentSageMode } from "@/layout/SageMode";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
@@ -212,6 +213,15 @@ export function ProfileEdit() {
           onClick={setActiveElement}
         >
           <AvatarChange />
+        </Accordion>
+        <Accordion
+          title="Parental Controls"
+          selectedTitle={activeElement}
+          unselectedSubtitle="Manage tavern access and approved players"
+          icon={Shield}
+          onClick={setActiveElement}
+        >
+          <ParentalControls />
         </Accordion>
         <Accordion
           title="User Blacklist"

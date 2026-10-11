@@ -129,7 +129,9 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
         {props.inline && selectedVisual}
       </div>
       {!props.inline && (
-        <div className="mt-1 ml-1 flex w-full flex-row">{selectedVisual}</div>
+        <div className="mt-1 ml-1 flex w-full flex-row flex-wrap gap-1">
+          {selectedVisual}
+        </div>
       )}
       {searchResults && watchUsername && (
         <div className="mt-1 w-full rounded-lg border-2 border-slate-500 bg-slate-100">

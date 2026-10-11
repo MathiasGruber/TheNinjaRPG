@@ -38,6 +38,7 @@ import {
   notification,
   overworldAiPlacement,
   overworldAiPlacementQuest,
+  parentalControl,
   paypalSubscription,
   paypalTransaction,
   poll,
@@ -96,6 +97,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { isMysqlDeadlockError } from "@/server/utils/mysqlErrors";
+import { renameParentalContact } from "@/server/utils/parentalControls";
 import {
   isDeletedStoreUserId,
   migrateStoreEntitlementRevocations,
@@ -875,6 +877,7 @@ export const staffRouter = createTRPCRouter({
         return { success: false, message: "UserId was already renamed to another id" };
       }
       const moves = await Promise.allSettled([
+        renameParentalContact(ctx.drizzle, input.userId, input.newUserId),
         ctx.drizzle
           .update(auctionOffer)
           .set({ ownerId: input.newUserId })
@@ -1124,6 +1127,10 @@ export const staffRouter = createTRPCRouter({
           .set({ userId: input.newUserId })
           .where(eq(userUpload.userId, input.userId)),
         ctx.drizzle
+          .update(parentalControl)
+          .set({ userId: input.newUserId })
+          .where(eq(parentalControl.userId, input.userId)),
+        ctx.drizzle
           .update(userDevice)
           .set({ userId: input.newUserId })
           .where(eq(userDevice.userId, input.userId)),
@@ -1311,6 +1318,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
     client.delete(user2conversation).where(eq(user2conversation.userId, userId)),
     client.delete(conversationComment).where(eq(conversationComment.userId, userId)),
     client.delete(notification).where(eq(notification.userId, userId)),
+    // Account-level parental settings survive deleting and recreating a character.
     client.delete(userBlackList).where(eq(userBlackList.creatorUserId, userId)),
     client.delete(userBlackList).where(eq(userBlackList.targetUserId, userId)),
   ]);

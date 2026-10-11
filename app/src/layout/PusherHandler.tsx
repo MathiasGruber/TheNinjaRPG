@@ -98,6 +98,11 @@ export const usePusherHandler = (
           await utils.profile.getUser.cancel();
           void utils.profile.getUser.invalidate();
           void utils.combat.getBattle.invalidate();
+        } else if (data.type === "parentalControlsChanged") {
+          // Drop cached chat history in every open tab when a parent changes access.
+          void utils.parentalControls.get.invalidate();
+          void utils.comments.getUserConversations.invalidate();
+          void utils.comments.getConversationComments.reset();
         } else if (data.type === "newInbox") {
           if (!pathname.includes("/inbox")) {
             showMutationToast({

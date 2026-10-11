@@ -94,11 +94,12 @@ const TrpcClientProvider = (props: {
         }),
         loggerLink({
           enabled: (opts) =>
-            // Checkout responses contain a private cart URL; never log merch payloads.
+            // Checkout URLs and parental PINs must never enter console logs or Sentry breadcrumbs.
             !(
               "path" in opts &&
               typeof opts.path === "string" &&
-              opts.path.startsWith("merch.")
+              (opts.path.startsWith("merch.") ||
+                opts.path.startsWith("parentalControls."))
             ) &&
             (process.env.NODE_ENV === "development" ||
               (opts.direction === "down" && opts.result instanceof Error)),
