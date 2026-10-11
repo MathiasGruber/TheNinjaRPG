@@ -400,6 +400,98 @@ describeWithDatabase("ranked queue ownership across clan cleanup", () => {
     expect(await queueRows()).toEqual([expect.objectContaining({ hasClaimed: true })]);
   });
 
+  for (const operation of ["leave", "kick"] as const) {
+    for (const hasOtherParticipant of [false, true]) {
+      it(`releases a clan member on ${operation} with ${hasOtherParticipant ? "another" : "no other"} participant`, async () => {
+        const db = await getTestDatabase();
+        await claimClanQueue();
+        if (hasOtherParticipant)
+          expect(
+            (
+              await callerForDatabase(clanRouter, "leader", db).joinClanBattle({
+                clanBattleId: "q",
+              })
+            ).success,
+          ).toBe(true);
+        const caller = callerForDatabase(
+          clanRouter,
+          operation === "leave" ? "member" : "leader",
+          db,
+        );
+        const result =
+          operation === "leave"
+            ? await caller.leaveClanBattle({ clanBattleId: "q" })
+            : await caller.kickFromClanBattle({
+                clanBattleId: "q",
+                targetId: "member",
+                clanId: "a",
+              });
+        expect(result.success).toBe(true);
+        expect(await storedUser()).toMatchObject({ status: "AWAKE", battleId: null });
+        expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(
+          Number(hasOtherParticipant),
+        );
+        expect(await db.query.mpvpBattleQueue.findMany()).toHaveLength(
+          Number(hasOtherParticipant),
+        );
+        if (hasOtherParticipant)
+          expect(await storedUser("leader")).toMatchObject({ status: "QUEUED" });
+        if (operation === "kick")
+          expect(Pusher.prototype.trigger).toHaveBeenCalledWith("member", "event", {
+            type: "userMessage",
+            message: "leader kicked you out of a faction battle.",
+            route: "/clanhall",
+            routeText: "To faction Hall",
+          });
+      });
+    }
+
+    it(`preserves a ranked claim acquired after deletion during delayed clan ${operation}`, async () => {
+      const db = await getTestDatabase();
+      await claimClanQueue();
+      let replacement: Promise<void> | undefined;
+      const replaceQueue = () =>
+        (replacement ??= (async () => {
+          expect(
+            (
+              await callerForDatabase(clanRouter, "leader", db).deleteClanBattle({
+                clanBattleId: "q",
+              })
+            ).success,
+          ).toBe(true);
+          expect(
+            (await callerForDatabase(pvpRankRouter, "member", db).queueForRankedPvp())
+              .success,
+          ).toBe(true);
+        })());
+      // Every cleanup write waits for the replacement, regardless of write ordering.
+      let client = beforeStatements(db, mpvpBattleQueue, [replaceQueue]);
+      client = beforeStatements(client, mpvpBattleUser, [replaceQueue]);
+      client = beforeStatements(client, userData, [replaceQueue]);
+      const caller = callerForDatabase(
+        clanRouter,
+        operation === "leave" ? "member" : "leader",
+        client,
+      );
+      const result =
+        operation === "leave"
+          ? await caller.leaveClanBattle({ clanBattleId: "q" })
+          : await caller.kickFromClanBattle({
+              clanBattleId: "q",
+              targetId: "member",
+              clanId: "a",
+            });
+      expect(result.success).toBe(true);
+      expect(await storedUser()).toMatchObject({ status: "QUEUED", battleId: null });
+      await callerForDatabase(pvpRankRouter, "member", db).checkRankedPvpMatches();
+      expect(await queueRows()).toEqual([
+        expect.objectContaining({ userId: "member", hasClaimed: true }),
+      ]);
+      expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(0);
+      expect(await db.query.mpvpBattleQueue.findMany()).toHaveLength(0);
+    });
+  }
+
   it("preserves a newer queue when deletion races the final surplus-player wake", async () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ status: "QUEUED" });

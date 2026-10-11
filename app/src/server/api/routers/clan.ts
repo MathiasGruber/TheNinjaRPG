@@ -1815,8 +1815,8 @@ export const clanRouter = createTRPCRouter({
 });
 
 /**
- * Compensate a failed join or challenge without disturbing another queue or combat.
- * Only the membership created by this request is removed; the wake-up guard leaves
+ * Remove an observed membership without disturbing another queue or combat.
+ * Only the given membership is removed; the wake-up guard leaves
  * a user alone if another active clan lobby, ranked queue or combat has claimed them.
  */
 const undoClanBattleJoin = async (
@@ -1986,33 +1986,22 @@ export const removeFromClan = async (
 };
 
 /**
- * Removes a user from a clan battle.
- *
- * @param client - The DrizzleClient instance used to interact with the database.
- * @param currentQueue - The current queue of users in the clan battle.
- * @param clanBattleId - The ID of the clan battle.
- * @param userId - The ID of the user to remove from the clan battle.
- * @returns A Promise that resolves when the user has been removed from the clan battle.
+ * Remove the observed membership and an empty lobby, then release its queue ownership.
+ * A delayed leave or kick must preserve a newer membership, ranked claim or combat.
  */
 export const removeFromClanBattle = async (
   client: DrizzleClient,
-  currentQueue: { userId: string }[],
+  currentQueue: { id: string; userId: string }[],
   clanBattleId: string,
   userId: string,
 ) => {
+  const entry = currentQueue.find((q) => q.userId === userId);
+  if (!entry) return;
   await Promise.all([
     ...(currentQueue.length === 1
       ? [client.delete(mpvpBattleQueue).where(eq(mpvpBattleQueue.id, clanBattleId))]
       : []),
-    client
-      .delete(mpvpBattleUser)
-      .where(
-        and(
-          eq(mpvpBattleUser.clanBattleId, clanBattleId),
-          eq(mpvpBattleUser.userId, userId),
-        ),
-      ),
-    client.update(userData).set({ status: "AWAKE" }).where(eq(userData.userId, userId)),
+    undoClanBattleJoin(client, userId, entry.id),
   ]);
 };
 
@@ -2027,7 +2016,7 @@ export const fetchClanBattle = async (client: DrizzleClient, clanBattleId: strin
     where: eq(mpvpBattleQueue.id, clanBattleId),
     with: {
       queue: {
-        columns: { userId: true, createdAt: true, side: true, slot: true },
+        columns: { id: true, userId: true, createdAt: true, side: true, slot: true },
         with: { user: { columns: { clanId: true, avatar: true, username: true } } },
       },
     },
