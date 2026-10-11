@@ -228,7 +228,9 @@ export const trainRouter = createTRPCRouter({
               (entry) => masteryTrainingGainRoom(user, entry.stat) <= 0,
             )
           )
-            return "A queued mastery is already capped";
+            return input.kind === "ELEMENT"
+              ? "A queued element is already provided or fully mastered"
+              : "A queued mastery is already capped";
           return (
             input.entries
               .map((entry) => queuedMasteryStartBlockMessage(user, entry))
@@ -380,7 +382,7 @@ export const trainRouter = createTRPCRouter({
         return errorResponse("Your training changed. Please try again");
       return {
         success: true,
-        message: "Started mastery training",
+        message: `Started ${kind === "ELEMENT" ? "elemental" : "mastery"} training`,
         ...(!requiresProgressionRefresh
           ? getUserProgressionUpdate(
               { ...user, ...data, updatedAt: claim.claimedAt },
@@ -412,11 +414,15 @@ export const trainRouter = createTRPCRouter({
         startedAt?.getTime() !== input.startedAt.getTime()
       ) {
         return errorResponse(
-          "Your mastery training changed. Please refresh and try again",
+          `Your ${kind === "ELEMENT" ? "elemental" : "mastery"} training changed. Please refresh and try again`,
         );
       }
       if (!trained || !startedAt) {
-        return errorResponse("Not currently training a mastery");
+        return errorResponse(
+          kind === "ELEMENT"
+            ? "Not currently training an element"
+            : "Not currently training a mastery",
+        );
       }
       if (showTrainingCapcha(user)) {
         if (!input.guess) return errorResponse("Captcha required");
