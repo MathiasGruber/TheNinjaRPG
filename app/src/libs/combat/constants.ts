@@ -10,25 +10,15 @@ import {
   ElementNames,
   RANKED_BLOODLINE_EFFECT_MULT,
 } from "@/drizzle/constants";
-import type { UserEffect } from "@/libs/combat/types";
+import { IncreaseDamageGivenTag } from "@/validators/combat";
 
 /** Ranked bloodlines boost every damage element, including attacks outside Highest. */
-export const RANKED_BLOODLINE_DAMAGE_TAG = {
-  type: "increasedamagegiven",
+export const RANKED_BLOODLINE_DAMAGE_TAG = IncreaseDamageGivenTag.parse({
   power: (RANKED_BLOODLINE_EFFECT_MULT - 1) * 100,
-  powerPerLevel: 0,
-  calculation: "percentage",
-  direction: "offence",
   target: "SELF",
   description: "Ranked bloodline simulation",
   elements: [...ElementNames],
-  staticAssetPath: "",
-  staticAnimation: "",
-  appearAnimation: "",
-  disappearAnimation: "",
-  appearSfx: "",
-  disappearSfx: "",
-} satisfies Partial<UserEffect>;
+});
 
 export const COMBAT_BORDER_LEFT = 2;
 export const COMBAT_BORDER_RIGHT = 2;

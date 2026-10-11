@@ -3480,17 +3480,18 @@ export const processUsersForBattle = async (
       userEffects.push(realized);
     }
 
-    // Add bloodline efects
-    if (
-      user.bloodline?.effects &&
-      battleType !== "RANKED_PVP" &&
-      battleType !== "RANKED_SPARRING"
-    ) {
-      user.bloodline.effects.forEach((effect: unknown) => {
+    // Ranked replaces unique bloodline effects with a uniform, sealable damage bonus.
+    if (user.bloodline) {
+      const effects = isRankedBattle
+        ? user.isAi
+          ? []
+          : [{ ...RANKED_BLOODLINE_DAMAGE_TAG }]
+        : (user.bloodline.effects ?? []);
+      effects.forEach((effect: unknown) => {
         const realized = realizeTag({
           tag: effect as UserEffect,
-          user: user,
-          actionId: user?.bloodline?.id ?? "initial",
+          user,
+          actionId: user.bloodline?.id ?? "initial",
           target: user,
           level: user.level,
         });
@@ -3500,22 +3501,6 @@ export const processUsersForBattle = async (
         realized.fromType = "bloodline";
         userEffects.push(realized);
       });
-    }
-
-    // Ranked replaces unique bloodline effects with a uniform, sealable damage bonus.
-    if (isRankedBattle && !user.isAi && user.bloodline) {
-      const realized = realizeTag({
-        tag: { ...RANKED_BLOODLINE_DAMAGE_TAG } as UserEffect,
-        user,
-        actionId: user.bloodline.id,
-        target: user,
-        level: user.level,
-      });
-      realized.isNew = false;
-      realized.castThisRound = false;
-      realized.targetId = user.userId;
-      realized.fromType = "bloodline";
-      userEffects.push(realized);
     }
 
     // Bloodright is preloaded at initiation and uses the same passive effect pipeline.

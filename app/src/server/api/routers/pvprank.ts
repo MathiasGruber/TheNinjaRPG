@@ -362,12 +362,7 @@ export const pvpRankRouter = createTRPCRouter({
     .meta({
       mcp: { description: "Get number of players in ranked PvP queue" },
     })
-    .query(async ({ ctx }) => {
-      const result = await ctx.drizzle
-        .select({ count: sql<number>`count(*)` })
-        .from(rankedPvpQueue);
-      return Number(result[0]?.count ?? 0);
-    }),
+    .query(({ ctx }) => ctx.drizzle.$count(rankedPvpQueue)),
 
   // Update the ranked loadout
   updateRankedLoadout: protectedProcedure
@@ -411,7 +406,10 @@ export const pvpRankRouter = createTRPCRouter({
       // Run mutation
       await ctx.drizzle
         .update(rankedLoadout)
-        .set({ loadout: input, updatedAt: new Date() })
+        .set({
+          loadout: input,
+          updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${rankedLoadout.updatedAt}))`,
+        })
         .where(eq(rankedLoadout.id, currentLoadout.id));
       // Return success
       return { success: true, message: "Ranked loadout updated successfully" };

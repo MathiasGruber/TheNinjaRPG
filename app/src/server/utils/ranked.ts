@@ -137,11 +137,7 @@ export const cleanRankedProhibitedSelections = async (
       where: eq(rankedLoadout.id, storedLoadout.id),
     });
     if (!current) {
-      return {
-        loadout,
-        removedJutsuIds: filtered.removedJutsuIds,
-        removedItemIds: filtered.removedItemIds,
-      };
+      return { ...filtered, loadout };
     }
     if (attempt + 1 >= RANKED_LOADOUT_CLEANUP_MAX_ATTEMPTS) {
       // Give up persisting; still strip prohibited ids from the latest row for
@@ -150,9 +146,5 @@ export const cleanRankedProhibitedSelections = async (
     }
     return cleanRankedProhibitedSelections(client, current, attempt + 1);
   }
-  return {
-    loadout,
-    removedJutsuIds: filtered.removedJutsuIds,
-    removedItemIds: filtered.removedItemIds,
-  };
+  return { ...filtered, loadout };
 };

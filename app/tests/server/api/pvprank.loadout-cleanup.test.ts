@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from "bun:test";
+import { beforeEach, expect, it, setSystemTime } from "bun:test";
 import { eq } from "drizzle-orm";
 import {
   item,
@@ -125,18 +125,23 @@ describeWithDatabase("ranked prohibited loadout cleanup", () => {
     expect(await (await callerFor(pvpRankRouter, USER)).getRankedQueueCount()).toBe(1);
   });
 
-  it("does not overwrite a newer valid selection when cleanup loses its CAS", async () => {
+  it.each([0, 2000])("preserves a valid selection saved after %i ms", async (offset) => {
     const db = await getTestDatabase();
     const original = await storedLoadout();
-    await db
-      .update(rankedLoadout)
-      .set({
-        loadout: loadout(["usable-two"]),
-        updatedAt: new Date(original.updatedAt.getTime() + 2000),
-      })
-      .where(eq(rankedLoadout.id, original.id));
-    const cleaned = await cleanRankedProhibitedSelections(db, original);
-    expect(cleaned.loadout.loadout).toEqual(loadout(["usable-two"]));
-    expect((await storedLoadout()).loadout).toEqual(loadout(["usable-two"]));
+    setSystemTime(new Date(original.updatedAt.getTime() + offset));
+    try {
+      const saved = await (await callerFor(pvpRankRouter, USER)).updateRankedLoadout(
+        loadout(["usable-two"]),
+      );
+      expect(saved.success).toBe(true);
+      const cleaned = await cleanRankedProhibitedSelections(db, original);
+      expect(cleaned.loadout.loadout).toEqual(loadout(["usable-two"]));
+      expect((await storedLoadout()).loadout).toEqual(loadout(["usable-two"]));
+      expect((await storedLoadout()).updatedAt.getTime()).toBeGreaterThan(
+        original.updatedAt.getTime(),
+      );
+    } finally {
+      setSystemTime();
+    }
   });
 });
