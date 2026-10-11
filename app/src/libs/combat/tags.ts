@@ -245,13 +245,11 @@ export const buffPrevent = (
 
 /** Type-axis predicate for the effects the `copy` tag may transfer and produce. */
 const isCopyableEffect = (e: UserEffect): boolean =>
-  e.type !== "diffuse" && isPositiveUserEffect(e) && COPYABLE_EFFECT_TYPES.has(e.type);
+  isPositiveUserEffect(e) && COPYABLE_EFFECT_TYPES.has(e.type);
 
 /** Type-axis predicate for the effects the `mirror` tag may transfer and produce. */
 const isMirrorableEffect = (e: UserEffect): boolean =>
-  e.type !== "diffuse" &&
-  isNegativeUserEffect(e) &&
-  !MIRROR_EXCLUDED_EFFECT_TYPES.has(e.type);
+  isNegativeUserEffect(e) && !MIRROR_EXCLUDED_EFFECT_TYPES.has(e.type);
 
 /**
  * Shared candidate gate for a transfer source effect: not from a passive/gear
@@ -1191,7 +1189,6 @@ const removeEffects = (
     // Remove user effects
     usersEffects
       .filter((e) => e.targetId === effect.targetId)
-      .filter((e) => e.type !== "diffuse")
       .filter((e) => !persistentEffectSourceTypes.has(e.fromType))
       .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
       .forEach((e) => {
@@ -1205,7 +1202,6 @@ const removeEffects = (
     // Remove ground effects at the same location as the target
     usersEffects
       .filter(isGroundEffect)
-      .filter((e) => e.type !== "diffuse")
       .filter((e) => e.longitude === target.longitude && e.latitude === target.latitude)
       .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
       .forEach((e) => {

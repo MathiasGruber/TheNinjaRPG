@@ -368,10 +368,7 @@ const MenuBoxProfile: React.FC = () => {
               <VisualizeEffects
                 effects={battle.usersEffects}
                 userId={userData.userId}
-                diffuseDamage={
-                  battle.usersState.find((u) => u.userId === userData.userId)
-                    ?.diffuseDamage
-                }
+                diffuseDamage={battleUser?.diffuseDamage}
               />
             </ul>
           </>
