@@ -827,7 +827,7 @@ export const fetchUserRankedQueue = async (client: DrizzleClient, userId: string
  * Cleanup rechecks status in the DELETE: a provisional row's owner can claim QUEUED
  * after the caller's read. Intentional leaves still remove rows while the user is QUEUED.
  * A crash before claiming can leave an inert unclaimed row; it owns no status and the
- * daily cleaner expires it without blocking a later join for the same account.
+ * cleaner expires it without blocking a later join for the same account.
  * @param client - The Drizzle client
  * @param userId - The user's ID
  * @param onlyIfNotQueued - Preserve rows whose owner currently holds QUEUED status.
