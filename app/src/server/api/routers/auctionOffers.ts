@@ -351,23 +351,7 @@ const moveOfferItem = async (
   reserve: boolean,
   wasReserved = false,
 ) => {
-  const snapshot: UserItem = {
-    id: row.id,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    userId: row.userId,
-    itemId: row.itemId,
-    quantity: row.quantity,
-    level: row.level,
-    experience: row.experience,
-    equipped: row.equipped,
-    durability: row.durability,
-    storedAtHome: row.storedAtHome,
-    craftingFinishedAt: row.craftingFinishedAt,
-    isInAuction: row.isInAuction,
-    activeVariantId: row.activeVariantId,
-    dropChancePerc: row.dropChancePerc,
-  };
+  const { item: _item, imbuements: _imbuements, ...snapshot } = row;
   const isPartial = quantity < row.quantity;
   const destinationId = isPartial ? nanoid() : row.id;
   const result = await tx
