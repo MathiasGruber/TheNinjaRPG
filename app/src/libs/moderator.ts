@@ -35,7 +35,7 @@ import {
 } from "@/validators/moderation";
 
 // OpenAI client
-const openai = new OpenAI({ timeout: 20_000, maxRetries: 0 });
+const openai = new OpenAI({ timeout: 20_000 });
 
 /**
  * Moderate content
