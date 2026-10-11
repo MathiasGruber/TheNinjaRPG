@@ -62,7 +62,7 @@ import {
   hydrateUserForQuests,
   isPvpEnergyRewardBattle,
 } from "@/libs/combat/util";
-import { getVillageMissionCombatEvents } from "@/libs/combat/villageMission";
+import { claimVillageMissionCombatEvents } from "@/libs/combat/villageMission";
 import { getPvpFarmActivityReductionSeconds } from "@/libs/farming";
 import { allocateMasteryGains } from "@/libs/masteryProgression";
 import type { PusherClient } from "@/libs/pusher";
@@ -124,6 +124,10 @@ export const updateBattle = async (
   fetchedVersion: number,
   pusher?: PusherClient,
 ) => {
+  if (result) {
+    result.villageMissionPvpKills =
+      claimVillageMissionCombatEvents(newBattle, userId, result).pvp_kills ?? 0;
+  }
   // Calculations
   // raidBossDefeated: the boss specifically died (kill).
   // raidTeamWiped: every human in this raid is out of stillInBattle while the
@@ -1601,12 +1605,9 @@ export const updateUser = async (
     await Promise.all([
       ...(!user.isAi
         ? [
-            recordVillageMissionProgress(
-              client,
-              user.villageId,
-              userId,
-              getVillageMissionCombatEvents(curBattle, userId, result),
-            ),
+            recordVillageMissionProgress(client, user.villageId, userId, {
+              pvp_kills: result.villageMissionPvpKills ?? 0,
+            }),
           ]
         : []),
       ...(farmActivityReductionSeconds > 0

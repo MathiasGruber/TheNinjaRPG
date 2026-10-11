@@ -1,18 +1,19 @@
 import { beforeEach, expect, it, spyOn } from "bun:test";
 import { eq } from "drizzle-orm";
-import { userData, village, villageStructure, quest, questHistory, war, warKill } from "@/drizzle/schema";
-import { updateWars } from "@/libs/combat/database";
+import { battle, userData, village, villageStructure, quest, questHistory, war, warKill } from "@/drizzle/schema";
+import { updateBattle, updateWars } from "@/libs/combat/database";
 import type { CompleteBattle, CombatResult } from "@/libs/combat/types";
 import { SimpleObjective } from "@/validators/objectives";
-import { ObjectiveReward } from "@/validators/rewards";
+import { ObjectiveReward, PostProcessedRewardSchema } from "@/validators/rewards";
 import { villageMissionRouter } from "@/server/api/routers/villageMission";
 import { kageRouter } from "@/server/api/routers/kage";
-import { questsRouter } from "@/server/api/routers/quests";
+import { commitQuestObjectiveRewards, questsRouter } from "@/server/api/routers/quests";
 import * as socials from "@/libs/socials";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import { accrueVillageStructureMaintenance } from "@/server/utils/villageMaintenance";
 import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { makeBattleUser, makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 
 const state = async () => (await getTestDatabase()).query.village.findFirst({ where: eq(village.id, "v1") });
 const leader = async () => callerFor(villageMissionRouter, "leader");
@@ -20,7 +21,7 @@ const objective = { id: "effort", task: "combined_mission_effort", description: 
 
 describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
   beforeEach(async () => {
-    await resetTables(userData, village, villageStructure, quest, questHistory, war, warKill);
+    await resetTables(battle, userData, village, villageStructure, quest, questHistory, war, warKill);
     const db = await getTestDatabase();
     await insertUsers([
       { userId: "leader", username: "leader", villageId: "v1" },
@@ -93,6 +94,41 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     expect(await (await callerFor(villageMissionRouter, "outsider")).get({ id: "v1" })).toBeNull();
   });
 
+  it("pays a completed quest while skipping chained Village Missions, retired S-rank missions and NPC-only destinations", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ money: 100 }).where(eq(userData.userId, "member"));
+    await insertQuests([
+      { id: "parent", name: "Parent", questType: "event" },
+      { id: "legacy-s", name: "Retired S mission", questType: "mission", questRank: "S" },
+      { id: "npc-only", name: "NPC quest", questType: "overworld" },
+      { id: "ordinary-a", name: "Ordinary A mission", questType: "mission", questRank: "A" },
+    ]);
+    await insertQuestHistory([{ id: "parent-history", userId: "member", questId: "parent", questType: "event" }]);
+    const user = await db.query.userData.findFirst({
+      where: eq(userData.userId, "member"),
+      with: { userQuests: { with: { quest: true } }, completedQuests: true, items: { with: { item: true } } },
+    });
+    const history = user?.userQuests[0];
+    if (!user || !history) throw new Error("Missing parent quest fixture");
+    const claim = await commitQuestObjectiveRewards({
+      client: db, userId: user.userId, user: user as never,
+      rewards: PostProcessedRewardSchema.parse({ reward_money: 25 }),
+      trackers: [], userQuest: history as never, resolved: true,
+      notifications: [],
+      consequences: [{ type: "start_quest", ids: ["mission-1", "legacy-s", "npc-only", "ordinary-a"] }],
+      existingHistory: history,
+    });
+    expect(claim.outcome).toBe("claimed");
+    if (claim.outcome === "claimed") {
+      expect(claim.postNotifications.filter((message) => message.startsWith("Started new quest:"))).toEqual(["Started new quest: Ordinary A mission"]);
+    }
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "member") }))?.money).toBe(125);
+    const histories = await db.query.questHistory.findMany({ where: eq(questHistory.userId, "member") });
+    expect(histories.map((entry) => entry.questId).sort()).toEqual(["ordinary-a", "parent"]);
+    expect(histories.find((entry) => entry.questId === "parent")?.completed).toBe(1);
+    expect(histories.find((entry) => entry.questId === "ordinary-a")?.completed).toBe(0);
+  });
+
   it("aggregates villagers atomically, denies early claims and grants a concurrent reward once", async () => {
     const db = await getTestDatabase();
     const caller = await leader();
@@ -108,6 +144,37 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     expect((await state())?.activeMission).toBeNull();
     await caller.select({ villageId: "v1" });
     expect((await caller.get({ id: "v1" }))?.mission?.objectives[0]?.current).toBe(0);
+  });
+
+  it("persists group PvP credit with the battle version claim and prevents another winner crediting it", async () => {
+    const db = await getTestDatabase();
+    await (await leader()).select({ villageId: "v1" });
+    const original = makeCompleteBattle({ id: "group-credit", version: 1, usersState: [
+      makeBattleUser("member", { villageId: "v1", direction: "left" }),
+      makeBattleUser("leader", { villageId: "v1", direction: "left" }),
+      makeBattleUser("foe-a", { villageId: "v2", direction: "right", curHealth: 0, leftBattle: true }),
+      makeBattleUser("foe-b", { villageId: "v2", direction: "right", curHealth: 0, leftBattle: true }),
+    ] });
+    await db.insert(battle).values(original);
+    const settle = async (snapshot: CompleteBattle, userId: string, friendsLeft: number) => {
+      snapshot.usersState.find((entry) => entry.userId === userId)!.leftBattle = true;
+      const result = { didWin: 1, friendsLeft, targetsLeft: 0 } as CombatResult;
+      const claim = await updateBattle(db, result, userId, snapshot, snapshot.version);
+      if (claim) await recordVillageMissionProgress(db, "v1", userId, { pvp_kills: result.villageMissionPvpKills ?? 0 });
+      return claim;
+    };
+    const claims = await Promise.all([settle(structuredClone(original), "member", 1), settle(structuredClone(original), "leader", 1)]);
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect((await state())?.missionCounters.pvp_kills).toBe(2);
+    const saved = await db.query.battle.findFirst({ where: eq(battle.id, original.id) });
+    if (!saved) throw new Error("Missing persisted battle");
+    const credited = saved.usersState.find((entry) => entry.villageMissionPvpCredited);
+    expect(credited).toBeDefined();
+    // Pool changes after settlement must not release the persisted credit marker.
+    credited!.curHealth = 0;
+    const otherWinner = credited!.userId === "member" ? "leader" : "member";
+    expect(await settle(saved as CompleteBattle, otherWinner, 0)).not.toBeNull();
+    expect((await state())?.missionCounters.pvp_kills).toBe(2);
   });
 
   it("rerolls to a different mission once and starts a new baseline", async () => {

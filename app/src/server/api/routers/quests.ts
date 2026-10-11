@@ -3386,9 +3386,14 @@ const executeClaimedQuestConsequences = async ({
               where: inArray(quest.id, startedQuestIds),
             });
             // Runs after the user snapshot is already committed, so a throw here would burn the
-            // objective without starting the quest. An NPC-only target can only appear via a
-            // content edit that stranded the edge, so skip it instead of failing the request.
-            const startable = quests.filter((q) => !isNpcOnlyQuestType(q.questType));
+            // objective without starting the quest. Content edits or migrations can strand
+            // edges to quests that cannot be personally assigned; skip those destinations.
+            const startable = quests.filter(
+              (q) =>
+                !isNpcOnlyQuestType(q.questType) &&
+                q.questType !== "village_mission" &&
+                !(q.questType === "mission" && q.questRank === "S"),
+            );
             if (startable.length > 0) {
               notifications.push(
                 `Started new quest: ${startable.map((q) => q.name).join(", ")}`,
