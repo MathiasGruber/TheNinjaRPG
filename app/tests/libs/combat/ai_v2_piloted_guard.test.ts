@@ -55,7 +55,6 @@ const mkUser = (over: Partial<BattleUserState>): BattleUserState =>
     usedActions: [],
     initiative: 0,
     relationIds: [],
-    warIds: [],
     ...over,
   } as unknown as BattleUserState);
 

@@ -420,8 +420,8 @@ const shrineBattle = async (type: "SECTOR_WAR" | "VILLAGE_WAR" | "WAR_RAID") => 
   await db.insert(war).values({ id: "w1", attackerVillageId: "v1", defenderVillageId: "v2", type, status: "ACTIVE", sector: 12, defenderShrineHp: 15, defenderShrineMaxHp: 100, defenderWarHealth: WAR_SHRINE_CAPTURE_WARHEALTH_DMG * 3 });
   const persisted = await db.query.war.findFirst({ where: eq(war.id, "w1") });
   return { battleType: "COMBAT", usersState: [
-    { userId: "member", direction: "left", villageId: "v1", isAi: false, sector: 12, warIds: ["w1"] },
-    { userId: "outsider", direction: "right", villageId: "v2", isAi: false, sector: 12, warIds: ["w1"] },
+    { userId: "member", direction: "left", villageId: "v1", isAi: false, sector: 12 },
+    { userId: "outsider", direction: "right", villageId: "v2", isAi: false, sector: 12 },
   ], extraState: { wars: { w1: { ...persisted, warAllies: [] } } } } as unknown as CompleteBattle;
 };
 
