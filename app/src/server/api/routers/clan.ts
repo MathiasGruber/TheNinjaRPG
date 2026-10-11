@@ -1346,6 +1346,7 @@ export const clanRouter = createTRPCRouter({
         return errorResponse(`Not in ${groupLabel} clan`);
       // Mutation 1: update user early & ensure status
       const clanBattleId = nanoid();
+      const entryId = nanoid();
       const result = await ctx.drizzle
         .update(userData)
         .set({ status: "QUEUED" })
@@ -1361,13 +1362,21 @@ export const clanRouter = createTRPCRouter({
           defenderEntityId: defender.id,
         }),
         ctx.drizzle.insert(mpvpBattleUser).values({
-          id: nanoid(),
+          id: entryId,
           userId: user.userId,
           clanBattleId: clanBattleId,
           side: "ATTACKER",
           slot: 0, // First attacker gets slot 0
         }),
       ]);
+      // Deletion can finish before the parallel member insert. Undo only our entry
+      // and release the user only if no other queue or combat has claimed them.
+      if (!(await fetchClanBattle(ctx.drizzle, clanBattleId))) {
+        await undoClanBattleJoin(ctx.drizzle, user.userId, entryId);
+        return errorResponse(
+          "Clan battle was deleted during challenge; refresh and try again",
+        );
+      }
       // Notify all clan members of both clans
       [
         ...challenger.members.map((m) => m.userId),
@@ -1432,36 +1441,6 @@ export const clanRouter = createTRPCRouter({
       if (result.rowsAffected === 0) return errorResponse("Was not awake?");
 
       const entryId = nanoid();
-      const undoJoin = async () => {
-        await ctx.drizzle.delete(mpvpBattleUser).where(eq(mpvpBattleUser.id, entryId));
-        await ctx.drizzle
-          .update(userData)
-          .set({ status: "AWAKE" })
-          .where(
-            and(
-              eq(userData.userId, user.userId),
-              eq(userData.status, "QUEUED"),
-              isNull(userData.battleId),
-              not(
-                exists(
-                  ctx.drizzle
-                    .select({ one: sql`1` })
-                    .from(mpvpBattleUser)
-                    .innerJoin(
-                      mpvpBattleQueue,
-                      eq(mpvpBattleUser.clanBattleId, mpvpBattleQueue.id),
-                    )
-                    .where(
-                      and(
-                        eq(mpvpBattleUser.userId, user.userId),
-                        isNull(mpvpBattleQueue.winnerId),
-                      ),
-                    ),
-                ),
-              ),
-            ),
-          );
-      };
       // This reversible membership write may race a start/delete. Revalidate afterward
       // and remove only our own entry, without locking a missing row or another combat.
       try {
@@ -1474,11 +1453,11 @@ export const clanRouter = createTRPCRouter({
         });
         const current = await fetchClanBattle(ctx.drizzle, input.clanBattleId);
         if (!current || current.battleId) {
-          await undoJoin();
+          await undoClanBattleJoin(ctx.drizzle, user.userId, entryId);
           return errorResponse("Battle started or was deleted; refresh and try again");
         }
       } catch {
-        await undoJoin();
+        await undoClanBattleJoin(ctx.drizzle, user.userId, entryId);
         return errorResponse("Slot was taken. Please try again.");
       }
       return { success: true, message: `Joined ${groupLabel} battle` };
@@ -1792,6 +1771,42 @@ export const clanRouter = createTRPCRouter({
       };
     }),
 });
+
+const undoClanBattleJoin = async (
+  client: DrizzleClient,
+  userId: string,
+  entryId: string,
+) => {
+  await client.delete(mpvpBattleUser).where(eq(mpvpBattleUser.id, entryId));
+  await client
+    .update(userData)
+    .set({ status: "AWAKE" })
+    .where(
+      and(
+        eq(userData.userId, userId),
+        eq(userData.status, "QUEUED"),
+        isNull(userData.battleId),
+        not(
+          exists(
+            client
+              .select({ one: sql`1` })
+              .from(mpvpBattleUser)
+              .innerJoin(
+                mpvpBattleQueue,
+                eq(mpvpBattleUser.clanBattleId, mpvpBattleQueue.id),
+              )
+              .where(
+                and(
+                  eq(mpvpBattleUser.userId, userId),
+                  isNull(mpvpBattleQueue.winnerId),
+                ),
+              ),
+          ),
+        ),
+      ),
+    );
+};
+
 /**
  * Removes a user from an clan.
  *

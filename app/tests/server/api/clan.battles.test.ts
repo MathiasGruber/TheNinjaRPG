@@ -131,6 +131,28 @@ describeWithDatabase("clan economy and battle lifecycle", () => {
     expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(0);
   });
 
+  it("cleans a challenge deleted before its initial member was inserted", async () => {
+    const db = await getTestDatabase();
+    await resetTables(mpvpBattleUser, mpvpBattleQueue);
+    const staff = await callerFor(clanRouter, "staff");
+    const guarded = beforeStatements(db, mpvpBattleUser, [async () => {
+      // Hold the member insert until the parallel lobby insert becomes visible.
+      let lobby = await db.query.mpvpBattleQueue.findFirst();
+      for (let attempts = 0; !lobby && attempts < 100; attempts++) {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        lobby = await db.query.mpvpBattleQueue.findFirst();
+      }
+      expect(lobby).toBeDefined();
+      if (!lobby) throw new Error("Challenge lobby was not published");
+      expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(0);
+      expect((await staff.deleteClanBattle({ clanBattleId: lobby.id })).success).toBe(true);
+    }]);
+    const result = await callerForDatabase(clanRouter, "leader", guarded).challengeClan({ challengerClanId: "a", targetClanId: "b" });
+    const [user, lobbies, members] = await Promise.all([storedUser("leader"), db.query.mpvpBattleQueue.findMany(), db.query.mpvpBattleUser.findMany()]);
+    expect({ status: user?.status, battleId: user?.battleId, lobbies: lobbies.length, members: members.length, success: result.success }).toEqual({ status: "AWAKE", battleId: null, lobbies: 0, members: 0, success: false });
+    expect(result.message).toContain("deleted");
+  });
+
   it("rejects stale pending deletion after startup reserves combat", async () => {
     const db = await getTestDatabase();
     await db.update(mpvpBattleQueue).set({ battleId: "combat" }).where(eq(mpvpBattleQueue.id, "q"));
