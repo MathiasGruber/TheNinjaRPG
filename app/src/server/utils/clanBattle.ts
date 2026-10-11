@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { CLAN_BATTLE_REWARD_POINTS, CLAN_BATTLE_REWARD_RYO } from "@/drizzle/constants";
 import {
   battle,
@@ -7,6 +7,7 @@ import {
   clan,
   mpvpBattleQueue,
   mpvpBattleUser,
+  rankedPvpQueue,
   userData,
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -75,6 +76,9 @@ export const deleteClanBattle = async (
   // a second DELETE finds no lobby; retain memberships until queued users are awake.
   await retryOnDeadlock(async () => {
     if (snapshot.battleId !== null) await clearClanCombat(client, snapshot.battleId);
+    // Completed lobbies retain memberships after participants can join ranked PvP.
+    // Ranked publishes its row before claiming QUEUED, so both joins and existing
+    // ranked queues are protected from this old lobby's wake-up.
     await client
       .update(userData)
       .set({ status: "AWAKE" })
@@ -88,6 +92,12 @@ export const deleteClanBattle = async (
               .select({ userId: mpvpBattleUser.userId })
               .from(mpvpBattleUser)
               .where(eq(mpvpBattleUser.clanBattleId, snapshot.id)),
+          ),
+          notExists(
+            client
+              .select({ id: rankedPvpQueue.id })
+              .from(rankedPvpQueue)
+              .where(eq(rankedPvpQueue.userId, userData.userId)),
           ),
         ),
       );

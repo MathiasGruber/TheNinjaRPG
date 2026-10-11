@@ -1,5 +1,16 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  gt,
+  gte,
+  inArray,
+  lte,
+  notExists,
+  sql,
+} from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
@@ -38,6 +49,7 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import {
   cleanRankedProhibitedSelections,
   fetchSanninRankedPlayers,
@@ -335,9 +347,9 @@ export const pvpRankRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUserRankedQueue(ctx.drizzle, ctx.userId),
       ]);
-      // Cleanups ub case of bad queuing state
+      // Reconcile stale rows without deleting a join that claimed QUEUED after this read.
       if (user.status !== "QUEUED" && queueEntry) {
-        await deleteUserRankedQueueRow(ctx.drizzle, ctx.userId);
+        await deleteUserRankedQueueRow(ctx.drizzle, ctx.userId, true);
       } else if (user.status === "QUEUED" && !queueEntry) {
         await ctx.drizzle
           .update(userData)
@@ -503,20 +515,48 @@ export const pvpRankRouter = createTRPCRouter({
         }
       }
 
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({ status: "QUEUED" })
-        .where(and(eq(userData.userId, user.userId), eq(userData.status, "AWAKE")));
-      if (result.rowsAffected === 0) return errorResponse("Need to be awake to queue");
-
-      // Add to queue
+      // Publish before claiming QUEUED so old clan-lobby cleanup can identify the
+      // ranked queue. Concurrent joins have distinct rows; the AWAKE CAS wins once.
+      const queueId = nanoid();
       await ctx.drizzle.insert(rankedPvpQueue).values({
-        id: nanoid(),
+        id: queueId,
         userId: ctx.userId,
         rankedLp: user.rankedLp,
         queueStartTime: new Date(),
         createdAt: new Date(),
       });
+      let hasClaimedQueue = false;
+      try {
+        const result = await retryOnDeadlock(() =>
+          ctx.drizzle
+            .update(userData)
+            .set({ status: "QUEUED" })
+            .where(
+              and(
+                eq(userData.userId, user.userId),
+                eq(userData.status, "AWAKE"),
+                // A stale-row cleaner or concurrent leave may remove the provisional
+                // row. Require this request's exact row to avoid stranding QUEUED.
+                exists(
+                  ctx.drizzle
+                    .select({ id: rankedPvpQueue.id })
+                    .from(rankedPvpQueue)
+                    .where(eq(rankedPvpQueue.id, queueId)),
+                ),
+              ),
+            ),
+        );
+        hasClaimedQueue = result.rowsAffected === 1;
+      } finally {
+        // A failed claim (including a query error) only removes its own row,
+        // preserving a concurrent winning join's queue entry.
+        if (!hasClaimedQueue) {
+          await retryOnDeadlock(() =>
+            ctx.drizzle.delete(rankedPvpQueue).where(eq(rankedPvpQueue.id, queueId)),
+          );
+        }
+      }
+      if (!hasClaimedQueue) return errorResponse("Need to be awake to queue");
       return {
         success: true,
         message:
@@ -597,7 +637,7 @@ export const pvpRankRouter = createTRPCRouter({
       // inQueue stays true (the client keeps polling) and the lost-claim restore
       // below would re-QUEUE us into unwanted matches.
       if (userEntry.user?.status !== "QUEUED") {
-        await deleteUserRankedQueueRow(ctx.drizzle, ctx.userId);
+        await deleteUserRankedQueueRow(ctx.drizzle, ctx.userId, true);
         return { success: false, message: "", battleId: undefined };
       }
       // Derived
@@ -738,13 +778,33 @@ export const fetchUserRankedQueue = async (client: DrizzleClient, userId: string
 };
 
 /**
- * Delete a user's ranked PvP queue row. Reconciles a stale/orphaned row (one
- * that outlived its owner's QUEUED status) and backs leaving the queue.
+ * Delete a user's ranked PvP queue rows, either for an intentional leave or stale cleanup.
+ * Cleanup rechecks status in the DELETE: a provisional row's owner can claim QUEUED
+ * after the caller's read. Intentional leaves still remove rows while the user is QUEUED.
  * @param client - The Drizzle client
  * @param userId - The user's ID
+ * @param onlyIfNotQueued - Preserve rows whose owner currently holds QUEUED status.
  */
-export const deleteUserRankedQueueRow = (client: DrizzleClient, userId: string) =>
-  client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.userId, userId));
+export const deleteUserRankedQueueRow = (
+  client: DrizzleClient,
+  userId: string,
+  onlyIfNotQueued = false,
+) =>
+  retryOnDeadlock(() =>
+    client.delete(rankedPvpQueue).where(
+      and(
+        eq(rankedPvpQueue.userId, userId),
+        onlyIfNotQueued
+          ? notExists(
+              client
+                .select({ userId: userData.userId })
+                .from(userData)
+                .where(and(eq(userData.userId, userId), eq(userData.status, "QUEUED"))),
+            )
+          : undefined,
+      ),
+    ),
+  );
 
 /**
  * Fetch all ranked seasons

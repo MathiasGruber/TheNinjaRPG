@@ -9,10 +9,14 @@ import {
   clan,
   mpvpBattleQueue,
   mpvpBattleUser,
+  rankedLoadout,
+  rankedPvpQueue,
+  rankedSeason,
   userData,
 } from "@/drizzle/schema";
 import { createAction } from "@/libs/combat/database";
 import { clanRouter } from "@/server/api/routers/clan";
+import { pvpRankRouter } from "@/server/api/routers/pvprank";
 import { deleteClanBattle, rewardClanBattleVictory } from "@/server/utils/clanBattle";
 import { clanPointConversionSchema } from "@/validators/clan";
 import { insertUsers } from "../../setup/factories";
@@ -44,6 +48,9 @@ describeWithDatabase("clan economy and battle lifecycle", () => {
       mpvpBattleUser,
       mpvpBattleQueue,
       clan,
+      rankedPvpQueue,
+      rankedLoadout,
+      rankedSeason,
       userData,
     );
     await insertUsers([
@@ -371,6 +378,56 @@ describeWithDatabase("clan economy and battle lifecycle", () => {
     ).toBe(true);
     expect(await storedClan()).toMatchObject({ points: 4100, bank: 1000050 });
   });
+
+  for (const deletionTime of [
+    "after joining",
+    "before publishing",
+    "before claiming",
+  ] as const) {
+    it(`preserves ranked queuing when concluded clan history is deleted ${deletionTime}`, async () => {
+      const db = await getTestDatabase();
+      await db
+        .update(userData)
+        .set({ rank: "JONIN", rankedLp: 1000 })
+        .where(eq(userData.userId, "leader"));
+      await db
+        .update(mpvpBattleQueue)
+        .set({ battleId: "combat" })
+        .where(eq(mpvpBattleQueue.id, "q"));
+      expect(await rewardClanBattleVictory(db, "combat", "a")).toBe(true);
+      const leader = await callerFor(clanRouter, "leader");
+      const removeHistory = async () => {
+        expect((await leader.deleteClanBattle({ clanBattleId: "q" })).success).toBe(
+          true,
+        );
+      };
+      const client =
+        deletionTime === "after joining"
+          ? db
+          : beforeStatements(
+              db,
+              deletionTime === "before publishing" ? rankedPvpQueue : userData,
+              [removeHistory],
+            );
+      expect(
+        (await callerForDatabase(pvpRankRouter, "leader", client).queueForRankedPvp())
+          .success,
+      ).toBe(true);
+      if (deletionTime === "after joining") await removeHistory();
+      expect(await storedUser("leader")).toMatchObject({
+        status: "QUEUED",
+        battleId: null,
+      });
+      expect(await db.query.rankedPvpQueue.findMany()).toHaveLength(1);
+      expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(0);
+      expect(await storedClan()).toMatchObject({ points: 4100, bank: 1000050 });
+      expect(
+        (await (await callerFor(pvpRankRouter, "leader")).checkRankedPvpMatches())
+          .success,
+      ).toBe(false);
+      expect(await db.query.rankedPvpQueue.findMany()).toHaveLength(1);
+    });
+  }
 
   it("cleans a join whose lobby was deleted after preload", async () => {
     const db = await getTestDatabase();
