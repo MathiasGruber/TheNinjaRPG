@@ -31,6 +31,7 @@ import {
 import type { Jutsu } from "@/drizzle/schema";
 import { BARRIER_DAMAGE_TAG_TYPES, COMBAT_SECONDS } from "@/libs/combat/constants";
 import { recordMasteryUsage } from "@/libs/combat/mastery";
+import { supportsNpcAllies } from "@/libs/combat/participants";
 import { resolvePotencyTags } from "@/libs/combat/potency";
 import { applyEffects, checkFriendlyFire } from "@/libs/combat/process";
 import { getPower, realizeTag, updateStatUsage } from "@/libs/combat/tags";
@@ -1047,7 +1048,7 @@ export const insertAction = (info: {
           action.target,
           tile,
           user.userId,
-          battle.battleType === "QUEST" || battle.battleType === "OVERWORLD",
+          supportsNpcAllies(battle.battleType),
         );
         castTags.forEach((tag, tagIndex) => {
           const effect = realizeTag({
@@ -1276,6 +1277,11 @@ export const insertAction = (info: {
   return false;
 };
 
+/**
+ * Resolve a tile occupant eligible for the action's target category.
+ * `useBattleTeams` makes ALLY targets follow battlefield side for authored NPC
+ * ally battles; other callers retain village-based ally targeting.
+ */
 export const getTargetUser = (
   users: BattleUserState[],
   target: (typeof AttackTargets)[number],

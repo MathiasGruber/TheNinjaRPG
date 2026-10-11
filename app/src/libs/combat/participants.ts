@@ -1,3 +1,4 @@
+import type { BattleType } from "@/drizzle/constants";
 import {
   COMBAT_BORDER_BOTTOM,
   COMBAT_BORDER_LEFT,
@@ -5,7 +6,22 @@ import {
   COMBAT_BORDER_TOP,
 } from "@/libs/combat/constants";
 
-/** Enumerate distinct spawn cells on one team's half of the battlefield. */
+/**
+ * Whether quest content may add NPC templates to the initiating player's team.
+ * QUEST objectives and quest-bound OVERWORLD fights carry these authored allies;
+ * their `direction` defines teams regardless of village or template identity.
+ * Other modes retain their own team, reward and objective rules. This is narrower
+ * than QuestBattleTypes, which also includes raids and random encounters.
+ */
+export const supportsNpcAllies = (battleType: BattleType): boolean =>
+  battleType === "QUEST" || battleType === "OVERWORLD";
+
+/**
+ * Enumerate distinct spawn cells within one team's combat borders.
+ * Capacity validation and placement share this finite list so an overcrowded
+ * team is rejected instead of retrying occupied cells indefinitely. Small fields
+ * retain the columns allowed by the combat border bounds, including inverted bounds.
+ */
 export const getBattleSpawnLocations = (
   width: number,
   height: number,

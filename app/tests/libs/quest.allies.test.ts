@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { getNewTrackers } from "@/libs/quest";
 import { DefeatOpponents, InstantStartBattleObjective } from "@/validators/objectives";
 
+/** Supply only the user/quest fields consumed by tracking a newly authored objective. */
 const makeUser = (objective: unknown) =>
   ({
     userId: "hero",

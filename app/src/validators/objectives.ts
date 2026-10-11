@@ -374,7 +374,11 @@ export const attackerFields = {
   attackers_max_per_battle: z.coerce.number().min(0).max(100).prefault(1),
 };
 
-// NPC allies use combatant counts rather than drop percentages.
+/**
+ * Authored NPC templates and whole-number copy counts, independent of opponents.
+ * Missing content defaults to no allies; a selected entry defaults to one copy.
+ * Counts describe combatants, unlike the percentages used by reward/encounter fields.
+ */
 const allyAIsField = z
   .array(
     idsWithNumberField.unwrap().element.extend({

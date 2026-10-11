@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { Grid, rectangle } from "honeycomb-grid";
+import { BattleTypes } from "@/drizzle/constants";
 import { TerrainHex } from "@/libs/hexgrid";
 import { aiProfile, battle, battleHistory, dataBattleAction, logBattleLengths, quest, questHistory, userData } from "@/drizzle/schema";
 import { saveUsage, updateBattle, updateUser } from "@/libs/combat/database";
 import { DefeatOpponents, ObjectiveTracker } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { getTargetUser } from "@/libs/combat/actions";
-import { getBattleSpawnLocations } from "@/libs/combat/participants";
+import { getBattleSpawnLocations, supportsNpcAllies } from "@/libs/combat/participants";
 import { calcBattleResult, getDistanceToClosestEnemy } from "@/libs/combat/util";
 import { Pusher, type PusherClient } from "@/libs/pusher";
 import { initiateBattle } from "@/server/api/routers/combat";
@@ -16,6 +17,7 @@ import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/facto
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 import { makeBattleUser, makeCompleteBattle } from "./helpers/battleScenario";
 
+/** An ally from another village and a same-village enemy expose incorrect allegiance rules. */
 const scenario = (battleType: "QUEST" | "OVERWORLD", enemyHealth = 100) => makeCompleteBattle({
   battleType, rewardScaling: 1,
   usersState: [
@@ -26,6 +28,9 @@ const scenario = (battleType: "QUEST" | "OVERWORLD", enemyHealth = 100) => makeC
 });
 
 describe("quest ally teams", () => {
+  it("limits authored NPC allies to quest objectives and overworld fights", () => {
+    expect(BattleTypes.filter(supportsNpcAllies)).toEqual(["QUEST", "OVERWORLD"]);
+  });
   for (const type of ["QUEST", "OVERWORLD"] as const) {
     it(`${type} continues until enemies fall, ignoring ally village`, () => {
       expect(calcBattleResult(scenario(type), "hero", [])).toBeNull();

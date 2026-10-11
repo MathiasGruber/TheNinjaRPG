@@ -894,6 +894,7 @@ export type QuestConsequence = {
   scaleStats?: boolean;
   scaleGains?: number;
   forceKeepPools?: boolean;
+  /** Expanded NPC template IDs for combat consequences; duplicates request separate allies. */
   allyAiIds?: string[];
 };
 
@@ -1357,6 +1358,7 @@ export const getNewTrackers = (
               consequences.push({
                 type: "combat",
                 ids: opponentIds,
+                // Each selected template contributes the authored number of allied copies.
                 allyAiIds:
                   "allyAIs" in objective
                     ? objective.allyAIs.flatMap((ally) =>

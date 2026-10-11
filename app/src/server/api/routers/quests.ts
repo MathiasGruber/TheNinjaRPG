@@ -3253,7 +3253,11 @@ export const commitQuestObjectiveRewards = async (info: {
   };
 };
 
-/** DB writes after claimUserSnapshot succeeds inside handleQuestConsequences. */
+/**
+ * Apply consequences after handleQuestConsequences claims the user's snapshot.
+ * Battle rejections join the existing notifications, leaving the claimed quest
+ * state intact and exposing unavailable allies or insufficient spawn capacity.
+ */
 const executeClaimedQuestConsequences = async ({
   client,
   user,

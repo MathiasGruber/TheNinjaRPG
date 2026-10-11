@@ -112,7 +112,7 @@ import {
   updateVillageAnbuClan,
   updateWars,
 } from "@/libs/combat/database";
-import { getBattleSpawnLocations } from "@/libs/combat/participants";
+import { getBattleSpawnLocations, supportsNpcAllies } from "@/libs/combat/participants";
 import {
   applyEffects,
   applySageModeAfterRoundTransition,
@@ -1768,6 +1768,13 @@ export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
   return result as CompleteBattle;
 };
 
+/**
+ * Preload combat relations and create a battle from independently cloned participants.
+ * NPC allies are supported only in authored quest fights; repeated template IDs
+ * create separate combatants, even when the same template appears on both teams.
+ * Reject unavailable allies and teams exceeding spawn capacity before battle writes.
+ * Allied copies do not increase enemy reward scaling.
+ */
 export const initiateBattle = async (
   info: {
     longitude?: number;
@@ -1775,7 +1782,7 @@ export const initiateBattle = async (
     sector?: number;
     userIds: string[];
     targetIds: string[];
-    /** NPC templates joining the initiating team, independently of enemy templates. */
+    /** NPC template IDs on the initiating team; repeated IDs request separate copies. */
     allyAiIds?: string[];
     client: DrizzleClient;
     userStatDistribution?: AssignableUserStats;
@@ -1796,7 +1803,7 @@ export const initiateBattle = async (
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
 
   const allyAiIds = info.allyAiIds ?? [];
-  if (allyAiIds.length > 0 && !["QUEST", "OVERWORLD"].includes(battleType)) {
+  if (allyAiIds.length > 0 && !supportsNpcAllies(battleType)) {
     return {
       success: false,
       message: "NPC allies are only supported in quest battles",
@@ -3123,14 +3130,15 @@ export const initiateBattle = async (
 };
 
 /**
- * Processes the users for a battle.
+ * Transform preloaded combat participants into battle state and shared static data.
+ * An ordered `leftSideUserCount` takes precedence over ID-based team membership,
+ * allowing copies of the same NPC template on opposite sides. Lobby and summon
+ * callers may use `leftSideUserIds` instead. Spawn cells are allocated without reuse;
+ * initiation validates capacity before calling this function.
  *
- * @param users - An array of user objects from the database with combat relations.
- * @param hide - A boolean indicating whether to hide user on map. Defaults to `false`.
- * @returns An object containing the processed user effects, updated user states, and static data.
- *
- * This function takes CombatQueryUser objects and transforms them into BattleUserState,
- * extracting static data (jutsus, items, villages, quests, bounties, etc.) into extraState.
+ * @param client - Database client for participant processing that requires persisted state.
+ * @param info - Preloaded users, combat relations, team boundary and battlefield dimensions.
+ * @returns Processed user effects, combatant states and static `extraState` data.
  */
 export const processUsersForBattle = async (
   client: DrizzleClient,
@@ -3185,7 +3193,7 @@ export const processUsersForBattle = async (
       controllerId: inputUser.userId,
       enemySkillIds: [],
       userId: inputUser.isAi ? nanoid() : inputUser.userId,
-      // Set direction based on team membership (leftSideUserIds determines left team)
+      // The ordered boundary distinguishes duplicate templates on opposing teams.
       direction: (
         leftSideUserCount !== undefined
           ? index < leftSideUserCount

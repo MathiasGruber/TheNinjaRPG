@@ -1576,7 +1576,7 @@ interface EffectFormWrapperProps {
 }
 
 /**
- * A wrapper component around EditContent for creating a form for a single tag
+ * Render one effect tag with schema-derived editor fields.
  * @returns React.ReactNode
  */
 export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
@@ -2138,7 +2138,9 @@ interface ObjectiveFormWrapperProps {
 }
 
 /**
- * A wrapper component around EditContent for creating a form for a single tag
+ * Render one objective with schema-derived editor fields.
+ * Enemy, ally and random-encounter NPC entries share the existing template/count
+ * selector; field labels retain their distinct combatant-count or chance semantics.
  * @returns React.ReactNode
  */
 export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props) => {
