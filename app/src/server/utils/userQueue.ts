@@ -36,6 +36,7 @@ import {
   calcJutsuTrainTime,
   checkJutsuBloodline,
   checkJutsuVillage,
+  masteryTrainingFields,
 } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
 import { fetchStudents } from "@/routers/sensei";
@@ -58,7 +59,7 @@ import type {
  *   When its turn comes, deleting its row claims it, and it is started as a direct start
  *   would be, backdated to the moment its predecessor finished, so the outcome does not
  *   depend on when settlement runs.
- * - MASTERY and ENERGY entries are settled in memory (`settleQueuedTraining`) and
+ * - MASTERY, ELEMENT and ENERGY entries are settled in memory (`settleQueuedTraining`) and
  *   consumed by advancing the user's queue head in the same write as the gains.
  *
  * `fetchUpdatedUser` and combat setup load the rows with the user in the same query, so
@@ -254,10 +255,10 @@ export const lastQueuePosition = (
     0,
   );
 
-/** New MASTERY or ENERGY rows for `entries`, at positions after `after`. */
+/** New MASTERY, ELEMENT or ENERGY rows for `entries`, at positions after `after`. */
 const trainingQueueRows = (
   userId: string,
-  kind: "MASTERY" | "ENERGY",
+  kind: "MASTERY" | "ELEMENT" | "ENERGY",
   after: number,
   entries: readonly (EnergyTrainingQueueEntry | MasteryTrainingQueueEntry)[],
 ): UserQueue[] => {
@@ -282,11 +283,11 @@ const trainingQueueRows = (
   }));
 };
 
-/** Delete MASTERY or ENERGY rows at or below `head`: already consumed or replaced. */
+/** Delete MASTERY, ELEMENT or ENERGY rows at or below `head`: already consumed or replaced. */
 const deleteDeadRows = (
   client: QueueClient,
   userId: string,
-  kind: "MASTERY" | "ENERGY",
+  kind: "MASTERY" | "ELEMENT" | "ENERGY",
   head: number,
 ) =>
   client
@@ -308,22 +309,27 @@ export const claimAndReplaceTrainingQueue = async ({
   client: DrizzleClient;
   user: Pick<
     UserData,
-    "userId" | "updatedAt" | "energyQueueHead" | "energyQueueTail" | "masteryQueueHead"
+    | "userId"
+    | "updatedAt"
+    | "energyQueueHead"
+    | "energyQueueTail"
+    | "masteryQueueHead"
+    | "elementalQueueHead"
   > & { queue: readonly UserQueue[] };
-  kind: "MASTERY" | "ENERGY";
+  kind: "MASTERY" | "ELEMENT" | "ENERGY";
   entries: readonly (EnergyTrainingQueueEntry | MasteryTrainingQueueEntry)[];
   where?: Parameters<typeof claimUserSnapshot>[0]["where"];
 }) => {
   const existing = user.queue.filter((row) => row.kind === kind);
   const head = Math.max(
-    kind === "ENERGY" ? user.energyQueueHead : user.masteryQueueHead,
+    kind === "ENERGY" ? user.energyQueueHead : user[masteryTrainingFields[kind].head],
     kind === "ENERGY" ? user.energyQueueTail : 0,
     lastQueuePosition(existing, kind),
   );
   const heads =
     kind === "ENERGY"
       ? { energyQueueHead: head, energyQueueTail: head + entries.length }
-      : { masteryQueueHead: head };
+      : { [masteryTrainingFields[kind].head]: head };
   const rows = trainingQueueRows(user.userId, kind, head, entries);
   return retryOnDeadlock(() =>
     client.transaction(async (tx) => {
@@ -347,7 +353,7 @@ export const claimAndReplaceTrainingQueue = async ({
 };
 
 /**
- * The one edit path for MASTERY and ENERGY queues: the client sends the queue it saw
+ * The one edit path for MASTERY, ELEMENT and ENERGY queues: the client sends the queue it saw
  * (`expected`) and the queue it wants (`entries`). A stale view is rejected. Pure removals
  * (entries kept in order) are always allowed; anything that adds or changes an entry
  * runs the kind's `validate` first.
@@ -367,7 +373,7 @@ export const editTrainingQueue = async <
 }: {
   client: DrizzleClient;
   user: Parameters<typeof claimAndReplaceTrainingQueue>[0]["user"];
-  kind: "MASTERY" | "ENERGY";
+  kind: "MASTERY" | "ELEMENT" | "ENERGY";
   current: readonly T[];
   expected: readonly T[];
   entries: readonly T[];

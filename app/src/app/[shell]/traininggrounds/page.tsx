@@ -43,6 +43,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type {
   CombatStatName,
+  MasteryQueueKind,
   TimedMasteryName,
   TrainingSpeed,
 } from "@/drizzle/constants";
@@ -126,6 +127,7 @@ import {
   checkJutsuRank,
   checkJutsuVillage,
   findJutsuInTraining,
+  getMasteryTrainingState,
   getTrainingSections,
   isJutsuInTraining,
   isJutsuTrainToLearnRestricted,
@@ -208,21 +210,11 @@ export default function Training() {
               counts={{
                 Stats: energyQueueLength,
                 Masteries:
-                  getMasteryQueue(userData).filter((entry) =>
-                    isInArray(entry.stat, MasteryNames),
-                  ).length +
-                  (userData.currentlyTrainingMastery &&
-                  isInArray(userData.currentlyTrainingMastery, MasteryNames)
-                    ? 1
-                    : 0),
+                  getMasteryQueue(userData).length +
+                  (userData.currentlyTrainingMastery ? 1 : 0),
                 Elements:
-                  getMasteryQueue(userData).filter((entry) =>
-                    isInArray(entry.stat, BasicElementName),
-                  ).length +
-                  (userData.currentlyTrainingMastery &&
-                  isInArray(userData.currentlyTrainingMastery, BasicElementName)
-                    ? 1
-                    : 0),
+                  getMasteryQueue(userData, "ELEMENT").length +
+                  (userData.currentlyTrainingElement ? 1 : 0),
                 Jutsu:
                   (sidebarTimers?.jutsuQueue.count ?? 0) +
                   (sidebarTimers?.jutsuTraining &&
@@ -538,15 +530,16 @@ const StatsTraining: React.FC<
   // Settings
   const { userData, timeDiff } = props;
   const { prepareUserUpdate, updateUser } = useRequiredUserData();
-  const efficiency = trainEfficiency(userData);
+  const kind = props.section === "Elements" ? "ELEMENT" : "MASTERY";
+  const session = getMasteryTrainingState(userData, kind);
   const [energy, setEnergy] = useState<number | null>(null);
   const [statTrainingMode, setStatTrainingMode] = useState<"Custom" | "Max" | "Queue">(
     "Max",
   );
   const isQueueingStats = statTrainingMode === "Queue";
-  const [queuedMasterySpeed, setQueuedMasterySpeed] = useState<TrainingSpeed | null>(
-    null,
-  );
+  const [queuedMasterySpeeds, setQueuedMasterySpeeds] = useState<
+    Partial<Record<MasteryQueueKind, TrainingSpeed>>
+  >({});
   const [availableEnergy, setAvailableEnergy] = useState(() =>
     currentTrainingEnergy(userData, timeDiff),
   );
@@ -678,8 +671,7 @@ const StatsTraining: React.FC<
   });
 
   const collectMasteryTraining = (guess?: string) => {
-    const stat = userData.currentlyTrainingMastery;
-    const startedAt = userData.masteryTrainingStartedAt;
+    const { stat, startedAt } = session;
     if (stat && startedAt) stopMasteryTraining({ stat, startedAt, guess });
   };
 
@@ -701,10 +693,15 @@ const StatsTraining: React.FC<
   const trainItemClassName = "hover:opacity-50 hover:cursor-pointer relative";
   const iconClassName = "w-5 h-5 absolute top-1 right-1 text-blue-500";
 
-  const masteryEntries = getMasteryQueue(userData);
-  const selectedMasterySpeed = userData.currentlyTrainingMastery
-    ? (queuedMasterySpeed ?? userData.trainingSpeed)
-    : userData.trainingSpeed;
+  const masteryEntries = getMasteryQueue(userData, kind);
+  const selectedMasterySpeed =
+    session.stat || kind === "ELEMENT"
+      ? (queuedMasterySpeeds[kind] ?? session.speed)
+      : session.speed;
+  const efficiency = trainEfficiency({
+    ...userData,
+    trainingSpeed: selectedMasterySpeed,
+  });
 
   const renderCaptchaStop = () => {
     if (!showCaptcha) {
@@ -712,7 +709,7 @@ const StatsTraining: React.FC<
         <Button
           size="icon"
           variant="ghost"
-          aria-label="Collect and stop mastery training"
+          aria-label={`Collect and stop ${kind === "ELEMENT" ? "elemental" : "mastery"} training`}
           disabled={isPending}
           onClick={() => collectMasteryTraining()}
         >
@@ -724,7 +721,7 @@ const StatsTraining: React.FC<
     return (
       <Popover>
         <PopoverTrigger
-          aria-label="Collect and stop mastery training"
+          aria-label={`Collect and stop ${kind === "ELEMENT" ? "elemental" : "mastery"} training`}
           disabled={isPending}
           className="flex h-9 w-9 items-center justify-center"
         >
@@ -945,6 +942,7 @@ const StatsTraining: React.FC<
       )}
       {props.section !== "Stats" && (
         <MasteryTrainingQueue
+          kind={kind}
           user={userData}
           timeDiff={timeDiff}
           getLabel={getTrainingLabel}
@@ -965,8 +963,11 @@ const StatsTraining: React.FC<
                 options={TrainingSpeeds}
                 setValue={(value) => {
                   if (isPending) return;
-                  if (userData.currentlyTrainingMastery) {
-                    setQueuedMasterySpeed(value as TrainingSpeed);
+                  if (session.stat || kind === "ELEMENT") {
+                    setQueuedMasterySpeeds((speeds) => ({
+                      ...speeds,
+                      [kind]: value as TrainingSpeed,
+                    }));
                     return;
                   }
                   changeSpeed({ speed: value as TrainingSpeed });
@@ -983,7 +984,7 @@ const StatsTraining: React.FC<
             <p className="text-muted-foreground text-xs">
               {userData.status === "ASLEEP"
                 ? "Wake up to add training. Existing queues continue while asleep."
-                : userData.currentlyTrainingMastery
+                : session.stat
                   ? `Choose an interval, then select ${props.section === "Elements" ? "an element" : "a mastery"} image to add a session to the queue.`
                   : `Choose an interval, then select ${props.section === "Elements" ? "an element" : "a mastery"} image to start training.`}
             </p>
@@ -1014,12 +1015,15 @@ const StatsTraining: React.FC<
                         const block =
                           userData.status !== "AWAKE"
                             ? "Must be awake to train"
-                            : userData.currentlyTrainingMastery
+                            : session.stat
                               ? (queuedMasteryStartBlockMessage(userData, entry) ??
                                 (masteryEntries.length >= getQueueWaitingSlots(userData)
-                                  ? "Mastery queue is full"
+                                  ? `${kind === "ELEMENT" ? "Elemental" : "Mastery"} queue is full`
                                   : null))
-                              : masteryTrainingBlockMessage(userData);
+                              : masteryTrainingBlockMessage(userData, {
+                                  ...session,
+                                  speed: selectedMasterySpeed,
+                                });
                         if (block)
                           showMutationToast({ success: false, message: block });
                         else if (overCap)
@@ -1031,12 +1035,14 @@ const StatsTraining: React.FC<
                                 : "Elemental mastery is fully capped"
                               : "Mastery capped. Complete its rank-up exam or free space under the total cap.",
                           });
-                        else if (userData.currentlyTrainingMastery)
+                        else if (session.stat)
                           queueMasteryTraining({
+                            kind,
                             expectedEntries: masteryEntries,
                             entries: [...masteryEntries, entry],
                           });
-                        else startMasteryTraining({ stat });
+                        else
+                          startMasteryTraining({ stat, speed: selectedMasterySpeed });
                       }}
                       className="relative"
                     >

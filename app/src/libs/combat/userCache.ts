@@ -101,7 +101,10 @@ export const captureCombatCacheSnapshot = (
   }),
   regenAt: user.regenAt.toISOString(),
   // Queued Energy or mastery training may settle with the battle claim.
-  hadTrainingQueue: hasEnergyQueue(user) || getMasteryQueue(user).length > 0,
+  hadTrainingQueue:
+    hasEnergyQueue(user) ||
+    getMasteryQueue(user).length > 0 ||
+    getMasteryQueue(user, "ELEMENT").length > 0,
   items: user.items.map(
     ({ id, quantity, durability, level, experience, equipped }) => ({
       id,
@@ -133,6 +136,7 @@ export const combatProfilePatch = (
   if (
     hasEnergyQueue(current) ||
     getMasteryQueue(current).length > 0 ||
+    getMasteryQueue(current, "ELEMENT").length > 0 ||
     update.baseline.hadTrainingQueue
   )
     return;

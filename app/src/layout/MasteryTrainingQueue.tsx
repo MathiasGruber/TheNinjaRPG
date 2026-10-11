@@ -2,12 +2,13 @@
 
 import { type ReactNode, useState } from "react";
 import { api } from "@/app/_trpc/client";
-import type { TimedMasteryName } from "@/drizzle/constants";
+import type { MasteryQueueKind, TimedMasteryName } from "@/drizzle/constants";
 import { TimedQueue } from "@/layout/TimedQueue";
 import { getMasteryQueue } from "@/libs/queue";
 import { showMutationToast } from "@/libs/toast";
 import {
   getMasteryQueueSchedule,
+  getMasteryTrainingState,
   masteryTrainingEndsAt,
   queuedMasteryStartBlockMessage,
 } from "@/libs/train";
@@ -22,18 +23,22 @@ export const MasteryTrainingQueue = ({
   getLabel,
   stopControl,
   isProcessing,
+  kind = "MASTERY",
 }: {
   user: NonNullable<UserWithRelations>;
   timeDiff: number;
   getLabel: (stat: TimedMasteryName) => string;
   stopControl: ReactNode;
   isProcessing: boolean;
+  kind?: MasteryQueueKind;
 }) => {
   const { prepareUserUpdate, updateUser } = useRequiredUserData();
   const [error, setError] = useState<string | null>(null);
-  const entries = getMasteryQueue(user);
-  const schedule = getMasteryQueueSchedule(user, entries);
-  const activeEndsAt = masteryTrainingEndsAt(user);
+  const entries = getMasteryQueue(user, kind);
+  const session = getMasteryTrainingState(user, kind);
+  const schedule = getMasteryQueueSchedule(user, entries, new Date(), kind);
+  const activeEndsAt = masteryTrainingEndsAt(user, kind);
+  const label = kind === "ELEMENT" ? "Elemental" : "Mastery";
   const block = entries[0] ? queuedMasteryStartBlockMessage(user, entries[0]) : null;
 
   const { mutate: saveQueue, isPending } =
@@ -51,19 +56,19 @@ export const MasteryTrainingQueue = ({
         }),
     });
 
-  if (!user.currentlyTrainingMastery && !entries.length) return null;
+  if (!session.stat && !entries.length) return null;
 
   return (
     <TimedQueue
-      title="Mastery queue"
+      title={`${label} queue`}
       subtitle="Sessions that start when the active one ends"
       capacity={getQueueTotalCapacity(user)}
-      help="Select a mastery or element image below to queue another session at the selected interval. Each session finishes and collects its gains automatically, including the last one, also while you are offline or asleep. The next queued session starts when the previous one ends. Capped or unavailable entries are skipped, and the queue pauses at the daily session limit."
+      help="Select an image below to queue another session at the selected interval. Elements and Masteries have separate queues and can train at the same time. Each session finishes and collects its gains automatically, including the last one, also while you are offline or asleep. The next queued session starts when the previous one ends. Capped or unavailable entries are skipped, and the queue pauses at the daily session limit."
       active={
-        user.currentlyTrainingMastery && activeEndsAt
+        session.stat && activeEndsAt
           ? {
-              title: getLabel(user.currentlyTrainingMastery),
-              detail: user.trainingSpeed,
+              title: getLabel(session.stat),
+              detail: session.speed,
               finishesAt: activeEndsAt,
               stopControl,
             }
@@ -79,6 +84,7 @@ export const MasteryTrainingQueue = ({
       cancelLabel="Remove from queue"
       onCancel={(id) =>
         saveQueue({
+          kind,
           expectedEntries: entries,
           entries: entries.filter((_, index) => !id.startsWith(`${index}-`)),
         })

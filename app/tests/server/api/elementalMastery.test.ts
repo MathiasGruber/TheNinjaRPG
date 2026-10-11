@@ -15,12 +15,12 @@ const ID = "elemental-trainee";
 const api = () => callerFor(trainRouter, ID);
 const readUser = async () => (await (await getTestDatabase()).select().from(userData).where(eq(userData.userId, ID)))[0]!;
 const patch = async (data: Partial<typeof userData.$inferInsert>) => (await getTestDatabase()).update(userData).set(data).where(eq(userData.userId, ID));
-const session = async (element: "Wind" = "Wind") => ({ stat: element, startedAt: (await readUser()).masteryTrainingStartedAt! });
+const session = async (element: "Wind" = "Wind") => ({ stat: element, startedAt: (await readUser()).elementalTrainingStartedAt! });
 
 describeWithDatabase("elemental mastery guarded progression", () => {
   beforeEach(async () => {
     await resetTables(userData, userQueue, userVote, trainingLog, bloodline, gameSetting);
-    await insertUsers([{ userId: ID, username: ID, rank: "JONIN", status: "AWAKE", isOutlaw: true, primaryElement: "Fire", secondaryElement: "Water", earnedExperience: 600_000, trainingSpeed: "1hr" }]);
+    await insertUsers([{ userId: ID, username: ID, rank: "JONIN", status: "AWAKE", isOutlaw: true, primaryElement: "Fire", secondaryElement: "Water", earnedExperience: 600_000, trainingSpeed: "1hr", elementalTrainingSpeed: "1hr" }]);
     await (await getTestDatabase()).insert(userVote).values({ id: "vote-elemental", userId: ID, secret: "secret01", lastVoteAt: new Date() });
   });
 
@@ -80,7 +80,7 @@ describeWithDatabase("elemental mastery guarded progression", () => {
     expect((await caller.startMasteryTraining({ stat: "Wind" })).success).toBe(true);
     expect((await caller.startMasteryTraining({ stat: "Earth" })).success).toBe(false);
     const startedAt = new Date(Date.now() - 3_600_000);
-    await patch({ masteryTrainingStartedAt: startedAt });
+    await patch({ elementalTrainingStartedAt: startedAt });
     const before = await readUser();
     const results = await Promise.all([caller.stopMasteryTraining({ stat: "Wind", startedAt }), caller.stopMasteryTraining({ stat: "Wind", startedAt })]);
     expect(results.filter(result => result.success)).toHaveLength(1);
@@ -88,7 +88,7 @@ describeWithDatabase("elemental mastery guarded progression", () => {
     expect(after.elementalMastery.Wind).toBe(ELEMENTAL_MASTERY_CAP);
     expect(after.experience).toBe(before.experience);
     expect(after.dailyTrainings).toBe(before.dailyTrainings + 1);
-    expect(after.currentlyTrainingMastery).toBeNull();
+    expect(after.currentlyTrainingElement).toBeNull();
     expect((await caller.stopMasteryTraining({ stat: "Wind", startedAt })).success).toBe(false);
     const logs = await (await getTestDatabase()).select().from(trainingLog).where(eq(trainingLog.userId, ID));
     expect(logs).toHaveLength(1);
@@ -98,9 +98,10 @@ describeWithDatabase("elemental mastery guarded progression", () => {
   it("keeps the active interval fixed while another interval is requested", async () => {
     const caller = await api();
     await caller.updateTrainingSpeed({ speed: "15min" });
-    await caller.startMasteryTraining({ stat: "Wind" });
-    expect((await caller.updateTrainingSpeed({ speed: "24hrs" })).success).toBe(false);
-    await patch({ masteryTrainingStartedAt: new Date(Date.now() - 900_000) });
+    await caller.startMasteryTraining({ stat: "Wind", speed: "15min" });
+    expect((await caller.updateTrainingSpeed({ speed: "24hrs" })).success).toBe(true);
+    expect((await readUser()).elementalTrainingSpeed).toBe("15min");
+    await patch({ elementalTrainingStartedAt: new Date(Date.now() - 900_000) });
     expect((await caller.stopMasteryTraining(await session())).success).toBe(true);
     const user = await readUser();
     expect(user.elementalMastery.Wind).toBeGreaterThan(0);
@@ -124,10 +125,10 @@ describeWithDatabase("elemental mastery guarded progression", () => {
   it("cannot cash out newly provided elements and can cancel their old session", async () => {
     const caller = await api();
     await caller.startMasteryTraining({ stat: "Wind" });
-    await patch({ primaryElement: "Wind", masteryTrainingStartedAt: new Date(Date.now() - 3_600_000) });
+    await patch({ primaryElement: "Wind", elementalTrainingStartedAt: new Date(Date.now() - 3_600_000) });
     expect((await caller.stopMasteryTraining(await session())).success).toBe(true);
     expect((await readUser()).elementalMastery.Wind ?? 0).toBe(0);
-    expect((await readUser()).currentlyTrainingMastery).toBeNull();
+    expect((await readUser()).currentlyTrainingElement).toBeNull();
   });
 
   it("enforces awake, banned interval and daily training limits", async () => {
@@ -141,27 +142,69 @@ describeWithDatabase("elemental mastery guarded progression", () => {
     await patch({ isBanned: false, dailyTrainings: MAX_DAILY_TRAININGS });
     expect((await caller.startMasteryTraining({ stat: "Wind" })).success).toBe(false);
   });
-  it("shares the timed queue with disciplines, settles offline and rejects stale edits", async () => {
+  it("runs both queues offline with independent speeds and rejects stale or mixed edits", async () => {
     const caller = await api();
     await patch({ federalStatus: "SILVER", elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP - 1, Earth: ELEMENTAL_MASTERY_CAP - 1 } });
-    await caller.updateTrainingSpeed({ speed: "15min" });
-    expect((await caller.startMasteryTraining({ stat: "Wind" })).success).toBe(true);
-    const entries = [{ stat: "Earth" as const, speed: "15min" as const }, { stat: "ninjutsuMastery" as const, speed: "1hr" as const }];
-    expect((await caller.updateMasteryTrainingQueue({ expectedEntries: [], entries })).success).toBe(true);
-    expect((await caller.updateMasteryTrainingQueue({ expectedEntries: [], entries: [] })).success).toBe(false);
+    expect((await caller.startMasteryTraining({ stat: "ninjutsuMastery" })).success).toBe(true);
+    expect((await caller.startMasteryTraining({ stat: "Wind", speed: "15min" })).success).toBe(true);
+    const entries = [{ stat: "Earth" as const, speed: "15min" as const }, { stat: "Lightning" as const, speed: "4hrs" as const }];
+    expect((await caller.updateMasteryTrainingQueue({ kind: "ELEMENT", expectedEntries: [], entries })).success).toBe(true);
+    expect((await caller.updateMasteryTrainingQueue({ kind: "ELEMENT", expectedEntries: [], entries: [] })).success).toBe(false);
+    expect((await caller.updateMasteryTrainingQueue({ expectedEntries: [], entries })).success).toBe(false);
+    const masteries = [{ stat: "genjutsuMastery" as const, speed: "8hrs" as const }];
+    expect((await caller.updateMasteryTrainingQueue({ expectedEntries: [], entries: masteries })).success).toBe(true);
     const before = await readUser();
-    await patch({ status: "ASLEEP", masteryTrainingStartedAt: new Date(Date.now() - 1_801_000) });
+    await patch({ status: "ASLEEP", elementalTrainingStartedAt: new Date(Date.now() - 1_801_000), masteryTrainingStartedAt: new Date(Date.now() - 3_601_000) });
     const { user } = await fetchUpdatedUser({ client: await getTestDatabase(), userId: ID });
     expect(user!.elementalMastery).toEqual({ Wind: ELEMENTAL_MASTERY_CAP, Earth: ELEMENTAL_MASTERY_CAP });
-    expect(user!.currentlyTrainingMastery).toBe("ninjutsuMastery");
-    expect(user!.trainingSpeed).toBe("1hr");
+    expect(user!.currentlyTrainingElement).toBe("Lightning");
+    expect(user!.elementalTrainingSpeed).toBe("4hrs");
+    expect(user!.currentlyTrainingMastery).toBe("genjutsuMastery");
+    expect(user!.trainingSpeed).toBe("8hrs");
+    expect(getMasteryQueue(user!, "ELEMENT")).toEqual([]);
     expect(getMasteryQueue(user!)).toEqual([]);
     expect(user!.experience).toBe(before.experience);
-    expect(masteryTotal(user!)).toBe(masteryTotal(before));
-    expect(user!.dailyTrainings).toBe(before.dailyTrainings + 2);
+    expect(user!.ninjutsuMastery).toBeGreaterThan(before.ninjutsuMastery);
+    expect(user!.dailyTrainings).toBe(before.dailyTrainings + 3);
     const second = await fetchUpdatedUser({ client: await getTestDatabase(), userId: ID });
     expect(second.user!.elementalMastery).toEqual(user!.elementalMastery);
     expect(second.user!.dailyTrainings).toBe(user!.dailyTrainings);
   });
 
+  it("gives each queue its own capacity and cancellation does not change the other session", async () => {
+    const caller = await api();
+    await caller.startMasteryTraining({ stat: "ninjutsuMastery" });
+    await caller.startMasteryTraining({ stat: "Wind", speed: "4hrs" });
+    const masteries = [{ stat: "genjutsuMastery" as const, speed: "1hr" as const }];
+    const elements = [{ stat: "Earth" as const, speed: "15min" as const }];
+    expect((await caller.updateMasteryTrainingQueue({ expectedEntries: [], entries: masteries })).success).toBe(true);
+    expect((await caller.updateMasteryTrainingQueue({ kind: "ELEMENT", expectedEntries: [], entries: elements })).success).toBe(true);
+    expect((await caller.updateMasteryTrainingQueue({ kind: "ELEMENT", expectedEntries: elements, entries: [...elements, ...elements] })).success).toBe(false);
+    expect((await caller.updateMasteryTrainingQueue({ kind: "ELEMENT", expectedEntries: elements, entries: [] })).success).toBe(true);
+    const before = await readUser();
+    expect((await caller.stopMasteryTraining(await session())).success).toBe(true);
+    const { user } = await fetchUpdatedUser({ client: await getTestDatabase(), userId: ID });
+    expect(getMasteryQueue(user!)).toEqual(masteries);
+    expect(user!.currentlyTrainingMastery).toBe(before.currentlyTrainingMastery);
+    expect(user!.masteryTrainingStartedAt).toEqual(before.masteryTrainingStartedAt);
+    expect(user!.trainingSpeed).toBe(before.trainingSpeed);
+    expect(user!.currentlyTrainingElement).toBeNull();
+  });
+
+  it("shares the daily allowance when both offline queues advance", async () => {
+    const caller = await api();
+    await caller.updateTrainingSpeed({ speed: "15min" });
+    await caller.startMasteryTraining({ stat: "ninjutsuMastery" });
+    await caller.startMasteryTraining({ stat: "Wind", speed: "15min" });
+    await caller.updateMasteryTrainingQueue({ expectedEntries: [], entries: [{ stat: "genjutsuMastery", speed: "1hr" }] });
+    await caller.updateMasteryTrainingQueue({ kind: "ELEMENT", expectedEntries: [], entries: [{ stat: "Earth", speed: "1hr" }] });
+    const startedAt = new Date(Date.now() - 901_000);
+    await patch({ dailyTrainings: MAX_DAILY_TRAININGS - 2, masteryTrainingStartedAt: startedAt, elementalTrainingStartedAt: startedAt });
+    const { user } = await fetchUpdatedUser({ client: await getTestDatabase(), userId: ID });
+    expect(user!.dailyTrainings).toBe(MAX_DAILY_TRAININGS - 1);
+    expect(user!.currentlyTrainingMastery).toBe("genjutsuMastery");
+    expect(user!.currentlyTrainingElement).toBe("Wind");
+    expect(getMasteryQueue(user!, "ELEMENT")).toEqual([{ stat: "Earth", speed: "1hr" }]);
+    expect(user!.elementalMastery.Wind ?? 0).toBe(0);
+  });
 });

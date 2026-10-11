@@ -3357,6 +3357,8 @@ export const fetchUpdatedUser = async (props: {
     const masteryTrainingSession = {
       currentlyTrainingMastery: user.currentlyTrainingMastery,
       masteryTrainingStartedAt: user.masteryTrainingStartedAt,
+      currentlyTrainingElement: user.currentlyTrainingElement,
+      elementalTrainingStartedAt: user.elementalTrainingStartedAt,
       masteryRanks: user.masteryRanks,
       elementalMastery: user.elementalMastery,
       bloodlineId: user.bloodlineId,
@@ -3404,11 +3406,7 @@ export const fetchUpdatedUser = async (props: {
       }
       if (queuedMastery) {
         Object.assign(user, applyMasteryTrainingGains(user, queuedMastery.gains));
-        user.masteryQueueHead = queuedMastery.head;
-        user.currentlyTrainingMastery = queuedMastery.currentlyTrainingMastery;
-        user.masteryTrainingStartedAt = queuedMastery.masteryTrainingStartedAt;
-        user.trainingSpeed = queuedMastery.trainingSpeed;
-        user.dailyTrainings = queuedMastery.dailyTrainings;
+        Object.assign(user, queuedMastery.update);
         const minutes = queuedMastery.completed.reduce((sum, e) => sum + e.minutes, 0);
         if (minutes > 0)
           user.questData = filterQuestTrackersForDbPersist(
@@ -3586,6 +3584,8 @@ const persistPassiveRegenToDb = async ({
           UserData,
           | "currentlyTrainingMastery"
           | "masteryTrainingStartedAt"
+          | "currentlyTrainingElement"
+          | "elementalTrainingStartedAt"
           | "masteryRanks"
           | "elementalMastery"
           | "bloodlineId"
@@ -3656,11 +3656,7 @@ const persistPassiveRegenToDb = async ({
   }
 
   if (queuedMastery) {
-    derivedUserUpdate.masteryQueueHead = queuedMastery.head;
-    derivedUserUpdate.currentlyTrainingMastery = queuedMastery.currentlyTrainingMastery;
-    derivedUserUpdate.masteryTrainingStartedAt = queuedMastery.masteryTrainingStartedAt;
-    derivedUserUpdate.trainingSpeed = queuedMastery.trainingSpeed;
-    derivedUserUpdate.dailyTrainings = queuedMastery.dailyTrainings;
+    Object.assign(derivedUserUpdate, queuedMastery.update);
     Object.assign(derivedUserUpdate, masteryGainUpdates(queuedMastery.gains));
     derivedUserUpdate.elementalMastery = user.elementalMastery;
   }
@@ -3695,6 +3691,18 @@ const persistPassiveRegenToDb = async ({
               eq(userData[stat], queuedMastery.original[stat] ?? 0),
             ),
             ...elementalSnapshotConditions(queuedMastery.original),
+            queuedMastery.original.currentlyTrainingElement
+              ? eq(
+                  userData.currentlyTrainingElement,
+                  queuedMastery.original.currentlyTrainingElement,
+                )
+              : isNull(userData.currentlyTrainingElement),
+            queuedMastery.original.elementalTrainingStartedAt
+              ? eq(
+                  userData.elementalTrainingStartedAt,
+                  queuedMastery.original.elementalTrainingStartedAt,
+                )
+              : isNull(userData.elementalTrainingStartedAt),
             sql`${userData.masteryRanks} = CAST(${JSON.stringify(queuedMastery.original.masteryRanks)} AS JSON)`,
             queuedMastery.original.currentlyTrainingMastery
               ? eq(
@@ -4246,6 +4254,10 @@ export const getUserProgressionUpdate = (
       energyQueueHead: publicUser.energyQueueHead,
       energyQueueTail: publicUser.energyQueueTail,
       masteryQueueHead: publicUser.masteryQueueHead,
+      elementalQueueHead: publicUser.elementalQueueHead,
+      currentlyTrainingElement: publicUser.currentlyTrainingElement,
+      elementalTrainingStartedAt: publicUser.elementalTrainingStartedAt,
+      elementalTrainingSpeed: publicUser.elementalTrainingSpeed,
       trainingSpeed: publicUser.trainingSpeed,
       currentlyTrainingMastery: publicUser.currentlyTrainingMastery,
       masteryTrainingStartedAt: publicUser.masteryTrainingStartedAt,

@@ -2084,11 +2084,7 @@ export const initiateBattle = async (
     }
     if (mastery) {
       Object.assign(user, applyMasteryTrainingGains(user, mastery.gains));
-      user.masteryQueueHead = mastery.head;
-      user.currentlyTrainingMastery = mastery.currentlyTrainingMastery;
-      user.masteryTrainingStartedAt = mastery.masteryTrainingStartedAt;
-      user.trainingSpeed = mastery.trainingSpeed;
-      user.dailyTrainings = mastery.dailyTrainings;
+      Object.assign(user, mastery.update);
       // Completion can make already worn Energy capacity gear eligible before loadouts change.
       energyCapacity[user.userId] = calcMaxEnergy(user);
     }
@@ -2776,12 +2772,12 @@ export const initiateBattle = async (
     }
     const masteryParticipants = queuedParticipants.filter((entry) => entry.mastery);
     if (masteryParticipants.length) {
-      queueUpdate.masteryQueueHead = queueCase(
-        "masteryQueueHead",
-        masteryParticipants,
-        (entry) => entry.mastery?.head,
-      );
       for (const column of [
+        "masteryQueueHead",
+        "elementalQueueHead",
+        "currentlyTrainingElement",
+        "elementalTrainingStartedAt",
+        "elementalTrainingSpeed",
         "currentlyTrainingMastery",
         "masteryTrainingStartedAt",
         "trainingSpeed",
@@ -2790,7 +2786,7 @@ export const initiateBattle = async (
         queueUpdate[column] = queueCase(
           column,
           masteryParticipants,
-          (entry) => entry.mastery?.[column] ?? null,
+          (entry) => entry.user[column],
         );
       }
       queueUpdate.elementalMastery = queueCase(

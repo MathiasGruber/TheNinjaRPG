@@ -1,6 +1,11 @@
 /** Helpers shared by every queue in `UserQueue`. */
 
-import type { CombatStatName, QueueKind, TimedMasteryName } from "@/drizzle/constants";
+import type {
+  CombatStatName,
+  MasteryQueueKind,
+  QueueKind,
+  TimedMasteryName,
+} from "@/drizzle/constants";
 import type { UserQueue } from "@/drizzle/schema";
 import type {
   EnergyTrainingQueueEntry,
@@ -77,7 +82,7 @@ export const latestDate = (dates: readonly (Date | null | undefined)[]) =>
   );
 
 /**
- * The live rows of one kind in queue order. MASTERY and ENERGY rows at or below the
+ * The live rows of one kind in queue order. MASTERY, ELEMENT and ENERGY rows at or below the
  * user's head were consumed by a settlement and only wait for cleanup.
  */
 export const liveQueueRows = <T extends Pick<UserQueue, "kind" | "position">>(
@@ -130,6 +135,7 @@ type QueueOwner = {
   queue?: readonly UserQueue[] | null;
   energyQueueHead: number;
   masteryQueueHead: number;
+  elementalQueueHead?: number;
 };
 
 /** The user's queued Energy training, oldest first. */
@@ -137,8 +143,14 @@ export const getEnergyQueue = (user: QueueOwner) =>
   toEnergyEntries(liveQueueRows(user.queue ?? [], "ENERGY", user.energyQueueHead));
 
 /** The masteries queued behind the active mastery session, oldest first. */
-export const getMasteryQueue = (user: QueueOwner) =>
-  toMasteryEntries(liveQueueRows(user.queue ?? [], "MASTERY", user.masteryQueueHead));
+export const getMasteryQueue = (user: QueueOwner, kind: MasteryQueueKind = "MASTERY") =>
+  toMasteryEntries(
+    liveQueueRows(
+      user.queue ?? [],
+      kind,
+      kind === "ELEMENT" ? (user.elementalQueueHead ?? 0) : user.masteryQueueHead,
+    ),
+  );
 
 /**
  * Whether the user has queued Energy training. Reads only `UserData` columns, so callers

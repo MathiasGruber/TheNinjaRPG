@@ -1,0 +1,14 @@
+ALTER TABLE `UserQueue` MODIFY COLUMN `kind` enum('JUTSU','CRAFT','MASTERY','ENERGY','ELEMENT') NOT NULL;
+ALTER TABLE `UserData` ADD `elementalQueueHead` int unsigned DEFAULT 0 NOT NULL;
+ALTER TABLE `UserData` ADD `elementalTrainingStartedAt` datetime(3);
+ALTER TABLE `UserData` ADD `currentlyTrainingElement` enum('Fire','Water','Wind','Earth','Lightning');
+ALTER TABLE `UserData` ADD `elementalTrainingSpeed` enum('15min','1hr','4hrs','8hrs','12hrs','24hrs') DEFAULT '15min' NOT NULL;
+-- Preserve active sessions and consumed positions when separating the queues.
+UPDATE `UserData` SET `elementalQueueHead` = `masteryQueueHead` WHERE `masteryQueueHead` > 0;
+UPDATE `UserQueue` SET `kind` = 'ELEMENT' WHERE `kind` = 'MASTERY' AND `stat` IN ('Fire','Water','Wind','Earth','Lightning');
+UPDATE `UserData` SET `currentlyTrainingElement` = `currentlyTrainingMastery`, `elementalTrainingStartedAt` = `masteryTrainingStartedAt`, `elementalTrainingSpeed` = `trainingSpeed` WHERE `currentlyTrainingMastery` IN ('Fire','Water','Wind','Earth','Lightning');
+-- A newly independent waiting queue starts now, without claiming time before the split.
+UPDATE `UserData` AS u JOIN `UserQueue` AS q ON q.`userId` = u.`userId` AND q.`kind` = 'MASTERY' AND q.`position` > u.`masteryQueueHead` LEFT JOIN `UserQueue` AS earlier ON earlier.`userId` = q.`userId` AND earlier.`kind` = q.`kind` AND earlier.`position` > u.`masteryQueueHead` AND earlier.`position` < q.`position` SET u.`currentlyTrainingMastery` = q.`stat`, u.`masteryTrainingStartedAt` = CURRENT_TIMESTAMP(3), u.`trainingSpeed` = q.`speed`, u.`masteryQueueHead` = q.`position` WHERE earlier.`id` IS NULL AND u.`currentlyTrainingMastery` IN ('Fire','Water','Wind','Earth','Lightning') AND u.`elementalTrainingStartedAt` IS NOT NULL AND u.`dailyTrainings` < 64 AND (u.`isBanned` = 0 OR q.`speed` = '8hrs');
+UPDATE `UserData` SET `currentlyTrainingMastery` = NULL, `masteryTrainingStartedAt` = NULL WHERE `currentlyTrainingMastery` IN ('Fire','Water','Wind','Earth','Lightning');
+UPDATE `UserData` AS u JOIN `UserQueue` AS q ON q.`userId` = u.`userId` AND q.`kind` = 'ELEMENT' AND q.`position` > u.`elementalQueueHead` LEFT JOIN `UserQueue` AS earlier ON earlier.`userId` = q.`userId` AND earlier.`kind` = q.`kind` AND earlier.`position` > u.`elementalQueueHead` AND earlier.`position` < q.`position` SET u.`currentlyTrainingElement` = q.`stat`, u.`elementalTrainingStartedAt` = CURRENT_TIMESTAMP(3), u.`elementalTrainingSpeed` = q.`speed`, u.`elementalQueueHead` = q.`position` WHERE earlier.`id` IS NULL AND u.`currentlyTrainingElement` IS NULL AND u.`currentlyTrainingMastery` IS NOT NULL AND u.`masteryTrainingStartedAt` IS NOT NULL AND u.`dailyTrainings` < 64 AND (u.`isBanned` = 0 OR q.`speed` = '8hrs');
+ALTER TABLE `UserData` MODIFY COLUMN `currentlyTrainingMastery` enum('ninjutsuMastery','genjutsuMastery','taijutsuMastery','bukijutsuMastery','bloodlineMastery','sageMastery');

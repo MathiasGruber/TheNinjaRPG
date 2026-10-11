@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   CombatStatNames,
+  MasteryQueueKinds,
   QUEUE_WAITING_SLOTS,
   TimedMasteryNames,
   TrainingSpeeds,
@@ -27,6 +28,7 @@ export const masteryTrainingQueueEntrySchema = z.object({
 export type MasteryTrainingQueueEntry = z.infer<typeof masteryTrainingQueueEntrySchema>;
 
 export const updateMasteryTrainingQueueInputSchema = z.object({
+  kind: z.enum(MasteryQueueKinds).default("MASTERY"),
   entries: z.array(masteryTrainingQueueEntrySchema).max(QUEUE_WAITING_SLOTS.GOLD),
   expectedEntries: z
     .array(masteryTrainingQueueEntrySchema)
@@ -91,6 +93,7 @@ export const startTrainingInputSchema = z.object({
 
 export const startMasteryTrainingInputSchema = z.object({
   stat: z.enum(TimedMasteryNames),
+  speed: z.enum(TrainingSpeeds).optional(),
 });
 
 export const stopTrainingInputSchema = z.object({

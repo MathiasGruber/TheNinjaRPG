@@ -472,6 +472,7 @@ describeWithDatabase("Energy queue state transitions", () => {
   });
 
   it.each(["ninjutsuMastery", "Wind"] as const)("settles an offline opponent's due jutsu level and %s queue before the fight", async stat => {
+    const kind = stat === "Wind" ? "ELEMENT" : "MASTERY";
     await prepare([]);
     const db = await getTestDatabase();
     const finished = new Date(Date.now() - 30 * 60_000);
@@ -479,8 +480,12 @@ describeWithDatabase("Energy queue state transitions", () => {
       isOutlaw: true,
       stealthActive: false,
       trainingSpeed: "15min",
-      currentlyTrainingMastery: stat,
-      masteryTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      ...(stat === "Wind" ? {
+        currentlyTrainingElement: stat, elementalTrainingSpeed: "15min" as const,
+        elementalTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      } : {
+        currentlyTrainingMastery: stat, masteryTrainingStartedAt: new Date(Date.now() - 20 * 60_000),
+      }),
     });
     await insertUsers([{ userId: "attacker", username: "Attacker", rank: "JONIN", level: 1, status: "AWAKE", isOutlaw: true, sector: HOME, longitude: 25, latitude: 10 }]);
     await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
@@ -493,7 +498,7 @@ describeWithDatabase("Energy queue state transitions", () => {
       id: "q-jutsu", userId: USER, kind: "JUTSU", position: 1, jutsuId: "queued-jutsu", reservedRyo: 0,
       durationSeconds: 60, startsAt: finished, finishesAt: new Date(finished.getTime() + 60_000),
     });
-    await queueMasteries(USER, [{ stat: "genjutsuMastery", speed: "1hr" }]);
+    await queueMasteries(USER, [{ stat: stat === "Wind" ? "Earth" : "genjutsuMastery", speed: "1hr" }], kind);
     const trigger = vi.spyOn(getServerPusher(), "trigger").mockResolvedValue({} as never);
     try {
       const result = await initiateBattle({
@@ -510,13 +515,13 @@ describeWithDatabase("Energy queue state transitions", () => {
       expect(fighter.jutsus.find((j) => j.jutsuId === "queued-jutsu")?.level).toBe(3);
       // The finished mastery session was collected and the queued one started at its end.
       const user = (await read())!;
-      expect(user.currentlyTrainingMastery).toBe("genjutsuMastery");
-      expect(user.trainingSpeed).toBe("1hr");
+      expect(stat === "Wind" ? user.currentlyTrainingElement : user.currentlyTrainingMastery).toBe(stat === "Wind" ? "Earth" : "genjutsuMastery");
+      expect(stat === "Wind" ? user.elementalTrainingSpeed : user.trainingSpeed).toBe("1hr");
       expect(stat === "Wind" ? user.elementalMastery.Wind : user.ninjutsuMastery).toBeGreaterThan(stat === "Wind" ? 0 : 10);
-      expect(user.masteryQueueHead).toBe(1);
-      expect(await readMasteryQueue(USER)).toEqual([]);
+      expect(stat === "Wind" ? user.elementalQueueHead : user.masteryQueueHead).toBe(1);
+      expect(await readMasteryQueue(USER, kind)).toEqual([]);
       // The started jutsu row is gone; the consumed mastery row waits for the next edit.
-      expect((await db.select().from(userQueue)).map((row) => row.kind)).toEqual(["MASTERY"]);
+      expect((await db.select().from(userQueue)).map((row) => row.kind)).toEqual([kind]);
       expect((await db.select().from(trainingLog)).map((log) => log.stat)).toEqual([stat]);
     } finally {
       trigger.mockRestore();

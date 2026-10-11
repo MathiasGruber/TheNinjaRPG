@@ -21,9 +21,12 @@ import {
 import {
   applyMasteryTrainingGains,
   calcMasteryTrainingAmount,
+  getMasteryTrainingState,
   getTrainingMultiplierBoost,
   masteryTrainingBlockMessage,
+  masteryTrainingFields,
   masteryTrainingGainRoom,
+  masteryTrainingSessionUpdate,
   queuedMasteryStartBlockMessage,
   statTrainingBlockMessage,
   trainingBoost,
@@ -198,20 +201,28 @@ export const trainRouter = createTRPCRouter({
           forceRegen: true,
         });
       if (!user) return errorResponse("User not found");
+      const session = getMasteryTrainingState(user, input.kind);
+      const label = input.kind === "ELEMENT" ? "Elemental" : "Mastery";
+      if (
+        [...input.entries, ...input.expectedEntries].some(
+          (entry) =>
+            isInArray(entry.stat, BasicElementName) !== (input.kind === "ELEMENT"),
+        )
+      )
+        return errorResponse("Training target does not belong to this queue");
       const result = await editTrainingQueue({
         client: ctx.drizzle,
         user,
-        kind: "MASTERY",
-        current: getMasteryQueue(user),
+        kind: input.kind,
+        current: getMasteryQueue(user, input.kind),
         expected: input.expectedEntries,
         entries: input.entries,
         // Adding or changing an entry needs an active session to queue behind.
         validate: () => {
           if (user.status !== "AWAKE") return "Must be awake to train";
-          if (!user.currentlyTrainingMastery)
-            return "Start a mastery training before queueing more";
+          if (!session.stat) return "Start training in this queue before queueing more";
           if (input.entries.length > getQueueWaitingSlots(user))
-            return "Mastery queue is full";
+            return `${label} queue is full`;
           if (
             input.entries.some(
               (entry) => masteryTrainingGainRoom(user, entry.stat) <= 0,
@@ -226,10 +237,10 @@ export const trainRouter = createTRPCRouter({
         },
         where: [eq(userData.status, user.status), ...elementalSnapshotConditions(user)],
         messages: {
-          stale: "Your mastery queue changed. Please refresh and try again",
-          conflict: "Your mastery queue changed. Please try again",
-          saved: "Mastery queue saved",
-          cleared: "Mastery queue cleared",
+          stale: `Your ${label.toLowerCase()} queue changed. Please refresh and try again`,
+          conflict: `Your ${label.toLowerCase()} queue changed. Please try again`,
+          saved: `${label} queue saved`,
+          cleared: `${label} queue cleared`,
         },
       });
       return withSavedQueue(
@@ -336,7 +347,11 @@ export const trainRouter = createTRPCRouter({
           forceRegen: true,
         });
       if (!user) return errorResponse("User not found");
-      const block = masteryTrainingBlockMessage(user);
+      const kind = isInArray(input.stat, BasicElementName) ? "ELEMENT" : "MASTERY";
+      const fields = masteryTrainingFields[kind];
+      const session = getMasteryTrainingState(user, kind);
+      const speed = kind === "ELEMENT" ? (input.speed ?? session.speed) : session.speed;
+      const block = masteryTrainingBlockMessage(user, { ...session, speed });
       if (block) return errorResponse(block);
       if (masteryTrainingGainRoom(user, input.stat) <= 0)
         return errorResponse(
@@ -344,10 +359,11 @@ export const trainRouter = createTRPCRouter({
             ? "Element is already provided or fully mastered"
             : "Mastery capped. Complete its rank-up quest or free space under the total cap.",
         );
-      const data = {
-        masteryTrainingStartedAt: new Date(),
-        currentlyTrainingMastery: input.stat,
-      };
+      const data = masteryTrainingSessionUpdate(kind, {
+        startedAt: new Date(),
+        stat: input.stat,
+        speed,
+      });
       const claim = await claimUserSnapshot({
         client: ctx.drizzle,
         userId: ctx.userId,
@@ -355,7 +371,7 @@ export const trainRouter = createTRPCRouter({
         set: data,
         where: [
           ...elementalSnapshotConditions(user),
-          isNull(userData.currentlyTrainingMastery),
+          isNull(userData[fields.stat]),
           eq(userData.status, "AWAKE"),
           sql`${userData.dailyTrainings} < ${MAX_DAILY_TRAININGS}`,
         ],
@@ -388,8 +404,9 @@ export const trainRouter = createTRPCRouter({
         });
       if (!user) return errorResponse("User not found");
       if (user.status !== "AWAKE") return errorResponse("Must be awake");
-      const trained = user.currentlyTrainingMastery;
-      const startedAt = user.masteryTrainingStartedAt;
+      const kind = isInArray(input.stat, BasicElementName) ? "ELEMENT" : "MASTERY";
+      const fields = masteryTrainingFields[kind];
+      const { stat: trained, startedAt, speed } = getMasteryTrainingState(user, kind);
       if (
         trained !== input.stat ||
         startedAt?.getTime() !== input.startedAt.getTime()
@@ -407,7 +424,11 @@ export const trainRouter = createTRPCRouter({
           return errorResponse("Invalid captcha");
         }
       }
-      const { trainingAmount } = calcTrainingAmount(user, settings, startedAt);
+      const { trainingAmount } = calcTrainingAmount(
+        { ...user, trainingSpeed: speed },
+        settings,
+        startedAt,
+      );
       const gained = Math.max(
         0,
         Math.min(trainingAmount, masteryTrainingGainRoom(user, trained)),
@@ -427,7 +448,7 @@ export const trainRouter = createTRPCRouter({
           : undefined;
       // The next queued mastery starts as this session is collected. Capped entries at
       // the front are dropped; one further back is dropped when it reaches the front.
-      const queue = liveQueueRows(user.queue ?? [], "MASTERY", user.masteryQueueHead);
+      const queue = liveQueueRows(user.queue ?? [], kind, user[fields.head]);
       const balances = applyMasteryTrainingGains(user, { [trained]: gained });
       const isCapped = (stat: TimedMasteryName) =>
         masteryTrainingGainRoom({ ...user, ...balances }, stat) <= 0;
@@ -443,22 +464,26 @@ export const trainRouter = createTRPCRouter({
           next,
         );
       const startedNextAt = new Date();
-      const masteryQueueHead = queueHeadAfter(
+      const head = queueHeadAfter(
         queue,
         skipped + (startsNext ? 1 : 0),
-        user.masteryQueueHead,
+        user[fields.head],
       );
+      const sessionUpdate = {
+        ...masteryTrainingSessionUpdate(kind, {
+          stat: startsNext ? next.stat : null,
+          startedAt: startsNext ? startedNextAt : null,
+          speed: startsNext ? next.speed : speed,
+        }),
+        [fields.head]: head,
+      };
       // Claim exactly the session read above so concurrent collections cannot reuse it.
       const result = await claimUserSnapshot({
         client: ctx.drizzle,
         userId: ctx.userId,
         updatedAt: user.updatedAt,
         set: {
-          masteryTrainingStartedAt: startsNext ? startedNextAt : null,
-          currentlyTrainingMastery: startsNext ? next.stat : null,
-          // Consumes the dropped entries and the one started, in this same write.
-          masteryQueueHead,
-          ...(startsNext ? { trainingSpeed: next.speed } : {}),
+          ...sessionUpdate,
           ...(gained > 0
             ? {
                 dailyTrainings: sql`dailyTrainings + 1`,
@@ -474,8 +499,8 @@ export const trainRouter = createTRPCRouter({
           ...MasteryNames.map((stat) => eq(userData[stat], user[stat])),
           ...elementalSnapshotConditions(user),
           sql`${userData.masteryRanks} = CAST(${JSON.stringify(user.masteryRanks)} AS JSON)`,
-          eq(userData.currentlyTrainingMastery, trained),
-          eq(userData.masteryTrainingStartedAt, startedAt),
+          eq(userData[fields.stat], trained),
+          eq(userData[fields.startedAt], startedAt),
           eq(userData.status, "AWAKE"),
         ],
       });
@@ -487,7 +512,7 @@ export const trainRouter = createTRPCRouter({
           userId: ctx.userId,
           amount: gained,
           stat: trained,
-          speed: user.trainingSpeed,
+          speed,
           trainingFinishedAt: new Date(),
         });
       }
@@ -505,10 +530,7 @@ export const trainRouter = createTRPCRouter({
                 ...user,
                 ...balances,
                 dailyTrainings: user.dailyTrainings + (gained > 0 ? 1 : 0),
-                masteryTrainingStartedAt: startsNext ? startedNextAt : null,
-                currentlyTrainingMastery: startsNext ? next.stat : null,
-                trainingSpeed: startsNext ? next.speed : user.trainingSpeed,
-                masteryQueueHead,
+                ...sessionUpdate,
                 questData: trackers,
                 updatedAt: result.claimedAt,
               },

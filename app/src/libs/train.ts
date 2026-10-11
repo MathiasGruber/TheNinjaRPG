@@ -4,6 +4,7 @@ import type {
   ElementName,
   LetterRank,
   MasteryName,
+  MasteryQueueKind,
   TimedMasteryName,
   TrainingSpeed,
 } from "@/drizzle/constants";
@@ -24,6 +25,7 @@ import {
   MAX_DAILY_TRAININGS,
   MAX_EXTRA_JUTSU_SLOTS,
   MAX_JUTSU_TRAIN_TIME_MS,
+  MasteryQueueKinds,
   SENSEI_GENIN_TRAIN_EXP_BOOST_PERC,
   SENSEI_JUTSU_TRAIN_COST_REDUCTION_PERC,
   SENSEI_MAX_STUDENT_LEVEL,
@@ -810,15 +812,25 @@ export const trainingEnergyMessage = (
   return null;
 };
 
-export const masteryTrainingBlockMessage = (user: StatTrainingUser): string | null =>
+export const masteryTrainingBlockMessage = (
+  user: StatTrainingUser,
+  session = {
+    stat: user.currentlyTrainingMastery as TimedMasteryName | null,
+    speed: user.trainingSpeed,
+  },
+): string | null =>
   trainingStartBlockMessage(user) ??
-  (user.trainingSpeed !== "8hrs" && user.isBanned
+  (session.speed !== "8hrs" && user.isBanned
     ? "Only 8hrs training interval allowed when banned"
     : null) ??
   (user.dailyTrainings >= MAX_DAILY_TRAININGS
     ? `Training more than ${MAX_DAILY_TRAININGS} times within 24 hours not allowed`
     : null) ??
-  (user.currentlyTrainingMastery ? "You are already training a mastery" : null);
+  (session.stat
+    ? isInArray(session.stat, BasicElementName)
+      ? "You are already training an element"
+      : "You are already training a mastery"
+    : null);
 
 export const isStatTrainingCapped = (
   user: UserStatData & Pick<UserData, "rank">,
@@ -835,18 +847,76 @@ export const canStartStatTraining = (user: StatTrainingUser) =>
   !statTrainingBlockMessage(user) &&
   CombatStatNames.some((stat) => !isStatTrainingCapped(user, stat));
 
-export const masteryTrainingEndsAt = (
-  user: Pick<
-    UserData,
-    "masteryTrainingStartedAt" | "currentlyTrainingMastery" | "trainingSpeed"
-  >,
+/** Independent session columns; both queues use the same training rules. */
+export const masteryTrainingFields = {
+  MASTERY: {
+    stat: "currentlyTrainingMastery",
+    startedAt: "masteryTrainingStartedAt",
+    speed: "trainingSpeed",
+    head: "masteryQueueHead",
+  },
+  ELEMENT: {
+    stat: "currentlyTrainingElement",
+    startedAt: "elementalTrainingStartedAt",
+    speed: "elementalTrainingSpeed",
+    head: "elementalQueueHead",
+  },
+} as const;
+
+type MasteryTrainingUser = Pick<
+  UserData,
+  "masteryTrainingStartedAt" | "currentlyTrainingMastery" | "trainingSpeed"
+> &
+  Partial<
+    Pick<
+      UserData,
+      | "elementalTrainingStartedAt"
+      | "currentlyTrainingElement"
+      | "elementalTrainingSpeed"
+    >
+  >;
+
+export const getMasteryTrainingState = (
+  user: MasteryTrainingUser,
+  kind: MasteryQueueKind = "MASTERY",
+) => {
+  const fields = masteryTrainingFields[kind];
+  return {
+    stat: user[fields.stat] ?? null,
+    startedAt: user[fields.startedAt] ?? null,
+    speed: user[fields.speed] ?? "15min",
+  };
+};
+
+export const masteryTrainingSessionUpdate = (
+  kind: MasteryQueueKind,
+  session: {
+    stat: TimedMasteryName | null;
+    startedAt: Date | null;
+    speed: TrainingSpeed;
+  },
 ) =>
-  user.masteryTrainingStartedAt && user.currentlyTrainingMastery
-    ? secondsFromDate(
-        trainingSpeedSeconds(user.trainingSpeed),
-        user.masteryTrainingStartedAt,
-      )
+  kind === "ELEMENT"
+    ? {
+        currentlyTrainingElement: session.stat as UserData["currentlyTrainingElement"],
+        elementalTrainingStartedAt: session.startedAt,
+        elementalTrainingSpeed: session.speed,
+      }
+    : {
+        currentlyTrainingMastery: session.stat as UserData["currentlyTrainingMastery"],
+        masteryTrainingStartedAt: session.startedAt,
+        trainingSpeed: session.speed,
+      };
+
+export const masteryTrainingEndsAt = (
+  user: MasteryTrainingUser,
+  kind: MasteryQueueKind = "MASTERY",
+) => {
+  const session = getMasteryTrainingState(user, kind);
+  return session.stat && session.startedAt
+    ? secondsFromDate(trainingSpeedSeconds(session.speed), session.startedAt)
     : null;
+};
 
 /** Timed training keeps elemental progress independent of discipline caps. */
 export const masteryTrainingGainRoom = (
@@ -909,19 +979,17 @@ export const calcMasteryTrainingAmount = (
 
 /** When each queued mastery session runs, chained from the end of the active one. */
 export const getMasteryQueueSchedule = (
-  user: Pick<
-    UserData,
-    "masteryTrainingStartedAt" | "currentlyTrainingMastery" | "trainingSpeed"
-  >,
+  user: MasteryTrainingUser,
   entries: readonly MasteryTrainingQueueEntry[],
   now = new Date(),
+  kind: MasteryQueueKind = "MASTERY",
 ) =>
   rescheduleQueue(
     entries.map((entry) => ({
       ...entry,
       durationSeconds: trainingSpeedSeconds(entry.speed),
     })),
-    masteryTrainingEndsAt(user) ?? now,
+    masteryTrainingEndsAt(user, kind) ?? now,
   ).map(({ entry, startsAt, finishesAt }) => ({
     stat: entry.stat,
     speed: entry.speed,
@@ -953,6 +1021,7 @@ export const settleMasteryTrainingQueue = (
   entries: readonly MasteryTrainingQueueEntry[],
   settings: GameSetting[],
   now = new Date(),
+  kind: MasteryQueueKind = "MASTERY",
 ) => {
   const queue = [...entries];
   const gains: Partial<Record<TimedMasteryName, number>> = {};
@@ -963,9 +1032,10 @@ export const settleMasteryTrainingQueue = (
     speed: TrainingSpeed;
     finishedAt: Date;
   }[] = [];
-  let current = user.currentlyTrainingMastery;
-  let startedAt = user.masteryTrainingStartedAt;
-  let speed = user.trainingSpeed;
+  const session = getMasteryTrainingState(user, kind);
+  let current: TimedMasteryName | null = session.stat;
+  let startedAt = session.startedAt;
+  let speed = session.speed;
   let dailyTrainings = user.dailyTrainings;
   const room = (stat: TimedMasteryName, pendingGains = gains) =>
     masteryTrainingGainRoom(
@@ -1095,9 +1165,8 @@ export const settleEnergyTrainingQueue = (
 };
 
 /**
- * The single in-memory settlement of active mastery training and MASTERY and ENERGY
- * queue rows, shared by the account refresh and combat setup. Works on the user and
- * rows already loaded, so it
+ * The single in-memory settlement of a user's MASTERY, ELEMENT and ENERGY queue rows, shared by
+ * the account refresh and combat setup. Works on the user and rows already loaded, so it
  * costs no query; the caller persists the result together with the new queue heads,
  * which consume the settled rows in the same write as the gains.
  */
@@ -1109,26 +1178,46 @@ export const settleQueuedTraining = (
   now = new Date(),
 ) => {
   const energyRows = liveQueueRows(rows, "ENERGY", user.energyQueueHead);
-  const masteryRows = liveQueueRows(rows, "MASTERY", user.masteryQueueHead);
   const energy = energyRows.length
     ? settleEnergyTrainingQueue(user, toEnergyEntries(energyRows), settings, ticks)
     : null;
-  const mastery = user.currentlyTrainingMastery
-    ? settleMasteryTrainingQueue(user, toMasteryEntries(masteryRows), settings, now)
-    : null;
+  const update: Partial<UserData> = {};
+  const gains: Partial<Record<TimedMasteryName, number>> = {};
+  const completed: ReturnType<typeof settleMasteryTrainingQueue>["completed"] = [];
+  // Share the daily allowance across the queues, including offline completions.
+  let dailyTrainings = user.dailyTrainings;
+  for (const kind of MasteryQueueKinds) {
+    const fields = masteryTrainingFields[kind];
+    const liveRows = liveQueueRows(rows, kind, user[fields.head]);
+    if (!liveRows.length || !user[fields.stat]) continue;
+    const result = settleMasteryTrainingQueue(
+      { ...user, dailyTrainings },
+      toMasteryEntries(liveRows),
+      settings,
+      now,
+      kind,
+    );
+    if (!result.consumed) continue;
+    Object.assign(
+      update,
+      masteryTrainingSessionUpdate(kind, {
+        stat: result.currentlyTrainingMastery,
+        startedAt: result.masteryTrainingStartedAt,
+        speed: result.trainingSpeed,
+      }),
+      { [fields.head]: queueHeadAfter(liveRows, result.consumed, user[fields.head]) },
+    );
+    Object.assign(gains, result.gains);
+    completed.push(...result.completed);
+    dailyTrainings = result.dailyTrainings;
+  }
   return {
     energy: energy && {
       ...energy,
       head: queueHeadAfter(energyRows, energy.consumed, user.energyQueueHead),
     },
-    mastery:
-      mastery &&
-      (mastery.consumed > 0 ||
-        mastery.currentlyTrainingMastery !== user.currentlyTrainingMastery)
-        ? {
-            ...mastery,
-            head: queueHeadAfter(masteryRows, mastery.consumed, user.masteryQueueHead),
-          }
-        : null,
+    mastery: Object.keys(update).length
+      ? { update: { ...update, dailyTrainings }, gains, completed }
+      : null,
   };
 };

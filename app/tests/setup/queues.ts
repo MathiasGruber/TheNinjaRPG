@@ -1,5 +1,6 @@
 /** Queue fixtures for suites that run against the throwaway database. */
 import { and, eq } from "drizzle-orm";
+import type { MasteryQueueKind } from "@/drizzle/constants";
 import { userData, userQueue } from "@/drizzle/schema";
 import { getEnergyQueue, getMasteryQueue } from "@/libs/queue";
 import type {
@@ -44,22 +45,23 @@ export const queueEnergy = async (
 export const queueMasteries = async (
   userId: string,
   entries: readonly MasteryTrainingQueueEntry[],
+  kind: MasteryQueueKind = "MASTERY",
 ) => {
   const database = await getTestDatabase();
   const [user] = await database
-    .select({ head: userData.masteryQueueHead })
+    .select({ head: kind === "ELEMENT" ? userData.elementalQueueHead : userData.masteryQueueHead })
     .from(userData)
     .where(eq(userData.userId, userId));
   const head = user?.head ?? 0;
   await database
     .delete(userQueue)
-    .where(and(eq(userQueue.userId, userId), eq(userQueue.kind, "MASTERY")));
+    .where(and(eq(userQueue.userId, userId), eq(userQueue.kind, kind)));
   if (entries.length) {
     await database.insert(userQueue).values(
       entries.map((entry, index) => ({
-        id: `mastery-${userId}-${head + index + 1}`,
+        id: `${kind}-${userId}-${head + index + 1}`,
         userId,
-        kind: "MASTERY" as const,
+        kind,
         position: head + index + 1,
         stat: entry.stat,
         speed: entry.speed,
@@ -85,5 +87,5 @@ export const readEnergyQueue = async (userId: string) =>
   getEnergyQueue(await readUserQueue(userId));
 
 /** The user's live mastery queue, as the client derives it. */
-export const readMasteryQueue = async (userId: string) =>
-  getMasteryQueue(await readUserQueue(userId));
+export const readMasteryQueue = async (userId: string, kind: MasteryQueueKind = "MASTERY") =>
+  getMasteryQueue(await readUserQueue(userId), kind);
