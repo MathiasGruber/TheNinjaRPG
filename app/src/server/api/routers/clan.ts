@@ -11,6 +11,7 @@ import {
   like,
   ne,
   not,
+  notExists,
   or,
   sql,
 } from "drizzle-orm";
@@ -81,7 +82,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { clearClanCombat, deleteClanBattle } from "@/server/utils/clanBattle";
-import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canEditClans } from "@/utils/permissions";
 import { checkForBadWords } from "@/utils/profanity";
 import { secondsFromDate } from "@/utils/time";
@@ -1349,16 +1350,32 @@ export const clanRouter = createTRPCRouter({
       if (queries.length > 0) return errorResponse("Already in queue");
       if (user.clanId !== challenger.id)
         return errorResponse(`Not in ${groupLabel} clan`);
-      // Mutation 1: update user early & ensure status
+      // Retained memberships block reuse of the unique user slot until cleanup finishes.
       const clanBattleId = nanoid();
       const entryId = nanoid();
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({ status: "QUEUED" })
-        .where(and(eq(userData.userId, user.userId), eq(userData.status, "AWAKE")));
-      if (result.rowsAffected === 0) return errorResponse("Was not awake?");
-      // Mutation 2: insert new entries
-      await Promise.all([
+      const result = await retryOnDeadlock(() =>
+        ctx.drizzle
+          .update(userData)
+          .set({ status: "QUEUED" })
+          .where(
+            and(
+              eq(userData.userId, user.userId),
+              eq(userData.status, "AWAKE"),
+              notExists(
+                ctx.drizzle
+                  .select({ id: mpvpBattleUser.id })
+                  .from(mpvpBattleUser)
+                  .where(eq(mpvpBattleUser.userId, user.userId)),
+              ),
+            ),
+          ),
+      );
+      if (result.rowsAffected === 0)
+        return errorResponse(
+          `Queue changed or a previous ${groupLabel} battle still needs deletion; refresh and try again`,
+        );
+      // Settle both writes before compensation so a late insert cannot recreate the lobby.
+      const inserted = await Promise.allSettled([
         ctx.drizzle.insert(mpvpBattleQueue).values({
           id: clanBattleId,
           createdAt: new Date(),
@@ -1374,12 +1391,19 @@ export const clanRouter = createTRPCRouter({
           slot: 0, // First attacker gets slot 0
         }),
       ]);
-      // Deletion can finish before the parallel member insert. Undo only our entry
-      // and release the user only if no other queue or combat has claimed them.
-      if (!(await fetchClanBattle(ctx.drizzle, clanBattleId))) {
+      const failedInsert = inserted.find((result) => result.status === "rejected");
+      // Cleanup can release the status claim before the parallel membership insert.
+      // Verify the published owner before announcing the challenge.
+      if (
+        failedInsert ||
+        !(await hasClanBattleJoin(ctx.drizzle, clanBattleId, user.userId, entryId))
+      ) {
+        await deleteClanBattle(ctx.drizzle, { id: clanBattleId, battleId: null });
         await undoClanBattleJoin(ctx.drizzle, user.userId, entryId);
+        if (failedInsert && !isMysqlDuplicateKeyError(failedInsert.reason))
+          throw failedInsert.reason;
         return errorResponse(
-          "Clan battle was deleted during challenge; refresh and try again",
+          "Clan battle was deleted or queue changed during challenge; refresh and try again",
         );
       }
       // Notify all clan members of both clans
@@ -1438,12 +1462,28 @@ export const clanRouter = createTRPCRouter({
         availableSlot++;
       }
 
-      // Mutation 1: update user early & ensure status
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({ status: "QUEUED" })
-        .where(and(eq(userData.userId, user.userId), eq(userData.status, "AWAKE")));
-      if (result.rowsAffected === 0) return errorResponse("Was not awake?");
+      // Retained memberships block reuse of the unique user slot until cleanup finishes.
+      const result = await retryOnDeadlock(() =>
+        ctx.drizzle
+          .update(userData)
+          .set({ status: "QUEUED" })
+          .where(
+            and(
+              eq(userData.userId, user.userId),
+              eq(userData.status, "AWAKE"),
+              notExists(
+                ctx.drizzle
+                  .select({ id: mpvpBattleUser.id })
+                  .from(mpvpBattleUser)
+                  .where(eq(mpvpBattleUser.userId, user.userId)),
+              ),
+            ),
+          ),
+      );
+      if (result.rowsAffected === 0)
+        return errorResponse(
+          `Queue changed or a previous ${groupLabel} battle still needs deletion; refresh and try again`,
+        );
 
       const entryId = nanoid();
       // This reversible membership write may race a start/delete. Revalidate afterward
@@ -1456,10 +1496,18 @@ export const clanRouter = createTRPCRouter({
           side,
           slot: availableSlot,
         });
-        const current = await fetchClanBattle(ctx.drizzle, input.clanBattleId);
-        if (!current || current.battleId) {
+        if (
+          !(await hasClanBattleJoin(
+            ctx.drizzle,
+            input.clanBattleId,
+            user.userId,
+            entryId,
+          ))
+        ) {
           await undoClanBattleJoin(ctx.drizzle, user.userId, entryId);
-          return errorResponse("Battle started or was deleted; refresh and try again");
+          return errorResponse(
+            "Battle started, was deleted, or queue changed; refresh and try again",
+          );
         }
       } catch {
         await undoClanBattleJoin(ctx.drizzle, user.userId, entryId);
@@ -1813,6 +1861,51 @@ export const clanRouter = createTRPCRouter({
       };
     }),
 });
+
+/**
+ * Confirm the published membership still owns QUEUED in a pending lobby.
+ * Cleanup can wake an unpublished claim, allowing ranked PvP or combat to take over.
+ * Once published, the active membership prevents delayed leave/kick cleanup from waking it.
+ */
+const hasClanBattleJoin = async (
+  client: DrizzleClient,
+  clanBattleId: string,
+  userId: string,
+  entryId: string,
+) => {
+  const lobby = await client.query.mpvpBattleQueue.findFirst({
+    columns: { id: true },
+    where: and(
+      eq(mpvpBattleQueue.id, clanBattleId),
+      isNull(mpvpBattleQueue.battleId),
+      isNull(mpvpBattleQueue.winnerId),
+      exists(
+        client
+          .select({ id: mpvpBattleUser.id })
+          .from(mpvpBattleUser)
+          .innerJoin(userData, eq(userData.userId, mpvpBattleUser.userId))
+          .where(
+            and(
+              eq(mpvpBattleUser.clanBattleId, clanBattleId),
+              eq(mpvpBattleUser.id, entryId),
+              eq(userData.userId, userId),
+              eq(userData.status, "QUEUED"),
+              isNull(userData.battleId),
+            ),
+          ),
+      ),
+      notExists(
+        client
+          .select({ id: rankedPvpQueue.id })
+          .from(rankedPvpQueue)
+          .where(
+            and(eq(rankedPvpQueue.userId, userId), eq(rankedPvpQueue.hasClaimed, true)),
+          ),
+      ),
+    ),
+  });
+  return !!lobby;
+};
 
 /**
  * Remove an observed membership without disturbing another queue or combat.
