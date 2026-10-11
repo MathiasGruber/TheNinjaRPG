@@ -11,6 +11,7 @@ import type {
 } from "@/libs/combat/types";
 import { MASTERY_REQUIREMENT_FIELDS, MASTERY_TYPE_TO_STAT } from "@/libs/mastery";
 import { allocateMasteryGains } from "@/libs/masteryProgression";
+import { boostPvpGain } from "@/libs/pvpExperience";
 
 /** Count the disciplines of a successfully performed action once, not once per effect. */
 export const recordMasteryUsage = (user: BattleUserState, action: CombatAction) => {
@@ -62,8 +63,11 @@ export const combatMasteryGains = (
   if (total <= 0) return {};
   const isPvp = targets.some((target) => !target.isAi && !target.isSummon);
   const budget = isPvp
-    ? (outcome === "Won" ? PVP_MASTERY_WIN_REWARD : PVP_MASTERY_LOSS_REWARD) *
-      battle.rewardScaling
+    ? boostPvpGain(
+        (outcome === "Won" ? PVP_MASTERY_WIN_REWARD : PVP_MASTERY_LOSS_REWARD) *
+          battle.rewardScaling,
+        user.pvpBoostPercent ?? 0,
+      )
     : Math.max(0, pveGrowth);
   const base = { ...user, ...user.baseStatsForModifiers };
   return allocateMasteryGains(

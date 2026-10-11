@@ -1,5 +1,6 @@
+import { lt, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { anbuSquad } from "@/drizzle/schema";
+import { anbuSquad, userData } from "@/drizzle/schema";
 import {
   handleEndpointError,
   lockWithWeeklyTimer,
@@ -7,6 +8,7 @@ import {
 } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
+import { periodStart } from "@/utils/time";
 
 const ENDPOINT_NAME = "weekly-pvp";
 
@@ -23,7 +25,17 @@ export async function GET(request: Request) {
 
   // Perform work
   try {
+    const weekStart = periodStart("weekly", new Date());
     await Promise.all([
+      // Kills earned after the week boundary survive a delayed reset or job retry.
+      drizzleDB
+        .update(userData)
+        .set({
+          weeklyPvpKills: 0,
+          weeklyPvpKillsAt: weekStart,
+          updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
+        })
+        .where(lt(userData.weeklyPvpKillsAt, weekStart)),
       drizzleDB.update(anbuSquad).set({
         pvpActivity: 0,
       }),

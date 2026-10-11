@@ -56,6 +56,7 @@ import {
   isSupportedOverworldBindingTask,
   pickPlaceableSector,
 } from "@/libs/overworldAi";
+import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import {
   buildRewardChoiceCards,
   getFixedChoiceRewards,
@@ -512,6 +513,9 @@ export const getReward = (
 
     // Boosts, penalties and multipliers; applied identically to a reward-choice offer.
     const scaleRewards = (target: ObjectiveRewardType) => {
+      // Apply only the listed gain categories, including frozen reward-choice offers.
+      const pvpPercent = getPvpBoost(user, settings).totalPercent;
+      Object.assign(target, boostPvpRewards(target, pvpPercent));
       target.reward_money = Math.floor(target.reward_money * factor);
       target.reward_clanpoints = Math.floor(target.reward_clanpoints * factor);
       target.reward_anbupoints = Math.floor(target.reward_anbupoints * factor);

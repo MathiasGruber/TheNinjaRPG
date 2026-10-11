@@ -76,6 +76,7 @@ import {
   isSupportedOverworldBindingTask,
   validateFriendlyPlacementBindings,
 } from "@/libs/overworldAi";
+import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
   combineTrackerResults,
@@ -144,6 +145,7 @@ import {
   masteryRankUpdate,
 } from "@/server/utils/masteryProgression";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
@@ -1322,6 +1324,7 @@ export const questsRouter = createTRPCRouter({
       // Mutations. Scalars are SQL increments and a pick never carries rank or village, so the
       // payout leaves questData to the snapshot claim above instead of writing back this read.
       const { items, jutsus, bloodlines, badges, sageModes } = await updateRewards({
+        pvpBoostApplied: true,
         client: ctx.drizzle,
         user,
         rewards,
@@ -1548,6 +1551,8 @@ export const updateRewards = async (info: {
   user: UserData;
   reason: string;
   rewards: GetRewardResult;
+  /** Quest previews and frozen choices already carry their completion-time boost. */
+  pvpBoostApplied?: boolean;
   questCounterField?: QuestCounterFieldName;
   questFinishedAt?: Date;
   // Fully-hydrated user (with quest relations) passed ONLY by callers that want gathering drops
@@ -1579,6 +1584,7 @@ export const updateRewards = async (info: {
     postClaimUserDataPatch,
     dropTrackerForQuestId,
     persistQuestData = true,
+    pvpBoostApplied = false,
   } = info;
   // Check if we need to fetch war data
   const hasWarRewards =
@@ -1593,6 +1599,7 @@ export const updateRewards = async (info: {
 
   // Fetch names from the database
   const [
+    pvpAverage,
     villageData,
     hunterItems,
     gatheringItems,
@@ -1603,6 +1610,10 @@ export const updateRewards = async (info: {
     activeWars,
     sageModes,
   ] = await Promise.all([
+    !pvpBoostApplied &&
+    ((user.pvpExperience ?? 0) > 0 || (user.weeklyPvpKills ?? 0) > 0)
+      ? fetchPvpExperienceAverage(client)
+      : undefined,
     // Fetch villages if needed
     rewards.reward_village_membership !== "NONE"
       ? client
@@ -1704,6 +1715,18 @@ export const updateRewards = async (info: {
           )
       : [],
   ]);
+
+  if (!pvpBoostApplied) {
+    // Keep the caller's payout object aligned with the amounts displayed in its response.
+    Object.assign(
+      rewards,
+      boostPvpRewards(
+        rewards,
+        getPvpBoost(user, pvpAverage ? [pvpAverage] : []).totalPercent,
+        true,
+      ),
+    );
+  }
 
   // If we are rewarding hunter items, only select based on hunter rank
   const droppedHunterItems = getHuntingItemDrops(
@@ -3137,6 +3160,7 @@ export const commitQuestObjectiveRewards = async (info: {
     );
 
   const rewardPromise = updateRewards({
+    pvpBoostApplied: true,
     client,
     user,
     rewards,

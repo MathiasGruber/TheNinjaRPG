@@ -66,6 +66,7 @@ import { getPvpFarmActivityReductionSeconds } from "@/libs/farming";
 import { allocateMasteryGains } from "@/libs/masteryProgression";
 import type { PusherClient } from "@/libs/pusher";
 import { broadcastRaidAvailability, updateUserOnMap } from "@/libs/pusher";
+import { boostPvpGain } from "@/libs/pvpExperience";
 import {
   filterQuestTrackersForDbPersist,
   getNewTrackers,
@@ -84,6 +85,7 @@ import { masteryGainUpdates } from "@/server/utils/masteryProgression";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { purgeRaidChatMembership } from "@/server/utils/raidChat";
 import { extendWarParticipantSql } from "@/server/utils/war";
+import { periodStart } from "@/utils/time";
 
 type DataBattleAction = {
   type: (typeof BattleDataEntryType)[number];
@@ -1489,16 +1491,26 @@ export const updateUser = async (
     // Any jutsus to be updated
     const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
     const jUnique = [...new Set(jUsage)];
-    const jExp = battleJutsuExp(
-      curBattle.battleType,
-      result.eloDiff,
-      curBattle.extraState.settings,
+    const jExp = Math.floor(
+      boostPvpGain(
+        battleJutsuExp(
+          curBattle.battleType,
+          result.eloDiff,
+          curBattle.extraState.settings,
+        ),
+        user.pvpBoostPercent ?? 0,
+      ),
     );
     // Equipped items gain XP from eligible PvP battles (win vs loss amounts + event multiplier)
-    const iExp = battleItemExp(
-      curBattle.battleType,
-      result.didWin > 0,
-      curBattle.extraState.settings,
+    const iExp = Math.floor(
+      boostPvpGain(
+        battleItemExp(
+          curBattle.battleType,
+          result.didWin > 0,
+          curBattle.extraState.settings,
+        ),
+        user.pvpBoostPercent ?? 0,
+      ),
     );
     // Group equipped items by their definition's xpToLevel for batched updates.
     // Forced-loadout entries are synthetic rows; XP is credited to the real
@@ -1660,6 +1672,13 @@ export const updateUser = async (
           experience: sql`experience + ${result.experience}`,
           earnedExperience: sql`earnedExperience + ${result.earnedExperience}`,
           pvpStreak: result.pvpStreak,
+          pvpExperience: sql`${userData.pvpExperience} + ${result.pvpExperience ?? 0}`,
+          ...((result.weeklyPvpKills ?? 0) > 0
+            ? {
+                weeklyPvpKills: sql`CASE WHEN ${userData.weeklyPvpKillsAt} >= ${periodStart("weekly", settledAt)} THEN ${userData.weeklyPvpKills} ELSE 0 END + ${result.weeklyPvpKills ?? 0}`,
+                weeklyPvpKillsAt: settledAt,
+              }
+            : {}),
           ...(curBattle.battleType !== "RANKED_PVP" &&
           curBattle.battleType !== "SPARRING" &&
           curBattle.battleType !== "RANKED_SPARRING"

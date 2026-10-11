@@ -82,6 +82,7 @@ import { combatMasteryGains } from "@/libs/combat/mastery";
 import { supportsNpcAllies } from "@/libs/combat/participants";
 import { isSummonTemplate, spliceOrphanedSummons } from "@/libs/combat/summon";
 import type { BattleEffect, GroundEffect, UserEffect } from "@/libs/combat/types";
+import { boostPvpGain, pvpExperienceReward } from "@/libs/pvpExperience";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
 import { findWarsWithUser } from "@/libs/war";
@@ -1869,6 +1870,8 @@ export const calcBattleResult = (
         eloDiff = 0;
       }
 
+      const pvpPercent = user.pvpBoostPercent ?? 0;
+
       // Calculate Experience gain
       let experience = didWin ? eloDiff * expBoost : 0;
       const streakBonus = 1 + user.pvpStreak * 0.05; // 5% per streak
@@ -1893,7 +1896,7 @@ export const calcBattleResult = (
       }
 
       // Scale experience based on reward scaling
-      experience *= battle.rewardScaling * shrineBoostFactor;
+      experience *= battle.rewardScaling * shrineBoostFactor * (1 + pvpPercent / 100);
 
       // Apply battle arena exp multiplier if available
       if (settings && (battleType === "ARENA" || battleType === "COMBAT")) {
@@ -1973,6 +1976,8 @@ export const calcBattleResult = (
           deltaEarnedExperience += 100;
         }
       }
+
+      moneyDelta = boostPvpGain(moneyDelta, pvpPercent);
 
       // Include money stolen during combat
       if (battleType === "COMBAT" && user.moneyStolen) {
@@ -2700,6 +2705,35 @@ export const calcBattleResult = (
         outcome,
         experience,
       );
+
+      result.villagePrestige = boostPvpGain(result.villagePrestige, pvpPercent);
+      result.villageTokens = boostPvpGain(result.villageTokens, pvpPercent);
+      result.clanPoints = boostPvpGain(result.clanPoints, pvpPercent);
+      const earnsPvpExperience =
+        !user.isAi &&
+        !user.isSummon &&
+        [
+          "COMBAT",
+          "RANKED_PVP",
+          "CLAN_BATTLE",
+          "SHRINE_WAR",
+          "KAGE_PVP",
+          "TOURNAMENT",
+        ].includes(battleType) &&
+        targetUsers.length > 0 &&
+        !(
+          battleType === "COMBAT" &&
+          villageIds.length === 1 &&
+          !isInWarTornSectorForExp
+        );
+      result.pvpExperience = earnsPvpExperience
+        ? pvpExperienceReward(outcome, battle.rewardScaling)
+        : 0;
+      result.weeklyPvpKills =
+        earnsPvpExperience && outcome === "Won"
+          ? targetUsers.filter((target) => target.curHealth <= 0 && !target.fledBattle)
+              .length
+          : 0;
 
       // Return results
       return result;

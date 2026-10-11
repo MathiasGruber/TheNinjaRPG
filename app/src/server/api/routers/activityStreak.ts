@@ -687,7 +687,12 @@ export const activityStreakRouter = createTRPCRouter({
       await Promise.all(updatePromises);
 
       // Build response message
-      const rewardPreview = getRewardPreview(rewards);
+      const rewardPreview = getRewardPreview({
+        ...rewards,
+        ...processedRewards,
+        reward_items: rewards.reward_items,
+        reward_jutsus: rewards.reward_jutsus,
+      });
       const rewardText = rewardPreview
         ? `Rewards: ${rewardPreview}`
         : "Streak claimed!";

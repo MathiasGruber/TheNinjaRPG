@@ -1,6 +1,9 @@
-import { sql } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { CLAN_BOOST_PERCENT_PER_LEVEL } from "@/drizzle/constants";
+import {
+  CLAN_BOOST_PERCENT_PER_LEVEL,
+  PVP_EXPERIENCE_DAILY_DECAY,
+} from "@/drizzle/constants";
 import { anbuSquad, clan, userData } from "@/drizzle/schema";
 import {
   handleEndpointError,
@@ -9,6 +12,7 @@ import {
 } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
+import { periodStart } from "@/utils/time";
 
 const ENDPOINT_NAME = "daily-pvp";
 
@@ -25,7 +29,19 @@ export async function GET(request: Request) {
 
   // Perform work
   try {
+    const dayStart = periodStart("daily", new Date());
     await Promise.all([
+      // A failed sibling write can retry this job without decaying XP twice.
+      drizzleDB
+        .update(userData)
+        .set({
+          pvpExperience: sql`FLOOR(${userData.pvpExperience} * ${1 - PVP_EXPERIENCE_DAILY_DECAY} * 100) / 100`,
+          pvpExperienceDecayAt: dayStart,
+          updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
+        })
+        .where(
+          and(eq(userData.isAi, false), lt(userData.pvpExperienceDecayAt, dayStart)),
+        ),
       drizzleDB.update(userData).set({
         pvpActivity: sql`${userData.pvpActivity} * 0.95`,
       }),

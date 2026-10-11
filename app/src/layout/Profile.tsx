@@ -24,6 +24,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  PVP_EXPERIENCE_BOOST_TIERS,
+  PVP_EXPERIENCE_DAILY_DECAY,
+  PVP_EXPERIENCE_PARTICIPATION_REWARD,
+  PVP_EXPERIENCE_WIN_REWARD,
+  PVP_WEEKLY_KILL_BOOST,
+  PVP_WEEKLY_KILL_BOOST_CAP,
+} from "@/drizzle/constants";
 import { safeLocalStorageSetItem } from "@/hooks/localstorage";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
@@ -243,7 +251,9 @@ export function Profile() {
 function CharacterProfile() {
   // State
   const { data: userData, timeDiff } = useRequiredUserData();
-  const [pvpInfoModal, setPvpInfoModal] = useState<"activity" | "rank" | null>(null);
+  const [pvpInfoModal, setPvpInfoModal] = useState<
+    "activity" | "rank" | "experience" | null
+  >(null);
 
   // Query
   const { data: marriages } = api.marriage.getMarriedUsers.useQuery(
@@ -294,6 +304,18 @@ function CharacterProfile() {
           <div className="flex flex-col items-start">
             <b>Activity</b>
             <p>Exp: {userData.experience?.toLocaleString()}</p>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-left underline decoration-dotted underline-offset-4"
+              onClick={() => setPvpInfoModal("experience")}
+            >
+              PvP XP:{" "}
+              {userData.pvpExperience.toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+              })}{" "}
+              · Boost: +{userData.pvpBoost?.totalPercent ?? 0}%{" "}
+              <Info className="h-4 w-4" />
+            </button>
             <p>Exp for lvl: {expRequired ? expRequired.toFixed(2) : "--"}</p>
             <p>PvE Fights: {userData.pveFights}</p>
             <TooltipProvider delayDuration={50}>
@@ -471,6 +493,72 @@ function CharacterProfile() {
           <p>
             <span className="text-muted-foreground">PvP streak:</span>{" "}
             {userData.pvpStreak}
+          </p>
+        </div>
+      </Modal>
+
+      <Modal
+        title="PvP experience & boost"
+        isOpen={pvpInfoModal === "experience"}
+        setIsOpen={(open) => setPvpInfoModal(open ? "experience" : null)}
+      >
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-3">
+            <p>
+              PvP experience:{" "}
+              <b>
+                {userData.pvpExperience.toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                })}
+              </b>
+            </p>
+            <p>
+              Global average:{" "}
+              <b>
+                {userData.pvpBoost?.average.toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                }) ?? 0}
+              </b>
+            </p>
+            <p>
+              Base boost: <b>+{userData.pvpBoost?.basePercent ?? 0}%</b>
+            </p>
+            <p>
+              Weekly kills: <b>{userData.pvpBoost?.weeklyKills ?? 0}</b>
+            </p>
+            <p>
+              Weekly bonus: <b>+{userData.pvpBoost?.weeklyPercent ?? 0}%</b>
+            </p>
+            <p>
+              Total boost: <b>+{userData.pvpBoost?.totalPercent ?? 0}%</b>
+            </p>
+          </div>
+          <p>
+            Earn {PVP_EXPERIENCE_PARTICIPATION_REWARD} PvP XP for a match, plus{" "}
+            {PVP_EXPERIENCE_WIN_REWARD} for winning. Repeated opponents give diminishing
+            XP. Sparring, AI battles and fleeing give none.
+          </p>
+          <p>
+            Each kill adds {PVP_WEEKLY_KILL_BOOST}% to your boost, up to +
+            {PVP_WEEKLY_KILL_BOOST_CAP}%. The kill bonus resets on Monday at 00:00 UTC.
+            PvP XP decays by {PVP_EXPERIENCE_DAILY_DECAY * 100}% at the daily reset.
+          </p>
+          <div className="space-y-1">
+            <p className="font-bold">Base boost tiers</p>
+            <p>
+              Below {PVP_EXPERIENCE_BOOST_TIERS[3].ratio * 100}% of average: no base
+              boost
+            </p>
+            {[...PVP_EXPERIENCE_BOOST_TIERS].reverse().map((tier) => (
+              <p key={tier.ratio}>
+                At least {tier.ratio * 100}% of average: +{tier.percent}%
+              </p>
+            ))}
+            <p>No base boost until you have PvP XP and the average is above zero.</p>
+          </div>
+          <p>
+            Boosts training, mastery, missions, ryo rewards, errands, village prestige,
+            crafting/hunting/gathering XP, village tokens, clan points and regeneration.
           </p>
         </div>
       </Modal>

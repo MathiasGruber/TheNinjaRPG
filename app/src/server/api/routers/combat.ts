@@ -169,6 +169,7 @@ import {
   scaleUserStats,
 } from "@/libs/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
+import { getPvpBoost } from "@/libs/pvpExperience";
 import {
   controlShownQuestLocationInformation,
   filterQuestTrackersForDbPersist,
@@ -217,6 +218,7 @@ import {
   elementalSnapshotConditions,
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { fetchSanninRankedPlayers } from "@/server/utils/ranked";
 import { hasDueTimedJob, settleDueTimedQueues } from "@/server/utils/userQueue";
 import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/war";
@@ -4075,6 +4077,7 @@ export const processUsersForBattle = async (
     // Construct BattleUserState with slim references
     const battleUserState: BattleUserState = {
       ...rest,
+      pvpBoostPercent: getPvpBoost(user, info.settings).totalPercent,
       jutsus: jutsusRef,
       items: itemsRef,
       relationIds,
@@ -4133,42 +4136,57 @@ export const processUsersForBattle = async (
  * @returns The essentials for a battle
  */
 export const fetchBattleEssentials = async (client: DrizzleClient) => {
-  const [defaultProfile, activeWars, settings, villages, relations, dmgConfig] =
-    await Promise.all([
-      // Fetch default AI profile
-      fetchAiProfileById(client, "Default"),
-      // Fetch active wars
-      client.query.war.findMany({
-        where: eq(war.status, "ACTIVE"),
-        with: {
-          warAllies: true,
-          attackerVillage: { columns: { name: true, sector: true } },
-          defenderVillage: { columns: { name: true, sector: true } },
-        },
-      }),
-      // Fetch game settings
-      client
-        .select()
-        .from(gameSetting)
-        .where(
-          or(
-            inArray(gameSetting.name, [
-              "battleExpMultiplier",
-              "jutsuExpMultiplier",
-              "itemExpMultiplier",
-              "regenGainMultiplier",
-              "trainingGainMultiplier",
-            ]),
-            like(gameSetting.name, "war-%-train"),
-            like(gameSetting.name, "war-%-regen"),
-          ),
+  const [
+    defaultProfile,
+    activeWars,
+    settings,
+    villages,
+    relations,
+    dmgConfig,
+    pvpAverage,
+  ] = await Promise.all([
+    // Fetch default AI profile
+    fetchAiProfileById(client, "Default"),
+    // Fetch active wars
+    client.query.war.findMany({
+      where: eq(war.status, "ACTIVE"),
+      with: {
+        warAllies: true,
+        attackerVillage: { columns: { name: true, sector: true } },
+        defenderVillage: { columns: { name: true, sector: true } },
+      },
+    }),
+    // Fetch game settings
+    client
+      .select()
+      .from(gameSetting)
+      .where(
+        or(
+          inArray(gameSetting.name, [
+            "battleExpMultiplier",
+            "jutsuExpMultiplier",
+            "itemExpMultiplier",
+            "regenGainMultiplier",
+            "trainingGainMultiplier",
+          ]),
+          like(gameSetting.name, "war-%-train"),
+          like(gameSetting.name, "war-%-regen"),
         ),
-      // Fetch villages
-      client.select().from(village),
-      // Fetch village alliances
-      client.select().from(villageAlliance),
-      // Fetch damage formula config
-      fetchDmgConfig(client),
-    ]);
-  return { defaultProfile, activeWars, settings, villages, relations, dmgConfig };
+      ),
+    // Fetch villages
+    client.select().from(village),
+    // Fetch village alliances
+    client.select().from(villageAlliance),
+    // Fetch damage formula config
+    fetchDmgConfig(client),
+    fetchPvpExperienceAverage(client),
+  ]);
+  return {
+    defaultProfile,
+    activeWars,
+    settings: [...settings, pvpAverage],
+    villages,
+    relations,
+    dmgConfig,
+  };
 };

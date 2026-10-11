@@ -34,6 +34,7 @@ import {
 } from "@/drizzle/schema";
 import { getInventoryBucket, getInventoryBucketCapacity } from "@/libs/item";
 import { jutsuMasteryTypes } from "@/libs/jutsuMastery";
+import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
 import {
   getNextQueueSchedule,
@@ -54,6 +55,7 @@ import { fetchStudents } from "@/routers/sensei";
 import type { DrizzleClient } from "@/server/db";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { getQueueTotalCapacity } from "@/utils/paypal";
 import type {
   CraftingQueueMaterial,
@@ -896,7 +898,10 @@ const startQueuedCraft = async (
     await returnMaterials(client, entry.userId, entry.materials, true);
     return "dropped";
   }
-  const user = await fetchQuestUser(client, entry.userId);
+  const [user, average] = await Promise.all([
+    fetchQuestUser(client, entry.userId),
+    fetchPvpExperienceAverage(client),
+  ]);
   const finishesAt = new Date(startsAt.getTime() + entry.durationSeconds * 1000);
   const outputs: (typeof userItem.$inferInsert)[] = [];
   const stackSize = Math.max(1, entry.item.stackSize);
@@ -924,7 +929,10 @@ const startQueuedCraft = async (
   // Clan boosts apply to the experience as they do for a direct craft.
   const clanBoost = user.isOutlaw ? 0 : (user.clan?.craftingExpBoost ?? 0) / 100;
   const expGain = Math.floor(
-    (entry.item.craftingExperience ?? 0) * entry.quantity * (1 + clanBoost),
+    boostPvpGain(
+      (entry.item.craftingExperience ?? 0) * entry.quantity * (1 + clanBoost),
+      getPvpBoost(user, [average]).totalPercent,
+    ),
   );
   await updateQueueOwner(client, user, {
     craftingExperience: expGain,

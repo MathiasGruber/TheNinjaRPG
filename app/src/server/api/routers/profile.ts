@@ -139,6 +139,7 @@ import {
   scaleUserStats,
 } from "@/libs/profile";
 import { getServerPusher } from "@/libs/pusher";
+import { getPvpBoost } from "@/libs/pvpExperience";
 import {
   filterQuestTrackersForDbPersist,
   getNewTrackers,
@@ -191,6 +192,7 @@ import {
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
 import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoverySummaryCandidates } from "@/server/utils/questDiscovery";
 import {
@@ -1339,7 +1341,7 @@ export const profileRouter = createTRPCRouter({
         }
       }
       return {
-        userData: user,
+        userData: user ? { ...user, pvpBoost: getPvpBoost(user, settings) } : user,
         achievementProgress: achievementProgress,
         notifications: notifications,
         serverTime: Date.now(),
@@ -3827,7 +3829,13 @@ export const fetchPublishedAchievements = async (client: DrizzleClient) =>
   );
 
 const fetchAllGameSettings = (client: DrizzleClient) =>
-  scopedRead("gameSettings", () => client.select().from(gameSetting));
+  scopedRead("gameSettings", async () => {
+    const [settings, average] = await Promise.all([
+      client.select().from(gameSetting),
+      fetchPvpExperienceAverage(client),
+    ]);
+    return [...settings, average];
+  });
 
 const fetchHasUnvotedPolls = (client: DrizzleClient, userId: string, now: Date) =>
   scopedRead(`unvotedPolls:${userId}`, () =>
@@ -4183,6 +4191,7 @@ export const scaleEditedAi = (stored: UserData, edited: UserData) => {
 
 export type UserWithRelations =
   | (UserData & {
+      pvpBoost?: ReturnType<typeof getPvpBoost>;
       effectiveMasteries?: MasteryStatSource;
       userSkills?: NonNullable<MasterySources["userSkills"]>;
       /** Every queue entry of the user, in queue order per kind */
