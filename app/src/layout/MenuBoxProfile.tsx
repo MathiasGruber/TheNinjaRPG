@@ -72,7 +72,7 @@ import { useGameMenu } from "@/libs/menus";
 import { calcLevelRequirements, getExpBracket } from "@/libs/profile";
 import { cn } from "@/libs/shadui";
 import { calcCovertTrainingFinishAt } from "@/libs/stealth";
-import { getMasteryTrainingState, masteryTrainingEndsAt } from "@/libs/train";
+import { masteryTrainingEndsAt } from "@/libs/train";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
 import { userBattleAtom, useUserData } from "@/utils/UserContext";
 import { isNegativeUserEffect, isPositiveUserEffect } from "@/validators/combat";
@@ -447,10 +447,9 @@ const MenuBoxProfile: React.FC = () => {
           )}
           {userData &&
             MasteryQueueKinds.map((kind) => {
-              const session = getMasteryTrainingState(userData, kind);
               const endsAt = masteryTrainingEndsAt(userData, kind);
               const Icon = kind === "ELEMENT" ? Flame : Medal;
-              return session.stat && endsAt ? (
+              return endsAt ? (
                 <TooltipProvider key={kind} delayDuration={50}>
                   <Tooltip>
                     <TooltipTrigger className="w-full">
