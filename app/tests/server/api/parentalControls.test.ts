@@ -1,8 +1,10 @@
-import { beforeEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
+import { Moderations } from "openai/resources/moderations";
 import { conversation, conversationComment, parentalControl, user2conversation, userData } from "@/drizzle/schema";
 import { parentalControlsRouter } from "@/server/api/routers/parentalControls";
 import { commentsRouter, fetchUsersToNotify } from "@/server/api/routers/comments";
+import { Pusher } from "@/libs/pusher";
 import { hashParentalPin, renameParentalContact } from "@/server/utils/parentalControls";
 import { insertUsers } from "../../setup/factories";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -10,11 +12,31 @@ import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, re
 const settings = { enabled: true, tavernDisabled: true, privateMessages: "APPROVED" as const,
   approvedUserIds: ["friend"], pin: "012345", version: 0 };
 
+const stubRateLimitTransport = () => {
+  const realFetch = globalThis.fetch;
+  // Keep the middleware active without requiring Redis in SQL tests.
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) {
+      return realFetch(input, init);
+    }
+    const commands = JSON.parse(init.body) as unknown[];
+    const resultFor = (command: unknown[]) => ({
+      result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1,
+    });
+    return Response.json(Array.isArray(commands[0])
+      ? commands.map((command) => resultFor(command as unknown[]))
+      : resultFor(commands));
+  });
+};
+
 describeWithDatabase("parental controls", () => {
   beforeEach(async () => {
+    stubRateLimitTransport();
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     await resetTables(parentalControl, conversationComment, user2conversation, conversation, userData);
     await insertUsers([{ userId: "child", level: 50 }, { userId: "friend", level: 50 }, { userId: "stranger", level: 50 }]);
   });
+  afterEach(() => vi.restoreAllMocks());
   it("requires the parent PIN, never returns its hash, and rejects stale settings", async () => {
     const api = await callerFor(parentalControlsRouter, "child");
     expect((await api.save(settings)).success).toBe(true);
@@ -163,6 +185,82 @@ describeWithDatabase("parental controls", () => {
       expect(await stranger.fetchConversationComment({ commentId: "retained-message" })).toBeNull();
       await db.insert(user2conversation).values({ userId: "stranger", conversationId: "retained" });
       expect((await child.getConversationComments({ convo_id: "retained", limit: 10 })).data).toHaveLength(1);
+    });
+  }
+  it("rejects an unapproved AI reply before changing the approved thread or notifying its child", async () => {
+    const db = await getTestDatabase();
+    await insertUsers([{ userId: "staff", username: "Staff", level: 50, role: "EVENT" }, { userId: "ai", username: "AI", level: 50, isAi: true }]);
+    const parent = await callerFor(parentalControlsRouter, "child");
+    expect((await parent.save({ ...settings, approvedUserIds: ["staff"] })).success).toBe(true);
+    const staff = await callerFor(commentsRouter, "staff");
+    const created = await staff.createConversation({ users: ["child"], title: "Approved staff", comment: "Normal approved message", senderId: null });
+    const convoId = created.conversationId!;
+    expect(created.success).toBe(true);
+    const child = await callerFor(commentsRouter, "child");
+    const before = await child.getConversationComments({ convo_id: convoId, limit: 10 });
+    expect(before.data).toHaveLength(1);
+    const childBefore = await db.query.userData.findFirst({ where: eq(userData.userId, "child") });
+    const events = vi.spyOn(Pusher.prototype, "trigger");
+    events.mockClear();
+    const reply = await staff.createConversationComment({ object_id: convoId, comment: "Roleplay from the AI", quoteIds: null, senderId: "ai" });
+    expect(reply.success).toBe(false);
+    expect(reply.message).toContain("approved");
+    expect(await db.query.conversationComment.findMany({ where: eq(conversationComment.conversationId, convoId) })).toHaveLength(1);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "child") }))?.inboxNews).toBe(childBefore?.inboxNews);
+    expect((await db.query.conversation.findFirst({ where: eq(conversation.id, convoId) }))?.updatedAt).toEqual(before.convo?.updatedAt);
+    expect(events).not.toHaveBeenCalled();
+    expect((await child.getConversationComments({ convo_id: convoId, limit: 10 })).data).toHaveLength(1);
+    expect(await child.fetchConversationComment({ commentId: before.data[0]!.id })).not.toBeNull();
+    expect((await child.getUserConversations({})).map((c) => c.id)).toEqual([convoId]);
+
+    expect((await staff.createConversationComment({ object_id: convoId, comment: "Normal approved reply", quoteIds: null, senderId: null })).success).toBe(true);
+    // A non-AI override resolves to the real author and must not require another approval.
+    expect((await staff.createConversationComment({ object_id: convoId, comment: "Reply with ignored sender", quoteIds: null, senderId: "stranger" })).success).toBe(true);
+    expect((await child.getConversationComments({ convo_id: convoId, limit: 10 })).data).toHaveLength(3);
+  });
+  it("allows an approved AI reply while preserving its real author and membership guards", async () => {
+    const db = await getTestDatabase();
+    await insertUsers([{ userId: "staff", username: "Staff", level: 50, role: "EVENT" }, { userId: "ai", username: "AI", level: 50, isAi: true }, { userId: "outsider", username: "Outsider", level: 50, role: "EVENT" }]);
+    const parent = await callerFor(parentalControlsRouter, "child");
+    expect((await parent.save({ ...settings, approvedUserIds: ["staff", "ai"] })).success).toBe(true);
+    const staff = await callerFor(commentsRouter, "staff");
+    const created = await staff.createConversation({ users: ["child"], title: "Approved AI", comment: "Normal approved message", senderId: null });
+    expect(created.success).toBe(true);
+    const convoId = created.conversationId!;
+    const reply = await staff.createConversationComment({ object_id: convoId, comment: "Roleplay from approved AI", quoteIds: null, senderId: "ai" });
+    expect(reply.success).toBe(true);
+    const row = await db.query.conversationComment.findFirst({ where: eq(conversationComment.id, reply.commentId!) });
+    expect(row?.userId).toBe("ai");
+    expect(row?.authorId).toBe("staff");
+    const child = await callerFor(commentsRouter, "child");
+    expect((await child.getConversationComments({ convo_id: convoId, limit: 10 })).data).toHaveLength(2);
+    expect(await child.fetchConversationComment({ commentId: reply.commentId! })).not.toBeNull();
+    expect((await child.getUserConversations({})).map((c) => c.id)).toEqual([convoId]);
+    const outsider = await callerFor(commentsRouter, "outsider");
+    expect((await outsider.createConversationComment({ object_id: convoId, comment: "Nonmember AI reply", quoteIds: null, senderId: "ai" })).success).toBe(false);
+    const fallback = await child.createConversationComment({ object_id: convoId, comment: "Ordinary player cannot post as AI", quoteIds: null, senderId: "ai" });
+    expect(fallback.success).toBe(true);
+    expect((await db.query.conversationComment.findFirst({ where: eq(conversationComment.id, fallback.commentId!) }))?.userId).toBe("child");
+  });
+  for (const isPublic of [false, true]) {
+    it(`preserves Post as AI in ${isPublic ? "public" : "support"} conversations`, async () => {
+      const db = await getTestDatabase();
+      if (isPublic) {
+        vi.spyOn(Moderations.prototype, "create").mockResolvedValue({ id: "test", model: "omni-moderation-latest", results: [] });
+      }
+      await insertUsers([{ userId: "staff", username: "Staff", level: 50, role: "EVENT" }, { userId: "ai", username: "AI", level: 50, isAi: true }]);
+      expect((await (await callerFor(parentalControlsRouter, "child")).save({ ...settings, privateMessages: "NONE" })).success).toBe(true);
+      await db.insert(conversation).values({ id: "exempt", title: "Exempt conversation", isPublic, isStaffAvailable: !isPublic, createdById: "child" });
+      await db.insert(user2conversation).values({ userId: "child", conversationId: "exempt" });
+      const staff = await callerFor(commentsRouter, "staff");
+      const reply = await staff.createConversationComment({ object_id: "exempt", comment: "Exempt roleplay reply", quoteIds: null, senderId: "ai" });
+      expect(reply.success).toBe(true);
+      const row = await db.query.conversationComment.findFirst({ where: eq(conversationComment.id, reply.commentId!) });
+      expect(row?.userId).toBe("ai");
+      expect(row?.authorId).toBe("staff");
+      if (!isPublic) {
+        expect((await (await callerFor(commentsRouter, "child")).getConversationComments({ convo_id: "exempt", limit: 10 })).data).toHaveLength(1);
+      }
     });
   }
   it("preserves approved/private and support notifications while restricting tavern notifications", async () => {

@@ -748,6 +748,23 @@ export const commentsRouter = createTRPCRouter({
       if (quotes.some((quote) => quote.conversationId !== convo.id)) {
         return errorResponse("Quote not found");
       }
+      if (
+        !convo.isPublic &&
+        !convo.isStaffAvailable &&
+        effectiveUserId !== ctx.userId
+      ) {
+        // The history guard has passed; an authorized AI reply also needs approval
+        // from current participants before its new sender enters retained history.
+        const participantIds = [
+          ...new Set([ctx.userId, ...convo.users.map((u) => u.userId)]),
+        ];
+        const policies = await fetchCommunicationPolicies(ctx.drizzle, participantIds);
+        const restriction = privateConversationRestriction(policies, [
+          ...participantIds,
+          effectiveUserId,
+        ]);
+        if (restriction) return errorResponse(restriction);
+      }
 
       // Update conversation & update user notifications
       const commentId = nanoid();
