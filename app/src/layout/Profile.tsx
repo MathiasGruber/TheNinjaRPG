@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { safeLocalStorageSetItem } from "@/hooks/localstorage";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
 import { DashboardSettings } from "@/layout/DashboardSettings";
@@ -116,6 +117,9 @@ export function Profile() {
     );
     if (!next) return;
     const allowed = tutorialActive && next === "Dashboard" ? "Character" : next;
+    if (userData.rememberProfileTab) {
+      safeLocalStorageSetItem(`profileTab:${userData.userId}`, allowed);
+    }
     setTab(allowed);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", profileTabValues[allowed]);
