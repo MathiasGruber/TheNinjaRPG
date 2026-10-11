@@ -52,10 +52,6 @@ import { capitalizeFirstLetter } from "@/utils/string";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { createAuctionOfferSchema } from "@/validators/auction";
 
-type OfferType = "REQUEST" | "TRADE";
-type Offer = RouterOutputs["auction"]["getAuctionOffers"]["data"][number];
-type InventoryItem = RouterOutputs["item"]["getUserItems"][number];
-
 export function AuctionOffers({
   offerType,
   status,
@@ -144,235 +140,6 @@ export function AuctionOffers({
         )}
       </div>
     </div>
-  );
-}
-
-function OfferCard({
-  offer,
-  inventory,
-  inventoryLoading,
-  inventoryError,
-  retryInventory,
-}: {
-  offer: Offer;
-  inventory: InventoryItem[];
-  inventoryLoading: boolean;
-  inventoryError: boolean;
-  retryInventory: () => void;
-}) {
-  const { data: user } = useRequiredUserData();
-  const utils = api.useUtils();
-  const [isOpen, setIsOpen] = useState(false);
-  const [suppliedId, setSuppliedId] = useState("");
-  const [error, setError] = useState("");
-  const refresh = async () => {
-    await Promise.all([
-      utils.auction.getAuctionOffers.invalidate(),
-      utils.item.getUserItems.invalidate(),
-      utils.profile.getUser.invalidate(),
-    ]);
-  };
-  const accept = api.auction.acceptAuctionOffer.useMutation({
-    onSuccess: async (result) => {
-      showMutationToast(result);
-      if (result.success) {
-        setIsOpen(false);
-        setError("");
-        await refresh();
-      } else setError(result.message);
-    },
-    onError: (error) => setError(error.message),
-  });
-  const cancel = api.auction.cancelAuctionOffer.useMutation({
-    onSuccess: async (result) => {
-      showMutationToast(result);
-      if (result.success) {
-        setError("");
-        await refresh();
-      } else setError(result.message);
-    },
-    onError: (error) => setError(error.message),
-  });
-  const available = inventory.filter(
-    (row) =>
-      isOfferInventoryAvailable(row) &&
-      row.itemId === offer.requestedItemId &&
-      row.quantity >= offer.requestedQuantity &&
-      (row.quantity === offer.requestedQuantity || row.imbuements.length === 0),
-  );
-  const selected = available.find((row) => row.id === suppliedId);
-  const isOwner = offer.ownerId === user?.userId;
-  const offered = offer.offeredUserItem;
-  const offeredItem = offered && {
-    ...offered.item,
-    level: offered.level,
-    experience: offered.experience,
-    curDurability: offered.durability,
-    imbuements: offered.imbuements.map((entry) => entry.item),
-  };
-  return (
-    <Card>
-      <CardHeader className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base">
-            Wanted: {offer.requestedQuantity.toLocaleString()} ×{" "}
-            {offer.requestedItem?.name ?? "Unavailable item"}
-          </CardTitle>
-          <Badge variant="outline">
-            {offer.status === "SOLD"
-              ? "Completed"
-              : capitalizeFirstLetter(offer.status)}
-          </Badge>
-        </div>
-        <p className="text-muted-foreground text-sm">
-          Posted by {offer.owner?.username ?? "Unknown player"}
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {offer.requestedItem && (
-          <div className="flex items-center gap-3">
-            <Image
-              src={offer.requestedItem.image}
-              alt={offer.requestedItem.name}
-              width={48}
-              height={48}
-              className="rounded-lg"
-            />
-            <p className="font-semibold">
-              Payment:{" "}
-              {offer.offerType === "REQUEST"
-                ? `${offer.ryo.toLocaleString()} ryo (total)`
-                : `${offer.offeredQuantity?.toLocaleString()} × ${offered?.item.name ?? "Unavailable item"}`}
-            </p>
-          </div>
-        )}
-        {offeredItem && (
-          <ItemWithEffects
-            item={offeredItem}
-            hideDetails
-            hideData
-            hideEffects
-            imageExtra={
-              offeredItem.itemType !== "MATERIAL" && (
-                <p className="text-muted-foreground text-xs">
-                  Level {offeredItem.level} · Durability {offeredItem.curDurability} /{" "}
-                  {offeredItem.maxDurability}
-                </p>
-              )
-            }
-          />
-        )}
-        {error && (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-        {offer.status === "ACTIVE" &&
-          (isOwner ? (
-            <Button
-              variant="outline"
-              disabled={cancel.isPending}
-              onClick={() => cancel.mutate({ offerId: offer.id })}
-            >
-              {cancel.isPending
-                ? "Cancelling…"
-                : offer.offerType === "REQUEST"
-                  ? "Cancel request"
-                  : "Cancel trade"}
-            </Button>
-          ) : (
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-              <DialogTrigger asChild>
-                <Button disabled={(user?.level ?? 0) < AUCTION_HOUSE_MIN_LEVEL}>
-                  {offer.offerType === "REQUEST"
-                    ? "Review & fulfil"
-                    : "Review & accept"}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>
-                    {offer.offerType === "REQUEST" ? "Fulfil request" : "Accept trade"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    Deliver {offer.requestedQuantity.toLocaleString()} ×{" "}
-                    {offer.requestedItem?.name}. You receive{" "}
-                    {offer.offerType === "REQUEST"
-                      ? `${offer.ryo.toLocaleString()} ryo in your bank`
-                      : `${offer.offeredQuantity} × ${offered?.item.name}`}
-                    .
-                  </DialogDescription>
-                </DialogHeader>
-                {offeredItem && (
-                  <div>
-                    <p className="mb-2 font-semibold text-sm">Item you receive</p>
-                    <ItemWithEffects item={offeredItem} hideDates />
-                  </div>
-                )}
-                {inventoryLoading ? (
-                  <Loader explanation="Loading inventory" />
-                ) : inventoryError ? (
-                  <p role="alert">
-                    Could not load your inventory.{" "}
-                    <Button variant="outline" onClick={retryInventory}>
-                      Retry
-                    </Button>
-                  </p>
-                ) : available.length === 0 ? (
-                  <p>
-                    You need the full quantity in one available, unequipped inventory
-                    stack. Items stored at home, reserved for auction, or being crafted
-                    or imbued are unavailable.
-                  </p>
-                ) : (
-                  <>
-                    <Label htmlFor={`supply-${offer.id}`}>Item to deliver</Label>
-                    <OfferItemPicker
-                      id={`supply-${offer.id}`}
-                      label="Choose your item"
-                      value={suppliedId}
-                      onChange={setSuppliedId}
-                      options={available.map((row) => ({
-                        value: row.id,
-                        label: inventoryLabel(row),
-                      }))}
-                    />
-                    {selected && (
-                      <ItemWithEffects
-                        item={{
-                          ...selected.item,
-                          level: selected.level,
-                          experience: selected.experience,
-                          curDurability: selected.durability,
-                          imbuements: selected.imbuements.map((entry) => entry.item),
-                        }}
-                        hideDetails
-                      />
-                    )}
-                    {error && (
-                      <p role="alert" className="text-destructive text-sm">
-                        {error}
-                      </p>
-                    )}
-                    <Button
-                      disabled={!selected || accept.isPending}
-                      onClick={() =>
-                        accept.mutate({ offerId: offer.id, userItemId: suppliedId })
-                      }
-                    >
-                      {accept.isPending
-                        ? "Accepting…"
-                        : offer.offerType === "REQUEST"
-                          ? "Deliver items & collect ryo"
-                          : "Confirm trade"}
-                    </Button>
-                  </>
-                )}
-              </DialogContent>
-            </Dialog>
-          ))}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -612,6 +379,235 @@ export function NewOfferDialog({
   );
 }
 
+function OfferCard({
+  offer,
+  inventory,
+  inventoryLoading,
+  inventoryError,
+  retryInventory,
+}: {
+  offer: Offer;
+  inventory: InventoryItem[];
+  inventoryLoading: boolean;
+  inventoryError: boolean;
+  retryInventory: () => void;
+}) {
+  const { data: user } = useRequiredUserData();
+  const utils = api.useUtils();
+  const [isOpen, setIsOpen] = useState(false);
+  const [suppliedId, setSuppliedId] = useState("");
+  const [error, setError] = useState("");
+  const refresh = async () => {
+    await Promise.all([
+      utils.auction.getAuctionOffers.invalidate(),
+      utils.item.getUserItems.invalidate(),
+      utils.profile.getUser.invalidate(),
+    ]);
+  };
+  const accept = api.auction.acceptAuctionOffer.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      if (result.success) {
+        setIsOpen(false);
+        setError("");
+        await refresh();
+      } else setError(result.message);
+    },
+    onError: (error) => setError(error.message),
+  });
+  const cancel = api.auction.cancelAuctionOffer.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      if (result.success) {
+        setError("");
+        await refresh();
+      } else setError(result.message);
+    },
+    onError: (error) => setError(error.message),
+  });
+  const available = inventory.filter(
+    (row) =>
+      isOfferInventoryAvailable(row) &&
+      row.itemId === offer.requestedItemId &&
+      row.quantity >= offer.requestedQuantity &&
+      (row.quantity === offer.requestedQuantity || row.imbuements.length === 0),
+  );
+  const selected = available.find((row) => row.id === suppliedId);
+  const isOwner = offer.ownerId === user?.userId;
+  const offered = offer.offeredUserItem;
+  const offeredItem = offered && {
+    ...offered.item,
+    level: offered.level,
+    experience: offered.experience,
+    curDurability: offered.durability,
+    imbuements: offered.imbuements.map((entry) => entry.item),
+  };
+  return (
+    <Card>
+      <CardHeader className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base">
+            Wanted: {offer.requestedQuantity.toLocaleString()} ×{" "}
+            {offer.requestedItem?.name ?? "Unavailable item"}
+          </CardTitle>
+          <Badge variant="outline">
+            {offer.status === "SOLD"
+              ? "Completed"
+              : capitalizeFirstLetter(offer.status)}
+          </Badge>
+        </div>
+        <p className="text-muted-foreground text-sm">
+          Posted by {offer.owner?.username ?? "Unknown player"}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {offer.requestedItem && (
+          <div className="flex items-center gap-3">
+            <Image
+              src={offer.requestedItem.image}
+              alt={offer.requestedItem.name}
+              width={48}
+              height={48}
+              className="rounded-lg"
+            />
+            <p className="font-semibold">
+              Payment:{" "}
+              {offer.offerType === "REQUEST"
+                ? `${offer.ryo.toLocaleString()} ryo (total)`
+                : `${offer.offeredQuantity?.toLocaleString()} × ${offered?.item.name ?? "Unavailable item"}`}
+            </p>
+          </div>
+        )}
+        {offeredItem && (
+          <ItemWithEffects
+            item={offeredItem}
+            hideDetails
+            hideData
+            hideEffects
+            imageExtra={
+              offeredItem.itemType !== "MATERIAL" && (
+                <p className="text-muted-foreground text-xs">
+                  Level {offeredItem.level} · Durability {offeredItem.curDurability} /{" "}
+                  {offeredItem.maxDurability}
+                </p>
+              )
+            }
+          />
+        )}
+        {error && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        )}
+        {offer.status === "ACTIVE" &&
+          (isOwner ? (
+            <Button
+              variant="outline"
+              disabled={cancel.isPending}
+              onClick={() => cancel.mutate({ offerId: offer.id })}
+            >
+              {cancel.isPending
+                ? "Cancelling…"
+                : offer.offerType === "REQUEST"
+                  ? "Cancel request"
+                  : "Cancel trade"}
+            </Button>
+          ) : (
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger asChild>
+                <Button disabled={(user?.level ?? 0) < AUCTION_HOUSE_MIN_LEVEL}>
+                  {offer.offerType === "REQUEST"
+                    ? "Review & fulfil"
+                    : "Review & accept"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {offer.offerType === "REQUEST" ? "Fulfil request" : "Accept trade"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Deliver {offer.requestedQuantity.toLocaleString()} ×{" "}
+                    {offer.requestedItem?.name}. You receive{" "}
+                    {offer.offerType === "REQUEST"
+                      ? `${offer.ryo.toLocaleString()} ryo in your bank`
+                      : `${offer.offeredQuantity} × ${offered?.item.name}`}
+                    .
+                  </DialogDescription>
+                </DialogHeader>
+                {offeredItem && (
+                  <div>
+                    <p className="mb-2 font-semibold text-sm">Item you receive</p>
+                    <ItemWithEffects item={offeredItem} hideDates />
+                  </div>
+                )}
+                {inventoryLoading ? (
+                  <Loader explanation="Loading inventory" />
+                ) : inventoryError ? (
+                  <p role="alert">
+                    Could not load your inventory.{" "}
+                    <Button variant="outline" onClick={retryInventory}>
+                      Retry
+                    </Button>
+                  </p>
+                ) : available.length === 0 ? (
+                  <p>
+                    You need the full quantity in one available, unequipped inventory
+                    stack. Items stored at home, reserved for auction, or being crafted
+                    or imbued are unavailable.
+                  </p>
+                ) : (
+                  <>
+                    <Label htmlFor={`supply-${offer.id}`}>Item to deliver</Label>
+                    <OfferItemPicker
+                      id={`supply-${offer.id}`}
+                      label="Choose your item"
+                      value={suppliedId}
+                      onChange={setSuppliedId}
+                      options={available.map((row) => ({
+                        value: row.id,
+                        label: inventoryLabel(row),
+                      }))}
+                    />
+                    {selected && (
+                      <ItemWithEffects
+                        item={{
+                          ...selected.item,
+                          level: selected.level,
+                          experience: selected.experience,
+                          curDurability: selected.durability,
+                          imbuements: selected.imbuements.map((entry) => entry.item),
+                        }}
+                        hideDetails
+                      />
+                    )}
+                    {error && (
+                      <p role="alert" className="text-destructive text-sm">
+                        {error}
+                      </p>
+                    )}
+                    <Button
+                      disabled={!selected || accept.isPending}
+                      onClick={() =>
+                        accept.mutate({ offerId: offer.id, userItemId: suppliedId })
+                      }
+                    >
+                      {accept.isPending
+                        ? "Accepting…"
+                        : offer.offerType === "REQUEST"
+                          ? "Deliver items & collect ryo"
+                          : "Confirm trade"}
+                    </Button>
+                  </>
+                )}
+              </DialogContent>
+            </Dialog>
+          ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function OfferItemPicker({
   label,
   value,
@@ -681,3 +677,7 @@ const isOfferInventoryAvailable = (row: InventoryItem) =>
   row.equipped === "NONE" &&
   isEquippableUserItem(row) &&
   !isImbuing(row);
+
+type OfferType = "REQUEST" | "TRADE";
+type Offer = RouterOutputs["auction"]["getAuctionOffers"]["data"][number];
+type InventoryItem = RouterOutputs["item"]["getUserItems"][number];

@@ -26,8 +26,6 @@ import {
   getAuctionOffersSchema,
 } from "@/validators/auction";
 
-type OfferTransaction = Parameters<Parameters<DrizzleClient["transaction"]>[0]>[0];
-
 export const auctionOfferProcedures = {
   getAuctionOfferItems: protectedProcedure.query(({ ctx }) =>
     ctx.drizzle.query.item.findMany({
@@ -440,3 +438,5 @@ const logOffer = (
     relatedId: id,
     changes: JSON.stringify({ action, details: changes }),
   });
+
+type OfferTransaction = Parameters<Parameters<DrizzleClient["transaction"]>[0]>[0];
