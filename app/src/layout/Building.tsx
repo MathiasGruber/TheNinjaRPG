@@ -1,7 +1,8 @@
 "use client";
 
-import { CircleArrowUp, Info, RefreshCw } from "lucide-react";
+import { CircleArrowUp, Info, LockKeyhole, RefreshCw } from "lucide-react";
 import { api } from "@/app/_trpc/client";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -46,18 +47,27 @@ const Building: React.FC<BuildingProps> = (props) => {
 
   // Blocks
   const TextBlock = (
-    <div className="text-xs">
-      <p className="font-bold">{structure.name}</p>
-      <div className="flex flex-row items-center justify-center gap-1">
-        <p>
+    <div className="min-w-0 space-y-1 text-xs">
+      <p className="flex min-h-8 items-center justify-center font-bold leading-tight">
+        {structure.name}
+      </p>
+      <div className="flex min-h-7 flex-wrap items-center justify-center gap-1">
+        <p className="whitespace-nowrap">
           Lvl. {structure.level}
           {delta > 0 && <span className="text-green-500"> (+{delta})</span>}
           {delta < 0 && <span className="text-red-500"> (−{Math.abs(delta)})</span>}
         </p>{" "}
         <TooltipProvider delayDuration={50}>
           <Tooltip>
-            <TooltipTrigger>
-              <Info className="h-4 w-4" />
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 shrink-0"
+                aria-label={`${structure.name} bonuses`}
+              >
+                <Info className="size-4" aria-hidden="true" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>{StructureRewardEntries(structure)}</TooltipContent>
           </Tooltip>
@@ -70,14 +80,17 @@ const Building: React.FC<BuildingProps> = (props) => {
           />
         )}
         {userData && canAdministrateWars(userData.role) && (
-          <RestoreStructureButton structureId={structure.id} />
+          <RestoreStructureButton
+            structureId={structure.id}
+            structureName={structure.name}
+          />
         )}
       </div>
     </div>
   );
   // Render
   return (
-    <div className={`relative flex flex-col items-center justify-center text-center`}>
+    <div className="relative flex min-w-0 flex-col items-center justify-center text-center">
       {showBar && (
         <div className="w-2/3">
           <StatusBar
@@ -92,7 +105,7 @@ const Building: React.FC<BuildingProps> = (props) => {
         </div>
       )}
       <div
-        className={`grid ${textPosition === "right" ? "grid-cols-2" : ""} items-center`}
+        className={`grid min-w-0 ${textPosition === "right" ? "grid-cols-2" : ""} items-center`}
       >
         <Link href={structure.route}>
           <Image
@@ -113,7 +126,13 @@ const Building: React.FC<BuildingProps> = (props) => {
 
 export default Building;
 
-const RestoreStructureButton = ({ structureId }: { structureId: string }) => {
+const RestoreStructureButton = ({
+  structureId,
+  structureName,
+}: {
+  structureId: string;
+  structureName: string;
+}) => {
   const utils = api.useUtils();
 
   const { mutate: restorePoints, isPending } =
@@ -132,12 +151,17 @@ const RestoreStructureButton = ({ structureId }: { structureId: string }) => {
       proceed_label="Restore"
       onAccept={() => restorePoints({ structureId })}
       button={
-        <RefreshCw
-          className={cn(
-            "h-4 w-4 hover:cursor-pointer hover:text-orange-500",
-            isPending && "animate-spin",
-          )}
-        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 shrink-0"
+          aria-label={`Restore ${structureName} points`}
+        >
+          <RefreshCw
+            className={cn("size-4", isPending && "animate-spin")}
+            aria-hidden="true"
+          />
+        </Button>
       }
     >
       <p>Are you sure you want to restore this structure to full health?</p>
@@ -245,16 +269,30 @@ const UpgradeButton = ({
   const canLevel = structure.level < structure.maxLevel && structure.level !== 0;
 
   return (
-    <div>
+    <div className="inline-flex shrink-0 items-center">
       {(data?.villageData.structureMaintenanceDue ?? 0) > 0 && canLevel && (
-        <Link href="/townhall#Village%20Mission" className="text-xs text-destructive">
-          Pay maintenance to upgrade
-        </Link>
+        <TooltipProvider delayDuration={50}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/townhall#Village%20Mission"
+                aria-label={`Pay maintenance to upgrade ${structure.name}`}
+                className="inline-flex size-7 items-center justify-center rounded-md text-destructive hover:bg-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <LockKeyhole className="size-4" aria-hidden="true" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>
+              Pay maintenance in the Town Hall to upgrade.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
       {canAfford && canLevel && (
         <Confirm
           title="Upgrade Structure"
           proceed_label="Upgrade"
+          disabled={isPurchasing}
           onAccept={() =>
             purchase({
               structureId: structure.id,
@@ -263,12 +301,18 @@ const UpgradeButton = ({
             })
           }
           button={
-            <CircleArrowUp
-              className={cn(
-                "h-4 w-4 hover:cursor-pointer hover:text-orange-500",
-                isPurchasing && "animate-spin",
-              )}
-            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label={`Upgrade ${structure.name}`}
+              disabled={isPurchasing}
+            >
+              <CircleArrowUp
+                className={cn("size-4", isPurchasing && "animate-spin")}
+                aria-hidden="true"
+              />
+            </Button>
           }
         >
           <p>

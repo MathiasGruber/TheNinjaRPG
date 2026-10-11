@@ -83,6 +83,7 @@ export const ShrineHall = ({ user, navTabs }: ShrineHallProps) => {
         subtitle={`${user.village?.name} Shrines`}
         defaultBackHref="/village"
         topRightContent={navTabs}
+        topRightCorntentBreakpoint="sm"
         padding={false}
       >
         <Tabs

@@ -5,6 +5,7 @@ import {
   Bot,
   BrickWall,
   DoorOpen,
+  LockKeyhole,
   MapPinHouse,
   Pencil,
   ReceiptJapaneseYen,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -231,7 +233,22 @@ export default function VillageOverview() {
           </div>
         }
       >
-        <div className="grid grid-cols-3 items-center sm:grid-cols-4">
+        {isKage && villageData.structureMaintenanceDue > 0 && (
+          <Alert className="mb-4" role="status">
+            <LockKeyhole aria-hidden="true" />
+            <AlertTitle>Structure upgrades are paused</AlertTitle>
+            <AlertDescription className="gap-3">
+              <p>
+                Pay {villageData.structureMaintenanceDue.toLocaleString()} village
+                tokens in outstanding maintenance to unlock upgrades.
+              </p>
+              <Button asChild size="sm">
+                <Link href="/townhall#Village%20Mission">Manage maintenance</Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        <div className="grid grid-cols-2 items-start sm:grid-cols-4 min-[400px]:grid-cols-3">
           {shownStructures?.map((structure) => (
             <div
               key={structure.id}

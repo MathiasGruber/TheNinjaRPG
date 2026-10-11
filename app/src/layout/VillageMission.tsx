@@ -1,7 +1,9 @@
 "use client";
 
+import { Check, Coins, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/app/_trpc/client";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -51,11 +53,11 @@ export const VillageMission = ({
       subtitle="Village Mission"
       defaultBackHref="/village"
       topRightContent={navTabs}
+      topRightCorntentBreakpoint="sm"
     >
-      <p className="mb-3">
-        Work together with your village to complete every objective. The Kage selects a
-        random mission, can reroll it once, and claims tokens for the village when it is
-        complete.
+      <p className="mb-4 text-muted-foreground text-sm">
+        Complete objectives together to earn tokens for your village. Your Kage selects
+        the mission and claims the reward.
       </p>
       {isPending ? (
         <Loader explanation="Loading Village Mission" />
@@ -81,20 +83,26 @@ export const VillageMission = ({
         </div>
       ) : (
         <div className="space-y-4">
-          <div>
-            <h3 className="font-bold text-lg">{mission.name}</h3>
-            <div>{parseHtml(mission.description ?? "")}</div>
-            <p className="font-semibold">
-              Reward: {mission.rewardTokens.toLocaleString()} village tokens
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="min-w-0 font-bold text-lg">{mission.name}</h3>
+              <Badge variant="secondary">
+                {mission.completed ? "Ready to claim" : "In progress"}
+              </Badge>
+            </div>
+            <div className="text-sm">{parseHtml(mission.description ?? "")}</div>
+            <p className="inline-flex items-center gap-2 font-semibold text-sm">
+              <Coins className="size-4 shrink-0" aria-hidden="true" />
+              {mission.rewardTokens.toLocaleString()} village tokens
             </p>
           </div>
           {mission.objectives.map((objective) => (
             <div key={objective.id} className="space-y-1 rounded border p-3">
               <div className="flex flex-wrap justify-between gap-2">
-                <span className="font-semibold">
+                <span className="min-w-0 font-semibold">
                   {objectiveImageMap[objective.task].title}
                 </span>
-                <span>
+                <span className="shrink-0 whitespace-nowrap text-sm tabular-nums">
                   {objective.current.toLocaleString()} /{" "}
                   {objective.value.toLocaleString()}
                 </span>
@@ -107,15 +115,21 @@ export const VillageMission = ({
                 aria-label={objectiveImageMap[objective.task].title}
               />
               {objective.task === "combined_mission_effort" && (
-                <p className="text-muted-foreground text-sm">
-                  Completed missions:{" "}
-                  {Object.entries(VILLAGE_MISSION_RANK_POINTS)
-                    .map(
-                      ([rank, points]) =>
-                        `${rank}-rank ${points} point${points === 1 ? "" : "s"}`,
-                    )
-                    .join(" · ")}
-                </p>
+                <div className="pt-2">
+                  <p className="mb-1.5 text-muted-foreground text-xs">
+                    Points per completed mission
+                  </p>
+                  <dl className="grid grid-cols-4 gap-2 text-center text-xs">
+                    {Object.entries(VILLAGE_MISSION_RANK_POINTS).map(
+                      ([rank, points]) => (
+                        <div key={rank} className="rounded bg-muted/50 px-1 py-1.5">
+                          <dt className="text-muted-foreground">{rank}-rank</dt>
+                          <dd className="font-semibold tabular-nums">{points}</dd>
+                        </div>
+                      ),
+                    )}
+                  </dl>
+                </div>
               )}
               {objective.task === "siege_operation" && (
                 <p className="text-muted-foreground text-sm">
@@ -125,7 +139,7 @@ export const VillageMission = ({
             </div>
           ))}
           {data.isKage && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t pt-3">
               <Button
                 disabled={isBusy || !mission.completed}
                 onClick={() => claim.mutate({ villageId, missionId: mission.id })}
@@ -137,7 +151,12 @@ export const VillageMission = ({
                   title="Reroll Village Mission"
                   proceed_label="Reroll"
                   onAccept={() => select.mutate({ villageId, missionId: mission.id })}
-                  button={<Button variant="outline">Reroll once</Button>}
+                  button={
+                    <Button variant="outline" className="gap-2">
+                      <RotateCcw className="size-4" aria-hidden="true" />
+                      Reroll once
+                    </Button>
+                  }
                 >
                   <p>
                     This replaces the current mission with a different random mission
@@ -146,8 +165,9 @@ export const VillageMission = ({
                 </Confirm>
               )}
               {mission.rerolled && (
-                <p className="text-muted-foreground text-sm">
-                  Reroll used for this mission.
+                <p className="inline-flex min-h-9 items-center gap-1.5 text-muted-foreground text-sm">
+                  <Check className="size-4 shrink-0" aria-hidden="true" />
+                  Reroll used
                 </p>
               )}
             </div>
@@ -208,30 +228,62 @@ export const VillageStructureMaintenance = ({ villageId }: { villageId: string }
         <Button onClick={() => void refetch()}>Retry maintenance details</Button>
       ) : (
         village && (
-          <div className="space-y-2">
-            <p>
-              {count} structures × {VILLAGE_STRUCTURE_MONTHLY_COST.toLocaleString()} ={" "}
-              <strong>{monthlyCost.toLocaleString()} village tokens per month</strong>.
-            </p>
+          <div className="space-y-4">
+            <dl className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3">
+              <div className="rounded border p-3">
+                <dt className="text-muted-foreground text-xs">Monthly upkeep</dt>
+                <dd className="font-semibold tabular-nums">
+                  {monthlyCost.toLocaleString()}
+                </dd>
+                <p className="mt-1 text-muted-foreground text-xs">
+                  {count} structures × {VILLAGE_STRUCTURE_MONTHLY_COST.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded border p-3">
+                <dt className="text-muted-foreground text-xs">Village tokens</dt>
+                <dd className="font-semibold tabular-nums">
+                  {village.tokens.toLocaleString()}
+                </dd>
+              </div>
+              <div className="rounded border p-3">
+                <dt className="text-muted-foreground text-xs">Maintenance due</dt>
+                <dd className="font-semibold tabular-nums">
+                  {village.structureMaintenanceDue.toLocaleString()}
+                </dd>
+              </div>
+            </dl>
             <p className="text-muted-foreground text-sm">
               Billed at the start of each UTC calendar month and paid automatically when
               the village has enough tokens. Unpaid maintenance accumulates and must be
               paid before upgrading structures.
             </p>
-            <p>
-              Village tokens: {village.tokens.toLocaleString()} · Outstanding
-              maintenance: {village.structureMaintenanceDue.toLocaleString()}
-            </p>
-            {village.structureMaintenanceDue > 0 && (
-              <Button
-                disabled={
-                  pay.isPending || village.tokens < village.structureMaintenanceDue
-                }
-                onClick={() => pay.mutate({ villageId })}
-              >
-                {pay.isPending ? "Paying..." : "Pay maintenance"}
-              </Button>
-            )}
+            <div className="flex flex-wrap items-center gap-3">
+              {village.structureMaintenanceDue > 0 ? (
+                <>
+                  <Button
+                    disabled={
+                      pay.isPending || village.tokens < village.structureMaintenanceDue
+                    }
+                    onClick={() => pay.mutate({ villageId })}
+                  >
+                    {pay.isPending ? "Paying..." : "Pay maintenance"}
+                  </Button>
+                  {village.tokens < village.structureMaintenanceDue && (
+                    <p className="text-muted-foreground text-sm">
+                      {(
+                        village.structureMaintenanceDue - village.tokens
+                      ).toLocaleString()}{" "}
+                      more tokens needed.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="inline-flex items-center gap-1.5 text-muted-foreground text-sm">
+                  <Check className="size-4 shrink-0" aria-hidden="true" />
+                  Maintenance is up to date
+                </p>
+              )}
+            </div>
             {message && (
               <p role="status" className="text-sm">
                 {message}
