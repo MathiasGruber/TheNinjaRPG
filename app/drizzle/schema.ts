@@ -2605,10 +2605,13 @@ export const userData = mysqlTable(
     preferredGeneral2: mysqlEnum("preferredGeneral2", consts.GeneralTypes),
     showBattleDescription: boolean("showBattleDescription").default(true).notNull(),
     defaultAutoCombat: boolean("defaultAutoCombat").default(true).notNull(),
+    showPvpRecord: boolean("showPvpRecord").default(false).notNull(),
     // Statistics
     pvpFights: int("pvpFights").default(0).notNull(),
     pveFights: int("pveFights").default(0).notNull(),
     pvpStreak: smallint("pvpStreak", { unsigned: true }).default(0).notNull(),
+    pvpWins: int("pvpWins").default(0).notNull(),
+    pvpLosses: int("pvpLosses").default(0).notNull(),
     pvpExperience: float("pvpExperience").default(0).notNull(),
     pvpExperienceDecayAt: datetime("pvpExperienceDecayAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
     weeklyPvpKills: int("weeklyPvpKills", { unsigned: true }).default(0).notNull(),

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { baseServerResponse } from "@/validators/base";
 import { rewardFields } from "./rewards";
 
 // Possible rewards are the same as for objectives, so that we can re-use code
@@ -32,3 +33,9 @@ export const rankedLoadoutSchema = z.object({
   favoriteConsumableIds: z.array(z.string()).optional(),
 });
 export type RankedLoadoutSchema = z.infer<typeof rankedLoadoutSchema>;
+
+export const rankedQueueResponseSchema = baseServerResponse.extend({
+  battleId: z.string().optional(),
+  removedJutsuIds: z.array(z.string()).optional(),
+  removedItemIds: z.array(z.string()).optional(),
+});
