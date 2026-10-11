@@ -1576,7 +1576,7 @@ interface EffectFormWrapperProps {
 }
 
 /**
- * A wrapper component around EditContent for creating a form for a single tag
+ * Render one effect tag with schema-derived editor fields.
  * @returns React.ReactNode
  */
 export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
@@ -2138,7 +2138,9 @@ interface ObjectiveFormWrapperProps {
 }
 
 /**
- * A wrapper component around EditContent for creating a form for a single tag
+ * Render one objective with schema-derived editor fields.
+ * Enemy, ally and random-encounter NPC entries share the existing template/count
+ * selector; field labels retain their distinct combatant-count or chance semantics.
  * @returns React.ReactNode
  */
 export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props) => {
@@ -2157,7 +2159,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Queries
   const fields = Object.keys(shownTag);
-  const hasAIs = fields.includes("attackerAIs") || fields.includes("opponentAIs");
+  const hasAIs =
+    fields.includes("attackers") ||
+    fields.includes("opponentAIs") ||
+    fields.includes("allyAIs");
   const { data: aiData } = api.profile.getAllAiNames.useQuery(undefined, {
     enabled: hasAIs,
   });
@@ -2385,21 +2390,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);
-      if ((["attackers"] as string[]).includes(value) && aiData) {
-        return {
-          id: value,
-          values: aiData
-            .sort((a, b) => a.level - b.level)
-            .map((ai) => ({
-              id: ai.userId,
-              name: `lvl ${ai.level}: ${ai.username}`,
-            })),
-          doubleWidth: true,
-          multiple: true,
-          label: FORM_LABEL_MAP[value] ?? value,
-          type: "db_values_with_number",
-        };
-      } else if ((["opponentAIs"] as string[]).includes(value) && aiData) {
+      if (
+        (["attackers", "opponentAIs", "allyAIs"] as string[]).includes(value) &&
+        aiData
+      ) {
         return {
           id: value,
           values: aiData
@@ -2863,6 +2857,7 @@ export const FORM_LABEL_MAP: Record<string, string> = {
   reward_gathering_items: "Gathering Items Enabled",
   reward_gathering_items_ids: "Gathering Item IDs",
   opponentAIs: "Opponent AIs [and number]",
+  allyAIs: "Ally AI [and number]",
   nextObjectiveId: "Next Objective ID",
   failObjectiveId: "If fail, go to objective",
   resetObjectiveId: "Reset to specific objective",

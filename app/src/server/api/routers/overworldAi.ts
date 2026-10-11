@@ -434,6 +434,12 @@ export const overworldAiRouter = createTRPCRouter({
             userId: ctx.userId,
             scaleTarget,
             scaleGains,
+            allyAiIds:
+              "allyAIs" in full
+                ? full.allyAIs.flatMap((ally) =>
+                    Array(ally.number).fill(ally.ids).flat(),
+                  )
+                : [],
           });
           return battle.success
             ? { success: true, message: "Battle started", battleId: battle.battleId }
@@ -820,14 +826,18 @@ const fetchPlacement = async (client: DrizzleClient, placementId: string) =>
     },
   });
 
-/** Start an OVERWORLD PvE battle against a placement's AI. Shared by the plain HOSTILE
- *  fight and the quest-target (defeat_opponents) fight. */
+/**
+ * Start an OVERWORLD PvE battle against a placement's AI for a HOSTILE interaction
+ * or quest-target fight, carrying any allies from its bound quest objective.
+ * Ordinary placement fights omit allies; enemy identity comes from the placement.
+ */
 const startOverworldBattle = (opts: {
   client: DrizzleClient;
   placement: NonNullable<Awaited<ReturnType<typeof fetchPlacement>>>;
   userId: string;
   scaleTarget: boolean;
   scaleGains: number;
+  allyAiIds?: string[];
 }) =>
   initiateBattle(
     {
@@ -836,6 +846,7 @@ const startOverworldBattle = (opts: {
       sector: opts.placement.sector,
       userIds: [opts.userId],
       targetIds: [opts.placement.aiTemplateUserId],
+      allyAiIds: opts.allyAiIds,
       client: opts.client,
       scaleTarget: opts.scaleTarget,
       biome: "default",

@@ -44,6 +44,7 @@ import {
   warKill,
 } from "@/drizzle/schema";
 import { stillInBattle } from "@/libs/combat/actions";
+import { supportsNpcAllies } from "@/libs/combat/participants";
 import type { ActionEffect, CombatResult, CompleteBattle } from "@/libs/combat/types";
 import {
   canCacheCombatCompletion,
@@ -106,6 +107,7 @@ const isRaidBossDefeated = (battle: CompleteBattle) =>
 
 /**
  * Claim the battle version; return cleanup to run alongside independent reward writes.
+ * In NPC ally battles, battle-length analytics select an enemy rather than a friendly NPC.
  */
 export const updateBattle = async (
   client: DrizzleClient,
@@ -140,7 +142,12 @@ export const updateBattle = async (
 
   // Get user and other user
   const user = newBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
-  const other = newBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
+  const other = newBattle.usersState.find(
+    (u) =>
+      u.userId !== userId &&
+      !u.isSummon &&
+      (!supportsNpcAllies(newBattle.battleType) || u.direction !== user?.direction),
+  );
 
   // Non-summon humans in this raid battle. Used to purge raid-chat memberships
   // on any raid battle-over (boss kill OR team wipe) and to release/notify
@@ -334,7 +341,10 @@ export const updateBattle = async (
 };
 
 /**
- * Insert battle actions for usage analytics
+ * Insert battle actions and NPC template usage for analytics.
+ * NPC allies inherit their team's outcome; opposing NPCs reverse Won/Lost while
+ * preserving Fled. Deduplicate by content and outcome so a template on both teams
+ * retains both win/loss records.
  */
 export const saveUsage = async (
   client: DrizzleClient,
@@ -353,7 +363,7 @@ export const saveUsage = async (
     const oppositeOutcome =
       outcome === "Won" ? "Lost" : outcome === "Lost" ? "Won" : "Fled";
     const oppositeBattleWon =
-      oppositeOutcome === "Won" ? 1 : oppositeOutcome === "Lost" ? 2 : 0;
+      oppositeOutcome === "Won" ? 1 : oppositeOutcome === "Fled" ? 2 : 0;
     // Basic actions from this user
     const data: DataBattleAction[] = [];
     user.usedActions?.forEach((action) => {
@@ -382,12 +392,25 @@ export const saveUsage = async (
           type: "ai",
           contentId: ai.controllerId,
           battleType,
-          battleWon: ai.controllerId === userId ? battleWon : oppositeBattleWon,
+          battleWon: (
+            supportsNpcAllies(battleType)
+              ? ai.direction === user.direction
+              : ai.controllerId === userId
+          )
+            ? battleWon
+            : oppositeBattleWon,
         });
       });
-    // Reduce data to only have unique type-contentId pairs
+    // Keep one usage per content and outcome, including templates on both teams.
     const uniqueData = data.reduce((a, c) => {
-      if (!a.find((d) => d.type === c.type && d.contentId === c.contentId)) {
+      if (
+        !a.find(
+          (d) =>
+            d.type === c.type &&
+            d.contentId === c.contentId &&
+            d.battleWon === c.battleWon,
+        )
+      ) {
         return a.concat([c]);
       } else {
         return a;
@@ -1322,10 +1345,15 @@ export const updateUser = async (
       }
     }
 
-    // Add other tracker events
+    // NPC ally battles credit defeat objectives only for opposing non-summon participants.
     const trackerEvents = [
       ...curBattle.usersState
-        .filter((u) => u.userId !== userId)
+        .filter(
+          (u) =>
+            u.userId !== userId &&
+            (!supportsNpcAllies(curBattle.battleType) ||
+              (!u.isSummon && u.direction !== user.direction)),
+        )
         .flatMap((u) => [
           // Defeat opponent with outcome; gated per quest type in getNewTrackers (pvp → war-torn
           // sector, war → this opponent being an active-war foe).

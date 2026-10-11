@@ -7,6 +7,7 @@ import {
   performBattleAction,
   stillInBattle,
 } from "@/libs/combat/actions";
+import { supportsNpcAllies } from "@/libs/combat/participants";
 import { hasLiveSummon, isSummonActionCastable } from "@/libs/combat/summon";
 import type {
   ActionEffect,
@@ -41,6 +42,11 @@ type ActionWithTarget = {
 // Debug flag when testing AI
 const debug = false;
 
+/**
+ * Choose and perform an AI-driven turn using profiles preloaded into battle state.
+ * In battles supporting authored NPC allies, target allegiance follows battlefield
+ * side rather than the NPC template's village or controller identity.
+ */
 export const performAIaction = (
   battle: CompleteBattle,
   grid: Grid<TerrainHex>,
@@ -105,12 +111,14 @@ export const performAIaction = (
       nextBattle.usersState,
       user.userId,
       nextBattle.usersEffects,
+      supportsNpcAllies(nextBattle.battleType),
     ).map((u) => mapDistancesToTarget(grid, astar, u, origin));
     // Get user allies - use nextBattle to get latest state after earlier actions
     const allies = getAllies(
       nextBattle.usersState,
       user.userId,
       nextBattle.usersEffects,
+      supportsNpcAllies(nextBattle.battleType),
     ).map((u) => mapDistancesToTarget(grid, astar, u, origin));
     // Derived for convenience
     const userWithDistance = { ...user, path: undefined, distance: 0 };
@@ -553,12 +561,14 @@ const attemptBattleAction = (props: Parameters<typeof performBattleAction>[0]) =
  * @param usersState - An array of `BattleUserState` representing the state of all users in the battle.
  * @param userId - The ID of the user for whom to find enemies.
  * @param effects - Optional array of user effects for calculating effective health.
+ * @param useBattleTeams - Use opposite battlefield sides for NPC ally battles; otherwise infer enemies from village/controller.
  * @returns An array of `BattleUserState` representing the enemy users.
  */
 const getEnemies = (
   usersState: BattleUserState[],
   userId: string,
   effects?: UserEffect[],
+  useBattleTeams = false,
 ) => {
   const villageIds = [
     ...new Set(
@@ -568,9 +578,11 @@ const getEnemies = (
   const user = usersState.find((u) => u.userId === userId);
   return usersState
     .filter((u) =>
-      villageIds.length > 1
-        ? u.villageId !== user?.villageId
-        : u.controllerId !== user?.controllerId,
+      useBattleTeams
+        ? u.direction !== user?.direction
+        : villageIds.length > 1
+          ? u.villageId !== user?.villageId
+          : u.controllerId !== user?.controllerId,
     )
     .filter((u) => stillInBattle(u, effects));
 };
@@ -578,19 +590,21 @@ const getEnemies = (
 /**
  * Retrieves a list of allies for a given user in a battle.
  *
- * This function filters the users who are still in battle and belong to the same village or
- * have the same controller as the specified user. If there are multiple villages involved,
- * it filters by the user's village; otherwise, it filters by the user's controller.
+ * NPC ally battles use battlefield side, so template identity and village do not
+ * determine allegiance. Other callers use village when multiple villages are
+ * present, or controller identity otherwise. Only users still in battle are returned.
  *
  * @param usersState - An array of `BattleUserState` objects representing the state of all users in the battle.
  * @param userId - The ID of the user for whom to find allies.
  * @param effects - Optional array of user effects for calculating effective health.
+ * @param useBattleTeams - Match battlefield sides instead of village/controller identity.
  * @returns An array of `BattleUserState` objects representing the allies of the specified user.
  */
 const getAllies = (
   usersState: BattleUserState[],
   userId: string,
   effects?: UserEffect[],
+  useBattleTeams = false,
 ) => {
   const villageIds = [
     ...new Set(
@@ -600,9 +614,11 @@ const getAllies = (
   const user = usersState.find((u) => u.userId === userId);
   return usersState
     .filter((u) =>
-      villageIds.length > 1
-        ? u.villageId === user?.villageId
-        : u.controllerId === user?.controllerId,
+      useBattleTeams
+        ? u.direction === user?.direction
+        : villageIds.length > 1
+          ? u.villageId === user?.villageId
+          : u.controllerId === user?.controllerId,
     )
     .filter((u) => stillInBattle(u, effects));
 };

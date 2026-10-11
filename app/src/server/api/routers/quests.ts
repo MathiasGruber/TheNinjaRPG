@@ -3253,7 +3253,11 @@ export const commitQuestObjectiveRewards = async (info: {
   };
 };
 
-/** DB writes after claimUserSnapshot succeeds inside handleQuestConsequences. */
+/**
+ * Apply consequences after handleQuestConsequences claims the user's snapshot.
+ * Battle rejections join the existing notifications, leaving the claimed quest
+ * state intact and exposing unavailable allies or insufficient spawn capacity.
+ */
 const executeClaimedQuestConsequences = async ({
   client,
   user,
@@ -3344,13 +3348,14 @@ const executeClaimedQuestConsequences = async ({
     ...[
       opponent
         ? (async () => {
-            return initiateBattle(
+            const result = await initiateBattle(
               {
                 longitude: user.longitude,
                 latitude: user.latitude,
                 sector: user.sector,
                 userIds: [user.userId],
                 targetIds: opponent.ids,
+                allyAiIds: opponent.allyAiIds,
                 client: client,
                 scaleTarget: !!opponent.scaleStats,
                 biome: "default",
@@ -3365,6 +3370,7 @@ const executeClaimedQuestConsequences = async ({
               opponent.type === "random_encounter" ? "RANDOM_ENCOUNTER" : "QUEST",
               opponent.scaleGains ?? 1,
             );
+            if (!result.success) notifications.push(result.message);
           })()
         : Promise.resolve(),
     ],

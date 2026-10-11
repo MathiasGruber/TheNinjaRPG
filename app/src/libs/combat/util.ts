@@ -70,6 +70,7 @@ import type {
 } from "@/drizzle/schema";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { combatMasteryGains } from "@/libs/combat/mastery";
+import { supportsNpcAllies } from "@/libs/combat/participants";
 import { spliceOrphanedSummons } from "@/libs/combat/summon";
 import type { BattleEffect, GroundEffect, UserEffect } from "@/libs/combat/types";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
@@ -1587,6 +1588,8 @@ export const maskBattleDynamic = (
 
 /**
  * Figure out if user is still in battle, and if not whether the user won or lost
+ * NPC ally battles resolve teams by battlefield side, excluding summons; friendly
+ * templates must not prevent victory when the opposing team is defeated.
  */
 export const calcBattleResult = (
   battle: CompleteBattle,
@@ -1607,6 +1610,9 @@ export const calcBattleResult = (
     if (battleType === "CLAN_BATTLE") {
       targets = users.filter((u) => u.clanId !== user.clanId && !u.isSummon);
       friends = users.filter((u) => u.clanId === user.clanId && !u.isSummon);
+    } else if (supportsNpcAllies(battleType)) {
+      targets = users.filter((u) => u.direction !== user.direction && !u.isSummon);
+      friends = users.filter((u) => u.direction === user.direction && !u.isSummon);
     } else if (villageIds.length === 1) {
       targets = users.filter((u) => u.controllerId !== userId && !u.isSummon);
       friends = users.filter((u) => u.controllerId === userId && !u.isSummon);
@@ -3044,6 +3050,7 @@ export const calcHexDistance = (
 /**
  * Get the distance to the closest enemy from a user's position.
  * Returns null if no enemies found or user not found.
+ * NPC ally battles use opposite battlefield sides; other modes retain village/controller rules.
  */
 export const getDistanceToClosestEnemy = (
   battle: ReturnedBattle | undefined | null,
@@ -3054,7 +3061,7 @@ export const getDistanceToClosestEnemy = (
   const user = battle.usersState.find((u) => u.userId === userId);
   if (!user) return null;
 
-  // Get all enemy users (different village/controller)
+  // Authored NPC ally battles identify enemies by battlefield side.
   const effects = battle.usersEffects;
   const villageIds = [
     ...new Set(
@@ -3064,8 +3071,9 @@ export const getDistanceToClosestEnemy = (
     ),
   ];
   const enemies = battle.usersState.filter((u) => {
-    const isEnemy =
-      villageIds.length > 1
+    const isEnemy = supportsNpcAllies(battle.battleType)
+      ? u.direction !== user.direction
+      : villageIds.length > 1
         ? u.villageId !== user.villageId
         : u.controllerId !== user.controllerId;
     return isEnemy && stillInBattle(u, effects);
