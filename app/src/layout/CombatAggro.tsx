@@ -23,8 +23,8 @@ export const CombatAggro = ({
       <div>
         <h3 className="font-semibold text-sm">Aggro meter</h3>
         <p className="text-muted-foreground text-xs">
-          {COMBAT_ENMITY_PER_DAMAGE} enmity per HP damage dealt. AI rules can target
-          highest or lowest enmity.
+          Base: {COMBAT_ENMITY_PER_DAMAGE} enmity per HP damage dealt, modified by aggro
+          effects. AI rules can target highest or lowest enmity.
         </p>
       </div>
       {sides.map((side) => {
