@@ -105,7 +105,7 @@ describe("bloodline collection achievements", () => {
     ).toBe(false);
   });
 
-  it("counts distinct visible ownership, including H rank, and ignores hidden/deleted IDs", () => {
+  it("counts distinct visible ownership, exempts H from ALL, and ignores hidden/deleted IDs", () => {
     const progress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
       "a1",
@@ -116,8 +116,8 @@ describe("bloodline collection achievements", () => {
     ]);
     expect(progress.find((p) => p.rank === "ALL")).toEqual({
       rank: "ALL",
-      collected: 3,
-      total: 4,
+      collected: 2,
+      total: 3,
     });
     expect(progress.find((p) => p.rank === "A")).toEqual({
       rank: "A",
@@ -181,21 +181,42 @@ describe("bloodline collection achievements", () => {
     expect(goal(user).goal).toMatchObject({ value: 1, target: 1, done: true });
   });
 
-  it("requires H-rank ownership for ALL, while ignoring every hidden bloodline", () => {
+  it("completes ALL without H-rank ownership and never counts H toward ALL", () => {
     const user = makeUser();
     user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
       "a2",
       "s1",
     ]);
-    expect(goal(user).goal).toMatchObject({ value: 3, target: 4, done: false });
-    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
+    expect(goal(user).goal).toMatchObject({ value: 3, target: 3, done: true });
+    const withH = makeUser();
+    withH.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
       "a2",
       "s1",
       "h1",
     ]);
-    expect(goal(user).goal).toMatchObject({ value: 4, target: 4, done: true });
+    expect(goal(withH).goal).toMatchObject({ value: 3, target: 3, done: true });
+  });
+
+  it("keeps explicit H-rank collection goals and does not complete ALL from H alone", () => {
+    const user = makeUser("H");
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
+      "a1",
+      "a2",
+      "s1",
+    ]);
+    expect(goal(user).goal).toMatchObject({ value: 0, target: 1, done: false });
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
+      "h1",
+    ]);
+    expect(goal(user).goal).toMatchObject({ value: 1, target: 1, done: true });
+    const all = makeUser();
+    all.bloodlineCollectionProgress = buildBloodlineCollectionProgress(
+      [line("h1", "H")],
+      ["h1"],
+    );
+    expect(goal(all).goal).toMatchObject({ value: 0, target: 0, done: false });
   });
 
   it("never completes an empty catalogue or accepts an emitted counter as proof", () => {

@@ -20,7 +20,7 @@ export type BloodlineCollectionProgress = {
   total: number;
 }[];
 
-/** Count distinct owned bloodlines against the current non-hidden catalogue. */
+/** Count distinct visible bloodlines; H rank has its own collection and is exempt from ALL. */
 export const buildBloodlineCollectionProgress = (
   bloodlines: readonly Pick<Bloodline, "id" | "rank" | "hidden">[],
   ownedIds: readonly string[],
@@ -30,7 +30,7 @@ export const buildBloodlineCollectionProgress = (
   return (["ALL", ...LetterRanks] as const).map((rank) => {
     const eligible = new Set(
       visible
-        .filter((line) => rank === "ALL" || line.rank === rank)
+        .filter((line) => (rank === "ALL" ? line.rank !== "H" : line.rank === rank))
         .map((line) => line.id),
     );
     return {
