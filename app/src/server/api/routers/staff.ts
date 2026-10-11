@@ -33,6 +33,7 @@ import {
   jutsuLoadout,
   kageDefendedChallenges,
   linkPromotion,
+  moderationScan,
   mpvpBattleQueue,
   mpvpBattleUser,
   notification,
@@ -1051,6 +1052,10 @@ export const staffRouter = createTRPCRouter({
           .set({ receiverId: input.newUserId })
           .where(eq(bankTransfers.receiverId, input.userId)),
         ctx.drizzle
+          .update(moderationScan)
+          .set({ userId: input.newUserId })
+          .where(eq(moderationScan.userId, input.userId)),
+        ctx.drizzle
           .update(automatedModeration)
           .set({ userId: input.newUserId })
           .where(eq(automatedModeration.userId, input.userId)),
@@ -1382,6 +1387,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
     client.delete(userReport).where(eq(userReport.reportedUserId, userId)),
     client.delete(userReportComment).where(eq(userReportComment.userId, userId)),
     client.delete(automatedModeration).where(eq(automatedModeration.userId, userId)),
+    client.delete(moderationScan).where(eq(moderationScan.userId, userId)),
   ]);
 
   // Batch 7: Staff & applications

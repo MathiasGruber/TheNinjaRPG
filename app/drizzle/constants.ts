@@ -1320,6 +1320,8 @@ export const USER_CAPS: Record<
 // OpenAI models
 export const OPENAI_REVIEW_MODEL = "gpt-6-luna";
 export const OPENAI_MODERATION_MODEL = "gpt-4o-mini";
+export const MODERATION_PROMPT_VERSION = "evidence-v1";
+export const MODERATION_SCAN_RETENTION_DAYS = 90;
 export const OPENAI_REPORT_EMBEDDING_MODEL = "text-embedding-3-small";
 export const REPORT_EMBEDDING_DIMENSIONS = 1536;
 export const OPENAI_CHAT_MODEL = "gpt-4o-mini";

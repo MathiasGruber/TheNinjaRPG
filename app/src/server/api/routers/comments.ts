@@ -249,6 +249,8 @@ export const commentsRouter = createTRPCRouter({
           userId: ctx.userId,
           relationType: "forumPost",
           relationId: postId,
+          contextId: comment.threadId,
+          createdAt: comment.createdAt,
         }),
         ctx.drizzle
           .update(forumPost)
@@ -989,8 +991,10 @@ export const commentsRouter = createTRPCRouter({
         moderateContent(ctx.drizzle, {
           content: sanitized,
           userId: ctx.userId,
-          relationType: "comment",
+          relationType: convo.isPublic ? "comment" : "privateMessage",
           relationId: commentId,
+          contextId: comment.conversationId ?? undefined,
+          createdAt: comment.createdAt,
         }),
         ctx.drizzle
           .update(conversationComment)

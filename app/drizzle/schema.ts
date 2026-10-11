@@ -3359,6 +3359,9 @@ export const userReport = mysqlTable(
     status: mysqlEnum("status", consts.BanStates).default("UNVIEWED").notNull(),
     aiInterpretation: text("aiInterpretation").notNull(),
     predictedStatus: mysqlEnum("predictedStatus", consts.BanStates),
+    predictedAt: datetime("predictedAt", { mode: "date", fsp: 3 }),
+    predictionModel: varchar("predictionModel", { length: 191 }),
+    promptVersion: varchar("promptVersion", { length: 191 }),
     additionalContext: json("additionalContext")
       .$type<AdditionalContext[]>()
       .notNull()
@@ -3373,6 +3376,7 @@ export const userReport = mysqlTable(
         table.reportedUserId,
       ),
       statusIdx: index("UserReport_status_idx").on(table.status),
+      createdAtIdx: index("UserReport_createdAt_idx").on(table.createdAt),
     };
   },
 );
@@ -3427,6 +3431,34 @@ export const userReportCommentRelations = relations(userReportComment, ({ one })
     references: [userData.userId],
   }),
 }));
+
+// Metadata for every scan, including gate clears and failures. Raw content stays
+// in the existing report/audit snapshots; this ledger is retained for 90 days.
+export const moderationScan = mysqlTable(
+  "ModerationScan",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    relationId: varchar("relationId", { length: 191 }).notNull(),
+    relationType: mysqlEnum("relationType", consts.AutomoderationCategories).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+    completedAt: datetime("completedAt", { mode: "date", fsp: 3 }),
+    outcome: mysqlEnum("outcome", ["CHECKING", "GATE_CLEAR", "DECISION_CLEAR", "REPORTED", "ERROR"])
+      .default("CHECKING").notNull(),
+    flagged: boolean("flagged"),
+    categoryScores: json("categoryScores").$type<Record<string, number>>(),
+    reportId: varchar("reportId", { length: 191 }),
+    gateModel: varchar("gateModel", { length: 191 }).notNull(),
+    decisionModel: varchar("decisionModel", { length: 191 }).notNull(),
+    promptVersion: varchar("promptVersion", { length: 191 }).notNull(),
+    errorStage: mysqlEnum("errorStage", ["gate", "decision", "report"]),
+  },
+  (table) => ({
+    createdAtIdx: index("ModerationScan_createdAt_idx").on(table.createdAt),
+    userIdIdx: index("ModerationScan_userId_idx").on(table.userId),
+  }),
+);
 
 export const automatedModeration = mysqlTable(
   "AutomatedModeration",

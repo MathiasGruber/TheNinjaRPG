@@ -1,3 +1,4 @@
+import { unflaggedModeration } from "../../setup/moderation";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { Moderations } from "openai/resources/moderations";
@@ -246,7 +247,7 @@ describeWithDatabase("parental controls", () => {
     it(`preserves Post as AI in ${isPublic ? "public" : "support"} conversations`, async () => {
       const db = await getTestDatabase();
       if (isPublic) {
-        vi.spyOn(Moderations.prototype, "create").mockResolvedValue({ id: "test", model: "omni-moderation-latest", results: [] });
+        vi.spyOn(Moderations.prototype, "create").mockResolvedValue(unflaggedModeration());
       }
       await insertUsers([{ userId: "staff", username: "Staff", level: 50, role: "EVENT" }, { userId: "ai", username: "AI", level: 50, isAi: true }]);
       expect((await (await callerFor(parentalControlsRouter, "child")).save({ ...settings, privateMessages: "NONE" })).success).toBe(true);

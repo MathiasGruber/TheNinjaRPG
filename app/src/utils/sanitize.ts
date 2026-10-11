@@ -127,3 +127,25 @@ export const stripBlockquotes = (html: string) =>
     ...sanitizeOptions,
     exclusiveFilter: (frame) => frame.tag === "blockquote",
   });
+
+/** Preserve link destinations as untrusted evidence even when anchor labels hide them. */
+export const moderationLinks = (html: string): string[] => {
+  const links: string[] = [];
+  sanitizeHtml(html, {
+    transformTags: {
+      a: (tagName, attribs) => {
+        if (attribs.href) links.push(attribs.href);
+        return { tagName, attribs };
+      },
+    },
+  });
+  return [...new Set(links)];
+};
+
+export const htmlToModerationInput = (html: string) => {
+  const links = moderationLinks(html);
+  return [
+    htmlToModerationText(html),
+    ...links.map((link) => `Link destination: ${link}`),
+  ].join("\n");
+};

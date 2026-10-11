@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { and, eq, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
+import { MODERATION_SCAN_RETENTION_DAYS } from "@/drizzle/constants";
 import {
   anbuSquad,
   automatedModeration,
@@ -21,6 +22,7 @@ import {
   historicalAvatar,
   historicalIp,
   jutsu,
+  moderationScan,
   mpvpBattleQueue,
   mpvpBattleUser,
   questHistory,
@@ -454,6 +456,12 @@ export async function GET(request: Request) {
           WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 3 MONTH
           ORDER BY createdAt
           LIMIT ${rangeCleanupBatchSize}`,
+    );
+
+    await drizzleDB.execute(
+      sql`DELETE FROM ${moderationScan}
+          WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL ${MODERATION_SCAN_RETENTION_DAYS} DAY
+          ORDER BY createdAt LIMIT ${rangeCleanupBatchSize}`,
     );
 
     // Step 32: Federal status is derived state. Reconcile its exact maximum active tier

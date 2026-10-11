@@ -505,6 +505,13 @@
       "when": 1791733168405,
       "tag": "0071_mushy_argent",
       "breakpoints": false
+    },
+    {
+      "idx": 72,
+      "version": "5",
+      "when": 1791737624841,
+      "tag": "0072_wealthy_mandroid",
+      "breakpoints": false
     }
   ]
 }
