@@ -138,11 +138,15 @@ export function Profile() {
             accessibleTabs
             label="Profile sections"
             icons={{
-              Achievements: <Trophy className="h-5 w-5" aria-hidden="true" />,
-              History: <History className="h-5 w-5" aria-hidden="true" />,
-              "Edit Character": <Wrench className="h-5 w-5" aria-hidden="true" />,
-              Sharing: <Share2 className="h-5 w-5" aria-hidden="true" />,
-              "Delete Character": <Trash2 className="h-5 w-5" aria-hidden="true" />,
+              Achievements: <Trophy className="h-[20px] w-[20px]" aria-hidden="true" />,
+              History: <History className="h-[20px] w-[20px]" aria-hidden="true" />,
+              "Edit Character": (
+                <Wrench className="h-[20px] w-[20px]" aria-hidden="true" />
+              ),
+              Sharing: <Share2 className="h-[20px] w-[20px]" aria-hidden="true" />,
+              "Delete Character": (
+                <Trash2 className="h-[20px] w-[20px]" aria-hidden="true" />
+              ),
             }}
             iconOnlyOptions={iconProfileTabs}
             values={profileTabValues}
@@ -151,7 +155,7 @@ export function Profile() {
             itemClassName={(option) =>
               `mr-0 ${iconProfileTabs.includes(option as (typeof iconProfileTabs)[number]) ? "col-span-2" : tutorialActive ? "col-span-10" : "col-span-5"}`
             }
-            className="min-h-11 w-full px-3 @min-[520px]:w-auto"
+            className="min-h-[44px] min-w-[44px] w-full px-3 text-base @min-[520px]:w-auto"
           />
         </div>
         <TabsContent value="dashboard">
