@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, setSystemTime } from "bun:test";
 import type { SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
 import {
@@ -12,6 +12,8 @@ import { getStealthStatus } from "@/libs/stealth";
 import { stealthRouter } from "@/server/api/routers/stealth";
 import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
 
+beforeEach(() => setSystemTime(new Date("2026-10-07T12:00:00Z")));
+afterEach(() => setSystemTime());
 afterEach(resetServerModuleStubs);
 
 for (const type of CovertTrainingTypes) {
