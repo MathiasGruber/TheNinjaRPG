@@ -81,4 +81,19 @@ describe("PvP boost reward integration", () => {
     expect(result?.pvpExperience).toBe(100);
     expect(result?.weeklyPvpKills).toBe(0);
   });
+  it("matches integer combat payouts while preserving fractional prestige and stat XP", () => {
+    const hero = makeUser({ userId: "hero", villageId: "a", isAggressor: true, curHealth: 100, pvpBoostPercent: 15.25, pvpStreak: 0, rank: "JONIN", offence: 0, defence: 0, strength: 0, intelligence: 0, willpower: 0, speed: 0 });
+    const foe = makeUser({ userId: "foe", villageId: "b", curHealth: 0 });
+    const result = calcBattleResult(makeCompleteBattle({ rewardScaling: 1, usersState: [hero, foe] }), "hero");
+    expect(result?.villageTokens).toBe(346);
+    expect(result?.villagePrestige).toBe(172.875);
+    expect(Number.isInteger(result?.money)).toBe(true);
+    expect(result?.experience).toBeGreaterThan(0);
+    expect(Number.isInteger(result?.offence)).toBe(false);
+
+    const ranked = calcBattleResult(makeCompleteBattle({ battleType: "RANKED_PVP", rewardScaling: 1, usersState: [{ ...hero, leftBattle: false }, foe] }), "hero");
+    expect(ranked?.money).toBe(3458);
+    const clan = calcBattleResult(makeCompleteBattle({ battleType: "CLAN_BATTLE", rewardScaling: 1, usersState: [{ ...hero, leftBattle: false, clanId: "clan" }, foe] }), "hero");
+    expect(clan?.clanPoints).toBe(59);
+  });
 });

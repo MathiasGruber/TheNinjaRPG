@@ -20,6 +20,7 @@ import {
   TimedQueueKinds,
 } from "@/drizzle/constants";
 import {
+  type GameSetting,
   type Item,
   item,
   type Jutsu,
@@ -559,12 +560,14 @@ const settleCrafts = async (
   now: Date,
   preloaded?: QueuedCraft[],
 ) => {
-  const [waiting, crafting] = await Promise.all([
+  const [waiting, crafting, average] = await Promise.all([
     preloaded ?? fetchCraftingQueue(client, userId),
     client
       .select({ craftingFinishedAt: userItem.craftingFinishedAt })
       .from(userItem)
       .where(and(eq(userItem.userId, userId), isNotNull(userItem.craftingFinishedAt))),
+    // PlanetScale transaction sessions cannot execute concurrent reads.
+    fetchPvpExperienceAverage(client),
   ]);
   if (waiting.length === 0) return 0;
   return settleWaitingJobs({
@@ -574,7 +577,7 @@ const settleCrafts = async (
     waiting,
     now,
     lastFinish: latestDate(crafting.map((row) => row.craftingFinishedAt)),
-    start: (tx, entry, startsAt) => startQueuedCraft(tx, entry, startsAt),
+    start: (tx, entry, startsAt) => startQueuedCraft(tx, entry, startsAt, average),
   });
 };
 
@@ -891,6 +894,7 @@ const startQueuedCraft = async (
   client: Transaction,
   entry: QueuedCraft,
   startsAt: Date,
+  average: GameSetting,
 ): Promise<JobOutcome> => {
   if (!(await claimQueueRow(client, entry.id))) return "conflict";
   const craftable = !!entry.item && !entry.item.hidden && entry.item.canBeCrafted;
@@ -898,10 +902,7 @@ const startQueuedCraft = async (
     await returnMaterials(client, entry.userId, entry.materials, true);
     return "dropped";
   }
-  const [user, average] = await Promise.all([
-    fetchQuestUser(client, entry.userId),
-    fetchPvpExperienceAverage(client),
-  ]);
+  const user = await fetchQuestUser(client, entry.userId);
   const finishesAt = new Date(startsAt.getTime() + entry.durationSeconds * 1000);
   const outputs: (typeof userItem.$inferInsert)[] = [];
   const stackSize = Math.max(1, entry.item.stackSize);

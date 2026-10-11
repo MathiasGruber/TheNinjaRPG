@@ -2709,6 +2709,10 @@ export const calcBattleResult = (
       result.villagePrestige = boostPvpGain(result.villagePrestige, pvpPercent);
       result.villageTokens = boostPvpGain(result.villageTokens, pvpPercent);
       result.clanPoints = boostPvpGain(result.clanPoints, pvpPercent);
+      // Match MySQL's integer currency payouts while preserving fractional penalties.
+      for (const field of ["money", "villageTokens", "clanPoints"] as const) {
+        if (result[field] > 0) result[field] = Math.round(result[field]);
+      }
       const earnsPvpExperience =
         !user.isAi &&
         !user.isSummon &&
