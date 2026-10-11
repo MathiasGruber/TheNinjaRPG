@@ -3639,6 +3639,10 @@ export const village = mysqlTable(
     description: varchar("description", { length: 512 }).default("").notNull(),
     kageId: varchar("kageId", { length: 191 }).notNull(),
     tokens: int("tokens").default(0).notNull(),
+    structureMaintenanceDue: int("structureMaintenanceDue").default(0).notNull(),
+    structureMaintenanceMonth: varchar("structureMaintenanceMonth", { length: 7 }),
+    activeMission: json("activeMission").$type<import("@/validators/villageMission").VillageMission>(),
+    missionCounters: json("missionCounters").$type<Partial<Record<consts.VillageMissionTask, number>>>().default({}).notNull(),
     type: mysqlEnum("type", consts.SECTOR_TYPES).default("VILLAGE").notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)

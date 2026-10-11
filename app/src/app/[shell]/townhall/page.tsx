@@ -64,6 +64,7 @@ import NavTabs from "@/layout/NavTabs";
 import PublicUserComponent from "@/layout/PublicUser";
 import { ShrineHall } from "@/layout/ShrineHall";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import { VillageMission, VillageStructureMaintenance } from "@/layout/VillageMission";
 import { WarRoom } from "@/layout/WarSystem";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
@@ -83,7 +84,7 @@ export default function TownHall() {
   const { data: userData } = useRequiredUserData();
   const availableTabs = userData?.isOutlaw
     ? ["Alliance", "Wars", "Shrines"]
-    : ["Alliance", "Kage", "Elders", "Wars", "Shrines"];
+    : ["Alliance", "Kage", "Elders", "Wars", "Shrines", "Village Mission"];
   const [tab, setTab] = useLocalStorage<(typeof availableTabs)[number] | null>(
     "townhallTab",
     null,
@@ -112,6 +113,15 @@ export default function TownHall() {
     return <WarRoom user={userData} navTabs={NavBarBlock} />;
   } else if (tab === "Shrines") {
     return <ShrineHall user={userData} navTabs={NavBarBlock} />;
+  } else if (tab === "Village Mission") {
+    return (
+      <>
+        <VillageMission villageId={userData.villageId ?? ""} navTabs={NavBarBlock} />
+        {userData.userId === userData.village?.kageId && (
+          <VillageStructureMaintenance villageId={userData.villageId ?? ""} />
+        )}
+      </>
+    );
   }
 }
 

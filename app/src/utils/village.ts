@@ -7,6 +7,9 @@ import {
   FED_SILVER_BANK_INTEREST,
   SHRINE_BOOST_BASE_PERC,
   SHRINE_BOOST_PER_SHRINE_PERC,
+  VILLAGE_MAINTAINED_STRUCTURE_ROUTES,
+  VILLAGE_STRUCTURE_UPGRADE_BASE_COST,
+  VILLAGE_STRUCTURE_UPGRADE_PER_LEVEL_COST,
 } from "@/drizzle/constants";
 import type {
   UserData,
@@ -194,8 +197,15 @@ export const calcStructureUpgrade = (
   village: Village & { structures: VillageStructure[] },
 ) => {
   // Base cost (uses base level, not effective level - upgrades are based on permanent level)
-  const cost =
-    BUILDING_UPGRADE_BASE_COST + BUILDING_UPGRADE_PER_LEVEL_COST * structure.level;
+  const isVillageStructure =
+    village.type === "VILLAGE" &&
+    (VILLAGE_MAINTAINED_STRUCTURE_ROUTES as readonly string[]).includes(
+      structure.route,
+    );
+  const cost = isVillageStructure
+    ? VILLAGE_STRUCTURE_UPGRADE_BASE_COST +
+      VILLAGE_STRUCTURE_UPGRADE_PER_LEVEL_COST * structure.level
+    : BUILDING_UPGRADE_BASE_COST + BUILDING_UPGRADE_PER_LEVEL_COST * structure.level;
   // Village tax
   const population = village.populationCount;
   const hundredsOver200 = Math.max(Math.floor((population - 200) / 100), 0);

@@ -231,6 +231,19 @@ export const LegacyVillageNames = [
 
 export const BUILDING_UPGRADE_BASE_COST = 200_000;
 export const BUILDING_UPGRADE_PER_LEVEL_COST = 150_000;
+export const VILLAGE_STRUCTURE_UPGRADE_BASE_COST = 100_000;
+export const VILLAGE_STRUCTURE_UPGRADE_PER_LEVEL_COST = 50_000;
+export const VILLAGE_STRUCTURE_MONTHLY_COST = 100_000;
+export const VILLAGE_MAINTAINED_STRUCTURE_ROUTES = [
+  "/anbu", "/bank", "/battlearena", "/clanhall", "/home", "/hospital",
+  "/itemshop", "/missionhall", "/ramenshop", "/townhall", "/traininggrounds",
+] as const;
+export const VILLAGE_MISSION_TASKS = [
+  "pvp_kills", "siege_operation", "combined_mission_effort",
+  "d_missions_total", "c_missions_total", "b_missions_total", "a_missions_total",
+] as const;
+export type VillageMissionTask = (typeof VILLAGE_MISSION_TASKS)[number];
+export const VILLAGE_MISSION_RANK_POINTS = { D: 1, C: 3, B: 7, A: 14 } as const;
 
 export const HOSPITAL_BASE_HEAL_SECONDS = 600;
 export const HOSPITAL_RYO_PER_100_HP = 400;
@@ -878,6 +891,7 @@ export const QuestTypes = [
   "tier",
   "daily",
   "mission",
+  "village_mission",
   "errand",
   "crime",
   "exam",

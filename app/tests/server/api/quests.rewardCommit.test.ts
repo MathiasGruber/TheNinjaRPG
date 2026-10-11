@@ -2,7 +2,7 @@
 import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { bankTransfers, quest, questHistory, userData } from "@/drizzle/schema";
+import { bankTransfers, quest, questHistory, userData, village } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import {
@@ -112,7 +112,7 @@ const makeClient = (
   historyAfterLostCompletion?: { completed: number } | null,
 ) => {
   const sets: Record<string, unknown>[] = [];
-  const update = vi.fn(() => ({
+  const update = vi.fn((table?: unknown) => table === village ? ({ set: () => ({ where: vi.fn().mockResolvedValue({ rowsAffected: 0 }) }) }) : ({
     set: (value: Record<string, unknown>) => {
       const result = updateResults[sets.length];
       if (!result) {
@@ -147,7 +147,7 @@ const makeClient = (
  */
 const makeGatheringClient = () => {
   const sets: Record<string, unknown>[] = [];
-  const update = vi.fn(() => ({
+  const update = vi.fn((table?: unknown) => table === village ? ({ set: () => ({ where: vi.fn().mockResolvedValue({ rowsAffected: 0 }) }) }) : ({
     set: (value: Record<string, unknown>) => {
       sets.push(value);
       return { where: vi.fn().mockResolvedValue({ rowsAffected: 1 }) };

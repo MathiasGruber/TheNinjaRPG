@@ -116,6 +116,7 @@ import {
 import { getSageMasteryDisplayRank, sageRanksAtOrBelow } from "@/libs/sageMode";
 import { callDiscordContent } from "@/libs/socials";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
+import { villageMissionCompletionEvents } from "@/libs/villageMission";
 import { initiateBattle } from "@/routers/combat";
 import { fetchUserItems } from "@/routers/item";
 import type { UserWithRelations } from "@/routers/profile";
@@ -149,6 +150,7 @@ import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
+import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import { extendWarParticipantSql } from "@/server/utils/war";
 import { chunkArray, getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
@@ -347,6 +349,7 @@ export const questsRouter = createTRPCRouter({
         activeWars,
       });
       const filtered = missions.filter((e) => {
+        if (e.questType === "mission" && e.questRank === "S") return false;
         if (e.questType === "war" && !villageInWar) return false;
         return isAvailableUserQuests(e, user, true).check;
       });
@@ -2711,6 +2714,15 @@ export const upsertQuestEntry = async (
       "Overworld quests can only be accepted from their assigned NPC.",
     );
   }
+  if (
+    quest.questType === "village_mission" ||
+    (quest.questType === "mission" && quest.questRank === "S")
+  ) {
+    throw serverError(
+      "PRECONDITION_FAILED",
+      "Village Missions can only be selected by the Kage in the Town Hall",
+    );
+  }
   // Reuse the caller's pre-fetched history row when supplied; otherwise load it here.
   let entry =
     prevEntry !== undefined
@@ -3214,6 +3226,16 @@ export const commitQuestObjectiveRewards = async (info: {
     shouldReduceFarmTimers
       ? rewardPromise.then(reduceFarmTimers)
       : Promise.resolve(null),
+    resolved && userQuest
+      ? rewardPromise.then(() =>
+          recordVillageMissionProgress(
+            client,
+            user.villageId,
+            userId,
+            villageMissionCompletionEvents(userQuest.quest),
+          ),
+        )
+      : Promise.resolve(),
     // Credit the sensei their per-mission ryo bonus
     ...(senseiId
       ? [

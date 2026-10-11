@@ -51,14 +51,18 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { calculateDailyLockedTime } from "@/server/utils/kage";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { canChallengeKage } from "@/utils/kage";
 import { canTakeKage } from "@/utils/permissions";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
 import { calcStructureUpgrade } from "@/utils/village";
-
 import { idSchema } from "@/validators/misc";
 import { userDeltaResponseSchema } from "@/validators/userCache";
+import {
+  structureUpgradeSchema,
+  villageMaintenancePaymentSchema,
+} from "@/validators/villageMission";
 
 const pusher = getServerPusher();
 
@@ -543,13 +547,7 @@ export const kageRouter = createTRPCRouter({
     .meta({
       mcp: { description: "Upgrade village structure as kage" },
     })
-    .input(
-      z.object({
-        structureId: z.string(),
-        villageId: z.string(),
-        clanId: z.string().nullish(),
-      }),
-    )
+    .input(structureUpgradeSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
@@ -571,6 +569,11 @@ export const kageRouter = createTRPCRouter({
       if (isHideoutOrTown && !clanData) return errorResponse("Faction not found");
       if (userVillage.kageId !== user.userId) return errorResponse("Not the leader");
       if (structure.level === 0) return errorResponse("Can't upgrade from lvl 0 yet");
+      if (structure.level >= structure.maxLevel)
+        return errorResponse("Structure is already at its maximum level");
+      if (user.isBanned) return errorResponse("You are banned");
+      if (userVillage.type === "VILLAGE" && userVillage.structureMaintenanceDue > 0)
+        return errorResponse("Pay outstanding structure maintenance before upgrading");
       if (user.villageId !== structure.villageId) return errorResponse("Wrong village");
       if (!["VILLAGE", "TOWN"].includes(userVillage.type)) {
         return errorResponse("Only for villages");
@@ -583,34 +586,86 @@ export const kageRouter = createTRPCRouter({
       }
       // Guard on cost & mutate
       const { total } = calcStructureUpgrade(structure, userVillage);
-      if (isHideoutOrTown && clanData) {
-        if (clanData.points < total) return errorResponse("Not enough clan points");
-        const update = await ctx.drizzle
-          .update(clan)
-          .set({ points: sql`${clan.points} - ${total}` })
-          .where(and(eq(clan.id, clanData.id), gte(clan.points, total)));
-        if (update.rowsAffected === 0) return errorResponse("Point update failed");
-      } else {
-        if (userVillage.tokens < total) return errorResponse("Not enough tokens");
-        const update = await ctx.drizzle
-          .update(village)
-          .set({ tokens: sql`${village.tokens} - ${total}` })
-          .where(and(eq(village.id, input.villageId), gte(village.tokens, total)));
-        if (update.rowsAffected === 0) return errorResponse("Token update failed");
-      }
-      // If success, upgrade structure
-      const result = await ctx.drizzle
-        .update(villageStructure)
-        .set({ level: structure.level + 1 })
-        .where(
-          and(
-            eq(villageStructure.id, input.structureId),
-            eq(villageStructure.villageId, user.villageId),
-          ),
+      if (
+        isHideoutOrTown && clanData
+          ? clanData.points < total
+          : userVillage.tokens < total
+      ) {
+        return errorResponse(
+          isHideoutOrTown ? "Not enough clan points" : "Not enough tokens",
         );
-      if (result.rowsAffected === 0) return errorResponse("Upgrade failed");
+      }
+      // Funds and the structure level belong to different rows and must commit together.
+      const changed = new Error("Structure or funds changed; refresh and try again");
+      try {
+        await retryOnDeadlock(() =>
+          ctx.drizzle.transaction(async (tx) => {
+            const payment =
+              isHideoutOrTown && clanData
+                ? await tx
+                    .update(clan)
+                    .set({ points: sql`${clan.points} - ${total}` })
+                    .where(and(eq(clan.id, clanData.id), gte(clan.points, total)))
+                : await tx
+                    .update(village)
+                    .set({ tokens: sql`${village.tokens} - ${total}` })
+                    .where(
+                      and(
+                        eq(village.id, input.villageId),
+                        eq(village.kageId, ctx.userId),
+                        gte(village.tokens, total),
+                        eq(village.structureMaintenanceDue, 0),
+                      ),
+                    );
+            if (payment.rowsAffected === 0) throw changed;
+            const upgrade = await tx
+              .update(villageStructure)
+              .set({ level: structure.level + 1, lastUpgradedAt: new Date() })
+              .where(
+                and(
+                  eq(villageStructure.id, input.structureId),
+                  eq(villageStructure.villageId, input.villageId),
+                  eq(villageStructure.level, structure.level),
+                  gte(villageStructure.maxLevel, structure.level + 1),
+                  sql`EXISTS (SELECT 1 FROM ${village} WHERE ${village.id} = ${input.villageId} AND ${village.kageId} = ${ctx.userId})`,
+                  sql`EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${ctx.userId} AND ${userData.villageId} = ${input.villageId} AND ${userData.isBanned} = false)`,
+                ),
+              );
+            if (upgrade.rowsAffected === 0) throw changed;
+          }),
+        );
+      } catch (error) {
+        if (error === changed) return errorResponse(changed.message);
+        throw error;
+      }
 
       return { success: true, message: "Structure upgraded" };
+    }),
+  payStructureMaintenance: protectedProcedure
+    .input(villageMaintenancePaymentSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.drizzle
+        .update(village)
+        .set({
+          tokens: sql`${village.tokens} - ${village.structureMaintenanceDue}`,
+          structureMaintenanceDue: 0,
+        })
+        .where(
+          and(
+            eq(village.id, input.villageId),
+            eq(village.type, "VILLAGE"),
+            eq(village.kageId, ctx.userId),
+            sql`${village.structureMaintenanceDue} > 0`,
+            gte(village.tokens, village.structureMaintenanceDue),
+            sql`EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${ctx.userId} AND ${userData.villageId} = ${village.id} AND ${userData.isBanned} = false)`,
+          ),
+        );
+      return result.rowsAffected > 0
+        ? { success: true, message: "Structure maintenance paid" }
+        : errorResponse(
+            "Only the village Kage can pay an outstanding bill, and the village must have enough tokens",
+          );
     }),
   toggleOpenForChallenges: protectedProcedure
     .meta({

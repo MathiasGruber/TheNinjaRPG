@@ -68,11 +68,14 @@ import {
   questRewardModeFields,
   rewardFields,
 } from "@/validators/rewards";
+import { villageMissionContentError } from "@/validators/villageMission";
 
 // Re-export idsWithNumberField so consumers can import from objectives
 export { idsWithNumberField };
 
 export const SimpleTasks = [
+  "siege_operation",
+  "combined_mission_effort",
   "pvp_kills",
   "arena_kills",
   "minutes_passed",
@@ -254,6 +257,11 @@ export const objectiveImageMap: Record<
   AllObjectiveTask,
   { image: string; title: string }
 > = {
+  siege_operation: { image: IMG_BADGE_DAMAGE_DEALT, title: "Siege Operation" },
+  combined_mission_effort: {
+    image: IMG_BADGE_A_MISSION_TOTAL,
+    title: "Combined Mission Effort",
+  },
   pvp_kills: { image: IMG_BADGE_PVPKILLS, title: "PVP kills" },
   arena_kills: { image: IMG_BADGE_ARENAKILLS, title: "Arena kills" },
   minutes_passed: { image: IMG_BADGE_MINUTES_PASSED, title: "Minutes passed" },
@@ -762,6 +770,43 @@ const questSuperRefine = (
   val: z.infer<typeof QuestValidatorRawSchema>,
   ctx: z.RefinementCtx,
 ) => {
+  if (val.questType === "village_mission") {
+    const error = villageMissionContentError(val.content, val.consecutiveObjectives);
+    if (error) ctx.addIssue({ code: "custom", message: error, path: ["content"] });
+    if (
+      val.requiredBloodlineId ||
+      val.requiredSageModeId ||
+      val.requiredSageRank ||
+      val.prerequisiteQuestId
+    )
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Village Missions cannot require personal bloodline, sage mode or prerequisite quests",
+        path: ["questType"],
+      });
+  } else if (val.questType === "mission" && val.questRank === "S") {
+    ctx.addIssue({
+      code: "custom",
+      message: "S-rank missions belong to the Village Mission quest type",
+      path: ["questType"],
+    });
+  }
+  if (
+    val.questType !== "village_mission" &&
+    val.content.objectives.some(
+      (objective) =>
+        objective.task === "siege_operation" ||
+        objective.task === "combined_mission_effort",
+    )
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      message:
+        "Shared Siege Operation and Combined Mission Effort objectives require the Village Mission quest type",
+      path: ["content", "objectives"],
+    });
+  }
   const reward = val.content.reward;
   const hasPromotionStat =
     !!reward.reward_mastery_stat && reward.reward_mastery_stat !== "None";

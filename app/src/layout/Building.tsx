@@ -240,11 +240,17 @@ const UpgradeButton = ({
     ...village,
     structures: data?.villageData.structures || [],
   });
-  const canAfford = total <= currentFunds;
+  const canAfford =
+    total <= currentFunds && (data?.villageData.structureMaintenanceDue ?? 0) === 0;
   const canLevel = structure.level < structure.maxLevel && structure.level !== 0;
 
   return (
     <div>
+      {(data?.villageData.structureMaintenanceDue ?? 0) > 0 && canLevel && (
+        <Link href="/townhall#Village%20Mission" className="text-xs text-destructive">
+          Pay maintenance to upgrade
+        </Link>
+      )}
       {canAfford && canLevel && (
         <Confirm
           title="Upgrade Structure"

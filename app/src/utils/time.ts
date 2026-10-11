@@ -434,3 +434,9 @@ export const getUtcMonthKey = (now = new Date()) => now.toISOString().slice(0, 7
 /** Start of a UTC calendar window including today and the preceding days. */
 export const getUtcDayWindowStart = (days: number, now = new Date()) =>
   new Date(periodStart("daily", now).getTime() - (days - 1) * DAY_S * 1000);
+/** Number of calendar months between two UTC month keys. */
+export const getUtcMonthDistance = (from: string, to: string) => {
+  const [fromYear = 0, fromMonth = 0] = from.split("-").map(Number);
+  const [toYear = 0, toMonth = 0] = to.split("-").map(Number);
+  return Math.max(0, (toYear - fromYear) * 12 + toMonth - fromMonth);
+};

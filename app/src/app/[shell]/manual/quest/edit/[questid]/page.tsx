@@ -9,6 +9,10 @@ import CytoscapeComponent from "react-cytoscapejs";
 import type { UseFormReturn } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  VILLAGE_MISSION_RANK_POINTS,
+  VILLAGE_MISSION_TASKS,
+} from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import { useQuestEditForm } from "@/hooks/quest";
 import ContentBox from "@/layout/ContentBox";
@@ -186,7 +190,16 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
           idx={i}
           quest={currentValues}
           objective={objective}
-          availableTags={[...allObjectiveTasks].sort()}
+          availableTags={
+            currentValues.questType === "village_mission"
+              ? [...VILLAGE_MISSION_TASKS]
+              : [...allObjectiveTasks]
+                  .filter(
+                    (task) =>
+                      task !== "siege_operation" && task !== "combined_mission_effort",
+                  )
+                  .sort()
+          }
           objectives={objectives}
           setObjectives={setObjectives}
           submitLoading={isUpdating}
@@ -217,6 +230,18 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
         noRightAlign={true}
         topRightContent={currentValues && <QuestHelper quest={currentValues} />}
       >
+        {currentValues.questType === "village_mission" && (
+          <p className="mb-4 rounded border p-3 text-sm">
+            Village Missions use simultaneous shared objectives and pay only the
+            completed quest&apos;s Token reward to the village. Use PvP kills, Siege
+            Operation (enemy shrine HP damage), Combined Mission Effort (
+            {Object.entries(VILLAGE_MISSION_RANK_POINTS)
+              .map(([rank, points]) => `${rank}: ${points}`)
+              .join(", ")}{" "}
+            points), or D–A mission totals. Personal level, bloodline, sage mode and
+            prerequisite restrictions do not apply; leave those restrictions empty.
+          </p>
+        )}
         {!props.quest && <p>Could not find this item</p>}
         {props.quest && (
           <div className="mb-4 flex items-center justify-between">
