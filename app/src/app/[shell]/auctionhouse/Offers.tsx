@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
@@ -48,6 +48,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
 import { isEquippableUserItem, isImbuing } from "@/libs/item";
 import { showMutationToast } from "@/libs/toast";
+import { capitalizeFirstLetter } from "@/utils/string";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { createAuctionOfferSchema } from "@/validators/auction";
 
@@ -64,7 +65,6 @@ export function AuctionOffers({
 }) {
   const [search, setSearch] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
-  const { data: user } = useRequiredUserData();
   const query = api.auction.getAuctionOffers.useInfiniteQuery(
     { offerType, status, search, onlyMine, limit: 10 },
     { getNextPageParam: (page) => page.nextCursor, refetchInterval: 10000 },
@@ -72,71 +72,77 @@ export function AuctionOffers({
   const inventory = api.item.getUserItems.useQuery();
   const offers = query.data?.pages.flatMap((page) => page.data) ?? [];
   return (
-    <div className="space-y-4 p-4 md:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-xl text-muted-foreground text-sm">
-          {offerType === "REQUEST"
-            ? "Request materials for a fixed total price in ryo. Suppliers deliver the entire requested quantity from one inventory stack."
-            : "Offer items in exchange for a specific item and quantity. Inspect the offered item before accepting; requested equipment can be supplied at any level or durability."}{" "}
-          Payment stays reserved until the offer is accepted or you cancel it.
-        </p>
-        {(user?.level ?? 0) >= AUCTION_HOUSE_MIN_LEVEL && (
-          <NewOfferDialog offerType={offerType} />
-        )}
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <Input
-          aria-label="Search requested items"
-          placeholder="Search requested items…"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="max-w-sm"
-        />
+    <div>
+      <div className="flex flex-wrap items-end gap-3 border-b bg-muted/25 px-3 py-4 md:px-5">
+        <div className="min-w-0 flex-1 sm:max-w-sm">
+          <Label
+            htmlFor="offer-search"
+            className="text-muted-foreground text-xs uppercase"
+          >
+            Search requested items
+          </Label>
+          <div className="relative mt-1">
+            <Search
+              aria-hidden="true"
+              className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              id="offer-search"
+              placeholder="Search by item name…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="h-11 rounded-xl border-border/80 bg-background pl-10 shadow-sm"
+            />
+          </div>
+        </div>
         <Button
           variant={onlyMine ? "default" : "outline"}
           onClick={() => setOnlyMine(!onlyMine)}
           aria-pressed={onlyMine}
+          className="h-11 min-h-[44px] rounded-xl"
         >
-          My offers
+          {offerType === "REQUEST" ? "My requests" : "My trades"}
         </Button>
       </div>
-      {query.isLoading ? (
-        <Loader explanation="Loading offers" />
-      ) : query.isError ? (
-        <p role="alert">
-          Could not load offers.{" "}
-          <Button variant="outline" onClick={() => void query.refetch()}>
-            Retry
+      <div className="space-y-4 p-3 md:p-5">
+        {query.isLoading ? (
+          <Loader explanation="Loading offers" />
+        ) : query.isError ? (
+          <p role="alert">
+            Could not load offers.{" "}
+            <Button variant="outline" onClick={() => void query.refetch()}>
+              Retry
+            </Button>
+          </p>
+        ) : offers.length === 0 ? (
+          <p className="py-8 text-center text-muted-foreground">
+            No {status === "SOLD" ? "completed" : status.toLowerCase()}{" "}
+            {offerType === "REQUEST" ? "requests" : "trades"} found.
+          </p>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {offers.map((offer) => (
+              <OfferCard
+                key={offer.id}
+                offer={offer}
+                inventory={inventory.data ?? []}
+                inventoryLoading={inventory.isPending}
+                inventoryError={inventory.isError}
+                retryInventory={() => void inventory.refetch()}
+              />
+            ))}
+          </div>
+        )}
+        {query.hasNextPage && (
+          <Button
+            variant="outline"
+            disabled={query.isFetchingNextPage}
+            onClick={() => void query.fetchNextPage()}
+          >
+            Load more
           </Button>
-        </p>
-      ) : offers.length === 0 ? (
-        <p className="py-8 text-center text-muted-foreground">
-          No {status.toLowerCase()} {offerType === "REQUEST" ? "requests" : "trades"}{" "}
-          found.
-        </p>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {offers.map((offer) => (
-            <OfferCard
-              key={offer.id}
-              offer={offer}
-              inventory={inventory.data ?? []}
-              inventoryLoading={inventory.isPending}
-              inventoryError={inventory.isError}
-              retryInventory={() => void inventory.refetch()}
-            />
-          ))}
-        </div>
-      )}
-      {query.hasNextPage && (
-        <Button
-          variant="outline"
-          disabled={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
-        >
-          Load more
-        </Button>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -197,6 +203,13 @@ function OfferCard({
   const selected = available.find((row) => row.id === suppliedId);
   const isOwner = offer.ownerId === user?.userId;
   const offered = offer.offeredUserItem;
+  const offeredItem = offered && {
+    ...offered.item,
+    level: offered.level,
+    experience: offered.experience,
+    curDurability: offered.durability,
+    imbuements: offered.imbuements.map((entry) => entry.item),
+  };
   return (
     <Card>
       <CardHeader className="space-y-2">
@@ -205,7 +218,11 @@ function OfferCard({
             Wanted: {offer.requestedQuantity.toLocaleString()} ×{" "}
             {offer.requestedItem?.name ?? "Unavailable item"}
           </CardTitle>
-          <Badge variant="outline">{offer.status}</Badge>
+          <Badge variant="outline">
+            {offer.status === "SOLD"
+              ? "Completed"
+              : capitalizeFirstLetter(offer.status)}
+          </Badge>
         </div>
         <p className="text-muted-foreground text-sm">
           Posted by {offer.owner?.username ?? "Unknown player"}
@@ -229,16 +246,20 @@ function OfferCard({
             </p>
           </div>
         )}
-        {offered && (
+        {offeredItem && (
           <ItemWithEffects
-            item={{
-              ...offered.item,
-              level: offered.level,
-              experience: offered.experience,
-              curDurability: offered.durability,
-              imbuements: offered.imbuements.map((entry) => entry.item),
-            }}
+            item={offeredItem}
             hideDetails
+            hideData
+            hideEffects
+            imageExtra={
+              offeredItem.itemType !== "MATERIAL" && (
+                <p className="text-muted-foreground text-xs">
+                  Level {offeredItem.level} · Durability {offeredItem.curDurability} /{" "}
+                  {offeredItem.maxDurability}
+                </p>
+              )
+            }
           />
         )}
         {error && (
@@ -253,19 +274,25 @@ function OfferCard({
               disabled={cancel.isPending}
               onClick={() => cancel.mutate({ offerId: offer.id })}
             >
-              {cancel.isPending ? "Cancelling…" : "Cancel offer & reclaim payment"}
+              {cancel.isPending
+                ? "Cancelling…"
+                : offer.offerType === "REQUEST"
+                  ? "Cancel request"
+                  : "Cancel trade"}
             </Button>
           ) : (
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
               <DialogTrigger asChild>
                 <Button disabled={(user?.level ?? 0) < AUCTION_HOUSE_MIN_LEVEL}>
-                  Review & accept
+                  {offer.offerType === "REQUEST"
+                    ? "Review & fulfil"
+                    : "Review & accept"}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
-                    Accept {offer.offerType === "REQUEST" ? "request" : "trade"}
+                    {offer.offerType === "REQUEST" ? "Fulfil request" : "Accept trade"}
                   </DialogTitle>
                   <DialogDescription>
                     Deliver {offer.requestedQuantity.toLocaleString()} ×{" "}
@@ -276,6 +303,12 @@ function OfferCard({
                     .
                   </DialogDescription>
                 </DialogHeader>
+                {offeredItem && (
+                  <div>
+                    <p className="mb-2 font-semibold text-sm">Item you receive</p>
+                    <ItemWithEffects item={offeredItem} hideDates />
+                  </div>
+                )}
                 {inventoryLoading ? (
                   <Loader explanation="Loading inventory" />
                 ) : inventoryError ? (
@@ -327,7 +360,11 @@ function OfferCard({
                         accept.mutate({ offerId: offer.id, userItemId: suppliedId })
                       }
                     >
-                      {accept.isPending ? "Accepting…" : "Confirm exchange"}
+                      {accept.isPending
+                        ? "Accepting…"
+                        : offer.offerType === "REQUEST"
+                          ? "Deliver items & collect ryo"
+                          : "Confirm trade"}
                     </Button>
                   </>
                 )}
@@ -339,7 +376,13 @@ function OfferCard({
   );
 }
 
-function NewOfferDialog({ offerType }: { offerType: OfferType }) {
+export function NewOfferDialog({
+  offerType,
+  onCreated,
+}: {
+  offerType: OfferType;
+  onCreated: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState("");
   const catalog = api.auction.getAuctionOfferItems.useQuery(undefined, {
@@ -369,6 +412,7 @@ function NewOfferDialog({ offerType }: { offerType: OfferType }) {
         setIsOpen(false);
         setError("");
         form.reset();
+        onCreated();
         await Promise.all([
           utils.auction.getAuctionOffers.invalidate(),
           utils.item.getUserItems.invalidate(),
@@ -391,7 +435,7 @@ function NewOfferDialog({ offerType }: { offerType: OfferType }) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="min-h-[44px] rounded-full shadow-sm">
           <Plus className="mr-2 h-4 w-4" />
           {offerType === "REQUEST" ? "New request" : "New trade"}
         </Button>
@@ -406,7 +450,9 @@ function NewOfferDialog({ offerType }: { offerType: OfferType }) {
               ? "The total ryo payment is reserved from your bank."
               : "The offered quantity is reserved from your inventory."}{" "}
             Offers remain open until accepted or cancelled. Acceptance exchanges the
-            entire quantity.
+            entire quantity from one available inventory stack.
+            {offerType === "TRADE" &&
+              " Requested equipment can be supplied at any level or durability."}
           </DialogDescription>
         </DialogHeader>
         {catalog.isPending || inventory.isPending ? (
@@ -548,7 +594,11 @@ function NewOfferDialog({ offerType }: { offerType: OfferType }) {
                 </p>
               )}
               <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? "Posting…" : "Post offer"}
+                {create.isPending
+                  ? "Posting…"
+                  : offerType === "REQUEST"
+                    ? "Post request"
+                    : "Post trade"}
               </Button>
             </form>
           </Form>
