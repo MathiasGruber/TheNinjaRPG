@@ -41,7 +41,9 @@ describe("PvP experience tiers and weekly boosts", () => {
 describe("PvP boost reward integration", () => {
   it("preserves exact integer gains and floors integer-backed payouts", () => {
     expect(Math.floor(boostPvpGain(100, 15))).toBe(115);
-    expect(boostPvpRewards({ reward_money: 100, reward_prestige: 100, reward_ninjutsu_experience: 100 }, 2.25, true)).toEqual({ reward_money: 102, reward_prestige: 102.25, reward_ninjutsu_experience: 102.25 });
+    const rewards = { reward_money: 100, reward_prestige: 100, reward_ninjutsu_experience: 100 };
+    boostPvpRewards(rewards, 2.25, true);
+    expect(rewards).toEqual({ reward_money: 102, reward_prestige: 102.25, reward_ninjutsu_experience: 102.25 });
     const hero = makeUser({ rank: "JONIN", masteryRanks: { ninjutsuMastery: "MASTER" }, ninjutsuMastery: 100, usedMasteries: { ninjutsuMastery: 1 }, pvpBoostPercent: 15 });
     expect(combatMasteryGains({ battleType: "COMBAT", rewardScaling: 1 }, hero, [makeUser({ userId: "foe" })], "Won", 0).ninjutsuMastery).toBe(230);
   });

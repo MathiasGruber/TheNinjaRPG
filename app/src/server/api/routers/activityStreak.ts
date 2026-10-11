@@ -688,10 +688,8 @@ export const activityStreakRouter = createTRPCRouter({
 
       // Build response message
       const rewardPreview = getRewardPreview({
-        ...rewards,
         ...processedRewards,
         reward_items: rewards.reward_items,
-        reward_jutsus: rewards.reward_jutsus,
       });
       const rewardText = rewardPreview
         ? `Rewards: ${rewardPreview}`

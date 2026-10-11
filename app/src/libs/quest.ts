@@ -515,7 +515,7 @@ export const getReward = (
     const scaleRewards = (target: ObjectiveRewardType) => {
       // Apply only the listed gain categories, including frozen reward-choice offers.
       const pvpPercent = getPvpBoost(user, settings).totalPercent;
-      Object.assign(target, boostPvpRewards(target, pvpPercent));
+      boostPvpRewards(target, pvpPercent);
       target.reward_money = Math.floor(target.reward_money * factor);
       target.reward_clanpoints = Math.floor(target.reward_clanpoints * factor);
       target.reward_anbupoints = Math.floor(target.reward_anbupoints * factor);

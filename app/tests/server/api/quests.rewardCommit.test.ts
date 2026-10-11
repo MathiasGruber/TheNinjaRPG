@@ -126,17 +126,19 @@ const makeClient = (
   }));
   const deleteWhere = vi.fn().mockResolvedValue({ rowsAffected: 1 });
   const deleteFrom = vi.fn(() => ({ where: deleteWhere }));
+  const select = vi.fn();
   const client = {
     update,
     delete: deleteFrom,
     insert: vi.fn(),
+    select,
     query: {
       questHistory: {
         findFirst: vi.fn().mockResolvedValue(historyAfterLostCompletion),
       },
     },
   };
-  return { client: client as never, sets, update, deleteFrom, deleteWhere };
+  return { client: client as never, sets, update, deleteFrom, deleteWhere, select };
 };
 
 /**
@@ -178,6 +180,21 @@ const makeGatheringClient = () => {
 };
 
 describe("commitQuestObjectiveRewards compatibility", () => {
+  it("pays the weekly-only PvP boost without reading the population average", async () => {
+    const { user } = makeUser();
+    const { client, sets, select } = makeClient([{ rowsAffected: 1 }]);
+    const payout = PostProcessedRewardSchema.parse({ reward_money: 100 });
+    await updateRewards({
+      client,
+      user: { ...user, pvpExperience: 0, weeklyPvpKills: 4, weeklyPvpKillsAt: new Date() } as never,
+      rewards: payout,
+      reason: "QUEST",
+    });
+    expect(payout.reward_money).toBe(101);
+    expect(new MySqlDialect().sqlToQuery(sets[0]!.money as SQL).params).toEqual([101]);
+    expect(select).not.toHaveBeenCalled();
+  });
+
   it("does not regenerate a completed repeatable mission tracker from its closed history", async () => {
     const { user, missionHistory } = makeUser();
     const history = { ...missionHistory, quest: { ...missionHistory.quest, maxCompletes: 3 } };

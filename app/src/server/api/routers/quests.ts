@@ -1612,9 +1612,7 @@ export const updateRewards = async (info: {
     activeWars,
     sageModes,
   ] = await Promise.all([
-    hasRecruiterPrestige ||
-    (!pvpBoostApplied &&
-      ((user.pvpExperience ?? 0) > 0 || (user.weeklyPvpKills ?? 0) > 0))
+    hasRecruiterPrestige || (!pvpBoostApplied && (user.pvpExperience ?? 0) > 0)
       ? fetchPvpExperienceAverage(client)
       : undefined,
     hasRecruiterPrestige && user.recruiterId
@@ -1732,13 +1730,10 @@ export const updateRewards = async (info: {
 
   if (!pvpBoostApplied) {
     // Keep the caller's payout object aligned with the amounts displayed in its response.
-    Object.assign(
+    boostPvpRewards(
       rewards,
-      boostPvpRewards(
-        rewards,
-        getPvpBoost(user, pvpAverage ? [pvpAverage] : []).totalPercent,
-        true,
-      ),
+      getPvpBoost(user, pvpAverage ? [pvpAverage] : []).totalPercent,
+      true,
     );
   }
 

@@ -88,25 +88,20 @@ const pvpRewardFields = [
   "reward_sage_mastery_experience",
 ] as const;
 
-/** Boost newly generated rewards across quest, raid, season, streak and item payouts. */
-export const boostPvpRewards = <
-  T extends Partial<Pick<ObjectiveRewardType, (typeof pvpRewardFields)[number]>>,
->(
-  rewards: T,
+/** Boost newly generated rewards in place across quest, raid, season, streak and item payouts. */
+export const boostPvpRewards = (
+  rewards: Partial<Pick<ObjectiveRewardType, (typeof pvpRewardFields)[number]>>,
   percent: number,
   floorIntegers = false,
-): T => {
-  const boosted: Partial<Pick<ObjectiveRewardType, (typeof pvpRewardFields)[number]>> =
-    { ...rewards };
+) => {
   for (const field of pvpRewardFields) {
-    const gain = boosted[field];
+    const gain = rewards[field];
     if (typeof gain === "number") {
       const amount = boostPvpGain(gain, percent);
-      boosted[field] =
+      rewards[field] =
         floorIntegers && integerPvpRewardFields.has(field)
           ? Math.floor(amount)
           : amount;
     }
   }
-  return { ...rewards, ...boosted };
 };

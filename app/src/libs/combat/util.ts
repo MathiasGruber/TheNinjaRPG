@@ -2735,8 +2735,7 @@ export const calcBattleResult = (
         : 0;
       result.weeklyPvpKills =
         earnsPvpExperience && outcome === "Won"
-          ? targetUsers.filter((target) => target.curHealth <= 0 && !target.fledBattle)
-              .length
+          ? targetUsers.filter((target) => wasDefeated(target, effects)).length
           : 0;
 
       // Return results
