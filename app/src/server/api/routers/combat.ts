@@ -1931,7 +1931,7 @@ export const initiateBattle = async (
       .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, false))),
     // Fetch user data
     queryBattleUsers(),
-    PvpBattleTypes.includes(battleType)
+    PvpBattleTypes.includes(battleType) || battleType === "SHRINE_WAR"
       ? client
           .select({ count: sql`count(*)`.mapWith(Number) })
           .from(battleHistory)
@@ -2516,12 +2516,18 @@ export const initiateBattle = async (
   // Get previous battles between these two users within last 60min
   // Friendly NPCs do not increase the reward for defeating the authored enemies.
   let rewardScaling = (scaleGains * (users.length - allyAiIds.length)) / 2;
-  if (PvpBattleTypes.includes(battleType) && previousBattleResults) {
-    const previousBattles = previousBattleResults?.[0]?.count || 0;
-    if (previousBattles > 0) {
-      rewardScaling = rewardScaling / (previousBattles + 1);
-    }
+  const repeatOpponentScaling =
+    rewardScaling / ((previousBattleResults?.[0]?.count ?? 0) + 1);
+  if (PvpBattleTypes.includes(battleType)) {
+    rewardScaling = repeatOpponentScaling;
   }
+  // Human shrine XP has diminishing returns without reducing strategic shrine rewards.
+  const pvpExperienceScaling =
+    battleType === "SHRINE_WAR" &&
+    users.some((user) => !user.isAi && userIds.includes(user.userId)) &&
+    users.some((user) => !user.isAi && targetIds.includes(user.userId))
+      ? repeatOpponentScaling
+      : undefined;
 
   // Create the users array to be inserted into the battle
   const { userEffects, usersState, extraState, initialDurability } =
@@ -2841,6 +2847,7 @@ export const initiateBattle = async (
       extraState: {
         ...extraState,
         profileCacheSnapshots,
+        pvpExperienceScaling,
         energyRewardEligible: (previousBattleResults?.[0]?.count ?? 0) === 0,
         energyRegeneration,
         energyCapacity,

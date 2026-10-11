@@ -2731,7 +2731,10 @@ export const calcBattleResult = (
           !isInWarTornSectorForExp
         );
       result.pvpExperience = earnsPvpExperience
-        ? pvpExperienceReward(outcome, battle.rewardScaling)
+        ? pvpExperienceReward(
+            outcome,
+            battle.extraState.pvpExperienceScaling ?? battle.rewardScaling,
+          )
         : 0;
       result.weeklyPvpKills =
         earnsPvpExperience && outcome === "Won"

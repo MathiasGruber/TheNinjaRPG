@@ -398,6 +398,8 @@ export type ExtraState = {
   profileCacheSnapshots?: Record<string, CombatCacheSnapshot>;
   /** Repeated-opponent eligibility captured before inserting this battle. */
   energyRewardEligible?: boolean;
+  /** Human shrine PvP XP scales independently of strategic shrine rewards. */
+  pvpExperienceScaling?: number;
   energyCapacity?: Record<string, number>;
   energyRegeneration?: Record<string, number>;
   // Static data - never changes during battle (looked up by ID)
