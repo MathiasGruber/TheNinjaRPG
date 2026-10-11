@@ -1,4 +1,15 @@
-import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 import type { WarState, WarType } from "@/drizzle/constants";
@@ -208,6 +219,7 @@ export const handleWarEnd = async (
     const attacker = alias(village, "attacker");
     const defender = alias(village, "defender");
     const related = alias(war, "related");
+    const unlisted = alias(war, "unlisted");
     const rosterMatches = current.warAllies.length
       ? sql.join(
           current.warAllies.map(
@@ -237,6 +249,9 @@ export const handleWarEnd = async (
           sectorWars.map((other) => other.id),
         )}
           AND ${related.status} = 'ACTIVE' AND ${related.endedAt} IS NULL
+        LEFT JOIN ${war} AS unlisted ON ${unlisted.sector} = ${war.sector}
+          AND ${unlisted.type} = 'SECTOR_WAR' AND ${unlisted.status} = 'ACTIVE' AND ${unlisted.endedAt} IS NULL
+          AND ${notInArray(unlisted.id, settlement.warIds)}
       `
           : sql``
       }
@@ -267,7 +282,7 @@ export const handleWarEnd = async (
         AND ${war.attackerWarHealth} = ${current.attackerWarHealth} AND ${war.defenderWarHealth} = ${current.defenderWarHealth}
         AND ${attacker.tokens} = ${current.attackerVillage.tokens} AND ${defender.tokens} = ${current.defenderVillage.tokens}
         ${options.shrineBuilderId ? sql`AND ${attacker.kageId} = ${options.shrineBuilderId} AND ${attacker.tokens} >= ${WAR_PURCHASE_SHRINE_TOKEN_COST} AND ${war.defenderShrineHp} <= 0` : sql``}
-        ${isSector ? sql`AND ${sector.villageId} = ${current.defenderVillageId}` : sql``}
+        ${isSector ? sql`AND ${sector.villageId} = ${current.defenderVillageId} AND ${unlisted.id} IS NULL` : sql``}
         AND (SELECT COUNT(*) FROM WarAlly wa WHERE wa.warId = ${war.id} AND wa.acceptedAt IS NOT NULL AND wa.endedAt IS NULL) = ${current.warAllies.length}
         AND NOT EXISTS (SELECT 1 FROM WarAlly wa WHERE wa.warId = ${war.id} AND wa.acceptedAt IS NOT NULL AND wa.endedAt IS NULL AND NOT (${rosterMatches}))
     `),

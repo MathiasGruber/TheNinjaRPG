@@ -37,6 +37,7 @@ import {
   userLiveActivity,
   userRequest,
   village,
+  warAlly,
   warKill,
 } from "@/drizzle/schema";
 import { combatEnergyRecoverySql } from "@/libs/combat/database";
@@ -51,6 +52,7 @@ import { completeExpiredGlobalTravel } from "@/routers/travel";
 import { drizzleDB } from "@/server/db";
 import { processAccountDeletions } from "@/server/utils/accountDeletion/process";
 import { authenticateCronRequest } from "@/server/utils/cron";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { reconcileFederalStatuses } from "@/server/utils/purchases/grant";
 import { getBankInterestDateRange, secondsFromNow } from "@/utils/time";
 
@@ -413,10 +415,14 @@ export async function GET(request: Request) {
           LIMIT ${rangeCleanupBatchSize}`,
     );
 
-    // Step 28: Clear old challenges:
-    await drizzleDB
-      .delete(userRequest)
-      .where(lt(userRequest.createdAt, secondsFromNow(-3600 * 24)));
+    // Expiry releases pending ally reservations in the same write; accepted history stays.
+    await retryOnDeadlock(() =>
+      drizzleDB.execute(sql`
+        DELETE r, wa FROM ${userRequest} r
+        LEFT JOIN ${warAlly} wa ON wa.id = r.id AND wa.acceptedAt IS NULL
+        WHERE r.createdAt < ${secondsFromNow(-3600 * 24)}
+      `),
+    );
 
     // Step 29: Wrong village wrt. clan
     await drizzleDB.execute(

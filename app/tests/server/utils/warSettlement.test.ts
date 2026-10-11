@@ -5,6 +5,8 @@ import { MySqlDialect } from "drizzle-orm/mysql-core";
 import mysql from "mysql2/promise";
 import {
   WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS,
+  WAR_DECLARATION_COST,
+  WAR_MINIMUM_MEMBERS_REQUIRED,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
   WAR_SECTOR_LOSS_TOWNHALL_DAMAGE,
   WAR_VICTORY_BOOSTED_STRUCTURES,
@@ -481,6 +483,83 @@ describeWithDatabase("guarded war settlement and delivery", () => {
       )?.curSp,
     ).toBe(WAR_SECTOR_LOSS_TOWNHALL_DAMAGE);
   });
+
+  for (const waitForLock of [false, true])
+    it(`includes a sector declaration ${waitForLock ? "committed while capture waits on a row lock" : "committed after the sibling snapshot"}`, async () => {
+      const db = await seed("SECTOR_WAR");
+      await db.update(village).set({ tokens: WAR_DECLARATION_COST * 2 }).where(eq(village.id, "other"));
+      await insertUsers([
+        ...Array.from({ length: WAR_MINIMUM_MEMBERS_REQUIRED }, (_, index) => ({
+          userId: index === 0 ? "other-kage" : `other-member-${index}`,
+          username: `other-member-${index}`,
+          villageId: "other",
+        })),
+        ...Array.from({ length: WAR_MINIMUM_MEMBERS_REQUIRED - 1 }, (_, index) => ({
+          userId: `defender-member-${index}`,
+          username: `defender-member-${index}`,
+          villageId: "defender",
+        })),
+      ]);
+      stubProfile("fetchUpdatedUser", async () => ({
+        user: await db.query.userData.findFirst({
+          where: eq(userData.userId, "other-kage"),
+          with: { village: true },
+        }),
+        requiresUserRefresh: false,
+      }));
+      const connection = waitForLock
+        ? await mysql.createConnection(process.env.TEST_MYSQL_URL!)
+        : undefined;
+      if (connection) {
+        await connection.beginTransaction();
+        await connection.query("SELECT id FROM War WHERE id = ? FOR UPDATE", [warId]);
+      }
+      let declaredWarId: string | undefined;
+      const client = intercept(db, async (query, execute) => {
+        if (!declaredWarId && statement(query).trimStart().startsWith("UPDATE `War`")) {
+          const pending = connection ? execute() : undefined;
+          if (connection) await new Promise((resolve) => setTimeout(resolve, 50));
+          expect((await savedWar(db))?.status).toBe("ACTIVE");
+          const declared = await callerForDatabase(warRouter, "other-kage", db).declareSectorWar({
+            sectorId,
+            userVillageId: "other",
+          });
+          expect(declared.success).toBe(true);
+          declaredWarId = (await db.query.war.findMany()).find((row) => row.id !== warId)?.id;
+          expect(declaredWarId).toBeDefined();
+          await db.update(userData).set({ warParticipantUntil: new Date(Date.now() + 86_400_000) }).where(eq(userData.villageId, "other"));
+          await db.insert(questHistory).values({
+            id: "sibling-quest",
+            userId: "other-kage",
+            questId: "war-quest",
+            questType: "war",
+          });
+          await connection?.commit();
+          if (pending) return pending;
+        }
+        return execute();
+      });
+      try {
+        const initial = await snapshot(db);
+        const ended = await handleWarEnd(initial, client, { shrineBuilderId: "attacker-kage" });
+        expect(ended.status).toBe("ATTACKER_VICTORY");
+        expect((await db.query.sector.findFirst())?.villageId).toBe("attacker");
+        expect(await db.query.war.findFirst({ where: eq(war.id, declaredWarId!) })).toMatchObject({
+          status: "DEFENDER_VICTORY",
+          endedAt: ended.endedAt,
+        });
+        expect(ended.settlement?.warIds).toContain(declaredWarId!);
+        expect(ended.settlement?.villageIds).toContain("other");
+        expect((await db.query.userData.findFirst({ where: eq(userData.userId, "other-kage") }))?.warParticipantUntil.getTime()).toBe(0);
+        expect(await db.select().from(questHistory)).toHaveLength(0);
+        await handleWarEnd(initial, db, { shrineBuilderId: "attacker-kage" });
+        expect(await balance(db, "attacker")).toBe(tokens - WAR_PURCHASE_SHRINE_TOKEN_COST);
+        expect(await balance(db, "other")).toBe(WAR_DECLARATION_COST);
+      } finally {
+        await connection?.rollback();
+        await connection?.end();
+      }
+    });
 
   it("retains participation in an unrelated active war", async () => {
     const db = await seed();
