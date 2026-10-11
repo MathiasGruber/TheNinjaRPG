@@ -1599,8 +1599,27 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
     catalog: Record<string, T> | undefined,
     ids: Set<string | null | undefined>,
   ) => Object.fromEntries(Object.entries(catalog ?? {}).filter(([id]) => ids.has(id)));
+  // Passive realization stamps private stat metadata onto catalog tags. Copy
+  // those definitions before stripping it so combat retains its runtime data.
+  const maskCatalogEffects = <T extends { effects: ZodAllTags[] }>(
+    catalog: Record<string, T>,
+  ) =>
+    Object.fromEntries(
+      Object.entries(catalog).map(([id, definition]) => [
+        id,
+        {
+          ...definition,
+          effects: definition.effects.map((effect) => {
+            const masked = { ...effect } as BattleEffect;
+            delete masked.highestGenerals;
+            delete masked.targetHighestGenerals;
+            return masked;
+          }),
+        },
+      ]),
+    );
   const jutsus = select(state?.jutsus, jutsuIds);
-  const items = select(state?.items, itemIds);
+  const items = maskCatalogEffects(select(state?.items, itemIds));
   const effects = [
     ...Object.values(jutsus).flatMap((j) => j.effects),
     ...Object.values(items).flatMap((i) => i.effects),
@@ -1625,7 +1644,9 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
     ),
     bloodlines: Object.fromEntries(
       Object.entries(
-        select(state?.bloodlines, new Set(visibleUsers.map((u) => u.bloodlineId))),
+        maskCatalogEffects(
+          select(state?.bloodlines, new Set(visibleUsers.map((u) => u.bloodlineId))),
+        ),
       ).map(([id, line]) => {
         const { bloodrightTiers: _tiers, ...bloodline } = line as typeof line & {
           bloodrightTiers?: unknown;
@@ -1635,9 +1656,8 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
     ),
     enemySkills: {},
     anbuSquads: {},
-    keystoneItems: select(
-      state?.keystoneItems,
-      new Set(visibleUsers.map((u) => u.keystoneItemId)),
+    keystoneItems: maskCatalogEffects(
+      select(state?.keystoneItems, new Set(visibleUsers.map((u) => u.keystoneItemId))),
     ),
     wars: {},
     aiProfiles: {},
@@ -2741,6 +2761,9 @@ export const hasNoAvailableActions = (
   if (actor) {
     const done = actor.curHealth <= 0 || actor.fledBattle || actor.leftBattle;
     if (!done) {
+      // Public actors omit private loadouts. Their remaining actions are unknown,
+      // even if the timeline has already normalized missing jutsus to an empty list.
+      if (!actor.jutsus || !actor.items) return false;
       const actions =
         precomputedActions && precomputedActions.length > 0
           ? precomputedActions

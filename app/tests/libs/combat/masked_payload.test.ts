@@ -16,7 +16,7 @@ describe("masked battle payload", () => {
         questData: { me: [] }, bounties: { me: [] }, bountySignups: { me: [] },
         sectorExclusiveRaids: [{ id: "raid" } as Quest],
         textureAssets: ["texture"], sfxAssets: ["sound"], jutsus: {}, items: {},
-        bloodlines: { line: { id: "line", name: "Visible bloodline", bloodrightTiers: [{ id: "hidden-tier", hidden: true, description: "Secret catalog" }] } as unknown as Bloodline },
+        bloodlines: { line: { id: "line", name: "Visible bloodline", effects: [], bloodrightTiers: [{ id: "hidden-tier", hidden: true, description: "Secret catalog" }] } as unknown as Bloodline },
       },
     });
     const snapshot = structuredClone(battle);
@@ -26,7 +26,7 @@ describe("masked battle payload", () => {
     expect(masked.extraState.sectorExclusiveRaids).toEqual([]);
     expect(masked.extraState.textureAssets).not.toContain("texture");
     expect(masked.extraState.jutsus).toEqual(battle.extraState.jutsus);
-    expect(masked.extraState.bloodlines.line).toEqual<{ id: string; name: string }>({ id: "line", name: "Visible bloodline" });
+    expect(masked.extraState.bloodlines.line).toEqual<Pick<Bloodline, "id" | "name" | "effects">>({ id: "line", name: "Visible bloodline", effects: [] });
     expect(JSON.stringify(masked)).not.toContain("Secret catalog");
     expect(availableUserActions(masked, "me")).toEqual(availableUserActions(battle, "me"));
     expect(masked.usersState).toEqual(maskBattleDynamic(battle, "me").usersState);
