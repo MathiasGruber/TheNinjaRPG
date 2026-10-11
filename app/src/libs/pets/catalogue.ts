@@ -1,4 +1,6 @@
+import alea from "alea";
 import { type FederalStatus, PET_OPTION_COUNTS } from "@/drizzle/constants";
+import { getPetDayKey } from "@/utils/time";
 
 export type PetAppearanceOption = {
   index: number;
@@ -142,8 +144,6 @@ export const PET_AURAS = options([
   ["Spirit", "A few faint pearl-coloured spirit motes"],
 ] as const);
 
-export const getPetDayKey = (now = new Date()) => now.toISOString().slice(0, 10);
-
 /** Stable ordering keeps a subscriber's additional choices from replacing their free choices. */
 const dailyOptions = (
   catalogue: readonly PetAppearanceOption[],
@@ -151,7 +151,7 @@ const dailyOptions = (
   count: number,
 ) =>
   catalogue
-    .map((option) => ({ option, score: hash(`${seed}:${option.index}`) }))
+    .map((option) => ({ option, score: alea(`${seed}:${option.index}`)() }))
     .sort((a, b) => a.score - b.score || a.option.index - b.option.index)
     .slice(0, count)
     .map(({ option }) => option);
@@ -186,16 +186,3 @@ export const isAvailablePetAppearance = (
     ({ index }) => index === selection.characteristicIndex,
   ) &&
   choices.auras.some(({ index }) => index === selection.auraIndex);
-
-const hash = (value: string) => {
-  let result = 2166136261;
-  for (let index = 0; index < value.length; index++) {
-    result = Math.imul(result ^ value.charCodeAt(index), 16777619);
-  }
-  // Avalanche the nearby catalogue indices before sorting their scores.
-  result ^= result >>> 16;
-  result = Math.imul(result, 0x85ebca6b);
-  result ^= result >>> 13;
-  result = Math.imul(result, 0xc2b2ae35);
-  return (result ^ (result >>> 16)) >>> 0;
-};

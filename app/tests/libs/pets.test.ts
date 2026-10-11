@@ -3,9 +3,10 @@ import { Moderations } from "openai/resources/moderations";
 import { PET_OPTION_COUNTS, PET_RANKS } from "@/drizzle/constants";
 import { classifyNsfwImage } from "@/libs/moderator";
 import { getPetAppearancePrompt } from "@/libs/pets/appearance";
-import { getDailyPetOptions, getPetDayKey, isAvailablePetAppearance, PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES, PET_SPECIES } from "@/libs/pets/catalogue";
+import { getDailyPetOptions, isAvailablePetAppearance, PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES, PET_SPECIES } from "@/libs/pets/catalogue";
 import { canUsePet, getMaxPetRank, getPetLevel, petRankUpBlockMessage } from "@/libs/pets/progression";
 import { calcLevelRequirements } from "@/libs/profile";
+import { getPetDayKey } from "@/utils/time";
 import { acquirePetSchema, assignPetExperienceSchema, petNameSchema, updatePetAiSchema } from "@/validators/pets";
 
 afterEach(() => vi.restoreAllMocks());

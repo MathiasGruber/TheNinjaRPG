@@ -357,6 +357,8 @@ export const getDateKey = (date: Date): string => {
   return `${date.getUTCFullYear()}-${date.getUTCMonth() + 1}-${date.getUTCDate()}`;
 };
 
+export const getPetDayKey = (now = new Date()) => now.toISOString().slice(0, 10);
+
 /**
  * Format a duration in seconds to a human-readable string (e.g., "5m 30s", "2m", "45s")
  */

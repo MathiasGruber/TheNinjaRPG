@@ -7,6 +7,7 @@ import {
 } from "@/drizzle/constants";
 import type { UserPet } from "@/drizzle/schema";
 import { getDefaultBasicActions } from "@/libs/combat/actions";
+import { GenNames } from "@/libs/combat/constants";
 import { summonsAllowedInBattle } from "@/libs/combat/summon";
 import type { BattleUserState, ExtraState } from "@/libs/combat/types";
 import { rollInitiative } from "@/libs/combat/util";
@@ -214,8 +215,7 @@ const createPetBattleUser = (
       pet[stat],
       stat === "offence" || stat === "defence" ? caps.stats_cap : caps.gens_cap,
     );
-  actor.highestGenerals = (["strength", "intelligence", "willpower", "speed"] as const)
-    .slice()
+  actor.highestGenerals = GenNames.slice()
     .sort((a, b) => actor[b] - actor[a])
     .slice(0, 2);
   actor.basicActions = Object.values(getDefaultBasicActions(actor)).map((action) => ({

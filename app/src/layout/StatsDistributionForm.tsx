@@ -139,7 +139,11 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
 
   // Content to render
   const content = (
-    <>
+    <fieldset
+      disabled={disabled}
+      inert={disabled || undefined}
+      className={disabled ? "opacity-60" : undefined}
+    >
       {!showWrapper && navTabs && (
         <div className="mb-2 flex justify-end">{navTabs}</div>
       )}
@@ -172,7 +176,7 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
           pendingLabel={pendingLabel}
         />
       )}
-    </>
+    </fieldset>
   );
 
   // Show component with or without wrapper
@@ -185,26 +189,12 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
         defaultBackHref={defaultBackHref}
         topRightContent={navTabs}
       >
-        <fieldset
-          disabled={disabled}
-          inert={disabled || undefined}
-          className={disabled ? "opacity-60" : undefined}
-        >
-          {content}
-        </fieldset>
+        {content}
       </ContentBox>
     );
   }
 
-  return (
-    <fieldset
-      disabled={disabled}
-      inert={disabled || undefined}
-      className={disabled ? "opacity-60" : undefined}
-    >
-      {content}
-    </fieldset>
-  );
+  return content;
 };
 
 /**

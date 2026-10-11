@@ -19,11 +19,7 @@ import {
   userUpload,
 } from "@/drizzle/schema";
 import { generatePetAppearance } from "@/libs/pets/appearance";
-import {
-  getDailyPetOptions,
-  getPetDayKey,
-  isAvailablePetAppearance,
-} from "@/libs/pets/catalogue";
+import { getDailyPetOptions, isAvailablePetAppearance } from "@/libs/pets/catalogue";
 import {
   getMaxPetRank,
   getPetStatCaps,
@@ -41,6 +37,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { getPetDayKey } from "@/utils/time";
 import {
   acquirePetSchema,
   assignPetExperienceSchema,
@@ -124,11 +121,9 @@ export const petsRouter = createTRPCRouter({
               userId: user.userId,
               updatedAt: user.updatedAt,
               where: [
-                eq(userData.status, "AWAKE"),
-                eq(userData.isBanned, false),
+                ...ownerMutationWhere(user),
                 eq(userData.isAi, false),
                 eq(userData.sector, MAP_WAKE_ISLAND_SECTOR),
-                eq(userData.rank, user.rank),
                 eq(userData.federalStatus, user.federalStatus),
                 eq(userData.petAcquisitions, user.petAcquisitions),
                 gte(userData.reputationPoints, cost),
@@ -285,11 +280,7 @@ export const petsRouter = createTRPCRouter({
               client: tx,
               userId: user.userId,
               updatedAt: user.updatedAt,
-              where: [
-                ...ownerMutationWhere(user),
-                eq(userData.rank, user.rank),
-                gte(userData.petExperience, spent),
-              ],
+              where: [...ownerMutationWhere(user), gte(userData.petExperience, spent)],
               set: { petExperience: sql`${userData.petExperience} - ${spent}` },
             });
             if (!claim.success) return false;
