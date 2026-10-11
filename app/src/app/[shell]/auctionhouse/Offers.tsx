@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, ChevronsUpDown, Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { type ComponentProps, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { api, type RouterOutputs } from "@/app/_trpc/client";
@@ -496,7 +496,7 @@ export function NewOfferDialog({
                         options={requestedOptions}
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage aria-live="polite" />
                   </FormItem>
                 )}
               />
@@ -561,7 +561,7 @@ export function NewOfferDialog({
                             options={offeredOptions}
                           />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage aria-live="polite" />
                       </FormItem>
                     )}
                   />
@@ -613,13 +613,12 @@ export function NewOfferDialog({
 }
 
 function OfferItemPicker({
-  id,
   label,
   value,
   onChange,
   options,
-}: {
-  id?: string;
+  ...props
+}: Omit<ComponentProps<typeof Button>, "value" | "onChange"> & {
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -630,7 +629,7 @@ function OfferItemPicker({
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
-          id={id}
+          {...props}
           type="button"
           variant="outline"
           role="combobox"

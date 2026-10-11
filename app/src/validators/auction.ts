@@ -126,15 +126,15 @@ const offerQuantity = z.int().min(1).max(MAX_ITEM_STACK_SIZE);
 export const createAuctionOfferSchema = z.discriminatedUnion("offerType", [
   z.object({
     offerType: z.literal("REQUEST"),
-    requestedItemId: z.string().min(1),
+    requestedItemId: z.string().min(1, "Choose a wanted item."),
     requestedQuantity: offerQuantity,
     ryo: z.int().min(1).max(AUCTION_OFFER_MAX_RYO),
   }),
   z.object({
     offerType: z.literal("TRADE"),
-    requestedItemId: z.string().min(1),
+    requestedItemId: z.string().min(1, "Choose a wanted item."),
     requestedQuantity: offerQuantity,
-    offeredUserItemId: z.string().min(1),
+    offeredUserItemId: z.string().min(1, "Choose an offered item."),
     offeredQuantity: offerQuantity,
   }),
 ]);
