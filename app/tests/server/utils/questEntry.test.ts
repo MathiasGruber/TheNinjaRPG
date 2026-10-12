@@ -9,7 +9,7 @@ import { describeWithDatabase, getTestDatabase, resetTables } from "../../setup/
 describeWithDatabase("quest entry receipts", () => {
   beforeEach(async () => {
     await resetTables(quest, questHistory, userData, userItem, item);
-    await insertUsers([{ userId: "hero", status: "AWAKE" }]);
+    await insertUsers([{ userId: "hero", status: "AWAKE" }, { userId: "other" }]);
     await insertQuests([{ id: "pyramid", questType: "battlepyramid", content: { entryItems: [{ ids: ["ticket"], number: 3 }], isolated: true, objectives: [], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
     await insertQuestHistory([{ id: "run", userId: "hero", questId: "pyramid", questType: "battlepyramid", isolated: true }]);
     await insertItems([{ id: "ticket" }]);
@@ -31,7 +31,7 @@ describeWithDatabase("quest entry receipts", () => {
     const info = await snapshot();
     const results = await Promise.all([1, 2].map(() => commitQuestEntryBattle({ ...info, createBattle, didClaim })));
     expect(results.filter((r) => r.success)).toHaveLength(1);
-    expect((await info.client.query.userItem.findMany()).map((r) => r.quantity).sort()).toEqual([0, 2]);
+    expect((await info.client.query.userItem.findMany()).map((r) => [r.id, r.quantity])).toEqual([["b", 2]]);
     expect((await info.client.query.questHistory.findFirst())?.entryPaid).toBe(true);
   });
   it("rolls back items and receipt if battle creation rejects or throws", async () => {
@@ -50,7 +50,7 @@ describeWithDatabase("quest entry receipts", () => {
     await info.client.update(questHistory).set({ entryPaid: false }).where(eq(questHistory.id, "run"));
     expect((await commitQuestEntryBattle({ ...await snapshot(), createBattle, didClaim })).success).toBe(false);
   });
-  for (const state of ["abandoned", "edited", "hidden", "items changed"] as const) {
+  for (const state of ["abandoned", "edited", "hidden", "items changed", "items stored", "items auctioned", "items transferred"] as const) {
     it(`rejects ${state} snapshots before any committed charge`, async () => {
       const info = await snapshot();
       if (state === "abandoned") await info.client.update(questHistory).set({ endAt: new Date() }).where(eq(questHistory.id, "run"));
@@ -60,9 +60,13 @@ describeWithDatabase("quest entry receipts", () => {
       }
       if (state === "hidden") await info.client.update(quest).set({ hidden: true }).where(eq(quest.id, "pyramid"));
       if (state === "items changed") await info.client.update(userItem).set({ quantity: 1 }).where(eq(userItem.id, "a"));
+      if (state === "items stored") await info.client.update(userItem).set({ storedAtHome: true }).where(eq(userItem.id, "a"));
+      if (state === "items auctioned") await info.client.update(userItem).set({ isInAuction: true }).where(eq(userItem.id, "a"));
+      if (state === "items transferred") await info.client.update(userItem).set({ userId: "other" }).where(eq(userItem.id, "a"));
       expect((await commitQuestEntryBattle({ ...info, createBattle, didClaim })).success).toBe(false);
       expect((await info.client.query.questHistory.findFirst())?.entryPaid).toBe(false);
-      expect((await info.client.query.userData.findFirst())?.status).toBe("AWAKE");
+      expect((await info.client.query.userData.findFirst({ where: eq(userData.userId, "hero") }))?.status).toBe("AWAKE");
+      expect((await info.client.query.userItem.findFirst({ where: eq(userItem.id, "b") }))?.quantity).toBe(3);
     });
   }
 });

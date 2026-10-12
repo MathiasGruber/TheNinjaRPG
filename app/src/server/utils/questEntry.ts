@@ -1,4 +1,4 @@
-import { and, eq, exists, gte, isNull, sql } from "drizzle-orm";
+import { and, eq, exists, isNull, sql } from "drizzle-orm";
 import type { UserRole } from "@/drizzle/constants";
 import {
   quest,
@@ -9,6 +9,7 @@ import {
 } from "@/drizzle/schema";
 import { getQuestEntryRequirements } from "@/libs/questRun";
 import type { DrizzleClient } from "@/server/db";
+import { updateUserItemQuantityAtomically } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canPlayHiddenQuests } from "@/utils/permissions";
 
@@ -116,20 +117,18 @@ export const commitQuestEntryBattle = async <T>({
             );
           if (receipt.rowsAffected !== 1) throw rejected;
           for (const charge of charges) {
-            const debit = await tx
-              .update(userItem)
-              .set({ quantity: sql`${userItem.quantity} - ${charge.quantity}` })
-              .where(
-                and(
-                  eq(userItem.id, charge.id),
-                  eq(userItem.userId, attempt.userId),
-                  eq(userItem.storedAtHome, false),
-                  eq(userItem.isInAuction, false),
-                  eq(userItem.quantity, charge.expectedQuantity),
-                  gte(userItem.quantity, charge.quantity),
-                ),
-              );
-            if (debit.rowsAffected !== 1) {
+            const debited = await updateUserItemQuantityAtomically({
+              client: database,
+              userId: attempt.userId,
+              userItemId: charge.id,
+              expectedQuantity: charge.expectedQuantity,
+              nextQuantity: charge.expectedQuantity - charge.quantity,
+              where: [
+                eq(userItem.storedAtHome, false),
+                eq(userItem.isInAuction, false),
+              ],
+            });
+            if (!debited) {
               message = "Your entry items changed. Please try again.";
               throw rejected;
             }
