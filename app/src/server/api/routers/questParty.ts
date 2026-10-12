@@ -101,7 +101,7 @@ export const questPartyRouter = createTRPCRouter({
       } catch (error) {
         await ctx.drizzle
           .update(questParty)
-          .set({ battleId: null })
+          .set({ battleId: null, version: sql`${questParty.version} + 1` })
           .where(and(eq(questParty.id, party.id), eq(questParty.battleId, claimId)));
         throw error;
       }
@@ -356,7 +356,7 @@ export const questPartyRouter = createTRPCRouter({
         ]);
         await ctx.drizzle
           .update(questParty)
-          .set({ battleId: null })
+          .set({ battleId: null, version: sql`${questParty.version} + 1` })
           .where(
             and(eq(questParty.id, party.id), eq(questParty.battleId, joinClaimId)),
           );

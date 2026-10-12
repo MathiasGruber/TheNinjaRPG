@@ -143,6 +143,85 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.questData?.find((entry) => entry.id === "team-quest")?.goals[0]?.value).toBe(50);
   });
 
+  it("keeps successful joins usable after a delayed member acknowledgement", async () => {
+    const client = await getTestDatabase();
+    const { leader, party } = await claimReleaseFixture();
+    let concurrentSnapshot: LoadedQuestParty | undefined;
+    const paused = new Proxy(client, {
+      get(target, key, receiver) {
+        if (key === "update") return (table: unknown) => {
+          if (table !== questParty) return target.update(table as typeof userData);
+          const write = target.update(questParty);
+          return { set: (...values: Parameters<typeof write.set>) => {
+            const pending = write.set(...values);
+            return { where: async (...conditions: Parameters<typeof pending.where>) => {
+              if (values[0].battleId === null) concurrentSnapshot = await client.query.questParty.findFirst({ where: eq(questParty.id, party.id), with: questPartyRelations });
+              return pending.where(...conditions);
+            } };
+          } };
+        };
+        return Reflect.get(target, key, receiver);
+      },
+    }) as DrizzleClient;
+    expect((await callerForDatabase(questPartyRouter, "helper", paused).join({ partyId: party.id })).success).toBe(true);
+    expect((await client.query.questParty.findFirst())?.battleId).toBeNull();
+    expect(concurrentSnapshot?.battleId).toMatch(/^claiming:/);
+    if (!concurrentSnapshot) throw new Error("Missing concurrent join snapshot");
+    const synchronized = await synchronizeQuestParty(client, concurrentSnapshot);
+    expect(synchronized.battleId).toBeNull();
+    expect(synchronized.memberIds).toEqual(["leader", "helper"]);
+    expect((await client.query.questParty.findFirst())?.battleId).toBeNull();
+    expect((await leader.startEncounter({ partyId: party.id })).message).toBe("There is no active combat objective");
+    expect((await (await callerFor(questPartyRouter, "helper")).leave({ partyId: party.id })).success).toBe(true);
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.questPartyId).toBeNull();
+  });
+
+  it("allows immediate disband recovery after partial detachment and a delayed roster sync", async () => {
+    const client = await getTestDatabase();
+    const { leader, helper, party } = await claimReleaseFixture();
+    expect((await helper.join({ partyId: party.id })).success).toBe(true);
+    let concurrentSnapshot: LoadedQuestParty | undefined;
+    let helperDetached!: () => void;
+    const detached = new Promise<void>((resolve) => { helperDetached = resolve; });
+    const failing = new Proxy(client, {
+      get(target, key, receiver) {
+        if (key === "update") return (table: unknown) => {
+          if (table !== userData) return target.update(table as typeof questParty);
+          const write = target.update(userData);
+          return { set: (...values: Parameters<typeof write.set>) => {
+            const pending = write.set(...values);
+            return { where: async (...conditions: Parameters<typeof pending.where>) => {
+              const guarded = pending.where(...conditions);
+              if (values[0].questPartyId !== null) return guarded;
+              if (guarded.toSQL().params.includes("helper")) {
+                const result = await guarded;
+                helperDetached();
+                return result;
+              }
+              await detached;
+              concurrentSnapshot = await client.query.questParty.findFirst({ where: eq(questParty.id, party.id), with: questPartyRelations });
+              throw new Error("Injected leader detachment failure");
+            } };
+          } };
+        };
+        return Reflect.get(target, key, receiver);
+      },
+    }) as DrizzleClient;
+    await expect(callerForDatabase(questPartyRouter, "leader", failing).disband({ partyId: party.id })).rejects.toThrow("Injected leader detachment failure");
+    expect((await client.query.questParty.findFirst())?.battleId).toBeNull();
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.questPartyId).toBeNull();
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.questPartyId).toBe(party.id);
+    expect(concurrentSnapshot?.battleId).toMatch(/^claiming:/);
+    if (!concurrentSnapshot) throw new Error("Missing concurrent disband snapshot");
+    const synchronized = await synchronizeQuestParty(client, concurrentSnapshot);
+    expect(synchronized.memberIds).toEqual(["leader"]);
+    expect(synchronized.battleId).toBeNull();
+    expect(await client.query.battle.findFirst()).toBeUndefined();
+    expect((await leader.disband({ partyId: party.id })).success).toBe(true);
+    expect(await client.query.questParty.findFirst()).toBeUndefined();
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.questPartyId).toBeNull();
+  });
+
   it("recovers an abandoned departure claim after the personal save and roster reconciliation", async () => {
     const client = await getTestDatabase();
     const { leader, party } = await lastMemberFixture();
@@ -618,8 +697,7 @@ const continueCollectionChainSolo = async (collected?: UserItem[]) => {
   expect(saved.money).toBe(125);
 };
 
-/** Leave the leader's durable snapshot behind progress actually contributed by a departed helper. */
-const lastMemberFixture = async () => {
+const claimReleaseFixture = async () => {
   const client = await getTestDatabase();
   await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
     AllObjectives.parse({ id: "goal", task: "stats_trained", value: 100 }),
@@ -628,6 +706,13 @@ const lastMemberFixture = async () => {
   const helper = await callerFor(questPartyRouter, "helper");
   expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
   const party = (await client.query.questParty.findFirst())!;
+  return { leader, helper, party };
+};
+
+/** Leave the leader's durable snapshot behind progress actually contributed by a departed helper. */
+const lastMemberFixture = async () => {
+  const client = await getTestDatabase();
+  const { leader, helper, party } = await claimReleaseFixture();
   expect((await helper.join({ partyId: party.id })).success).toBe(true);
   const { user } = await fetchUpdatedUser({ client, userId: "helper" });
   if (!user) throw new Error("Missing helper fixture");

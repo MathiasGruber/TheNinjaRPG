@@ -76,10 +76,11 @@ export const dungeonRouter = createTRPCRouter({
         ),
       )
       .orderBy(
-        // Keep the player's party and unclaimed completion rewards within the limit.
+        // Keep the player's party, unclaimed rewards and invitations ahead of paid history.
         desc(
           sql`EXISTS (SELECT 1 FROM ${dungeonMember} WHERE ${dungeonMember.runId} = ${dungeonRun.id} AND ${dungeonMember.activeUserId} = ${ctx.userId})`,
         ),
+        desc(eq(dungeonRun.status, "LOBBY")),
         desc(dungeonRun.createdAt),
       )
       .limit(20);

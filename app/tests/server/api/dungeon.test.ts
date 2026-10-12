@@ -70,6 +70,27 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     expect((await db.query.dungeonMember.findFirst({where: eq(dungeonMember.activeUserId, "b")}))).toBeUndefined();
     expect((await db.query.userData.findFirst({where: eq(userData.userId, "b")}))?.money).toBe(100);
   });
+  it("keeps a fresh invitation to an older lobby visible beyond twenty claimed completions", async () => {
+    const db = await getTestDatabase();
+    const {a, id} = await lobby();
+    const b = await callerFor(dungeonRouter, "b");
+    await db.update(dungeonRun).set({createdAt: new Date(Date.now() - 86400000)}).where(eq(dungeonRun.id, id));
+    for (let i = 0; i < 20; i++) {
+      const historicalId = `completed-${i}`;
+      await db.insert(dungeonRun).values({id: historicalId, dungeonId: "definition", leaderId: "b", content: dungeonContent(), status: "COMPLETED", createdAt: new Date(), state: {...dungeonBattleState().runState, memberIds: ["b", "c", "outsider"], floor: 5, clearedFloors: [0,1,2,3,4]}});
+      await db.insert(dungeonMember).values({runId: historicalId, userId: "b", activeUserId: "b"});
+      expect((await b.claim({id: historicalId})).success).toBe(true);
+    }
+    expect(await db.query.dungeonMember.findFirst({where: eq(dungeonMember.activeUserId, "b")})).toBeUndefined();
+    expect((await a.act({id, action: "invite", userId: "b"})).success).toBe(true);
+    const state = await b.getState();
+    expect(state.runs).toHaveLength(20);
+    expect(state.runs).toContainEqual(expect.objectContaining({id, status: "LOBBY", state: expect.objectContaining({invitedIds: ["b"]})}));
+    expect(state.runs.filter((run) => run.status === "COMPLETED")).toHaveLength(19);
+    expect((await b.act({id, action: "accept"})).success).toBe(true);
+    expect((await b.getState()).members).toContainEqual(expect.objectContaining({runId: id, activeUserId: "b"}));
+    expect((await db.query.userData.findFirst({where: eq(userData.userId, "b")}))?.money).toBe(2000);
+  });
   it("reserves exactly one active party under simultaneous lobby creation", async () => {
     const db = await getTestDatabase();
     const a = callerForDatabase(dungeonRouter, "a", withoutTransactions(db));
