@@ -30,7 +30,6 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import {
-  homeFurnitureMutationResponseSchema,
   homeFurniturePurchaseInputSchema,
   homeFurnitureSaveInputSchema,
   homeSleepResponseSchema,
@@ -153,7 +152,7 @@ export const homeRouter = createTRPCRouter({
   purchaseFurniture: protectedProcedure
     .meta({ mcp: { description: "Buy a cosmetic home decoration" } })
     .input(homeFurniturePurchaseInputSchema)
-    .output(homeFurnitureMutationResponseSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
       const block = homeFurnitureAccessError(user);
@@ -190,14 +189,13 @@ export const homeRouter = createTRPCRouter({
       return {
         success: true,
         message: `Purchased ${furniture.name}`,
-        revision: input.revision + 1,
       };
     }),
 
   saveFurnitureLayout: protectedProcedure
     .meta({ mcp: { description: "Save furniture placement in your current home" } })
     .input(homeFurnitureSaveInputSchema)
-    .output(homeFurnitureMutationResponseSchema)
+    .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
       const block = homeFurnitureAccessError(user);
@@ -234,7 +232,6 @@ export const homeRouter = createTRPCRouter({
       return {
         success: true,
         message: "Your furniture layout has been saved",
-        revision: input.revision + 1,
       };
     }),
 

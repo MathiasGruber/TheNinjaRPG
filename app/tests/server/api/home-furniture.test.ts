@@ -28,8 +28,9 @@ describeWithDatabase("home furniture economy and persistence", () => {
 
   it("charges once and retains a decoration in storage until the player places it", async () => {
     const api = await callerFor(homeRouter, userId);
-    expect(await api.purchaseFurniture({ furnitureId: "rug", revision: 0 })).toMatchObject({ success: true, revision: 1 });
+    expect((await api.purchaseFurniture({ furnitureId: "rug", revision: 0 })).success).toBe(true);
     const user = await readOwner();
+    expect(user.homeFurnitureRevision).toBe(1);
     expect(user.money).toBe(initialMoney - HomeFurnitureDetails.rug.price);
     expect(user.homeFurniture).toEqual({ owned: ["rug"], layouts: {} });
     expect((await api.purchaseFurniture({ furnitureId: "rug", revision: 1 })).success).toBe(false);

@@ -52,10 +52,6 @@ export const homeFurnitureSaveInputSchema = z.strictObject({
   revision: z.int().nonnegative(),
   placements: homeLayoutSchema,
 });
-export const homeFurnitureMutationResponseSchema = baseServerResponse.extend({
-  revision: z.int().nonnegative().optional(),
-});
-
 export const homeUpgradeInputSchema = z.object({ homeType: z.enum(HomeTypes) });
 export const homeStorageInputSchema = z.object({ userItemId: z.string() });
 export const homeSleepResponseSchema = baseServerResponse.extend({

@@ -225,7 +225,7 @@ for (const lastRefresh of ["home", "profile"] as const) {
       };
       home.furnitureRevision++;
       user.money -= HomeFurnitureDetails[input.furnitureId].price;
-      return { success: true, message: "Purchased", revision: home.furnitureRevision };
+      return { success: true, message: "Purchased" };
     });
     const save = vi.fn((draft: RouterInputs["home"]["saveFurnitureLayout"]) => {
       const success = draft.revision === home.furnitureRevision;
