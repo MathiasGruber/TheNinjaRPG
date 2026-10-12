@@ -108,7 +108,7 @@ export const synchronizeQuestParty = async (
   throw new Error("Quest team changed repeatedly; please try again");
 };
 
-/** Publish in-memory progress before a personal completion claim removes its tracker. */
+/** Publish the guarded member snapshot; retained contributions allow a later sync to retry. */
 export const publishQuestPartyProgress = async (
   client: DrizzleClient,
   user: NonNullable<UserWithRelations>,

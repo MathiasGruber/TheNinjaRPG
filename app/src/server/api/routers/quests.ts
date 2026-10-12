@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import {
   and,
   asc,
@@ -3093,8 +3094,11 @@ export const commitQuestObjectiveRewards = async (info: {
     !(resolved && info.existingHistory === null);
 
   user.questData = filterQuestTrackersForDbPersist(trackers, user);
-  // Once a quest resolves, remove its tracker so replayed assignments cannot inherit done goals.
-  if (resolved && userQuest) {
+  // Attached members retain terminal contributions and personal collected flags so a later
+  // team sync can recover a failed publication. New assignments already clear old trackers.
+  const shouldRetainPartyTracker =
+    !!userQuest && user.questParty?.questId === userQuest.questId;
+  if (resolved && userQuest && !shouldRetainPartyTracker) {
     user.questData = removeQuestTrackerByQuestId(user.questData, userQuest.questId);
   }
 
@@ -3300,7 +3304,8 @@ export const commitQuestObjectiveRewards = async (info: {
     // here is the fully-hydrated row (with quest relations).
     questUser: user,
     postClaimUserDataPatch: mergedUserDataPatch,
-    dropTrackerForQuestId: resolved ? userQuest?.questId : undefined,
+    dropTrackerForQuestId:
+      resolved && !shouldRetainPartyTracker ? userQuest?.questId : undefined,
   });
 
   // Update database. Chain the farm bonus after payout so a failed reward write cannot still
@@ -3695,11 +3700,21 @@ export const handleQuestConsequences = async (
         resetQuests.some((reset) => reset.ids.includes(user.questParty?.questId ?? ""))
       )
         await resetQuestPartyProgress(client, user);
-      await publishQuestPartyProgress(
-        client,
-        user,
-        options?.partyTrackers ?? user.questData ?? [],
-      );
+      try {
+        await publishQuestPartyProgress(
+          client,
+          user,
+          options?.partyTrackers ?? user.questData ?? [],
+        );
+      } catch (error) {
+        // The guarded member snapshot retains progress for the next sync. Publication
+        // failure must not interrupt this claim's consequences or reward payout.
+        Sentry.captureException(error, {
+          level: "warning",
+          tags: { source: "publishQuestPartyProgress" },
+        });
+        notifications.push("Quest team progress will update on your next request.");
+      }
       await executeClaimedQuestConsequences({
         client,
         user,

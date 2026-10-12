@@ -425,6 +425,7 @@ export const overworldAiRouter = createTRPCRouter({
               user: activeUser,
               userId: ctx.userId,
               partyId: activeUser.questParty.id,
+              objectiveId: bound.objective.id,
               atPlacementIds: new Set([placement.id]),
             });
           if (

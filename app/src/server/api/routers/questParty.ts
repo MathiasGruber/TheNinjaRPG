@@ -575,6 +575,7 @@ export const startQuestPartyEncounter = async ({
   user,
   userId,
   partyId,
+  objectiveId,
   atPlacementIds,
   ambush,
 }: {
@@ -582,6 +583,8 @@ export const startQuestPartyEncounter = async ({
   user: UserWithRelations;
   userId: string;
   partyId: string;
+  /** Objective selected by an authoritative server interaction, never client input. */
+  objectiveId?: string;
   atPlacementIds?: ReadonlySet<string>;
   ambush?: QuestConsequence;
 }) => {
@@ -593,24 +596,26 @@ export const startQuestPartyEncounter = async ({
   if (party.battleId)
     return errorResponse("The team's encounter is already starting or in progress");
   const objectiveIds = new Set(party.quest.content.objectives.map((entry) => entry.id));
-  const activeObjective = ambush
-    ? undefined
-    : getActiveObjectives(user).find(
+  const activeObjectives = ambush
+    ? []
+    : getActiveObjectives(user).filter(
         (entry) =>
           objectiveIds.has(entry.id) &&
+          (!objectiveId || entry.id === objectiveId) &&
           (entry.task === "start_battle" || entry.task === "defeat_opponents"),
       );
+  const activeObjective = activeObjectives.find(
+    (entry) =>
+      entry.task === "start_battle" ||
+      isObjectiveLocationSatisfied(user, entry, atPlacementIds),
+  );
   const objective =
     activeObjective && "opponentAIs" in activeObjective ? activeObjective : undefined;
   if (!ambush && !objective)
-    return errorResponse("There is no active combat objective");
-  if (
-    objective &&
-    objective.task !== "start_battle" &&
-    !isObjectiveLocationSatisfied(user, objective, atPlacementIds)
-  )
     return errorResponse(
-      "Travel to the objective location before starting the encounter",
+      activeObjectives.length > 0
+        ? "Travel to the objective location before starting the encounter"
+        : "There is no active combat objective",
     );
   if (
     party.members.length !== party.memberIds.length ||
