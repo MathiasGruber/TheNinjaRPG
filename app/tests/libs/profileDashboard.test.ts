@@ -14,6 +14,7 @@ import {
   condenseDashboardMissionContent,
   dashboardContentActionLabel,
   dashboardContentHref,
+  buildDashboardCatalogue,
   dashboardTrainingAction,
   dashboardLevelProgress,
   dashboardRaidAction,
@@ -45,8 +46,9 @@ const createContent = (
   questType,
   location: "Mission Hall",
   destination: "/missionhall",
+  travelSector: 40,
   availability: "travel",
-  availabilityReason: "Travel to Mission Hall to begin",
+  availabilityReason: null,
   endsAt: null,
   ...overrides,
 });
@@ -111,7 +113,6 @@ describe("condenseDashboardMissionContent", () => {
     (availability) => {
       const war = createContent("war", {
         availability,
-        availabilityReason: availability === "travel" ? "Travel to the village" : null,
       });
       const result = condenseDashboardMissionContent(
         [createContent("mission"), createContent("crime"), war],
@@ -209,14 +210,19 @@ describe("dashboard content links", () => {
     expect(dashboardContentActionLabel(entry)).toBe("Open content");
   });
 
-  it("sends travel-required events and story through Wake Island", () => {
+  it("sends travel-required story to the auto-travel confirmation for Wake Island", () => {
     const entry = createContent("story", {
       category: "story",
       availability: "travel",
       destination: "/globalanbuhq",
+      travelSector: MAP_WAKE_ISLAND_SECTOR,
     });
-    expect(dashboardContentHref(entry)).toBe("/travel");
-    expect(dashboardContentActionLabel(entry)).toBe("Open travel");
+    expect(dashboardContentHref(entry)).toBe(`/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`);
+    expect(dashboardContentActionLabel(entry)).toBe("Travel");
+  });
+
+  it("falls back to the travel map when the destination sector is unknown", () => {
+    expect(dashboardContentHref(createContent("mission", { travelSector: undefined }))).toBe("/travel");
   });
 
   it("opens the battle pyramid tab only when it can be started here", () => {
@@ -237,7 +243,7 @@ describe("dashboard content links", () => {
           destination: "/battlearena",
         }),
       ),
-    ).toBe("/travel");
+    ).toBe("/travel?sector=40");
   });
 });
 
@@ -245,7 +251,7 @@ describe("raidContinueHref", () => {
   it("keeps a raid with no sector on Global ANBU HQ", () => {
     expect(raidContinueHref(null, 12)).toBe("/globalanbuhq");
     expect(raidContinueHref(12, 12)).toBe("/globalanbuhq");
-    expect(raidContinueHref(40, 12)).toBe("/travel");
+    expect(raidContinueHref(40, 12)).toBe("/travel?sector=40");
   });
 });
 
@@ -661,9 +667,23 @@ it("keeps idle crafting viewable while explaining its state and location gates",
 });
 
 it("lets blocked players view raids without promising participation or sending them to travel", () => {
-  expect(dashboardRaidAction(40, { sector: 12, status: "AWAKE", isBanned: false })).toEqual({ href: "/travel", action: "Open travel", reason: "Travel to sector 40 to participate" });
+  expect(dashboardRaidAction(40, { sector: 12, status: "AWAKE", isBanned: false })).toEqual({ href: "/travel?sector=40", action: "Travel", reason: null });
   expect(dashboardRaidAction(null, { sector: 12, status: "AWAKE", isBanned: false })).toEqual({ href: "/globalanbuhq", action: "Continue raid", reason: null });
   expect(dashboardRaidAction(40, { sector: 12, status: "BATTLE", isBanned: false })).toMatchObject({ href: "/globalanbuhq", action: "View raid", reason: "Must be awake to join a raid" });
   expect(dashboardRaidAction(40, { sector: 12, status: "AWAKE", isBanned: true })).toMatchObject({ href: "/globalanbuhq", action: "View raid", reason: "You are banned" });
   expect(dashboardContentActionLabel({ availability: "blocked" })).toBe("View content");
+});
+
+
+it("keeps remote raid cards actionable with their destination sector", () => {
+  type User = Parameters<typeof buildDashboardCatalogue>[1];
+  const user = {
+    sector: 12, status: "AWAKE", isBanned: false,
+    activeRaids: [{ id: "remote-raid", name: "Remote raid", description: null, image: null, sector: 0, raidEndsAt: null }],
+  } as User;
+  const [entry] = buildDashboardCatalogue([], user);
+  expect(entry).toMatchObject({ availability: "travel", travelSector: 0 });
+  expect(dashboardContentHref(entry!)).toBe("/travel?sector=0");
+  expect(entry?.availabilityReason).toBeNull();
+  expect(buildDashboardCatalogue([], { ...user, status: "ASLEEP" })[0]).toMatchObject({ availability: "blocked", destination: "/globalanbuhq" });
 });

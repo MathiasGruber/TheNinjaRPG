@@ -1,4 +1,4 @@
-import { getUserCaps } from "@/drizzle/constants";
+import { getUserCaps, MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import { craftingStartBlockMessage } from "@/libs/crafting";
 import {
@@ -91,9 +91,11 @@ export type DashboardContentSummary = {
   questType: string;
   location: string;
   destination: string;
+  /** Target for the existing Auto Travel confirmation, when the destination is known. */
+  travelSector?: number;
   availability: DashboardAvailability;
+  /** Only blocking reasons replace the action with a restriction badge. */
   availabilityReason: string | null;
-  actionDisabled?: boolean;
   endsAt: string | null;
 };
 
@@ -255,34 +257,47 @@ export const condenseDashboardMissionContent = (
   return [...otherContent, ...groupedMissions];
 };
 
-/** Open the content itself when the player is already there; otherwise open travel. */
+/**
+ * Open local content or its Auto Travel confirmation. Unknown destinations open the
+ * travel map so the player can select a sector.
+ */
 export const dashboardContentHref = (entry: {
   category: string;
   availability: DashboardAvailability;
   destination: string;
+  travelSector?: number;
 }) => {
-  if (entry.availability === "travel") return "/travel";
+  if (entry.availability === "travel")
+    return entry.travelSector !== undefined
+      ? `/travel?sector=${entry.travelSector}`
+      : "/travel";
   if (entry.category === "battlePyramids") return "/battlearena#Battle%20Pyramid";
   return entry.destination;
 };
 
+/** Match the board or travel action label to the opportunity's availability. */
 export const dashboardContentActionLabel = (entry: {
   availability: DashboardAvailability;
 }) => {
   if (entry.availability === "travel") {
-    return "Open travel";
+    return "Travel";
   }
   if (entry.availability === "blocked") return "View content";
   return "Open content";
 };
 
-/** A raid with no sector is fought from Global ANBU HQ, same as one in the current sector. */
+/**
+ * Global and local raids open HQ; remote raids request travel to their published sector.
+ */
 export const raidContinueHref = (
   raidSector: number | null,
   userSector: number | null | undefined,
-) => (raidSector === null || raidSector === userSector ? "/globalanbuhq" : "/travel");
+) =>
+  raidSector === null || raidSector === userSector
+    ? "/globalanbuhq"
+    : `/travel?sector=${raidSector}`;
 
-/** The HQ overview remains accessible when the player cannot join a raid. */
+/** Resolve raid routing and preserve participation restrictions before offering travel. */
 export const dashboardRaidAction = (
   raidSector: number | null,
   user: Pick<NonNullable<UserWithRelations>, "sector" | "status" | "isBanned">,
@@ -296,8 +311,8 @@ export const dashboardRaidAction = (
   const href = raidContinueHref(raidSector, user.sector);
   return {
     href,
-    action: href === "/travel" ? "Open travel" : "Continue raid",
-    reason: href === "/travel" ? `Travel to sector ${raidSector} to participate` : null,
+    action: href === "/globalanbuhq" ? "Continue raid" : "Travel",
+    reason: null,
   };
 };
 
@@ -582,18 +597,23 @@ export const resolveDashboardContent = (
         questType: candidate.questType,
         location,
         destination,
+        // Travel targets the board where the quest can be started.
+        travelSector:
+          category === "events" || category === "story"
+            ? MAP_WAKE_ISLAND_SECTOR
+            : user.village?.sector,
         availability: requiresVillageTravel
           ? ("travel" as const)
           : user.isBanned
             ? ("blocked" as const)
             : ("available" as const),
-        availabilityReason: requiresVillageTravel
-          ? `Travel to ${location} to begin${user.isBanned ? ". You are banned and cannot start quests" : ""}${user.status && user.status !== "AWAKE" ? ". You must be awake to travel" : ""}`
-          : user.isBanned
-            ? "You are banned and cannot start quests"
-            : null,
-        actionDisabled:
-          requiresVillageTravel && !!user.status && user.status !== "AWAKE",
+        availabilityReason:
+          requiresVillageTravel &&
+          (user.isBanned || (!!user.status && user.status !== "AWAKE"))
+            ? `Travel to ${location} to begin${user.isBanned ? ". You are banned and cannot start quests" : ""}${user.status && user.status !== "AWAKE" ? ". You must be awake to travel" : ""}`
+            : user.isBanned
+              ? "You are banned and cannot start quests"
+              : null,
         endsAt: candidate.endsAt,
       },
     ];
@@ -617,7 +637,7 @@ export const buildDashboardCatalogue = (
     (raid) => {
       const action = dashboardRaidAction(raid.sector, user);
       const destination = action.href;
-      const travelRequired = destination === "/travel";
+      const travelRequired = action.action === "Travel";
       return {
         id: raid.id,
         name: raid.name,
@@ -627,6 +647,7 @@ export const buildDashboardCatalogue = (
         questType: "raid",
         location: raid.sector === null ? "Global ANBU HQ" : `Sector ${raid.sector}`,
         destination,
+        travelSector: raid.sector ?? undefined,
         availability: travelRequired
           ? "travel"
           : action.reason
