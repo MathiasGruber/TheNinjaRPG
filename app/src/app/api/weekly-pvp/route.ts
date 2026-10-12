@@ -1,4 +1,4 @@
-import { lt, sql } from "drizzle-orm";
+import { lt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { anbuSquad, userData } from "@/drizzle/schema";
 import {
@@ -28,12 +28,13 @@ export async function GET(request: Request) {
     const weekStart = periodStart("weekly", new Date());
     await Promise.all([
       // Kills earned after the week boundary survive a delayed reset or job retry.
+      // Leave updatedAt alone: it doubles as last activity (online counts, cleanup,
+      // sector lists), and no snapshot claim writes these columns as absolute values.
       drizzleDB
         .update(userData)
         .set({
           weeklyPvpKills: 0,
           weeklyPvpKillsAt: weekStart,
-          updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
         })
         .where(lt(userData.weeklyPvpKillsAt, weekStart)),
       drizzleDB.update(anbuSquad).set({
