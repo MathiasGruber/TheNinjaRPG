@@ -6306,8 +6306,6 @@ export const sanctionTombstone = mysqlTable(
     /** Current type, including subsequent staff revisions of a carryover report. */
     sanction: mysqlEnum("sanction", consts.SanctionTombstoneTypes).notNull(),
     sanctionEndsAt: datetime("sanctionEndsAt", { mode: "date", fsp: 3 }).notNull(),
-    /** Original report ids, followed through carryovers to preserve case lineage. */
-    reportIds: json("reportIds").$type<string[]>().notNull(),
     /** Keyed hash of the verified primary email, when Clerk had one. */
     emailHash: varchar("emailHash", { length: 64 }),
     /** Keyed hashes of each linked OAuth provider and provider user id. */

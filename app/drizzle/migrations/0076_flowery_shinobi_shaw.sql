@@ -3,7 +3,6 @@ CREATE TABLE `SanctionTombstone` (
 	`sourceId` varchar(191) NOT NULL,
 	`sanction` enum('BAN','SILENCE') NOT NULL,
 	`sanctionEndsAt` datetime(3) NOT NULL,
-	`reportIds` json NOT NULL,
 	`emailHash` varchar(64),
 	`accountHashes` json NOT NULL,
 	`carryoverReportIds` json NOT NULL DEFAULT ('[]'),

@@ -291,14 +291,12 @@ describeWithDatabase("registration claims current sanction sources", () => {
           ...source,
           userId: "second-source",
           sourceId: "second-case",
-          reportIds: ["second-case"],
           sanctionEndsAt: new Date(Date.now() + 3 * DAY),
         },
         {
           ...source,
           userId: "ancestor-source",
           sourceId: "ancestor-case",
-          reportIds: ["ancestor-case"],
           emailHash: hashSanctionIdentifier("email", "ancestor@example.com"),
           carryoverReportIds: ["original-case"],
         },
@@ -306,7 +304,6 @@ describeWithDatabase("registration claims current sanction sources", () => {
           ...source,
           userId: "silence-source",
           sourceId: "silence-case",
-          reportIds: ["silence-case"],
           sanction: "SILENCE",
         },
       ]);

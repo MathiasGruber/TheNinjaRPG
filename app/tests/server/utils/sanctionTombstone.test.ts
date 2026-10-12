@@ -174,7 +174,6 @@ describeWithDatabase("sanction tombstones", () => {
     for (const tombstone of tombstones) {
       expect(tombstone).toMatchObject({
         sanction: "SILENCE",
-        reportIds: [tombstone.sourceId],
         emailHash: hashSanctionIdentifier("email", "player+evade@example.com"),
         accountHashes: [hashSanctionIdentifier("oauth", "google:google-123")],
       });
@@ -182,7 +181,7 @@ describeWithDatabase("sanction tombstones", () => {
     expect(
       tombstones.find((source) => source.sourceId === "report-SILENCE_ACTIVATED"),
     ).toMatchObject({ sanctionEndsAt: silenceEnd });
-    expect(tombstones.flatMap((source) => source.reportIds).sort()).toEqual([
+    expect(tombstones.map((source) => source.sourceId).sort()).toEqual([
       "report-SILENCE_ACTIVATED",
       "report-TIMEOUT_ACTIVATED",
     ]);
@@ -343,7 +342,6 @@ describeWithDatabase("sanction tombstones", () => {
         });
       for (const source of sources) {
         expect(source).toMatchObject({
-          reportIds: [source.sourceId],
           emailHash: hashSanctionIdentifier("email", "capture@example.com"),
           accountHashes: [hashSanctionIdentifier("oauth", "google:capture-subject")],
           carryoverReportIds: [],
@@ -400,7 +398,7 @@ describeWithDatabase("sanction tombstones", () => {
     },
   );
 
-  it("refreshes a captured decision without replacing its ancestry or carryover links", async () => {
+  it("refreshes a captured decision without replacing its carryover links or creation time", async () => {
     const database = await getTestDatabase();
     await insertUsers([{ userId: SANCTIONED }, { userId: "staff", role: "OWNER" }]);
     await addSanction(
@@ -414,7 +412,6 @@ describeWithDatabase("sanction tombstones", () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue();
     await sanctions.recordSanctionTombstone(database, SANCTIONED);
     await database.update(sanctionTombstone).set({
-      reportIds: ["ancestor-case", "original-case"],
       carryoverReportIds: ["inherited-case"],
     });
     const before = (await tombstonesOf(SANCTIONED))[0]!;
@@ -549,7 +546,6 @@ describeWithDatabase("sanction tombstones", () => {
         sourceId: "original-silence",
         sanction: "SILENCE",
         sanctionEndsAt: silenceEnd,
-        reportIds: ["original-silence"],
         emailHash: hashSanctionIdentifier("email", "returner@gmail.com"),
         accountHashes: [],
       }),
@@ -586,7 +582,6 @@ describeWithDatabase("sanction tombstones", () => {
       sourceId: "expired-ban",
       sanction: "BAN",
       sanctionEndsAt: new Date(Date.now() - 1000),
-      reportIds: ["expired-ban"],
       emailHash: null,
       accountHashes: [],
     });
@@ -872,7 +867,6 @@ describeWithDatabase("sanction tombstones", () => {
           sourceId: "original-ban",
           sanction: "BAN",
           sanctionEndsAt: independentEnd,
-          reportIds: ["original-ban"],
         },
       ]);
       await deleteUser(database, "user_revised");
@@ -973,7 +967,6 @@ describeWithDatabase("sanction tombstones", () => {
       expect(await tombstonesOf(SANCTIONED)).toMatchObject([
         {
           sanction,
-          reportIds: ["original-sanction"],
           emailHash: hashSanctionIdentifier("email", "appeal@example.com"),
         },
       ]);

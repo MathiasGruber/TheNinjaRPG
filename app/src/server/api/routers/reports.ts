@@ -47,7 +47,7 @@ import {
   protectedProcedure,
   serverError,
 } from "@/server/api/trpc";
-import { reviseSanctionTombstones } from "@/server/utils/sanctionTombstone";
+import { updateSanctionReport } from "@/server/utils/sanctionTombstone";
 import {
   canBanUsers,
   canClearReport,
@@ -581,15 +581,11 @@ export const reportsRouter = createTRPCRouter({
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
-        ctx.drizzle
-          .update(userReport)
-          .set({
-            status: "BAN_ACTIVATED",
-            adminResolved: canMarkAdminResolved(user.role),
-            updatedAt: new Date(),
-            banEnd,
-          })
-          .where(eq(userReport.id, input.object_id)),
+        updateSanctionReport(ctx.drizzle, report, {
+          status: "BAN_ACTIVATED",
+          adminResolved: canMarkAdminResolved(user.role),
+          banEnd,
+        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -598,13 +594,6 @@ export const reportsRouter = createTRPCRouter({
           decision: "BAN_ACTIVATED",
         }),
       ]);
-      await reviseSanctionTombstones(
-        ctx.drizzle,
-        report.id,
-        "BAN",
-        banEnd,
-        report.reportedUserId,
-      );
       return { success: true, message: "User banned" };
     }),
   // Silence a user. If no escalation: moderator-only. If escalated: admin-only
@@ -638,15 +627,11 @@ export const reportsRouter = createTRPCRouter({
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
-        ctx.drizzle
-          .update(userReport)
-          .set({
-            status: "SILENCE_ACTIVATED",
-            adminResolved: canMarkAdminResolved(user.role),
-            updatedAt: new Date(),
-            banEnd,
-          })
-          .where(eq(userReport.id, input.object_id)),
+        updateSanctionReport(ctx.drizzle, report, {
+          status: "SILENCE_ACTIVATED",
+          adminResolved: canMarkAdminResolved(user.role),
+          banEnd,
+        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -655,13 +640,6 @@ export const reportsRouter = createTRPCRouter({
           decision: "SILENCE_ACTIVATED",
         }),
       ]);
-      await reviseSanctionTombstones(
-        ctx.drizzle,
-        report.id,
-        "SILENCE",
-        banEnd,
-        report.reportedUserId,
-      );
       return { success: true, message: "User silenced" };
     }),
   // Timeout: 1-hour silence. CONTENT-ADMIN and EVENT-ADMIN only.
@@ -689,15 +667,11 @@ export const reportsRouter = createTRPCRouter({
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
-        ctx.drizzle
-          .update(userReport)
-          .set({
-            status: "TIMEOUT_ACTIVATED",
-            adminResolved: true,
-            updatedAt: new Date(),
-            banEnd: oneHourFromNow,
-          })
-          .where(eq(userReport.id, input.object_id)),
+        updateSanctionReport(ctx.drizzle, report, {
+          status: "TIMEOUT_ACTIVATED",
+          adminResolved: true,
+          banEnd: oneHourFromNow,
+        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -706,13 +680,6 @@ export const reportsRouter = createTRPCRouter({
           decision: "TIMEOUT_ACTIVATED",
         }),
       ]);
-      await reviseSanctionTombstones(
-        ctx.drizzle,
-        report.id,
-        "SILENCE",
-        oneHourFromNow,
-        report.reportedUserId,
-      );
       return { success: true, message: "User timed out (1 hour)" };
     }),
   // Issue warning to user
@@ -735,15 +702,11 @@ export const reportsRouter = createTRPCRouter({
       if (!canWarnUsers(user)) return errorResponse("You cannot warn users");
       // Update
       await Promise.all([
-        ctx.drizzle
-          .update(userReport)
-          .set({
-            status: "OFFICIAL_WARNING",
-            adminResolved: canMarkAdminResolved(user.role),
-            updatedAt: new Date(),
-            banEnd: null,
-          })
-          .where(eq(userReport.id, input.object_id)),
+        updateSanctionReport(ctx.drizzle, report, {
+          status: "OFFICIAL_WARNING",
+          adminResolved: canMarkAdminResolved(user.role),
+          banEnd: null,
+        }),
         ctx.drizzle
           .update(userData)
           .set({ isWarned: true })
@@ -756,13 +719,6 @@ export const reportsRouter = createTRPCRouter({
           decision: "OFFICIAL_WARNING",
         }),
       ]);
-      await reviseSanctionTombstones(
-        ctx.drizzle,
-        report.id,
-        "BAN",
-        null,
-        report.reportedUserId,
-      );
       if (report.reportedUserId) {
         void pusher.trigger(report.reportedUserId, "event", {
           type: "userMessage",
@@ -876,14 +832,10 @@ export const reportsRouter = createTRPCRouter({
       }
       // Update report
       await Promise.all([
-        ctx.drizzle
-          .update(userReport)
-          .set({
-            adminResolved: canMarkAdminResolved(user.role),
-            status: "REPORT_CLEARED",
-            updatedAt: new Date(),
-          })
-          .where(eq(userReport.id, report.id)),
+        updateSanctionReport(ctx.drizzle, report, {
+          adminResolved: canMarkAdminResolved(user.role),
+          status: "REPORT_CLEARED",
+        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -892,13 +844,6 @@ export const reportsRouter = createTRPCRouter({
           decision: "REPORT_CLEARED",
         }),
       ]);
-      await reviseSanctionTombstones(
-        ctx.drizzle,
-        report.id,
-        "BAN",
-        null,
-        report.reportedUserId,
-      );
       return { success: true, message: "Report cleared" };
     }),
   updateUserAvatar: protectedProcedure
@@ -1119,15 +1064,11 @@ export const reportsRouter = createTRPCRouter({
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
-        ctx.drizzle
-          .update(userReport)
-          .set({
-            status: "TRADE_BAN_ACTIVATED",
-            adminResolved: canMarkAdminResolved(user.role),
-            updatedAt: new Date(),
-            banEnd: getBanEndDate(input),
-          })
-          .where(eq(userReport.id, input.object_id)),
+        updateSanctionReport(ctx.drizzle, report, {
+          status: "TRADE_BAN_ACTIVATED",
+          adminResolved: canMarkAdminResolved(user.role),
+          banEnd: getBanEndDate(input),
+        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -1136,13 +1077,6 @@ export const reportsRouter = createTRPCRouter({
           decision: "TRADE_BAN_ACTIVATED",
         }),
       ]);
-      await reviseSanctionTombstones(
-        ctx.drizzle,
-        report.id,
-        "BAN",
-        null,
-        report.reportedUserId,
-      );
       return { success: true, message: "User trade banned" };
     }),
 });

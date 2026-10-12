@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "adb9b98f-036f-4b6e-9398-1c5218c7ddb9",
+  "id": "9f627bbc-bc4b-4128-b30b-c6a023ca62d7",
   "prevId": "e778d58b-c8e8-4503-bf5a-db1f88a0de0e",
   "tables": {
     "AbEvent": {
@@ -11131,13 +11131,6 @@
         "sanctionEndsAt": {
           "name": "sanctionEndsAt",
           "type": "datetime(3)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reportIds": {
-          "name": "reportIds",
-          "type": "json",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false

@@ -12,6 +12,7 @@ import {
   type SanctionTombstone,
   sanctionTombstone,
   userReport,
+  type UserReport,
   userReportComment,
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -25,7 +26,7 @@ import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
  *
  * Deleting an account while a ban or silence still runs stores one row per active report:
  * the Clerk user id, keyed hashes of the primary email and of every linked OAuth account,
- * the end date and the ids of the reports that imposed it. Nothing about the character, its
+ * the end date and the report id that imposed it. Nothing about the character, its
  * chat or its IPs is kept, and the hourly cleaner removes the row once the sanction ends.
  *
  * The web character deletion keeps the Clerk user, so the same Clerk id returns on the next
@@ -52,6 +53,7 @@ type ActiveSanction = {
   reportIds: string[];
 };
 
+/** One inherited sanction type, its matching identifiers and every retained source. */
 export type SanctionMatch = ActiveSanction & {
   matchedBy: ("clerkId" | "email" | "oauth")[];
   tombstones: SanctionTombstone[];
@@ -62,6 +64,7 @@ const REAPPLIED_STATE: Record<SanctionTombstoneType, BanState> = {
   SILENCE: "SILENCE_ACTIVATED",
 };
 
+/** Abort registration and roll back its records when a matched source changes. */
 export const SANCTION_SOURCE_CHANGED = Symbol("sanctionSourceChanged");
 
 /**
@@ -94,6 +97,7 @@ export const hashSanctionIdentifier = (kind: "email" | "oauth", value: string) =
     .update(`sanction-tombstone:${kind}:${value}`)
     .digest("hex");
 
+/** Hash stable linked provider identifiers and deduplicate equivalent provider names. */
 const accountHashesOf = (identity: SanctionIdentity) => [
   ...new Set(
     identity.externalAccounts
@@ -107,6 +111,7 @@ const accountHashesOf = (identity: SanctionIdentity) => [
   ),
 ];
 
+/** Capture only a verified primary email; verified secondary emails count when matching. */
 const primaryEmailHashOf = (identity: SanctionIdentity) => {
   const primary = identity.emailAddresses.find(
     (email) => email.id === identity.primaryEmailAddressId,
@@ -128,6 +133,7 @@ export const fetchSanctionIdentity = async (
   }
 };
 
+/** A Clerk 404 means identity deletion is complete and cleanup can safely continue. */
 export const isClerkNotFound = (error: unknown) =>
   typeof error === "object" &&
   error !== null &&
@@ -153,7 +159,7 @@ const activeSanctionReportsWhere = (userId: string) =>
  * Pass the Clerk user when the caller already holds it; otherwise it is loaded, and only
  * when a sanction exists. The write selects current decisions after the Clerk lookup.
  * Repeated captures preserve case links. Once Clerk is gone, keep the captured snapshot:
- * moderation updates it through reviseSanctionTombstones, and the original reports may now
+ * moderation updates it through updateSanctionReport, and the original reports may now
  * be stale. Repeating cleanup after the reports are gone also leaves the snapshot untouched.
  */
 export const recordSanctionTombstone = async (
@@ -186,9 +192,8 @@ export const recordSanctionTombstone = async (
             sourceId: userReport.id,
             sanction: sanction.as("sanction"),
             sanctionEndsAt: userReport.banEnd,
-            // INSERT SELECT bypasses column encoders; produce SQL JSON for both arrays.
-            reportIds: sql`JSON_ARRAY(${userReport.id})`.as("reportIds"),
             emailHash: sql`${hashes.emailHash}`.as("emailHash"),
+            // INSERT SELECT bypasses column encoders; produce SQL JSON for arrays.
             accountHashes:
               sql`CAST(${JSON.stringify(hashes.accountHashes)} AS JSON)`.as(
                 "accountHashes",
@@ -248,7 +253,7 @@ export const matchSanctionTombstones = (
         current && current.endsAt > tombstone.sanctionEndsAt
           ? current.endsAt
           : tombstone.sanctionEndsAt,
-      reportIds: [...new Set([...(current?.reportIds ?? []), ...tombstone.reportIds])],
+      reportIds: [...new Set([...(current?.reportIds ?? []), tombstone.sourceId])],
       matchedBy: [...new Set([...(current?.matchedBy ?? []), ...matchedBy])],
       tombstones: [...(current?.tombstones ?? []), tombstone],
     });
@@ -263,11 +268,11 @@ export const matchSanctionTombstones = (
           ancestor.sanction !== match.sanction ||
           ancestor.sanctionEndsAt <= new Date() ||
           match.tombstones.includes(ancestor) ||
-          !ancestor.carryoverReportIds.some((id) => source.reportIds.includes(id))
+          !ancestor.carryoverReportIds.includes(source.sourceId)
         )
           continue;
         match.tombstones.push(ancestor);
-        for (const id of ancestor.reportIds) reportIds.add(id);
+        reportIds.add(ancestor.sourceId);
       }
     }
     match.reportIds = [...reportIds];
@@ -357,36 +362,52 @@ export const reapplySanctions = (
     ];
   });
 
-/**
- * Apply a staff decision to linked carryovers and any captured original-report snapshot.
- * Native deletion removes Clerk before game cleanup, so original reports can still be
- * revised while their captured identifiers are the only way to recognise a new account.
- */
-export const reviseSanctionTombstones = async (
+/** Commit a report decision and its retained sources atomically; omitted banEnd is preserved. */
+export const updateSanctionReport = async (
   client: DrizzleClient,
-  reportId: string,
-  sanction: SanctionTombstoneType,
-  endsAt: Date | null,
-  userId: string | null,
+  report: Pick<UserReport, "id" | "reportedUserId">,
+  decision: Pick<UserReport, "status" | "adminResolved"> & { banEnd?: Date | null },
 ) => {
-  // Each original case retains its own current decision. Rebuilding from the deleted
-  // account's other reports would overwrite decisions made on their linked carryovers.
-  // Only existing sources are revised, so ordinary moderation never retains an identity.
-  const where = or(
-    userId
+  const sanction = decision.status === "BAN_ACTIVATED" ? "BAN" : "SILENCE";
+  const activeEnd = [
+    "BAN_ACTIVATED",
+    "SILENCE_ACTIVATED",
+    "TIMEOUT_ACTIVATED",
+  ].includes(decision.status)
+    ? decision.banEnd
+    : null;
+  const endsAt = activeEnd ?? new Date();
+  const sources = or(
+    report.reportedUserId
       ? and(
-          eq(sanctionTombstone.userId, userId),
-          eq(sanctionTombstone.sourceId, reportId),
+          eq(sanctionTombstone.userId, report.reportedUserId),
+          eq(sanctionTombstone.sourceId, report.id),
         )
       : undefined,
-    sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`,
+    sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${report.id}))`,
   );
-  await (endsAt
-    ? client
-        .update(sanctionTombstone)
-        .set({ sanction, sanctionEndsAt: endsAt })
-        .where(where)
-    : client.delete(sanctionTombstone).where(where));
+  // Drizzle cannot express a multi-table write. A separate source hook can overwrite a
+  // newer decision, or lose it when native cleanup removes the report before the hook.
+  // LEFT JOIN revises only existing sources; ordinary moderation retains no identifiers.
+  await retryOnDeadlock(() =>
+    client.execute(sql`
+    UPDATE ${userReport}
+    LEFT JOIN ${sanctionTombstone} ON ${sources}
+    SET ${userReport.status} = ${decision.status},
+        ${userReport.adminResolved} = ${decision.adminResolved},
+        ${userReport.updatedAt} = CURRENT_TIMESTAMP(3),
+        ${decision.banEnd !== undefined ? sql`${userReport.banEnd} = ${sql.param(decision.banEnd, userReport.banEnd)},` : sql``}
+        ${sanctionTombstone.sanction} = ${activeEnd ? sql`${sanction}` : sanctionTombstone.sanction},
+        ${sanctionTombstone.sanctionEndsAt} = ${sql.param(endsAt, sanctionTombstone.sanctionEndsAt)}
+    WHERE ${userReport.id} = ${report.id}
+  `),
+  );
+  // Expiry retires sources in the decision write. Prune only still-expired rows so a
+  // delayed clear cannot erase a newer active decision on the same case.
+  if (!activeEnd)
+    await client
+      .delete(sanctionTombstone)
+      .where(and(sources, lte(sanctionTombstone.sanctionEndsAt, endsAt)));
 };
 
 /** Drop tombstones whose sanction has ended; nothing is kept past the sanction. */

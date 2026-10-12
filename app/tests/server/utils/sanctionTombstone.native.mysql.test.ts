@@ -9,6 +9,7 @@ import {
   storeUserIdAlias,
   userData,
   userReport,
+  type UserReport,
   userReportComment,
   village,
 } from "@/drizzle/schema";
@@ -17,6 +18,7 @@ import { registerRouter } from "@/server/api/routers/register";
 import { reportsRouter } from "@/server/api/routers/reports";
 import { removeAccountGameData } from "@/server/utils/accountDeletion/cleanup";
 import { processAccountDeletions } from "@/server/utils/accountDeletion/process";
+import * as sanctions from "@/server/utils/sanctionTombstone";
 import {
   hashSanctionIdentifier,
   recordSanctionTombstone,
@@ -25,6 +27,7 @@ import {
 import { insertUsers } from "../../setup/factories";
 import {
   callerFor,
+  callerForDatabase,
   describeWithDatabase,
   getTestDatabase,
   resetTables,
@@ -179,6 +182,43 @@ const deleteReplacement = async () => {
   await finishDeletion("DuringDelay");
 };
 
+/** Pause an atomic decision write to interleave authorized actions and cleanup. */
+const pauseNextDecision = async (beforeWrite = false) => {
+  const database = await getTestDatabase();
+  const execute = database.execute.bind(database);
+  let enter!: () => void;
+  const entered = new Promise<void>((resolve) => {
+    enter = resolve;
+  });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let paused = false;
+  const client = new Proxy(database, {
+    get(target, property, receiver) {
+      if (property === "execute") {
+        return async (...args: Parameters<typeof execute>) => {
+          if (paused) return execute(...args);
+          paused = true;
+          if (beforeWrite) {
+            enter();
+            await gate;
+          }
+          const result = await execute(...args);
+          if (!beforeWrite) {
+            enter();
+            await gate;
+          }
+          return result;
+        };
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+  return { client, entered, release };
+};
+
 describeWithDatabase("original sanctions during native deletion", () => {
   beforeEach(async () => {
     await resetTables(
@@ -313,12 +353,12 @@ describeWithDatabase("original sanctions during native deletion", () => {
           expect.arrayContaining([
             expect.objectContaining({
               ...hashes,
-              reportIds: ["independent-ban"],
+              sourceId: "independent-ban",
               sanctionEndsAt: shorterEnd,
             }),
             expect.objectContaining({
               ...hashes,
-              reportIds: ["independent-silence"],
+              sourceId: "independent-silence",
               sanctionEndsAt: silenceEnd,
             }),
           ]),
@@ -359,7 +399,7 @@ describeWithDatabase("original sanctions during native deletion", () => {
           (source) => source.sanction === (decision === "ban" ? "SILENCE" : "BAN"),
         ),
       ).toMatchObject({
-        reportIds: ["independent-same"],
+        sourceId: "independent-same",
         sanctionEndsAt: independentEnd,
       });
       expect(
@@ -520,7 +560,6 @@ describeWithDatabase("original sanctions during native deletion", () => {
           ...hashes,
           sanction: "SILENCE",
           sanctionEndsAt: independentEnd,
-          reportIds: ["independent-silence"],
         });
       } else if (decision === "clear") {
         expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
@@ -708,6 +747,128 @@ describeWithDatabase("original sanctions during native deletion", () => {
           }),
         ]),
       );
+    },
+  );
+
+  it.each([
+    ["ban", "silence"],
+    ["silence", "ban"],
+    ["ban", "ban"],
+    ["ban", "clear"],
+  ] as const)(
+    "keeps the later %s → %s decision when an earlier response is delayed across cleanup",
+    async (earlier, later) => {
+      const { register: registerIdentity } = stubSingleIdentity();
+      const database = await getTestDatabase();
+      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+      await startDeletion();
+      const { client, entered, release } = await pauseNextDecision();
+      const staff = callerForDatabase(reportsRouter, "staff", client);
+      const pending = staff[earlier](decisionInput);
+      await entered;
+      let current!: UserReport;
+      try {
+        expect(await staff[later]({ ...decisionInput, banTime: 2 })).toMatchObject({
+          success: true,
+        });
+        current = (await database.query.userReport.findFirst({
+          where: eq(userReport.id, "original"),
+        }))!;
+        const active = await sanctions.fetchActiveSanctionTombstones(database);
+        expect(active).toHaveLength(later === "clear" ? 0 : 1);
+        if (later !== "clear")
+          expect(active[0]).toMatchObject({
+            sanction: later === "ban" ? "BAN" : "SILENCE",
+            sanctionEndsAt: current.banEnd,
+            ...hashes,
+          });
+        await finishDeletion();
+      } finally {
+        release();
+      }
+      expect(await pending).toMatchObject({ success: true });
+      const returned = await registerIdentity("AfterCleanup");
+      expect(returned).toHaveLength(later === "clear" ? 0 : 1);
+      if (later !== "clear")
+        expect(returned[0]).toMatchObject({
+          status: current.status,
+          banEnd: current.banEnd,
+          adminResolved: true,
+        });
+    },
+  );
+
+  it.each(["ban", "silence"] as const)(
+    "keeps an authorized %s decision after a concurrent clear's delayed pruning",
+    async (decision) => {
+      const { register: registerIdentity } = stubSingleIdentity();
+      const database = await getTestDatabase();
+      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+      await startDeletion();
+      // Both actions pass moderation guards while the report is still resolvable.
+      const later = await pauseNextDecision(true);
+      const pending = callerForDatabase(reportsRouter, "staff", later.client)[decision](
+        decisionInput,
+      );
+      await later.entered;
+      const earlier = await pauseNextDecision();
+      const clearing = callerForDatabase(reportsRouter, "staff", earlier.client).clear(
+        decisionInput,
+      );
+      await earlier.entered;
+      let current!: UserReport;
+      try {
+        later.release();
+        expect(await pending).toMatchObject({ success: true });
+        current = (await database.query.userReport.findFirst({
+          where: eq(userReport.id, "original"),
+        }))!;
+        await finishDeletion();
+      } finally {
+        later.release();
+        earlier.release();
+      }
+      expect(await clearing).toMatchObject({ success: true });
+      expect(await sanctions.fetchActiveSanctionTombstones(database)).toMatchObject([
+        {
+          sanction: decision === "ban" ? "BAN" : "SILENCE",
+          sanctionEndsAt: current.banEnd,
+        },
+      ]);
+      expect(await registerIdentity("AfterCleanup")).toMatchObject([
+        { status: current.status, banEnd: current.banEnd },
+      ]);
+    },
+  );
+
+  it.each(["ban", "silence", "clear"] as const)(
+    "keeps the latest %s decision when cleanup removes its report before the response",
+    async (decision) => {
+      const { register: registerIdentity } = stubSingleIdentity();
+      const database = await getTestDatabase();
+      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+      await startDeletion();
+      const { client, entered, release } = await pauseNextDecision();
+      const pending = callerForDatabase(reportsRouter, "staff", client)[decision](
+        decisionInput,
+      );
+      await entered;
+      const current = (await database.query.userReport.findFirst({
+        where: eq(userReport.id, "original"),
+      }))!;
+      try {
+        await finishDeletion();
+      } finally {
+        release();
+      }
+      expect(await pending).toMatchObject({ success: true });
+      const returned = await registerIdentity("AfterCleanup");
+      expect(returned).toHaveLength(decision === "clear" ? 0 : 1);
+      if (decision !== "clear")
+        expect(returned[0]).toMatchObject({
+          status: current.status,
+          banEnd: current.banEnd,
+        });
     },
   );
 
