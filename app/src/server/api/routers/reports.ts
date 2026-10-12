@@ -572,6 +572,14 @@ export const reportsRouter = createTRPCRouter({
       }
       const banEnd = getBanEndDate(input);
       // Update
+      if (
+        !(await updateSanctionReport(ctx.drizzle, report, {
+          status: "BAN_ACTIVATED",
+          adminResolved: canMarkAdminResolved(user.role),
+          banEnd,
+        }))
+      )
+        return errorResponse("Report was cleared or removed. Please refresh.");
       await Promise.all([
         ...(report.reportedUserId
           ? [
@@ -581,11 +589,6 @@ export const reportsRouter = createTRPCRouter({
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
-        updateSanctionReport(ctx.drizzle, report, {
-          status: "BAN_ACTIVATED",
-          adminResolved: canMarkAdminResolved(user.role),
-          banEnd,
-        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -618,6 +621,14 @@ export const reportsRouter = createTRPCRouter({
       }
       const banEnd = getBanEndDate(input);
       // Update
+      if (
+        !(await updateSanctionReport(ctx.drizzle, report, {
+          status: "SILENCE_ACTIVATED",
+          adminResolved: canMarkAdminResolved(user.role),
+          banEnd,
+        }))
+      )
+        return errorResponse("Report was cleared or removed. Please refresh.");
       await Promise.all([
         ...(report.reportedUserId
           ? [
@@ -627,11 +638,6 @@ export const reportsRouter = createTRPCRouter({
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
-        updateSanctionReport(ctx.drizzle, report, {
-          status: "SILENCE_ACTIVATED",
-          adminResolved: canMarkAdminResolved(user.role),
-          banEnd,
-        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -658,6 +664,14 @@ export const reportsRouter = createTRPCRouter({
       if (!hasModRights) return errorResponse("You cannot resolve this report");
       if (!canTimeoutUsers(user)) return errorResponse("You cannot timeout users");
       const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+      if (
+        !(await updateSanctionReport(ctx.drizzle, report, {
+          status: "TIMEOUT_ACTIVATED",
+          adminResolved: true,
+          banEnd: oneHourFromNow,
+        }))
+      )
+        return errorResponse("Report was cleared or removed. Please refresh.");
       await Promise.all([
         ...(report.reportedUserId
           ? [
@@ -667,11 +681,6 @@ export const reportsRouter = createTRPCRouter({
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
-        updateSanctionReport(ctx.drizzle, report, {
-          status: "TIMEOUT_ACTIVATED",
-          adminResolved: true,
-          banEnd: oneHourFromNow,
-        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -701,12 +710,15 @@ export const reportsRouter = createTRPCRouter({
       if (!hasModRights) return errorResponse("No permission to warn");
       if (!canWarnUsers(user)) return errorResponse("You cannot warn users");
       // Update
-      await Promise.all([
-        updateSanctionReport(ctx.drizzle, report, {
+      if (
+        !(await updateSanctionReport(ctx.drizzle, report, {
           status: "OFFICIAL_WARNING",
           adminResolved: canMarkAdminResolved(user.role),
           banEnd: null,
-        }),
+        }))
+      )
+        return errorResponse("Report was cleared or removed. Please refresh.");
+      await Promise.all([
         ctx.drizzle
           .update(userData)
           .set({ isWarned: true })
@@ -774,6 +786,14 @@ export const reportsRouter = createTRPCRouter({
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform moderation actions");
       if (!canClearReport(user, report)) return errorResponse("No permission");
+      if (
+        !(await updateSanctionReport(ctx.drizzle, report, {
+          adminResolved: canMarkAdminResolved(user.role),
+          status: "REPORT_CLEARED",
+        }))
+      )
+        return errorResponse("Report was cleared or removed. Please refresh.");
+      const mutations: PromiseLike<unknown>[] = [];
       // If someone was reported
       if (report.reportedUserId) {
         const reportedUserId = report.reportedUserId;
@@ -803,7 +823,7 @@ export const reportsRouter = createTRPCRouter({
             ),
           }),
         ]);
-        await Promise.all([
+        mutations.push(
           ...(bans.length === 0
             ? [
                 ctx.drizzle
@@ -828,14 +848,9 @@ export const reportsRouter = createTRPCRouter({
                   .where(eq(userData.userId, reportedUserId)),
               ]
             : []),
-        ]);
+        );
       }
-      // Update report
-      await Promise.all([
-        updateSanctionReport(ctx.drizzle, report, {
-          adminResolved: canMarkAdminResolved(user.role),
-          status: "REPORT_CLEARED",
-        }),
+      mutations.push(
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -843,7 +858,8 @@ export const reportsRouter = createTRPCRouter({
           content: sanitize(input.comment),
           decision: "REPORT_CLEARED",
         }),
-      ]);
+      );
+      await Promise.all(mutations);
       return { success: true, message: "Report cleared" };
     }),
   updateUserAvatar: protectedProcedure
@@ -1055,6 +1071,14 @@ export const reportsRouter = createTRPCRouter({
         return errorResponse("Ban time must be specified.");
       }
       // Create a system report for the trade ban
+      if (
+        !(await updateSanctionReport(ctx.drizzle, report, {
+          status: "TRADE_BAN_ACTIVATED",
+          adminResolved: canMarkAdminResolved(user.role),
+          banEnd: getBanEndDate(input),
+        }))
+      )
+        return errorResponse("Report was cleared or removed. Please refresh.");
       await Promise.all([
         ...(report.reportedUserId
           ? [
@@ -1064,11 +1088,6 @@ export const reportsRouter = createTRPCRouter({
                 .where(eq(userData.userId, report.reportedUserId)),
             ]
           : []),
-        updateSanctionReport(ctx.drizzle, report, {
-          status: "TRADE_BAN_ACTIVATED",
-          adminResolved: canMarkAdminResolved(user.role),
-          banEnd: getBanEndDate(input),
-        }),
         ctx.drizzle.insert(userReportComment).values({
           id: nanoid(),
           userId: ctx.userId,

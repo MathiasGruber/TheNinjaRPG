@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { clerkClient } from "@clerk/nextjs/server";
-import { and, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   type BanState,
@@ -362,7 +362,11 @@ export const reapplySanctions = (
     ];
   });
 
-/** Commit a report decision and its retained sources atomically; omitted banEnd is preserved. */
+/**
+ * Commit a report decision and its retained sources atomically; omitted banEnd is preserved.
+ * Cleared cases stay closed after their retained identifiers are pruned.
+ * Return false for a cleared or removed report so callers skip flags and decision comments.
+ */
 export const updateSanctionReport = async (
   client: DrizzleClient,
   report: Pick<UserReport, "id" | "reportedUserId">,
@@ -389,7 +393,7 @@ export const updateSanctionReport = async (
   // Drizzle cannot express a multi-table write. A separate source hook can overwrite a
   // newer decision, or lose it when native cleanup removes the report before the hook.
   // LEFT JOIN revises only existing sources; ordinary moderation retains no identifiers.
-  await retryOnDeadlock(() =>
+  const result = await retryOnDeadlock(() =>
     client.execute(sql`
     UPDATE ${userReport}
     LEFT JOIN ${sanctionTombstone} ON ${sources}
@@ -399,15 +403,17 @@ export const updateSanctionReport = async (
         ${decision.banEnd !== undefined ? sql`${userReport.banEnd} = ${sql.param(decision.banEnd, userReport.banEnd)},` : sql``}
         ${sanctionTombstone.sanction} = ${activeEnd ? sql`${sanction}` : sanctionTombstone.sanction},
         ${sanctionTombstone.sanctionEndsAt} = ${sql.param(endsAt, sanctionTombstone.sanctionEndsAt)}
-    WHERE ${userReport.id} = ${report.id}
+    WHERE ${and(eq(userReport.id, report.id), ne(userReport.status, "REPORT_CLEARED"))}
   `),
   );
+  if (result.rowsAffected === 0) return false;
   // Expiry retires sources in the decision write. Prune only still-expired rows so a
   // delayed clear cannot erase a newer active decision on the same case.
   if (!activeEnd)
     await client
       .delete(sanctionTombstone)
       .where(and(sources, lte(sanctionTombstone.sanctionEndsAt, endsAt)));
+  return true;
 };
 
 /** Drop tombstones whose sanction has ended; nothing is kept past the sanction. */

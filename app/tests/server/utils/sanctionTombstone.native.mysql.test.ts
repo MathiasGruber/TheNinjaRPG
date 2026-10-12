@@ -798,13 +798,38 @@ describeWithDatabase("original sanctions during native deletion", () => {
     },
   );
 
-  it.each(["ban", "silence"] as const)(
-    "keeps an authorized %s decision after a concurrent clear's delayed pruning",
-    async (decision) => {
+  it.each([
+    ["ban", false],
+    ["silence", false],
+    ["timeout", false],
+    ["ban", true],
+    ["silence", true],
+    ["timeout", true],
+  ] as const)(
+    "rejects an authorized %s after a concurrent clear (pruned: %p)",
+    async (decision, hasPruned) => {
       const { register: registerIdentity } = stubSingleIdentity();
       const database = await getTestDatabase();
-      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+      await addReport(
+        "original",
+        decision === "timeout" ? "TIMEOUT_ACTIVATED" : "BAN_ACTIVATED",
+        new Date(Date.now() + 10 * DAY),
+      );
+      await database
+        .update(userData)
+        .set({
+          status: "TRAVEL",
+          travelFinishAt: new Date(Date.now() + DAY),
+          isBanned: decision !== "timeout",
+          isSilenced: decision === "timeout",
+        })
+        .where(eq(userData.userId, NATIVE_USER));
       await startDeletion();
+      if (decision === "timeout")
+        await database
+          .update(userData)
+          .set({ role: "CONTENT-ADMIN" })
+          .where(eq(userData.userId, "staff"));
       // Both actions pass moderation guards while the report is still resolvable.
       const later = await pauseNextDecision(true);
       const pending = callerForDatabase(reportsRouter, "staff", later.client)[decision](
@@ -816,27 +841,91 @@ describeWithDatabase("original sanctions during native deletion", () => {
         decisionInput,
       );
       await earlier.entered;
-      let current!: UserReport;
       try {
-        later.release();
-        expect(await pending).toMatchObject({ success: true });
-        current = (await database.query.userReport.findFirst({
+        if (hasPruned) {
+          earlier.release();
+          expect(await clearing).toMatchObject({ success: true });
+        }
+        const current = await database.query.userReport.findFirst({
           where: eq(userReport.id, "original"),
-        }))!;
-        await finishDeletion();
+        });
+        const account = await database.query.userData.findFirst({
+          where: eq(userData.userId, NATIVE_USER),
+        });
+        const comments = await database.query.userReportComment.findMany();
+        const sources = await database.query.sanctionTombstone.findMany();
+        expect(current?.status).toBe("REPORT_CLEARED");
+        expect(sources).toHaveLength(hasPruned ? 0 : 1);
+        later.release();
+        expect(await pending).toEqual({
+          success: false,
+          message: "Report was cleared or removed. Please refresh.",
+        });
+        expect(
+          await database.query.userReport.findFirst({
+            where: eq(userReport.id, "original"),
+          }),
+        ).toEqual(current);
+        expect(
+          await database.query.userData.findFirst({
+            where: eq(userData.userId, NATIVE_USER),
+          }),
+        ).toEqual(account);
+        expect(await database.query.userReportComment.findMany()).toEqual(comments);
+        expect(await database.query.sanctionTombstone.findMany()).toEqual(sources);
       } finally {
         later.release();
         earlier.release();
       }
       expect(await clearing).toMatchObject({ success: true });
-      expect(await sanctions.fetchActiveSanctionTombstones(database)).toMatchObject([
-        {
-          sanction: decision === "ban" ? "BAN" : "SILENCE",
-          sanctionEndsAt: current.banEnd,
-        },
-      ]);
+      await finishDeletion();
+      expect(await registerIdentity("AfterCleanup")).toHaveLength(0);
+      expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
+      expect(
+        await database.query.userData.findFirst({
+          columns: { isBanned: true, isSilenced: true },
+          where: eq(userData.userId, "AfterCleanup"),
+        }),
+      ).toEqual({ isBanned: false, isSilenced: false });
+    },
+  );
+
+  it.each(["ban", "silence", "timeout", "warn", "tradeBan", "clear"] as const)(
+    "rejects %s when native cleanup removes its report before the write",
+    async (decision) => {
+      const { register: registerIdentity } = stubSingleIdentity();
+      const database = await getTestDatabase();
+      const status = decision === "timeout" ? "TIMEOUT_ACTIVATED" : "BAN_ACTIVATED";
+      const end = new Date(Date.now() + DAY);
+      await addReport("original", status, end);
+      await startDeletion();
+      if (decision === "timeout")
+        await database
+          .update(userData)
+          .set({ role: "CONTENT-ADMIN" })
+          .where(eq(userData.userId, "staff"));
+      const { client, entered, release } = await pauseNextDecision(true);
+      const pending = callerForDatabase(reportsRouter, "staff", client)[decision](
+        decisionInput,
+      );
+      await entered;
+      const sources = await database.query.sanctionTombstone.findMany();
+      try {
+        await finishDeletion();
+      } finally {
+        release();
+      }
+      expect(await pending).toEqual({
+        success: false,
+        message: "Report was cleared or removed. Please refresh.",
+      });
+      expect(await database.query.userReportComment.findMany()).toHaveLength(0);
+      expect(await database.query.sanctionTombstone.findMany()).toEqual(sources);
       expect(await registerIdentity("AfterCleanup")).toMatchObject([
-        { status: current.status, banEnd: current.banEnd },
+        {
+          status: decision === "timeout" ? "SILENCE_ACTIVATED" : "BAN_ACTIVATED",
+          banEnd: end,
+        },
       ]);
     },
   );
