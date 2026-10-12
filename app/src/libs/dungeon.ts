@@ -102,7 +102,10 @@ export const advanceDungeonWave = (battle: CompleteBattle) => {
       );
     });
   battle.usersEffects = [...battle.usersEffects, ...next.effects];
-  battle.usersState = [...battle.usersState, ...next.users];
+  // Turn scheduling walks usersState in descending initiative order.
+  battle.usersState = [...battle.usersState, ...next.users].sort(
+    (a, b) => b.initiative - a.initiative,
+  );
   state.pendingWaves.shift();
   state.wave += 1;
   state.waveStartedRound = battle.round;

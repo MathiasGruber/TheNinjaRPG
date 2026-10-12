@@ -11,7 +11,8 @@ import {
   userJutsu,
 } from "@/drizzle/schema";
 import { performAIaction } from "@/libs/combat/ai_v2";
-import { getBattleGrid } from "@/libs/combat/util";
+import { calcActiveUser } from "@/libs/combat/actions";
+import { getBattleGrid, maskBattle } from "@/libs/combat/util";
 import { advanceDungeonWave } from "@/libs/dungeon";
 import { Pusher } from "@/libs/pusher";
 import { initiateBattle } from "@/server/api/routers/combat";
@@ -29,8 +30,10 @@ const MEMBERS = ["wave-a", "wave-b", "wave-c"];
 const OPENER = "wave-opener";
 const CASTER = "wave-caster";
 const CREATURE = "wave-creature";
+const MID = "wave-mid";
+const HIGH = "wave-high";
 
-describeWithDatabase("dungeon wave summon preparation", () => {
+describeWithDatabase("dungeon wave preparation", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     await resetTables(
@@ -38,6 +41,76 @@ describeWithDatabase("dungeon wave summon preparation", () => {
     );
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each(["distinct", "equal"] as const)(
+    "schedules incoming enemies by %s initiative without interrupting the active turn",
+    async (initiative) => {
+      const client = await getTestDatabase();
+      const meta = dungeonBattleState({
+        runState: { ...dungeonBattleState().runState, memberIds: MEMBERS },
+        lastActionRound: Object.fromEntries(MEMBERS.map((id) => [id, 0])),
+      });
+      const waves = [
+        { aiIds: [OPENER], delayRounds: 0 },
+        { aiIds: [MID, HIGH], delayRounds: 1 },
+      ];
+      const content = dungeonContent();
+      content.tiers[0]![0]!.waves = waves;
+      await client.insert(aiProfile).values({ id: "Default", userId: OPENER, rules: [] });
+      await insertUsers([
+        ...MEMBERS.map((userId) => ({ userId, username: userId, status: "AWAKE" as const, level: 50, rank: "JONIN" as const })),
+        ...[OPENER, MID, HIGH].map((userId) => ({ userId, username: userId, isAi: true, level: 50, rank: "JONIN" as const })),
+      ]);
+      await client.insert(dungeon).values({ id: "wave-definition", content, updatedAt: new Date() });
+      await client.insert(dungeonRun).values({
+        id: meta.runId, dungeonId: "wave-definition", leaderId: MEMBERS[0]!, content,
+        state: meta.runState, status: "FIGHTING", version: meta.runVersion,
+        battleId: "wave-fight", expiresAt: new Date(meta.expiresAt), createdAt: new Date(),
+      });
+      // The later wave is authored in ascending initiative order. Equal rolls
+      // also exercise ties with the active member and between the new enemies.
+      const rolls = initiative === "distinct"
+        ? [0.1, 0.7, 0.5, 0.2, 0.4, 0.9]
+        : [0.1, 0.7, 0.5, 0.2, 0.5, 0.5];
+      const random = vi.spyOn(Math, "random").mockReturnValue(0.1);
+      rolls.forEach((roll) => random.mockReturnValueOnce(roll));
+      expect((await initiateBattle({
+        client, userIds: MEMBERS, targetIds: waves.flatMap((wave) => wave.aiIds),
+        dungeon: { ...meta, battleId: "wave-fight", waves },
+      }, "QUEST")).success).toBe(true);
+
+      const saved = (await client.query.battle.findFirst())!;
+      const opening = saved.usersState.find((user) => user.controllerId === OPENER && !user.isSummon)!;
+      opening.curHealth = 0;
+      saved.round = 1;
+      saved.activeUserId = MEMBERS[2]!;
+      saved.roundStartAt = new Date();
+      const previousUsers = structuredClone(saved.usersState);
+      expect(advanceDungeonWave(saved)).toBe(true);
+      expect(saved.activeUserId).toBe(MEMBERS[2]!);
+      expect(calcActiveUser(maskBattle(saved, MEMBERS[2]!)).actor.userId).toBe(MEMBERS[2]!);
+      for (const previous of previousUsers) {
+        expect(saved.usersState.find((user) => user.userId === previous.userId)).toEqual(previous);
+      }
+      expect(saved.extraState.dungeon?.wave).toBe(2);
+      expect(saved.extraState.dungeon?.pendingWaves).toHaveLength(0);
+
+      saved.usersState.find((user) => user.userId === MEMBERS[2])!.actionPoints = 0;
+      const next = calcActiveUser(maskBattle(saved, MEMBERS[2]!));
+      expect(next.actor.controllerId).toBe(MID);
+      expect(next.changedActor).toBe(true);
+      expect(saved.usersState.filter((user) => user.curHealth > 0).map((user) => user.controllerId)).toEqual(
+        initiative === "distinct"
+          ? [HIGH, MEMBERS[1]!, MEMBERS[2]!, MID, MEMBERS[0]!]
+          : [MEMBERS[1]!, MEMBERS[2]!, MID, HIGH, MEMBERS[0]!],
+      );
+      saved.activeUserId = next.actor.userId;
+      saved.usersState.find((user) => user.userId === next.actor.userId)!.actionPoints = 0;
+      expect(calcActiveUser(maskBattle(saved, MID)).actor.controllerId).toBe(
+        initiative === "distinct" ? MEMBERS[0]! : HIGH,
+      );
+    },
+  );
 
   it.each(["opening", "later"] as const)(
     "summons a pristine creature after its %s wave combatant spends its loadout",
