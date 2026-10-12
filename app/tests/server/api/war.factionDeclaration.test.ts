@@ -15,6 +15,7 @@ import {
   village,
   villageAlliance,
   villageElderVote,
+  villageElderVoteEntry,
   villageStructure,
   war,
   warAlly,
@@ -103,6 +104,7 @@ describeWithDatabase("faction war declarations", () => {
       village,
       villageAlliance,
       villageElderVote,
+      villageElderVoteEntry,
       villageStructure,
       war,
       warAlly,
@@ -242,6 +244,53 @@ describeWithDatabase("faction war declarations", () => {
     const database = await getTestDatabase();
     expect(await database.select().from(war)).toHaveLength(0);
     expect((await readFaction())?.tokens).toBe(TOKENS);
+  });
+
+  it("preserves the Town Hall through a village declaration and elder approval", async () => {
+    await seedWorld("VILLAGE");
+    const database = await getTestDatabase();
+    await database.insert(villageStructure).values({
+      id: "target-townhall",
+      name: "Town Hall",
+      image: "/townhall.webp",
+      villageId: TARGET,
+      route: "/townhall",
+    });
+    const elders = Array.from({ length: ELDER_MIN_VOTING_COUNT }, (_, index) => ({
+      userId: `elder-${index}`,
+      username: `Elder${index}`,
+      villageId: FACTION,
+      rank: "ELDER" as const,
+    }));
+    await insertUsers(elders);
+    const result = await (await callerFor(warRouter, LEADER)).declareVillageWarOrRaid({
+      userVillageId: FACTION,
+      targetVillageId: TARGET,
+      targetStructureRoute: "/townhall",
+    });
+    expect(result.success).toBe(true);
+    const [vote] = await database.select().from(villageElderVote);
+    expect(vote).toMatchObject({
+      status: "PENDING",
+      targetStructureRoute: "/townhall",
+      warType: "VILLAGE_WAR",
+    });
+    for (const elder of elders.slice(0, Math.floor(elders.length / 2) + 1)) {
+      const voted = await (await callerFor(warRouter, elder.userId)).voteOnWarDeclaration({
+        voteId: vote!.id,
+        userVillageId: FACTION,
+        vote: "YES",
+      });
+      expect(voted.success).toBe(true);
+    }
+    const wars = await database.select().from(war);
+    expect(wars).toHaveLength(1);
+    expect(wars[0]).toMatchObject({
+      status: "ACTIVE",
+      type: "VILLAGE_WAR",
+      targetStructureRoute: "/townhall",
+    });
+    expect((await readFaction())?.tokens).toBe(TOKENS - WAR_DECLARATION_COST);
   });
   it("requires 20 raiders and rejects unsupported structures without charging", async () => {
     await seedWorld();

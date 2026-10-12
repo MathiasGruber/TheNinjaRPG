@@ -521,7 +521,7 @@ export const WarMap: React.FC<{
           setDeclarationError(null);
           declareVillageWarOrRaid({
             targetVillageId: sectorVillage.id,
-            targetStructureRoute: structureRoute,
+            targetStructureRoute: "/townhall",
             userVillageId: user.villageId ?? "",
           });
         };
