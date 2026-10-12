@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EditContent, type FormEntry, RewardFormWrapper } from "@/layout/EditContent";
 import { getRewardPreview } from "@/libs/objectives";
+import { getActiveRewardNodes } from "@/libs/rewardNodes";
 import { isStaffRole } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import {
@@ -63,6 +64,7 @@ export const RewardEditor = ({
       : value !== undefined &&
           value !== defaultValues[field as keyof typeof defaultValues];
   };
+  const activeNodes = getActiveRewardNodes(groups, addedNodes, hasValue);
   const setPackages = (next: RewardPackageSnapshotType[]) =>
     form.setValue("reward_packages", next, { shouldDirty: true, shouldValidate: true });
   const source = catalog?.packages.find((pack) => pack.id === selectedPackage);
@@ -172,9 +174,7 @@ export const RewardEditor = ({
         >
           <option value="">Add a reward node</option>
           {groups
-            .filter(
-              (node) => !addedNodes.includes(node.id) && !node.fields.some(hasValue),
-            )
+            .filter((node) => !activeNodes.some((active) => active.id === node.id))
             .map((node) => (
               <option key={node.id} value={node.id}>
                 {node.name}
@@ -182,39 +182,37 @@ export const RewardEditor = ({
             ))}
         </select>
       </div>
-      {groups
-        .filter((node) => addedNodes.includes(node.id) || node.fields.some(hasValue))
-        .map((node) => (
-          <details key={node.id} open className="rounded border p-2">
-            <summary className="cursor-pointer font-semibold">{node.name}</summary>
-            <EditContent
-              schema={QuestReward}
-              form={form}
-              formData={formData.filter((entry) => node.fields.includes(entry.id))}
-              showSubmit={false}
-              fieldsOnly
-              allowMaterialRewards={!allowPackages}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                for (const field of node.fields.filter(
-                  (field) => !formData.find((entry) => entry.id === field)?.readonly,
-                ))
-                  form.setValue(
-                    field,
-                    defaultValues[field as keyof typeof defaultValues],
-                    { shouldDirty: true, shouldValidate: true },
-                  );
-                setAddedNodes(addedNodes.filter((id) => id !== node.id));
-              }}
-            >
-              Clear Node
-            </Button>
-          </details>
-        ))}
+      {activeNodes.map((node) => (
+        <details key={node.id} open className="rounded border p-2">
+          <summary className="cursor-pointer font-semibold">{node.name}</summary>
+          <EditContent
+            schema={QuestReward}
+            form={form}
+            formData={formData.filter((entry) => node.fields.includes(entry.id))}
+            showSubmit={false}
+            fieldsOnly
+            allowMaterialRewards={!allowPackages}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              for (const field of node.fields.filter(
+                (field) => !formData.find((entry) => entry.id === field)?.readonly,
+              ))
+                form.setValue(
+                  field,
+                  defaultValues[field as keyof typeof defaultValues],
+                  { shouldDirty: true, shouldValidate: true },
+                );
+              setAddedNodes(addedNodes.filter((id) => id !== node.id));
+            }}
+          >
+            Clear Node
+          </Button>
+        </details>
+      ))}
     </div>
   );
 };
