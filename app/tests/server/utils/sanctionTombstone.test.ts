@@ -169,19 +169,24 @@ describeWithDatabase("sanction tombstones", () => {
 
     await deleteUser(await getTestDatabase(), SANCTIONED);
 
-    const [tombstone, ...rest] = await tombstonesOf(SANCTIONED);
-    expect(rest).toHaveLength(0);
-    expect(tombstone).toMatchObject({
-      sanction: "SILENCE",
-      sanctionEndsAt: silenceEnd,
-      emailHash: hashSanctionIdentifier("email", "player+evade@example.com"),
-      accountHashes: [hashSanctionIdentifier("oauth", "google:google-123")],
-    });
-    expect([...(tombstone?.reportIds ?? [])].sort()).toEqual([
+    const tombstones = await tombstonesOf(SANCTIONED);
+    expect(tombstones).toHaveLength(2);
+    for (const tombstone of tombstones) {
+      expect(tombstone).toMatchObject({
+        sanction: "SILENCE",
+        reportIds: [tombstone.sourceId],
+        emailHash: hashSanctionIdentifier("email", "player+evade@example.com"),
+        accountHashes: [hashSanctionIdentifier("oauth", "google:google-123")],
+      });
+    }
+    expect(
+      tombstones.find((source) => source.sourceId === "report-SILENCE_ACTIVATED"),
+    ).toMatchObject({ sanctionEndsAt: silenceEnd });
+    expect(tombstones.flatMap((source) => source.reportIds).sort()).toEqual([
       "report-SILENCE_ACTIVATED",
       "report-TIMEOUT_ACTIVATED",
     ]);
-    const stored = JSON.stringify(tombstone);
+    const stored = JSON.stringify(tombstones);
     expect(stored).not.toContain("Sanctioned");
     expect(stored).not.toContain("example.com");
     expect(stored).not.toContain("google-123");
@@ -256,12 +261,104 @@ describeWithDatabase("sanction tombstones", () => {
     expect(logs[0]?.changes).toContain("Matched by: clerkId, email");
   });
 
+  it("revises every source across repeated web deletions and an identity change", async () => {
+    const database = await getTestDatabase();
+    await insertUsers([{ userId: SANCTIONED }, { userId: "staff", role: "OWNER" }]);
+    await addSanction(
+      SANCTIONED,
+      "BAN_ACTIVATED",
+      new Date(Date.now() + 10 * DAY),
+      "first-ban",
+    );
+    await addSanction(
+      SANCTIONED,
+      "BAN_ACTIVATED",
+      new Date(Date.now() + 3 * DAY),
+      "second-ban",
+    );
+    await addSanction(
+      SANCTIONED,
+      "SILENCE_ACTIVATED",
+      new Date(Date.now() + 20 * DAY),
+      "separate-silence",
+    );
+    const clerkUsers = { [SANCTIONED]: identity("first-web@example.com") };
+    stubClerk(clerkUsers);
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue();
+    await deleteUser(database, SANCTIONED);
+    expect(await register(SANCTIONED)).toMatchObject({ success: true });
+    const inherited = await database.query.userReport.findMany({
+      where: eq(userReport.reportedUserId, SANCTIONED),
+    });
+    expect(inherited).toHaveLength(2);
+    const grouped = inherited.find((report) => report.status === "BAN_ACTIVATED")!;
+    const separate = inherited.find((report) => report.status === "SILENCE_ACTIVATED")!;
+    const staff = await callerFor(reportsRouter, "staff");
+    const input = {
+      comment: "Revise inherited cases",
+      banTime: 1,
+      banTimeUnit: "days" as const,
+    };
+    expect(await staff.silence({ ...input, object_id: grouped.id })).toMatchObject({
+      success: true,
+    });
+    expect(await staff.clear({ ...input, object_id: separate.id })).toMatchObject({
+      success: true,
+    });
+    const revised = await database.query.userReport.findFirst({
+      where: eq(userReport.id, grouped.id),
+    });
+    const originalSources = await tombstonesOf(SANCTIONED);
+    expect(originalSources).toHaveLength(2);
+    expect(
+      originalSources.every(
+        (source) =>
+          source.sanction === "SILENCE" &&
+          source.sanctionEndsAt.getTime() === revised!.banEnd!.getTime(),
+      ),
+    ).toBe(true);
+    clerkUsers[SANCTIONED] = identity("changed-web@example.com");
+    await deleteUser(database, SANCTIONED);
+    expect(await tombstonesOf(SANCTIONED)).toEqual(
+      expect.arrayContaining(originalSources),
+    );
+    expect(await tombstonesOf(SANCTIONED)).toHaveLength(3);
+    expect(await register(SANCTIONED)).toMatchObject({ success: true });
+    const returned = await database.query.userReport.findMany({
+      where: eq(userReport.reportedUserId, SANCTIONED),
+    });
+    expect(returned).toMatchObject([
+      { status: "SILENCE_ACTIVATED", banEnd: revised!.banEnd },
+    ]);
+    expect(
+      await database.query.actionLog.findFirst({
+        where: eq(actionLog.relatedId, returned[0]!.id),
+      }),
+    ).toMatchObject({
+      changes: expect.arrayContaining([
+        expect.stringContaining("first-ban"),
+        expect.stringContaining("second-ban"),
+      ]),
+    });
+    expect(await staff.clear({ ...input, object_id: returned[0]!.id })).toMatchObject({
+      success: true,
+    });
+    expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+    await deleteUser(database, SANCTIONED);
+    expect(await register(SANCTIONED)).toMatchObject({ success: true });
+    expect(
+      await database.query.userReport.findMany({
+        where: eq(userReport.reportedUserId, SANCTIONED),
+      }),
+    ).toHaveLength(0);
+  });
+
   it("matches a new Clerk id by a differently spelled email after a native deletion", async () => {
     const silenceEnd = new Date(Date.now() + 3 * DAY);
     await getTestDatabase().then((database) =>
       database.insert(sanctionTombstone).values({
         userId: "user_deleted",
-        sourceSanction: "SILENCE",
+        sourceId: "original-silence",
         sanction: "SILENCE",
         sanctionEndsAt: silenceEnd,
         reportIds: ["original-silence"],
@@ -298,7 +395,7 @@ describeWithDatabase("sanction tombstones", () => {
     const database = await getTestDatabase();
     await database.insert(sanctionTombstone).values({
       userId: SANCTIONED,
-      sourceSanction: "BAN",
+      sourceId: "expired-ban",
       sanction: "BAN",
       sanctionEndsAt: new Date(Date.now() - 1000),
       reportIds: ["expired-ban"],
@@ -584,7 +681,7 @@ describeWithDatabase("sanction tombstones", () => {
       expect(await staff[decision](input)).toMatchObject({ success: true });
       expect(await tombstonesOf(SANCTIONED)).toMatchObject([
         {
-          sourceSanction: "BAN",
+          sourceId: "original-ban",
           sanction: "BAN",
           sanctionEndsAt: independentEnd,
           reportIds: ["original-ban"],
@@ -822,11 +919,11 @@ describeWithDatabase("sanction tombstones", () => {
         where: eq(userReport.id, original.id),
       });
       const sources = await tombstonesOf(SANCTIONED);
-      const sourceSanction = decision === "ban" ? "BAN" : "SILENCE";
+      const sanction = decision === "ban" ? "BAN" : "SILENCE";
       expect(sources).toHaveLength(2);
-      expect(sources.every((source) => source.sanction === sourceSanction)).toBe(true);
+      expect(sources.every((source) => source.sanction === sanction)).toBe(true);
       expect(
-        sources.find((source) => source.sourceSanction === sourceSanction)!
+        sources.find((source) => source.sourceId === `report-${status}`)!
           .sanctionEndsAt,
       ).toEqual(separate.banEnd!);
       expect(

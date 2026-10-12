@@ -22,7 +22,7 @@ import { getIpHashSecret } from "@/server/utils/ipHash";
  * App Store and Google Play account-deletion rules) without escaping the sanction by
  * registering again.
  *
- * Deleting an account while a ban or silence still runs stores one row per sanction type:
+ * Deleting an account while a ban or silence still runs stores one row per active report:
  * the Clerk user id, keyed hashes of the primary email and of every linked OAuth account,
  * the end date and the ids of the reports that imposed it. Nothing about the character, its
  * chat or its IPs is kept, and the hourly cleaner removes the row once the sanction ends.
@@ -141,7 +141,7 @@ export const isClerkNotFound = (error: unknown) =>
 const fetchActiveSanctions = async (
   client: DrizzleClient,
   userId: string,
-): Promise<ActiveSanction[]> => {
+): Promise<(ActiveSanction & { sourceId: string })[]> => {
   const reports = await client.query.userReport.findMany({
     columns: { id: true, status: true, banEnd: true },
     where: and(
@@ -153,20 +153,21 @@ const fetchActiveSanctions = async (
       gt(userReport.banEnd, new Date()),
     ),
   });
-  const sanctions = new Map<SanctionTombstoneType, ActiveSanction>();
-  for (const report of reports) {
-    if (!report.banEnd) continue;
-    const sanction =
-      SANCTION_REPORT_STATES[report.status as keyof typeof SANCTION_REPORT_STATES];
-    const current = sanctions.get(sanction);
-    sanctions.set(sanction, {
-      sanction,
-      endsAt:
-        current && current.endsAt > report.banEnd ? current.endsAt : report.banEnd,
-      reportIds: [...(current?.reportIds ?? []), report.id],
-    });
-  }
-  return [...sanctions.values()];
+  return reports.flatMap((report) =>
+    report.banEnd
+      ? [
+          {
+            sourceId: report.id,
+            sanction:
+              SANCTION_REPORT_STATES[
+                report.status as keyof typeof SANCTION_REPORT_STATES
+              ],
+            endsAt: report.banEnd,
+            reportIds: [report.id],
+          },
+        ]
+      : [],
+  );
 };
 
 /**
@@ -183,12 +184,7 @@ export const recordSanctionTombstone = async (
   userId: string,
   identity?: SanctionIdentity | null,
 ) => {
-  const [sanctions, sources] = await Promise.all([
-    fetchActiveSanctions(client, userId),
-    client.query.sanctionTombstone.findMany({
-      where: eq(sanctionTombstone.userId, userId),
-    }),
-  ]);
+  const sanctions = await fetchActiveSanctions(client, userId);
   if (sanctions.length === 0) return;
   const clerkUser =
     identity === undefined ? await fetchSanctionIdentity(userId) : identity;
@@ -197,27 +193,8 @@ export const recordSanctionTombstone = async (
     emailHash: primaryEmailHashOf(clerkUser),
     accountHashes: accountHashesOf(clerkUser),
   };
-  await replaceSanctionSnapshot(client, userId, sanctions, sources, hashes);
-};
-
-const hashesOfSources = (sources: SanctionTombstone[]) => ({
-  emailHash: sources.find((source) => source.emailHash)?.emailHash ?? null,
-  accountHashes: [...new Set(sources.flatMap((source) => source.accountHashes))],
-});
-
-/** Replace the account's snapshot while its original reports still exist. */
-const replaceSanctionSnapshot = async (
-  client: DrizzleClient,
-  userId: string,
-  sanctions: ActiveSanction[],
-  sources: SanctionTombstone[],
-  hashes: ReturnType<typeof hashesOfSources>,
-) => {
-  const obsolete = sources.filter(
-    (source) => !sanctions.some((entry) => entry.sanction === source.sourceSanction),
-  );
-  await Promise.all([
-    ...sanctions.map((entry) => {
+  await Promise.all(
+    sanctions.map((entry) => {
       const sanctionFields = {
         sanction: entry.sanction,
         sanctionEndsAt: entry.endsAt,
@@ -227,37 +204,13 @@ const replaceSanctionSnapshot = async (
         .insert(sanctionTombstone)
         .values({
           userId,
-          sourceSanction: entry.sanction,
+          sourceId: entry.sourceId,
           ...sanctionFields,
           ...hashes,
-          // A type conversion must keep links to registrations made during the native
-          // deletion delay, even when it needs a new row after Clerk is already gone.
-          carryoverReportIds: [
-            ...new Set(
-              sources
-                .filter((source) =>
-                  source.reportIds.some((id) => entry.reportIds.includes(id)),
-                )
-                .flatMap((source) => source.carryoverReportIds),
-            ),
-          ],
         })
         .onDuplicateKeyUpdate({ set: { ...sanctionFields, ...hashes } });
     }),
-    ...(obsolete.length
-      ? [
-          client.delete(sanctionTombstone).where(
-            and(
-              eq(sanctionTombstone.userId, userId),
-              inArray(
-                sanctionTombstone.sourceSanction,
-                obsolete.map((source) => source.sourceSanction),
-              ),
-            ),
-          ),
-        ]
-      : []),
-  ]);
+  );
 };
 
 /** Unexpired tombstones; registration matches them in memory. */
@@ -389,7 +342,7 @@ export const reapplySanctions = (
             ...match.tombstones.map((source) =>
               and(
                 eq(sanctionTombstone.userId, source.userId),
-                eq(sanctionTombstone.sourceSanction, source.sourceSanction),
+                eq(sanctionTombstone.sourceId, source.sourceId),
               ),
             ),
           ),
@@ -409,56 +362,24 @@ export const reviseSanctionTombstones = async (
   endsAt: Date | null,
   userId: string | null,
 ) => {
-  const [sources, sanctions] = await Promise.all([
-    client.query.sanctionTombstone.findMany({
-      where: or(
-        userId ? eq(sanctionTombstone.userId, userId) : undefined,
-        sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`,
-      ),
-    }),
-    userId ? fetchActiveSanctions(client, userId) : Promise.resolve([]),
-  ]);
-  const originalSources = sources.filter((source) => source.userId === userId);
-  // Moderation of an ordinary account must never start retaining its identity.
-  const hasOriginalSnapshot = originalSources.some((source) =>
-    source.reportIds.includes(reportId),
+  // Each original case retains its own current decision. Rebuilding from the deleted
+  // account's other reports would overwrite decisions made on their linked carryovers.
+  // Only existing sources are revised, so ordinary moderation never retains an identity.
+  const where = or(
+    userId
+      ? and(
+          eq(sanctionTombstone.userId, userId),
+          eq(sanctionTombstone.sourceId, reportId),
+        )
+      : undefined,
+    sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`,
   );
-  const carryoverSources = sources.filter(
-    (source) =>
-      source.carryoverReportIds.includes(reportId) &&
-      (!hasOriginalSnapshot || source.userId !== userId),
-  );
-  const carryoverWhere = or(
-    ...carryoverSources.map((source) =>
-      and(
-        eq(sanctionTombstone.userId, source.userId),
-        eq(sanctionTombstone.sourceSanction, source.sourceSanction),
-      ),
-    ),
-  );
-  await Promise.all([
-    ...(carryoverSources.length
-      ? [
-          endsAt
-            ? client
-                .update(sanctionTombstone)
-                .set({ sanction, sanctionEndsAt: endsAt })
-                .where(carryoverWhere)
-            : client.delete(sanctionTombstone).where(carryoverWhere),
-        ]
-      : []),
-    ...(hasOriginalSnapshot && userId
-      ? [
-          replaceSanctionSnapshot(
-            client,
-            userId,
-            sanctions,
-            originalSources,
-            hashesOfSources(originalSources),
-          ),
-        ]
-      : []),
-  ]);
+  await (endsAt
+    ? client
+        .update(sanctionTombstone)
+        .set({ sanction, sanctionEndsAt: endsAt })
+        .where(where)
+    : client.delete(sanctionTombstone).where(where));
 };
 
 /** Drop tombstones whose sanction has ended; nothing is kept past the sanction. */

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "fa5d1889-2d12-4bba-8515-e219b0e0d7bb",
+  "id": "adb9b98f-036f-4b6e-9398-1c5218c7ddb9",
   "prevId": "e778d58b-c8e8-4503-bf5a-db1f88a0de0e",
   "tables": {
     "AbEvent": {
@@ -11114,9 +11114,9 @@
           "notNull": true,
           "autoincrement": false
         },
-        "sourceSanction": {
-          "name": "sourceSanction",
-          "type": "enum('BAN','SILENCE')",
+        "sourceId": {
+          "name": "sourceId",
+          "type": "varchar(191)",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -11184,11 +11184,11 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "SanctionTombstone_userId_sourceSanction_pk": {
-          "name": "SanctionTombstone_userId_sourceSanction_pk",
+        "SanctionTombstone_userId_sourceId_pk": {
+          "name": "SanctionTombstone_userId_sourceId_pk",
           "columns": [
             "userId",
-            "sourceSanction"
+            "sourceId"
           ]
         }
       },

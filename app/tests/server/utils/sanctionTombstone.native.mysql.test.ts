@@ -140,6 +140,45 @@ const decisionInput = {
   banTimeUnit: "days" as const,
 };
 
+/** Native re-registration can reuse an identity only after its Clerk owner is deleted. */
+const stubSingleIdentity = () => {
+  const liveOwners = new Map([[NATIVE_USER, identity]]);
+  vi.spyOn(clerk, "clerkClient").mockResolvedValue({
+    users: {
+      getUser: vi.fn(async (userId: string) => {
+        const owner = liveOwners.get(userId);
+        if (!owner) throw Object.assign(new Error("not found"), { status: 404 });
+        return owner;
+      }),
+      deleteUser: vi.fn(async (userId: string) => {
+        liveOwners.delete(userId);
+      }),
+    },
+  } as never);
+  return {
+    register: async (userId: string) => {
+      expect(liveOwners.size).toBe(0);
+      liveOwners.set(userId, identity);
+      return register(userId);
+    },
+    replace: (userId: string, replacement: SanctionIdentity) => {
+      expect(liveOwners.has(userId)).toBe(true);
+      liveOwners.set(userId, replacement);
+    },
+  };
+};
+
+const deleteReplacement = async () => {
+  await (await getTestDatabase())
+    .insert(accountDeletion)
+    .values({ userId: "DuringDelay" });
+  expect(await processAccountDeletions("DuringDelay")).toEqual({
+    processed: 1,
+    failed: 0,
+  });
+  await finishDeletion("DuringDelay");
+};
+
 describeWithDatabase("original sanctions during native deletion", () => {
   beforeEach(async () => {
     await resetTables(
@@ -311,7 +350,7 @@ describeWithDatabase("original sanctions during native deletion", () => {
       const sources = await (
         await getTestDatabase()
       ).query.sanctionTombstone.findMany();
-      expect(sources).toHaveLength(2);
+      expect(sources).toHaveLength(3);
       expect(sources.every((source) => source.emailHash === hashes.emailHash)).toBe(
         true,
       );
@@ -420,15 +459,15 @@ describeWithDatabase("original sanctions during native deletion", () => {
         where: eq(sanctionTombstone.userId, NATIVE_USER),
       });
       if (decision === "clear") {
-        expect(snapshot.some((source) => source.sourceSanction === "BAN")).toBe(false);
+        expect(snapshot.some((source) => source.sourceId === "original")).toBe(false);
       } else {
-        expect(
-          snapshot.find((source) => source.sourceSanction === "BAN"),
-        ).toMatchObject({
-          ...hashes,
-          sanction: decision === "ban" ? "BAN" : "SILENCE",
-          sanctionEndsAt: revised!.banEnd,
-        });
+        expect(snapshot.find((source) => source.sourceId === "original")).toMatchObject(
+          {
+            ...hashes,
+            sanction: decision === "ban" ? "BAN" : "SILENCE",
+            sanctionEndsAt: revised!.banEnd,
+          },
+        );
       }
       await recordSanctionTombstone(database, NATIVE_USER, null);
       expect(
@@ -476,7 +515,7 @@ describeWithDatabase("original sanctions during native deletion", () => {
       );
       if (hasIndependentSilence) {
         expect(
-          snapshot.find((source) => source.sourceSanction === "SILENCE"),
+          snapshot.find((source) => source.sourceId === "independent-silence"),
         ).toMatchObject({
           ...hashes,
           sanction: "SILENCE",
@@ -486,6 +525,189 @@ describeWithDatabase("original sanctions during native deletion", () => {
       } else if (decision === "clear") {
         expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
       }
+    },
+  );
+
+  it.each([
+    ["ban", false],
+    ["silence", false],
+    ["clear", false],
+    ["ban", true],
+    ["silence", true],
+    ["clear", true],
+  ] as const)(
+    "preserves carryover %s across an independent original edit: %p",
+    async (decision, editIndependent) => {
+      const { register: registerIdentity } = stubSingleIdentity();
+      const database = await getTestDatabase();
+      const independentEnd = new Date(Date.now() + 20 * DAY);
+      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+      await addReport("independent-silence", "SILENCE_ACTIVATED", independentEnd);
+      await startDeletion();
+      const inherited = (await registerIdentity("DuringDelay")).find(
+        (report) => report.status === "BAN_ACTIVATED",
+      )!;
+      const staff = await callerFor(reportsRouter, "staff");
+      expect(
+        await staff[decision]({ ...decisionInput, object_id: inherited.id }),
+      ).toMatchObject({ success: true });
+      const revised = await database.query.userReport.findFirst({
+        where: eq(userReport.id, inherited.id),
+      });
+      const before = await database.query.sanctionTombstone.findMany();
+      if (editIndependent) {
+        expect(
+          await staff.clear({ ...decisionInput, object_id: "independent-silence" }),
+        ).toMatchObject({ success: true });
+      }
+      const expected = before.filter(
+        (source) => !editIndependent || source.sourceId !== "independent-silence",
+      );
+      expect(await database.query.sanctionTombstone.findMany()).toEqual(expected);
+      await recordSanctionTombstone(database, NATIVE_USER, null);
+      await finishDeletion();
+      await removeAccountGameData(NATIVE_USER);
+      expect(await database.query.sanctionTombstone.findMany()).toEqual(expected);
+      await deleteReplacement();
+      const returned = await registerIdentity("AfterCleanup");
+      const returnedBan = returned.find((report) => report.status === "BAN_ACTIVATED");
+      if (decision === "ban") {
+        expect(returnedBan).toMatchObject({ banEnd: revised!.banEnd });
+      } else {
+        expect(returnedBan).toBeUndefined();
+      }
+      // The replacement's separate silence remains its own live moderation case.
+      expect(
+        returned.find((report) => report.status === "SILENCE_ACTIVATED"),
+      ).toMatchObject({ banEnd: independentEnd });
+      expect(returned).toHaveLength(decision === "ban" ? 2 : 1);
+      const active = await (await callerFor(reportsRouter, "AfterCleanup")).getBan();
+      expect(active?.status === "BAN_ACTIVATED").toBe(decision === "ban");
+      expect(
+        await database.query.userData.findFirst({
+          columns: { isBanned: true, isSilenced: true },
+          where: eq(userData.userId, "AfterCleanup"),
+        }),
+      ).toEqual({ isBanned: decision === "ban", isSilenced: true });
+    },
+  );
+
+  it.each([
+    ["BAN_ACTIVATED", "SILENCE_ACTIVATED", "silence", "ban"],
+    ["SILENCE_ACTIVATED", "BAN_ACTIVATED", "ban", "silence"],
+  ] as const)(
+    "keeps each original %s case's carryover decision after one case is revised and cleared",
+    async (originalStatus, convertedStatus, convert, independentDecision) => {
+      const { register: registerIdentity, replace } = stubSingleIdentity();
+      const database = await getTestDatabase();
+      await addReport("original", originalStatus, new Date(Date.now() + 10 * DAY));
+      await addReport(
+        "independent-same",
+        originalStatus,
+        new Date(Date.now() + 3 * DAY),
+      );
+      await addReport(
+        "independent-other",
+        convertedStatus,
+        new Date(Date.now() + 20 * DAY),
+      );
+      await startDeletion();
+      const inherited = await registerIdentity("DuringDelay");
+      expect(inherited).toHaveLength(2);
+      const grouped = inherited.find((report) => report.status === originalStatus)!;
+      const independent = inherited.find(
+        (report) => report.status === convertedStatus,
+      )!;
+      const staff = await callerFor(reportsRouter, "staff");
+      expect(
+        await staff[convert]({ ...decisionInput, object_id: grouped.id }),
+      ).toMatchObject({ success: true });
+      expect(
+        await staff[independentDecision]({
+          ...decisionInput,
+          object_id: independent.id,
+          banTime: 2,
+        }),
+      ).toMatchObject({ success: true });
+      const before = await database.query.sanctionTombstone.findMany();
+      const remaining = before.find(
+        (source) => source.sourceId === "independent-same",
+      )!;
+      const separate = before.find(
+        (source) => source.sourceId === "independent-other",
+      )!;
+      expect(await staff[convert]({ ...decisionInput, banTime: 4 })).toMatchObject({
+        success: true,
+      });
+      const revised = await database.query.userReport.findFirst({
+        where: eq(userReport.id, "original"),
+      });
+      expect(await database.query.sanctionTombstone.findMany()).toEqual(
+        expect.arrayContaining([
+          remaining,
+          separate,
+          expect.objectContaining({
+            sourceId: "original",
+            ...hashes,
+            sanction: convert === "ban" ? "BAN" : "SILENCE",
+            sanctionEndsAt: revised!.banEnd,
+            carryoverReportIds: [grouped.id],
+          }),
+        ]),
+      );
+      expect(await staff.clear(decisionInput)).toMatchObject({ success: true });
+      const expected = [remaining, separate].sort((a, b) =>
+        a.sourceId.localeCompare(b.sourceId),
+      );
+      expect(await database.query.sanctionTombstone.findMany()).toEqual(expected);
+      await finishDeletion();
+      await removeAccountGameData(NATIVE_USER);
+      expect(await database.query.sanctionTombstone.findMany()).toEqual(expected);
+      // Only the original account's captured identifiers can match the next account.
+      replace("DuringDelay", {
+        primaryEmailAddressId: "changed-email",
+        emailAddresses: [
+          {
+            id: "changed-email",
+            emailAddress: "changed-native@example.com",
+            verification: { status: "verified" },
+          },
+        ],
+        externalAccounts: [],
+      });
+      await deleteReplacement();
+      const returned = await registerIdentity("AfterCleanup");
+      expect(returned).toHaveLength(2);
+      expect(returned).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: convertedStatus,
+            banEnd: remaining.sanctionEndsAt,
+          }),
+          expect.objectContaining({
+            status: originalStatus,
+            banEnd: separate.sanctionEndsAt,
+          }),
+        ]),
+      );
+      expect(
+        await database.query.actionLog.findMany({
+          where: eq(actionLog.userId, "AfterCleanup"),
+        }),
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            changes: expect.arrayContaining([
+              expect.stringContaining("independent-same"),
+            ]),
+          }),
+          expect.objectContaining({
+            changes: expect.arrayContaining([
+              expect.stringContaining("independent-other"),
+            ]),
+          }),
+        ]),
+      );
     },
   );
 
