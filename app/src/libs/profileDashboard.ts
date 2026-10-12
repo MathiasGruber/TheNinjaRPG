@@ -91,8 +91,10 @@ export type DashboardContentSummary = {
   questType: string;
   location: string;
   destination: string;
+  /** Target for the existing Auto Travel confirmation, when the destination is known. */
   travelSector?: number;
   availability: DashboardAvailability;
+  /** Only blocking reasons replace the action with a restriction badge. */
   availabilityReason: string | null;
   endsAt: string | null;
 };
@@ -255,7 +257,10 @@ export const condenseDashboardMissionContent = (
   return [...otherContent, ...groupedMissions];
 };
 
-/** Open the content itself when the player is already there; otherwise open travel. */
+/**
+ * Open local content or its Auto Travel confirmation. Unknown destinations open the
+ * travel map so the player can select a sector.
+ */
 export const dashboardContentHref = (entry: {
   category: string;
   availability: DashboardAvailability;
@@ -270,6 +275,7 @@ export const dashboardContentHref = (entry: {
   return entry.destination;
 };
 
+/** Match the board or travel action label to the opportunity's availability. */
 export const dashboardContentActionLabel = (entry: {
   availability: DashboardAvailability;
 }) => {
@@ -280,7 +286,9 @@ export const dashboardContentActionLabel = (entry: {
   return "Open content";
 };
 
-/** A raid with no sector is fought from Global ANBU HQ, same as one in the current sector. */
+/**
+ * Global and local raids open HQ; remote raids request travel to their published sector.
+ */
 export const raidContinueHref = (
   raidSector: number | null,
   userSector: number | null | undefined,
@@ -289,7 +297,7 @@ export const raidContinueHref = (
     ? "/globalanbuhq"
     : `/travel?sector=${raidSector}`;
 
-/** The HQ overview remains accessible when the player cannot join a raid. */
+/** Resolve raid routing and preserve participation restrictions before offering travel. */
 export const dashboardRaidAction = (
   raidSector: number | null,
   user: Pick<NonNullable<UserWithRelations>, "sector" | "status" | "isBanned">,
@@ -589,6 +597,7 @@ export const resolveDashboardContent = (
         questType: candidate.questType,
         location,
         destination,
+        // Travel targets the board where the quest can be started.
         travelSector:
           category === "events" || category === "story"
             ? MAP_WAKE_ISLAND_SECTOR

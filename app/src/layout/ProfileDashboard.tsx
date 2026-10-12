@@ -1151,6 +1151,7 @@ function RetryPanel({ message, onRetry }: { message: string; onRetry?: () => voi
   );
 }
 
+/** Present board or travel actions with ban precedence in the restriction label. */
 function ContentCard({
   entry,
   isBanned,
