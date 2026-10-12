@@ -144,7 +144,7 @@ const decisionInput = {
 };
 
 /** Native re-registration can reuse an identity only after its Clerk owner is deleted. */
-const stubSingleIdentity = () => {
+const stubSingleIdentity = (afterDelete?: () => Promise<void>) => {
   const liveOwners = new Map([[NATIVE_USER, identity]]);
   vi.spyOn(clerk, "clerkClient").mockResolvedValue({
     users: {
@@ -155,13 +155,14 @@ const stubSingleIdentity = () => {
       }),
       deleteUser: vi.fn(async (userId: string) => {
         liveOwners.delete(userId);
+        await afterDelete?.();
       }),
     },
   } as never);
   return {
-    register: async (userId: string) => {
+    register: async (userId: string, ownerIdentity = identity) => {
       expect(liveOwners.size).toBe(0);
-      liveOwners.set(userId, identity);
+      liveOwners.set(userId, ownerIdentity);
       return register(userId);
     },
     replace: (userId: string, replacement: SanctionIdentity) => {
@@ -859,7 +860,8 @@ describeWithDatabase("original sanctions during native deletion", () => {
         later.release();
         expect(await pending).toEqual({
           success: false,
-          message: "Report was cleared or removed. Please refresh.",
+          message:
+            "Report or account is no longer available for this decision. Please refresh.",
         });
         expect(
           await database.query.userReport.findFirst({
@@ -917,7 +919,8 @@ describeWithDatabase("original sanctions during native deletion", () => {
       }
       expect(await pending).toEqual({
         success: false,
-        message: "Report was cleared or removed. Please refresh.",
+        message:
+          "Report or account is no longer available for this decision. Please refresh.",
       });
       expect(await database.query.userReportComment.findMany()).toHaveLength(0);
       expect(await database.query.sanctionTombstone.findMany()).toEqual(sources);
@@ -970,4 +973,202 @@ describeWithDatabase("original sanctions during native deletion", () => {
       await (await getTestDatabase()).query.sanctionTombstone.findMany(),
     ).toHaveLength(0);
   });
+  it.each([
+    ["warn", false],
+    ["tradeBan", false],
+    ["expiry", false],
+    ["expiry", true],
+  ] as const)(
+    "rejects active decisions after %s retires a pending native source (timeout: %p)",
+    async (retiring, isTimeout) => {
+      const { register: registerIdentity } = stubSingleIdentity();
+      const database = await getTestDatabase();
+      await addReport(
+        "original",
+        isTimeout ? "TIMEOUT_ACTIVATED" : "BAN_ACTIVATED",
+        new Date(Date.now() + (retiring === "expiry" ? 1200 : 10 * DAY)),
+      );
+      await startDeletion();
+      const staff = await callerFor(reportsRouter, "staff");
+      if (retiring === "expiry") {
+        await new Promise((resolve) => setTimeout(resolve, 1300));
+        await sanctions.removeExpiredSanctionTombstones(database);
+      } else {
+        expect(await staff[retiring](decisionInput)).toMatchObject({ success: true });
+      }
+      expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
+      await database
+        .update(userData)
+        .set({ status: "TRAVEL", travelFinishAt: new Date(Date.now() + DAY) })
+        .where(eq(userData.userId, NATIVE_USER));
+      const [report, account, comments] = await Promise.all([
+        database.query.userReport.findFirst({ where: eq(userReport.id, "original") }),
+        database.query.userData.findFirst({ where: eq(userData.userId, NATIVE_USER) }),
+        database.query.userReportComment.findMany(),
+      ]);
+      const decisions = isTimeout
+        ? (["timeout"] as const)
+        : (["ban", "silence"] as const);
+      for (const decision of decisions) {
+        if (decision === "timeout")
+          await database
+            .update(userData)
+            .set({ role: "CONTENT-ADMIN" })
+            .where(eq(userData.userId, "staff"));
+        expect(await staff[decision](decisionInput)).toEqual({
+          success: false,
+          message:
+            "Report or account is no longer available for this decision. Please refresh.",
+        });
+      }
+      expect(
+        await database.query.userReport.findFirst({
+          where: eq(userReport.id, "original"),
+        }),
+      ).toEqual(report);
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, NATIVE_USER),
+        }),
+      ).toEqual(account);
+      expect(await database.query.userReportComment.findMany()).toEqual(comments);
+      expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
+      await database
+        .update(userData)
+        .set({ role: "OWNER" })
+        .where(eq(userData.userId, "staff"));
+      for (const decision of ["warn", "tradeBan", "clear"] as const)
+        expect(await staff[decision](decisionInput)).toMatchObject({ success: true });
+      await finishDeletion();
+      expect(await registerIdentity("AfterCleanup")).toHaveLength(0);
+    },
+  );
+
+  it("requires a captured source while a deleted Clerk identity's response is pending", async () => {
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { register: registerIdentity } = stubSingleIdentity(async () => {
+      enter();
+      await gate;
+    });
+    const database = await getTestDatabase();
+    await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+    await database.insert(accountDeletion).values({ userId: NATIVE_USER });
+    const deletion = processAccountDeletions(NATIVE_USER);
+    await entered;
+    try {
+      expect(await database.query.accountDeletion.findFirst()).toMatchObject({
+        phase: "QUEUED",
+      });
+      const staff = await callerFor(reportsRouter, "staff");
+      expect(await staff.warn(decisionInput)).toMatchObject({ success: true });
+      expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
+      expect(await staff.ban(decisionInput)).toEqual({
+        success: false,
+        message:
+          "Report or account is no longer available for this decision. Please refresh.",
+      });
+    } finally {
+      release();
+    }
+    expect(await deletion).toEqual({ processed: 1, failed: 0 });
+    await finishDeletion();
+    expect(await registerIdentity("AfterCleanup")).toHaveLength(0);
+  });
+
+  it.each([false, true])(
+    "requires the deleting account's own source despite linked ancestors (own source: %p)",
+    async (hasOwnSource) => {
+      const { register: registerIdentity, replace } = stubSingleIdentity();
+      const database = await getTestDatabase();
+      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+      await startDeletion();
+      const inherited = (await registerIdentity("DuringDelay"))[0]!;
+      const changedIdentity: SanctionIdentity = {
+        primaryEmailAddressId: "changed",
+        emailAddresses: [
+          {
+            id: "changed",
+            emailAddress: "changed@example.com",
+            verification: { status: "verified" },
+          },
+        ],
+        externalAccounts: [],
+      };
+      replace("DuringDelay", changedIdentity);
+      const staff = await callerFor(reportsRouter, "staff");
+      expect(
+        await staff.ban({
+          ...decisionInput,
+          object_id: inherited.id,
+          banTime: hasOwnSource ? 1 : 0.00002,
+        }),
+      ).toMatchObject({ success: true });
+      await database.insert(accountDeletion).values({ userId: "DuringDelay" });
+      expect(await processAccountDeletions("DuringDelay")).toEqual({
+        processed: 1,
+        failed: 0,
+      });
+      expect(
+        await database.query.sanctionTombstone.findMany({
+          where: eq(sanctionTombstone.userId, "DuringDelay"),
+        }),
+      ).toHaveLength(1);
+      expect(await staff.ban({ ...decisionInput, banTime: 10 })).toMatchObject({
+        success: true,
+      });
+      if (!hasOwnSource) {
+        await new Promise((resolve) => setTimeout(resolve, 1800));
+        await sanctions.removeExpiredSanctionTombstones(database);
+      }
+      const before = await database.query.sanctionTombstone.findMany();
+      expect(before).toHaveLength(hasOwnSource ? 2 : 1);
+      const result = await staff.ban({
+        ...decisionInput,
+        object_id: inherited.id,
+        banTime: 2,
+      });
+      expect(result.success).toBe(hasOwnSource);
+      const revised = await database.query.userReport.findFirst({
+        where: eq(userReport.id, inherited.id),
+      });
+      if (hasOwnSource) {
+        const sources = await database.query.sanctionTombstone.findMany();
+        expect(sources).toHaveLength(2);
+        expect(
+          sources.every(
+            (source) =>
+              source.sanction === "BAN" &&
+              source.sanctionEndsAt.getTime() === revised!.banEnd!.getTime(),
+          ),
+        ).toBe(true);
+        expect(
+          sources.find((source) => source.userId === "DuringDelay")?.emailHash,
+        ).toBe(hashSanctionIdentifier("email", "changed@example.com"));
+      } else {
+        expect(await database.query.sanctionTombstone.findMany()).toEqual(before);
+      }
+      await finishDeletion();
+      await finishDeletion("DuringDelay");
+      const returned = await registerIdentity("AfterCleanup", changedIdentity);
+      expect(returned).toHaveLength(hasOwnSource ? 1 : 0);
+      if (hasOwnSource)
+        expect(returned[0]).toMatchObject({
+          status: "BAN_ACTIVATED",
+          banEnd: revised!.banEnd,
+        });
+      expect(
+        await database.query.userData.findFirst({
+          columns: { isBanned: true },
+          where: eq(userData.userId, "AfterCleanup"),
+        }),
+      ).toEqual({ isBanned: hasOwnSource });
+    },
+  );
 });

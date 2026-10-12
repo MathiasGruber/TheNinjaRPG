@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { clerkClient } from "@clerk/nextjs/server";
-import { and, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 import {
   type BanState,
@@ -8,11 +9,12 @@ import {
   TERR_BOT_ID,
 } from "@/drizzle/constants";
 import {
+  accountDeletion,
   actionLog,
   type SanctionTombstone,
   sanctionTombstone,
-  userReport,
   type UserReport,
+  userReport,
   userReportComment,
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -365,7 +367,8 @@ export const reapplySanctions = (
 /**
  * Commit a report decision and its retained sources atomically; omitted banEnd is preserved.
  * Cleared cases stay closed after their retained identifiers are pruned.
- * Return false for a cleared or removed report so callers skip flags and decision comments.
+ * Active decisions during native deletion require the account's own captured source.
+ * Return false when the report or account is unavailable so callers skip flags and comments.
  */
 export const updateSanctionReport = async (
   client: DrizzleClient,
@@ -381,6 +384,7 @@ export const updateSanctionReport = async (
     ? decision.banEnd
     : null;
   const endsAt = activeEnd ?? new Date();
+  const capturedSource = alias(sanctionTombstone, "capturedSource");
   const sources = or(
     report.reportedUserId
       ? and(
@@ -393,17 +397,21 @@ export const updateSanctionReport = async (
   // Drizzle cannot express a multi-table write. A separate source hook can overwrite a
   // newer decision, or lose it when native cleanup removes the report before the hook.
   // LEFT JOIN revises only existing sources; ordinary moderation retains no identifiers.
+  // QUEUED can already mean Clerk is gone while its response is pending. Linked ancestors
+  // may hold different identity hashes, so only this account's exact source can retain it.
   const result = await retryOnDeadlock(() =>
     client.execute(sql`
     UPDATE ${userReport}
     LEFT JOIN ${sanctionTombstone} ON ${sources}
+    LEFT JOIN ${accountDeletion} ON ${and(eq(accountDeletion.userId, userReport.reportedUserId), ne(accountDeletion.phase, "COMPLETE"))}
+    LEFT JOIN ${sanctionTombstone} capturedSource ON ${and(eq(capturedSource.userId, userReport.reportedUserId), eq(capturedSource.sourceId, userReport.id))}
     SET ${userReport.status} = ${decision.status},
         ${userReport.adminResolved} = ${decision.adminResolved},
         ${userReport.updatedAt} = CURRENT_TIMESTAMP(3),
         ${decision.banEnd !== undefined ? sql`${userReport.banEnd} = ${sql.param(decision.banEnd, userReport.banEnd)},` : sql``}
         ${sanctionTombstone.sanction} = ${activeEnd ? sql`${sanction}` : sanctionTombstone.sanction},
         ${sanctionTombstone.sanctionEndsAt} = ${sql.param(endsAt, sanctionTombstone.sanctionEndsAt)}
-    WHERE ${and(eq(userReport.id, report.id), ne(userReport.status, "REPORT_CLEARED"))}
+    WHERE ${and(eq(userReport.id, report.id), ne(userReport.status, "REPORT_CLEARED"), activeEnd ? or(isNull(accountDeletion.userId), isNotNull(capturedSource.sourceId)) : undefined)}
   `),
   );
   if (result.rowsAffected === 0) return false;

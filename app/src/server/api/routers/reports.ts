@@ -579,7 +579,9 @@ export const reportsRouter = createTRPCRouter({
           banEnd,
         }))
       )
-        return errorResponse("Report was cleared or removed. Please refresh.");
+        return errorResponse(
+          "Report or account is no longer available for this decision. Please refresh.",
+        );
       await Promise.all([
         ...(report.reportedUserId
           ? [
@@ -628,7 +630,9 @@ export const reportsRouter = createTRPCRouter({
           banEnd,
         }))
       )
-        return errorResponse("Report was cleared or removed. Please refresh.");
+        return errorResponse(
+          "Report or account is no longer available for this decision. Please refresh.",
+        );
       await Promise.all([
         ...(report.reportedUserId
           ? [
@@ -671,7 +675,9 @@ export const reportsRouter = createTRPCRouter({
           banEnd: oneHourFromNow,
         }))
       )
-        return errorResponse("Report was cleared or removed. Please refresh.");
+        return errorResponse(
+          "Report or account is no longer available for this decision. Please refresh.",
+        );
       await Promise.all([
         ...(report.reportedUserId
           ? [
@@ -717,7 +723,9 @@ export const reportsRouter = createTRPCRouter({
           banEnd: null,
         }))
       )
-        return errorResponse("Report was cleared or removed. Please refresh.");
+        return errorResponse(
+          "Report or account is no longer available for this decision. Please refresh.",
+        );
       await Promise.all([
         ctx.drizzle
           .update(userData)
@@ -792,7 +800,9 @@ export const reportsRouter = createTRPCRouter({
           status: "REPORT_CLEARED",
         }))
       )
-        return errorResponse("Report was cleared or removed. Please refresh.");
+        return errorResponse(
+          "Report or account is no longer available for this decision. Please refresh.",
+        );
       const mutations: PromiseLike<unknown>[] = [];
       // If someone was reported
       if (report.reportedUserId) {
@@ -1078,7 +1088,9 @@ export const reportsRouter = createTRPCRouter({
           banEnd: getBanEndDate(input),
         }))
       )
-        return errorResponse("Report was cleared or removed. Please refresh.");
+        return errorResponse(
+          "Report or account is no longer available for this decision. Please refresh.",
+        );
       await Promise.all([
         ...(report.reportedUserId
           ? [
