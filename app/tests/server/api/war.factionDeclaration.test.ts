@@ -11,6 +11,7 @@ import {
 } from "@/drizzle/constants";
 import {
   notification,
+  clan,
   userData,
   village,
   villageAlliance,
@@ -69,6 +70,9 @@ const seedWorld = async (attackerType: "HIDEOUT" | "VILLAGE" = "HIDEOUT") => {
     villageIdB: TARGET,
     status: "ENEMY",
   });
+  if (attackerType === "HIDEOUT") {
+    await database.insert(clan).values({ id: "raiding-faction", name: "Raiding Faction", image: "/clan.webp", villageId: FACTION, founderId: LEADER, leaderId: LEADER, leaderOrderId: LEADER, hasHideout: true });
+  }
   await database.insert(villageStructure).values([{
     id: "target-training",
     name: "Training Grounds",
@@ -87,7 +91,7 @@ const seedWorld = async (attackerType: "HIDEOUT" | "VILLAGE" = "HIDEOUT") => {
   const targetMembers = members(TARGET, "target", false);
   factionMembers[0] = { ...factionMembers[0]!, userId: LEADER, username: "FactionLeader" };
   targetMembers[0] = { ...targetMembers[0]!, userId: TARGET_KAGE, username: "TargetKage" };
-  await insertUsers([...factionMembers, ...targetMembers] as never);
+  await insertUsers([...factionMembers.map((member) => ({ ...member, clanId: attackerType === "HIDEOUT" ? "raiding-faction" : null })), ...targetMembers] as never);
 };
 
 const readFaction = async () => {
@@ -100,6 +104,7 @@ describeWithDatabase("faction war declarations", () => {
   beforeEach(async () => {
     await resetTables(
       notification,
+      clan,
       userData,
       village,
       villageAlliance,
@@ -206,7 +211,8 @@ describeWithDatabase("faction war declarations", () => {
         tokens: TOKENS,
         type: "HIDEOUT",
       });
-      await insertUsers(Array.from({ length: FACTION_RAID_MIN_MEMBERS }, (_, i) => ({ userId: `other-${i}`, username: `Other${i}`, villageId: "other-village", isOutlaw: true })) as never);
+      await database.insert(clan).values({ id: "other-faction", name: "Other Faction", image: "/clan.webp", villageId: "other-village", founderId: LEADER, leaderId: LEADER, leaderOrderId: LEADER, hasHideout: true });
+      await insertUsers(Array.from({ length: FACTION_RAID_MIN_MEMBERS }, (_, i) => ({ userId: `other-${i}`, username: `Other${i}`, villageId: "other-village", clanId: "other-faction", isOutlaw: true })) as never);
       await database.insert(villageStructure).values({ id: "other-training", name: "Training Grounds", route: "/traininggrounds", image: "/training.webp", villageId: "other-village" });
       const declaration = {
         attackerVillageId: FACTION,
@@ -300,6 +306,21 @@ describeWithDatabase("faction war declarations", () => {
     expect((await readFaction())?.tokens).toBe(TOKENS);
     const result = await (await callerFor(warRouter, LEADER)).declareVillageWarOrRaid({ userVillageId: FACTION, targetVillageId: TARGET, targetStructureRoute: "/townhall" });
     expect(result.success).toBe(false);
+  });
+
+  it("excludes unaffiliated residents and AI members from every raid membership gate", async () => {
+    await seedWorld();
+    const db = await getTestDatabase();
+    await db.update(userData).set({ clanId: null }).where(eq(userData.userId, "faction-19"));
+    await insertUsers([{ userId: "ai-raider", username: "AiRaider", villageId: FACTION, clanId: "raiding-faction", isAi: true }]);
+    const caller = await callerFor(warRouter, LEADER);
+    expect((await caller.getRaidOptions({ userVillageId: FACTION, targetVillageId: TARGET })).every((option) => option.block?.includes("20 members"))).toBe(true);
+    expect((await declare(LEADER, FACTION)).message).toContain("20 members");
+    expect(await startDeclaredWar(db, { attackerVillageId: FACTION, attackerVillageName: "Akatsuki", defenderVillageId: TARGET, defenderVillageName: "Konoki", initiatedByUserId: LEADER, warType: "WAR_RAID", targetStructureRoute: "/traininggrounds" })).toBe(false);
+    expect(await db.select().from(war)).toHaveLength(0);
+    expect((await readFaction())?.tokens).toBe(TOKENS);
+    await db.update(userData).set({ clanId: "raiding-faction" }).where(eq(userData.userId, "faction-19"));
+    expect((await declare(LEADER, FACTION)).success).toBe(true);
   });
 
   it("pays an attacking victory exactly once with no ordinary war effects", async () => {

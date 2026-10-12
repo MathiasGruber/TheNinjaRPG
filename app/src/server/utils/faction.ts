@@ -3,7 +3,7 @@ import {
   FACTION_MIN_MEMBERS_FOR_STRONGHOLD,
   STRONGHOLD_MEMBER_GRACE_HOURS,
 } from "@/drizzle/constants";
-import { userData, village } from "@/drizzle/schema";
+import { clan, userData, village } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 
@@ -12,7 +12,7 @@ export const syncStrongholdMembership = async (
   client: DrizzleClient,
   villageId?: string,
 ) => {
-  const count = sql`(SELECT COUNT(*) FROM ${userData} WHERE ${userData.villageId} = ${village.id} AND ${userData.isAi} = 0)`;
+  const count = sql`(SELECT COUNT(*) FROM ${userData} INNER JOIN ${clan} ON ${clan.id} = ${userData.clanId} WHERE ${clan.villageId} = ${village.id} AND ${userData.isAi} = 0)`;
   const expired = sql`${count} < ${FACTION_MIN_MEMBERS_FOR_STRONGHOLD} AND ${village.belowMemberMinimumSince} <= NOW(3) - INTERVAL ${STRONGHOLD_MEMBER_GRACE_HOURS} HOUR`;
   await retryOnDeadlock(() =>
     client

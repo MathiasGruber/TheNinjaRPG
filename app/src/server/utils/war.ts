@@ -44,6 +44,7 @@ import {
   WAR_WINNING_COOLDOWN_DAYS,
 } from "@/drizzle/constants";
 import {
+  clan,
   gameSetting,
   mpvpBattleQueue,
   notification,
@@ -579,7 +580,8 @@ export const startDeclaredWar = async (
         const [members] = await tx
           .select({ count: sql<number>`COUNT(*)` })
           .from(userData)
-          .where(and(eq(userData.villageId, attacker.id), eq(userData.isAi, false)));
+          .innerJoin(clan, eq(clan.id, userData.clanId))
+          .where(and(eq(clan.villageId, attacker.id), eq(userData.isAi, false)));
         const structures = await tx
           .select()
           .from(villageStructure)

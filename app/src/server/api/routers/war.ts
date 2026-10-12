@@ -24,6 +24,7 @@ import {
 import type { Village, VillageStructure, War, WarAlly } from "@/drizzle/schema";
 import {
   actionLog,
+  clan,
   notification,
   quest,
   sector,
@@ -1645,10 +1646,21 @@ const getVillageMemberCount = async (
   client: DrizzleClient,
   villageId: string,
 ): Promise<number> => {
-  const result = await client
-    .select({ count: sql<number>`count(*)` })
+  const factionMembers = client
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(userData)
+    .innerJoin(clan, eq(clan.id, userData.clanId))
+    .where(and(eq(clan.villageId, villageId), eq(userData.isAi, false)));
+  const residents = client
+    .select({ count: sql<number>`COUNT(*)` })
     .from(userData)
     .where(eq(userData.villageId, villageId));
+  const result = await client
+    .select({
+      count: sql<number>`CASE WHEN ${village.type} IN ('HIDEOUT', 'STRONGHOLD') THEN (${factionMembers}) ELSE (${residents}) END`,
+    })
+    .from(village)
+    .where(eq(village.id, villageId));
   return result[0]?.count || 0;
 };
 

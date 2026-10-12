@@ -1,8 +1,10 @@
-import { beforeEach, expect, it } from "bun:test";
+import { beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { STRONGHOLD_REESTABLISH_COST } from "@/drizzle/constants";
-import { clan, userData, village } from "@/drizzle/schema";
+import { actionLog, clan, userData, village } from "@/drizzle/schema";
+import * as moderator from "@/libs/moderator";
 import { clanRouter } from "@/server/api/routers/clan";
+import { profileRouter } from "@/server/api/routers/profile";
 import { syncStrongholdMembership } from "@/server/utils/faction";
 import { insertUsers } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -15,25 +17,65 @@ const seedFaction = async (type: "HIDEOUT" | "STRONGHOLD", wasDowngraded = true)
 };
 
 describeWithDatabase("Stronghold membership and restoration", () => {
-  beforeEach(async () => { await resetTables(clan, userData, village); });
+  beforeEach(async () => { await resetTables(actionLog, clan, userData, village); });
 
   it("starts immediately, resets on recovery, and downgrades after 72 hours", async () => {
     await seedFaction("STRONGHOLD", false);
     const db = await getTestDatabase();
-    await db.update(userData).set({ villageId: null }).where(eq(userData.userId, "member-29"));
+    await db.update(userData).set({ villageId: null, clanId: null }).where(eq(userData.userId, "member-29"));
     await syncStrongholdMembership(db, "stronghold");
     let [settlement] = await db.select().from(village);
     expect(settlement?.type).toBe("STRONGHOLD");
     expect(settlement?.belowMemberMinimumSince).toBeInstanceOf(Date);
-    await db.update(userData).set({ villageId: "stronghold" }).where(eq(userData.userId, "member-29"));
+    await db.update(userData).set({ villageId: "stronghold", clanId: "faction" }).where(eq(userData.userId, "member-29"));
     await syncStrongholdMembership(db, "stronghold");
     [settlement] = await db.select().from(village);
     expect(settlement?.belowMemberMinimumSince).toBeNull();
-    await db.update(userData).set({ villageId: null }).where(eq(userData.userId, "member-29"));
+    await db.update(userData).set({ villageId: null, clanId: null }).where(eq(userData.userId, "member-29"));
     await db.update(village).set({ belowMemberMinimumSince: new Date(Date.now() - 73 * 3600_000) }).where(eq(village.id, "stronghold"));
     await syncStrongholdMembership(db, "stronghold");
     [settlement] = await db.select().from(village);
     expect(settlement).toMatchObject({ type: "HIDEOUT", wasDowngraded: true });
+  });
+
+  it("counts faction members despite a staff-assigned unaffiliated resident and AI member", async () => {
+    await seedFaction("STRONGHOLD", false);
+    const db = await getTestDatabase();
+    await db.insert(village).values({ id: "origin", name: "Origin", sector: 302, kageId: "staff" });
+    await insertUsers([
+      { userId: "staff", username: "Staff", role: "CODING-ADMIN", villageId: "origin" },
+      { userId: "outsider", username: "Outsider", villageId: "origin", clanId: null, rank: "GENIN", status: "AWAKE" },
+      { userId: "ai-member", username: "AiMember", villageId: "stronghold", clanId: "faction", isAi: true },
+    ]);
+    const approveReason = vi.spyOn(moderator, "validateUserUpdateReason").mockResolvedValue({ allowUpdate: true, comment: "" });
+    try {
+      const result = await (await callerFor(profileRouter, "staff")).updateUser({
+        id: "outsider",
+        data: { username: "Outsider", villageId: "stronghold", bloodlineId: null, sageModeId: null, role: "USER", rank: "GENIN", staffAccount: false, reason: "Repair the account's village assignment" },
+      });
+      expect(result.success).toBe(true);
+    } finally {
+      approveReason.mockRestore();
+    }
+    await db.update(userData).set({ clanId: null, villageId: null }).where(eq(userData.userId, "member-29"));
+    await syncStrongholdMembership(db, "stronghold");
+    let settlement = await db.query.village.findFirst({ where: eq(village.id, "stronghold") });
+    expect(settlement?.belowMemberMinimumSince).toBeInstanceOf(Date);
+    const graceStartedAt = new Date(Date.now() - 3600_000);
+    await db.update(village).set({ belowMemberMinimumSince: graceStartedAt }).where(eq(village.id, "stronghold"));
+    await syncStrongholdMembership(db, "stronghold");
+    settlement = await db.query.village.findFirst({ where: eq(village.id, "stronghold") });
+    expect(settlement?.belowMemberMinimumSince).toEqual(graceStartedAt);
+    await db.update(village).set({ belowMemberMinimumSince: new Date(Date.now() - 73 * 3600_000) }).where(eq(village.id, "stronghold"));
+    await syncStrongholdMembership(db, "stronghold");
+    settlement = await db.query.village.findFirst({ where: eq(village.id, "stronghold") });
+    expect(settlement).toMatchObject({ type: "HIDEOUT", wasDowngraded: true });
+    const restore = await (await callerFor(clanRouter, "leader")).upgradeHideoutToStronghold({ clanId: "faction" });
+    expect(restore.success).toBe(false);
+    await db.update(userData).set({ clanId: "faction", villageId: "stronghold" }).where(eq(userData.userId, "member-29"));
+    expect((await (await callerFor(clanRouter, "leader")).upgradeHideoutToStronghold({ clanId: "faction" })).success).toBe(true);
+    settlement = await db.query.village.findFirst({ where: eq(village.id, "stronghold") });
+    expect(settlement).toMatchObject({ type: "STRONGHOLD", belowMemberMinimumSince: null });
   });
 
   it("disables new upgrades and charges only once for concurrent restoration", async () => {
