@@ -12,6 +12,7 @@ import {
   DUNGEON_FLOORS_PER_TIER,
   DUNGEON_MAX_MOBS,
   DUNGEON_MAX_TIERS,
+  DUNGEON_MAX_WAVE_DELAY_ROUNDS,
   DUNGEON_MAX_WAVES,
 } from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
@@ -22,6 +23,7 @@ import { formatLocalDateTimeInput } from "@/utils/time";
 import { useUserData } from "@/utils/UserContext";
 import { type DungeonContent, dungeonContentSchema } from "@/validators/dungeon";
 
+/** Edit authored tiers, waves and completion rewards using the same schema enforced by the server. */
 export default function DungeonEditor() {
   const { data: user } = useUserData();
   const utils = api.useUtils();
@@ -50,8 +52,10 @@ export default function DungeonEditor() {
     },
     onError: (error) => setMessage(error.message),
   });
+  /** Replace top-level draft fields while preserving unrelated unsaved edits. */
   const patch = (values: Partial<DungeonContent>) =>
     setContent((current) => ({ ...current, ...values }));
+  /** Apply a room edit to a clone so nested wave changes preserve React state immutability. */
   const editRoom = (update: (room: DungeonContent["tiers"][number][number]) => void) =>
     setContent((current) => {
       const next = structuredClone(current);
@@ -60,6 +64,7 @@ export default function DungeonEditor() {
       return next;
     });
   const room = content.tiers[tier]?.[floor];
+  /** Validate native numeric inputs and the complete definition before submitting its saved ID. */
   const submit = () => {
     if (!validateNumberInputs(formRef.current)) return;
     const parsed = dungeonContentSchema.safeParse(content);
@@ -84,6 +89,7 @@ export default function DungeonEditor() {
       subtitle="Content creation"
       defaultBackHref="/manual"
     >
+      {/* Keep the submitted draft selected until its save result supplies or confirms the ID. */}
       <div className="mb-4 flex flex-wrap gap-2">
         <Button
           variant="secondary"
@@ -254,7 +260,7 @@ export default function DungeonEditor() {
               <Field label="Minimum rounds since previous wave began">
                 <NumberInput
                   min={0}
-                  max={20}
+                  max={DUNGEON_MAX_WAVE_DELAY_ROUNDS}
                   disabled={wi === 0}
                   value={wave.delayRounds}
                   onValueChange={(value) =>
@@ -438,17 +444,20 @@ export default function DungeonEditor() {
   );
 }
 
+/** Keep field labels and controls together in the editor's responsive grid. */
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <Label className="block space-y-1">
     <span className="block">{label}</span>
     {children}
   </Label>
 );
+/** Create the required five room slots; normalizeRooms assigns their boss roles. */
 const newTier = (): DungeonContent["tiers"][number] =>
   Array.from({ length: DUNGEON_FLOORS_PER_TIER }, () => ({
     kind: "floor",
     waves: [{ aiIds: [""], delayRounds: 0 }],
   }));
+/** Reassign mini-boss/final-boss roles after adding or removing a tier. */
 const normalizeRooms = (tiers: DungeonContent["tiers"]): DungeonContent["tiers"] =>
   tiers.map((rooms, ti) =>
     rooms.map((room, fi) => ({
@@ -461,6 +470,7 @@ const normalizeRooms = (tiers: DungeonContent["tiers"]): DungeonContent["tiers"]
           : "floor",
     })),
   );
+/** Start with an unpublished definition so incomplete drafts never expose travel entrances. */
 const newDungeon = (): DungeonContent => ({
   name: "",
   description: "",

@@ -395,6 +395,7 @@ export type PreBattleGearModifiers = {
  * Static data is stored once at battle initiation and looked up by ID.
  */
 export type ExtraState = {
+  /** Private run/wave snapshot used by combat actions and atomic party settlement. */
   dungeon?: import("@/libs/dungeon").DungeonBattleState;
   /** Definitions of publicly performed actions, retained after their caster despawns. */
   revealedActions?: { jutsuIds: string[]; itemIds: string[] };
@@ -473,6 +474,7 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
  * A returned battle used on frontend where private information is hidden
  */
 export type ReturnedExtraState = Omit<ExtraState, "villages" | "clans" | "dungeon"> & {
+  /** Public progress only; authored future enemies and their loadouts stay server-side. */
   dungeon?: Pick<
     import("@/libs/dungeon").DungeonBattleState,
     "runId" | "wave" | "expiresAt"

@@ -56,11 +56,13 @@ import type { GuideFaqItem } from "@/validators/guide";
 import type { WarSettlement } from "@/validators/war";
 import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
 
+/** Staff-authored definitions; each lobby captures its own immutable content snapshot. */
 export const dungeon = mysqlTable("Dungeon", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   content: json("content").$type<DungeonContent>().notNull(),
   updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
 });
+/** Shared party progress guarded by version CAS; battleId ties settlement to the active floor. */
 export const dungeonRun = mysqlTable("DungeonRun", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   dungeonId: varchar("dungeonId", { length: 191 }).notNull(),
@@ -73,6 +75,7 @@ export const dungeonRun = mysqlTable("DungeonRun", {
   createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).notNull(),
   expiresAt: datetime("expiresAt", { mode: "date", fsp: 3 }),
 }, (table) => ({ status: index("DungeonRun_status_idx").on(table.status) }));
+/** Exclusive active-party reservations and durable, per-member completion receipts. */
 export const dungeonMember = mysqlTable("DungeonMember", {
   runId: varchar("runId", { length: 191 }).notNull(),
   userId: varchar("userId", { length: 191 }).notNull(),

@@ -477,11 +477,13 @@ export const StructureRoutes = [
 ] as const;
 export type StructureRoute = (typeof StructureRoutes)[number];
 
+/** Shared dungeon limits for content validation, party commands, combat and player-facing rules. */
 export const DUNGEON_PARTY_SIZE = 3;
 export const DUNGEON_RUN_SECONDS = 60 * 60;
 export const DUNGEON_MAX_TIERS = 4;
 export const DUNGEON_FLOORS_PER_TIER = 5;
 export const DUNGEON_MAX_WAVES = 5;
+export const DUNGEON_MAX_WAVE_DELAY_ROUNDS = 20;
 export const DUNGEON_MAX_MOBS = 10;
 export const DUNGEON_INACTIVE_ROUNDS = 3;
 

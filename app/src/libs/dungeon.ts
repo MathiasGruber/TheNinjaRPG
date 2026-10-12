@@ -9,6 +9,7 @@ import type {
 } from "@/libs/combat/types";
 import type { DungeonContent, DungeonRunState } from "@/validators/dungeon";
 
+/** Run snapshot and preloaded waves carried by combat; actions never fetch dungeon content. */
 export type DungeonBattleState = {
   runId: string;
   runVersion: number;
@@ -18,6 +19,7 @@ export type DungeonBattleState = {
   expiresAt: number;
   wave: number;
   waveStartedRound: number;
+  /** Last explicit player action; timed-out turns and summoned allies do not count. */
   lastActionRound: Record<string, number>;
   failedReason?: string;
   pendingWaves: {
@@ -27,11 +29,13 @@ export type DungeonBattleState = {
   }[];
 };
 
+/** Resolve a zero-based run floor into its authored tier, or undefined after the final floor. */
 export const dungeonFloorAt = (content: DungeonContent, floor: number) =>
   content.tiers[Math.floor(floor / DUNGEON_FLOORS_PER_TIER)]?.[
     floor % DUNGEON_FLOORS_PER_TIER
   ];
 
+/** Resolve a party outcome in memory, recording deadline or inactivity failures on battle state. */
 export const dungeonBattleOutcome = (battle: CompleteBattle, now = Date.now()) => {
   const state = battle.extraState.dungeon;
   if (!state) return null;
@@ -39,6 +43,7 @@ export const dungeonBattleOutcome = (battle: CompleteBattle, now = Date.now()) =
     state.failedReason = "The one-hour dungeon deadline expired.";
   const humans = battle.usersState.filter((u) => !u.isAi && !u.isSummon);
   const alive = humans.filter((u) => stillInBattle(u, battle.usersEffects));
+  // The current round is still playable; only completed rounds can count as missed.
   const inactive = alive.find(
     (u) =>
       battle.round - (state.lastActionRound[u.userId] ?? 0) > DUNGEON_INACTIVE_ROUNDS,
@@ -112,6 +117,7 @@ export const advanceDungeonWave = (battle: CompleteBattle) => {
   return true;
 };
 
+/** Advance a win or choose the tier/mini-boss retry floor without mutating the prior run snapshot. */
 export const dungeonNextState = (
   state: DungeonRunState,
   outcome: "won" | "wipe" | "ended",

@@ -436,9 +436,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   );
   const usersReady = fetchedUsers !== undefined;
   const warData = data?.warData;
-  // Ensure a shrine exists for the sector without mutating the cached tRPC
-  // structures array (pushing into it corrupts the query cache and could leave a
-  // shrine at stale coordinates when anchors change).
+  // Poll authored entrances so publication and expiration update the current sector without reloads.
   const { data: sectorDungeons } = api.dungeon.getAvailable.useQuery(
     { sector },
     {
@@ -470,6 +468,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         })),
     [sectorDungeons, sector],
   );
+  // Add dynamic entrances and the shrine without mutating cached village structures.
   const structures = useMemo(() => {
     const base = [...(villageData?.structures ?? []), ...dungeonStructures];
     if (base.some((s) => s.route === "/shrine")) return base;
@@ -1262,8 +1261,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   ) => {
     const registry = worldRegistryRef.current;
     if (!registry.worldRoot) return null;
-    // Always render from the window entry's own data (never the center
-    // query's), so a sector looks identical from every window position
+    // Static structures belong to each window entry; only the current sector has authenticated entrances.
     const entryStructures = [
       ...entry.structures,
       ...(entry.sector === sector ? dungeonStructures : []),

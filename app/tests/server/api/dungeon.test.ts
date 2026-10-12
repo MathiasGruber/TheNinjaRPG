@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
-import { eq } from "drizzle-orm";
-import { battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu } from "@/drizzle/schema";
+import { eq, inArray } from "drizzle-orm";
+import { actionLog, battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu } from "@/drizzle/schema";
 import { dungeonRouter } from "@/server/api/routers/dungeon";
+import type { DrizzleClient } from "@/server/db";
 import { settleDungeonBattle, expireDungeonRun, rollbackDungeonStart } from "@/server/utils/dungeon";
 import { dungeonContent, dungeonBattleState } from "../../setup/dungeon";
 import { insertUsers, insertItems } from "../../setup/factories";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 import { makeCompleteBattle, makeUser } from "../../libs/combat/helpers/battleScenario";
 
 describeWithDatabase("Dungeon parties and settlement", () => {
@@ -22,7 +23,7 @@ describeWithDatabase("Dungeon parties and settlement", () => {
         ? commands.map((command) => resultFor(command as unknown[]))
         : resultFor(commands));
     });
-    await resetTables(battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu);
+    await resetTables(actionLog, battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu);
     await insertUsers(["a", "b", "c", "outsider"].map((id) => ({userId: id, username: id, status: "AWAKE", sector: 1, money: 0, experience: 0, earnedExperience: 0, villagePrestige: 0, villageId: "village"})));
     const db = await getTestDatabase();
     await db.insert(village).values({id: "village", name: "Village", sector: 1, kageId: "a"});
@@ -70,10 +71,62 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     expect((await db.query.userData.findFirst({where: eq(userData.userId, "b")}))?.money).toBe(100);
   });
   it("reserves exactly one active party under simultaneous lobby creation", async () => {
-    const a = await callerFor(dungeonRouter, "a");
+    const db = await getTestDatabase();
+    const a = callerForDatabase(dungeonRouter, "a", withoutTransactions(db));
     const results = await Promise.all([a.create({id: "definition"}), a.create({id: "definition"})]);
     expect(results.filter((r) => r.success)).toHaveLength(1);
-    const db = await getTestDatabase(); expect(await db.query.dungeonRun.findMany()).toHaveLength(1);
+    expect(await db.query.dungeonRun.findMany()).toHaveLength(1);
+    expect(await db.query.dungeonMember.findMany({where: eq(dungeonMember.activeUserId, "a")})).toHaveLength(1);
+  });
+  it.each([false, true])("cleans only an empty failed lobby, preserving a committed membership (%p)", async (committed) => {
+    const db = await getTestDatabase();
+    const failing = new Proxy(withoutTransactions(db), {
+      get(target, key, receiver) {
+        if (key === "insert") return (table: Parameters<typeof db.insert>[0]) =>
+          table === dungeonMember
+            ? {values: async (values: typeof dungeonMember.$inferInsert) => {
+                if (committed) await target.insert(dungeonMember).values(values);
+                throw new Error("Injected membership failure");
+              }}
+            : target.insert(table);
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    const a = callerForDatabase(dungeonRouter, "a", failing);
+    await expect(a.create({id: "definition"})).rejects.toThrow("Injected membership failure");
+    expect(await db.query.dungeonRun.findMany()).toHaveLength(committed ? 1 : 0);
+    expect(await db.query.dungeonMember.findMany()).toHaveLength(committed ? 1 : 0);
+    expect((await (await callerFor(dungeonRouter, "a")).getState()).runs).toHaveLength(committed ? 1 : 0);
+  });
+  it("saves content and its audit entry without a transaction", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({role: "CONTENT"}).where(eq(userData.userId, "a"));
+    await insertUsers([{userId: "enemy", isAi: true}]);
+    const a = callerForDatabase(dungeonRouter, "a", withoutTransactions(db));
+    const content = dungeonContent(); content.name = "Changed dungeon";
+    expect((await a.save({id: "definition", content})).success).toBe(true);
+    expect((await db.query.dungeon.findFirst())?.content.name).toBe(content.name);
+    expect(await db.query.actionLog.findMany()).toContainEqual(expect.objectContaining({relatedId: "definition", tableName: "dungeon"}));
+  });
+  it("uses only the run CAS for invitations, readiness and pause controls", async () => {
+    const db = await getTestDatabase();
+    const a = callerForDatabase(dungeonRouter, "a", withoutTransactions(db));
+    const b = callerForDatabase(dungeonRouter, "b", withoutTransactions(db));
+    const created = await a.create({id: "definition"});
+    if (!created.success || !("id" in created)) throw Error("Missing lobby");
+    const id = created.id;
+    expect((await a.act({id, action: "invite", userId: "b"})).success).toBe(true);
+    expect((await b.act({id, action: "decline"})).success).toBe(true);
+    expect((await a.act({id, action: "invite", userId: "b"})).success).toBe(true);
+    expect((await a.act({id, action: "remove", userId: "b"})).success).toBe(true);
+    expect((await a.act({id, action: "ready"})).success).toBe(true);
+    expect((await a.act({id, action: "unready"})).success).toBe(true);
+    await db.update(dungeonRun).set({status: "BETWEEN"}).where(eq(dungeonRun.id, id));
+    expect((await a.act({id, action: "pause"})).success).toBe(true);
+    expect((await a.act({id, action: "resume"})).success).toBe(true);
+    const run = await db.query.dungeonRun.findFirst();
+    expect(run).toMatchObject({status: "BETWEEN", version: 8});
+    expect(run?.state).toMatchObject({memberIds: ["a"], invitedIds: [], readyIds: []});
   });
   it("requires an invitation, three members and unanimous readiness", async () => {
     const {a, id} = await lobby(); const b = await callerFor(dungeonRouter, "b");
@@ -112,12 +165,34 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     expect((await a.claim({id})).success).toBe(true);
     expect((await db.query.userData.findFirst({where: eq(userData.userId, "a")}))?.money).toBe(100);
   });
-  it("delivers item and jutsu drops in the same transaction as the receipt", async () => {
+  it("rolls back failed grants and delivers item and jutsu drops with the receipt once", async () => {
     const {a, id} = await lobby(); const db = await getTestDatabase();
     await insertItems([{id: "drop", canStack: false}]);
     await db.insert(jutsu).values({id: "technique", name: "Technique", description: "Technique", battleDescription: "Technique", image: "/jutsu.png", effects: [], target: "SELF", range: 0, requiredRank: "STUDENT", jutsuType: "NORMAL"});
     const content = dungeonContent(); content.rewards.drops = [{type: "item", id: "drop", chance: 100}, {type: "jutsu", id: "technique", chance: 100}];
     await db.update(dungeonRun).set({content, status: "COMPLETED", state: {...dungeonBattleState().runState, memberIds: ["a"], floor: 5, clearedFloors: [0,1,2,3,4]}}).where(eq(dungeonRun.id, id));
+    // Fail after scalar and jutsu grants, so the receipt cannot hide a partial reward.
+    const failing = new Proxy(db, {
+      get(target, key, receiver) {
+        if (key === "transaction") return (callback: Parameters<typeof db.transaction>[0]) =>
+          target.transaction(tx => callback(new Proxy(tx, {
+            get(transaction, property, txReceiver) {
+              if (property === "insert") return (table: Parameters<typeof tx.insert>[0]) => {
+                if (table === userItem) throw new Error("Injected item grant failure");
+                return transaction.insert(table);
+              };
+              return Reflect.get(transaction, property, txReceiver);
+            },
+          })));
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    await expect(callerForDatabase(dungeonRouter, "a", failing).claim({id})).rejects.toThrow("Injected item grant failure");
+    expect(await db.query.dungeonMember.findFirst()).toMatchObject({reward: null, activeUserId: "a"});
+    expect((await db.query.userData.findFirst({where:eq(userData.userId,"a")}))?.money).toBe(0);
+    expect((await db.query.village.findFirst())?.tokens).toBe(0);
+    expect(await db.query.userJutsu.findMany()).toHaveLength(0);
+    expect(await db.query.userItem.findMany()).toHaveLength(0);
     await Promise.all([a.claim({id}), a.claim({id})]);
     expect(await db.query.userItem.findMany({where:eq(userItem.userId,"a")})).toHaveLength(1);
     expect(await db.query.userJutsu.findMany({where:eq(userJutsu.userId,"a")})).toHaveLength(1);
@@ -137,16 +212,41 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     const users = await db.query.userData.findMany({where: eq(userData.battleId, "fight")}); expect(users).toHaveLength(1); // Unrelated accounts are never released.
     const revived = await db.query.userData.findFirst({where: eq(userData.userId, "b")}); expect(revived?.status).toBe("AWAKE"); expect(revived?.curHealth).toBe(revived?.maxHealth); expect(revived?.curEnergy).toBeGreaterThanOrEqual(9); expect(revived?.curEnergy).toBeLessThan(9.1);
   });
-  it("compensates a partially committed start before reopening the lobby", async () => {
-    const {id} = await lobby(); const db=await getTestDatabase(); const original=await db.query.dungeonRun.findFirst(); if (!original) throw Error("Missing run");
-    await db.update(dungeonRun).set({status:"FIGHTING",battleId:"partial",version:original.version+1, expiresAt:new Date(Date.now()+3600000)}).where(eq(dungeonRun.id,id));
-    await db.insert(battle).values({id:"partial",battleType:"QUEST",background:"default",usersState:[],usersEffects:[],groundEffects:[],extraState:dungeonBattleState() as never,createdAt:new Date(),updatedAt:new Date(),roundStartAt:new Date()});
-    await db.insert(battleHistory).values({battleId:"partial",attackedId:"a",defenderId:"b",battleType:"QUEST"});
-    await db.update(userData).set({status:"BATTLE",battleId:"partial"}).where(eq(userData.userId,"a"));
-    await rollbackDungeonStart(db,original,"partial",original.version+1);
+  it("compensates competing partial starts without transactions and reopens once", async () => {
+    const {db, original} = await interruptedStart();
+    await Promise.all([rollbackDungeonStart(withoutTransactions(db),original,"partial",1), rollbackDungeonStart(withoutTransactions(db),original,"partial",1)]);
     expect(await db.query.battle.findMany()).toHaveLength(0);expect(await db.query.battleHistory.findMany()).toHaveLength(0);
-    const restored=await db.query.dungeonRun.findFirst();expect(restored?.status).toBe("LOBBY");expect(restored?.expiresAt).toBeNull();
-    expect((await db.query.userData.findFirst({where:eq(userData.userId,"a")}))?.status).toBe("AWAKE");
+    const restored=await db.query.dungeonRun.findFirst();expect(restored?.status).toBe("LOBBY");expect(restored?.expiresAt).toBeNull();expect(restored?.version).toBe(2);
+    expect((await db.query.userData.findMany({where: inArray(userData.userId, original.state.memberIds)})).every(user => user.status === "AWAKE" && user.battleId === null)).toBe(true);
+  });
+  it("cannot reopen or wake players from a newer battle using stale rollback state", async () => {
+    const {db, original} = await interruptedStart();
+    await db.update(dungeonRun).set({battleId: "new", version: 3}).where(eq(dungeonRun.id, original.id));
+    await db.update(userData).set({battleId: "new"}).where(eq(userData.userId, "b"));
+    await db.insert(battle).values(makeCompleteBattle({id: "new", battleType: "QUEST", background: "default", createdAt: new Date(), updatedAt: new Date(), roundStartAt: new Date()}));
+    await rollbackDungeonStart(withoutTransactions(db), original, "partial", 1);
+    expect(await db.query.dungeonRun.findFirst()).toMatchObject({battleId: "new", version: 3, status: "FIGHTING"});
+    expect(await db.query.userData.findFirst({where: eq(userData.userId, "b")})).toMatchObject({battleId: "new", status: "BATTLE"});
+    expect(await db.query.battle.findFirst({where: eq(battle.id, "new")})).toBeDefined();
+  });
+  it.each(["wake", "history"] as const)("keeps a failed %s cleanup recoverable through getState", async (failure) => {
+    const {db, original} = await interruptedStart();
+    const failing = new Proxy(withoutTransactions(db), {
+      get(target, key, receiver) {
+        if (key === "update" && failure === "wake") return (table: Parameters<typeof db.update>[0]) =>
+          table === userData ? {set: () => ({where: () => Promise.reject(new Error("Injected cleanup failure"))})} : target.update(table);
+        if (key === "delete" && failure === "history") return (table: Parameters<typeof db.delete>[0]) =>
+          table === battleHistory ? {where: () => Promise.reject(new Error("Injected cleanup failure"))} : target.delete(table);
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    await expect(rollbackDungeonStart(failing, original, "partial", 1)).rejects.toThrow("Injected cleanup failure");
+    expect((await db.query.dungeonRun.findFirst())?.status).toBe("FIGHTING");
+    expect(await db.query.battle.findMany()).toHaveLength(0);
+    const a = callerForDatabase(dungeonRouter, "a", withoutTransactions(db));
+    expect((await a.getState()).runs[0]).toMatchObject({status: "LOBBY", battleId: null, expiresAt: null, version: 2});
+    expect(await db.query.battleHistory.findMany()).toHaveLength(0);
+    expect((await db.query.userData.findMany({where: inArray(userData.userId, original.state.memberIds)})).every(user => user.status === "AWAKE" && user.battleId === null)).toBe(true);
   });
   it("expires paused runs and releases all active memberships", async () => {
     const {id} = await lobby(); const db = await getTestDatabase();
@@ -157,3 +257,26 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     expect((await db.query.dungeonMember.findFirst())?.activeUserId).toBeNull();
   });
 });
+
+/** Assert that a procedure's ordinary guarded writes never acquire a transaction session. */
+const withoutTransactions = (db: DrizzleClient) => new Proxy(db, {
+  get(target, key, receiver) {
+    if (key === "transaction") return () => { throw new Error("Unexpected dungeon transaction"); };
+    return Reflect.get(target, key, receiver);
+  },
+});
+
+/** Model a start whose battle and user writes committed before its caller failed. */
+const interruptedStart = async () => {
+  const db = await getTestDatabase();
+  const original: typeof dungeonRun.$inferSelect = {
+    id: "run", dungeonId: "definition", leaderId: "a", content: dungeonContent(), state: dungeonBattleState().runState,
+    status: "LOBBY", version: 0, battleId: null, expiresAt: null, createdAt: new Date(),
+  };
+  await db.insert(dungeonRun).values({...original, status: "FIGHTING", version: 1, battleId: "partial", expiresAt: new Date(Date.now() + 3600000), state: {...original.state, entryStartedAt: Date.now() - 120000, entryPreviousDeadline: null}});
+  await db.insert(dungeonMember).values(original.state.memberIds.map(userId => ({runId: original.id, userId, activeUserId: userId})));
+  await db.insert(battle).values(makeCompleteBattle({id: "partial", battleType: "QUEST", background: "default", createdAt: new Date(), updatedAt: new Date(), roundStartAt: new Date()}));
+  await db.insert(battleHistory).values({battleId: "partial", attackedId: "a", defenderId: "b", battleType: "QUEST"});
+  await db.update(userData).set({status: "BATTLE", battleId: "partial"}).where(inArray(userData.userId, original.state.memberIds));
+  return {db, original};
+};

@@ -33,6 +33,7 @@ import {
   COMBAT_BIOMES,
   type CombatBiome,
   CombatStatNames,
+  DUNGEON_PARTY_SIZE,
   ELEMENTAL_MASTERY_BOOST,
   MAP_RESERVED_SECTORS,
   MAP_WAKE_ISLAND_SECTOR,
@@ -1890,8 +1891,11 @@ export const initiateBattle = async (
   scaleGains = 1,
 ) => {
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
-  if (info.dungeon && userIds.length !== 3)
-    return { success: false, message: "A dungeon requires three players" };
+  if (info.dungeon && userIds.length !== DUNGEON_PARTY_SIZE)
+    return {
+      success: false,
+      message: `A dungeon requires ${DUNGEON_PARTY_SIZE} players`,
+    };
 
   const allyAiIds = info.allyAiIds ?? [];
   if (allyAiIds.length > 0 && !supportsNpcAllies(battleType)) {

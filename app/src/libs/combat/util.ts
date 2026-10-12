@@ -1747,6 +1747,7 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
   ];
 
   return {
+    // Pending wave templates include private loadouts; expose only the party's current progress.
     dungeon: state?.dungeon
       ? {
           runId: state.dungeon.runId,

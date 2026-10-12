@@ -19,33 +19,18 @@ export const rollbackDungeonStart = (
   battleId: string,
   version: number,
 ) =>
-  retryOnDeadlock(() =>
-    client.transaction(async (tx) => {
-      const {
-        entryStartedAt: _started,
-        entryPreviousDeadline: _deadline,
-        ...state
-      } = run.state;
-      const claim = await tx
-        .update(dungeonRun)
-        .set({
-          status: run.expiresAt ? "BETWEEN" : "LOBBY",
-          battleId: null,
-          expiresAt: run.expiresAt,
-          version: sql`${dungeonRun.version} + 1`,
-          state: { ...state, readyIds: [] },
-        })
-        .where(
-          and(
-            eq(dungeonRun.id, run.id),
-            eq(dungeonRun.battleId, battleId),
-            eq(dungeonRun.version, version),
-          ),
-        );
-      if (claim.rowsAffected === 0) return;
-      await tx.delete(battle).where(eq(battle.id, battleId));
-      await tx.delete(battleHistory).where(eq(battleHistory.battleId, battleId));
-      await tx
+  retryOnDeadlock(async () => {
+    const {
+      entryStartedAt: _started,
+      entryPreviousDeadline: _deadline,
+      ...state
+    } = run.state;
+    // Removing the old battle first leaves a durable recovery signal if cleanup fails.
+    // Every sibling write is scoped to that ID, so retries cannot affect a newer battle.
+    await client.delete(battle).where(eq(battle.id, battleId));
+    const cleanup = await Promise.allSettled([
+      client.delete(battleHistory).where(eq(battleHistory.battleId, battleId)),
+      client
         .update(userData)
         .set({ status: "AWAKE", battleId: null, updatedAt: new Date() })
         .where(
@@ -53,9 +38,28 @@ export const rollbackDungeonStart = (
             inArray(userData.userId, run.state.memberIds),
             eq(userData.battleId, battleId),
           ),
-        );
-    }),
-  );
+        ),
+    ]);
+    const failure = cleanup.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") throw failure.reason;
+    // Reopen only after all cleanup finished; the CAS rejects stale or competing recovery.
+    await client
+      .update(dungeonRun)
+      .set({
+        status: run.expiresAt ? "BETWEEN" : "LOBBY",
+        battleId: null,
+        expiresAt: run.expiresAt,
+        version: sql`${dungeonRun.version} + 1`,
+        state: { ...state, readyIds: [] },
+      })
+      .where(
+        and(
+          eq(dungeonRun.id, run.id),
+          eq(dungeonRun.battleId, battleId),
+          eq(dungeonRun.version, version),
+        ),
+      );
+  });
 
 /** Commit the battle claim, party transition and revival together, using only preloaded state. */
 export const settleDungeonBattle = async (
@@ -75,6 +79,8 @@ export const settleDungeonBattle = async (
       : next.floor === meta.totalFloors
         ? "COMPLETED"
         : "BETWEEN";
+  // Battle deletion, floor advancement, revival and terminal membership release form one
+  // commit; a later failure must leave the battle available to retry without partial progress.
   return retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       const claim = await tx
@@ -146,6 +152,8 @@ export const expireDungeonRun = async (
   const snapshot = run.battleId
     ? await client.query.battle.findFirst({ where: eq(battle.id, run.battleId) })
     : undefined;
+  // Closing the run must commit with battle removal, revival and reservation release:
+  // an ENDED run skips later expiry, so a partial commit could strand users permanently.
   await retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       const claim = await tx
@@ -195,6 +203,7 @@ export const expireDungeonRun = async (
   );
 };
 
+/** Recover each member's energy using combat's preloaded regeneration and capacity. */
 const dungeonEnergyRecoverySql = (
   snapshot: CompleteBattle | undefined,
   memberIds: string[],

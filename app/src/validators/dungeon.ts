@@ -4,6 +4,7 @@ import {
   DUNGEON_FLOORS_PER_TIER,
   DUNGEON_MAX_MOBS,
   DUNGEON_MAX_TIERS,
+  DUNGEON_MAX_WAVE_DELAY_ROUNDS,
   DUNGEON_MAX_WAVES,
   MAP_SECTOR_ID_MAX,
   MAP_SECTOR_ID_MIN,
@@ -11,19 +12,23 @@ import {
   SECTOR_WIDTH,
 } from "@/drizzle/constants";
 
+/** Each member rolls each authored item or jutsu drop independently at completion. */
 const dungeonDropSchema = z.object({
   type: z.enum(["item", "jutsu"]),
   id: z.string().min(1),
   chance: z.number().min(1).max(100),
 });
+/** Enemy templates and the minimum rounds elapsed since the preceding wave began. */
 export const dungeonWaveSchema = z.object({
   aiIds: z.array(z.string().min(1)).min(1).max(DUNGEON_MAX_MOBS),
-  delayRounds: z.number().int().min(0).max(20).prefault(0),
+  delayRounds: z.number().int().min(0).max(DUNGEON_MAX_WAVE_DELAY_ROUNDS).prefault(0),
 });
+/** A floor contains sequential waves and a role determined by its position in the dungeon. */
 export const dungeonFloorSchema = z.object({
   kind: z.enum(["floor", "mini-boss", "boss"]),
   waves: z.array(dungeonWaveSchema).min(1).max(DUNGEON_MAX_WAVES),
 });
+/** Shared editor/server contract: five floors per tier, immediate first waves and a final boss. */
 export const dungeonContentSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
@@ -79,14 +84,18 @@ export const dungeonContentSchema = z
       });
     });
   });
+/** Omit the ID to create a definition; existing runs keep their captured content snapshot. */
 export const saveDungeonSchema = z.object({
   id: z.string().optional(),
   content: dungeonContentSchema,
 });
+/** Identify a definition for lobby creation or a run for completion claims. */
 export const dungeonIdSchema = z.object({ id: z.string().min(1) });
+/** Availability is restricted to the authenticated player's current sector by the router. */
 export const dungeonSectorSchema = z.object({
   sector: z.number().int().min(MAP_SECTOR_ID_MIN).max(MAP_SECTOR_ID_MAX),
 });
+/** Party commands; membership, readiness and leader privileges are checked against the saved run. */
 export const dungeonActionSchema = z.object({
   id: z.string().min(1),
   action: z.enum([
@@ -103,9 +112,13 @@ export const dungeonActionSchema = z.object({
   ]),
   userId: z.string().optional(),
 });
+/** Validated staff-authored definition copied into a run when its lobby is created. */
 export type DungeonContent = z.infer<typeof dungeonContentSchema>;
+/** Authored room shared by the editor, run transitions and battle initiation. */
 export type DungeonFloor = z.infer<typeof dungeonFloorSchema>;
+/** Versioned party progress; floor indexes are zero-based and readiness resets on transitions. */
 export type DungeonRunState = {
+  /** Start reservation metadata used to recover an interrupted battle initiation. */
   entryStartedAt?: number;
   entryPreviousDeadline?: number | null;
   invitedIds: string[];
@@ -115,6 +128,7 @@ export type DungeonRunState = {
   clearedFloors: number[];
   message: string;
 };
+/** Persisted completion roll returned by repeat claims without delivering rewards again. */
 export type DungeonRewardReceipt = {
   money: number;
   experience: number;

@@ -22,6 +22,7 @@ import { pushToCombat } from "@/utils/routing";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { getSearchValidator } from "@/validators/register";
 
+/** Show invitations, party readiness and completion claims through the authenticated dungeon router. */
 export default function DungeonPage() {
   const { data: user } = useRequiredUserData();
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function DungeonPage() {
     enabled: !!user,
     refetchInterval: 3000,
   });
+  /** Show expected rejections beside the action and refresh party/account state after a mutation. */
   const refresh = async (response: { success: boolean; message: string }) => {
     setMessage(response.message);
     showMutationToast(response);

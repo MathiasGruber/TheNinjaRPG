@@ -129,6 +129,7 @@ export const updateBattle = async (
   fetchedVersion: number,
   pusher?: PusherClient,
 ) => {
+  // A dungeon result transitions and restores the entire party before any ordinary combat payout.
   if (newBattle.extraState.dungeon && result) {
     const settled = await settleDungeonBattle(client, newBattle, fetchedVersion);
     return settled
@@ -402,6 +403,7 @@ export const saveUsage = async (
   result: CombatResult | null,
   userId: string,
 ) => {
+  // Completion claims own dungeon progression and rewards; floors do not train the loadout.
   if (curBattle.extraState.dungeon) return;
   const user = curBattle.usersState.find((user) => user.userId === userId);
   const battleType = curBattle.battleType;
@@ -1354,6 +1356,7 @@ export const updateUser = async (
   userId: string,
 ) => {
   const updatedQuestIds: string[] = [];
+  // Party settlement restores every member together, bypassing single-player combat rewards.
   if (curBattle.extraState.dungeon) return { updatedQuestIds };
   const user = curBattle.usersState.find((u) => u.userId === userId);
   if (result && user) {

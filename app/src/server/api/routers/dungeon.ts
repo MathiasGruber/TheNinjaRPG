@@ -34,7 +34,9 @@ import {
 } from "@/validators/dungeon";
 import { ObjectiveReward } from "@/validators/rewards";
 
+/** Party state is versioned; active membership and completion receipts guard cross-run effects. */
 export const dungeonRouter = createTRPCRouter({
+  /** List visible, unexpired definitions only for the player's current sector. */
   getAvailable: protectedProcedure
     .input(dungeonSectorSchema)
     .query(async ({ ctx, input }) => {
@@ -54,6 +56,7 @@ export const dungeonRouter = createTRPCRouter({
             new Date(d.content.expiresAt).getTime() > Date.now()),
       );
     }),
+  /** Load parties and receipts, expiring deadlines and recovering interrupted floor starts. */
   getState: protectedProcedure.query(async ({ ctx }) => {
     const runs = await ctx.drizzle
       .select()
@@ -157,6 +160,7 @@ export const dungeonRouter = createTRPCRouter({
       serverTime: new Date(),
     };
   }),
+  /** Staff may inspect hidden and expired definitions when authoring dungeon content. */
   getAll: protectedProcedure.query(async ({ ctx }) => {
     const user = await ctx.drizzle.query.userData.findFirst({
       where: eq(userData.userId, ctx.userId),
@@ -166,6 +170,7 @@ export const dungeonRouter = createTRPCRouter({
       ? ctx.drizzle.query.dungeon.findMany()
       : [];
   }),
+  /** Validate referenced enemies and rewards before saving content and its audit entry. */
   save: protectedProcedure
     .use(ratelimitMiddleware)
     .input(saveDungeonSchema)
@@ -216,24 +221,25 @@ export const dungeonRouter = createTRPCRouter({
       )
         return errorResponse("An enemy or reward no longer exists.");
       const id = input.id ?? nanoid();
-      await ctx.drizzle.transaction(async (tx) => {
-        await tx
+      await Promise.all([
+        ctx.drizzle
           .insert(dungeon)
           .values({ id, content: input.content, updatedAt: new Date() })
           .onDuplicateKeyUpdate({
             set: { content: input.content, updatedAt: new Date() },
-          });
-        await tx.insert(actionLog).values({
+          }),
+        ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
           relatedId: id,
           tableName: "dungeon",
           relatedMsg: "Updated dungeon",
           changes: [JSON.stringify(input.content)],
-        });
-      });
+        }),
+      ]);
       return { success: true, message: "Dungeon saved.", id };
     }),
+  /** Snapshot an available definition and reserve the leader's sole active membership. */
   create: protectedProcedure
     .use(ratelimitMiddleware)
     .input(dungeonIdSchema)
@@ -263,35 +269,47 @@ export const dungeonRouter = createTRPCRouter({
       if (user.sector !== content.sector)
         return errorResponse("Travel to the dungeon's sector to create a lobby.");
       const id = nanoid();
+      // The unique activeUserId prevents two parties for this account. A crash between
+      // inserts can leave only an empty, unreferenced run, which support can remove.
+      await ctx.drizzle.insert(dungeonRun).values({
+        id,
+        dungeonId: definition.id,
+        leaderId: ctx.userId,
+        content,
+        status: "LOBBY",
+        createdAt: new Date(),
+        state: {
+          memberIds: [ctx.userId],
+          invitedIds: [],
+          readyIds: [],
+          floor: 0,
+          clearedFloors: [],
+          message: `Invite ${DUNGEON_PARTY_SIZE - 1} players to begin.`,
+        },
+      });
       try {
-        await ctx.drizzle.transaction(async (tx) => {
-          await tx.insert(dungeonRun).values({
-            id,
-            dungeonId: definition.id,
-            leaderId: ctx.userId,
-            content,
-            status: "LOBBY",
-            createdAt: new Date(),
-            state: {
-              memberIds: [ctx.userId],
-              invitedIds: [],
-              readyIds: [],
-              floor: 0,
-              clearedFloors: [],
-              message: "Invite two players to begin.",
-            },
-          });
-          await tx
-            .insert(dungeonMember)
-            .values({ runId: id, userId: ctx.userId, activeUserId: ctx.userId });
-        });
+        await ctx.drizzle
+          .insert(dungeonMember)
+          .values({ runId: id, userId: ctx.userId, activeUserId: ctx.userId });
       } catch (error) {
+        // Never remove a run if membership committed despite an ambiguous driver failure.
+        await ctx.drizzle
+          .delete(dungeonRun)
+          .where(
+            and(
+              eq(dungeonRun.id, id),
+              eq(dungeonRun.version, 0),
+              eq(dungeonRun.status, "LOBBY"),
+              sql`NOT EXISTS (SELECT 1 FROM ${dungeonMember} WHERE ${dungeonMember.runId} = ${dungeonRun.id})`,
+            ),
+          );
         if (isMysqlDuplicateKeyError(error))
           return errorResponse("You already joined another dungeon.");
         throw error;
       }
       return { success: true, message: "Lobby created.", id };
     }),
+  /** Apply one party version; membership changes also commit their cross-run reservation. */
   act: protectedProcedure
     .use(ratelimitMiddleware)
     .input(dungeonActionSchema)
@@ -368,10 +386,10 @@ export const dungeonRouter = createTRPCRouter({
       else if (action === "remove") {
         if (!input.userId || input.userId === ctx.userId)
           return errorResponse("Choose another party member or invitation.");
+        if (state.memberIds.includes(input.userId)) removedUser = input.userId;
         state.memberIds = state.memberIds.filter((id) => id !== input.userId);
         state.invitedIds = state.invitedIds.filter((id) => id !== input.userId);
         state.readyIds = [];
-        removedUser = input.userId;
       } else if (action === "leave") {
         if (leader || !lobby) {
           ending = true;
@@ -404,7 +422,7 @@ export const dungeonRouter = createTRPCRouter({
           state.memberIds.length !== DUNGEON_PARTY_SIZE ||
           state.memberIds.some((id) => !state.readyIds.includes(id))
         )
-          return errorResponse("All three players must be ready.");
+          return errorResponse(`All ${DUNGEON_PARTY_SIZE} players must be ready.`);
         const floor = dungeonFloorAt(run.content, state.floor);
         if (!floor) return errorResponse("This floor is unavailable.");
         const battleId = nanoid();
@@ -457,38 +475,44 @@ export const dungeonRouter = createTRPCRouter({
           throw error;
         }
       }
+      /** Keep the run's member list consistent with each member's unique active reservation. */
+      const updateParty = async (
+        client: Pick<DrizzleClient, "update" | "insert" | "delete">,
+      ) => {
+        const claim = await client
+          .update(dungeonRun)
+          .set({ state, status, version: sql`${dungeonRun.version} + 1` })
+          .where(and(eq(dungeonRun.id, run.id), eq(dungeonRun.version, run.version)));
+        if (claim.rowsAffected !== 1) return false;
+        if (joined)
+          await client.insert(dungeonMember).values({
+            runId: run.id,
+            userId: ctx.userId,
+            activeUserId: ctx.userId,
+          });
+        if (removedUser)
+          await client
+            .delete(dungeonMember)
+            .where(
+              and(
+                eq(dungeonMember.runId, run.id),
+                eq(dungeonMember.userId, removedUser),
+              ),
+            );
+        if (ending)
+          await client
+            .update(dungeonMember)
+            .set({ activeUserId: null })
+            .where(eq(dungeonMember.runId, run.id));
+        return true;
+      };
       try {
+        // Accept/remove/end touch reservations too: a partial commit could put a player
+        // in two parties or release an account still present in another party's state.
         const saved = await retryOnDeadlock(() =>
-          ctx.drizzle.transaction(async (tx) => {
-            const claim = await tx
-              .update(dungeonRun)
-              .set({ state, status, version: sql`${dungeonRun.version} + 1` })
-              .where(
-                and(eq(dungeonRun.id, run.id), eq(dungeonRun.version, run.version)),
-              );
-            if (claim.rowsAffected !== 1) return false;
-            if (joined)
-              await tx.insert(dungeonMember).values({
-                runId: run.id,
-                userId: ctx.userId,
-                activeUserId: ctx.userId,
-              });
-            if (removedUser)
-              await tx
-                .delete(dungeonMember)
-                .where(
-                  and(
-                    eq(dungeonMember.runId, run.id),
-                    eq(dungeonMember.userId, removedUser),
-                  ),
-                );
-            if (ending)
-              await tx
-                .update(dungeonMember)
-                .set({ activeUserId: null })
-                .where(eq(dungeonMember.runId, run.id));
-            return true;
-          }),
+          joined || removedUser || ending
+            ? ctx.drizzle.transaction(updateParty)
+            : updateParty(ctx.drizzle),
         );
         return saved
           ? { success: true, message: "Party updated." }
@@ -499,6 +523,7 @@ export const dungeonRouter = createTRPCRouter({
         throw error;
       }
     }),
+  /** Deliver the complete pyramid's independent reward roll once per member. */
   claim: protectedProcedure
     .use(ratelimitMiddleware)
     .input(dungeonIdSchema)
@@ -548,6 +573,8 @@ export const dungeonRouter = createTRPCRouter({
         items: rolled.reward_items,
         jutsus: rolled.reward_jutsus,
       };
+      // The receipt, scalar grants and item/jutsu inserts must commit together: recording
+      // the receipt first loses rewards on failure, while granting first permits duplicates.
       const paid = await retryOnDeadlock(() =>
         ctx.drizzle.transaction(async (tx) => {
           const claim = await tx
@@ -561,7 +588,7 @@ export const dungeonRouter = createTRPCRouter({
               ),
             );
           if (claim.rowsAffected === 0) return false;
-          // The transaction exposes the same query/write API used by the shared reward helper.
+          // Reward tasks execute serially inside the driver's rotating transaction session.
           await updateRewards({
             client: tx as unknown as DrizzleClient,
             user,
