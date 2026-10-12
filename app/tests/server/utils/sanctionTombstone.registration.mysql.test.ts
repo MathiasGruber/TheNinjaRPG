@@ -7,6 +7,7 @@ import {
   actionLog,
   bloodline,
   bloodlineRolls,
+  forumPost,
   questHistory,
   sanctionTombstone,
   storeUserIdAlias,
@@ -18,6 +19,7 @@ import {
   village,
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
+import { commentsRouter } from "@/server/api/routers/comments";
 import { registerRouter } from "@/server/api/routers/register";
 import { profileRouter } from "@/server/api/routers/profile";
 import { reportsRouter } from "@/server/api/routers/reports";
@@ -191,6 +193,7 @@ describeWithDatabase("registration claims current sanction sources", () => {
       actionLog,
       bloodline,
       bloodlineRolls,
+      forumPost,
       questHistory,
       sanctionTombstone,
       storeUserIdAlias,
@@ -258,6 +261,176 @@ describeWithDatabase("registration claims current sanction sources", () => {
     // Registration in other suites must not meet this suite's unexpired tombstones.
     await resetTables(sanctionTombstone);
   });
+
+  it.each(["ban", "silence"] as const)(
+    "clears an inherited %s when only expired or inactive cases remain",
+    async (decision) => {
+      const database = await getTestDatabase();
+      if (decision === "silence")
+        await database.update(sanctionTombstone).set({ sanction: "SILENCE" });
+      claimIdentity("Concurrent");
+      expect(await register("Concurrent")).toMatchObject({ success: true });
+      const inherited = (await reportsOf("Concurrent"))[0]!;
+      await database.insert(userReport).values(
+        [
+          {
+            id: "expired-case",
+            status: inherited.status,
+            banEnd: new Date(Date.now() - DAY),
+          },
+          { id: "undated-case", status: inherited.status, banEnd: null },
+          {
+            id: "inactive-case",
+            status: "REPORT_CLEARED" as const,
+            banEnd: new Date(Date.now() + DAY),
+          },
+        ].map((report) => ({
+          ...report,
+          reporterUserId: "staff",
+          reportedUserId: "Concurrent",
+          system: "tavern_comment",
+          infraction: {},
+          reason: "Spam",
+          aiInterpretation: "",
+        })),
+      );
+      expect(
+        await (await callerFor(reportsRouter, "staff")).clear({
+          object_id: inherited.id,
+          comment: "Appeal accepted",
+          banTime: 1,
+          banTimeUnit: "days",
+        }),
+      ).toMatchObject({ success: true });
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, "Concurrent"),
+        }),
+      ).toMatchObject({ isBanned: false, isSilenced: false });
+      expect(await (await callerFor(reportsRouter, "Concurrent")).getBan()).toBeNull();
+    },
+  );
+
+  it.each(["ban", "silence"] as const)(
+    "keeps a recreated character's independent %s when an old clear resumes",
+    async (decision) => {
+      const database = await getTestDatabase();
+      if (decision === "silence")
+        await database.update(sanctionTombstone).set({ sanction: "SILENCE" });
+      claimIdentity("Concurrent", "unrelated@example.com");
+      expect(await register("Concurrent")).toMatchObject({ success: true });
+      expect(await reportsOf("Concurrent")).toHaveLength(0);
+      await database.insert(userReport).values({
+        id: "current-case",
+        reporterUserId: "staff",
+        reportedUserId: "Concurrent",
+        system: "tavern_comment",
+        infraction: {},
+        reason: "Spam",
+        aiInterpretation: "",
+        status: "UNVIEWED",
+      });
+      const input = {
+        object_id: "current-case",
+        comment: "Resolve the current character's case",
+        banTime: 2,
+        banTimeUnit: "days" as const,
+      };
+      expect(
+        await (await callerFor(reportsRouter, "staff"))[decision](input),
+      ).toMatchObject({ success: true });
+      // The previous Clerk owner released this verified address during deletion.
+      owners.set("Concurrent", identity(EMAIL));
+      await database
+        .update(userData)
+        .set({ deletionAt: new Date(Date.now() - DAY) })
+        .where(eq(userData.userId, "Concurrent"));
+
+      let enter!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        enter = resolve;
+      });
+      let release!: () => void;
+      const paused = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let reads = 0;
+      const delayed = new Proxy(database, {
+        get(target, property, receiver) {
+          if (property === "query")
+            return {
+              ...target.query,
+              userReport: {
+                ...target.query.userReport,
+                findFirst: target.query.userReport.findFirst.bind(
+                  target.query.userReport,
+                ),
+                findMany: async (
+                  ...args: Parameters<typeof database.query.userReport.findMany>
+                ) => {
+                  const reports = await target.query.userReport.findMany(...args);
+                  expect(reports).toHaveLength(0);
+                  if (++reads === 3) enter();
+                  await paused;
+                  return reports;
+                },
+              },
+            };
+          return Reflect.get(target, property, receiver);
+        },
+      });
+      const clearing = callerForDatabase(reportsRouter, "staff", delayed).clear(input);
+      const flag = decision === "ban" ? "isBanned" : "isSilenced";
+      const message = decision === "ban" ? "You are banned" : "You are silenced";
+      const protectedAction = () =>
+        callerForDatabase(commentsRouter, "Concurrent", database).deleteForumComment({
+          id: "replacement-post",
+        });
+      await entered;
+      try {
+        expect(
+          await callerForDatabase(
+            profileRouter,
+            "Concurrent",
+            database,
+          ).confirmDeletion({ userId: "Concurrent" }),
+        ).toMatchObject({ success: true });
+        expect(await register("Concurrent")).toMatchObject({ success: true });
+        await database
+          .insert(forumPost)
+          .values({
+            id: "replacement-post",
+            threadId: "thread",
+            userId: "Concurrent",
+            authorId: "Concurrent",
+            content: "Example post",
+          });
+        expect(
+          await database.query.userData.findFirst({
+            where: eq(userData.userId, "Concurrent"),
+          }),
+        ).toMatchObject({ [flag]: true });
+        expect(await protectedAction()).toMatchObject({ success: false, message });
+      } finally {
+        release();
+      }
+      expect(await clearing).toMatchObject({ success: true });
+      expect(await reportsOf("Concurrent")).toMatchObject([
+        { status: decision === "ban" ? "BAN_ACTIVATED" : "SILENCE_ACTIVATED" },
+      ]);
+      const current = await database.query.userData.findFirst({
+        where: eq(userData.userId, "Concurrent"),
+      });
+      const action = await protectedAction();
+      expect(current).toMatchObject({ [flag]: true });
+      expect(action).toMatchObject({ success: false, message });
+      expect(
+        await database.query.forumPost.findFirst({
+          where: eq(forumPost.id, "replacement-post"),
+        }),
+      ).toBeDefined();
+    },
+  );
 
   it.each(["web", "native"] as const)(
     "rejects an empty snapshot overtaken by completed %s deletion and honors the retry",

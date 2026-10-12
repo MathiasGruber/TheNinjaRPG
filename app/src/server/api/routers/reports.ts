@@ -859,13 +859,33 @@ export const reportsRouter = createTRPCRouter({
             ),
           }),
         ]);
+        // A character can be recreated after these reads; only reset flags while
+        // no current report still enforces that restriction.
+        const noActiveReport = (statuses: BanState[]) =>
+          notExists(
+            ctx.drizzle
+              .select({ id: userReport.id })
+              .from(userReport)
+              .where(
+                and(
+                  eq(userReport.reportedUserId, reportedUserId),
+                  inArray(userReport.status, statuses),
+                  gte(userReport.banEnd, sql`CURRENT_TIMESTAMP(3)`),
+                ),
+              ),
+          );
         mutations.push(
           ...(bans.length === 0
             ? [
                 ctx.drizzle
                   .update(userData)
                   .set({ isBanned: false })
-                  .where(eq(userData.userId, reportedUserId)),
+                  .where(
+                    and(
+                      eq(userData.userId, reportedUserId),
+                      noActiveReport(["BAN_ACTIVATED"]),
+                    ),
+                  ),
               ]
             : []),
           ...(activeSilenceOrTimeout.length === 0
@@ -873,7 +893,12 @@ export const reportsRouter = createTRPCRouter({
                 ctx.drizzle
                   .update(userData)
                   .set({ isSilenced: false })
-                  .where(eq(userData.userId, reportedUserId)),
+                  .where(
+                    and(
+                      eq(userData.userId, reportedUserId),
+                      noActiveReport(["SILENCE_ACTIVATED", "TIMEOUT_ACTIVATED"]),
+                    ),
+                  ),
               ]
             : []),
           ...(activeTradeBans.length === 0
@@ -881,7 +906,12 @@ export const reportsRouter = createTRPCRouter({
                 ctx.drizzle
                   .update(userData)
                   .set({ isTradeBanned: false })
-                  .where(eq(userData.userId, reportedUserId)),
+                  .where(
+                    and(
+                      eq(userData.userId, reportedUserId),
+                      noActiveReport(["TRADE_BAN_ACTIVATED"]),
+                    ),
+                  ),
               ]
             : []),
         );
