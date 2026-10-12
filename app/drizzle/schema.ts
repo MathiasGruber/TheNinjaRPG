@@ -6290,6 +6290,41 @@ export const accountDeletion = mysqlTable(
 );
 
 /**
+ * Minimal record of a ban or silence that was still running when its account was deleted,
+ * so a new account for the same person serves the remainder (see
+ * `server/utils/sanctionTombstone.ts`). Identifiers are keyed hashes, never plain email or
+ * provider ids, and nothing about the character, its chat or its IPs is kept. The hourly
+ * cleaner removes a row once `sanctionEndsAt` passes.
+ */
+export const sanctionTombstone = mysqlTable(
+  "SanctionTombstone",
+  {
+    /** Clerk user id of the deleted account. */
+    userId: varchar("userId", { length: 191 }).notNull(),
+    sanction: mysqlEnum("sanction", consts.SanctionTombstoneTypes).notNull(),
+    sanctionEndsAt: datetime("sanctionEndsAt", { mode: "date", fsp: 3 }).notNull(),
+    /** UserReport ids that imposed the sanction on the deleted account. */
+    reportIds: json("reportIds").$type<string[]>().notNull(),
+    /** Keyed hash of the normalized primary email, when Clerk had one. */
+    emailHash: varchar("emailHash", { length: 64 }),
+    /** Keyed hashes of each linked OAuth provider and provider user id. */
+    accountHashes: json("accountHashes").$type<string[]>().notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.sanction] }),
+    // Registration reads every unexpired row and matches identifiers in memory: rows only
+    // exist while a deleted account's sanction runs, so the set stays small.
+    sanctionEndsAtIdx: index("SanctionTombstone_sanctionEndsAt_idx").on(
+      table.sanctionEndsAt,
+    ),
+  }),
+);
+export type SanctionTombstone = InferSelectModel<typeof sanctionTombstone>;
+
+/**
  * A suggested content change, decided in /manual/review. `statusChangedAt` marks the last
  * status change so rejected and outdated rows can be removed after the retention window;
  * `expiresAt` is set when the suggestion rests on usage statistics, which go stale.

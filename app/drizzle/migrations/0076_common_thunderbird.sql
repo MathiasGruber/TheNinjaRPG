@@ -1,0 +1,12 @@
+CREATE TABLE `SanctionTombstone` (
+	`userId` varchar(191) NOT NULL,
+	`sanction` enum('BAN','SILENCE') NOT NULL,
+	`sanctionEndsAt` datetime(3) NOT NULL,
+	`reportIds` json NOT NULL,
+	`emailHash` varchar(64),
+	`accountHashes` json NOT NULL,
+	`createdAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
+	CONSTRAINT `SanctionTombstone_userId_sanction_pk` PRIMARY KEY(`userId`,`sanction`)
+);
+
+CREATE INDEX `SanctionTombstone_sanctionEndsAt_idx` ON `SanctionTombstone` (`sanctionEndsAt`);

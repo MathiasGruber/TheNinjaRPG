@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "9f1f2062-6802-4f4c-998f-0b0408aec292",
+  "id": "d4f3f46b-d8d3-4662-9ec2-4397f6b247b8",
   "prevId": "e778d58b-c8e8-4503-bf5a-db1f88a0de0e",
   "tables": {
     "AbEvent": {
@@ -11104,6 +11104,82 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "SanctionTombstone": {
+      "name": "SanctionTombstone",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sanction": {
+          "name": "sanction",
+          "type": "enum('BAN','SILENCE')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sanctionEndsAt": {
+          "name": "sanctionEndsAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reportIds": {
+          "name": "reportIds",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "emailHash": {
+          "name": "emailHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "accountHashes": {
+          "name": "accountHashes",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(CURRENT_TIMESTAMP(3))"
+        }
+      },
+      "indexes": {
+        "SanctionTombstone_sanctionEndsAt_idx": {
+          "name": "SanctionTombstone_sanctionEndsAt_idx",
+          "columns": [
+            "sanctionEndsAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "SanctionTombstone_userId_sanction_pk": {
+          "name": "SanctionTombstone_userId_sanction_pk",
+          "columns": [
+            "userId",
+            "sanction"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "Sector": {
       "name": "Sector",
       "columns": {
@@ -17879,7 +17955,7 @@
         },
         "type": {
           "name": "type",
-          "type": "enum('VILLAGE','OUTLAW','SAFEZONE','HIDEOUT','STRONGHOLD')",
+          "type": "enum('VILLAGE','OUTLAW','SAFEZONE','HIDEOUT','TOWN')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
@@ -17972,21 +18048,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(CURRENT_TIMESTAMP(3))"
-        },
-        "belowMemberMinimumSince": {
-          "name": "belowMemberMinimumSince",
-          "type": "datetime(3)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "raidRetryCooldowns": {
-          "name": "raidRetryCooldowns",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "('{}')"
         },
         "wasDowngraded": {
           "name": "wasDowngraded",
@@ -18610,20 +18671,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
-        },
-        "raidBoostExpiresAt": {
-          "name": "raidBoostExpiresAt",
-          "type": "datetime(3)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "raidProtectedUntil": {
-          "name": "raidProtectedUntil",
-          "type": "datetime(3)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "temporaryLevelBonus": {
           "name": "temporaryLevelBonus",

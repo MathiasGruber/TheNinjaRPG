@@ -2,6 +2,10 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { eq, inArray, or } from "drizzle-orm";
 import { emailReminder } from "@/drizzle/schema";
 import { drizzleDB } from "@/server/db";
+import {
+  isClerkNotFound,
+  recordSanctionTombstone,
+} from "@/server/utils/sanctionTombstone";
 import { appleClientCredentials, isAppleProvider, revokeAppleToken } from "./apple";
 
 export const removeAccountIdentity = async (
@@ -17,6 +21,9 @@ export const removeAccountIdentity = async (
     if (isClerkNotFound(error)) return;
     throw error;
   }
+  // The emails and OAuth accounts are only readable while the Clerk user exists, and a
+  // returning player gets a new Clerk id, so a running sanction is recorded first.
+  await recordSanctionTombstone(drizzleDB, userId, user);
   if (
     user.externalAccounts.some(
       (account) =>
@@ -52,9 +59,3 @@ export const removeAccountIdentity = async (
     if (!isClerkNotFound(error)) throw error;
   }
 };
-
-const isClerkNotFound = (error: unknown) =>
-  typeof error === "object" &&
-  error !== null &&
-  "status" in error &&
-  error.status === 404;

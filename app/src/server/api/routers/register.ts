@@ -33,6 +33,12 @@ import {
   settleRecordedLedger,
 } from "@/server/utils/purchases/grant";
 import { checkRecruitSignupEligibility } from "@/server/utils/recruitment";
+import {
+  fetchActiveSanctionTombstones,
+  fetchSanctionIdentity,
+  matchSanctionTombstones,
+  reapplySanctions,
+} from "@/server/utils/sanctionTombstone";
 import { checkForBadWords } from "@/utils/profanity";
 import { secondsFromNow } from "@/utils/time";
 import { registrationSchema, utmSourceSchema } from "@/validators/register";
@@ -108,6 +114,7 @@ export const registerRouter = createTRPCRouter({
         storeHistory,
         paypalHistory,
         recruitEligibility,
+        tombstones,
       ] = await Promise.all([
         ctx.drizzle.query.village.findFirst({
           where: eq(village.name, "Horizon"),
@@ -151,6 +158,7 @@ export const registerRouter = createTRPCRouter({
               signupIp: ctx.userIp,
             })
           : Promise.resolve(null),
+        fetchActiveSanctionTombstones(ctx.drizzle),
       ]);
       // Whatever the ledger holds for this identity is settled once a character row exists,
       // on every path that reaches one. A tombstone seen here means receipts can still be
@@ -212,6 +220,15 @@ export const registerRouter = createTRPCRouter({
           "This account is linked to another character and cannot create a new one",
         );
       }
+      // A ban or silence still running on a deleted account carries over to this one. The
+      // Clerk lookup is only needed while some deleted account has a running sanction.
+      const sanctions = tombstones.length
+        ? matchSanctionTombstones(
+            tombstones,
+            ctx.userId,
+            await fetchSanctionIdentity(ctx.userId),
+          )
+        : [];
       if (storeAlias) {
         await ctx.drizzle
           .delete(storeUserIdAlias)
@@ -240,6 +257,8 @@ export const registerRouter = createTRPCRouter({
           musicOn: input.musicOn ?? true,
           sfxOn: input.sfxOn ?? true,
           buttonSfxOn: input.buttonSfxOn ?? true,
+          isBanned: sanctions.some((match) => match.sanction === "BAN"),
+          isSilenced: sanctions.some((match) => match.sanction === "SILENCE"),
           ...(reminder ? { earnedExperience: 10000 } : {}),
         })
         .onDuplicateKeyUpdate({ set: { userId: sql`userId` } });
@@ -324,6 +343,7 @@ export const registerRouter = createTRPCRouter({
                 }),
             ]
           : []),
+        ...reapplySanctions(ctx.drizzle, ctx.userId, sanctions),
       ]);
       return { success: true, message: "Character created" };
     }),

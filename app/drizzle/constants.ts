@@ -642,6 +642,10 @@ export const BanStates = [
 ] as const;
 export type BanState = (typeof BanStates)[number];
 
+/** Sanctions that outlive a deleted account; timeouts count as silences. */
+export const SanctionTombstoneTypes = ["BAN", "SILENCE"] as const;
+export type SanctionTombstoneType = (typeof SanctionTombstoneTypes)[number];
+
 export const TERR_BOT_ID = "iDoQgjrffFd81z8dCYdw7";
 
 export const TimeUnits = ["minutes", "hours", "days", "weeks", "months"] as const;

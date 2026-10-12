@@ -106,6 +106,7 @@ import {
   migrateStorePurchaseTransfers,
   retireStoreUserId,
 } from "@/server/utils/purchases/grant";
+import { recordSanctionTombstone } from "@/server/utils/sanctionTombstone";
 import {
   canClearSectors,
   canCloneUser,
@@ -1238,6 +1239,9 @@ const delay = (ms: number): Promise<void> =>
  * @param userId - The ID of the user to delete.
  */
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
+  // Every deletion path ends here, before the reports below are removed: a running ban or
+  // silence leaves a tombstone so a new account cannot shed it.
+  await recordSanctionTombstone(client, userId);
   const MAX_RETRIES = 6;
   const BASE_DELAY_MS = 100;
   const MAX_JITTER_MS = 100;
