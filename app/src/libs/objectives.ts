@@ -293,9 +293,9 @@ export const buildObjectiveEdges = (
 };
 
 /**
- * Returns a string array of rewards from an objective reward object.
- * @param reward - The objective reward object.
- * @returns A string array of rewards.
+ * Summarize direct and packaged rewards in the same composition used for payout.
+ * @param reward - Quest or objective rewards, including editable snapshots.
+ * @returns Display entries for the combined reward payload, or an empty list.
  */
 export const getRewardArray = (reward?: QuestRewardType) => {
   const rewards: string[] = [];
@@ -394,9 +394,8 @@ export const getRewardArray = (reward?: QuestRewardType) => {
 };
 
 /**
- * Returns a comma-separated string preview of rewards, or null if no rewards.
- * @param reward - The objective reward object.
- * @returns A string preview of rewards or null.
+ * Preview direct and packaged rewards while keeping invalid editor drafts recoverable.
+ * @returns A comma-separated summary, an invalid-draft message, or null for empty rewards.
  */
 export const getRewardPreview = (reward?: QuestRewardType | null): string | null => {
   if (!reward) return null;

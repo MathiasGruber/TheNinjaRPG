@@ -241,6 +241,7 @@ interface RewardProps {
   pickCount?: number;
 }
 
+/** Show combined direct/package totals, with pick-count context for reward-choice quests. */
 export const Reward: React.FC<RewardProps> = (props) => {
   const { rewardMultiplier, pickCount } = props;
   const info = props.info

@@ -23,10 +23,10 @@ import {
  * Pickable units: every non-zero scalar reward (ryo, exp, prestige, ...) is one card, every
  * reward item id in a `reward_items` entry is one card carrying that entry's quantity, and every
  * jutsu, bloodline, sage mode and badge id is one card. Rank promotion, village membership and
- * the hunter/gathering material drops are structural outcomes rather than loot, so they are always
- * granted alongside the picked cards. Picked items are guaranteed: the editor's drop chance only
- * applies to quests that grant every reward. Package cards retain all their rewards, including
- * structural outcomes and item chances, until that bundle is picked. Cards for content the player already holds stay on
+ * the hunter/gathering material drops in direct rewards are structural outcomes rather than loot,
+ * so they are granted alongside the picked cards. Direct item cards are guaranteed. Package cards
+ * retain their full payload, including structural outcomes and item chances, until that bundle
+ * is picked. Cards for content the player already holds stay on
  * the offer but cannot be picked, and one selection holds at most one sage mode and one
  * mastery promotion.
  */
@@ -60,7 +60,7 @@ export const getFixedChoiceRewards = (
     reward_gathering_items_ids: reward.reward_gathering_items_ids,
   });
 
-/** Splits a reward into pickable cards, in a stable order with stable ids. */
+/** Split direct fields into cards and each saved package into one bundle, with stable ids/order. */
 export const buildRewardChoiceCards = (reward: QuestRewardType): RewardChoiceCard[] => {
   const cards: RewardChoiceCard[] = [];
   for (const field of REWARD_CHOICE_AMOUNT_FIELDS) {
@@ -138,6 +138,7 @@ export type RewardChoiceOwnership = {
   sageModeIds: ReadonlySet<string>;
   /** The player has a sage mode equipped, so no sage mode card can be granted. */
   hasSageMode: boolean;
+  /** Stored discipline ranks used to enforce each bundle's immediately preceding promotion rank. */
   masteryRanks?: MasteryProgressionSource["masteryRanks"];
 };
 
@@ -216,8 +217,8 @@ export const requiredRewardPicks = (
 
 /**
  * Validates a pick against the frozen offer: distinct ids, all offered, none the player cannot
- * receive, at most one sage mode and one mastery promotion, exactly the required count. Returns the picked cards in
- * offer order.
+ * receive, at most one sage mode and one mastery promotion, exactly the required count.
+ * Returns the picked cards in offer order; run this before consuming the offer's CAS.
  */
 export const validateRewardPicks = (
   choice: PendingRewardChoice,
@@ -291,7 +292,7 @@ export const toggleRewardPick = (
   return [...selected, cardId];
 };
 
-/** Turns picked cards into a reward; items carry a 100% drop chance. */
+/** Merge picked bundles unchanged; only individually picked item cards receive a 100% chance. */
 export const rewardFromChoiceCards = (
   cards: RewardChoiceCard[],
 ): ObjectiveRewardType => {

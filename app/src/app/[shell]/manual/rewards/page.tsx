@@ -22,6 +22,7 @@ import {
   rewardFields,
 } from "@/validators/rewards";
 
+/** Staff catalog browsing and leadership-only editing through the shared reward form. */
 export default function RewardsPage() {
   const { data: user } = useRequiredUserData();
   const { data, isPending, isError, refetch } = api.rewardPackages.getCatalog.useQuery(
@@ -44,6 +45,7 @@ export default function RewardsPage() {
     name: string;
   } | null>(null);
   const utils = api.useUtils();
+  /** Close successful edits and refresh the catalog; keep rejected drafts recoverable. */
   const onSuccess = async (result: { success: boolean; message: string }) => {
     setMessage(result.message);
     if (result.success) {
@@ -52,6 +54,7 @@ export default function RewardsPage() {
       await utils.rewardPackages.getCatalog.invalidate();
     }
   };
+  /** Show transport failures beside the current action without discarding its draft. */
   const onError = (error: { message: string }) => setMessage(error.message);
   const savePackage = api.rewardPackages.savePackage.useMutation({
     onSuccess,
@@ -65,6 +68,7 @@ export default function RewardsPage() {
   const deleteNode = api.rewardPackages.deleteNode.useMutation({ onSuccess, onError });
   const isSaving = savePackage.isPending || saveNode.isPending;
   const canManage = canManageRewards(user?.role ?? "USER");
+  /** Reset editor state so a new entry cannot inherit another entry's identity or payload. */
   const startNew = (type: "package" | "node") => {
     setEditing(type);
     setId(undefined);
@@ -74,6 +78,7 @@ export default function RewardsPage() {
     setRewards([ObjectiveReward.parse({})]);
     setMessage(null);
   };
+  /** Validate the draft before dispatch; server validators own stored normalization and access. */
   const save = () => {
     const parsed =
       editing === "package"

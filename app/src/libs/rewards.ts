@@ -5,9 +5,10 @@ import {
   REWARD_CHOICE_AMOUNT_FIELDS,
 } from "@/validators/rewards";
 /**
- * Collapse multiple rewards into a single reward
- * @param rewards - Rewards to collapse
- * @returns Collapsed reward
+ * Combine reward payloads without mutating inputs or rolling item drops.
+ * Scalars add, arrays concatenate and material flags combine. The highest rank wins;
+ * village membership and mastery promotion use the last specified reward.
+ * @returns A combined payload with fresh arrays, retaining item quantities and chances.
  */
 export const collapseRewards = (
   rewards: ObjectiveRewardType[],
@@ -15,7 +16,7 @@ export const collapseRewards = (
   const collapsed = ObjectiveReward.parse({});
 
   rewards.forEach((reward) => {
-    // Sum numeric rewards
+    // Truthy additions preserve absent optional mastery XP fields instead of creating zero keys.
     for (const field of REWARD_CHOICE_AMOUNT_FIELDS)
       if (reward[field])
         collapsed[field] = (collapsed[field] ?? 0) + (reward[field] ?? 0);

@@ -58,6 +58,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** Render real form controls to verify quest-specific and generic-package material visibility. */
 const MaterialRewardForm = ({
   questType,
   allowPackages = true,

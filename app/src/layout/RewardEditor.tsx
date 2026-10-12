@@ -18,6 +18,7 @@ import {
 } from "@/validators/rewardPackages";
 import { ObjectiveReward, rewardFields } from "@/validators/rewards";
 
+/** Edit direct rewards in groups and attach independent, editable catalog snapshots. */
 export const RewardEditor = ({
   form,
   formData,
@@ -50,6 +51,7 @@ export const RewardEditor = ({
     ...node,
     fields: node.fields.filter((field) => !hideFields.includes(field)),
   }));
+  // Custom groups replace standard field placement; uncovered fields keep their fallback group.
   const customFields = new Set(customNodes.flatMap((node) => node.fields));
   const groups = [
     ...customNodes,
@@ -62,6 +64,7 @@ export const RewardEditor = ({
       ),
     })),
   ].filter((node) => node.fields.length > 0);
+  /** Detect populated fields against schema defaults so saved rewards reopen their groups. */
   const hasValue = (field: string) => {
     const value = values[field];
     return Array.isArray(value)
@@ -70,6 +73,7 @@ export const RewardEditor = ({
           value !== defaultValues[field as keyof typeof defaultValues];
   };
   const activeNodes = getActiveRewardNodes(groups, addedNodes, hasValue);
+  /** Keep snapshot edits in the parent form's dirty state and validation lifecycle. */
   const setPackages = (next: RewardPackageSnapshotType[]) =>
     form.setValue("reward_packages", next, { shouldDirty: true, shouldValidate: true });
   const source = catalog?.packages.find((pack) => pack.id === selectedPackage);
@@ -104,6 +108,7 @@ export const RewardEditor = ({
               type="button"
               disabled={!source || packages.length >= 50}
               onClick={() => {
+                // Each attachment owns its payload and identity; catalog edits cannot change it.
                 if (source)
                   setPackages([
                     ...packages,
@@ -225,6 +230,7 @@ export const RewardEditor = ({
   );
 };
 
+/** Fallback groups expose every reward field even when no custom catalog node includes it. */
 export const DEFAULT_REWARD_NODES = [
   {
     id: "currency",

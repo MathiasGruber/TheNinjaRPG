@@ -429,6 +429,7 @@ export const getReward = (
         if (objective.successDescription) {
           notifications.push(objective.successDescription);
         }
+        // Compose packages with their objective's direct rewards before merging the payout.
         if (objective.reward_packages?.length) {
           const objectiveReward = collapseRewards([
             objective,
@@ -437,6 +438,7 @@ export const getReward = (
           rawRewards = collapseRewards([rawRewards, objectiveReward]);
           return;
         }
+        // Direct-only objectives retain their ordered structural overrides below.
         for (const field of REWARD_CHOICE_AMOUNT_FIELDS)
           if (objective[field])
             rawRewards[field] = (rawRewards[field] ?? 0) + (objective[field] ?? 0);

@@ -1,4 +1,7 @@
-/** Show explicitly added nodes and enough existing groups to expose every saved reward. */
+/**
+ * Keep explicitly added nodes intact, then expose every populated reward field.
+ * Greedily choose groups covering the most remaining fields to limit overlapping controls.
+ */
 export const getActiveRewardNodes = <
   T extends { id: string; fields: readonly string[] },
 >(
@@ -9,6 +12,7 @@ export const getActiveRewardNodes = <
   const selected = nodes.filter((node) => addedNodeIds.includes(node.id));
   const covered = new Set(selected.flatMap((node) => [...node.fields]));
   const remaining = nodes.filter((node) => !addedNodeIds.includes(node.id));
+  /** Count populated fields this group would expose beyond the groups already selected. */
   const uncoveredCount = (node: T) =>
     node.fields.filter((field) => hasValue(field) && !covered.has(field)).length;
   while (remaining.length > 0) {

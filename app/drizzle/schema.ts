@@ -3933,6 +3933,7 @@ export const dataBattleAction = mysqlTable(
   },
 );
 
+/** Reusable catalog source; quests retain copied payloads rather than resolving it at payout. */
 export const rewardPackage = mysqlTable("RewardPackage", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   name: varchar("name", { length: 191 }).notNull(),
@@ -3941,6 +3942,7 @@ export const rewardPackage = mysqlTable("RewardPackage", {
   createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
   updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
 });
+/** Named editor grouping of existing reward fields, with no independent payout behavior. */
 export const rewardNode = mysqlTable("RewardNode", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   name: varchar("name", { length: 191 }).notNull(),

@@ -3750,7 +3750,8 @@ export const sageQuestFilters = (
 
 /**
  * Resolves pending reward-choice offers for display: one query per referenced content type,
- * run together. Offers that no longer parse are skipped rather than failing the list.
+ * run together. Packages keep their original cards while child rewards supply lookup ids.
+ * Offers that no longer parse are skipped rather than failing the list.
  */
 export const resolveRewardChoiceDisplays = async (
   client: DrizzleClient,
@@ -3927,7 +3928,8 @@ export const resolveRewardChoiceDisplays = async (
 
 /**
  * Which of the offered jutsus, bloodlines, badges and sage modes the player already holds, using
- * the same ownership tables `updateRewards` checks before granting them.
+ * the same ownership tables `updateRewards` checks before granting them. Package children
+ * participate in those queries; stored mastery ranks supply promotion eligibility.
  */
 export const fetchRewardChoiceOwnership = async (
   client: DrizzleClient,
@@ -4098,7 +4100,7 @@ export const getRewardUserDelta = (
   };
 };
 
-/** Package choices show the actual contents before a player commits their pick. */
+/** Describe complete bundle contents with resolved names and original item quantities/chances. */
 const describePackageRewards = (
   reward: import("@/validators/rewards").ObjectiveRewardType,
   content: ReadonlyMap<string, { name: string }>,

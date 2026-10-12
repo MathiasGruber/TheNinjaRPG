@@ -14,6 +14,7 @@ import { QuestReward, RewardNodeValidator, RewardPackageValidator } from "@/vali
 import { ObjectiveReward } from "@/validators/rewards";
 import type { QuestContentType } from "@/validators/objectives";
 
+/** Create a normalized snapshot with distinct attachment and source identities. */
 const packageReward = (id: string, data: object) => ({ id, packageId: `source-${id}`, name: `Package ${id}`, description: "", rewards: ObjectiveReward.parse(data) });
 const ownership = { jutsuIds: new Set<string>(), bloodlineIds: new Set<string>(), badgeIds: new Set<string>(), sageModeIds: new Set<string>(), hasSageMode: false };
 // These calculation tests supply a query stub and exercise the resolver without Redis middleware.
@@ -34,6 +35,7 @@ const { Transpiler } = (globalThis as unknown as { Bun: { Transpiler: new (optio
 const copyJavascript = new Transpiler({ loader: "ts" }).transformSync(
   `const copy = ${copyExpression};`,
 ) + "\nreturn copy;";
+/** Execute the actual page copy action with deterministic ids and capture insertion/selection. */
 const copyUsingEditor = (
   objectives: QuestContentType["objectives"],
   isUpdating = false,
@@ -55,6 +57,7 @@ const copyUsingEditor = (
 };
 
 describe("reward packages", () => {
+  /** Supply an active quest and player state for the real tracker and reward calculators. */
   const makeUser = (content: Record<string, unknown>, questType = "mission") =>
     ({
       userId: "u1",
@@ -346,6 +349,7 @@ describe("reward packages", () => {
   });
   for (const metric of QuestRewardMetrics) {
     it(`includes direct, packaged and mixed ${metric} totals in the balance endpoint`, async () => {
+      /** Build an immediately complete objective with direct or packaged metric rewards. */
       const objective = (data: object) => SimpleObjective.parse({ id: "objective", task: "user_level", value: 1, ...data });
       const contents = [
         { reward: QuestReward.parse({ [metric]: 100 }), objectives: [objective({ [metric]: 40 })] },

@@ -153,8 +153,11 @@ interface EditContentProps<T, K, S extends FieldValues> {
   form: UseFormReturn<S, any>;
   formData: FormEntry<K>[];
   showSubmit: boolean;
+  /** Render controls without a nested form when embedded in another editor. */
   fieldsOnly?: boolean;
+  /** Expose occupation drops in generic packages, which have no hunting/gathering quest type. */
   allowMaterialRewards?: boolean;
+  /** Additional controls sharing this form's submission and disabled state. */
   children?: React.ReactNode;
   formClassName?: string;
   buttonTxt?: string;
@@ -2739,6 +2742,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 };
 
 interface RewardFormWrapperProps {
+  /** Use node groups for package payloads without recursively offering more packages. */
   grouped?: boolean;
   idx: number;
   reward: ObjectiveRewardType;
@@ -2791,6 +2795,7 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
   useEffect(() => {
     const newRewards = [...rewards];
     const parsed = ObjectiveReward.safeParse(watchAll);
+    // Grouped drafts must propagate invalid edits so parent preview/save validation sees them.
     if (parsed.success || props.grouped) {
       newRewards[idx] = parsed.success
         ? parsed.data

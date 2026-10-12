@@ -16,7 +16,9 @@ import { idSchema } from "@/validators/misc";
 import type { QuestContentType } from "@/validators/objectives";
 import { SaveRewardNode, SaveRewardPackage } from "@/validators/rewardPackages";
 
+/** Staff catalog reads and leadership maintenance; reward delivery stays in the quest claim path. */
 export const rewardPackagesRouter = createTRPCRouter({
+  /** Load both catalogs in parallel after checking staff visibility. */
   getCatalog: protectedProcedure.query(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
     if (!isStaffRole(user.role))
@@ -31,6 +33,7 @@ export const rewardPackagesRouter = createTRPCRouter({
     ]);
     return { packages, nodes };
   }),
+  /** Save and audit a catalog source, preserving reputation amounts for restricted authors. */
   savePackage: protectedProcedure
     .input(SaveRewardPackage)
     .output(baseServerResponse)
@@ -70,6 +73,7 @@ export const rewardPackagesRouter = createTRPCRouter({
       ]);
       return { success: true, message: "Reward package saved" };
     }),
+  /** Save and audit editor field groupings without changing any saved reward payload. */
   saveNode: protectedProcedure
     .input(SaveRewardNode)
     .output(baseServerResponse)
@@ -101,6 +105,7 @@ export const rewardPackagesRouter = createTRPCRouter({
       ]);
       return { success: true, message: "Reward node saved" };
     }),
+  /** Delete only sources unused by visible, unexpired quests, using one guarded statement. */
   deletePackage: protectedProcedure
     .input(idSchema)
     .output(baseServerResponse)
@@ -143,6 +148,7 @@ export const rewardPackagesRouter = createTRPCRouter({
       });
       return { success: true, message: "Reward package deleted" };
     }),
+  /** Remove a catalog grouping; existing rewards remain accessible through fallback groups. */
   deleteNode: protectedProcedure
     .input(idSchema)
     .output(baseServerResponse)
@@ -163,7 +169,12 @@ export const rewardPackagesRouter = createTRPCRouter({
     }),
 });
 
-/** Restricted amounts must come from the approved catalog or an unchanged saved snapshot. */
+/**
+ * Validate attachment identities, source approval and whole-bundle choice restrictions.
+ * Restricted reputation amounts must match the saved snapshot or approved catalog source;
+ * copied attachments can retain saved approval under fresh ids after catalog edits or deletion.
+ * @returns A recoverable save rejection, or null when every attachment is permitted.
+ */
 export const validateQuestRewardPackages = (
   content: QuestContentType,
   existing: QuestContentType,

@@ -8,6 +8,7 @@ describe("active reward nodes", () => {
     { id: "currency-copy", fields: ["reward_money", "reward_seichi_silver"] },
     { id: "items", fields: ["reward_items"] },
   ] as const;
+  /** Fixture with populated currency fields and an empty item reward. */
   const active = (field: string) => field !== "reward_items";
 
   it("opens one complete group instead of repeating overlapping saved rewards", () => {

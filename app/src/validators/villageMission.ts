@@ -33,7 +33,7 @@ export const villageMissionSchema = z.object({
 });
 export type VillageMission = z.infer<typeof villageMissionSchema>;
 
-/** Village missions use simultaneous shared counters and one village-token payout. */
+/** Validate simultaneous shared objectives and a token-only completion payout, including packages. */
 export const villageMissionContentError = (
   content: {
     objectives: unknown[];

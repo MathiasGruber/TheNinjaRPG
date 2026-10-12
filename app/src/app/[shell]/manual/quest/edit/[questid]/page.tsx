@@ -123,6 +123,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
     setSelectedObjectiveId(null);
   };
 
+  /** Duplicate an objective with fresh attachment ids while retaining each package's source. */
   const copyObjective = (idx: number) => {
     if (isUpdating) return;
     const objectiveToCopy = objectives[idx];

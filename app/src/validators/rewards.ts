@@ -174,6 +174,7 @@ export type RewardChoiceContentField = (typeof REWARD_CHOICE_CONTENT_FIELDS)[num
 /**
  * One pickable reward. `amount` is the scaled scalar value, or the item quantity (1 for
  * jutsus, bloodlines, sage modes and badges); `contentId` names the granted content.
+ * Package cards use amount 1 and carry their complete copied payload in `rewards`.
  */
 export const RewardChoiceCardSchema = z.object({
   id: z.string().min(1),
@@ -217,6 +218,7 @@ export const RewardChoiceDisplaySchema = z.object({
       image: z.string().nullable(),
       rarity: z.string().nullable(),
       description: z.string().nullable(),
+      /** Resolved bundle contents, including original item quantities and drop chances. */
       includedRewards: z.array(z.string()).optional(),
       /** Why this player cannot pick the card (e.g. already owned), or null if pickable. */
       unavailableReason: z.string().nullable(),
