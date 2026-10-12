@@ -1,4 +1,4 @@
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { QUEST_PARTY_MAX_MEMBERS, QUEST_PARTY_TYPES } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
@@ -33,7 +33,12 @@ import { fetchSectorVillage } from "@/routers/village";
 import { createTRPCRouter, errorResponse, protectedProcedure } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
-import { joinCoopChat, launchCoopEncounter, leaveCoopChat } from "@/server/utils/coop";
+import {
+  cleanupCoopBattleStart,
+  joinCoopChat,
+  launchCoopEncounter,
+  leaveCoopChat,
+} from "@/server/utils/coop";
 import {
   questPartyRelations,
   saveQuestPartyMember,
@@ -120,7 +125,11 @@ export const questPartyRouter = createTRPCRouter({
     }),
   overview: protectedProcedure.query(async ({ ctx }) => {
     const [{ user }, parties] = await Promise.all([
-      fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+      fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+        allowQuestPartySyncFallback: true,
+      }),
       ctx.drizzle.query.questParty.findMany({
         where: or(
           eq(questParty.isPublic, true),
@@ -142,6 +151,12 @@ export const questPartyRouter = createTRPCRouter({
             columns: { userId: true, username: true, status: true, sector: true },
           },
         },
+        orderBy: [
+          desc(
+            sql`JSON_CONTAINS(${questParty.invitedUserIds}, JSON_QUOTE(${ctx.userId})) OR JSON_CONTAINS(${questParty.memberIds}, JSON_QUOTE(${ctx.userId}))`,
+          ),
+          desc(questParty.createdAt),
+        ],
         limit: 100,
       }),
     ]);
@@ -644,7 +659,7 @@ export const startQuestPartyEncounter = async ({
   );
   if (!transition.success) return errorResponse(transition.message);
   return launchCoopEncounter({
-    reserve: async (claimId) => {
+    reserve: async ({ claimId }) => {
       const claim = await client
         .update(questParty)
         .set({ battleId: claimId, version: party.version + 1 })
@@ -657,7 +672,7 @@ export const startQuestPartyEncounter = async ({
         );
       return claim.rowsAffected === 1;
     },
-    initiate: () =>
+    initiate: ({ battleId }) =>
       initiateBattle(
         {
           client: client,
@@ -686,6 +701,7 @@ export const startQuestPartyEncounter = async ({
             .map((member) => member.userId),
           coop: {
             kind: "quest",
+            battleId,
             id: party.id,
             quest: party.quest,
             tracker: party.tracker,
@@ -694,17 +710,26 @@ export const startQuestPartyEncounter = async ({
         ambush ? "RANDOM_ENCOUNTER" : "QUEST",
         ambush?.scaleGains ?? objective?.scaleGains ?? 1,
       ),
-    publish: async (claimId, result) => {
+    publish: async ({ claimId }, result) => {
       await client
         .update(questParty)
-        .set({ battleId: result.battleId ?? null })
+        .set({
+          battleId: result.battleId ?? null,
+          version: sql`${questParty.version} + 1`,
+        })
         .where(and(eq(questParty.id, party.id), eq(questParty.battleId, claimId)));
     },
-    recover: async (claimId) => {
+    recover: async ({ claimId, battleId }) => {
+      await cleanupCoopBattleStart(client, battleId, party.memberIds);
       await client
         .update(questParty)
-        .set({ battleId: null })
-        .where(and(eq(questParty.id, party.id), eq(questParty.battleId, claimId)));
+        .set({ battleId: null, version: sql`${questParty.version} + 1` })
+        .where(
+          and(
+            eq(questParty.id, party.id),
+            or(eq(questParty.battleId, claimId), eq(questParty.battleId, battleId)),
+          ),
+        );
     },
   });
 };

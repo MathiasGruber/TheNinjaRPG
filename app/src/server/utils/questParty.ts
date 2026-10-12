@@ -71,12 +71,23 @@ export const synchronizeQuestParty = async (
     const isFreshClaim =
       party.battleId?.startsWith("claiming:") &&
       Number(party.battleId.split(":")[1]) > Date.now() - 60_000;
+    // A failed publication retains the encoded reservation. The preloaded members prove
+    // whether that exact battle committed, without another database fetch.
+    const reservedBattleId = party.battleId?.startsWith("claiming:")
+      ? party.battleId.split(":")[2]
+      : undefined;
+    const boundBattleId =
+      reservedBattleId &&
+      party.members.some((member) => member.battleId === reservedBattleId)
+        ? reservedBattleId
+        : undefined;
     const battleId =
-      party.battleId &&
+      boundBattleId ??
+      (party.battleId &&
       !isFreshClaim &&
       !party.members.some((member) => member.battleId)
         ? null
-        : party.battleId;
+        : party.battleId);
     if (
       memberIds.length === party.memberIds.length &&
       battleId === party.battleId &&

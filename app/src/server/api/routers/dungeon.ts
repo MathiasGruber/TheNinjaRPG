@@ -385,7 +385,7 @@ export const dungeonRouter = createTRPCRouter({
         if (!floor) return errorResponse("This floor is unavailable.");
         const expiresAt = run.expiresAt ?? secondsFromNow(DUNGEON_RUN_SECONDS);
         return launchCoopEncounter({
-          reserve: async (battleId) => {
+          reserve: async ({ battleId }) => {
             const claimed = await ctx.drizzle
               .update(dungeonRun)
               .set({
@@ -404,7 +404,7 @@ export const dungeonRouter = createTRPCRouter({
               );
             return claimed.rowsAffected === 1;
           },
-          initiate: (battleId) =>
+          initiate: ({ battleId }) =>
             initiateBattle(
               {
                 client: ctx.drizzle,
@@ -427,7 +427,7 @@ export const dungeonRouter = createTRPCRouter({
               "QUEST",
               0,
             ),
-          recover: (battleId) =>
+          recover: ({ battleId }) =>
             rollbackDungeonStart(ctx.drizzle, run, battleId, run.version + 1),
         });
       }

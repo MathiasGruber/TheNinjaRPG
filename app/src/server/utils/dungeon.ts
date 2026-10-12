@@ -1,15 +1,10 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import {
-  battle,
-  battleHistory,
-  dungeonMember,
-  dungeonRun,
-  userData,
-} from "@/drizzle/schema";
+import { battle, dungeonMember, dungeonRun, userData } from "@/drizzle/schema";
 import { combatEnergyRecoverySql } from "@/libs/combat/database";
 import type { CompleteBattle } from "@/libs/combat/types";
 import { dungeonBattleOutcome, dungeonNextState } from "@/libs/dungeon";
 import type { DrizzleClient } from "@/server/db";
+import { cleanupCoopBattleStart } from "@/server/utils/coop";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 
 /** Compensate every committed sibling write before reopening a failed floor start. */
@@ -25,23 +20,7 @@ export const rollbackDungeonStart = (
       entryPreviousDeadline: _deadline,
       ...state
     } = run.state;
-    // Removing the old battle first leaves a durable recovery signal if cleanup fails.
-    // Every sibling write is scoped to that ID, so retries cannot affect a newer battle.
-    await client.delete(battle).where(eq(battle.id, battleId));
-    const cleanup = await Promise.allSettled([
-      client.delete(battleHistory).where(eq(battleHistory.battleId, battleId)),
-      client
-        .update(userData)
-        .set({ status: "AWAKE", battleId: null, updatedAt: new Date() })
-        .where(
-          and(
-            inArray(userData.userId, run.state.memberIds),
-            eq(userData.battleId, battleId),
-          ),
-        ),
-    ]);
-    const failure = cleanup.find((result) => result.status === "rejected");
-    if (failure?.status === "rejected") throw failure.reason;
+    await cleanupCoopBattleStart(client, battleId, run.state.memberIds);
     // Reopen only after all cleanup finished; the CAS rejects stale or competing recovery.
     await client
       .update(dungeonRun)

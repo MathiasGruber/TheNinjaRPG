@@ -2931,7 +2931,7 @@ export const initiateBattle = async (
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
   // Insert battle entry into DB
-  const battleId = dungeonEncounter?.battleId ?? info.clanBattle?.battleId ?? nanoid();
+  const battleId = info.coop?.battleId ?? info.clanBattle?.battleId ?? nanoid();
 
   // Rows the status update below is expected to claim, used as the CAS guard
   const allParticipantIds = getBattleClaimIds({

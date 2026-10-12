@@ -1,13 +1,21 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { conversation, user2conversation } from "@/drizzle/schema";
+import {
+  battle,
+  battleHistory,
+  conversation,
+  user2conversation,
+  userData,
+} from "@/drizzle/schema";
 import { errorResponse } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 
 /**
- * Own the reserve → initiate → publish/recover sequence for both co-op activities.
+ * Allocate the battle ID before reserving either co-op activity, then initiate and publish.
  * Adapter reservations and compensation are scoped to this unique claim; a losing CAS
- * never starts combat. Each adapter compensates its own committed writes.
+ * never starts combat. Initiation failures compensate only this launch; publication failures
+ * retain the active reservation so another encounter cannot overlap it.
  */
 export const launchCoopEncounter = async <
   T extends { success: boolean; message: string; battleId?: string },
@@ -17,23 +25,25 @@ export const launchCoopEncounter = async <
   publish,
   recover,
 }: {
-  reserve: (claimId: string) => Promise<boolean>;
-  initiate: (claimId: string) => Promise<T>;
-  publish?: (claimId: string, result: T) => Promise<void>;
-  recover: (claimId: string) => Promise<void>;
+  reserve: (launch: CoopLaunch) => Promise<boolean>;
+  initiate: (launch: CoopLaunch) => Promise<T>;
+  publish?: (launch: CoopLaunch, result: T) => Promise<void>;
+  recover: (launch: CoopLaunch) => Promise<void>;
 }) => {
-  const claimId = `claiming:${Date.now()}:${nanoid()}`;
-  if (!(await reserve(claimId)))
+  const battleId = nanoid();
+  const launch = { battleId, claimId: `claiming:${Date.now()}:${battleId}` };
+  if (!(await reserve(launch)))
     return errorResponse("The party changed. Refresh and try again.");
   let result: T;
   try {
-    result = await initiate(claimId);
-    if (result.success) await publish?.(claimId, result);
+    result = await initiate(launch);
   } catch (error) {
-    await recover(claimId);
+    await recover(launch);
     throw error;
   }
-  if (!result.success) await recover(claimId);
+  if (!result.success) await recover(launch);
+  // The battle is committed now. Keep its reservation if publication fails; reads reconcile it.
+  else await publish?.(launch, result);
   return result;
 };
 
@@ -71,3 +81,26 @@ export const leaveCoopChat = (client: DrizzleClient, partyId: string, userId: st
         eq(user2conversation.userId, userId),
       ),
     );
+
+/** Compensate a failed start before reopening its party; a newer battle has a different ID. */
+export const cleanupCoopBattleStart = async (
+  client: DrizzleClient,
+  battleId: string,
+  memberIds: string[],
+) =>
+  retryOnDeadlock(async () => {
+    await client.delete(battle).where(eq(battle.id, battleId));
+    const cleanup = await Promise.allSettled([
+      client.delete(battleHistory).where(eq(battleHistory.battleId, battleId)),
+      client
+        .update(userData)
+        .set({ status: "AWAKE", battleId: null, updatedAt: new Date() })
+        .where(
+          and(inArray(userData.userId, memberIds), eq(userData.battleId, battleId)),
+        ),
+    ]);
+    const failure = cleanup.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") throw failure.reason;
+  });
+
+type CoopLaunch = { claimId: string; battleId: string };

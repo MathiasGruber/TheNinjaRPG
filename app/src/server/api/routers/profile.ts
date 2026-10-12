@@ -786,6 +786,7 @@ export const profileRouter = createTRPCRouter({
           userId: ctx.userId,
           userIp: ctx.userIp,
           hideInformation: true,
+          allowQuestPartySyncFallback: true,
           // forceRegen: true, // This should be disabled in prod to save on DB calls
         }),
         ctx.drizzle
@@ -3064,10 +3065,13 @@ export const fetchUpdatedUser = async (props: {
   forceRegen?: boolean;
   /** Client responses opt in; server callers need canonical locations for tracker persistence. */
   hideInformation?: boolean;
+  /** Display reads may retain a loaded team snapshot; progression callers require synchronization. */
+  allowQuestPartySyncFallback?: boolean;
 }) => {
   // Destructure
   const { client, userId, userIp, hideInformation = false } = props;
   let { forceRegen } = props;
+  let hasQuestPartySyncFailure = false;
   // Partial mutation responses must reconcile automatic progression beyond passive pools.
   let requiresUserRefresh = Boolean(forceRegen);
   let requiresProgressionRefresh = false;
@@ -3317,7 +3321,16 @@ export const fetchUpdatedUser = async (props: {
     }
   }
   if (user?.questParty) {
-    user.questParty = await synchronizeQuestParty(client, user.questParty);
+    try {
+      user.questParty = await synchronizeQuestParty(client, user.questParty);
+    } catch (error) {
+      if (!props.allowQuestPartySyncFallback) throw error;
+      hasQuestPartySyncFailure = true;
+      Sentry.captureException(error, {
+        level: "warning",
+        tags: { source: "synchronizeQuestParty" },
+      });
+    }
     applyQuestParty(user, user.questParty);
   }
 
@@ -3399,6 +3412,31 @@ export const fetchUpdatedUser = async (props: {
     // Add bloodline, structure, etc.  regen to regeneration
     user.regeneration = calcActiveUserRegen(user, settings);
     user.maxEnergy = calcMaxEnergy(user);
+  }
+
+  if (user && hasQuestPartySyncFailure) {
+    // Render the loaded snapshot with feedback, but defer bookkeeping that could persist
+    // unsynchronized quest progress or run its effects. Mutating callers never opt into this path.
+    const responseUser = hideInformation ? getPublicQuestUser(user) : user;
+    const trackerResults: ReturnType<typeof getNewTrackers> = {
+      trackers: user.questData ?? [],
+      notifications: [],
+      consequences: [],
+      questIdsUpdated: [],
+    };
+    return {
+      user: { ...responseUser, effectiveMasteries: effectiveMasteries(user) },
+      settings,
+      publishedAchievementIds,
+      progressionQuestCandidates,
+      questBootstrap,
+      requiresProgressionRefresh: true,
+      requiresUserRefresh: true,
+      toastMessages: ["Quest team progress will update on your next request."],
+      hasUnvotedPolls,
+      trackerResults,
+      startedQueuedJobs,
+    };
   }
 
   // Handle village prestige situations

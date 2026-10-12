@@ -175,7 +175,7 @@ export default function DungeonPage() {
               <span>
                 {state.data?.users.find((u) => u.userId === id)?.username} · Invited
               </span>
-              {current.leaderId === user.userId && (
+              {current.leaderId === user.userId && current.status === "LOBBY" && (
                 <Button
                   disabled={pending}
                   variant="secondary"

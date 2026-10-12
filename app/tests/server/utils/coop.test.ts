@@ -14,14 +14,14 @@ describe("shared co-op encounter launch", () => {
   });
   it("recovers a rejected initiation using its own reservation and preserves user feedback", async () => {
     let claim = "";
-    const recover = mock(async (_id: string) => {});
+    const recover = mock(async (_launch: { claimId: string; battleId: string }) => {});
     const rejection = { success: false, message: "A member moved" };
-    const result = await launchCoopEncounter({ reserve: async (id) => { claim = id; return true; }, initiate: async () => rejection, recover });
+    const result = await launchCoopEncounter({ reserve: async ({ claimId }) => { claim = claimId; return true; }, initiate: async () => rejection, recover });
     expect(result).toEqual(rejection);
-    expect(recover).toHaveBeenCalledWith(claim);
+    expect(recover).toHaveBeenCalledWith(expect.objectContaining({ claimId: claim }));
   });
-  it.each(["initiate", "publish"] as const)("compensates a failure during %s", async (stage) => {
-    const recover = mock(async (_id: string) => {});
+  it.each(["initiate", "publish"] as const)("recovers only failures before battle creation (%s)", async (stage) => {
+    const recover = mock(async (_launch: { claimId: string; battleId: string }) => {});
     const options = {
       reserve: async () => true,
       initiate: async () => { if (stage === "initiate") throw new Error("Injected failure"); return { success: true, message: "Started", battleId: "battle" }; },
@@ -29,6 +29,6 @@ describe("shared co-op encounter launch", () => {
       recover,
     };
     await expect(launchCoopEncounter(options)).rejects.toThrow("Injected failure");
-    expect(recover).toHaveBeenCalledTimes(1);
+    expect(recover).toHaveBeenCalledTimes(stage === "initiate" ? 1 : 0);
   });
 });

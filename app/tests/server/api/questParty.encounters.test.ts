@@ -26,6 +26,7 @@ import { ObjectiveReward } from "@/validators/rewards";
 import { insertQuests, insertUsers } from "../../setup/factories";
 import {
   callerFor,
+  callerForDatabase,
   describeWithDatabase,
   getTestDatabase,
   resetTables,
@@ -119,6 +120,48 @@ describeWithDatabase("quest team encounter location claims", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     invalidatePublishedMapCache();
+  });
+
+
+  it.each([false, true])("retains the active battle reservation when publication fails (committed=%p)", async (committed) => {
+    const client = await getTestDatabase();
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, retryDelay: "none", content: {
+      objectives: [AllObjectives.parse({ id: "encounter", task: "start_battle", opponentAIs: [{ ids: ["enemy"], number: 1 }] })],
+      reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [],
+    } }]);
+    const leader = await callerFor(questPartyRouter, "leader");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    const failing = new Proxy(client, {
+      get(target, key, receiver) {
+        if (key === "update") return (table: Parameters<typeof client.update>[0]) => {
+          if (table !== questParty) return target.update(table);
+          return { set: (values: Partial<typeof questParty.$inferInsert>) => {
+            const next = target.update(questParty).set(values);
+            if (typeof values.battleId !== "string" || values.battleId.startsWith("claiming:")) return next;
+            return { where: async (guard: Parameters<typeof next.where>[0]) => {
+              if (committed) await next.where(guard);
+              throw new Error("Publication unavailable");
+            } };
+          } };
+        };
+        return Reflect.get(target, key, receiver);
+      },
+    }) as DrizzleClient;
+    await expect(callerForDatabase(questPartyRouter, "leader", failing).startEncounter({ partyId: party.id })).rejects.toThrow("Publication unavailable");
+    const [saved, fight, members] = await Promise.all([
+      client.query.questParty.findFirst(), client.query.battle.findFirst(), client.query.userData.findMany(),
+    ]);
+    expect(fight).toBeDefined();
+    if (committed) expect(saved?.battleId).toBe(fight!.id);
+    else expect(saved?.battleId).toMatch(/^claiming:/);
+    expect(members.filter((member) => member.questPartyId === party.id).every((member) => member.status === "BATTLE" && member.battleId === fight!.id)).toBe(true);
+    const refreshed = await fetchUpdatedUser({ client, userId: "leader" });
+    expect(refreshed.user?.questParty?.battleId).toBe(fight!.id);
+    expect((await client.query.questParty.findFirst())?.battleId).toBe(fight!.id);
+    await insertUsers([{ userId: "replacement", username: "replacement", status: "AWAKE", rank: "JONIN", level: 50, experience: 20_000_000, villageId: "home", sector: 50, longitude: 12, latitude: 13, regenAt: new Date(), updatedAt: new Date() }]);
+    expect((await (await callerFor(questPartyRouter, "replacement")).join({ partyId: party.id })).success).toBe(false);
   });
 
   for (const battleType of ["QUEST", "RANDOM_ENCOUNTER"] as const) {

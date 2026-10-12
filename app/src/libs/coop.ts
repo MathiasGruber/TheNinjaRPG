@@ -203,7 +203,13 @@ export type CoopTransition =
 
 /** Trusted activity snapshot supplied by the server launcher, never by a combat client. */
 export type CoopEncounter =
-  | { kind: "quest"; id: string; quest: Quest; tracker: QuestTrackerType }
+  | {
+      kind: "quest";
+      battleId: string;
+      id: string;
+      quest: Quest;
+      tracker: QuestTrackerType;
+    }
   | (Omit<DungeonBattleState, "lastActionRound"> & {
       kind: "dungeon";
       battleId: string;
