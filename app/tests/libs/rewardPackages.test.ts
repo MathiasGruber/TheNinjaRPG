@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { QuestRewardMetrics } from "@/drizzle/constants";
+import { dataRouter } from "@/routers/data";
 import { collapseRewards } from "@/libs/rewards";
 import { masteryQuestTemplates } from "@/libs/masteryQuests";
 import { QuestValidator, SimpleObjective } from "@/validators/objectives";
@@ -12,6 +15,36 @@ import type { QuestContentType } from "@/validators/objectives";
 
 const packageReward = (id: string, data: object) => ({ id, packageId: `source-${id}`, name: `Package ${id}`, description: "", rewards: ObjectiveReward.parse(data) });
 const ownership = { jutsuIds: new Set<string>(), bloodlineIds: new Set<string>(), badgeIds: new Set<string>(), sageModeIds: new Set<string>(), hasSageMode: false };
+
+// Exercise the editor's actual copy handler, including the payload it sends to validation.
+const copyExpression = readFileSync(
+  new URL("../../src/app/[shell]/manual/quest/edit/[questid]/page.tsx", import.meta.url),
+  "utf8",
+).match(/  const copyObjective = ([\s\S]*?\n  };)/)?.[1];
+if (!copyExpression) throw new Error("Quest objective copy handler was not found");
+const { Transpiler } = (globalThis as unknown as { Bun: { Transpiler: new (options: { loader: "ts" }) => { transformSync: (source: string) => string } } }).Bun;
+const copyJavascript = new Transpiler({ loader: "ts" }).transformSync(
+  `const copy = ${copyExpression};`,
+) + "\nreturn copy;";
+const copyUsingEditor = (
+  objectives: QuestContentType["objectives"],
+  isUpdating = false,
+  index = 0,
+): { objectives: QuestContentType["objectives"]; selected: string | null } => {
+  let next = objectives;
+  let selected: string | null = null;
+  let serial = 0;
+  const copy = new Function(
+    "objectives", "isUpdating", "nanoid", "setObjectives", "setSelectedObjectiveId",
+    copyJavascript,
+  )(
+    objectives, isUpdating, () => `copy-${++serial}`,
+    (value: typeof objectives) => { next = value; },
+    (id: string) => { selected = id; },
+  ) as (idx: number) => void;
+  copy(index);
+  return { objectives: next, selected };
+};
 
 describe("reward packages", () => {
   const makeUser = (content: Record<string, unknown>, questType = "mission") =>
@@ -117,6 +150,135 @@ describe("reward packages", () => {
     const result=getReward(makeUser({reward:ObjectiveReward.parse({reward_money:20}),objectives:[objective]}),"q1");
     expect(result.rewards.reward_money).toBe(60);
     expect(result.rewards.reward_items).toEqual(["item","item"]);
+  });
+  it("copies objective package identities while preserving every saved reward and source", () => {
+    const objective = SimpleObjective.parse({
+      id: "original", task: "user_level", value: 1, reward_money: 10,
+      reward_packages: [
+        packageReward("a", { reward_money: 100, reward_reputation: 5,
+          reward_items: [{ ids: ["item"], number: 35, quantity: 3 }] }),
+        packageReward("b", { reward_exp: 50 }),
+      ],
+    });
+    const before = structuredClone(objective);
+    const copied = copyUsingEditor([objective]);
+    const copy = copied.objectives[1]!;
+    expect(copied.objectives).toHaveLength(2);
+    expect(copied.selected).toBe(copy.id);
+    expect(copy.id).not.toBe(objective.id);
+    expect(copied.objectives[0]).toEqual(before);
+    expect<QuestContentType["objectives"][number]>({ ...copy, id: objective.id, reward_packages: copy.reward_packages?.map(
+      (pack, index) => ({ ...pack, id: objective.reward_packages![index]!.id }),
+    ) }).toEqual(before);
+    const ids = copied.objectives.flatMap((obj) => obj.reward_packages?.map((pack) => pack.id) ?? []);
+    expect(new Set(ids).size).toBe(4);
+    const existing = { reward: QuestReward.parse({}), objectives: [objective], sceneBackground: "", sceneCharacters: [] };
+    const content = { ...existing, objectives: copied.objectives };
+    const sources = objective.reward_packages!.map((pack) => ({
+      id: pack.packageId, name: pack.name, description: pack.description,
+      rewards: pack.rewards, createdAt: new Date(), updatedAt: new Date(),
+    }));
+    expect(validateQuestRewardPackages(content, existing, sources, "HEAD_CONTENT")).toBeNull();
+    expect(getReward(makeUser(content), "q1").rewards.reward_money).toBe(220);
+    expect(getReward(makeUser(content), "q1").rewards.reward_reputation).toBe(10);
+  });
+  it("preserves direct objective copies and refuses copies while saving or without a source objective", () => {
+    const objective = SimpleObjective.parse({ id: "direct", task: "user_level", value: 1, reward_money: 40 });
+    const copied = copyUsingEditor([objective]);
+    expect({ ...copied.objectives[1], id: objective.id }).toEqual(objective);
+    expect(copyUsingEditor([objective], true)).toEqual({ objectives: [objective], selected: null });
+    expect(copyUsingEditor([objective], false, 3)).toEqual({ objectives: [objective], selected: null });
+  });
+  for (const role of ["HEAD_CONTENT", "HEAD_EVENT"] as const) {
+    it(`preserves ${role}'s saved reputation approval on editable copies after catalog changes or deletion`, () => {
+      const pack = packageReward("saved", { reward_money: 100, reward_reputation: 5 });
+      const objective = SimpleObjective.parse({ id: "original", task: "user_level", value: 1, reward_packages: [pack] });
+      const existing = { reward: QuestReward.parse({}), objectives: [objective], sceneBackground: "", sceneCharacters: [] };
+      const content = { ...existing, objectives: copyUsingEditor([objective]).objectives };
+      const source = [{ id: pack.packageId, name: "Updated", description: "Updated", rewards: ObjectiveReward.parse({ reward_money: 200, reward_reputation: 9 }), createdAt: new Date(), updatedAt: new Date() }];
+      const unchanged = structuredClone(existing);
+      expect(validateQuestRewardPackages(content, existing, source, role)).toBeNull();
+      expect(validateQuestRewardPackages(content, existing, [], role)).toBeNull();
+      expect(existing).toEqual(unchanged);
+      const edited = structuredClone(content);
+      const editableCopy = edited.objectives[1]!.reward_packages![0]!;
+      edited.objectives[1]!.reward_packages![0] = {
+        ...editableCopy, name: "Renamed copy", description: "Customized description",
+        rewards: { ...editableCopy.rewards, reward_money: 125 },
+      };
+      expect(validateQuestRewardPackages(edited, existing, source, role)).toBeNull();
+      expect(validateQuestRewardPackages(edited, existing, [], role)).toBeNull();
+      const tampered = structuredClone(content);
+      const copy = tampered.objectives[1]!.reward_packages![0]!;
+      tampered.objectives[1]!.reward_packages![0] = { ...copy, rewards: { ...copy.rewards, reward_reputation: 500 } };
+      expect(validateQuestRewardPackages(tampered, existing, source, role)).toContain("approved snapshot");
+      tampered.objectives[1]!.reward_packages![0]!.packageId = "unapproved-source";
+      expect(validateQuestRewardPackages(tampered, existing, source, role)).toContain("no longer exists");
+      const duplicate = structuredClone(content);
+      duplicate.objectives[1]!.reward_packages![0]!.id = pack.id;
+      expect(validateQuestRewardPackages(duplicate, existing, source, role)).toContain("unique id");
+      const changedSaved = structuredClone(existing);
+      changedSaved.objectives[0]!.reward_packages![0]!.rewards.reward_reputation = 9;
+      expect(validateQuestRewardPackages(changedSaved, existing, source, role)).toContain("approved snapshot");
+    });
+  }
+  it("allows reputation authors to edit copied snapshots after source deletion but rejects unknown sources", () => {
+    const pack = packageReward("deleted", { reward_reputation: 5 });
+    const objective = SimpleObjective.parse({ id: "original", task: "user_level", value: 1, reward_packages: [pack] });
+    const existing = { reward: QuestReward.parse({}), objectives: [objective], sceneBackground: "", sceneCharacters: [] };
+    const content = { ...existing, objectives: copyUsingEditor([objective]).objectives };
+    const copy = content.objectives[1]!.reward_packages![0]!;
+    content.objectives[1]!.reward_packages![0] = { ...copy, rewards: { ...copy.rewards, reward_reputation: 7 } };
+    const savedEdit = { ...existing, objectives: [{ ...objective, reward_packages: [{ ...content.objectives[1]!.reward_packages![0]!, id: pack.id }] }] };
+    expect(validateQuestRewardPackages(savedEdit, existing, [], "CONTENT-ADMIN")).toBeNull();
+    expect(validateQuestRewardPackages(content, existing, [], "CONTENT-ADMIN")).toBeNull();
+    expect(validateQuestRewardPackages(content, existing, [], "HEAD_CONTENT")).toContain("no longer exists");
+    content.objectives[1]!.reward_packages![0]!.packageId = "unknown-source";
+    expect(validateQuestRewardPackages(content, existing, [], "CONTENT-ADMIN")).toContain("no longer exists");
+  });
+  for (const metric of QuestRewardMetrics) {
+    it(`includes direct, packaged and mixed ${metric} totals in the balance endpoint`, async () => {
+      const objective = (data: object) => SimpleObjective.parse({ id: "objective", task: "user_level", value: 1, ...data });
+      const contents = [
+        { reward: QuestReward.parse({ [metric]: 100 }), objectives: [objective({ [metric]: 40 })] },
+        { reward: QuestReward.parse({ reward_packages: [packageReward("completion", { [metric]: 100 })] }), objectives: [objective({ reward_packages: [packageReward("objective", { [metric]: 40 })] })] },
+        { reward: QuestReward.parse({ [metric]: 30, reward_packages: [packageReward("completion", { [metric]: 70 })] }), objectives: [objective({ [metric]: 10, reward_packages: [packageReward("objective", { [metric]: 30 })] })] },
+        { reward: QuestReward.parse({}), objectives: [objective({ reward_packages: [packageReward("objective", { [metric]: 40 })] })] },
+      ];
+      const rows = contents.map((content, index) => ({ id: `quest-${index}`, name: "Balance", questRank: "D", questType: "mission", requiredLevel: 1, content }));
+      let reads = 0;
+      const caller = dataRouter.createCaller({
+        userId: "u1", req: new Request("http://localhost/api/trpc"), headers: new Headers(),
+        drizzle: { select: () => { reads++; return { from: () => ({ where: async () => rows }) }; } },
+      } as never);
+      const before = structuredClone(rows);
+      const statistics = await caller.getQuestRewardStatistics({ reward: metric, questTypes: ["mission"] });
+      expect(reads).toBe(1);
+      expect(statistics.map((entry) => entry.value)).toEqual([140, 140, 140, 40]);
+      for (const [index, content] of contents.entries()) {
+        expect(statistics[index]!.value).toBe(getReward(makeUser(content), "q1").rewards[metric]);
+      }
+      expect(rows).toEqual(before);
+    });
+  }
+  it("keeps balance totals as all offered rewards for choice quests and tolerates sparse legacy rewards", async () => {
+    const content = {
+      reward: QuestReward.parse({ reward_money: 10, reward_packages: [packageReward("a", { reward_money: 100 }), packageReward("b", { reward_money: 60 })] }),
+      rewardMode: "choose", rewardPickCount: 1,
+      objectives: [SimpleObjective.parse({ id: "objective", task: "user_level", value: 1, reward_packages: [packageReward("objective", { reward_money: 40 })] })],
+    };
+    const rows = [
+      { id: "choice", content },
+      { id: "legacy", content: { reward: { reward_money: 100 }, objectives: [{ reward_money: 40 }] } },
+      { id: "empty", content: {} },
+    ];
+    const caller = dataRouter.createCaller({ userId: "u1", req: new Request("http://localhost/api/trpc"), headers: new Headers(), drizzle: { select: () => ({ from: () => ({ where: async () => rows }) }) } } as never);
+    const statistics = await caller.getQuestRewardStatistics({ reward: "reward_money" });
+    expect(statistics.map((entry) => entry.value)).toEqual([210, 140, 0]);
+    const result = getReward(makeUser(content), "q1");
+    expect(result.rewards.reward_money).toBe(40);
+    expect(result.rewardChoice?.cards).toHaveLength(3);
+    expect(result.rewards.reward_money + rewardFromChoiceCards(result.rewardChoice!.cards).reward_money).toBe(210);
   });
   it("validates custom nodes against existing reward fields", () => {
     expect(RewardNodeValidator.safeParse({name:"Currency",fields:["reward_money","reward_reputation"]}).success).toBe(true);

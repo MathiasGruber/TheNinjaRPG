@@ -56,6 +56,7 @@ import {
 } from "@/drizzle/schema";
 import { aggregateExperiments } from "@/libs/experimentAnalytics";
 import { getRankedRank } from "@/libs/ranked_pvp";
+import { collapseRewards } from "@/libs/rewards";
 import { fetchPublicUsers } from "@/routers/profile";
 import {
   baseServerResponse,
@@ -2214,12 +2215,14 @@ export const dataRouter = createTRPCRouter({
       const metric = input.reward;
       return rows.map((q) => {
         const content = q.content;
-        const base = Number(content?.reward?.[metric] ?? 0);
-        const objectiveSum = (content?.objectives ?? []).reduce((acc, obj) => {
-          const v = Number(obj?.[metric] ?? 0);
-          return acc + (Number.isFinite(v) ? v : 0);
-        }, 0);
-        const total = base + objectiveSum;
+        const rewards = [
+          ...(content?.reward ? [content.reward] : []),
+          ...(content?.objectives ?? []),
+        ].flatMap((reward) => [
+          reward,
+          ...(reward.reward_packages ?? []).map((pack) => pack.rewards),
+        ]);
+        const total = collapseRewards(rewards)[metric];
         return {
           id: q.id,
           name: q.name,

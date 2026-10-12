@@ -131,6 +131,10 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
     const copiedObjective = {
       ...objectiveToCopy,
       id: nanoid(5),
+      reward_packages: objectiveToCopy.reward_packages?.map((pack) => ({
+        ...pack,
+        id: nanoid(),
+      })),
     };
 
     const newObjectives = [...objectives];

@@ -173,12 +173,21 @@ export const validateQuestRewardPackages = (
   const rewards = [content.reward, ...content.objectives];
   const oldRewards = [existing.reward, ...existing.objectives];
   const snapshots = rewards.flatMap((reward) => reward.reward_packages ?? []);
+  const oldSnapshots = oldRewards.flatMap((reward) => reward.reward_packages ?? []);
   if (new Set(snapshots.map((pack) => pack.id)).size !== snapshots.length)
     return "Each package snapshot must have a unique id";
   for (const pack of snapshots) {
-    const old = oldRewards
-      .flatMap((reward) => reward.reward_packages ?? [])
-      .find((saved) => saved.id === pack.id && saved.packageId === pack.packageId);
+    // Copies retain their saved source; restricted authors must also retain its reputation approval.
+    const old =
+      oldSnapshots.find(
+        (saved) => saved.id === pack.id && saved.packageId === pack.packageId,
+      ) ??
+      oldSnapshots.find(
+        (saved) =>
+          saved.packageId === pack.packageId &&
+          (canAwardReputation(role) ||
+            saved.rewards.reward_reputation === pack.rewards.reward_reputation),
+      );
     const source = packages.find((source) => source.id === pack.packageId);
     if (!source && !old)
       return "Reward package no longer exists. Select another package.";
