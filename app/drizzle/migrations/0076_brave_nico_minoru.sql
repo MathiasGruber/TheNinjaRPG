@@ -1,6 +1,8 @@
 ALTER TABLE `Village` MODIFY COLUMN `type` enum('VILLAGE','OUTLAW','SAFEZONE','HIDEOUT','TOWN','STRONGHOLD') NOT NULL DEFAULT 'VILLAGE';
 UPDATE `Village` SET `type` = 'STRONGHOLD' WHERE `type` = 'TOWN';
 ALTER TABLE `Village` MODIFY COLUMN `type` enum('VILLAGE','OUTLAW','SAFEZONE','HIDEOUT','STRONGHOLD') NOT NULL DEFAULT 'VILLAGE';
+-- Legacy maintenance downgrades omitted the flag. Only a Town upgrade advanced maintenance past creation.
+UPDATE `Village` SET `wasDowngraded` = 1 WHERE `type` = 'HIDEOUT' AND `lastMaintenancePaidAt` > `createdAt`;
 ALTER TABLE `Village` ADD `belowMemberMinimumSince` datetime(3);
 ALTER TABLE `Village` ADD `raidRetryCooldowns` json DEFAULT ('{}') NOT NULL;
 ALTER TABLE `VillageStructure` ADD `raidBoostExpiresAt` datetime(3);

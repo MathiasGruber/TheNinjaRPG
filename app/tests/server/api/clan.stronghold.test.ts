@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { STRONGHOLD_REESTABLISH_COST } from "@/drizzle/constants";
@@ -7,7 +9,9 @@ import { clanRouter } from "@/server/api/routers/clan";
 import { profileRouter } from "@/server/api/routers/profile";
 import { syncStrongholdMembership } from "@/server/utils/faction";
 import { insertUsers } from "../../setup/factories";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, describeWithDatabase, getTestDatabase, resetTables, runRawSql } from "../../setup/testDatabase";
+
+const legacyDowngradeBackfill = readFileSync(resolve(process.cwd(), "drizzle/migrations/0076_brave_nico_minoru.sql"), "utf8").split(";").find((statement) => statement.includes("SET `wasDowngraded` = 1"));
 
 const seedFaction = async (type: "HIDEOUT" | "STRONGHOLD", wasDowngraded = true) => {
   const db = await getTestDatabase();
@@ -78,12 +82,17 @@ describeWithDatabase("Stronghold membership and restoration", () => {
     expect(settlement).toMatchObject({ type: "STRONGHOLD", belowMemberMinimumSince: null });
   });
 
-  it("disables new upgrades and charges only once for concurrent restoration", async () => {
+  it("migrates legacy downgrades, disables new upgrades and charges only once for concurrent restoration", async () => {
     await seedFaction("HIDEOUT", false);
     const caller = await callerFor(clanRouter, "leader");
+    expect(legacyDowngradeBackfill).toBeDefined();
+    await runRawSql(legacyDowngradeBackfill!);
     expect((await caller.upgradeHideoutToStronghold({ clanId: "faction" })).success).toBe(false);
     const db = await getTestDatabase();
-    await db.update(village).set({ wasDowngraded: true }).where(eq(village.id, "stronghold"));
+    expect((await db.query.village.findFirst())?.wasDowngraded).toBe(false);
+    await db.update(village).set({ createdAt: new Date(Date.now() - 90 * 86400_000), lastMaintenancePaidAt: new Date(Date.now() - 31 * 86400_000) }).where(eq(village.id, "stronghold"));
+    await runRawSql(legacyDowngradeBackfill!);
+    expect((await db.query.village.findFirst())?.wasDowngraded).toBe(true);
     const results = await Promise.all([caller.upgradeHideoutToStronghold({ clanId: "faction" }), caller.upgradeHideoutToStronghold({ clanId: "faction" })]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
     const [faction] = await db.select().from(clan);
