@@ -892,8 +892,9 @@ export type ObjectiveTrackerTaskInput = {
  * @param boundPlacementStatus - Optional placement state keyed by id (`true` active, `false`
  * deactivated, absent deleted). Deleted bindings fail while deactivated bindings stay frozen.
  * @param atPlacementIds - Placement ids the user is authoritatively interacting with now.
- * @param applyPartyEffects - Emit personal team effects for callers that handle guarded
- * consequences. Tracker-only callers leave this false; solo effects are unaffected.
+ * @param applyPartyEffects - Reconcile personal team effects, including pending receipts
+ * after departure, for callers that handle guarded consequences. Tracker-only callers
+ * leave this false; ordinary solo effects are unaffected.
  * This function returns consequences without executing their database writes.
  */
 export const getNewTrackers = (
@@ -1093,11 +1094,12 @@ export const getNewTrackers = (
             }
           }
 
-          // If done, return status
+          // Departure retains personal receipts, so completed shared goals can still
+          // deliver their pending effects through the guarded consequence handler.
           if (status.done) {
             if (
               applyPartyEffects &&
-              questTracker?.party &&
+              (questTracker?.party || status.partyEffectsApplied === false) &&
               !status.partyEffectsApplied
             ) {
               if (objective.task === "new_quest") {
@@ -1315,7 +1317,8 @@ export const getNewTrackers = (
           } else if (task === "new_quest" && "newQuestIds" in objective) {
             status.done = true;
             if (!questTracker?.party || applyPartyEffects) {
-              if (questTracker?.party) status.partyEffectsApplied = true;
+              if (questTracker?.party || status.partyEffectsApplied === false)
+                status.partyEffectsApplied = true;
               consequences.push({ type: "start_quest", ids: objective.newQuestIds });
             }
           } else if (task === "start_battle") {
@@ -1501,7 +1504,8 @@ export const getNewTrackers = (
                       type: "add_item",
                       ids: objective.collectItemIds,
                     });
-                    if (questTracker?.party) status.partyEffectsApplied = true;
+                    if (questTracker?.party || status.partyEffectsApplied === false)
+                      status.partyEffectsApplied = true;
                     status.done = true;
                   } else {
                     questIdsUpdated.push(quest.id);
@@ -1531,7 +1535,8 @@ export const getNewTrackers = (
                     type: "remove_item",
                     ids: objective.deliverItemIds,
                   });
-                  if (questTracker?.party) status.partyEffectsApplied = true;
+                  if (questTracker?.party || status.partyEffectsApplied === false)
+                    status.partyEffectsApplied = true;
                   status.done = true;
                 } else if (task === "defeat_opponents" && opponentIds.length > 0) {
                   if (!opponentIds.includes(taskUpdate.contentId || "1337")) {

@@ -164,16 +164,20 @@ it("does not double single-battle damage when rebuilding a reset goal", () => {
   expect(result.tracker.goals[0]?.done).toBe(false);
 });
 
-it("tracker-only processing defers personal team side effects until a consequence handler runs", () => {
-  const { quest, party } = fixture();
-  quest.content.objectives = [AllObjectives.parse({ id: "goal", task: "new_quest", newQuestIds: ["next"] })];
-  party.tracker.goals[0]!.done = true;
-  const user = { userId: "one", questPartyId: party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [projectPartyTracker(party)] } as unknown as Parameters<typeof getNewTrackers>[0];
-  const deferred = getNewTrackers(user, [{ task: "stats_trained", increment: 1 }]);
-  expect(deferred.consequences.some((c) => c.type === "start_quest")).toBe(false);
-  expect(deferred.trackers[0]?.goals[0]?.partyEffectsApplied).toBe(false);
-  user.questData = deferred.trackers;
-  expect(getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true).consequences.some((c) => c.type === "start_quest")).toBe(true);
+it("tracker-only processing defers personal team effects before and after departure until a consequence handler runs", () => {
+  for (const detached of [false, true]) {
+    const { quest, party } = fixture();
+    quest.content.objectives = [AllObjectives.parse({ id: "goal", task: "new_quest", newQuestIds: ["next"] })];
+    party.tracker.goals[0]!.done = true;
+    const tracker = projectPartyTracker(party);
+    if (detached) delete tracker.party;
+    const user = { userId: "one", questPartyId: detached ? null : party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [tracker] } as unknown as Parameters<typeof getNewTrackers>[0];
+    const deferred = getNewTrackers(user, [{ task: "stats_trained", increment: 1 }]);
+    expect(deferred.consequences.some((c) => c.type === "start_quest")).toBe(false);
+    expect(deferred.trackers[0]?.goals[0]?.partyEffectsApplied).toBe(false);
+    user.questData = deferred.trackers;
+    expect(getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true).consequences.some((c) => c.type === "start_quest")).toBe(true);
+  }
 });
 
 it("collects a location item once when reward checking emits both any and collect_item", () => {

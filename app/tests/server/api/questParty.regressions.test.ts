@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import type { UserItem } from "@/drizzle/schema";
 import { aiProfile, battle, battleHistory, quest, questHistory, questParty, overworldAiPlacement, item, userItem, userData, user2conversation, village, villageStructure } from "@/drizzle/schema";
 import * as Sentry from "@sentry/nextjs";
 import { getNewTrackers, getReward } from "@/libs/quest";
@@ -230,6 +231,51 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.questPartyId).toBe(party.id);
     expect((await client.query.questParty.findFirst())?.memberIds).toEqual(["leader"]);
   });
+
+  for (const departure of ["leave", "disband"] as const) {
+    for (const refreshed of [false, true]) {
+      it(`reconciles personal effects after ${departure} (${refreshed ? "already applied" : "unrefreshed"})`, async () => {
+        const client = await getTestDatabase();
+        const { leader, helper, party } = await collectionChainFixture();
+        await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, "leader"));
+        await (await callerFor(questsRouter, "leader")).checkLocationQuest();
+        const canonical = (await client.query.questParty.findFirst())!;
+        expect(canonical.tracker.goals.find((goal) => goal.id === "collect")?.done).toBe(true);
+        expect(canonical.tracker.goals.find((goal) => goal.id === "next")?.done).toBe(true);
+        const unrefreshed = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+        expect(unrefreshed.questData?.find((tracker) => tracker.id === "team-quest")?.goals.find((goal) => goal.id === "collect")?.done).toBe(false);
+        expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toHaveLength(0);
+        if (refreshed) await fetchUpdatedUser({ client, userId: "helper" });
+        const before = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+        expect(before).toHaveLength(refreshed ? 1 : 0);
+        const receipt = await client.query.questHistory.findFirst({ where: and(eq(questHistory.userId, "helper"), eq(questHistory.questId, "team-quest")) });
+        const actor = departure === "leave" ? helper : leader;
+        expect((await actor[departure]({ partyId: party.id })).success).toBe(true);
+        const detached = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+        const tracker = detached.questData?.find((entry) => entry.id === "team-quest");
+        expect(detached.questPartyId).toBeNull();
+        expect(tracker?.party).toBeUndefined();
+        expect(tracker?.goals.find((goal) => goal.id === "collect")).toMatchObject({ done: true, partyEffectsApplied: refreshed });
+        expect(tracker?.goals.find((goal) => goal.id === "next")).toMatchObject({ done: true, partyEffectsApplied: refreshed });
+        await continueCollectionChainSolo(refreshed ? before : undefined);
+        expect(await client.query.questHistory.findFirst({ where: eq(questHistory.id, receipt!.id) })).toEqual(receipt);
+      });
+    }
+
+    it(`applies inherited unfinished effects once during solo continuation after ${departure}`, async () => {
+      const client = await getTestDatabase();
+      const { leader, helper, party } = await collectionChainFixture();
+      const actor = departure === "leave" ? helper : leader;
+      expect((await actor[departure]({ partyId: party.id })).success).toBe(true);
+      const detached = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+      expect(detached.questData?.find((tracker) => tracker.id === "team-quest")?.goals.find((goal) => goal.id === "collect")).toMatchObject({ done: false, partyEffectsApplied: false });
+      await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, "helper"));
+      expect((await (await callerFor(questsRouter, "helper")).checkLocationQuest()).success).toBe(true);
+      const collected = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+      expect(collected).toHaveLength(1);
+      await continueCollectionChainSolo(collected);
+    });
+  }
 
   for (const task of ["collect_item", "deliver_item"] as const) {
     for (const advanced of [false, true]) {
@@ -515,6 +561,62 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     });
   }
 });
+
+const collectionChainFixture = async () => {
+  const client = await getTestDatabase();
+  await insertItems([{ id: "scroll" }]);
+  await insertQuests([
+    { id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: true, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
+      AllObjectives.parse({ id: "collect", task: "collect_item", collectItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 11, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "next" }),
+      AllObjectives.parse({ id: "next", task: "new_quest", newQuestIds: ["next-quest"], nextObjectiveId: "deliver" }),
+      AllObjectives.parse({ id: "deliver", task: "deliver_item", deliverItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 12, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "wait" }),
+      AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+    ], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } },
+    { id: "next-quest", questType: "event", hidden: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
+      AllObjectives.parse({ id: "finish", task: "win_quest" }),
+    ], reward: ObjectiveReward.parse({ reward_money: 25 }), sceneBackground: "", sceneCharacters: [] } },
+  ]);
+  const leader = await callerFor(questPartyRouter, "leader");
+  const helper = await callerFor(questPartyRouter, "helper");
+  expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+  const party = (await client.query.questParty.findFirst())!;
+  expect((await helper.join({ partyId: party.id })).success).toBe(true);
+  return { leader, helper, party };
+};
+
+/** Repeated profile/actions preserve inventory and closed quest receipts after personal effects. */
+const continueCollectionChainSolo = async (collected?: UserItem[]) => {
+  const client = await getTestDatabase();
+  const profile = await callerFor(profileRouter, "helper");
+  const personal = await callerFor(questsRouter, "helper");
+  await profile.getUser();
+  const items = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+  expect(items).toHaveLength(1);
+  expect(items[0]).toMatchObject({ itemId: "scroll", quantity: 1 });
+  if (collected) expect(items).toEqual(collected);
+  const started = await client.query.questHistory.findFirst({ where: and(eq(questHistory.userId, "helper"), eq(questHistory.questId, "next-quest")) });
+  expect(started).toBeDefined();
+  expect((await personal.checkRewards({ questId: "next-quest" })).success).toBe(true);
+  const nextReceipt = await client.query.questHistory.findFirst({ where: eq(questHistory.id, started!.id) });
+  expect(nextReceipt).toMatchObject({ completed: 1, previousAttempts: 1, previousCompletes: 1 });
+  await insertUserItems([{ id: "spare", userId: "helper", itemId: "scroll" }]);
+  await client.update(userData).set({ longitude: 12 }).where(eq(userData.userId, "helper"));
+  expect((await personal.checkLocationQuest()).success).toBe(true);
+  const remaining = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+  expect(remaining).toHaveLength(1);
+  for (let read = 0; read < 2; read++) {
+    await profile.getUser();
+    await personal.checkLocationQuest();
+    expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toEqual(remaining);
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.id, nextReceipt!.id) })).toEqual(nextReceipt);
+  }
+  const saved = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+  const tracker = saved.questData?.find((entry) => entry.id === "team-quest");
+  for (const id of ["collect", "next", "deliver"]) {
+    expect(tracker?.goals.find((goal) => goal.id === id)).toMatchObject({ done: true, partyEffectsApplied: true });
+  }
+  expect(saved.money).toBe(125);
+};
 
 /** Leave the leader's durable snapshot behind progress actually contributed by a departed helper. */
 const lastMemberFixture = async () => {
