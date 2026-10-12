@@ -14,6 +14,7 @@ import {
 } from "@/drizzle/schema";
 import { questsRouter } from "@/server/api/routers/quests";
 import type { PendingRewardChoice } from "@/validators/rewards";
+import { ObjectiveReward } from "@/validators/rewards";
 import {
   insertItems,
   insertQuestHistory,
@@ -191,6 +192,33 @@ describeWithDatabase("quest reward choice against a real MySQL", () => {
     );
     expect(results.filter((result) => result.success)).toHaveLength(1);
     expect(await playerState()).toMatchObject({ money: 500, exp: 1000, pending: null });
+  });
+
+  it("retains an ineligible promotion offer and grants an eligible bundle exactly once", async () => {
+    const database = await getTestDatabase();
+    const choice: PendingRewardChoice = { id: "mastery-offer", pickCount: 1, cards: [
+      { id: "ninjutsu", field: "reward_package", amount: 1, packageName: "Ninjutsu Adept",
+        rewards: ObjectiveReward.parse({ reward_mastery_stat: "ninjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 100 }) },
+      { id: "genjutsu", field: "reward_package", amount: 1, packageName: "Genjutsu Adept",
+        rewards: ObjectiveReward.parse({ reward_mastery_stat: "genjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 200 }) },
+    ] };
+    await database.update(userData).set({ masteryRanks: { genjutsuMastery: "NOVICE" } }).where(eq(userData.userId, PLAYER));
+    await database.update(questHistory).set({ pendingRewardChoice: choice }).where(eq(questHistory.userId, PLAYER));
+    const offers = await (await caller()).getPendingRewardChoices();
+    expect(offers[0]?.cards[0]?.unavailableReason).toContain("previous mastery rank");
+    expect(offers[0]?.cards[1]?.unavailableReason).toBeNull();
+    const rejected = await (await caller()).claimRewardChoice({ questId: QUEST, choiceId: choice.id, cardIds: ["ninjutsu"] });
+    expect(rejected.success).toBe(false);
+    expect(rejected.message).toContain("previous mastery rank");
+    expect(await playerState()).toMatchObject({ money: 0, pending: choice });
+    const pick = { questId: QUEST, choiceId: choice.id, cardIds: ["genjutsu"] };
+    const accepted = await (await caller()).claimRewardChoice(pick);
+    expect(accepted.success).toBe(true);
+    expect(await playerState()).toMatchObject({ money: 200, pending: null });
+    const player = await database.query.userData.findFirst({ where: eq(userData.userId, PLAYER) });
+    expect(player?.masteryRanks).toEqual({ genjutsuMastery: "ADEPT" });
+    expect((await (await caller()).claimRewardChoice(pick)).success).toBe(false);
+    expect(await playerState()).toMatchObject({ money: 200, pending: null });
   });
 
   describe("rewards the player already holds", () => {

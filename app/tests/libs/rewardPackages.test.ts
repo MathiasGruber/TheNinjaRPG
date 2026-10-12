@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
-import { QuestRewardMetrics } from "@/drizzle/constants";
+import { QuestRewardMetrics, type QuestType } from "@/drizzle/constants";
 import { dataRouter } from "@/routers/data";
 import { collapseRewards } from "@/libs/rewards";
+import { getRewardArray } from "@/libs/objectives";
 import { masteryQuestTemplates } from "@/libs/masteryQuests";
 import { QuestValidator, SimpleObjective } from "@/validators/objectives";
 import { villageMissionContentError } from "@/validators/villageMission";
@@ -15,6 +16,13 @@ import type { QuestContentType } from "@/validators/objectives";
 
 const packageReward = (id: string, data: object) => ({ id, packageId: `source-${id}`, name: `Package ${id}`, description: "", rewards: ObjectiveReward.parse(data) });
 const ownership = { jutsuIds: new Set<string>(), bloodlineIds: new Set<string>(), badgeIds: new Set<string>(), sageModeIds: new Set<string>(), hasSageMode: false };
+// These calculation tests supply a query stub and exercise the resolver without Redis middleware.
+const { resolver: questRewardStatistics } = dataRouter._def.procedures.getQuestRewardStatistics._def as unknown as {
+  resolver: (options: {
+    ctx: { drizzle: object };
+    input: { reward: (typeof QuestRewardMetrics)[number]; questTypes?: QuestType[] };
+  }) => Promise<{ value: number }[]>;
+};
 
 // Exercise the editor's actual copy handler, including the payload it sends to validation.
 const copyExpression = readFileSync(
@@ -121,6 +129,32 @@ describe("reward packages", () => {
     expect(blocked.has(cards[1]!.id)).toBe(false);
     expect(requiredRewardPicks({cards,pickCount:2},blocked)).toBe(1);
   });
+  it("blocks an entire promotion bundle unless the player holds its predecessor rank", () => {
+    const cards = buildRewardChoiceCards(QuestReward.parse({ reward_packages: [
+      packageReward("ninjutsu", { reward_mastery_stat: "ninjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 100 }),
+      packageReward("genjutsu", { reward_mastery_stat: "genjutsuMastery", reward_mastery_rank: "ADEPT" }),
+      packageReward("money", { reward_money: 50 }),
+    ] }));
+    const choice = { id: "promotion-offer", cards, pickCount: 2 };
+    for (const rank of ["NONE", "NOVICE", "ADEPT", "MASTER"] as const) {
+      const owner = { ...ownership, masteryRanks: { ninjutsuMastery: rank, genjutsuMastery: "NOVICE" as const } };
+      const blocked = getUnavailableRewardCards(cards, owner);
+      expect(blocked.has(cards[0]!.id)).toBe(rank !== "NOVICE");
+      expect(blocked.has(cards[1]!.id)).toBe(false);
+      expect(blocked.has(cards[2]!.id)).toBe(false);
+      expect(requiredRewardPicks(choice, blocked)).toBe(2);
+      expect(validateRewardPicks(choice, [cards[0]!.id, cards[2]!.id], blocked).success).toBe(rank === "NOVICE");
+      expect(validateRewardPicks(choice, [cards[1]!.id, cards[2]!.id], blocked).success).toBe(true);
+      if (rank !== "NOVICE") expect(blocked.get(cards[0]!.id)).toContain("previous mastery rank");
+    }
+    const blocked = getUnavailableRewardCards(cards, ownership);
+    expect(requiredRewardPicks(choice, blocked)).toBe(1);
+    expect(validateRewardPicks(choice, [cards[2]!.id], blocked).success).toBe(true);
+    const noviceCards = buildRewardChoiceCards(QuestReward.parse({ reward_packages: [
+      packageReward("novice", { reward_mastery_stat: "ninjutsuMastery", reward_mastery_rank: "NOVICE" }),
+    ] }));
+    expect(getUnavailableRewardCards(noviceCards, ownership).size).toBe(0);
+  });
   it("restricts sage mode selection across direct cards and bundles", () => {
     const cards=buildRewardChoiceCards(QuestReward.parse({reward_sage_modes:["sage"],reward_packages:[packageReward("a",{reward_sage_modes:["other"],reward_money:50})],reward_money:10}));
     const picks=validateRewardPicks({id:"choice",cards,pickCount:2},cards.filter((card)=>card.field!=="reward_money").map((card)=>card.id));
@@ -150,6 +184,27 @@ describe("reward packages", () => {
     const result=getReward(makeUser({reward:ObjectiveReward.parse({reward_money:20}),objectives:[objective]}),"q1");
     expect(result.rewards.reward_money).toBe(60);
     expect(result.rewards.reward_items).toEqual(["item","item"]);
+  });
+  it("matches mixed objective structural previews and preserves later objective ordering", () => {
+    for (const [directRank, packageRank] of [["CHUNIN", "JONIN"], ["JONIN", "CHUNIN"]] as const) {
+      const mixed = QuestReward.parse({ reward_rank: directRank, reward_village_membership: "AKIKAZE", reward_money: 10,
+        reward_packages: [packageReward("structural", { reward_rank: packageRank, reward_village_membership: "HYORIN", reward_money: 40,
+          reward_items: [{ ids: ["item"], quantity: 2, number: 100 }] })] });
+      const objective = SimpleObjective.parse({ id: "objective", task: "user_level", value: 1, successDescription: "Objective complete", ...mixed });
+      const before = structuredClone(objective);
+      const result = getReward(makeUser({ reward: QuestReward.parse({ reward_money: 20 }), objectives: [objective] }, "exam"), "q1");
+      expect(getRewardArray(objective)).toContain("rank of jonin");
+      expect(getRewardArray(objective)).toContain("village membership of Hyorin");
+      expect(result.rewards).toMatchObject({ reward_rank: "JONIN", reward_village_membership: "HYORIN", reward_money: 70, reward_items: ["item", "item"] });
+      expect(result.notifications).toContain("Objective complete");
+      expect(objective).toEqual(before);
+      const completion = getReward(makeUser({ reward: mixed, objectives: [] }, "exam"), "q1");
+      expect(result.rewards.reward_rank).toBe(completion.rewards.reward_rank);
+      expect(result.rewards.reward_village_membership).toBe(completion.rewards.reward_village_membership);
+      const later = SimpleObjective.parse({ id: "later", task: "user_level", value: 1, reward_rank: "CHUNIN", reward_village_membership: "AKIKAZE" });
+      const ordered = getReward(makeUser({ reward: QuestReward.parse({}), objectives: [objective, later] }, "exam"), "q1");
+      expect(ordered.rewards).toMatchObject({ reward_rank: "CHUNIN", reward_village_membership: "AKIKAZE", reward_money: 50 });
+    }
   });
   it("copies objective package identities while preserving every saved reward and source", () => {
     const objective = SimpleObjective.parse({
@@ -247,12 +302,11 @@ describe("reward packages", () => {
       ];
       const rows = contents.map((content, index) => ({ id: `quest-${index}`, name: "Balance", questRank: "D", questType: "mission", requiredLevel: 1, content }));
       let reads = 0;
-      const caller = dataRouter.createCaller({
-        userId: "u1", req: new Request("http://localhost/api/trpc"), headers: new Headers(),
+      const ctx = {
         drizzle: { select: () => { reads++; return { from: () => ({ where: async () => rows }) }; } },
-      } as never);
+      };
       const before = structuredClone(rows);
-      const statistics = await caller.getQuestRewardStatistics({ reward: metric, questTypes: ["mission"] });
+      const statistics = await questRewardStatistics({ ctx, input: { reward: metric, questTypes: ["mission"] } });
       expect(reads).toBe(1);
       expect(statistics.map((entry) => entry.value)).toEqual([140, 140, 140, 40]);
       for (const [index, content] of contents.entries()) {
@@ -272,8 +326,7 @@ describe("reward packages", () => {
       { id: "legacy", content: { reward: { reward_money: 100 }, objectives: [{ reward_money: 40 }] } },
       { id: "empty", content: {} },
     ];
-    const caller = dataRouter.createCaller({ userId: "u1", req: new Request("http://localhost/api/trpc"), headers: new Headers(), drizzle: { select: () => ({ from: () => ({ where: async () => rows }) }) } } as never);
-    const statistics = await caller.getQuestRewardStatistics({ reward: "reward_money" });
+    const statistics = await questRewardStatistics({ ctx: { drizzle: { select: () => ({ from: () => ({ where: async () => rows }) }) } }, input: { reward: "reward_money" } });
     expect(statistics.map((entry) => entry.value)).toEqual([210, 140, 0]);
     const result = getReward(makeUser(content), "q1");
     expect(result.rewards.reward_money).toBe(40);

@@ -425,12 +425,16 @@ export const getReward = (
       const status = goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
         status.collected = true;
-        rawRewards = collapseRewards([
-          rawRewards,
-          ...(objective.reward_packages ?? []).map((pack) => pack.rewards),
-        ]);
         if (objective.successDescription) {
           notifications.push(objective.successDescription);
+        }
+        if (objective.reward_packages?.length) {
+          const objectiveReward = collapseRewards([
+            objective,
+            ...objective.reward_packages.map((pack) => pack.rewards),
+          ]);
+          rawRewards = collapseRewards([rawRewards, objectiveReward]);
+          return;
         }
         if (objective.reward_money) {
           rawRewards.reward_money += objective.reward_money;
@@ -1892,7 +1896,7 @@ export const controlShownQuestLocationInformation = (
  */
 export const isAvailableUserQuests = (
   questAndUserQuestInfo: MasteryRequirementFields & {
-    content?: Pick<QuestContentType, "reward">;
+    content?: Pick<QuestContentType, "reward" | "rewardMode">;
     hidden: boolean;
     maxAttempts: number;
     maxCompletes: number;
@@ -1956,13 +1960,15 @@ export const isAvailableUserQuests = (
       (baseMasteries[stat] ?? 0) >= (questAndUserQuestInfo[field] ?? 0),
   );
   const completionReward = questAndUserQuestInfo.content?.reward;
-  // Match completion payout's merge order, including saved package snapshots.
-  const promotion = completionReward?.reward_packages?.length
-    ? collapseRewards([
-        completionReward,
-        ...completionReward.reward_packages.map((pack) => pack.rewards),
-      ])
-    : completionReward;
+  // Choice packages promote only when picked; the direct promotion pays at completion.
+  const promotion =
+    !isRewardChoiceQuest(questAndUserQuestInfo.content) &&
+    completionReward?.reward_packages?.length
+      ? collapseRewards([
+          completionReward,
+          ...completionReward.reward_packages.map((pack) => pack.rewards),
+        ])
+      : completionReward;
   const promotionCheck =
     !promotion?.reward_mastery_stat ||
     promotion.reward_mastery_stat === "None" ||

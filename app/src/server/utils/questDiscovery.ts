@@ -85,11 +85,14 @@ export const fetchQuestDiscoverySummaryCandidates = async (
       requiredBukijutsuMastery: quest.requiredBukijutsuMastery,
       requiredBloodlineMastery: quest.requiredBloodlineMastery,
       requiredSageMastery: quest.requiredSageMastery,
-      // Eligibility needs final rank rewards, but the dashboard does not need objectives.
+      // Eligibility needs the fixed promotion and reward mode, but not objective JSON.
       content:
-        sql`JSON_OBJECT('reward', JSON_EXTRACT(${quest.content}, '$.reward'))`.mapWith(
+        sql`JSON_OBJECT('reward', JSON_EXTRACT(${quest.content}, '$.reward'), 'rewardMode', JSON_EXTRACT(${quest.content}, '$.rewardMode'))`.mapWith(
           (value: string) =>
-            quest.content.mapFromDriverValue(value) as Pick<QuestContentType, "reward">,
+            quest.content.mapFromDriverValue(value) as Pick<
+              QuestContentType,
+              "reward" | "rewardMode"
+            >,
         ),
       maxLevel: quest.maxLevel,
       maxAttempts: quest.maxAttempts,

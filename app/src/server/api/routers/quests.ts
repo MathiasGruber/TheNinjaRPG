@@ -1259,7 +1259,7 @@ export const questsRouter = createTRPCRouter({
     .query(async ({ ctx }) => {
       const [user, rows] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
-          columns: { userId: true, sageModeId: true },
+          columns: { userId: true, sageModeId: true, masteryRanks: true },
           where: eq(userData.userId, ctx.userId),
         }),
         ctx.drizzle.query.questHistory.findMany({
@@ -1301,7 +1301,7 @@ export const questsRouter = createTRPCRouter({
       if (offer.data.id !== input.choiceId) {
         return errorResponse("This reward choice is no longer available");
       }
-      // Refuse picks that would grant nothing (owned content, a second sage mode) while the
+      // Refuse unavailable picks (owned content, a second sage mode, ineligible promotion) while the
       // offer is still stored, so the player can choose again.
       const ownership = await fetchRewardChoiceOwnership(
         ctx.drizzle,
@@ -3754,7 +3754,7 @@ export const sageQuestFilters = (
  */
 export const resolveRewardChoiceDisplays = async (
   client: DrizzleClient,
-  user: Pick<UserData, "userId" | "sageModeId">,
+  user: Pick<UserData, "userId" | "sageModeId" | "masteryRanks">,
   rows: {
     questId: string;
     pendingRewardChoice: unknown;
@@ -3932,7 +3932,7 @@ export const resolveRewardChoiceDisplays = async (
  */
 export const fetchRewardChoiceOwnership = async (
   client: DrizzleClient,
-  user: Pick<UserData, "userId" | "sageModeId">,
+  user: Pick<UserData, "userId" | "sageModeId" | "masteryRanks">,
   cards: RewardChoiceCard[],
 ): Promise<RewardChoiceOwnership> => {
   const expandedCards = cards.flatMap((card) =>
@@ -4003,6 +4003,7 @@ export const fetchRewardChoiceOwnership = async (
     badgeIds: toSet(badges),
     sageModeIds: toSet(sageModes),
     hasSageMode: !!user.sageModeId,
+    masteryRanks: user.masteryRanks,
   };
 };
 

@@ -1,4 +1,8 @@
 import { QUEST_REWARD_PICK_MAX } from "@/drizzle/constants";
+import {
+  canPromoteMastery,
+  type MasteryProgressionSource,
+} from "@/libs/masteryProgression";
 import { collapseRewards } from "@/libs/rewards";
 import type { QuestContentType } from "@/validators/objectives";
 import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
@@ -105,7 +109,7 @@ export const maxRewardPicks = (
   return cards.length - sageModes + Math.min(sageModes, 1);
 };
 
-/** Content the player already holds, used to find cards that would grant nothing. */
+/** Owned content and stored progression used to find unavailable cards. */
 export type RewardChoiceOwnership = {
   jutsuIds: ReadonlySet<string>;
   bloodlineIds: ReadonlySet<string>;
@@ -114,6 +118,7 @@ export type RewardChoiceOwnership = {
   sageModeIds: ReadonlySet<string>;
   /** The player has a sage mode equipped, so no sage mode card can be granted. */
   hasSageMode: boolean;
+  masteryRanks?: MasteryProgressionSource["masteryRanks"];
 };
 
 export const REWARD_CHOICE_OWNED_REASON = "Already owned";
@@ -121,8 +126,8 @@ export const REWARD_CHOICE_SAGE_EQUIPPED_REASON = "Sage mode already equipped";
 
 /**
  * Cards this player cannot receive, keyed by card id with the reason shown on the card. Mirrors
- * the skips in `updateRewards`, which never inserts an owned jutsu, bloodline or badge and only
- * rolls a sage mode for a player without one.
+ * the guards in `updateRewards`: owned content is skipped, sage modes need an empty slot and
+ * mastery promotions require the immediately preceding stored rank.
  */
 export const getUnavailableRewardCards = (
   cards: RewardChoiceCard[],
@@ -131,6 +136,17 @@ export const getUnavailableRewardCards = (
   const unavailable = new Map<string, string>();
   for (const card of cards) {
     if (card.field === "reward_package" && card.rewards) {
+      const { reward_mastery_stat: stat, reward_mastery_rank: rank } = card.rewards;
+      if (
+        stat &&
+        stat !== "None" &&
+        rank &&
+        rank !== "NONE" &&
+        !canPromoteMastery(ownership, stat, rank)
+      ) {
+        unavailable.set(card.id, "Requires the previous mastery rank");
+        continue;
+      }
       if (!hasReward(card.rewards)) {
         unavailable.set(card.id, "No rewards available");
         continue;
