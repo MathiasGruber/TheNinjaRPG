@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useFarmController } from "@/hooks/farm-controller";
 import ContentBox from "@/layout/ContentBox";
 import { FarmCanvas, type FarmCanvasHandle } from "@/layout/FarmCanvas";
@@ -12,12 +13,10 @@ import { FarmPlotInspector } from "@/layout/FarmPlotInspector";
 import Loader from "@/layout/Loader";
 import type { FarmVisualState } from "@/validators/farming";
 
-type OccupationFarmingProps = {
-  defaultBackHref?: string;
-};
-
+/** Reuses the farm's plots, market, and inventory on its page or inside a residence. */
 export default function OccupationFarming({
   defaultBackHref = "/home",
+  embedded = false,
 }: OccupationFarmingProps) {
   const canvasRef = useRef<FarmCanvasHandle>(null);
   const previousTotalPlotsRef = useRef(0);
@@ -66,23 +65,34 @@ export default function OccupationFarming({
     });
   }, [controller.setSelectedSlotIndex]);
 
-  if (controller.query.isLoading || !controller.query.data) {
+  if (controller.query.isLoading) {
     return <Loader explanation="Loading farm..." />;
   }
 
   if (!farmState) {
+    // Failed requests and prerequisite rejections must leave loading with a recovery action.
     return (
       <ContentBox
         title="Farming"
         subtitle="Grow crops for cooking ingredients"
-        defaultBackHref={defaultBackHref}
-        initialBreak
+        defaultBackHref={embedded ? undefined : defaultBackHref}
+        initialBreak={!embedded}
+        alreadyHasH1={embedded}
       >
-        <p className="text-destructive text-sm">
-          {"message" in controller.query.data
-            ? controller.query.data.message
-            : "Could not load the farm."}
-        </p>
+        <div role="alert" className="space-y-2">
+          <p className="text-destructive text-sm">
+            {controller.query.data && "message" in controller.query.data
+              ? controller.query.data.message
+              : "Could not load the farm."}
+          </p>
+          <Button
+            variant="outline"
+            disabled={controller.query.isFetching}
+            onClick={() => void controller.query.refetch()}
+          >
+            Retry
+          </Button>
+        </div>
       </ContentBox>
     );
   }
@@ -101,8 +111,9 @@ export default function OccupationFarming({
       <ContentBox
         title="Your Farm"
         subtitle="Select a plot, then choose its action"
-        defaultBackHref={defaultBackHref}
-        initialBreak
+        defaultBackHref={embedded ? undefined : defaultBackHref}
+        initialBreak={!embedded}
+        alreadyHasH1={embedded}
         padding={false}
       >
         <FarmHUD
@@ -167,3 +178,9 @@ export default function OccupationFarming({
     </>
   );
 }
+
+/** Embedded farms preserve their enclosing residence dialog's heading and navigation. */
+type OccupationFarmingProps = {
+  defaultBackHref?: string;
+  embedded?: boolean;
+};

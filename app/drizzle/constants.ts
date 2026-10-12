@@ -3038,6 +3038,42 @@ export const HomeTypeDetails = {
 } as const;
 export type HomeTypeDetails = (typeof HomeTypeDetails)[keyof typeof HomeTypeDetails];
 
+/** Permanent home fixtures remain available regardless of decoration purchases. */
+export const HomeFurnitureCoreIds = ["bed", "armory", "kitchen", "garden"] as const;
+export const HomeFurniturePurchaseIds = [
+  "rug", "table", "bookshelf", "lantern", "bonsai", "sofa", "screen", "pond",
+] as const;
+export const HomeFurnitureIds = [...HomeFurnitureCoreIds, ...HomeFurniturePurchaseIds] as const;
+export type HomeFurnitureId = (typeof HomeFurnitureIds)[number];
+export type HomeFurnitureAction = "sleep" | "storage" | "kitchen" | "farm";
+
+/** Shared catalogue: prices are server-authoritative and decorations grant no gameplay bonuses. */
+export const HomeFurnitureDetails: Record<HomeFurnitureId, {
+  name: string;
+  price: number;
+  description: string;
+  width: number;
+  image: string;
+  action?: HomeFurnitureAction;
+}> = {
+  bed: { name: "Bed", price: 0, description: "Rest here to sleep or wake up.", width: 22, image: "/images/home/furniture/bed.svg", action: "sleep" },
+  armory: { name: "Armory", price: 0, description: "Open your home storage.", width: 20, image: "/images/home/furniture/armory.svg", action: "storage" },
+  kitchen: { name: "Kitchen", price: 0, description: "Visit the ramen shop while cooking is being prepared.", width: 23, image: "/images/home/furniture/kitchen.svg", action: "kitchen" },
+  garden: { name: "Garden", price: 0, description: "Visit your farm.", width: 23, image: "/images/home/furniture/garden.svg", action: "farm" },
+  rug: { name: "Woven Rug", price: 25000, description: "A warm woven accent for your floor.", width: 25, image: "/images/home/furniture/rug.svg" },
+  table: { name: "Tea Table", price: 50000, description: "A low wooden table for quiet moments.", width: 19, image: "/images/home/furniture/table.svg" },
+  bookshelf: { name: "Bookshelf", price: 75000, description: "Keep your favorite stories close at hand.", width: 19, image: "/images/home/furniture/bookshelf.svg" },
+  lantern: { name: "Paper Lantern", price: 30000, description: "A soft light for your home.", width: 13, image: "/images/home/furniture/lantern.svg" },
+  bonsai: { name: "Bonsai", price: 40000, description: "A carefully tended miniature tree.", width: 16, image: "/images/home/furniture/bonsai.svg" },
+  sofa: { name: "Sofa", price: 100000, description: "A comfortable place to unwind.", width: 26, image: "/images/home/furniture/sofa.svg" },
+  screen: { name: "Folding Screen", price: 80000, description: "Divide your room with a wooden screen.", width: 24, image: "/images/home/furniture/screen.svg" },
+  pond: { name: "Stone Pond", price: 150000, description: "A peaceful water feature for your home.", width: 25, image: "/images/home/furniture/pond.svg" },
+};
+
+/** Floor-space coordinates leave a margin so furniture remains reachable at the scene edges. */
+export const HOME_FURNITURE_POSITION_MIN = 8;
+export const HOME_FURNITURE_POSITION_MAX = 92;
+
 // Auction system constants
 export const IMG_AUCTION_HOUSE =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJmcDNSqHE4IMO5Goa7cgLxPJ0VC6lU8vbt1Ap.webp" as const;

@@ -11,6 +11,7 @@ import {
   PlusCircle,
   ShoppingBag,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { HomeType } from "@/drizzle/constants";
 import {
+  type HomeFurniturePurchaseIds,
   HomeTypeDetails,
   ITEM_LEVEL_CAP,
   ItemRarities,
@@ -53,6 +56,12 @@ import { showMutationToast } from "@/libs/toast";
 import { remainingXpToLevel } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { getStrucBoost } from "@/utils/village";
+import type { HomePlacement } from "@/validators/home";
+
+// Load the full farm only when its home object is opened.
+const HomeFarm = dynamic(() => import("@/layout/OccupationFarming"), {
+  loading: () => <Loader explanation="Loading farm" />,
+});
 
 /** Residence hub for shared sleep actions and owner-only storage and home management. */
 export default function HomePage() {
@@ -65,9 +74,12 @@ export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const [isFarmOpen, setIsFarmOpen] = useState(false);
+  const [furnitureError, setFurnitureError] = useState<string | null>(null);
   // Either a scene hotspot or a text control can open each dialog.
   const storageTriggerRef = useRef<HTMLButtonElement>(null);
   const managementTriggerRef = useRef<HTMLButtonElement>(null);
+  const farmTriggerRef = useRef<HTMLButtonElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState("ALL");
   const [rarityFilter, setRarityFilter] = useState("ALL");
@@ -125,6 +137,53 @@ export default function HomePage() {
     });
 
   const { toggleSleep, isTogglingSleep } = useSleepToggle();
+  const utils = api.useUtils();
+  const saveFurniture = api.home.saveFurnitureLayout.useMutation();
+  const buyFurniture = api.home.purchaseFurniture.useMutation();
+
+  /** Keep unsaved edits available on rejection and refresh the server revision for recovery. */
+  const saveLayout = async (draft: {
+    homeType: HomeType;
+    revision: number;
+    placements: HomePlacement[];
+  }) => {
+    setFurnitureError(null);
+    try {
+      const result = await saveFurniture.mutateAsync(draft);
+      showMutationToast(result);
+      if (!result.success) setFurnitureError(result.message);
+      await userHomeRefetch();
+      return result.success;
+    } catch (error) {
+      setFurnitureError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save your layout. Try again.",
+      );
+      return false;
+    }
+  };
+
+  /** A purchase changes the account balance and puts the new piece in furniture storage. */
+  const purchaseFurniture = async (
+    furnitureId: (typeof HomeFurniturePurchaseIds)[number],
+  ) => {
+    if (!homeData) return;
+    setFurnitureError(null);
+    try {
+      const result = await buyFurniture.mutateAsync({
+        furnitureId,
+        revision: homeData.furnitureRevision,
+      });
+      showMutationToast(result);
+      if (!result.success) setFurnitureError(result.message);
+      await Promise.all([userHomeRefetch(), utils.profile.getUser.invalidate()]);
+    } catch (error) {
+      setFurnitureError(
+        error instanceof Error ? error.message : "Unable to buy furniture. Try again.",
+      );
+    }
+  };
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Residence" />;
@@ -238,6 +297,25 @@ export default function HomePage() {
             isAsleep={userData.status === "ASLEEP"}
             isTogglingSleep={isTogglingSleep}
             onSleep={() => toggleSleep()}
+            layout={homeData?.layout}
+            owned={homeData?.furniture.owned}
+            revision={homeData?.furnitureRevision}
+            canDecorate={
+              ownVillage &&
+              userData.sector === userData.village?.sector &&
+              !!homeData &&
+              !isHomeError
+            }
+            money={userData.money}
+            isSaving={saveFurniture.isPending}
+            isBuying={buyFurniture.isPending}
+            furnitureError={furnitureError}
+            onSave={saveLayout}
+            onPurchase={purchaseFurniture}
+            onFarm={(trigger) => {
+              farmTriggerRef.current = trigger;
+              setIsFarmOpen(true);
+            }}
             onStorage={(trigger) => {
               storageTriggerRef.current = trigger;
               setIsStorageOpen(true);
@@ -257,6 +335,15 @@ export default function HomePage() {
           </div>
         )}
       </ContentBox>
+      <Modal
+        title="Your Farm"
+        isOpen={isFarmOpen}
+        setIsOpen={setIsFarmOpen}
+        returnFocusRef={farmTriggerRef}
+        className="sm:max-w-6xl md:max-w-6xl"
+      >
+        {isFarmOpen && <HomeFarm embedded />}
+      </Modal>
       {ownVillage && (
         <>
           <Modal

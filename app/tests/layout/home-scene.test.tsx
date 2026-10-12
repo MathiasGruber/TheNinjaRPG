@@ -1,9 +1,9 @@
 import { ensureDom } from "../setup-dom.mjs";
-const { cleanup, fireEvent, render, within } = await import("@testing-library/react");
+const { cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { existsSync } from "node:fs";
 import type { ImgHTMLAttributes, AnchorHTMLAttributes } from "react";
-import { HomeTypes } from "@/drizzle/constants";
+import { HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
 import { HomeScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
 
 // Wrapper stubs isolate the scene's routing destinations and image-failure handling.
@@ -25,6 +25,7 @@ const props = {
   onSleep: vi.fn(),
   onStorage: vi.fn(),
   onManage: vi.fn(),
+  onFarm: vi.fn(),
 };
 
 /** Regression coverage for residence navigation, owner access, and artwork recovery. */
@@ -52,7 +53,7 @@ describe("Home scene", () => {
     expect(props.onStorage).toHaveBeenCalledTimes(1);
     expect(props.onManage).toHaveBeenCalledTimes(1);
     expect(scene.getByRole("link", { name: "Kitchen: Visit ramen shop" }).getAttribute("href")).toBe("/ramenshop");
-    expect(scene.getByRole("link", { name: "Garden: Visit farm" }).getAttribute("href")).toBe("/farm");
+    expect(scene.getByRole("button", { name: "Garden: Open farm" })).toBeTruthy();
   });
 
   it("preserves awake/asleep feedback and prevents duplicate pending sleep actions", () => {
@@ -77,21 +78,62 @@ describe("Home scene", () => {
 
   it("keeps textual navigation working when the artwork fails", () => {
     const view = render(<HomeScene {...props} />);
-    fireEvent.error(view.getByRole("img"));
+    fireEvent.error(view.getByAltText(`${HomeTypeDetails.NONE.name} interior`));
     const actions = within(view.getByRole("group", { name: "Home actions" }));
     fireEvent.click(actions.getByRole("button", { name: "Home storage" }));
     expect(props.onStorage).toHaveBeenCalledTimes(1);
-    expect(actions.getByRole("link", { name: "Farm" }).getAttribute("href")).toBe("/farm");
+    fireEvent.click(actions.getByRole("button", { name: "Farm" }));
+    expect(props.onFarm).toHaveBeenCalledTimes(1);
     expect(view.getByText(/Home artwork is unavailable/)).toBeTruthy();
   });
 
   it("loads a new tier after artwork failure while keeping dialog triggers mounted", () => {
     const view = render(<HomeScene {...props} />);
     const trigger = view.getByRole("button", { name: "Manage home" });
-    fireEvent.error(view.getByRole("img"));
+    fireEvent.error(view.getByAltText(`${HomeTypeDetails.NONE.name} interior`));
     view.rerender(<HomeScene {...props} homeType="PALACE" />);
-    expect(view.getByRole("img").getAttribute("src")).toBe(HOME_SCENE_IMAGES.PALACE);
+    expect(view.getByAltText("Palace interior").getAttribute("src")).toBe(HOME_SCENE_IMAGES.PALACE);
     expect(view.queryByText(/Home artwork is unavailable/)).toBeNull();
     expect(view.getByRole("button", { name: "Manage home" })).toBe(trigger);
+  });
+
+  it("edits furniture without triggering its game action and cancels without saving", () => {
+    const view = render(<HomeScene {...props} canDecorate />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    const before = bed.style.left;
+    fireEvent.keyDown(bed, { key: "ArrowRight" });
+    expect(bed.style.left).not.toBe(before);
+    fireEvent.click(bed);
+    expect(props.onSleep).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    expect(view.getByRole("button", { name: "Bed: Go to sleep" }).style.left).toBe(before);
+  });
+
+  it("retains rejected drafts and saves only the revision that the player began editing", async () => {
+    const onSave = vi.fn().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} canDecorate revision={3} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.keyDown(view.getByRole("button", { name: "Move Bed" }), { key: "ArrowRight" });
+    view.rerender(<HomeScene {...props} canDecorate revision={4} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].revision).toBe(3);
+    expect(view.getByRole("button", { name: "Move Bed" })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Reload saved layout" }));
+    onSave.mockResolvedValue(true);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(view.getByRole("button", { name: "Decorate" })).toBeTruthy());
+    expect(onSave.mock.calls[1]![0].revision).toBe(4);
+  });
+
+  it("keeps essential actions placed and lets owned decorations be placed and stored", () => {
+    const view = render(<HomeScene {...props} canDecorate owned={["rug"]} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    expect(view.queryByRole("button", { name: "Store" })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: /Woven Rug.*In storage/ }));
+    expect(view.getByRole("button", { name: "Move Woven Rug" })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Store" }));
+    expect(view.queryByRole("button", { name: "Move Woven Rug" })).toBeNull();
   });
 });

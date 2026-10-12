@@ -54,6 +54,7 @@ import type {
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
 import type { WarSettlement } from "@/validators/war";
+import type { HomeFurnitureState } from "@/validators/home";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -2673,6 +2674,8 @@ export const userData = mysqlTable(
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
     tutorialOn: boolean("tutorialOn").default(true).notNull(),
     homeType: mysqlEnum("homeType", consts.HomeTypes).default("NONE").notNull(),
+    homeFurniture: json("homeFurniture").$type<HomeFurnitureState>().default({ owned: [], layouts: {} }).notNull(),
+    homeFurnitureRevision: int("homeFurnitureRevision", { unsigned: true }).default(0).notNull(),
     staffAccount: boolean("staffAccount").default(false).notNull(),
     rankedLp: int("rankedLp").default(0).notNull(),
     rankedBattles: int("rankedBattles").default(0).notNull(),
@@ -2749,6 +2752,8 @@ export const userData = mysqlTable(
 );
 export const insertAiSchema = createInsertSchema(userData)
   .omit({
+    homeFurniture: true,
+    homeFurnitureRevision: true,
     occupationSignupAt: true,
     masteryTrainingStartedAt: true,
     currentlyTrainingMastery: true,

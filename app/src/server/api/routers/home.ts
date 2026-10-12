@@ -1,12 +1,13 @@
-import { and, eq, gt, gte, sql } from "drizzle-orm";
-import { z } from "zod";
+import { and, eq, gt, gte, inArray, sql } from "drizzle-orm";
 import type { UserStatus } from "@/drizzle/constants";
 import {
+  HomeFurnitureDetails,
   HomeTypeDetails,
   HomeTypes,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
 } from "@/drizzle/constants";
 import { userData, userItem } from "@/drizzle/schema";
+import { getHomeLayout, homeLayoutOwnershipError } from "@/libs/home";
 import {
   getHomeStorageBucket,
   getHomeStorageBucketCapacity,
@@ -26,18 +27,23 @@ import {
   errorResponse,
   protectedProcedure,
 } from "@/server/api/trpc";
+import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
+import {
+  homeFurnitureMutationResponseSchema,
+  homeFurniturePurchaseInputSchema,
+  homeFurnitureSaveInputSchema,
+  homeSleepResponseSchema,
+  homeStorageInputSchema,
+  homeUpgradeInputSchema,
+} from "@/validators/home";
 
 export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
     .meta({
       mcp: { description: "Toggle between awake and asleep status" },
     })
-    .output(
-      baseServerResponse.extend({
-        newStatus: z.enum(["AWAKE", "ASLEEP"]).optional(),
-      }),
-    )
+    .output(homeSleepResponseSchema)
     .mutation(async ({ ctx }) => {
       // Query
       const { user } = await fetchUpdatedUser({
@@ -138,6 +144,97 @@ export const homeRouter = createTRPCRouter({
         homeType: user.homeType,
         regen: HomeTypeDetails[user.homeType].regen,
         storage: HomeTypeDetails[user.homeType].storage,
+        furniture: user.homeFurniture,
+        furnitureRevision: user.homeFurnitureRevision,
+        layout: getHomeLayout(user.homeType, user.homeFurniture),
+      };
+    }),
+
+  purchaseFurniture: protectedProcedure
+    .meta({ mcp: { description: "Buy a cosmetic home decoration" } })
+    .input(homeFurniturePurchaseInputSchema)
+    .output(homeFurnitureMutationResponseSchema)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
+      const block = homeFurnitureAccessError(user);
+      if (block || !user) return errorResponse(block ?? "User not found");
+      if (user.homeFurnitureRevision !== input.revision) {
+        return errorResponse("Your home changed. Refresh and try again");
+      }
+      if (user.homeFurniture.owned.includes(input.furnitureId)) {
+        return errorResponse("You already own this furniture");
+      }
+      const furniture = HomeFurnitureDetails[input.furnitureId];
+      if (user.money < furniture.price) return errorResponse("Not enough Ryo");
+
+      // Ownership and payment share one guarded row update; a concurrent layout cannot erase a purchase.
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          money: sql`${userData.money} - ${furniture.price}`,
+          homeFurniture: {
+            ...user.homeFurniture,
+            owned: [...user.homeFurniture.owned, input.furnitureId],
+          },
+          homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
+        })
+        .where(
+          and(
+            homeFurnitureWriteGuard(user, ctx.userId, input.revision),
+            gte(userData.money, furniture.price),
+          ),
+        );
+      if (result.rowsAffected !== 1) {
+        return errorResponse("Your home or balance changed. Refresh and try again");
+      }
+      return {
+        success: true,
+        message: `Purchased ${furniture.name}`,
+        revision: input.revision + 1,
+      };
+    }),
+
+  saveFurnitureLayout: protectedProcedure
+    .meta({ mcp: { description: "Save furniture placement in your current home" } })
+    .input(homeFurnitureSaveInputSchema)
+    .output(homeFurnitureMutationResponseSchema)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
+      const block = homeFurnitureAccessError(user);
+      if (block || !user) return errorResponse(block ?? "User not found");
+      if (
+        user.homeType !== input.homeType ||
+        user.homeFurnitureRevision !== input.revision
+      ) {
+        return errorResponse("Your home changed. Refresh and try again");
+      }
+      const ownershipError = homeLayoutOwnershipError(
+        input.placements,
+        user.homeFurniture,
+      );
+      if (ownershipError) return errorResponse(ownershipError);
+
+      // Merge only this tier's layout into the server snapshot; ownership and other rooms stay authoritative.
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          homeFurniture: {
+            ...user.homeFurniture,
+            layouts: {
+              ...user.homeFurniture.layouts,
+              [input.homeType]: input.placements,
+            },
+          },
+          homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
+        })
+        .where(homeFurnitureWriteGuard(user, ctx.userId, input.revision));
+      if (result.rowsAffected !== 1) {
+        return errorResponse("Your home changed. Refresh and try again");
+      }
+      return {
+        success: true,
+        message: "Your furniture layout has been saved",
+        revision: input.revision + 1,
       };
     }),
 
@@ -175,7 +272,7 @@ export const homeRouter = createTRPCRouter({
 
   upgradeHome: protectedProcedure
     .meta({ mcp: { description: "Upgrade or downgrade home" } })
-    .input(z.object({ homeType: z.enum(HomeTypes) }))
+    .input(homeUpgradeInputSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
@@ -270,7 +367,7 @@ export const homeRouter = createTRPCRouter({
 
   toggleStoreItem: protectedProcedure
     .meta({ mcp: { description: "Store or retrieve item from home" } })
-    .input(z.object({ userItemId: z.string() }))
+    .input(homeStorageInputSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
@@ -371,3 +468,51 @@ export const homeRouter = createTRPCRouter({
       }
     }),
 });
+
+/** Cosmetic home writes need account state and its home sector without advancing gameplay timers. */
+const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
+  client.query.userData.findFirst({
+    where: eq(userData.userId, userId),
+    columns: {
+      homeType: true,
+      homeFurniture: true,
+      homeFurnitureRevision: true,
+      money: true,
+      isBanned: true,
+      status: true,
+      sector: true,
+      villageId: true,
+      isOutlaw: true,
+    },
+    with: { village: { columns: { sector: true } } },
+  });
+
+/** Guests can use residence navigation but only the resident can buy or rearrange its furnishings. */
+const homeFurnitureAccessError = (
+  user: Awaited<ReturnType<typeof fetchHomeFurnitureUser>>,
+) => {
+  if (!user) return "User not found";
+  if (user.isBanned) return "You are banned";
+  if (!user.village || user.sector !== user.village.sector)
+    return "Return to your own village to furnish your home";
+  if (!["AWAKE", "ASLEEP"].includes(user.status))
+    return "You cannot furnish your home right now";
+  return null;
+};
+
+/** Recheck access and the furniture revision in the same statement that publishes the change. */
+const homeFurnitureWriteGuard = (
+  user: NonNullable<Awaited<ReturnType<typeof fetchHomeFurnitureUser>>>,
+  userId: string,
+  revision: number,
+) =>
+  and(
+    eq(userData.userId, userId),
+    eq(userData.homeFurnitureRevision, revision),
+    eq(userData.homeType, user.homeType),
+    eq(userData.isBanned, false),
+    eq(userData.villageId, user.villageId ?? ""),
+    eq(userData.sector, user.sector),
+    eq(userData.isOutlaw, user.isOutlaw),
+    inArray(userData.status, ["AWAKE", "ASLEEP"]),
+  );
