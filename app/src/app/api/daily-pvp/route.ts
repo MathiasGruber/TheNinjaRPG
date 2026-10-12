@@ -32,12 +32,13 @@ export async function GET(request: Request) {
     const dayStart = periodStart("daily", new Date());
     await Promise.all([
       // A failed sibling write can retry this job without decaying XP twice.
+      // Leave updatedAt alone: it doubles as last activity (online counts, cleanup,
+      // sector lists), and no snapshot claim writes these columns as absolute values.
       drizzleDB
         .update(userData)
         .set({
           pvpExperience: sql`FLOOR(${userData.pvpExperience} * ${1 - PVP_EXPERIENCE_DAILY_DECAY} * 100) / 100`,
           pvpExperienceDecayAt: dayStart,
-          updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
         })
         .where(
           and(eq(userData.isAi, false), lt(userData.pvpExperienceDecayAt, dayStart)),

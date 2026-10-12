@@ -126,6 +126,7 @@ import {
 import { allocateMasteryGains } from "@/libs/masteryProgression";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import { moderateContent, validateUserUpdateReason } from "@/libs/moderator";
+import { isNewOnlineRecord } from "@/libs/onlineRecord";
 import {
   calcActiveUserRegen,
   calcCP,
@@ -2456,7 +2457,8 @@ export const profileRouter = createTRPCRouter({
       // Derived
       const onlineNow = current?.[0]?.count ?? 0;
       const onlineDay = daily?.[0]?.count ?? 0;
-      const newMax = maxOnline.value < onlineNow;
+      // Implausible jumps (e.g. a bulk write touching every row) never become the record.
+      const newMax = isNewOnlineRecord(maxOnline.value, onlineNow);
       if (newMax) {
         await updateGameSetting(ctx.drizzle, "onlineUsers", onlineNow, new Date());
       }
