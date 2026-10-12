@@ -46,7 +46,8 @@ export const PyramidRunBoundary = ({ children }: { children: React.ReactNode }) 
         !entry.completed &&
         (entry.quest.hidden || hasQuestContentChanged(entry)),
     );
-  if (!isolated) return children;
+  // Combat owns the battle screen; run controls stay available on other pages.
+  if (!isolated || pathname === "/combat") return children;
   const changed = hasQuestContentChanged(isolated);
   const isBlocked = isolated.isolated && isPyramidRestrictedPath(pathname ?? "");
   return (
