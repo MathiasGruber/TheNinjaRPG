@@ -63,6 +63,7 @@ import {
   battleAction,
   battleHistory,
   bounty,
+  dungeonRun,
   gameAsset,
   gameSetting,
   item,
@@ -150,6 +151,7 @@ import {
   resetMasteriesToBase,
   rollInitiative,
 } from "@/libs/combat/util";
+import { advanceDungeonWave, type DungeonBattleState } from "@/libs/dungeon";
 import { activeTrainedElement } from "@/libs/elementalMastery";
 import { fetchDmgConfig } from "@/libs/gamesettings";
 import { computeJutsuLoadoutCapAssignments } from "@/libs/jutsu";
@@ -231,7 +233,6 @@ import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
 import { getRandomElement } from "@/utils/array";
-import { randomInt } from "@/utils/math";
 import { fedItemLoadouts, fedJutsuLoadouts } from "@/utils/paypal";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
 import { canAccessStructure } from "@/utils/village";
@@ -242,6 +243,7 @@ import {
   performActionSchema,
   statSchema,
 } from "@/validators/combat";
+import type { DungeonFloor } from "@/validators/dungeon";
 import { sectorIdSchema } from "@/validators/travel";
 import { fetchUpdatedUser, fetchUser, type UserWithRelations } from "./profile";
 
@@ -278,6 +280,7 @@ export const combatRouter = createTRPCRouter({
             return { battle: null, result: null };
           }
 
+          const spawnedWave = advanceDungeonWave(userBattle);
           // Current state of battle
           const actId = userBattle.activeUserId;
           const activeUser = userBattle.usersState.find((u) => u.userId === actId);
@@ -299,7 +302,8 @@ export const combatRouter = createTRPCRouter({
           if (progressRound) {
             applySageModeAfterRoundTransition(userBattle);
           }
-          if (changedActor) userBattle.version = userBattle.version + 1;
+          if (changedActor || spawnedWave) userBattle.version = userBattle.version + 1;
+          advanceDungeonWave(userBattle);
 
           if (!actionRounds.includes(actionRound)) {
             actionRounds.push(actionRound);
@@ -325,6 +329,7 @@ export const combatRouter = createTRPCRouter({
           const history: Parameters<typeof createAction>[2] = [];
           if (shouldTickEffects && !hadActivity && actId && activeUser) {
             const { newBattle, actionEffects } = applyEffects(userBattle, actId);
+            advanceDungeonWave(newBattle);
             settledBattle = newBattle;
             // Effects ticking on this poll can end the fight -- a lingering
             // damage tag finishing the last opponent -- so the result computed
@@ -359,7 +364,7 @@ export const combatRouter = createTRPCRouter({
             });
           }
 
-          if (result || progressRound || changedActor) {
+          if (result || progressRound || changedActor || spawnedWave) {
             // alignBattle stamps updatedAt on every call. A settlement-only save must
             // keep the fetched value: the next timeout poll reads updatedAt > roundStartAt
             // as "the actor already acted" and would skip the idle actor's effects tick.
@@ -380,7 +385,7 @@ export const combatRouter = createTRPCRouter({
               ...(history.length
                 ? [createAction(ctx.drizzle, settledBattle, history)]
                 : []),
-              ...(result
+              ...(result && !settledBattle.extraState.dungeon
                 ? [
                     updateUser(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
                     // Polling settlement pays the same faction counters as an action.
@@ -618,6 +623,7 @@ export const combatRouter = createTRPCRouter({
         const battle = await fetchBattle(db, input.battleId);
         if (!battle) return { updateClient: true };
 
+        advanceDungeonWave(battle);
         // Create the grid for the battle
         const grid = getBattleGrid(1, battle);
 
@@ -757,6 +763,13 @@ export const combatRouter = createTRPCRouter({
             }
           }
 
+          if (
+            performedActionId &&
+            newBattle.extraState.dungeon &&
+            !actor.isAi &&
+            !actor.isSummon
+          )
+            newBattle.extraState.dungeon.lastActionRound[actor.userId] = actionRound;
           // If no description, means no actions, just return now
           let description = battleDescriptions.join(". ");
           if (!description && actionPerformed && history.length === 0) {
@@ -799,6 +812,7 @@ export const combatRouter = createTRPCRouter({
             nActions += 1;
           }
 
+          advanceDungeonWave(newBattle);
           // Calculate if the battle is over for this user, and if so update user DB
           const result = calcBattleResult(
             newBattle,
@@ -860,13 +874,19 @@ export const combatRouter = createTRPCRouter({
             const [logEntries, { updatedQuestIds }] = await Promise.all([
               createAction(db, newBattle, history),
               updateUser(db, pusher, newBattle, result, suid),
-              saveUsage(db, newBattle, result, suid),
-              updateKage(db, newBattle, result),
-              updateClanLeaders(db, newBattle, result, suid),
-              updateVillageAnbuClan(db, newBattle, result, suid),
-              updateWars(db, pusher, newBattle, result, suid),
-              updateTournament(db, newBattle, result, suid),
-              result ? updateRaidProgress(db, newBattle, suid) : Promise.resolve(),
+              ...(!newBattle.extraState.dungeon
+                ? [
+                    saveUsage(db, newBattle, result, suid),
+                    updateKage(db, newBattle, result),
+                    updateClanLeaders(db, newBattle, result, suid),
+                    updateVillageAnbuClan(db, newBattle, result, suid),
+                    updateWars(db, pusher, newBattle, result, suid),
+                    updateTournament(db, newBattle, result, suid),
+                    result
+                      ? updateRaidProgress(db, newBattle, suid)
+                      : Promise.resolve(),
+                  ]
+                : []),
               finishBattle(),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
@@ -1848,6 +1868,10 @@ export const initiateBattle = async (
     /** NPC template IDs on the initiating team; repeated IDs request separate copies. */
     allyAiIds?: string[];
     client: DrizzleClient;
+    dungeon?: Omit<
+      DungeonBattleState,
+      "wave" | "waveStartedRound" | "lastActionRound" | "pendingWaves"
+    > & { battleId: string; waves: DungeonFloor["waves"] };
     userStatDistribution?: AssignableUserStats;
     targetStatDistribution?: AssignableUserStats;
     scaleTarget?: boolean;
@@ -1866,6 +1890,8 @@ export const initiateBattle = async (
   scaleGains = 1,
 ) => {
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
+  if (info.dungeon && userIds.length !== 3)
+    return { success: false, message: "A dungeon requires three players" };
 
   const allyAiIds = info.allyAiIds ?? [];
   if (allyAiIds.length > 0 && !supportsNpcAllies(battleType)) {
@@ -2271,6 +2297,13 @@ export const initiateBattle = async (
     .map((id) => structuredClone(fetchedUsers.find((u) => u.userId === id)))
     .filter((u): u is NonNullable<typeof u> => u !== undefined);
 
+  if (
+    info.dungeon &&
+    (users.length !== userIds.length + targetIds.length ||
+      users.slice(userIds.length).some((u) => !u.isAi))
+  )
+    return { success: false, message: "A dungeon enemy is unavailable" };
+
   // Hide some information from quests
   users.forEach((user) => {
     user.userQuests?.forEach((q) => {
@@ -2355,7 +2388,9 @@ export const initiateBattle = async (
     ).length;
     if (
       leftSideUserCount > leftCapacity ||
-      users.length - leftSideUserCount > rightCapacity
+      (info.dungeon
+        ? Math.max(...info.dungeon.waves.map((w) => w.aiIds.length))
+        : users.length - leftSideUserCount) > rightCapacity
     ) {
       return { success: false, message: "Too many NPCs for this battlefield" };
     }
@@ -2582,7 +2617,9 @@ export const initiateBattle = async (
   // Create the users array to be inserted into the battle
   const { userEffects, usersState, extraState, initialDurability } =
     await processUsersForBattle(client, {
-      users,
+      users: info.dungeon
+        ? users.slice(0, userIds.length + (info.dungeon.waves[0]?.aiIds.length ?? 0))
+        : users,
       settings,
       relations,
       wars: activeWars,
@@ -2596,6 +2633,87 @@ export const initiateBattle = async (
       leftSideUserCount,
       isSummon: false,
     });
+
+  if (info.dungeon) {
+    // Keep pristine clone sources for enemies reused by summon jutsus, items or skills.
+    const sources = usersState.filter((u) => u.isAi && !u.isSummon);
+    for (const source of sources) {
+      const template = {
+        ...structuredClone(source),
+        userId: nanoid(),
+        isSummon: true,
+        isSummonTemplate: true,
+        curHealth: 0,
+      };
+      usersState.push(template);
+      userEffects.push(
+        ...userEffects
+          .filter((e) => e.targetId === source.userId)
+          .map((e) => ({
+            ...structuredClone(e),
+            id: nanoid(),
+            targetId: template.userId,
+            creatorId: e.creatorId === source.userId ? template.userId : e.creatorId,
+          })),
+      );
+    }
+    let offset = userIds.length + (info.dungeon.waves[0]?.aiIds.length ?? 0);
+    const pendingWaves: DungeonBattleState["pendingWaves"] = [];
+    for (const wave of info.dungeon.waves.slice(1)) {
+      const prepared = await processUsersForBattle(client, {
+        users: users.slice(offset, offset + wave.aiIds.length),
+        settings,
+        relations,
+        wars: activeWars,
+        villages,
+        defaultProfile,
+        battleType,
+        width: gridSize.width,
+        height: gridSize.height,
+        hide: false,
+        leftSideUserCount: 0,
+        isSummon: false,
+      });
+      offset += wave.aiIds.length;
+      for (const key of [
+        "jutsus",
+        "jutsuReskins",
+        "items",
+        "bloodlines",
+        "enemySkills",
+        "sageModes",
+        "villages",
+        "anbuSquads",
+        "keystoneItems",
+        "wars",
+        "aiProfiles",
+        "relations",
+        "clans",
+      ] as const) {
+        Object.assign(extraState[key] ?? {}, prepared.extraState[key]);
+      }
+      prepared.usersState.forEach((user) => {
+        applyPoolAdjustmentsToBase(user, prepared.userEffects);
+      });
+      pendingWaves.push({
+        users: prepared.usersState,
+        effects: prepared.userEffects,
+        delayRounds: wave.delayRounds,
+      });
+    }
+    extraState.dungeon = {
+      runId: info.dungeon.runId,
+      runVersion: info.dungeon.runVersion,
+      runState: info.dungeon.runState,
+      totalFloors: info.dungeon.totalFloors,
+      roomKind: info.dungeon.roomKind,
+      expiresAt: info.dungeon.expiresAt,
+      wave: 1,
+      waveStartedRound: 0,
+      pendingWaves,
+      lastActionRound: Object.fromEntries(userIds.map((id) => [id, 0])),
+    };
+  }
 
   // Hand requested users' turns to their own AI profile (auto combat). Gated on
   // AutoCombatBattleTypes so callers cannot enable it for unsupported battles.
@@ -2706,7 +2824,7 @@ export const initiateBattle = async (
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
   // Insert battle entry into DB
-  const battleId = info.clanBattle?.battleId ?? nanoid();
+  const battleId = info.dungeon?.battleId ?? info.clanBattle?.battleId ?? nanoid();
 
   // Rows the status update below is expected to claim, used as the CAS guard
   const allParticipantIds = getBattleClaimIds({
@@ -3061,6 +3179,25 @@ export const initiateBattle = async (
                   eq(userData.status, "QUEUED"),
                   eq(userData.status, "KAGE_QUEUED"),
                 ),
+          ...(info.dungeon
+            ? [
+                eq(userData.status, "AWAKE"),
+                exists(
+                  client
+                    .select({ one: sql`1` })
+                    .from(dungeonRun)
+                    .where(
+                      and(
+                        eq(dungeonRun.id, info.dungeon.runId),
+                        eq(dungeonRun.version, info.dungeon.runVersion),
+                        eq(dungeonRun.battleId, battleId),
+                        eq(dungeonRun.status, "FIGHTING"),
+                        gt(dungeonRun.expiresAt, new Date()),
+                      ),
+                    ),
+                ),
+              ]
+            : []),
           ...(battleType === "COMBAT"
             ? [
                 and(

@@ -1,0 +1,190 @@
+import { DUNGEON_FLOORS_PER_TIER, DUNGEON_INACTIVE_ROUNDS } from "@/drizzle/constants";
+import { stillInBattle } from "@/libs/combat/actions";
+import { getBattleSpawnLocations } from "@/libs/combat/participants";
+import type {
+  BattleUserState,
+  CombatResult,
+  CompleteBattle,
+  UserEffect,
+} from "@/libs/combat/types";
+import type { DungeonContent, DungeonRunState } from "@/validators/dungeon";
+
+export type DungeonBattleState = {
+  runId: string;
+  runVersion: number;
+  runState: DungeonRunState;
+  totalFloors: number;
+  roomKind: "floor" | "mini-boss" | "boss";
+  expiresAt: number;
+  wave: number;
+  waveStartedRound: number;
+  lastActionRound: Record<string, number>;
+  failedReason?: string;
+  pendingWaves: {
+    users: BattleUserState[];
+    effects: UserEffect[];
+    delayRounds: number;
+  }[];
+};
+
+export const dungeonFloorAt = (content: DungeonContent, floor: number) =>
+  content.tiers[Math.floor(floor / DUNGEON_FLOORS_PER_TIER)]?.[
+    floor % DUNGEON_FLOORS_PER_TIER
+  ];
+
+export const dungeonBattleOutcome = (battle: CompleteBattle, now = Date.now()) => {
+  const state = battle.extraState.dungeon;
+  if (!state) return null;
+  if (now >= state.expiresAt)
+    state.failedReason = "The one-hour dungeon deadline expired.";
+  const humans = battle.usersState.filter((u) => !u.isAi && !u.isSummon);
+  const alive = humans.filter((u) => stillInBattle(u, battle.usersEffects));
+  const inactive = alive.find(
+    (u) =>
+      battle.round - (state.lastActionRound[u.userId] ?? 0) >= DUNGEON_INACTIVE_ROUNDS,
+  );
+  if (inactive)
+    state.failedReason = `${inactive.username} took no actions for ${DUNGEON_INACTIVE_ROUNDS} rounds. The dungeon ended.`;
+  if (state.failedReason) return "ended";
+  if (alive.length === 0) return "wipe";
+  if (
+    state.pendingWaves.length === 0 &&
+    !battle.usersState.some(
+      (u) => u.direction === "right" && stillInBattle(u, battle.usersEffects),
+    )
+  )
+    return "won";
+  return null;
+};
+
+/** Spawn only preloaded enemies, after the preceding wave is defeated and its round delay passes. */
+export const advanceDungeonWave = (battle: CompleteBattle) => {
+  const state = battle.extraState.dungeon;
+  const next = state?.pendingWaves[0];
+  if (!state || !next || dungeonBattleOutcome(battle)) return false;
+  if (
+    battle.usersState.some(
+      (u) => u.direction === "right" && stillInBattle(u, battle.usersEffects),
+    )
+  )
+    return false;
+  if (battle.round < state.waveStartedRound + next.delayRounds) return false;
+  const remaining = battle.usersState.filter(
+    (u) => u.direction === "left" || u.isSummonTemplate,
+  );
+  const occupied = remaining.filter((u) => stillInBattle(u, battle.usersEffects));
+  const locations = getBattleSpawnLocations(
+    battle.width,
+    battle.height,
+    "right",
+  ).filter((p) => !occupied.some((u) => u.longitude === p.x && u.latitude === p.y));
+  // Moving teammates may occupy the enemy spawn zone; use other unoccupied cells as needed.
+  for (let x = 0; x < battle.width; x++)
+    for (let y = 0; y < battle.height; y++) {
+      if (
+        !occupied.some((u) => u.longitude === x && u.latitude === y) &&
+        !locations.some((p) => p.x === x && p.y === y)
+      )
+        locations.push({ x, y });
+    }
+  next.users
+    .filter((u) => !u.isSummonTemplate)
+    .forEach((u) => {
+      const p = locations.shift();
+      if (!p) throw new Error("No dungeon wave spawn cell");
+      u.longitude = p.x;
+      u.latitude = p.y;
+      u.round = battle.round;
+      u.updatedAt = new Date();
+      battle.groundEffects = battle.groundEffects.filter(
+        (e) => e.longitude !== p.x || e.latitude !== p.y,
+      );
+    });
+  const retainedIds = new Set(remaining.map((u) => u.userId));
+  battle.usersEffects = [
+    ...battle.usersEffects.filter((e) => retainedIds.has(e.targetId)),
+    ...next.effects,
+  ];
+  battle.usersState = [...remaining, ...next.users];
+  state.pendingWaves.shift();
+  state.wave += 1;
+  state.waveStartedRound = battle.round;
+  return true;
+};
+
+export const dungeonNextState = (
+  state: DungeonRunState,
+  outcome: "won" | "wipe" | "ended",
+  roomKind: DungeonBattleState["roomKind"],
+) => ({
+  ...state,
+  readyIds: [],
+  floor:
+    outcome === "won"
+      ? state.floor + 1
+      : outcome === "wipe" && roomKind !== "mini-boss"
+        ? Math.floor(state.floor / DUNGEON_FLOORS_PER_TIER) * DUNGEON_FLOORS_PER_TIER
+        : state.floor,
+  clearedFloors:
+    outcome === "won"
+      ? [...new Set([...state.clearedFloors, state.floor])]
+      : state.clearedFloors,
+  message:
+    outcome === "won"
+      ? "Floor cleared. Everyone has been fully restored."
+      : outcome === "wipe"
+        ? "The party was defeated. Everyone has been revived; ready up to retry."
+        : state.message,
+});
+
+/** Dungeon floors settle together and never award ordinary combat rewards. */
+export const dungeonCombatResult = (
+  battle: CompleteBattle,
+  userId: string,
+): CombatResult | null => {
+  const outcome = dungeonBattleOutcome(battle);
+  const user = battle.usersState.find(
+    (u) => u.userId === userId && !u.isAi && !u.isSummon,
+  );
+  if (!outcome || !user) return null;
+  return {
+    outcome: outcome === "won" ? "Won" : "Lost",
+    didWin: outcome === "won" ? 1 : 0,
+    eloDiff: 0,
+    lpDiff: 0,
+    experience: 0,
+    earnedExperience: 0,
+    pvpStreak: user.pvpStreak,
+    curHealth: user.maxHealth,
+    curChakra: user.maxChakra,
+    curStamina: user.maxStamina,
+    strength: 0,
+    intelligence: 0,
+    willpower: 0,
+    speed: 0,
+    money: 0,
+    seichiSilver: 0,
+    offence: 0,
+    defence: 0,
+    villagePrestige: 0,
+    villageTokens: 0,
+    anbuPoints: 0,
+    warHealthChange: 0,
+    shrineChangeHp: 0,
+    clanPoints: 0,
+    friendsLeft: 0,
+    targetsLeft: 0,
+    warHealthInfo: {},
+    shrineInfo: {},
+    villageWarShrineInfo: {},
+    villageWarShrineDisplay: {},
+    notifications: [
+      battle.extraState.dungeon?.failedReason ??
+        (outcome === "won"
+          ? "Dungeon floor cleared. Return to your party."
+          : "Party wiped. Return to your party to retry."),
+    ],
+    bountiesClaimed: [],
+    droppedItems: [],
+  };
+};

@@ -1,0 +1,13 @@
+import { DUNGEON_FLOORS_PER_TIER } from "@/drizzle/constants";
+import { dungeonContentSchema } from "@/validators/dungeon";
+import type { DungeonBattleState } from "@/libs/dungeon";
+export const dungeonContent = () => dungeonContentSchema.parse({
+  name: "Test dungeon", sector: 1, longitude: 10, latitude: 10, expiresAt: null, hidden: false,
+  tiers: [Array.from({length: DUNGEON_FLOORS_PER_TIER}, (_, i) => ({kind: i === DUNGEON_FLOORS_PER_TIER - 1 ? "boss" : "floor", waves: [{aiIds: ["enemy"], delayRounds: 0}]}))],
+  rewards: {money: 100, experience: 10, tokens: 5, prestige: 2},
+});
+export const dungeonBattleState = (overrides: Partial<DungeonBattleState> = {}): DungeonBattleState => ({
+  runId: "run", runVersion: 1, runState: {memberIds: ["a", "b", "c"], invitedIds: [], readyIds: [], floor: 0, clearedFloors: [], message: ""},
+  totalFloors: DUNGEON_FLOORS_PER_TIER, roomKind: "floor", expiresAt: Date.now() + 3600000,
+  wave: 1, waveStartedRound: 0, lastActionRound: {a: 0, b: 0, c: 0}, pendingWaves: [], ...overrides,
+});

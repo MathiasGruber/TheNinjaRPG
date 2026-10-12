@@ -54,6 +54,37 @@ import type {
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
 import type { WarSettlement } from "@/validators/war";
+import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
+
+export const dungeon = mysqlTable("Dungeon", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  content: json("content").$type<DungeonContent>().notNull(),
+  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+});
+export const dungeonRun = mysqlTable("DungeonRun", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  dungeonId: varchar("dungeonId", { length: 191 }).notNull(),
+  leaderId: varchar("leaderId", { length: 191 }).notNull(),
+  content: json("content").$type<DungeonContent>().notNull(),
+  state: json("state").$type<DungeonRunState>().notNull(),
+  status: mysqlEnum("status", ["LOBBY", "STARTING", "FIGHTING", "BETWEEN", "PAUSED", "COMPLETED", "ENDED"]).notNull(),
+  version: int("version").default(0).notNull(),
+  battleId: varchar("battleId", { length: 191 }),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).notNull(),
+  expiresAt: datetime("expiresAt", { mode: "date", fsp: 3 }),
+}, (table) => ({ status: index("DungeonRun_status_idx").on(table.status) }));
+export const dungeonMember = mysqlTable("DungeonMember", {
+  runId: varchar("runId", { length: 191 }).notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  // NULL releases the player for another run while retaining their completion receipt.
+  activeUserId: varchar("activeUserId", { length: 191 }),
+  reward: json("reward").$type<DungeonRewardReceipt>(),
+}, (table) => ({
+  pk: primaryKey({columns: [table.runId, table.userId]}),
+  active: uniqueIndex("DungeonMember_active_idx").on(table.activeUserId),
+  user: index("DungeonMember_user_idx").on(table.userId),
+}));
+export type DungeonRun = InferSelectModel<typeof dungeonRun>;
 
 export const vector = customType<{
   data: ArrayBuffer;

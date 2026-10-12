@@ -81,6 +81,7 @@ import { combatMasteryGains } from "@/libs/combat/mastery";
 import { areBattleAllies } from "@/libs/combat/participants";
 import { isSummonTemplate, spliceOrphanedSummons } from "@/libs/combat/summon";
 import type { BattleEffect, GroundEffect, UserEffect } from "@/libs/combat/types";
+import { dungeonCombatResult } from "@/libs/dungeon";
 import { boostPvpGain, pvpExperienceReward } from "@/libs/pvpExperience";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
@@ -1746,6 +1747,13 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
   ];
 
   return {
+    dungeon: state?.dungeon
+      ? {
+          runId: state.dungeon.runId,
+          wave: state.dungeon.wave,
+          expiresAt: state.dungeon.expiresAt,
+        }
+      : undefined,
     jutsus,
     items,
     jutsuReskins: select(state?.jutsuReskins, reskinIds),
@@ -1880,6 +1888,7 @@ export const calcBattleResult = (
   userId: string,
   settings?: GameSetting[],
 ): CombatResult | null => {
+  if (battle.extraState.dungeon) return dungeonCombatResult(battle, userId);
   const battleType = battle.battleType;
   // Use users directly from battle state - lookup functions get full data when needed
   const users = battle.usersState;
@@ -2909,7 +2918,7 @@ export const alignBattle = (
   // A variable for the current round to be used in the battle
   const actionRound = progressRound ? battle.round + 1 : battle.round;
   // Update round timer if new actor
-  if (changedActor) {
+  if (changedActor || progressRound) {
     battle.roundStartAt = now;
   }
   // If we progress the battle round;

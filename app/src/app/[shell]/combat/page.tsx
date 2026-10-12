@@ -149,6 +149,14 @@ export default function CombatPage() {
     }
   }, [data]);
 
+  // Another party member may settle the floor while this client is reconnecting.
+  useEffect(() => {
+    if (battle?.extraState.dungeon && data && !data.battle && !isLoading && !results) {
+      void utils.profile.getUser.invalidate();
+      router.push("/dungeon");
+    }
+  }, [battle?.extraState.dungeon, data, isLoading, results, router, utils]);
+
   // Collect all possible actions for the controlled actor (self, or piloted
   // summon on its turn) so the action panel shows the summon's jutsu/pools.
   const actions = useMemo(() => {

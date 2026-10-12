@@ -1564,6 +1564,8 @@ const removeQuestTrackerByQuestId = (
  * a mode is not burned into history they can never wear.
  */
 export const updateRewards = async (info: {
+  /** Transaction sessions execute one statement at a time; ordinary callers keep parallel phases. */
+  inTransaction?: boolean;
   client: DrizzleClient;
   user: UserData;
   reason: string;
@@ -1591,6 +1593,7 @@ export const updateRewards = async (info: {
 }) => {
   // Destructure
   const {
+    inTransaction = false,
     client,
     user,
     rewards,
@@ -1628,121 +1631,126 @@ export const updateRewards = async (info: {
     badges,
     activeWars,
     sageModes,
-  ] = await Promise.all([
-    hasRecruiterPrestige || (!pvpBoostApplied && (user.pvpExperience ?? 0) > 0)
-      ? fetchPvpExperienceAverage(client)
-      : undefined,
-    hasRecruiterPrestige && user.recruiterId
-      ? client.query.userData.findFirst({
-          columns: {
-            pvpExperience: true,
-            weeklyPvpKills: true,
-            weeklyPvpKillsAt: true,
-            isAi: true,
-          },
-          where: eq(userData.userId, user.recruiterId),
-        })
-      : undefined,
-    // Fetch villages if needed
-    rewards.reward_village_membership !== "NONE"
-      ? client
-          .select({ id: village.id, name: village.name })
-          .from(village)
-          .where(eq(village.name, rewards.reward_village_membership))
-          .then((v) => v[0])
-      : undefined,
-    // Fetch hunter items if needed
-    rewards.reward_hunter_items && user.occupation === "HUNTER"
-      ? client
-          .select({ id: item.id, name: item.name, rarity: item.rarity })
-          .from(item)
-          .where(eq(item.canBeHunted, true))
-      : undefined,
-    // Fetch gathering items if needed
-    rewards.reward_gathering_items && user.occupation === "GATHERING"
-      ? client
-          .select({ id: item.id, name: item.name, rarity: item.rarity })
-          .from(item)
-          .where(eq(item.canBeGathered, true))
-      : undefined,
-    // Fetch reward items with stacking info (use unique IDs to avoid duplicates in query)
-    uniqueItemIds.length > 0
-      ? client
-          .select({
-            id: item.id,
-            name: item.name,
-            rarity: item.rarity,
-            canStack: item.canStack,
-            stackSize: item.stackSize,
+  ] = await runRewardTasks(inTransaction)([
+    () =>
+      hasRecruiterPrestige || (!pvpBoostApplied && (user.pvpExperience ?? 0) > 0)
+        ? fetchPvpExperienceAverage(client)
+        : undefined,
+    () =>
+      hasRecruiterPrestige && user.recruiterId
+        ? client.query.userData.findFirst({
+            columns: {
+              pvpExperience: true,
+              weeklyPvpKills: true,
+              weeklyPvpKillsAt: true,
+              isAi: true,
+            },
+            where: eq(userData.userId, user.recruiterId),
           })
-          .from(item)
-          .where(inArray(item.id, uniqueItemIds))
-      : [],
-    (rewards.reward_jutsus?.length ?? 0) > 0
-      ? client
-          .select({ id: jutsu.id, name: jutsu.name })
-          .from(jutsu)
-          .leftJoin(
-            userJutsu,
-            and(eq(jutsu.id, userJutsu.jutsuId), eq(userJutsu.userId, user.userId)),
-          )
-          .where(
-            and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId)),
-          )
-      : [],
-    (rewards.reward_bloodlines?.length ?? 0) > 0
-      ? client
-          .select({ id: bloodline.id, name: bloodline.name, rank: bloodline.rank })
-          .from(bloodline)
-          .leftJoin(
-            bloodlineRolls,
-            and(
-              eq(bloodline.id, bloodlineRolls.bloodlineId),
-              eq(bloodlineRolls.userId, user.userId),
-            ),
-          )
-          .where(
-            and(
-              inArray(bloodline.id, rewards.reward_bloodlines),
-              isNull(bloodlineRolls.userId),
-            ),
-          )
-      : [],
-    (rewards.reward_badges?.length ?? 0) > 0
-      ? client
-          .select({ id: badge.id, name: badge.name, image: badge.image })
-          .from(badge)
-          .leftJoin(
-            userBadge,
-            and(eq(badge.id, userBadge.badgeId), eq(userBadge.userId, user.userId)),
-          )
-          .where(
-            and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId)),
-          )
-      : [],
-    // Fetch active wars if user has war rewards
-    hasWarRewards && user.villageId
-      ? fetchActiveWars(client, user.villageId)
-      : undefined,
-    // Fetch not-yet-owned candidate sage modes for reward_sage_modes (dedup at fetch)
-    (rewards.reward_sage_modes?.length ?? 0) > 0
-      ? client
-          .select({ id: sageMode.id, name: sageMode.name })
-          .from(sageMode)
-          .leftJoin(
-            sageModeRolls,
-            and(
-              eq(sageMode.id, sageModeRolls.sageModeId),
-              eq(sageModeRolls.userId, user.userId),
-            ),
-          )
-          .where(
-            and(
-              inArray(sageMode.id, rewards.reward_sage_modes),
-              isNull(sageModeRolls.userId),
-            ),
-          )
-      : [],
+        : undefined,
+    () =>
+      rewards.reward_village_membership !== "NONE"
+        ? client
+            .select({ id: village.id, name: village.name })
+            .from(village)
+            .where(eq(village.name, rewards.reward_village_membership))
+            .then((v) => v[0])
+        : undefined,
+    () =>
+      rewards.reward_hunter_items && user.occupation === "HUNTER"
+        ? client
+            .select({ id: item.id, name: item.name, rarity: item.rarity })
+            .from(item)
+            .where(eq(item.canBeHunted, true))
+        : undefined,
+    () =>
+      rewards.reward_gathering_items && user.occupation === "GATHERING"
+        ? client
+            .select({ id: item.id, name: item.name, rarity: item.rarity })
+            .from(item)
+            .where(eq(item.canBeGathered, true))
+        : undefined,
+    () =>
+      uniqueItemIds.length > 0
+        ? client
+            .select({
+              id: item.id,
+              name: item.name,
+              rarity: item.rarity,
+              canStack: item.canStack,
+              stackSize: item.stackSize,
+            })
+            .from(item)
+            .where(inArray(item.id, uniqueItemIds))
+        : [],
+    () =>
+      (rewards.reward_jutsus?.length ?? 0) > 0
+        ? client
+            .select({ id: jutsu.id, name: jutsu.name })
+            .from(jutsu)
+            .leftJoin(
+              userJutsu,
+              and(eq(jutsu.id, userJutsu.jutsuId), eq(userJutsu.userId, user.userId)),
+            )
+            .where(
+              and(inArray(jutsu.id, rewards.reward_jutsus), isNull(userJutsu.userId)),
+            )
+        : [],
+    () =>
+      (rewards.reward_bloodlines?.length ?? 0) > 0
+        ? client
+            .select({ id: bloodline.id, name: bloodline.name, rank: bloodline.rank })
+            .from(bloodline)
+            .leftJoin(
+              bloodlineRolls,
+              and(
+                eq(bloodline.id, bloodlineRolls.bloodlineId),
+                eq(bloodlineRolls.userId, user.userId),
+              ),
+            )
+            .where(
+              and(
+                inArray(bloodline.id, rewards.reward_bloodlines),
+                isNull(bloodlineRolls.userId),
+              ),
+            )
+        : [],
+    () =>
+      (rewards.reward_badges?.length ?? 0) > 0
+        ? client
+            .select({ id: badge.id, name: badge.name, image: badge.image })
+            .from(badge)
+            .leftJoin(
+              userBadge,
+              and(eq(badge.id, userBadge.badgeId), eq(userBadge.userId, user.userId)),
+            )
+            .where(
+              and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId)),
+            )
+        : [],
+    () =>
+      hasWarRewards && user.villageId
+        ? fetchActiveWars(client, user.villageId)
+        : undefined,
+    () =>
+      (rewards.reward_sage_modes?.length ?? 0) > 0
+        ? client
+            .select({ id: sageMode.id, name: sageMode.name })
+            .from(sageMode)
+            .leftJoin(
+              sageModeRolls,
+              and(
+                eq(sageMode.id, sageModeRolls.sageModeId),
+                eq(sageModeRolls.userId, user.userId),
+              ),
+            )
+            .where(
+              and(
+                inArray(sageMode.id, rewards.reward_sage_modes),
+                isNull(sageModeRolls.userId),
+              ),
+            )
+        : [],
   ]);
 
   if (!pvpBoostApplied) {
@@ -1889,13 +1897,12 @@ export const updateRewards = async (info: {
   );
 
   // Update database
-  await Promise.all([
-    // Update userdata
-    client
-      .update(userData)
-      .set(updatedUserData)
-      .where(eq(userData.userId, user.userId)),
-    // If recruited by someone, check if we should reward prestige points
+  await runRewardTasks(inTransaction)([
+    () =>
+      client
+        .update(userData)
+        .set(updatedUserData)
+        .where(eq(userData.userId, user.userId)),
     ...(user.recruiterId && prestigeReward > 0
       ? [
           client
@@ -1912,11 +1919,11 @@ export const updateRewards = async (info: {
             type: "PRESTIGE",
           }),
         ]
-      : []),
-    // If new rank, then delete sensei requests
-    getNewRank ? deleteRequests(client, user.userId) : undefined,
-    // If reputation points, store that
-    rewards.reward_reputation > 0 &&
+      : []
+    ).map((task) => () => task),
+    () => (getNewRank ? deleteRequests(client, user.userId) : undefined),
+    () =>
+      rewards.reward_reputation > 0 &&
       client.insert(userRewards).values({
         id: nanoid(),
         awardedById: user.userId,
@@ -1924,31 +1931,30 @@ export const updateRewards = async (info: {
         reputationAmount: rewards.reward_reputation,
         reason: reason,
       }),
-    // Update village tokens
-    rewards.reward_tokens > 0 && user.villageId
-      ? client
-          .update(village)
-          .set({ tokens: sql`${village.tokens} + ${rewards.reward_tokens}` })
-          .where(eq(village.id, user.villageId))
-      : undefined,
-    // Update clan points and activity points
-    rewards.reward_clanpoints > 0 && user.clanId
-      ? client
-          .update(clan)
-          .set({
-            points: sql`${clan.points} + ${rewards.reward_clanpoints}`,
-            activityPoints: sql`${clan.activityPoints} + ${rewards.reward_clanpoints}`,
-          })
-          .where(eq(clan.id, user.clanId))
-      : undefined,
-    // Update anbu points
-    rewards.reward_anbupoints > 0 && user.anbuId
-      ? client
-          .update(anbuSquad)
-          .set({ points: sql`${anbuSquad.points} + ${rewards.reward_anbupoints}` })
-          .where(eq(anbuSquad.id, user.anbuId))
-      : undefined,
-    // Insert items & jutsus - use onDuplicateKeyUpdate to handle race conditions
+    () =>
+      rewards.reward_tokens > 0 && user.villageId
+        ? client
+            .update(village)
+            .set({ tokens: sql`${village.tokens} + ${rewards.reward_tokens}` })
+            .where(eq(village.id, user.villageId))
+        : undefined,
+    () =>
+      rewards.reward_clanpoints > 0 && user.clanId
+        ? client
+            .update(clan)
+            .set({
+              points: sql`${clan.points} + ${rewards.reward_clanpoints}`,
+              activityPoints: sql`${clan.activityPoints} + ${rewards.reward_clanpoints}`,
+            })
+            .where(eq(clan.id, user.clanId))
+        : undefined,
+    () =>
+      rewards.reward_anbupoints > 0 && user.anbuId
+        ? client
+            .update(anbuSquad)
+            .set({ points: sql`${anbuSquad.points} + ${rewards.reward_anbupoints}` })
+            .where(eq(anbuSquad.id, user.anbuId))
+        : undefined,
     ...[
       jutsus.length > 0 &&
         client
@@ -1961,8 +1967,7 @@ export const updateRewards = async (info: {
             })),
           )
           .onDuplicateKeyUpdate({ set: { id: sql`id` } }),
-    ],
-    // Insert bloodlines as bloodlineRolls
+    ].map((task) => () => task),
     ...[
       bloodlines.length > 0 &&
         client.insert(bloodlineRolls).values(
@@ -1979,18 +1984,16 @@ export const updateRewards = async (info: {
               }) as const,
           ),
         ),
-    ],
-    // Record the not-yet-owned candidate into history (dedup for future quest grants);
-    // it auto-equips below only when the player currently has no sage mode.
-    rolledSageMode
-      ? client.insert(sageModeRolls).values({
-          id: nanoid(),
-          userId: user.userId,
-          type: "QUEST",
-          sageModeId: rolledSageMode.id,
-        })
-      : undefined,
-    // Insert items with quantity
+    ].map((task) => () => task),
+    () =>
+      rolledSageMode
+        ? client.insert(sageModeRolls).values({
+            id: nanoid(),
+            userId: user.userId,
+            type: "QUEST",
+            sageModeId: rolledSageMode.id,
+          })
+        : undefined,
     ...[
       itemsToInsert.length > 0 &&
         client.insert(userItem).values(
@@ -2001,8 +2004,7 @@ export const updateRewards = async (info: {
             quantity: quantity,
           })),
         ),
-    ],
-    // Insert achievements/badges
+    ].map((task) => () => task),
     ...[
       badges.length > 0 &&
         client.insert(userBadge).values(
@@ -2012,9 +2014,7 @@ export const updateRewards = async (info: {
             badgeId: id,
           })),
         ),
-    ],
-    // Handle war rewards (damage to enemy war health or healing to own war health)
-    // Updates ALL active wars the user is involved in
+    ].map((task) => () => task),
     ...(() => {
       if (!activeWars || activeWars.length === 0) return [];
       // Find ALL applicable wars (VILLAGE_WAR or WAR_RAID)
@@ -2116,7 +2116,7 @@ export const updateRewards = async (info: {
       }
 
       return warUpdates;
-    })(),
+    })().map((task) => () => task),
   ]);
   // A rank reward is a promotion: record the recruiter's rank milestones once it has landed.
   if (getNewRank && user.recruiterId) {
@@ -4058,3 +4058,18 @@ export const getRewardUserDelta = (
     villagePrestige: rewards.reward_prestige,
   };
 };
+
+/** Defer statement execution so transaction session tokens cannot be shared by concurrent calls. */
+const runRewardTasks =
+  (inTransaction: boolean) =>
+  async <T extends readonly (() => unknown)[]>(
+    tasks: readonly [...T],
+  ): Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> }> => {
+    if (!inTransaction)
+      return Promise.all(tasks.map((task) => task())) as Promise<{
+        [K in keyof T]: Awaited<ReturnType<T[K]>>;
+      }>;
+    const results: unknown[] = [];
+    for (const task of tasks) results.push(await task());
+    return results as { [K in keyof T]: Awaited<ReturnType<T[K]>> };
+  };

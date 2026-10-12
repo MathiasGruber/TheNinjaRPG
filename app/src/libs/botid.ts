@@ -55,6 +55,7 @@ export const BOTID_PROTECTED_PROCEDURES = [
   "activityStreak.claimStreakDay",
   "bank.claimInterest",
   "raids.claimDamageReward",
+  "dungeon.claim",
   "pvpRank.claimSeasonRewards",
   // Account creation and value transfer
   "register.createCharacter",

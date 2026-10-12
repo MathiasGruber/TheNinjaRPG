@@ -20,6 +20,7 @@ export type UserEvent = {
   route?: string;
   routeText?: string;
   battleId?: string;
+  dungeonRunId?: string;
   alertType?: string;
   sector?: number;
 };
@@ -96,8 +97,12 @@ export const usePusherHandler = (
           }
         } else if (data.type === "battleEnded") {
           await utils.profile.getUser.cancel();
-          void utils.profile.getUser.invalidate();
+          await utils.profile.getUser.invalidate();
           void utils.combat.getBattle.invalidate();
+          if (data.dungeonRunId) {
+            void utils.dungeon.getState.invalidate();
+            router.push("/dungeon");
+          }
         } else if (data.type === "parentalControlsChanged") {
           // Drop cached chat history in every open tab when a parent changes access.
           void utils.parentalControls.get.invalidate();

@@ -146,8 +146,8 @@ interface SectorRenderEntry {
 }
 
 /** Content identity of a window entry: map version plus dynamic structures */
-const renderKeyOf = (entry: SectorWindowEntry) => {
-  const structuresKey = entry.structures
+const renderKeyOf = (entry: SectorWindowEntry, additions: VillageStructure[] = []) => {
+  const structuresKey = [...entry.structures, ...additions]
     .map((s) => `${s.id}:${s.level}:${s.image}:${s.longitude}:${s.latitude}`)
     .join(",");
   return [
@@ -439,11 +439,40 @@ const Sector: React.FC<SectorProps> = (props) => {
   // Ensure a shrine exists for the sector without mutating the cached tRPC
   // structures array (pushing into it corrupts the query cache and could leave a
   // shrine at stale coordinates when anchors change).
+  const { data: sectorDungeons } = api.dungeon.getAvailable.useQuery(
+    { sector },
+    {
+      enabled: userData?.sector === sector,
+    },
+  );
+  const dungeonStructures = useMemo(
+    () =>
+      (sectorDungeons ?? [])
+        .filter((d) => d.content.sector === sector)
+        .map((d) => ({
+          ...createGenericStructure({
+            name: d.content.name,
+            route: "/dungeon",
+            image:
+              WAR_SHRINE_IMAGE_BY_BIOME[
+                d.content.background === "default"
+                  ? "ground"
+                  : d.content.background === "arena"
+                    ? "ground"
+                    : d.content.background
+              ],
+            longitude: d.content.longitude,
+            latitude: d.content.latitude,
+          }),
+          id: `dungeon-${d.id}`,
+        })),
+    [sectorDungeons, sector],
+  );
   const structures = useMemo(() => {
-    const base = villageData?.structures ?? [];
+    const base = [...(villageData?.structures ?? []), ...dungeonStructures];
     if (base.some((s) => s.route === "/shrine")) return base;
     return [...base, createShrineStructure(sectorMap, props.tile.t)];
-  }, [villageData?.structures, sectorMap, props.tile.t]);
+  }, [villageData?.structures, sectorMap, props.tile.t, dungeonStructures]);
   structuresRef.current = structures;
 
   // Query for raids in this sector (only when user is in this sector)
@@ -1233,7 +1262,12 @@ const Sector: React.FC<SectorProps> = (props) => {
     if (!registry.worldRoot) return null;
     // Always render from the window entry's own data (never the center
     // query's), so a sector looks identical from every window position
-    const entryStructures = [...entry.structures];
+    const entryStructures = [
+      ...entry.structures,
+      ...(entry.sector === sector
+        ? structures.filter((s) => s.id.startsWith("dungeon-"))
+        : []),
+    ];
     if (!entryStructures.find((st) => st.route === "/shrine")) {
       entryStructures.push(createShrineStructure(entry.map, entry.globalTileType));
     }
@@ -1290,7 +1324,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       interaction: groups.group_interaction,
       assets: groups.group_assets,
       animatedMaterials: groups.animatedMaterials,
-      renderKey: renderKeyOf(entry),
+      renderKey: renderKeyOf(entry, entry.sector === sector ? dungeonStructures : []),
     });
     return groups;
   };
@@ -1423,7 +1457,12 @@ const Sector: React.FC<SectorProps> = (props) => {
     let droppedCurrent = false;
     for (const [sectorId, render] of [...registry.entries]) {
       const entry = wanted.get(sectorId);
-      if (entry && renderKeyOf(entry) === render.renderKey) continue;
+      if (
+        entry &&
+        renderKeyOf(entry, entry.sector === sector ? dungeonStructures : []) ===
+          render.renderKey
+      )
+        continue;
       disposeSectorRender(sectorId);
       if (sectorId === sectorRef.current) droppedCurrent = true;
     }
@@ -2020,7 +2059,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         setCurrentStructure(null);
       }
     }
-  }, [userData, villageData]);
+  }, [userData, villageData, structures]);
 
   // Window changes patch the rendered world in place: crossings and
   // refetches draw only the sectors that entered the window and dispose the
@@ -2028,7 +2067,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   useEffect(() => {
     sectorWindowRef.current = sectorWindow;
     void applyWindowToScene();
-  }, [sectorWindow]);
+  }, [sectorWindow, dungeonStructures]);
 
   useEffect(() => {
     const sceneRef = mountRef.current;
@@ -2822,6 +2861,13 @@ const Sector: React.FC<SectorProps> = (props) => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {!!sectorDungeons?.length && (
+        <div className="absolute top-4 right-4 z-20 rounded-lg bg-black/70 p-3 text-white">
+          <Link href="/dungeon">
+            <Button>Dungeon Pyramids ({sectorDungeons.length})</Button>
+          </Link>
         </div>
       )}
       {activeRaid && (

@@ -395,6 +395,7 @@ export type PreBattleGearModifiers = {
  * Static data is stored once at battle initiation and looked up by ID.
  */
 export type ExtraState = {
+  dungeon?: import("@/libs/dungeon").DungeonBattleState;
   /** Definitions of publicly performed actions, retained after their caster despawns. */
   revealedActions?: { jutsuIds: string[]; itemIds: string[] };
   /** Persisted, unscaled player state for confirmed completion responses; never sent to opponents. */
@@ -471,7 +472,11 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
 /**
  * A returned battle used on frontend where private information is hidden
  */
-export type ReturnedExtraState = Omit<ExtraState, "villages" | "clans"> & {
+export type ReturnedExtraState = Omit<ExtraState, "villages" | "clans" | "dungeon"> & {
+  dungeon?: Pick<
+    import("@/libs/dungeon").DungeonBattleState,
+    "runId" | "wave" | "expiresAt"
+  >;
   villages: Record<string, Pick<CombatQueryVillage, "id" | "hexColor">>;
   clans: Record<string, Pick<Clan, "id" | "image">>;
   textureAssets?: string[];

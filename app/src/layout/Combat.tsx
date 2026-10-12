@@ -1849,6 +1849,11 @@ const Combat: React.FC<CombatProps> = (props) => {
                   </Button>
                 </Link>
               )}
+              {battleRef.current?.extraState.dungeon && (
+                <Link href="/dungeon" className="w-full">
+                  <Button className="w-full">Return to Dungeon Party</Button>
+                </Link>
+              )}
               {showTravelBtn && (
                 <Link href="/travel" className="basis-1/2">
                   <Button id="toTravel" className="w-full">
