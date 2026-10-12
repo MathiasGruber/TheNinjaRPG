@@ -11,7 +11,7 @@ import {
   PlusCircle,
   ShoppingBag,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,11 +26,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   HomeTypeDetails,
-  IMG_HOME_AWAKE,
-  IMG_HOME_EAT,
-  IMG_HOME_SLEEP,
-  IMG_HOME_TRAIN,
-  IMG_OCCUPATION_FARMING,
   ITEM_LEVEL_CAP,
   ItemRarities,
   ItemTypes,
@@ -40,9 +35,8 @@ import { useSleepToggle } from "@/hooks/sleep";
 import BanInfo from "@/layout/BanInfo";
 import { ActionSelector } from "@/layout/CombatActions";
 import ContentBox from "@/layout/ContentBox";
-import Image from "@/layout/Image";
+import { HomeScene } from "@/layout/HomeScene";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import { MergeAllStacksButton } from "@/layout/MergeAllStacksButton";
 import Modal from "@/layout/Modal";
@@ -68,6 +62,10 @@ export default function HomePage() {
     undefined,
   );
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isStorageOpen, setIsStorageOpen] = useState(false);
+  const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const storageTriggerRef = useRef<HTMLButtonElement>(null);
+  const managementTriggerRef = useRef<HTMLButtonElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState("ALL");
   const [rarityFilter, setRarityFilter] = useState("ALL");
@@ -76,18 +74,27 @@ export default function HomePage() {
   const {
     data: homeData,
     isLoading: isHomeLoading,
+    isError: isHomeError,
     refetch: userHomeRefetch,
-  } = api.home.getUserHome.useQuery();
+  } = api.home.getUserHome.useQuery(undefined, {
+    enabled: !!userData && access && ownVillage,
+  });
   const {
     data: availableUpgrades,
     isLoading: isUpgradesLoading,
+    isError: isUpgradesError,
     refetch: upgradesRefetch,
-  } = api.home.getAvailableUpgrades.useQuery();
+  } = api.home.getAvailableUpgrades.useQuery(undefined, {
+    enabled: !!userData && access && ownVillage,
+  });
   const {
     data: userItems,
     isLoading: isItemsLoading,
+    isError: isItemsError,
     refetch: userItemsRefetch,
-  } = api.item.getUserItems.useQuery();
+  } = api.item.getUserItems.useQuery(undefined, {
+    enabled: !!userData && access && ownVillage,
+  });
 
   // Mutations
   const { mutate: upgradeHome, isPending: isUpgrading } =
@@ -108,6 +115,8 @@ export default function HomePage() {
         if (data.success) {
           void userHomeRefetch();
           void userItemsRefetch();
+          setIsModalOpen(false);
+          setSelectedItem(undefined);
         }
       },
     });
@@ -120,7 +129,8 @@ export default function HomePage() {
 
   const boost = 1 + getStrucBoost("sleepRegenPerLvl", sectorVillage?.structures);
 
-  const homeName = homeData ? HomeTypeDetails[homeData.homeType].name : "Tent";
+  const homeType = ownVillage ? (homeData?.homeType ?? userData.homeType) : "NONE";
+  const homeName = HomeTypeDetails[homeType].name;
   const homeRegen = homeData ? homeData.regen : 0;
   const homeStorage = homeData ? homeData.storage : 0;
   const filteredItems = userItems?.filter(
@@ -209,83 +219,65 @@ export default function HomePage() {
     <>
       <ContentBox
         title={ownVillage ? "Your Home" : "Guest Residence"}
-        subtitle={`Train, eat, sleep. +${boost}% regen sleeping.`}
+        subtitle={
+          ownVillage
+            ? `${homeName} · +${boost}% regen sleeping.`
+            : "Rest during your visit. Your home storage is in your own village."
+        }
         defaultBackHref="/village"
       >
-        <div className="grid grid-cols-2 items-center justify-center text-center font-bold italic sm:grid-cols-4">
-          <Link href="/traininggrounds">
-            <Image
-              className="hover:opacity-30"
-              alt="train"
-              src={IMG_HOME_TRAIN}
-              width={256}
-              height={256}
-            />
-            Go train
-          </Link>
-          <Link href="/ramenshop">
-            <Image
-              className="hover:opacity-30"
-              alt="eat"
-              src={IMG_HOME_EAT}
-              width={256}
-              height={256}
-            />
-            Get Food
-          </Link>
-          {isTogglingSleep && <Loader explanation="Toggling sleep status" />}
-          {!isTogglingSleep && (
-            <button
-              type="button"
-              className="cursor-pointer"
-              onClick={() => toggleSleep()}
-            >
-              {userData.status === "ASLEEP" ? (
-                <>
-                  <Image
-                    className="animate-pulse hover:opacity-30"
-                    alt="sleeping"
-                    src={IMG_HOME_SLEEP}
-                    width={256}
-                    height={256}
-                  />
-                  Wake up
-                </>
-              ) : (
-                <>
-                  <Image
-                    className="hover:opacity-30"
-                    alt="sleeping"
-                    src={IMG_HOME_AWAKE}
-                    width={256}
-                    height={256}
-                  />
-                  Go to Sleep
-                </>
-              )}
-            </button>
-          )}
-          <Link href="/farm">
-            <Image
-              className="h-64 w-64 object-contain hover:opacity-30"
-              alt="farm"
-              src={IMG_OCCUPATION_FARMING}
-              width={256}
-              height={256}
-            />
-            Farm
-          </Link>
-        </div>
+        {isHomeLoading ? (
+          <Loader explanation="Loading your home" />
+        ) : (
+          <HomeScene
+            homeType={homeType}
+            isGuest={!ownVillage}
+            isAsleep={userData.status === "ASLEEP"}
+            isTogglingSleep={isTogglingSleep}
+            onSleep={() => toggleSleep()}
+            onStorage={(trigger) => {
+              storageTriggerRef.current = trigger;
+              setIsStorageOpen(true);
+            }}
+            onManage={(trigger) => {
+              managementTriggerRef.current = trigger;
+              setIsManagementOpen(true);
+            }}
+          />
+        )}
+        {isHomeError && (
+          <div role="alert" className="mt-3 text-center">
+            Unable to load your home details.
+            <Button variant="outline" onClick={() => void userHomeRefetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
       </ContentBox>
       {ownVillage && (
         <>
-          <ContentBox
-            title="Overview"
-            subtitle="Storage space and regeneration"
-            initialBreak={true}
+          <Modal
+            title="Home Management"
+            isOpen={isManagementOpen}
+            setIsOpen={setIsManagementOpen}
+            returnFocusRef={managementTriggerRef}
+            className="sm:max-w-3xl"
           >
             {isHomeLoading || isUpgradesLoading ? (
               <Loader explanation="Loading home data" />
+            ) : isHomeError || isUpgradesError || !homeData ? (
+              <div role="alert">
+                Unable to load home management.
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void userHomeRefetch();
+                    void upgradesRefetch();
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
             ) : (
               <div className="space-y-4">
                 <Card>
@@ -446,13 +438,17 @@ export default function HomePage() {
                 </Tabs>
               </div>
             )}
-          </ContentBox>
+          </Modal>
 
-          <ContentBox
-            title="Item Storage"
-            initialBreak={true}
-            topRightContent={
-              homeData ? (
+          <Modal
+            title="Armory · Home Storage"
+            isOpen={isStorageOpen}
+            setIsOpen={setIsStorageOpen}
+            returnFocusRef={storageTriggerRef}
+            className="sm:max-w-4xl"
+          >
+            {homeData && !isItemsError && (
+              <div className="flex justify-end">
                 <MergeAllStacksButton
                   storedAtHome={true}
                   onMerged={() => {
@@ -460,11 +456,23 @@ export default function HomePage() {
                     setIsModalOpen(false);
                   }}
                 />
-              ) : undefined
-            }
-          >
+              </div>
+            )}
             {isHomeLoading || isItemsLoading ? (
               <Loader explanation="Loading item storage data" />
+            ) : isHomeError || isItemsError || !homeData ? (
+              <div role="alert">
+                Unable to load home storage.
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void userHomeRefetch();
+                    void userItemsRefetch();
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
             ) : (
               <Tabs defaultValue="stored" className="w-full">
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row">
@@ -815,14 +823,13 @@ export default function HomePage() {
                 title="Item Details"
                 isOpen={isModalOpen}
                 setIsOpen={setIsModalOpen}
-                isValid={false}
+                isLoading={isTogglingStoreItem}
+                keepOpenOnAccept
                 proceed_label={
                   selectedItem.storedAtHome ? "Take from Storage" : "Store Item"
                 }
                 onAccept={() => {
                   toggleStoreItem({ userItemId: selectedItem.id });
-                  setIsModalOpen(false);
-                  setSelectedItem(undefined);
                 }}
               >
                 {showsItemLevelBadge(selectedItem.item) &&
@@ -852,7 +859,7 @@ export default function HomePage() {
                 )}
               </Modal>
             )}
-          </ContentBox>
+          </Modal>
         </>
       )}
     </>

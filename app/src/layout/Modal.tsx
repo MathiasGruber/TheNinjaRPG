@@ -53,6 +53,8 @@ interface ModalProps {
   footerClassName?: string;
   /** Close when clicking outside the dialog (default true). */
   dismissOnInteractOutside?: boolean;
+  /** Restore focus when the dialog is opened without a Radix DialogTrigger. */
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
 export const Modal: React.FC<ModalProps> = (props) => {
@@ -152,6 +154,12 @@ export const Modal: React.FC<ModalProps> = (props) => {
           props.isLoading && "[&>button]:pointer-events-none [&>button]:opacity-40",
         )}
         aria-busy={props.isLoading}
+        onCloseAutoFocus={(event) => {
+          if (props.returnFocusRef?.current?.isConnected) {
+            event.preventDefault();
+            props.returnFocusRef.current.focus();
+          }
+        }}
         onEscapeKeyDown={(event) => {
           if (props.isLoading) {
             event.preventDefault();
