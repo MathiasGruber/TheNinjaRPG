@@ -21,11 +21,13 @@ export const RewardEditor = ({
   form,
   formData,
   allowPackages = true,
+  isObjectiveReward = false,
   hideFields = [],
 }: {
   form: UseFormReturn<any>;
   formData: FormEntry<any>[];
   allowPackages?: boolean;
+  isObjectiveReward?: boolean;
   hideFields?: string[];
 }) => {
   const { data: user } = useUserData();
@@ -118,7 +120,9 @@ export const RewardEditor = ({
           {source && <p className="text-sm">{getRewardPreview(source.rewards)}</p>}
           <p className="text-muted-foreground text-xs">
             Packages are editable copies. Later catalog edits do not change this quest.
-            Each package is one choice when the player chooses rewards.
+            {isObjectiveReward
+              ? " Objective packages are granted when this objective completes."
+              : " Each package is one choice when the player chooses rewards."}
           </p>
           {packages.map((pack, index) => (
             <details key={pack.id} open className="rounded border p-2">

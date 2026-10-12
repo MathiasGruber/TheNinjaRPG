@@ -2732,6 +2732,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
         form={form}
         formData={formData}
         hideFields={["reward_mastery_stat", "reward_mastery_rank"]}
+        isObjectiveReward
       />
     </EditContent>
   );
