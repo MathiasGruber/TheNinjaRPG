@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import type { ReactNode } from "react";
 import { type Control, useController } from "react-hook-form";
 import { CommentOnConversation } from "@/layout/Comment";
+import * as Confirm from "@/layout/Confirm";
 import type { PostProps } from "@/layout/Post";
 import type { MutateCommentSchema } from "@/validators/comments";
 import { ensureDom } from "../setup-dom.mjs";
@@ -31,14 +32,18 @@ vi.mock("@/layout/RichInput", () => ({
 }));
 vi.mock("@/layout/ModerationSummary", () => ({ ModerationSummary: () => null }));
 vi.mock("@/layout/Report", () => ({ default: () => null }));
-vi.mock("@/layout/Confirm", () => ({ default: () => null }));
 vi.mock("@/layout/EmojiPicker", () => ({ default: () => null }));
 
+let confirmSpy: { mockRestore: () => void };
 beforeEach(() => {
   ensureDom();
   vi.clearAllMocks();
+  confirmSpy = vi.spyOn(Confirm, "default").mockImplementation(() => null);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  confirmSpy.mockRestore();
+});
 
 const comment = {
   id: "message", conversationId: "conversation", content: "Saved message",

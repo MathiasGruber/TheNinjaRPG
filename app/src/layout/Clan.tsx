@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  AlertTriangle,
   ArrowBigDownDash,
   ArrowBigUpDash,
   CirclePlay,
@@ -77,11 +78,12 @@ import {
   CLAN_TRAINING_BOOST_PER_LEVEL_COST,
   ELDER_NOMINATION_CUTOFF_DAY,
   ELDER_NOMINATION_DEADLINE_DAY,
-  FACTION_MIN_MEMBERS_FOR_TOWN,
-  FACTION_MIN_POINTS_FOR_TOWN,
+  FACTION_MIN_MEMBERS_FOR_STRONGHOLD,
+  FACTION_REPUTATION_TREASURY_LIMIT,
   HIDEOUT_COST,
-  HIDEOUT_TOWN_UPGRADE,
-  TOWN_MONTHLY_MAINTENANCE,
+  STRONGHOLD_MEMBER_GRACE_HOURS,
+  STRONGHOLD_MONTHLY_MAINTENANCE,
+  STRONGHOLD_REESTABLISH_COST,
 } from "@/drizzle/constants";
 import type { UserNindo, UserRank } from "@/drizzle/schema";
 import { useLocalStorage } from "@/hooks/localstorage";
@@ -1194,7 +1196,8 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   const [isColorModalOpen, setIsColorModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDonateModalOpen, setIsDonateModalOpen] = useState(false);
-  const [isTownUpgradeModalOpen, setIsTownUpgradeModalOpen] = useState(false);
+  const [isStrongholdUpgradeModalOpen, setIsStrongholdUpgradeModalOpen] =
+    useState(false);
   const [isDonationSubmitting, setIsDonationSubmitting] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isResignModalOpen, setIsResignModalOpen] = useState(false);
@@ -1203,12 +1206,12 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
   const [hasResignedLeadership, setHasResignedLeadership] = useState(false);
   const [hasInstantlyTakenLeadership, setHasInstantlyTakenLeadership] = useState(false);
   const [hasClearedLeadership, setHasClearedLeadership] = useState(false);
-  const [hasUpgradedToTown, setHasUpgradedToTown] = useState(false);
+  const [hasUpgradedToStronghold, setHasUpgradedToStronghold] = useState(false);
   const [isUploadingClanImage, setIsUploadingClanImage] = useState(false);
   const colorSubmissionInFlight = useRef(false);
   const editSubmissionInFlight = useRef(false);
   const donationSubmissionInFlight = useRef(false);
-  const townUpgradeSubmissionInFlight = useRef(false);
+  const strongholdUpgradeSubmissionInFlight = useRef(false);
   const leaveSubmissionInFlight = useRef(false);
   const resignSubmissionInFlight = useRef(false);
   const instantJoinSubmissionInFlight = useRef(false);
@@ -1393,28 +1396,30 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
     }
   };
 
-  const { mutateAsync: upgradeHideoutToTown, isPending: isUpgradingToTown } =
-    api.clan.upgradeHideoutToTown.useMutation({
-      onSuccess: (data) => {
-        showMutationToast(data);
-      },
-      onError: (error) => {
-        showMutationToast({ success: false, message: error.message });
-      },
-    });
+  const {
+    mutateAsync: upgradeHideoutToStronghold,
+    isPending: isUpgradingToStronghold,
+  } = api.clan.upgradeHideoutToStronghold.useMutation({
+    onSuccess: (data) => {
+      showMutationToast(data);
+    },
+    onError: (error) => {
+      showMutationToast({ success: false, message: error.message });
+    },
+  });
 
-  const onUpgradeHideoutToTown = async () => {
-    if (townUpgradeSubmissionInFlight.current || hasUpgradedToTown) return;
+  const onUpgradeHideoutToStronghold = async () => {
+    if (strongholdUpgradeSubmissionInFlight.current || hasUpgradedToStronghold) return;
 
-    townUpgradeSubmissionInFlight.current = true;
+    strongholdUpgradeSubmissionInFlight.current = true;
     try {
-      const data = await upgradeHideoutToTown({ clanId });
+      const data = await upgradeHideoutToStronghold({ clanId });
       if (!data.success) return;
 
       // The one-time upgrade and its costs are committed. Remove the stale action
       // immediately; dependent authoritative refreshes must not recreate it.
-      setHasUpgradedToTown(true);
-      setIsTownUpgradeModalOpen(false);
+      setHasUpgradedToStronghold(true);
+      setIsStrongholdUpgradeModalOpen(false);
       void Promise.allSettled([
         utils.clan.get.invalidate(),
         utils.profile.getUser.invalidate(),
@@ -1424,7 +1429,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
       // The mutation callback provides the user-facing error. Keep the complete
       // confirmation open so a failed request can be safely retried.
     } finally {
-      townUpgradeSubmissionInFlight.current = false;
+      strongholdUpgradeSubmissionInFlight.current = false;
     }
   };
 
@@ -1608,16 +1613,22 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
       hasRequiredRank(member.rank, CLAN_RANK_REQUIREMENT),
   );
   const hadHideout = village?.type !== "OUTLAW" && userData.isOutlaw;
-  const hadTown = village?.type === "TOWN" || village?.wasDowngraded || false;
-  // Can we upgrade from hideout to town?
-  const hasReps = clanData.repTreasury >= HIDEOUT_TOWN_UPGRADE;
-  const hasMembers = clanData.members.length >= FACTION_MIN_MEMBERS_FOR_TOWN;
-  const hasPoints = clanData.points >= FACTION_MIN_POINTS_FOR_TOWN;
-  const canCreateTown =
-    !hasUpgradedToTown && !hadTown && hadHideout && hasReps && hasMembers && hasPoints;
+  const hadStronghold =
+    village?.type === "STRONGHOLD" || village?.wasDowngraded || false;
+  // Can we upgrade from hideout to stronghold?
+  const hasMembers = clanData.members.length >= FACTION_MIN_MEMBERS_FOR_STRONGHOLD;
+  const canCreateStronghold =
+    !hasUpgradedToStronghold &&
+    village?.type === "HIDEOUT" &&
+    !!village.wasDowngraded &&
+    hasMembers &&
+    clanData.bank >= STRONGHOLD_REESTABLISH_COST;
   const donationCapacity = Math.max(
     0,
-    Math.min(userData.reputationPoints, HIDEOUT_TOWN_UPGRADE - clanData.repTreasury),
+    Math.min(
+      userData.reputationPoints,
+      FACTION_REPUTATION_TREASURY_LIMIT - clanData.repTreasury,
+    ),
   );
   const donationAmount = Number(donateReps);
   const isDonationBusy = isDonatingReputation || isDonationSubmitting;
@@ -1892,6 +1903,29 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   "Unknown"
                 )}
               </p>
+              {village?.belowMemberMinimumSince && village.type === "STRONGHOLD" && (
+                <p role="status">
+                  <Popover>
+                    <PopoverTrigger
+                      aria-label="Membership grace period"
+                      className="inline-flex items-center gap-1 whitespace-nowrap text-amber-700 text-sm hover:text-orange-500"
+                    >
+                      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                      Membership grace
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      aria-label="Membership grace period details"
+                      className="max-w-[calc(100vw-2rem)] text-sm"
+                    >
+                      Restore {FACTION_MIN_MEMBERS_FOR_STRONGHOLD} members within{" "}
+                      {STRONGHOLD_MEMBER_GRACE_HOURS} hours of{" "}
+                      {new Date(village.belowMemberMinimumSince).toLocaleString()} to
+                      retain this Stronghold.
+                    </PopoverContent>
+                  </Popover>
+                </p>
+              )}
               <p>
                 Leader:{" "}
                 {clanData.leader ? (
@@ -1907,7 +1941,10 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               </p>
               {userData?.isOutlaw && hadHideout && (
                 <div className="flex flex-row items-center">
-                  <p>Hideout sector: {clanData?.village?.sector}</p>
+                  <p>
+                    {clanData.village?.type === "STRONGHOLD" ? "Stronghold" : "Hideout"}{" "}
+                    sector: {clanData.village?.sector}
+                  </p>
                 </div>
               )}
             </div>
@@ -1965,9 +2002,9 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   </Form>
                 </Confirm>
               </div>
-              {!hadTown && hadHideout && userData?.isOutlaw && (
+              {!hadStronghold && hadHideout && userData?.isOutlaw && (
                 <div className="flex flex-row items-center">
-                  <p>Town Upgrade: {clanData.repTreasury} reps</p>
+                  <p>Faction treasury: {clanData.repTreasury} reps</p>
                   {leaderLike && (
                     <>
                       <Button
@@ -2003,20 +2040,15 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                         onAccept={() => void onDonateReputation()}
                       >
                         <p>
-                          The hideout can be upgraded to a town, enabling the faction to
-                          operate in a manner much similar to one of the great ninja
-                          villages, with the exception of the establishments of new
-                          clans and ANBU. This requires a total of{" "}
-                          {HIDEOUT_TOWN_UPGRADE} reputation points, that the faction has{" "}
-                          {FACTION_MIN_MEMBERS_FOR_TOWN} members, and a total of{" "}
-                          {FACTION_MIN_POINTS_FOR_TOWN} faction points.
+                          Donate reputation points to the faction treasury for faction
+                          customization.
                         </p>
                         <p id="reputation-donation-balance" className="text-sm">
                           You have {userData.reputationPoints.toLocaleString()}{" "}
                           reputation points available. This faction still needs{" "}
                           {Math.max(
                             0,
-                            HIDEOUT_TOWN_UPGRADE - clanData.repTreasury,
+                            FACTION_REPUTATION_TREASURY_LIMIT - clanData.repTreasury,
                           ).toLocaleString()}
                           .
                         </p>
@@ -2043,8 +2075,8 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               )}
             </div>
           </div>
-          {/* Clan boosts - only available for real clans, not outlaw factions/towns */}
-          {!userData?.isOutlaw && (
+          {/* Clans and factions share training, Ryo and crafting speed boosts. */}
+          {
             <div className="mt-4 grid grid-cols-2 gap-x-4">
               <BoostRow
                 label="Training boost"
@@ -2066,30 +2098,34 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                 isPending={isPurchasingBoost}
                 onPurchase={() => purchaseBoost({ clanId, boostType: "ryoBoost" })}
               />
-              <BoostRow
-                label="Regen boost"
-                currentBoost={clanData.regenBoost}
-                baseCost={CLAN_REGEN_BOOST_BASE_COST}
-                perLevelCost={CLAN_REGEN_BOOST_PER_LEVEL_COST}
-                clanBank={clanData.bank}
-                canPurchase={leaderLike}
-                isPending={isPurchasingBoost}
-                onPurchase={() =>
-                  purchaseBoost({ clanId: clanData.id, boostType: "regenBoost" })
-                }
-              />
-              <BoostRow
-                label="Mission reward boost"
-                currentBoost={clanData.missionRewardBoost}
-                baseCost={CLAN_MISSION_BOOST_BASE_COST}
-                perLevelCost={CLAN_MISSION_BOOST_PER_LEVEL_COST}
-                clanBank={clanData.bank}
-                canPurchase={leaderLike}
-                isPending={isPurchasingBoost}
-                onPurchase={() =>
-                  purchaseBoost({ clanId, boostType: "missionRewardBoost" })
-                }
-              />
+              {!userData.isOutlaw && (
+                <BoostRow
+                  label="Regen boost"
+                  currentBoost={clanData.regenBoost}
+                  baseCost={CLAN_REGEN_BOOST_BASE_COST}
+                  perLevelCost={CLAN_REGEN_BOOST_PER_LEVEL_COST}
+                  clanBank={clanData.bank}
+                  canPurchase={leaderLike}
+                  isPending={isPurchasingBoost}
+                  onPurchase={() =>
+                    purchaseBoost({ clanId: clanData.id, boostType: "regenBoost" })
+                  }
+                />
+              )}
+              {!userData.isOutlaw && (
+                <BoostRow
+                  label="Mission reward boost"
+                  currentBoost={clanData.missionRewardBoost}
+                  baseCost={CLAN_MISSION_BOOST_BASE_COST}
+                  perLevelCost={CLAN_MISSION_BOOST_PER_LEVEL_COST}
+                  clanBank={clanData.bank}
+                  canPurchase={leaderLike}
+                  isPending={isPurchasingBoost}
+                  onPurchase={() =>
+                    purchaseBoost({ clanId, boostType: "missionRewardBoost" })
+                  }
+                />
+              )}
               <BoostRow
                 label="Crafting time reduction"
                 currentBoost={clanData.craftingTimeBoost}
@@ -2102,44 +2138,50 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                   purchaseBoost({ clanId, boostType: "craftingTimeBoost" })
                 }
               />
-              <BoostRow
-                label="Crafting exp boost"
-                currentBoost={clanData.craftingExpBoost}
-                baseCost={CLAN_CRAFTING_EXP_BOOST_BASE_COST}
-                perLevelCost={CLAN_CRAFTING_EXP_BOOST_PER_LEVEL_COST}
-                clanBank={clanData.bank}
-                canPurchase={leaderLike}
-                isPending={isPurchasingBoost}
-                onPurchase={() =>
-                  purchaseBoost({ clanId, boostType: "craftingExpBoost" })
-                }
-              />
-              <BoostRow
-                label="Hunter exp boost"
-                currentBoost={clanData.hunterExpBoost}
-                baseCost={CLAN_HUNTER_EXP_BOOST_BASE_COST}
-                perLevelCost={CLAN_HUNTER_EXP_BOOST_PER_LEVEL_COST}
-                clanBank={clanData.bank}
-                canPurchase={leaderLike}
-                isPending={isPurchasingBoost}
-                onPurchase={() =>
-                  purchaseBoost({ clanId, boostType: "hunterExpBoost" })
-                }
-              />
-              <BoostRow
-                label="Gatherer exp boost"
-                currentBoost={clanData.gathererExpBoost}
-                baseCost={CLAN_GATHERER_EXP_BOOST_BASE_COST}
-                perLevelCost={CLAN_GATHERER_EXP_BOOST_PER_LEVEL_COST}
-                clanBank={clanData.bank}
-                canPurchase={leaderLike}
-                isPending={isPurchasingBoost}
-                onPurchase={() =>
-                  purchaseBoost({ clanId, boostType: "gathererExpBoost" })
-                }
-              />
+              {!userData.isOutlaw && (
+                <BoostRow
+                  label="Crafting exp boost"
+                  currentBoost={clanData.craftingExpBoost}
+                  baseCost={CLAN_CRAFTING_EXP_BOOST_BASE_COST}
+                  perLevelCost={CLAN_CRAFTING_EXP_BOOST_PER_LEVEL_COST}
+                  clanBank={clanData.bank}
+                  canPurchase={leaderLike}
+                  isPending={isPurchasingBoost}
+                  onPurchase={() =>
+                    purchaseBoost({ clanId, boostType: "craftingExpBoost" })
+                  }
+                />
+              )}
+              {!userData.isOutlaw && (
+                <BoostRow
+                  label="Hunter exp boost"
+                  currentBoost={clanData.hunterExpBoost}
+                  baseCost={CLAN_HUNTER_EXP_BOOST_BASE_COST}
+                  perLevelCost={CLAN_HUNTER_EXP_BOOST_PER_LEVEL_COST}
+                  clanBank={clanData.bank}
+                  canPurchase={leaderLike}
+                  isPending={isPurchasingBoost}
+                  onPurchase={() =>
+                    purchaseBoost({ clanId, boostType: "hunterExpBoost" })
+                  }
+                />
+              )}
+              {!userData.isOutlaw && (
+                <BoostRow
+                  label="Gatherer exp boost"
+                  currentBoost={clanData.gathererExpBoost}
+                  baseCost={CLAN_GATHERER_EXP_BOOST_BASE_COST}
+                  perLevelCost={CLAN_GATHERER_EXP_BOOST_PER_LEVEL_COST}
+                  clanBank={clanData.bank}
+                  canPurchase={leaderLike}
+                  isPending={isPurchasingBoost}
+                  onPurchase={() =>
+                    purchaseBoost({ clanId, boostType: "gathererExpBoost" })
+                  }
+                />
+              )}
             </div>
-          )}
+          }
           {/* Elder Nomination - only for non-outlaw clans */}
           {!userData?.isOutlaw &&
             leaderLike &&
@@ -2227,58 +2269,50 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                 </div>
               );
             })()}
-          {leaderLike && canCreateTown && (
+          {leaderLike && canCreateStronghold && (
             <>
               <Button
                 id="upgradeHideout"
                 className="my-2 w-full"
-                disabled={isUpgradingToTown}
-                aria-busy={isUpgradingToTown}
-                aria-label={isUpgradingToTown ? "Upgrading" : undefined}
-                onClick={() => setIsTownUpgradeModalOpen(true)}
+                disabled={isUpgradingToStronghold}
+                aria-busy={isUpgradingToStronghold}
+                aria-label={isUpgradingToStronghold ? "Upgrading" : undefined}
+                onClick={() => setIsStrongholdUpgradeModalOpen(true)}
               >
-                {isUpgradingToTown ? (
+                {isUpgradingToStronghold ? (
                   <Loader2 className="mr-2 h-6 w-6 animate-spin" aria-hidden />
                 ) : (
                   <Star className="mr-2 h-6 w-6" aria-hidden />
                 )}
-                {isUpgradingToTown ? "Upgrading" : "Upgrade to Town"}
+                {isUpgradingToStronghold ? "Upgrading" : "Restore Stronghold"}
               </Button>
               <Modal
-                id="upgrade-hideout-to-town"
-                title="Upgrade Hideout to Town"
-                proceed_label="Upgrade to Town"
+                id="upgrade-hideout-to-stronghold"
+                title="Restore Stronghold"
+                proceed_label="Restore Stronghold"
                 proceed_loading_label="Upgrading"
                 confirmClassName="bg-amber-600 text-white hover:bg-amber-700"
-                isOpen={isTownUpgradeModalOpen}
-                setIsOpen={setIsTownUpgradeModalOpen}
-                isLoading={isUpgradingToTown}
+                isOpen={isStrongholdUpgradeModalOpen}
+                setIsOpen={setIsStrongholdUpgradeModalOpen}
+                isLoading={isUpgradingToStronghold}
                 keepOpenOnAccept
-                onAccept={() => void onUpgradeHideoutToTown()}
+                onAccept={() => void onUpgradeHideoutToStronghold()}
               >
                 <div className="space-y-3">
                   <p>
-                    This one-time upgrade turns the faction hideout into a town and
-                    cannot be undone from here.
+                    Restore this former Stronghold for{" "}
+                    {STRONGHOLD_REESTABLISH_COST.toLocaleString()} Ryo from the faction
+                    bank.
                   </p>
-                  <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
-                    <p className="font-semibold">The upgrade immediately consumes:</p>
-                    <ul className="mt-1 list-disc space-y-1 pl-5">
-                      <li>
-                        {HIDEOUT_TOWN_UPGRADE.toLocaleString()} faction reputation
-                        points
-                      </li>
-                      <li>
-                        {FACTION_MIN_POINTS_FOR_TOWN.toLocaleString()} faction points
-                      </li>
-                    </ul>
-                  </div>
-                  <p className="text-muted-foreground text-sm">
-                    Requirements: at least {FACTION_MIN_MEMBERS_FOR_TOWN} faction
-                    members and {FACTION_MIN_POINTS_FOR_TOWN.toLocaleString()} faction
-                    points. Towns also require a monthly maintenance payment of{" "}
-                    {TOWN_MONTHLY_MAINTENANCE.toLocaleString()} faction points or may be
-                    downgraded.
+                  <p>
+                    Requires at least {FACTION_MIN_MEMBERS_FOR_STRONGHOLD} members. If
+                    membership falls below this minimum for{" "}
+                    {STRONGHOLD_MEMBER_GRACE_HOURS} hours, the Stronghold becomes a
+                    Hideout. Returning to the minimum resets the grace period.
+                  </p>
+                  <p>
+                    Monthly maintenance costs{" "}
+                    {STRONGHOLD_MONTHLY_MAINTENANCE.toLocaleString()} faction points.
                   </p>
                 </div>
               </Modal>
@@ -2461,7 +2495,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
                       <li>replaces the current leader with you</li>
                       <li>removes every current co-leader from their position</li>
                       {(clanData.village.type === "HIDEOUT" ||
-                        clanData.village.type === "TOWN") && (
+                        clanData.village.type === "STRONGHOLD") && (
                         <li>
                           makes you the settlement leader of {clanData.village.name}
                         </li>
@@ -3099,7 +3133,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
                   </li>
                 )}
                 {(clanData.village.type === "HIDEOUT" ||
-                  clanData.village.type === "TOWN") && (
+                  clanData.village.type === "STRONGHOLD") && (
                   <li>
                     Settlement leadership of {clanData.village.name} also transfers to{" "}
                     {promoteTarget.username}.
@@ -3342,7 +3376,10 @@ const BoostRow: React.FC<BoostRowProps> = ({
           title={`Purchase ${label}`}
           proceed_label={!isMaxed && canAfford ? "Purchase" : "Cannot purchase"}
           button={
-            <ArrowBigUpDash className="ml-2 h-6 w-6 hover:cursor-pointer hover:text-orange-500" />
+            <>
+              <span className="sr-only">Purchase {label}</span>
+              <ArrowBigUpDash className="ml-2 h-6 w-6 hover:cursor-pointer hover:text-orange-500" />
+            </>
           }
           disabled={isPending}
           onAccept={onPurchase}
@@ -3359,7 +3396,7 @@ const BoostRow: React.FC<BoostRowProps> = ({
                 <span className={canAfford ? "text-green-600" : "text-red-600"}>
                   {cost.toLocaleString()} Ryo
                 </span>{" "}
-                from clan bank.
+                from the bank.
               </p>
               <p className="mt-2">
                 Current bank balance: {clanBank.toLocaleString()} Ryo

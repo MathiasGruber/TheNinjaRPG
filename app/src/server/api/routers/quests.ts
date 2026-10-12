@@ -151,7 +151,7 @@ import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
-import { extendWarParticipantSql } from "@/server/utils/war";
+import { extendWarParticipantSql, warRaidCombatGuard } from "@/server/utils/war";
 import { chunkArray, getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
 import {
@@ -2050,7 +2050,13 @@ export const updateRewards = async (info: {
                 .set({
                   defenderWarHealth: sql`GREATEST(defenderWarHealth - ${rewards.reward_war_damage}, 0)`,
                 })
-                .where(and(eq(war.id, activeWar.id), isNull(war.endedAt))),
+                .where(
+                  and(
+                    eq(war.id, activeWar.id),
+                    isNull(war.endedAt),
+                    warRaidCombatGuard(),
+                  ),
+                ),
             );
           } else {
             // Defender damages attacker's war health
@@ -2060,7 +2066,13 @@ export const updateRewards = async (info: {
                 .set({
                   attackerWarHealth: sql`GREATEST(attackerWarHealth - ${rewards.reward_war_damage}, 0)`,
                 })
-                .where(and(eq(war.id, activeWar.id), isNull(war.endedAt))),
+                .where(
+                  and(
+                    eq(war.id, activeWar.id),
+                    isNull(war.endedAt),
+                    warRaidCombatGuard(),
+                  ),
+                ),
             );
           }
         }
@@ -2075,7 +2087,13 @@ export const updateRewards = async (info: {
                 .set({
                   attackerWarHealth: sql`LEAST(attackerWarHealth + ${rewards.reward_war_healing}, attackerWarHealthMax)`,
                 })
-                .where(and(eq(war.id, activeWar.id), isNull(war.endedAt))),
+                .where(
+                  and(
+                    eq(war.id, activeWar.id),
+                    isNull(war.endedAt),
+                    warRaidCombatGuard(),
+                  ),
+                ),
             );
           } else {
             // Defender heals defender's war health
@@ -2085,7 +2103,13 @@ export const updateRewards = async (info: {
                 .set({
                   defenderWarHealth: sql`LEAST(defenderWarHealth + ${rewards.reward_war_healing}, defenderWarHealthMax)`,
                 })
-                .where(and(eq(war.id, activeWar.id), isNull(war.endedAt))),
+                .where(
+                  and(
+                    eq(war.id, activeWar.id),
+                    isNull(war.endedAt),
+                    warRaidCombatGuard(),
+                  ),
+                ),
             );
           }
         }

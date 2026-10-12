@@ -93,7 +93,7 @@ import {
   applyVillageMissionShrineDamage,
   recordVillageMissionProgress,
 } from "@/server/utils/villageMission";
-import { extendWarParticipantSql } from "@/server/utils/war";
+import { extendWarParticipantSql, warRaidCombatGuard } from "@/server/utils/war";
 import { periodStart } from "@/utils/time";
 
 type DataBattleAction = {
@@ -658,7 +658,7 @@ export const updateClanLeaders = async (
       .where(
         and(
           eq(village.id, user.villageId ?? VILLAGE_SYNDICATE_ID),
-          or(eq(village.type, "HIDEOUT"), eq(village.type, "TOWN")),
+          or(eq(village.type, "HIDEOUT"), eq(village.type, "STRONGHOLD")),
         ),
       ),
   ]);
@@ -783,7 +783,9 @@ export const updateWars = async (
                 .set({
                   defenderShrineHp: sql`GREATEST(LEAST(defenderShrineHp + ${result.shrineChangeHp}, defenderShrineMaxHp), 0)`,
                 })
-                .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+                .where(
+                  and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
+                );
             }
           }),
         );
@@ -867,6 +869,7 @@ export const updateWars = async (
                     and(
                       eq(war.id, w.id),
                       isNull(war.endedAt),
+                      warRaidCombatGuard(),
                       sql`${sql.raw(statusCol)} = 'CAPTURED'`,
                       sql`${sql.raw(hpCol)} + ${change} > ${sql.raw(maxHpCol)} * ${WAR_RECAPTURE_THRESHOLD}`,
                     ),
@@ -880,7 +883,9 @@ export const updateWars = async (
                     .set({
                       [warHealthCol]: sql`LEAST(${sql.raw(warHealthCol)} + ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL}, ${sql.raw(warHealthMaxCol)})`,
                     })
-                    .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+                    .where(
+                      and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
+                    );
                   result.notifications.push(
                     `${villageName}'s shrine recaptured! ${villageName} gained ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL} war HP!`,
                   );
@@ -892,7 +897,9 @@ export const updateWars = async (
                     .set({
                       [hpCol]: sql`LEAST(${sql.raw(hpCol)} + ${change}, ${sql.raw(maxHpCol)})`,
                     })
-                    .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+                    .where(
+                      and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
+                    );
                 }
               }
             };
@@ -923,7 +930,7 @@ export const updateWars = async (
               .set({
                 attackerWarHealth: sql`GREATEST(LEAST(attackerWarHealth + ${result.warHealthChange}, attackerWarHealthMax), 0)`,
               })
-              .where(and(eq(war.id, w.id), isNull(war.endedAt))),
+              .where(and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard())),
           );
         } else {
           otherPromises.push(
@@ -932,7 +939,7 @@ export const updateWars = async (
               .set({
                 defenderWarHealth: sql`GREATEST(LEAST(defenderWarHealth + ${result.warHealthChange}, defenderWarHealthMax), 0)`,
               })
-              .where(and(eq(war.id, w.id), isNull(war.endedAt))),
+              .where(and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard())),
           );
         }
       }
@@ -1000,6 +1007,7 @@ export const updateWars = async (
                   and(
                     eq(war.id, w.id),
                     isNull(war.endedAt),
+                    warRaidCombatGuard(),
                     sql`${sql.raw(statusCol)} = 'CAPTURED'`,
                     sql`${sql.raw(hpCol)} + ${change} > ${sql.raw(maxHpCol)} * ${WAR_RECAPTURE_THRESHOLD}`,
                   ),
@@ -1012,7 +1020,9 @@ export const updateWars = async (
                   .set({
                     [warHealthCol]: sql`LEAST(${sql.raw(warHealthCol)} + ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL}, ${sql.raw(warHealthMaxCol)})`,
                   })
-                  .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+                  .where(
+                    and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
+                  );
                 result.notifications.push(
                   `${villageName}'s shrine recaptured! ${villageName} gained ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL} war HP!`,
                 );
@@ -1023,7 +1033,9 @@ export const updateWars = async (
                   .set({
                     [hpCol]: sql`LEAST(${sql.raw(hpCol)} + ${change}, ${sql.raw(maxHpCol)})`,
                   })
-                  .where(and(eq(war.id, w.id), isNull(war.endedAt)));
+                  .where(
+                    and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
+                  );
               }
             }
           };

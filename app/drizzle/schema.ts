@@ -3703,6 +3703,8 @@ export const village = mysqlTable(
     lastMaintenancePaidAt: datetime("lastMaintenancePaidAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    belowMemberMinimumSince: datetime("belowMemberMinimumSince", { mode: "date", fsp: 3 }),
+    raidRetryCooldowns: json("raidRetryCooldowns").$type<Record<string, string>>().default({}).notNull(),
     wasDowngraded: boolean("wasDowngraded").default(false).notNull(),
     openForChallenges: boolean("openForChallenges").default(true).notNull(),
     openForChallengesAt: datetime("openForChallengesAt", {
@@ -3793,6 +3795,8 @@ export const villageStructure = mysqlTable(
     structureDiscountPerLvl: tinyint("structureDiscountPerLvl").default(0).notNull(),
     trainBoostPerLvl: tinyint("trainBoostPerLvl").default(0).notNull(),
     villageDefencePerLvl: tinyint("villageDefencePerLvl").default(0).notNull(),
+    raidBoostExpiresAt: datetime("raidBoostExpiresAt", { mode: "date", fsp: 3 }),
+    raidProtectedUntil: datetime("raidProtectedUntil", { mode: "date", fsp: 3 }),
     temporaryLevelBonus: int("temporaryLevelBonus").default(0).notNull(),
     temporaryLevelBonusExpiresAt: datetime("temporaryLevelBonusExpiresAt", {
       mode: "date",

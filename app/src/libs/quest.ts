@@ -389,7 +389,7 @@ export const getReward = (
     const villageMissionBoost =
       getStrucBoost("missionRewardPerLvl", user.village?.structures) / 100;
     // Get clan mission reward boost (percentage as decimal)
-    // Only apply for real clans, not outlaw factions/towns
+    // Only apply for real clans, not outlaw factions/strongholds
     const clanMissionBoost = user.isOutlaw
       ? 0
       : (user.clan?.missionRewardBoost ?? 0) / 100;
@@ -544,7 +544,7 @@ export const getReward = (
       target.reward_seichi_silver = Math.floor(target.reward_seichi_silver * factor);
 
       // Apply clan experience boosts (percentages stored in clan object)
-      // Only apply for real clans, not outlaw factions/towns
+      // Only apply for real clans, not outlaw factions/strongholds
       const clanHunterExpBoost = user.isOutlaw
         ? 0
         : (user.clan?.hunterExpBoost ?? 0) / 100;

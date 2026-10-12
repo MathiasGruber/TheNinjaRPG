@@ -584,7 +584,13 @@ const fetchSectorWindowEntries = async (client: DrizzleClient, sectors: number[]
       where: (table, { and, inArray }) =>
         and(
           inArray(table.sector, sectors),
-          inArray(table.type, ["VILLAGE", "OUTLAW", "TOWN", "HIDEOUT", "SAFEZONE"]),
+          inArray(table.type, [
+            "VILLAGE",
+            "OUTLAW",
+            "STRONGHOLD",
+            "HIDEOUT",
+            "SAFEZONE",
+          ]),
         ),
       with: { structures: true },
     }),

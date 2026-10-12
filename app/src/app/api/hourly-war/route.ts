@@ -31,7 +31,9 @@ import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { fetchActiveWars } from "@/server/api/routers/war";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
+import { syncStrongholdMembership } from "@/server/utils/faction";
 import {
+  applyRaidHealthDecay,
   handleWarEnd,
   resumePendingWarSettlements,
   startDeclaredWar,
@@ -53,6 +55,12 @@ export async function GET(request: Request) {
 
   try {
     const now = new Date();
+    await syncStrongholdMembership(drizzleDB);
+    // Raid deadlines and daily HP drain are checked hourly, independently of village token decay.
+    const raids = (await fetchActiveWars(drizzleDB)).filter(
+      (w) => w.type === "WAR_RAID",
+    );
+    await Promise.all(raids.map((raid) => applyRaidHealthDecay(drizzleDB, raid, now)));
 
     // Check if daily decay should run (separate from hourly tasks)
     const dailyDecayTimer = await getGameSetting(drizzleDB, DAILY_DECAY_TIMER);
@@ -72,10 +80,8 @@ export async function GET(request: Request) {
     if (shouldRunDailyDecay) {
       // fetchActiveWars is expensive (loads village structures); only fetch when needed
       const activeWars = await fetchActiveWars(drizzleDB);
-      // Filter to VILLAGE_WAR and WAR_RAID for decay (include Outlaws/Factions)
-      const decayWars = activeWars.filter((w) =>
-        ["VILLAGE_WAR", "WAR_RAID"].includes(w.type),
-      );
+      // Ordinary village wars drain treasury tokens; raid HP decay runs separately.
+      const decayWars = activeWars.filter((w) => w.type === "VILLAGE_WAR");
 
       for (const activeWar of decayWars) {
         if (!activeWar.attackerVillage || !activeWar.defenderVillage) {

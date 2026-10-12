@@ -2,6 +2,7 @@ import type { SHRINE_BOOST_TYPE, StructureRoute } from "@/drizzle/constants";
 import {
   BUILDING_UPGRADE_BASE_COST,
   BUILDING_UPGRADE_PER_LEVEL_COST,
+  FACTION_RAID_BOOST_PERCENT,
   FED_GOLD_BANK_INTEREST,
   FED_NORMAL_BANK_INTEREST,
   FED_SILVER_BANK_INTEREST,
@@ -133,8 +134,12 @@ export const getStrucBoost = (
   structures?: VillageStructure[],
 ) => {
   return (
-    structures?.reduce((a, b) => a + b[attribute] * getEffectiveStructureLevel(b), 0) ??
-    0
+    structures?.reduce(
+      (a, b) =>
+        a +
+        b[attribute] * getEffectiveStructureLevel(b) * getRaidStructureMultiplier(b),
+      0,
+    ) ?? 0
   );
 };
 
@@ -221,3 +226,12 @@ export const calcStructureUpgrade = (
   // Return result & infor on calculation
   return { cost, tax, discount, total: subTotal - discount };
 };
+
+/** Raid bonuses multiply each benefit supplied by the matching structure. */
+export const getRaidStructureMultiplier = (
+  structure: VillageStructure,
+  now = new Date(),
+) =>
+  structure.raidBoostExpiresAt && new Date(structure.raidBoostExpiresAt) > now
+    ? 1 + FACTION_RAID_BOOST_PERCENT / 100
+    : 1;

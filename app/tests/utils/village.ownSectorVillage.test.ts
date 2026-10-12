@@ -39,7 +39,7 @@ describe("getOwnSectorVillage", () => {
   });
 
   it("returns undefined when the village is not of type VILLAGE", () => {
-    for (const type of ["OUTLAW", "TOWN", "HIDEOUT", "SAFEZONE"]) {
+    for (const type of ["OUTLAW", "STRONGHOLD", "HIDEOUT", "SAFEZONE"]) {
       expect(getOwnSectorVillage(makeUser({}, { type }))).toBeUndefined();
     }
   });

@@ -469,7 +469,7 @@ const ElderHall: React.FC<{
                     </p>
                   )}
                 {isKage && (
-                  <div className="mt-2 border-t border-red-500/20 pt-2">
+                  <div className="mt-2 border-red-500/20 border-t pt-2">
                     <Button
                       size="sm"
                       variant="outline"
@@ -1255,7 +1255,10 @@ const AllianceList: React.FC<{
       if (typeFilter === "VILLAGE" && !["VILLAGE", "OUTLAW"].includes(entity.type)) {
         return false;
       }
-      if (typeFilter === "FACTION" && !["HIDEOUT", "TOWN"].includes(entity.type)) {
+      if (
+        typeFilter === "FACTION" &&
+        !["HIDEOUT", "STRONGHOLD"].includes(entity.type)
+      ) {
         return false;
       }
 

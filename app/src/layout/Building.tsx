@@ -9,7 +9,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { CLANS_PER_STRUCTURE_LEVEL } from "@/drizzle/constants";
+import {
+  CLANS_PER_STRUCTURE_LEVEL,
+  FACTION_RAID_BOOST_PERCENT,
+} from "@/drizzle/constants";
 import type { Village, VillageStructure } from "@/drizzle/schema";
 import Confirm from "@/layout/Confirm";
 import Image from "@/layout/Image";
@@ -23,6 +26,7 @@ import {
   calcBankInterest,
   calcStructureUpgrade,
   getEffectiveStructureLevel,
+  getRaidStructureMultiplier,
 } from "@/utils/village";
 
 interface BuildingProps {
@@ -51,6 +55,12 @@ const Building: React.FC<BuildingProps> = (props) => {
       <p className="flex min-h-8 items-center justify-center font-bold leading-tight">
         {structure.name}
       </p>
+      {getRaidStructureMultiplier(structure) > 1 && (
+        <p className="text-green-500">
+          Raid bonus: +{FACTION_RAID_BOOST_PERCENT}% benefits until{" "}
+          {new Date(structure.raidBoostExpiresAt!).toLocaleString()}
+        </p>
+      )}
       <div className="flex min-h-7 flex-wrap items-center justify-center gap-1">
         <p className="whitespace-nowrap">
           Lvl. {structure.level}
@@ -328,7 +338,7 @@ const UpgradeButton = ({
             if (bonuses.length === 0) return null;
             return (
               <div className="mt-2">
-                <p className="text-sm font-semibold">Next level provides:</p>
+                <p className="font-semibold text-sm">Next level provides:</p>
                 <ul className="mt-1 list-inside list-disc text-sm">
                   {bonuses.map((b) => {
                     const perLvl = structure[b.key] as number;
@@ -360,7 +370,6 @@ const UpgradeButton = ({
 export const StructureRewardEntries = (structure: VillageStructure) => {
   const baseLevel = structure.level;
   const effectiveLevel = getEffectiveStructureLevel(structure);
-  const bonusLevel = effectiveLevel - baseLevel;
 
   const msgs: string[] = [];
   if (effectiveLevel > 0) {
@@ -368,13 +377,15 @@ export const StructureRewardEntries = (structure: VillageStructure) => {
       const perLvl = (structure[bonus.key] as number) ?? 0;
       if (perLvl <= 0) continue;
       const baseValue = computeBonusValue(bonus, perLvl, baseLevel);
-      const effectiveValue = computeBonusValue(bonus, perLvl, effectiveLevel);
+      const effectiveValue =
+        computeBonusValue(bonus, perLvl, effectiveLevel) *
+        getRaidStructureMultiplier(structure);
       const bonusValue = effectiveValue - baseValue;
       const suffix = bonus.unit;
       let valueText = `${formatNumber(bonus, baseValue)}${suffix}`;
-      if (bonusLevel > 0 && bonusValue !== 0) {
+      if (bonusValue > 0) {
         valueText += ` (+${formatNumber(bonus, Math.abs(bonusValue))}${suffix})`;
-      } else if (bonusLevel < 0 && bonusValue !== 0) {
+      } else if (bonusValue < 0) {
         valueText += ` (−${formatNumber(bonus, Math.abs(bonusValue))}${suffix})`;
       }
       msgs.push(`${bonus.label}: +${valueText}`);

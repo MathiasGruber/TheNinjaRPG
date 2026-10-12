@@ -1,7 +1,7 @@
 
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { HIDEOUT_TOWN_UPGRADE } from "@/drizzle/constants";
+import { FACTION_REPUTATION_TREASURY_LIMIT } from "@/drizzle/constants";
 import { actionLog, clan, userData, userQueue } from "@/drizzle/schema";
 import { clanRouter } from "@/server/api/routers/clan";
 import { insertUsers } from "../../setup/factories";
@@ -34,7 +34,7 @@ describe("clan committed cache responses", () => {
           .fn()
           .mockResolvedValueOnce({
             id: "clan-cache-clan",
-            repTreasury: HIDEOUT_TOWN_UPGRADE - 10,
+            repTreasury: FACTION_REPUTATION_TREASURY_LIMIT - 10,
           })
           .mockResolvedValueOnce(clanUpdate),
       },
@@ -74,7 +74,7 @@ describe("clan committed cache responses", () => {
   it("returns the capped confirmed donation without reading the actor balance", async () => {
     const database = databaseFor(
       { reputationPoints: 85 },
-      { id: "clan-cache-clan", repTreasury: HIDEOUT_TOWN_UPGRADE },
+      { id: "clan-cache-clan", repTreasury: FACTION_REPUTATION_TREASURY_LIMIT },
     );
     const caller = callerForDatabase(clanRouter, "clan-cache-user", database as never);
     const result = await caller.clanDonate({
@@ -126,7 +126,7 @@ describe("clan missing bank rejection", () => {
 describe("clan zero-cost cache responses", () => {
   for (const [endpoint, requested, treasury] of [
     ["clanDonate", 0, 0],
-    ["clanDonate", 50, HIDEOUT_TOWN_UPGRADE],
+    ["clanDonate", 50, FACTION_REPUTATION_TREASURY_LIMIT],
     ["toBank", 0, 0],
   ] as const) {
     it(`${endpoint} skips reads and writes for ${requested} requested with treasury ${treasury}`, async () => {
@@ -189,7 +189,7 @@ describeWithDatabase("clan mutation cache balances", () => {
       leaderOrderId: "clan-cache-order",
       villageId: "clan-cache-village",
       bank: 500,
-      repTreasury: HIDEOUT_TOWN_UPGRADE - 10,
+      repTreasury: FACTION_REPUTATION_TREASURY_LIMIT - 10,
     });
   });
 

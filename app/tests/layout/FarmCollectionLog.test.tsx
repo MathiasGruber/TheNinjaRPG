@@ -1,8 +1,10 @@
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
-vi.mock("@/components/ui/dialog", () => ({
+import * as dialogComponents from "@/components/ui/dialog";
+
+const dialogMocks = {
   Dialog: ({ open, children }: { open?: boolean; children: ReactNode }) =>
     open ? children : null,
   DialogContent: ({
@@ -33,7 +35,17 @@ vi.mock("@/components/ui/dialog", () => ({
       {children}
     </h2>
   ),
-}));
+};
+
+const dialogSpies: { mockRestore: () => void }[] = [];
+beforeEach(() => {
+  for (const [name, implementation] of Object.entries(dialogMocks)) {
+    dialogSpies.push(vi.spyOn(dialogComponents, name as keyof typeof dialogMocks).mockImplementation(implementation as never));
+  }
+});
+afterEach(() => {
+  for (const spy of dialogSpies.splice(0)) spy.mockRestore();
+});
 
 vi.mock("@/layout/Image", () => ({
   default: (props: ComponentProps<"img">) => <img {...props} />,

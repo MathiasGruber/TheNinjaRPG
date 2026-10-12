@@ -2,6 +2,7 @@ import { ensureDom } from "../setup-dom.mjs";
 const { cleanup, fireEvent, render } = await import("@testing-library/react");
 import type { HTMLAttributes, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import * as dialogComponents from "@/components/ui/dialog";
 import Modal, {
   modalScrollableBodyClassName,
   modalViewportClassName,
@@ -9,7 +10,7 @@ import Modal, {
 import { NumberInput } from "@/components/ui/number-input";
 import AutoAttackModal from "@/layout/AutoAttackModal";
 
-vi.mock("@/components/ui/dialog", () => ({
+const dialogMocks = {
   Dialog: ({ open, children }: { open?: boolean; children: ReactNode }) =>
     open ? children : null,
   DialogContent: ({
@@ -40,7 +41,17 @@ vi.mock("@/components/ui/dialog", () => ({
       {children}
     </h2>
   ),
-}));
+};
+
+const dialogSpies: { mockRestore: () => void }[] = [];
+beforeEach(() => {
+  for (const [name, implementation] of Object.entries(dialogMocks)) {
+    dialogSpies.push(vi.spyOn(dialogComponents, name as keyof typeof dialogMocks).mockImplementation(implementation as never));
+  }
+});
+afterEach(() => {
+  for (const spy of dialogSpies.splice(0)) spy.mockRestore();
+});
 
 describe("Modal", () => {
   beforeEach(ensureDom);

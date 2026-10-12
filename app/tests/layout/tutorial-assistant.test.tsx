@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import * as dialogComponents from "@/components/ui/dialog";
 import TutorialAssistant from "@/layout/TutorialAssistant";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import { type UserPatch, updateUserCache } from "@/utils/userCache";
@@ -47,15 +48,17 @@ vi.mock("@/layout/Logbook", () => ({ useCheckRewards: () => ({ checkRewards: vi.
 vi.mock("@/layout/Image", () => ({ default: () => null }));
 vi.mock("@/layout/Objective", () => ({ Objective: () => null }));
 vi.mock("@/components/ui/sortable-list", () => ({ SortableList: () => null }));
-vi.mock("@/components/ui/dialog", () => {
-  const Content = ({ children }: { children: ReactNode }) => <div>{children}</div>;
-  return { Dialog: ({ children, open }: { children: ReactNode; open: boolean }) => open ? <div role="dialog">{children}</div> : null, DialogContent: Content, DialogDescription: Content, DialogHeader: Content, DialogTitle: Content };
-});
+const dialogContent = ({ children }: { children: ReactNode }) => <div>{children}</div>;
+const dialogMocks = { Dialog: ({ children, open }: { children: ReactNode; open: boolean }) => open ? <div role="dialog">{children}</div> : null, DialogContent: dialogContent, DialogDescription: dialogContent, DialogHeader: dialogContent, DialogTitle: dialogContent };
+const dialogSpies: { mockRestore: () => void }[] = [];
 
 let close: (() => void) | undefined;
 const animationFrame = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame");
 beforeEach(() => {
   ensureDom();
+  for (const [name, implementation] of Object.entries(dialogMocks)) {
+    dialogSpies.push(vi.spyOn(dialogComponents, name as keyof typeof dialogMocks).mockImplementation(implementation as never));
+  }
   vi.clearAllMocks();
   mocks.client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.client.setQueryData(key, profile());
@@ -64,6 +67,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  for (const spy of dialogSpies.splice(0)) spy.mockRestore();
   close?.();
   close = undefined;
   mocks.client.clear();

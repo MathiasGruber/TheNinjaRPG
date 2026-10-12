@@ -5,6 +5,9 @@ import type { RouterOutputs } from "@/app/_trpc/client";
 import {
   ELDER_MIN_VOTING_COUNT,
   ELDER_WAR_VOTE_HOURS,
+  FACTION_RAID_COST,
+  FACTION_RAID_MIN_MEMBERS,
+  FACTION_RAID_STRUCTURE_ROUTES,
   IMG_AVATAR_DEFAULT,
   MAP_RESERVED_SECTORS,
   SHRINE_MAX_PER_VILLAGE,
@@ -21,6 +24,7 @@ import {
 import type { Village, VillageStructure, War, WarAlly } from "@/drizzle/schema";
 import {
   actionLog,
+  clan,
   notification,
   quest,
   sector,
@@ -35,6 +39,7 @@ import { castElderVoteEntry, fetchElderVote, fetchElderVotes } from "@/libs/elde
 import { findActiveExclusiveRaidForSector } from "@/libs/raids";
 import {
   canJoinWar,
+  getRaidDeclarationBlock,
   getShrineHpByLevel,
   isFactionVillage,
   isVillageInvolvedInAnyWar,
@@ -67,8 +72,44 @@ import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
 import { canAdministrateWars, canSeeSecretData } from "@/utils/permissions";
 import { secondsFromNow } from "@/utils/time";
+import { declareVillageWarSchema, raidOptionsSchema } from "@/validators/war";
 
 export const warRouter = createTRPCRouter({
+  /** Preview structure eligibility; declaration rechecks membership, funds and cooldowns under lock. */
+  getRaidOptions: protectedProcedure
+    .input(raidOptionsSchema)
+    .query(async ({ ctx, input }) => {
+      const [user, attacker, ownStructures, targetStructures, count] =
+        await Promise.all([
+          fetchUser(ctx.drizzle, ctx.userId),
+          fetchVillage(ctx.drizzle, input.userVillageId),
+          fetchStructures(ctx.drizzle, input.userVillageId),
+          fetchStructures(ctx.drizzle, input.targetVillageId),
+          getVillageMemberCount(ctx.drizzle, input.userVillageId),
+        ]);
+      const block =
+        !attacker || !isFactionVillage(attacker) || user.villageId !== attacker.id
+          ? "Only factions can initiate raids"
+          : count < FACTION_RAID_MIN_MEMBERS
+            ? `Your faction needs at least ${FACTION_RAID_MIN_MEMBERS} members`
+            : attacker.tokens < FACTION_RAID_COST
+              ? `Your faction needs ${FACTION_RAID_COST.toLocaleString()} tokens`
+              : undefined;
+      return FACTION_RAID_STRUCTURE_ROUTES.map((route) => ({
+        route,
+        block:
+          block ??
+          (attacker
+            ? getRaidDeclarationBlock(
+                attacker,
+                ownStructures,
+                targetStructures,
+                input.targetVillageId,
+                route,
+              )
+            : "Faction unavailable"),
+      }));
+    }),
   // Get active wars for a village
   getActiveWars: protectedProcedure
     .meta({
@@ -147,6 +188,9 @@ export const warRouter = createTRPCRouter({
       // Guard
       if (!user?.village) {
         return errorResponse("You must be in a village to build a shrine");
+      }
+      if (isFactionVillage(user.village)) {
+        return errorResponse("Factions cannot purchase sectors");
       }
       if (!user?.villageId) {
         return errorResponse("You must be in a village to build a shrine");
@@ -250,6 +294,9 @@ export const warRouter = createTRPCRouter({
       // Guard
       if (!user?.village) {
         return errorResponse("You must be in a village to declare war");
+      }
+      if (isFactionVillage(user.village)) {
+        return errorResponse("Factions cannot purchase sectors");
       }
       if (sectorVillage) {
         return errorResponse("This sector is already occupied");
@@ -439,13 +486,7 @@ export const warRouter = createTRPCRouter({
     .meta({
       mcp: { description: "Declare village war or raid" },
     })
-    .input(
-      z.object({
-        targetVillageId: z.string(),
-        targetStructureRoute: z.string(),
-        userVillageId: z.string(),
-      }),
-    )
+    .input(declareVillageWarSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Single pre-fetch round: user, war state, village data, and elder/cooldown checks all in parallel
@@ -460,6 +501,7 @@ export const warRouter = createTRPCRouter({
         recentRejection,
         existingPending,
         elders,
+        attackerStructures,
       ] = await Promise.all([
         fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
         fetchActiveWars(ctx.drizzle),
@@ -497,6 +539,7 @@ export const warRouter = createTRPCRouter({
             eq(userData.isAi, false),
           ),
         }),
+        fetchStructures(ctx.drizzle, input.userVillageId),
       ]);
       // Derived
       const now = new Date();
@@ -507,10 +550,11 @@ export const warRouter = createTRPCRouter({
         attackerVillage?.id || "",
         defenderVillage?.id || "",
       );
-      const targetIsOutlaw = ["TOWN", "HIDEOUT", "OUTLAW"].includes(
+      const targetIsOutlaw = ["STRONGHOLD", "HIDEOUT", "OUTLAW"].includes(
         defenderVillage?.type || "",
       );
-      const isRaid = user?.isOutlaw || targetIsOutlaw;
+      const isRaid = !!attackerVillage && isFactionVillage(attackerVillage);
+      const declarationCost = isRaid ? FACTION_RAID_COST : WAR_DECLARATION_COST;
       const warType = isRaid ? "WAR_RAID" : "VILLAGE_WAR";
       const relationshipStatus = isRaid ? "ENEMY" : relationship?.status;
       const structure = structures.find((s) => s.route === input.targetStructureRoute);
@@ -533,7 +577,7 @@ export const warRouter = createTRPCRouter({
       if (user.userId !== user.village.kageId) {
         return errorResponse("Only the leader can declare war");
       }
-      if (recentRejection) {
+      if (!isRaid && recentRejection) {
         const cooldownEnd = new Date(
           recentRejection.endsAt.getTime() +
             WAR_DECLARATION_COOLDOWN_HOURS * 3600 * 1000,
@@ -542,28 +586,41 @@ export const warRouter = createTRPCRouter({
           `War declaration is on cooldown after a recent rejection or cancellation. Available again at ${cooldownEnd.toUTCString()}.`,
         );
       }
-      if (existingPending) {
+      if (!isRaid && existingPending) {
         return errorResponse("Your village already has a pending war declaration vote");
       }
 
-      if (user.village.tokens < WAR_DECLARATION_COST) {
+      if (user.village.tokens < declarationCost) {
         return errorResponse(
-          `Your village needs ${WAR_DECLARATION_COST.toLocaleString()} tokens to declare war`,
+          `Your village needs ${declarationCost.toLocaleString()} tokens to declare ${isRaid ? "a raid" : "war"}`,
         );
       }
       if (!attackerVillage || !defenderVillage) {
         return errorResponse("Village not found");
       }
+      if (!isRaid && targetIsOutlaw)
+        return errorResponse("Only factions can initiate raids");
+      if (isRaid) {
+        const block = getRaidDeclarationBlock(
+          attackerVillage!,
+          attackerStructures,
+          structures,
+          input.targetVillageId,
+          input.targetStructureRoute,
+          now,
+        );
+        if (block) return errorResponse(block);
+      }
       if (relationshipStatus !== "ENEMY") {
         return errorResponse("You can only declare war on enemy villages");
       }
-      if (!["VILLAGE", "TOWN", "HIDEOUT"].includes(attackerVillage.type)) {
+      if (!["VILLAGE", "STRONGHOLD", "HIDEOUT"].includes(attackerVillage.type)) {
         return errorResponse("You cannot declare war on this type of village");
       }
-      if (!["VILLAGE", "TOWN", "HIDEOUT"].includes(defenderVillage.type)) {
+      if (!["VILLAGE", "STRONGHOLD", "HIDEOUT"].includes(defenderVillage.type)) {
         return errorResponse("You cannot declare war on this type of village");
       }
-      if (defenderVillage.tokens < WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE) {
+      if (!isRaid && defenderVillage.tokens < WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE) {
         return errorResponse(
           `Target village needs ${WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE.toLocaleString()} tokens to declare war`,
         );
@@ -575,12 +632,14 @@ export const warRouter = createTRPCRouter({
         return errorResponse("Target village is not part of the alliance system");
       }
       if (
+        !isRaid &&
         attackerVillage.warExhaustionEndedAt &&
         attackerVillage.warExhaustionEndedAt > now
       ) {
         return errorResponse("Your village is under war exhaustion");
       }
       if (
+        !isRaid &&
         defenderVillage.warExhaustionEndedAt &&
         defenderVillage.warExhaustionEndedAt > now
       ) {
@@ -646,12 +705,15 @@ export const warRouter = createTRPCRouter({
       }
 
       // Check minimum member count for war participation
-      if (attackerMemberCount < WAR_MINIMUM_MEMBERS_REQUIRED) {
+      if (
+        attackerMemberCount <
+        (isRaid ? FACTION_RAID_MIN_MEMBERS : WAR_MINIMUM_MEMBERS_REQUIRED)
+      ) {
         return errorResponse(
-          `Your village needs at least ${WAR_MINIMUM_MEMBERS_REQUIRED} members to declare war`,
+          `Your village needs at least ${isRaid ? FACTION_RAID_MIN_MEMBERS : WAR_MINIMUM_MEMBERS_REQUIRED} members to declare ${isRaid ? "a raid" : "war"}`,
         );
       }
-      if (defenderMemberCount < WAR_MINIMUM_MEMBERS_REQUIRED) {
+      if (!isRaid && defenderMemberCount < WAR_MINIMUM_MEMBERS_REQUIRED) {
         return errorResponse(
           `Target village needs at least ${WAR_MINIMUM_MEMBERS_REQUIRED} members to be attacked`,
         );
@@ -676,7 +738,7 @@ export const warRouter = createTRPCRouter({
         }
         return {
           success: true,
-          message: `War against ${defenderVillage.name} has started!`,
+          message: `Raid against ${defenderVillage.name} has started!`,
         };
       }
 
@@ -1582,19 +1644,31 @@ export type GetActiveWarsReturnType = NonNullable<
 >;
 
 /**
- * Get the member count for a village
+ * Count non-AI members of the owning faction for Hideouts and Strongholds,
+ * or ordinary residents for other village types.
  * @param client - The DrizzleClient instance
  * @param villageId - The ID of the village
- * @returns The number of members in the village
+ * @returns The member count used for declaration eligibility
  */
 const getVillageMemberCount = async (
   client: DrizzleClient,
   villageId: string,
 ): Promise<number> => {
-  const result = await client
-    .select({ count: sql<number>`count(*)` })
+  const factionMembers = client
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(userData)
+    .innerJoin(clan, eq(clan.id, userData.clanId))
+    .where(and(eq(clan.villageId, villageId), eq(userData.isAi, false)));
+  const residents = client
+    .select({ count: sql<number>`COUNT(*)` })
     .from(userData)
     .where(eq(userData.villageId, villageId));
+  const result = await client
+    .select({
+      count: sql<number>`CASE WHEN ${village.type} IN ('HIDEOUT', 'STRONGHOLD') THEN (${factionMembers}) ELSE (${residents}) END`,
+    })
+    .from(village)
+    .where(eq(village.id, villageId));
   return result[0]?.count || 0;
 };
 

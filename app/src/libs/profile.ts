@@ -405,7 +405,7 @@ export const calcActiveUserRegen = (
     regeneration = regeneration + user.bloodline.regenIncrease;
   }
 
-  // Clan boost (in percentage) - only apply for real clans, not outlaw factions/towns
+  // Clan boost (in percentage) - only apply for real clans, not outlaw factions/strongholds
   const maxRegenBoost = CLAN_BOOST_MAX_LEVEL * CLAN_BOOST_PERCENT_PER_LEVEL;
   if (
     !user.isOutlaw &&

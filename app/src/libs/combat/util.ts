@@ -86,7 +86,7 @@ import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/q
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
 import { randomInt, secureRandomInt } from "@/utils/math";
 import { secondsPassed } from "@/utils/time";
-import { getEffectiveStructureLevel, getShrineBoost } from "@/utils/village";
+import { getShrineBoost, getStrucBoost } from "@/utils/village";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
 import type { EffectType, ZodAllTags } from "@/validators/combat";
 import type { PathCalculator, TerrainHex } from "../hexgrid";
@@ -1913,13 +1913,11 @@ export const calcBattleResult = (
       // Experience boost
       let expBoost = 1;
       if (battleType === "ARENA") {
-        village?.structures?.forEach((s) => {
-          expBoost += (s.arenaRewardPerLvl * getEffectiveStructureLevel(s)) / 100;
-        });
+        expBoost += getStrucBoost("arenaRewardPerLvl", village?.structures) / 100;
       }
       const userClan = getClan(battle, user.clanId);
-      // Only apply clan training boost for real clans (not outlaw factions/towns)
-      if (!user.isOutlaw && userClan?.trainingBoost && userClan.trainingBoost > 0) {
+      // Clan and faction training bonuses use the same stored percentage.
+      if (userClan?.trainingBoost && userClan.trainingBoost > 0) {
         expBoost += userClan.trainingBoost / 100;
       }
 
@@ -2018,9 +2016,8 @@ export const calcBattleResult = (
       let clanPoints = 0;
       let deltaEarnedExperience = 0;
 
-      // Money/ryo calculation - only apply clan boost for real clans
-      const moneyBoost =
-        !user.isOutlaw && userClan?.ryoBoost ? 1 + userClan.ryoBoost / 100 : 1;
+      // Clan and faction Ryo bonuses use the same stored percentage.
+      const moneyBoost = userClan?.ryoBoost ? 1 + userClan.ryoBoost / 100 : 1;
       const isCombatOrWarBattle =
         battleType === "COMBAT" || battleType === "SHRINE_WAR";
       let moneyDelta = didWin
@@ -2702,9 +2699,8 @@ export const calcBattleResult = (
         outcome !== "Fled"
       ) {
         // Calculate what the user would have gotten if they won (same calculation as winner)
-        // Only apply clan boost for real clans
-        const loserMoneyBoost =
-          !user.isOutlaw && userClan?.ryoBoost ? 1 + userClan.ryoBoost / 100 : 1;
+        // Clan and faction Ryo bonuses use the same stored percentage.
+        const loserMoneyBoost = userClan?.ryoBoost ? 1 + userClan.ryoBoost / 100 : 1;
         let loserMoneyGain = WAR_TORN_SECTOR_BASE_MONEY * loserMoneyBoost;
         loserMoneyGain *= 1.5; // COMBAT multiplier
         loserMoneyGain *= battle.rewardScaling;
