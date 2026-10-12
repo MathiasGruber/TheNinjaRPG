@@ -7,8 +7,10 @@ import {
   item,
   quest,
   questHistory,
+  trainingLog,
   userData,
   userItem,
+  userQueue,
   type UserQuest,
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
@@ -25,13 +27,15 @@ import {
   insertUserItems,
   insertUsers,
 } from "../../setup/factories";
-import { beforeStatements } from "../../setup/statements";
+import { queueEnergy, readEnergyQueue } from "../../setup/queues";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import {
   callerForDatabase,
   describeWithDatabase,
   getTestDatabase,
   recordQueries,
   resetTables,
+  runRawSql,
 } from "../../setup/testDatabase";
 
 /** Fail if a floor or abandonment unnecessarily opens a transaction. */
@@ -71,6 +75,8 @@ describeWithDatabase("managed quest battle and abandonment", () => {
       quest,
       userItem,
       item,
+      userQueue,
+      trainingLog,
       userData,
     );
     await insertUsers([
@@ -131,22 +137,28 @@ describeWithDatabase("managed quest battle and abandonment", () => {
     return { client, attempt };
   };
 
+  /** Prepare the authored no-ticket run with its matching content version. */
+  const floorSnapshot = async (paid: boolean) => {
+    const { client, attempt } = await snapshot();
+    if (!paid) {
+      await client
+        .update(quest)
+        .set({ content: { ...attempt.quest.content, entryItems: [] } })
+        .where(eq(quest.id, "pyramid"));
+      const content = await client.query.quest.findFirst({
+        where: eq(quest.id, "pyramid"),
+      });
+      await client
+        .update(questHistory)
+        .set({ entryPaid: false, questVersion: content!.updatedAt })
+        .where(eq(questHistory.id, "run"));
+    }
+    return snapshot();
+  };
+
   for (const paid of [true, false]) {
     it(`starts successive ${paid ? "paid" : "no-ticket"} floors without a transaction`, async () => {
-      const { client, attempt } = await snapshot();
-      if (!paid) {
-        await client
-          .update(quest)
-          .set({ content: { ...attempt.quest.content, entryItems: [] } })
-          .where(eq(quest.id, "pyramid"));
-        const content = await client.query.quest.findFirst({
-          where: eq(quest.id, "pyramid"),
-        });
-        await client
-          .update(questHistory)
-          .set({ entryPaid: false, questVersion: content!.updatedAt })
-          .where(eq(questHistory.id, "run"));
-      }
+      const { client } = await floorSnapshot(paid);
       for (const floor of [1, 2]) {
         const { attempt: current } = await snapshot();
         expect((await startFloor(withoutTransactions(client), current)).success).toBe(
@@ -168,6 +180,157 @@ describeWithDatabase("managed quest battle and abandonment", () => {
       }
     });
   }
+
+  for (const paid of [true, false]) {
+    for (const [name, table] of [
+      ["battle", battle],
+      ["history", battleHistory],
+      ["participant", userData],
+    ] as const) {
+      it(`compensates a ${paid ? "paid" : "no-ticket"} floor when its ${name} write rejects`, async () => {
+        const { client, attempt } = await floorSnapshot(paid);
+        const failed = failStatements(withoutTransactions(client), table);
+        await expect(startFloor(failed, attempt)).rejects.toThrow(
+          "Statement failed on purpose",
+        );
+        expect(await client.query.battle.findMany()).toHaveLength(0);
+        expect(await client.query.battleHistory.findMany()).toHaveLength(0);
+        expect(
+          await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
+        ).toMatchObject({ status: "AWAKE", battleId: null });
+        expect((await client.query.questHistory.findFirst())?.entryPaid).toBe(paid);
+      });
+    }
+  }
+
+  it("waits for delayed history and participant writes before compensating a failed insert", async () => {
+    const { client, attempt } = await snapshot();
+    let release = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered = 0;
+    let markReady = () => {};
+    const ready = new Promise<void>((resolve) => {
+      markReady = resolve;
+    });
+    const delay = async () => {
+      entered += 1;
+      if (entered === 2) markReady();
+      await released;
+    };
+    const history = beforeStatements(withoutTransactions(client), battleHistory, [
+      delay,
+    ]);
+    const participant = beforeStatements(history, userData, [delay]);
+    const failure = new Error("Battle insert failed");
+    const failed = beforeStatements(participant, battle, [
+      async () => {
+        await ready;
+        throw failure;
+      },
+    ]);
+    const pending = startFloor(failed, attempt);
+    await ready;
+    release();
+    await expect(pending).rejects.toBe(failure);
+    expect(await client.query.battle.findMany()).toHaveLength(0);
+    expect(await client.query.battleHistory.findMany()).toHaveLength(0);
+    expect(
+      await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
+    ).toMatchObject({ status: "AWAKE", battleId: null });
+  });
+
+  it("preserves a different concurrent battle while removing a failed floor's rows", async () => {
+    const { client, attempt } = await snapshot();
+    expect((await startFloor(client, attempt)).success).toBe(true);
+    const otherBattle = (await client.query.battle.findFirst())!;
+    const otherHistory = (await client.query.battleHistory.findFirst())!;
+    await client
+      .update(userData)
+      .set({ status: "AWAKE", battleId: null })
+      .where(eq(userData.userId, "hero"));
+    const raced = beforeStatements(withoutTransactions(client), userData, [
+      async () => {
+        await client
+          .update(userData)
+          .set({ status: "BATTLE", battleId: otherBattle.id })
+          .where(eq(userData.userId, "hero"));
+        throw new Error("Participant claim failed");
+      },
+    ]);
+    await expect(startFloor(raced, attempt)).rejects.toThrow(
+      "Participant claim failed",
+    );
+    expect(await client.query.battle.findMany()).toEqual([otherBattle]);
+    expect(await client.query.battleHistory.findMany()).toEqual([otherHistory]);
+    expect(
+      await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
+    ).toMatchObject({ status: "BATTLE", battleId: otherBattle.id });
+  });
+
+  it("retains and logs earned queue training from a claimed participant when an insert fails", async () => {
+    const { client, attempt } = await snapshot();
+    await client
+      .update(userData)
+      .set({ curEnergy: 100, isOutlaw: true })
+      .where(eq(userData.userId, "hero"));
+    await queueEnergy("hero", [{ stat: "offence", energy: 100 }]);
+    const before = (await client.query.userData.findFirst({
+      where: eq(userData.userId, "hero"),
+    }))!;
+    const failed = failStatements(withoutTransactions(client), battle);
+    await expect(startFloor(failed, attempt)).rejects.toThrow(
+      "Statement failed on purpose",
+    );
+    const after = (await client.query.userData.findFirst({
+      where: eq(userData.userId, "hero"),
+    }))!;
+    expect(after).toMatchObject({
+      status: "AWAKE",
+      battleId: null,
+      energyQueueHead: 1,
+    });
+    expect(after.offence).toBeGreaterThan(before.offence);
+    expect(await readEnergyQueue("hero")).toEqual([]);
+    expect((await client.query.trainingLog.findMany()).map((log) => log.stat)).toEqual([
+      "offence",
+    ]);
+    expect(await client.query.battleHistory.findMany()).toHaveLength(0);
+  });
+
+  it("rolls back the first receipt, ticket stacks and battle when SQL rejects its claim", async () => {
+    const { client } = await snapshot();
+    await client
+      .update(questHistory)
+      .set({ entryPaid: false })
+      .where(eq(questHistory.id, "run"));
+    await insertItems([{ id: "ticket", itemType: "CONSUMABLE" }]);
+    await insertUserItems([
+      { id: "a", userId: "hero", itemId: "ticket", quantity: 2, equipped: "ITEM_1" },
+      { id: "b", userId: "hero", itemId: "ticket", quantity: 3, equipped: "ITEM_2" },
+    ]);
+    const { attempt } = await snapshot();
+    const originalItems = await client.query.userItem.findMany();
+    await runRawSql(`CREATE TRIGGER managed_entry_reject_claim BEFORE UPDATE ON UserData
+      FOR EACH ROW BEGIN
+        IF OLD.userId = 'hero' AND NEW.status = 'BATTLE' THEN
+          SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Battle claim failed';
+        END IF;
+      END`);
+    try {
+      await expect(startFloor(client, attempt)).rejects.toThrow();
+      expect((await client.query.questHistory.findFirst())?.entryPaid).toBe(false);
+      expect(await client.query.userItem.findMany()).toEqual(originalItems);
+      expect(await client.query.battle.findMany()).toHaveLength(0);
+      expect(await client.query.battleHistory.findMany()).toHaveLength(0);
+      expect(
+        await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
+      ).toMatchObject({ status: "AWAKE", battleId: null });
+    } finally {
+      await runRawSql("DROP TRIGGER managed_entry_reject_claim");
+    }
+  });
 
   it("commits only the first payment and preloads the reduced inventory", async () => {
     const { client } = await snapshot();

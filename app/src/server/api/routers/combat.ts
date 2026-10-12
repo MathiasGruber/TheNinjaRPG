@@ -2970,7 +2970,7 @@ export const initiateBattle = async (
     if (entry) entry.entryPaid = true;
   }
   /**
-   * Persist the preloaded battle and return the guarded participant claim.
+   * Persist the preloaded battle and return the participant claim and any settled failure.
    * First payment shares a PlanetScale transaction session, so await its writes in order.
    * Other battles dispatch independent writes together and settle all siblings before cleanup.
    */
@@ -3201,16 +3201,17 @@ export const initiateBattle = async (
       await writes[1];
       const claimedUsers = await writes[2];
       for (const write of writes.slice(3)) await write;
-      return claimedUsers;
+      return { claimedUsers, failed: undefined };
     }
-    // Compensation must wait until every sibling write has finished.
+    // Carry failures through training settlement and compensation after every sibling finishes.
     const results = await Promise.allSettled(writes);
     const failed = results.find((result) => result.status === "rejected");
-    if (failed?.status === "rejected") throw failed.reason;
     const claimedUsers = results[2];
-    if (claimedUsers.status !== "fulfilled")
-      throw new Error("Missing battle participant claim");
-    return claimedUsers.value;
+    return {
+      claimedUsers:
+        claimedUsers.status === "fulfilled" ? claimedUsers.value : undefined,
+      failed,
+    };
   };
   const attempt = info.questAttempt;
   let result: Awaited<ReturnType<typeof createBattle>>;
@@ -3224,7 +3225,7 @@ export const initiateBattle = async (
       items: entryInventory,
       role: player?.role ?? "USER",
       createBattle,
-      didClaim: (result) => result.rowsAffected === expectedRows,
+      didClaim: (result) => result.claimedUsers?.rowsAffected === expectedRows,
     });
     if (!committed.success) return { success: false, message: committed.message };
     result = committed.result;
@@ -3239,7 +3240,7 @@ export const initiateBattle = async (
   ) {
     // A partial multi-participant claim still legitimately settles the rows it claimed.
     const claimedIds =
-      result.rowsAffected === expectedRows
+      result.claimedUsers?.rowsAffected === expectedRows
         ? allParticipantIds
         : (
             await client.query.userData.findMany({
@@ -3275,8 +3276,8 @@ export const initiateBattle = async (
     }
   }
 
-  // Check if expected number of users were updated - if not, rollback
-  if (result.rowsAffected !== expectedRows) {
+  // Undo only this battle's claims and rows, including successful siblings of a failed write.
+  if (result.failed || result.claimedUsers?.rowsAffected !== expectedRows) {
     await Promise.all([
       client
         .update(userData)
@@ -3288,6 +3289,7 @@ export const initiateBattle = async (
       client.delete(battle).where(eq(battle.id, battleId)),
       client.delete(battleHistory).where(eq(battleHistory.battleId, battleId)),
     ]);
+    if (result.failed) throw result.failed.reason;
     return { success: false, message: "Attack failed, did the target move?" };
   }
 
