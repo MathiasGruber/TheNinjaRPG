@@ -71,6 +71,10 @@ export const questPartyRouter = createTRPCRouter({
         "disband",
       );
       if (!transition.success) return errorResponse(transition.message);
+      // Include attached members whose roster removal still awaits personal detachment.
+      const members = [...(loaded?.members ?? []), ...party.members];
+      if (members.some((member) => member.status === "BATTLE"))
+        return errorResponse("Finish all members' battles before disbanding the team");
       const claimId = `claiming:${Date.now()}:${nanoid()}`;
       const claimed = await ctx.drizzle
         .update(questParty)
@@ -87,11 +91,20 @@ export const questPartyRouter = createTRPCRouter({
       // Keep canonical progress until every member has atomically saved it and detached.
       // A concurrent update to another quest retries from that member's fresh snapshot.
       try {
-        await Promise.all(
-          party.members.map((member) =>
-            saveQuestPartyMember(ctx.drizzle, party, member.userId, true),
+        const detached = await Promise.all(
+          [...new Set(members.map((member) => member.userId))].map((userId) =>
+            saveQuestPartyMember(ctx.drizzle, party, userId, true),
           ),
         );
+        if (detached.some((saved) => !saved)) {
+          await ctx.drizzle
+            .update(questParty)
+            .set({ battleId: null, version: sql`${questParty.version} + 1` })
+            .where(and(eq(questParty.id, party.id), eq(questParty.battleId, claimId)));
+          return errorResponse(
+            "Finish all members' battles before disbanding the team",
+          );
+        }
         await ctx.drizzle
           .delete(questParty)
           .where(and(eq(questParty.id, party.id), eq(questParty.battleId, claimId)));
@@ -544,14 +557,23 @@ const removeMember = async (
 ) => {
   // The roster and leader move in one CAS; no missing-row locks or transactions.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const party = await client.query.questParty.findFirst({
-      where: eq(questParty.id, partyId),
-      with: { quest: true },
-    });
+    const [party, member] = await Promise.all([
+      client.query.questParty.findFirst({
+        where: eq(questParty.id, partyId),
+        with: { quest: true },
+      }),
+      client.query.userData.findFirst({
+        where: eq(userData.userId, userId),
+        columns: { questPartyId: true, status: true },
+      }),
+    ]);
     if (!party) return { success: true, message: "Already left quest team" };
+    if (member?.questPartyId === party.id && member.status === "BATTLE")
+      return errorResponse("Finish your battle before leaving the quest team");
     if (!party.memberIds.includes(userId)) {
       // The roster CAS may have committed before the personal save failed.
-      await saveQuestPartyMember(client, party, userId, true);
+      if (!(await saveQuestPartyMember(client, party, userId, true)))
+        return errorResponse("Finish your battle before leaving the quest team");
       await leaveCoopChat(client, partyId, userId);
       if (!party.memberIds.length) {
         const deleted = await client
@@ -602,7 +624,20 @@ const removeMember = async (
       );
     if (saved.rowsAffected !== 1) continue;
     try {
-      await saveQuestPartyMember(client, party, userId, true);
+      const detached = await saveQuestPartyMember(client, party, userId, true);
+      if (!detached) {
+        if (departureClaimId)
+          await client
+            .update(questParty)
+            .set({ battleId: null, version: sql`${questParty.version} + 1` })
+            .where(
+              and(
+                eq(questParty.id, partyId),
+                eq(questParty.battleId, departureClaimId),
+              ),
+            );
+        return errorResponse("Finish your battle before leaving the quest team");
+      }
       await leaveCoopChat(client, partyId, userId);
       if (departureClaimId)
         await client

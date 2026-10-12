@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { Quest, QuestParty, UserData } from "@/drizzle/schema";
 import { questParty, userData } from "@/drizzle/schema";
 import { mergePartyProgress, projectPartyTracker } from "@/libs/questParty";
@@ -243,7 +243,7 @@ export const applyQuestParty = (
     ];
 };
 
-/** Save canonical progress together with membership, preserving concurrent personal updates. */
+/** Save canonical progress with membership; false means combat must settle before detachment. */
 export const saveQuestPartyMember = async (
   client: DrizzleClient,
   party: Pick<QuestParty, "id" | "questId" | "tracker"> &
@@ -254,9 +254,11 @@ export const saveQuestPartyMember = async (
   for (let attempt = 0; attempt < 5; attempt++) {
     const member = await client.query.userData.findFirst({
       where: eq(userData.userId, userId),
-      columns: { questData: true, questPartyId: true, updatedAt: true },
+      columns: { questData: true, questPartyId: true, updatedAt: true, status: true },
     });
-    if (!member || member.questPartyId !== party.id) return;
+    if (!member || member.questPartyId !== party.id) return true;
+    // Settlement would replace a detached tracker with the battle's older party copy.
+    if (detach && member.status === "BATTLE") return false;
     // Keep a contribution accepted after the roster/disband claim in this player's
     // solo continuation, even if its publication has not reached the party snapshot.
     const progress =
@@ -279,7 +281,10 @@ export const saveQuestPartyMember = async (
       client,
       userId,
       updatedAt: member.updatedAt,
-      where: [eq(userData.questPartyId, party.id)],
+      where: [
+        eq(userData.questPartyId, party.id),
+        ...(detach ? [ne(userData.status, "BATTLE")] : []),
+      ],
       set: {
         questData: [
           ...(member.questData ?? []).filter((entry) => entry.id !== party.questId),
@@ -288,7 +293,7 @@ export const saveQuestPartyMember = async (
         ...(detach ? { questPartyId: null } : {}),
       },
     });
-    if (saved.success) return;
+    if (saved.success) return true;
   }
   throw new Error("Character changed repeatedly; please try again");
 };

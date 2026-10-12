@@ -3692,7 +3692,8 @@ export const fetchUpdatedUser = async (props: {
       undefined,
       undefined,
       undefined,
-      true,
+      // Combat settlement owns the preloaded personal tracker until it finishes.
+      user.status !== "BATTLE",
     );
 
     // Destructure for local usage
@@ -3732,6 +3733,7 @@ export const fetchUpdatedUser = async (props: {
       user,
       consequences,
       notifications,
+      { claimConditions: [eq(userData.status, user.status)] },
     );
     toastMessages.push(...consequenceResult.notifications);
     if (!consequenceResult.claimed) requiresProgressionRefresh = true;

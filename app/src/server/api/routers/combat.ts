@@ -2191,6 +2191,19 @@ export const initiateBattle = async (
       .map((user) => [user.userId, captureCombatCacheSnapshot(user)]),
   );
 
+  // Personal team receipts and solo detachment must survive until the battle claim.
+  // Capture before projection/training mutates the preloaded trackers in memory.
+  const partyQuestSnapshots = fetchedUsers
+    .filter(
+      (user) =>
+        !user.isAi &&
+        (user.questPartyId ||
+          user.questData?.some((tracker) =>
+            tracker.goals.some((goal) => goal.partyEffectsApplied !== undefined),
+          )),
+    )
+    .map(({ userId, updatedAt }) => ({ userId, updatedAt }));
+
   if (questEncounter) {
     const party = questEncounter;
     for (const participant of fetchedUsers.filter((user) =>
@@ -3222,6 +3235,12 @@ export const initiateBattle = async (
             // row is never even examined (or locked) by this update. Drizzle
             // compiles an empty list to FALSE, matching expectedRows === 0.
             inArray(userData.userId, allParticipantIds),
+            ...partyQuestSnapshots.map((snapshot) =>
+              or(
+                ne(userData.userId, snapshot.userId),
+                eq(userData.updatedAt, snapshot.updatedAt),
+              ),
+            ),
             info.questAttempt
               ? questAttemptIsActive(
                   client,
