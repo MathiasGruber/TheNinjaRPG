@@ -792,11 +792,9 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                   icon={recommended.availability === "travel" ? MapPin : ArrowRight}
                   restriction={recommended.availabilityReason}
                   restrictionLabel={
-                    userData.isBanned
-                      ? "Cannot start quests"
-                      : recommended.availability === "travel"
-                        ? "Must be awake"
-                        : "Cannot start quests"
+                    recommended.availability === "travel" && !userData.isBanned
+                      ? "Must be awake"
+                      : "Cannot start quests"
                   }
                 >
                   {recommended.availability === "travel"

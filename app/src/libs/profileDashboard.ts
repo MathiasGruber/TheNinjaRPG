@@ -303,8 +303,7 @@ export const dashboardRaidAction = (
   const href = raidContinueHref(raidSector, user.sector);
   return {
     href,
-    action:
-      raidSector !== null && raidSector !== user.sector ? "Travel" : "Continue raid",
+    action: href === "/globalanbuhq" ? "Continue raid" : "Travel",
     reason: null,
   };
 };
