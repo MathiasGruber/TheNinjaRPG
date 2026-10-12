@@ -585,6 +585,86 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     }
   }
 
+  for (const consecutiveObjectives of [true, false]) {
+    for (const mode of ["refresh each", "missed polls", "replacement", "disbanded", "distinct spare", "standalone delivery"] as const) {
+      it(`preserves prior inventory when a shared collection and delivery reconcile together (${consecutiveObjectives ? "consecutive" : "parallel"}, ${mode})`, async () => {
+        const client = await getTestDatabase();
+        await insertItems([{ id: "scroll" }, { id: "spare" }]);
+        await insertUserItems([{ id: "preexisting-copy", userId: "helper", itemId: mode === "distinct spare" ? "spare" : "scroll" }]);
+        const location = { item_name: "Scroll", sector: 50, latitude: 10, sectorType: "specific", locationType: "specific" };
+        let objectives = [
+          AllObjectives.parse({ ...location, id: "collect", task: "collect_item", collectItemIds: ["scroll"], longitude: 11, nextObjectiveId: "deliver" }),
+          AllObjectives.parse({ ...location, id: "deliver", task: "deliver_item", deliverItemIds: ["scroll"], longitude: 12, nextObjectiveId: "wait" }),
+          AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+        ];
+        if (mode === "standalone delivery") {
+          objectives = objectives.filter((objective) => objective.id !== "collect");
+          await insertUserItems([{ id: "leader-delivery", userId: "leader", itemId: "scroll" }]);
+        }
+        expect(verifyQuestContentForSave(objectives, consecutiveObjectives).check).toBe(true);
+        await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives, reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+        expect(QuestValidator.safeParse(await client.query.quest.findFirst()).success).toBe(true);
+        const leader = await callerFor(questPartyRouter, "leader");
+        const helper = await callerFor(questPartyRouter, "helper");
+        expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+        const party = (await client.query.questParty.findFirst())!;
+        if (mode !== "replacement") expect((await helper.join({ partyId: party.id })).success).toBe(true);
+        const leaderQuest = await callerFor(questsRouter, "leader");
+        for (const longitude of mode === "standalone delivery" ? [12] : [11, 12]) {
+          await client.update(userData).set({ longitude }).where(eq(userData.userId, "leader"));
+          expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+          if (mode === "refresh each") await fetchUpdatedUser({ client, userId: "helper" });
+        }
+        if (mode === "replacement") expect((await helper.join({ partyId: party.id })).success).toBe(true);
+        if (mode === "disbanded") expect((await leader.disband({ partyId: party.id })).success).toBe(true);
+        for (let read = 0; read < 2; read++) {
+          await fetchUpdatedUser({ client, userId: "helper" });
+          const copies = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+          expect(copies).toHaveLength(mode === "standalone delivery" ? 0 : 1);
+          if (copies.length > 0) {
+            expect(copies[0]).toMatchObject({ itemId: mode === "distinct spare" ? "spare" : "scroll", quantity: 1 });
+            if (mode !== "refresh each") expect(copies[0]?.id).toBe("preexisting-copy");
+          }
+        }
+        const personal = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+        expect(personal.questData?.find((tracker) => tracker.id === "team-quest")?.goals.filter((goal) => ["collect", "deliver"].includes(goal.id)).every((goal) => goal.done && goal.partyEffectsApplied)).toBe(true);
+      });
+    }
+  }
+
+  it("matches applied parallel deliveries before a later pending pair in reordered definitions", async () => {
+    const client = await getTestDatabase();
+    await insertItems([{ id: "scroll" }]);
+    await insertUserItems([{ id: "preexisting-copy", userId: "helper", itemId: "scroll" }]);
+    const location = { item_name: "Scroll", sector: 50, latitude: 10, sectorType: "specific", locationType: "specific" };
+    const objectives = [
+      AllObjectives.parse({ ...location, id: "collect1", task: "collect_item", collectItemIds: ["scroll"], longitude: 11, nextObjectiveId: "deliver1" }),
+      AllObjectives.parse({ ...location, id: "collect2", task: "collect_item", collectItemIds: ["scroll"], longitude: 13, nextObjectiveId: "deliver2" }),
+      AllObjectives.parse({ ...location, id: "deliver2", task: "deliver_item", deliverItemIds: ["scroll"], longitude: 14, nextObjectiveId: "wait" }),
+      AllObjectives.parse({ ...location, id: "deliver1", task: "deliver_item", deliverItemIds: ["scroll"], longitude: 12, nextObjectiveId: "collect2" }),
+      AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+    ];
+    expect(verifyQuestContentForSave(objectives, false).check).toBe(true);
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives, reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+    expect(QuestValidator.safeParse(await client.query.quest.findFirst()).success).toBe(true);
+    const leader = await callerFor(questPartyRouter, "leader");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    const leaderQuest = await callerFor(questsRouter, "leader");
+    for (const longitude of [11, 12, 13, 14]) {
+      await client.update(userData).set({ longitude }).where(eq(userData.userId, "leader"));
+      expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+      if (longitude <= 12) await fetchUpdatedUser({ client, userId: "helper" });
+    }
+    for (let read = 0; read < 2; read++) {
+      await fetchUpdatedUser({ client, userId: "helper" });
+      expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toMatchObject([{ itemId: "scroll", quantity: 1 }]);
+    }
+    const personal = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+    expect(personal.questData?.find((tracker) => tracker.id === "team-quest")?.goals.filter((goal) => ["collect1", "collect2", "deliver1", "deliver2"].includes(goal.id)).every((goal) => goal.done && goal.partyEffectsApplied)).toBe(true);
+  });
+
   it("removes one owned row for duplicate IDs within an ordinary delivery", async () => {
     const client = await getTestDatabase();
     await insertItems([{ id: "scroll" }]);

@@ -167,6 +167,38 @@ it("retains the undelivered quantity when two shared collections reuse an item b
   }
 });
 
+for (const consecutive of [false, true]) for (const detached of [false, true]) for (const applied of [false, true]) {
+  it(`matches pending delivery items to personal collection receipts (${consecutive ? "consecutive" : "parallel"}, ${detached ? "detached" : "attached"}, ${applied ? "applied" : "pending"})`, () => {
+    const { quest, party } = fixture();
+    quest.consecutiveObjectives = consecutive;
+    quest.content.objectives = [
+      AllObjectives.parse({ id: "delivery", task: "deliver_item", deliverItemIds: ["scroll", "scroll", "spare"], item_name: "Scrolls", nextObjectiveId: "unmatched" }),
+      AllObjectives.parse({ id: "second", task: "collect_item", collectItemIds: ["spare"], item_name: "Spare", nextObjectiveId: "delivery" }),
+      AllObjectives.parse({ id: "first", task: "collect_item", collectItemIds: ["scroll"], item_name: "Scroll", nextObjectiveId: "second" }),
+      AllObjectives.parse({ id: "unmatched", task: "deliver_item", deliverItemIds: ["scroll"], item_name: "Scroll", nextObjectiveId: "wait" }),
+      AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+    ];
+    expect(verifyQuestContentForSave(quest.content.objectives, consecutive).check).toBe(true);
+    party.tracker.goals = [
+      ObjectiveTracker.parse({ id: "first", done: true, selectedNextObjectiveId: "second" }),
+      ObjectiveTracker.parse({ id: "second", done: true, selectedNextObjectiveId: "delivery" }),
+      ObjectiveTracker.parse({ id: "delivery", done: true, selectedNextObjectiveId: "unmatched" }),
+      ObjectiveTracker.parse({ id: "unmatched", done: true, selectedNextObjectiveId: "wait" }),
+      ObjectiveTracker.parse({ id: "wait" }),
+    ];
+    const tracker = projectPartyTracker(party);
+    tracker.goals.find((goal) => goal.id === "first")!.partyEffectsApplied = applied;
+    if (detached) delete tracker.party;
+    const user = { userId: "helper", questPartyId: detached ? null : party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", sector: 3, longitude: 1, latitude: 1, items: [], userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [tracker] } as unknown as Parameters<typeof getNewTrackers>[0];
+    const result = getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true);
+    expect(result.consequences.filter((consequence) => consequence.type === "add_item")).toEqual([]);
+    expect(result.consequences.filter((consequence) => consequence.type === "remove_item")).toEqual(Array.from({ length: applied ? 2 : 1 }, () => ({ type: "remove_item", ids: ["scroll"] })));
+    expect(result.trackers[0]?.goals.filter((goal) => goal.done).every((goal) => goal.partyEffectsApplied)).toBe(true);
+    user.questData = result.trackers;
+    expect(getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true).consequences.some((consequence) => consequence.type === "remove_item" || consequence.type === "add_item")).toBe(false);
+  });
+}
+
 it("sums teammates' damage within one battle, without adding separate battles or replayed settlements", () => {
   const { quest, party } = fixture("damage_dealt", 2000);
   quest.content.objectives[0] = AllObjectives.parse({ id: "goal", task: "damage_dealt", singleBattle: true, value: 2000 });

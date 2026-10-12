@@ -940,7 +940,7 @@ export const getNewTrackers = (
           notifications.push(`Your quest team failed: ${quest.name}`);
           return questTracker;
         }
-        const undeliveredCollections =
+        const pendingItemEffects =
           applyPartyEffects &&
           questTracker.goals.some(
             (goal) =>
@@ -948,7 +948,7 @@ export const getNewTrackers = (
               !goal.partyEffectsApplied &&
               (questTracker.party || goal.partyEffectsApplied === false),
           )
-            ? getUndeliveredCollectionItems(quest, questTracker)
+            ? getPendingQuestItemEffects(quest, questTracker)
             : undefined;
         // Update the goals of the quest
         questTracker.goals = quest.content.objectives.map((objective, i) => {
@@ -1118,14 +1118,14 @@ export const getNewTrackers = (
               } else if (objective.task === "collect_item") {
                 // Each member carries undelivered quest items, so a collector leaving cannot
                 // strand the team. Replacements never receive already-delivered items.
-                const outstanding = undeliveredCollections?.get(objective.id) ?? [];
+                const outstanding =
+                  pendingItemEffects?.collections.get(objective.id) ?? [];
                 if (outstanding.length > 0)
                   consequences.push({ type: "add_item", ids: outstanding });
               } else if (objective.task === "deliver_item") {
-                consequences.push({
-                  type: "remove_item",
-                  ids: objective.deliverItemIds,
-                });
+                const removed = pendingItemEffects?.deliveries.get(objective.id) ?? [];
+                if (removed.length > 0)
+                  consequences.push({ type: "remove_item", ids: removed });
               } else return status;
               status.partyEffectsApplied = true;
               consequences.push({ type: "update_user", ids: [quest.id] });
@@ -1686,8 +1686,8 @@ export const getNewTrackers = (
   };
 };
 
-/** Match completed deliveries to individual collections, retaining each undelivered copy. */
-const getUndeliveredCollectionItems = (
+/** Match completed item effects, cancelling pairs whose collection has not applied personally. */
+const getPendingQuestItemEffects = (
   quest: Pick<Quest, "content" | "consecutiveObjectives">,
   tracker: QuestTrackerType,
 ) => {
@@ -1710,23 +1710,22 @@ const getUndeliveredCollectionItems = (
     }
   } else {
     const completed = objectives.filter((objective) => goals.get(objective.id)?.done);
-    // Parallel goals have no completion order. Consume applied collections first so
-    // pending delivery removal retires an existing copy while the next copy is granted.
-    const collections = completed.filter(
-      (objective) => objective.task === "collect_item",
-    );
-    collections.sort(
-      (a, b) =>
-        Number(!!goals.get(b.id)?.partyEffectsApplied) -
-        Number(!!goals.get(a.id)?.partyEffectsApplied),
-    );
-    completedObjectives = [
-      ...collections,
-      ...completed.filter((objective) => objective.task === "deliver_item"),
-    ];
+    // Parallel goals have no completion order. Match applied receipts first on
+    // both sides so an earlier delivery cannot consume a later pending collection.
+    const byAppliedReceipt = (a: AllObjectivesType, b: AllObjectivesType) =>
+      Number(!!goals.get(b.id)?.partyEffectsApplied) -
+      Number(!!goals.get(a.id)?.partyEffectsApplied);
+    const collections = completed
+      .filter((objective) => objective.task === "collect_item")
+      .sort(byAppliedReceipt);
+    const deliveries = completed
+      .filter((objective) => objective.task === "deliver_item")
+      .sort(byAppliedReceipt);
+    completedObjectives = [...collections, ...deliveries];
   }
 
   const outstanding = new Map<string, string[]>();
+  const pendingDeliveries = new Map<string, string[]>();
   const collectionsByItem = new Map<string, string[]>();
   for (const objective of completedObjectives) {
     if (objective.task === "collect_item") {
@@ -1737,15 +1736,20 @@ const getUndeliveredCollectionItems = (
         collectionsByItem.set(itemId, collections);
       }
     } else if (objective.task === "deliver_item") {
+      const removed: string[] = [];
       // The consequence handler retires one owned row per distinct item ID.
       for (const itemId of new Set(objective.deliverItemIds)) {
         const collectionId = collectionsByItem.get(itemId)?.shift();
         const items = collectionId ? outstanding.get(collectionId) : undefined;
         if (items) items.splice(items.indexOf(itemId), 1);
+        // A suppressed personal collection must not consume the member's prior inventory.
+        if (!collectionId || goals.get(collectionId)?.partyEffectsApplied)
+          removed.push(itemId);
       }
+      pendingDeliveries.set(objective.id, removed);
     }
   }
-  return outstanding;
+  return { collections: outstanding, deliveries: pendingDeliveries };
 };
 
 // Type returned by getNewTrackers
