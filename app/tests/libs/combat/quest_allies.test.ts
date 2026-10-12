@@ -49,8 +49,8 @@ describe("quest ally teams", () => {
     guide.hex = grid.getHex({ col: guide.longitude, row: guide.latitude });
     enemy.hex = grid.getHex({ col: enemy.longitude, row: enemy.latitude });
     if (!guide.hex || !enemy.hex) throw new Error("Expected fixture hexes");
-    expect(getTargetUser(usersState, "ALLY", guide.hex, "hero", true)?.userId).toBe("guide");
-    expect(getTargetUser(usersState, "ALLY", enemy.hex, "hero", true)).toBeUndefined();
+    expect(getTargetUser(usersState, "ALLY", guide.hex, "hero")?.userId).toBe("guide");
+    expect(getTargetUser(usersState, "ALLY", enemy.hex, "hero")).toBeUndefined();
   });
   it("enumerates finite distinct spawn cells even on small fields", () => {
     for (const direction of ["left", "right"] as const) {

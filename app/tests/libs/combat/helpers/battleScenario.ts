@@ -152,7 +152,6 @@ export const battleUserSchema = z
     damageDealt: num(),
     basicActions: z.array(z.custom<BattleBasicAction>()).prefault([]),
     relationIds: z.array(z.string()).prefault([]),
-    warIds: z.array(z.string()).prefault([]),
     items: z.array(z.custom<BattleUserItem>()).prefault([]),
     jutsus: z.array(z.custom<BattleUserJutsu>()).prefault([]),
   })

@@ -99,7 +99,6 @@ describe("repeat-opponent PvP XP at battle initiation", () => {
   it("reduces only human shrine PvP XP while retaining shrine damage and other rewards", async () => {
     const { saved } = await startBattle("SHRINE_WAR", 2);
     saved.extraState.wars["sector-war"] = { id: "sector-war", type: "SECTOR_WAR", attackerVillageId: "a", defenderVillageId: "b", sector: 7, warAllies: [], attackerVillage: { name: "A" }, defenderVillage: { name: "B" } } as never;
-    for (const user of saved.usersState) user.warIds = ["sector-war"];
     saved.usersState.find((user) => user.userId === "defender")!.curHealth = 0;
     const baseline = structuredClone(saved);
     delete baseline.extraState.pvpExperienceScaling;

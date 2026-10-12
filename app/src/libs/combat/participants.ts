@@ -9,12 +9,21 @@ import {
 /**
  * Whether quest content may add NPC templates to the initiating player's team.
  * QUEST objectives and quest-bound OVERWORLD fights carry these authored allies;
- * their `direction` defines teams regardless of village or template identity.
- * Other modes retain their own team, reward and objective rules. This is narrower
- * than QuestBattleTypes, which also includes raids and random encounters.
+ * This is narrower than QuestBattleTypes, which also includes raids and random
+ * encounters. It controls authored NPC eligibility, not combat allegiance.
  */
 export const supportsNpcAllies = (battleType: BattleType): boolean =>
   battleType === "QUEST" || battleType === "OVERWORLD";
+
+/**
+ * Each battle has two fixed teams, stored as its left/right side at initiation.
+ * Movement never changes this side; summons and clones inherit their creator's.
+ * Village, clan and controller identity do not determine combat allegiance.
+ */
+export const areBattleAllies = (
+  first: { direction: "left" | "right" },
+  second: { direction: "left" | "right" },
+): boolean => first.direction === second.direction;
 
 /**
  * Enumerate distinct spawn cells within one team's combat borders.

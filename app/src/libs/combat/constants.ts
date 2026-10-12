@@ -108,7 +108,6 @@ export const privateState = [
   "relationIds",
   "regeneration",
   "sector",
-  "warIds",
 
   "masteryRanks",
   "usedMasteries",

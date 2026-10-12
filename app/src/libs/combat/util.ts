@@ -79,13 +79,12 @@ import type {
 } from "@/drizzle/schema";
 import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { combatMasteryGains } from "@/libs/combat/mastery";
-import { supportsNpcAllies } from "@/libs/combat/participants";
+import { areBattleAllies } from "@/libs/combat/participants";
 import { isSummonTemplate, spliceOrphanedSummons } from "@/libs/combat/summon";
 import type { BattleEffect, GroundEffect, UserEffect } from "@/libs/combat/types";
 import { boostPvpGain, pvpExperienceReward } from "@/libs/pvpExperience";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
-import { findWarsWithUser } from "@/libs/war";
 import { randomInt, secureRandomInt } from "@/utils/math";
 import { secondsPassed } from "@/utils/time";
 import { getEffectiveStructureLevel, getShrineBoost } from "@/utils/village";
@@ -270,15 +269,67 @@ export const getWar = (battle: CompleteBattle | ReturnedBattle, warId: string) =
 };
 
 /**
- * Get all wars for a user as array
+ * Return non-summon teammates in stable faction-sponsorship order.
+ * Aggressors precede other members; immutable IDs break ties so initiative
+ * sorting and loadout edits cannot change the team's faction context.
  */
-export const getWarsArray = (
-  battle: CompleteBattle | ReturnedBattle,
+const getBattleTeamMembers = (battle: CompleteBattle, user: BattleUserState) =>
+  battle.usersState
+    .filter((member) => !member.isSummon && areBattleAllies(member, user))
+    .sort(
+      (a, b) =>
+        Number(b.isAggressor) - Number(a.isAggressor) ||
+        a.userId.localeCompare(b.userId),
+    );
+
+/**
+ * Resolve preloaded wars and their sponsored sides for the user's battle team.
+ * The first matching member in sponsorship order chooses each war's side,
+ * including registered supporters. Persistent village/war membership is unchanged.
+ */
+export const getBattleTeamWars = (battle: CompleteBattle, user: BattleUserState) => {
+  const wars = new Map<string, { war: BattleWar; sideVillageId: string }>();
+  for (const member of getBattleTeamMembers(battle, user)) {
+    for (const war of Object.values(battle.extraState.wars ?? {})) {
+      const sideVillageId =
+        member.villageId === war.attackerVillageId ||
+        war.warAllies.some(
+          (a) =>
+            a.villageId === member.villageId &&
+            a.supportVillageId === war.attackerVillageId,
+        )
+          ? war.attackerVillageId
+          : member.villageId === war.defenderVillageId ||
+              war.warAllies.some(
+                (a) =>
+                  a.villageId === member.villageId &&
+                  a.supportVillageId === war.defenderVillageId,
+              )
+            ? war.defenderVillageId
+            : undefined;
+      if (sideVillageId && !wars.has(war.id)) wars.set(war.id, { war, sideVillageId });
+    }
+  }
+  return [...wars.values()];
+};
+
+/**
+ * Return team wars whose opposite war side sponsors the target's combat team.
+ * Summons and same-team targets never qualify as war opponents.
+ */
+export const getOpposingBattleWars = (
+  battle: CompleteBattle,
   user: BattleUserState,
+  target: BattleUserState,
 ) => {
-  return (user.warIds ?? [])
-    .map((id) => battle.extraState.wars?.[id])
-    .filter((w): w is BattleWar => Boolean(w));
+  if (target.isSummon || areBattleAllies(user, target)) return [];
+  const opponents = getBattleTeamWars(battle, target);
+  return getBattleTeamWars(battle, user).filter((entry) =>
+    opponents.some(
+      (other) =>
+        other.war.id === entry.war.id && other.sideVillageId !== entry.sideVillageId,
+    ),
+  );
 };
 
 /**
@@ -1779,9 +1830,10 @@ export const maskBattle = (battle: Battle, userId: string): ReturnedBattle => ({
 });
 
 /**
- * Figure out if user is still in battle, and if not whether the user won or lost
- * NPC ally battles resolve teams by battlefield side, excluding summons; friendly
- * templates must not prevent victory when the opposing team is defeated.
+ * Return null while the user's battle is undecided or already settled.
+ * A result marks the user's departure in the supplied battle state.
+ * Battle teams determine victory and shared credit; summons cannot outlive their
+ * controller and are excluded from settlement participants.
  */
 export const calcBattleResult = (
   battle: CompleteBattle,
@@ -1793,25 +1845,12 @@ export const calcBattleResult = (
   const users = battle.usersState;
   const user = users.find((u) => u.userId === userId);
   if (user && !user.leftBattle) {
-    // If single village, then friends/targets are the opposing team. If MPvP, separate by village
+    // Faction identities still determine reward eligibility and political consequences.
     const villageIds = [
       ...new Set(users.filter((u) => !u.isSummon).map((u) => u.villageId)),
     ];
-    let targets: BattleUserState[] = [];
-    let friends: BattleUserState[] = [];
-    if (battleType === "CLAN_BATTLE") {
-      targets = users.filter((u) => u.clanId !== user.clanId && !u.isSummon);
-      friends = users.filter((u) => u.clanId === user.clanId && !u.isSummon);
-    } else if (supportsNpcAllies(battleType)) {
-      targets = users.filter((u) => u.direction !== user.direction && !u.isSummon);
-      friends = users.filter((u) => u.direction === user.direction && !u.isSummon);
-    } else if (villageIds.length === 1) {
-      targets = users.filter((u) => u.controllerId !== userId && !u.isSummon);
-      friends = users.filter((u) => u.controllerId === userId && !u.isSummon);
-    } else {
-      targets = users.filter((u) => u.villageId !== user.villageId && !u.isSummon);
-      friends = users.filter((u) => u.villageId === user.villageId && !u.isSummon);
-    }
+    const targets = users.filter((u) => !u.isSummon && !areBattleAllies(u, user));
+    const friends = getBattleTeamMembers(battle, user);
     const effects = battle.usersEffects;
     const survivingTargets = targets.filter((t) => stillInBattle(t, effects));
     if (!stillInBattle(user, effects) || survivingTargets.length === 0) {
@@ -1995,9 +2034,10 @@ export const calcBattleResult = (
       }
 
       // Check for prestige, tokens, etc.
-      const vilId = user.villageId;
+      const vilId = friends[0]?.villageId ?? user.villageId;
+      const isInitiatingTeam = friends.some((member) => member.isAggressor);
       const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
-      if (didWin && battleType === "COMBAT" && user.isAggressor) {
+      if (didWin && battleType === "COMBAT" && isInitiatingTeam) {
         targetUsers.forEach((target) => {
           if (user.isOutlaw) {
             deltaPrestige += KILLING_NOTORIETY_GAIN;
@@ -2077,281 +2117,231 @@ export const calcBattleResult = (
       let shrineChangeHp = 0;
       // Skip war updates if kill happened in war-torn sector
       const isInWarTornSectorForWar = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
-      const userWars = getWarsArray(battle, user);
+      const userWars = getBattleTeamWars(battle, user);
       if (!user.fledBattle && !isInWarTornSectorForWar) {
-        targets
-          .filter((t) => !t.isSummon)
-          .filter((t) => t.villageId !== vilId)
-          .forEach((target) => {
-            // Get user and target village ids
-            const userVillageId = user.villageId;
-            const targetVillageId = target.villageId;
-            // Get the war from the target, and also search through warAllies
-            const targetWars = getWarsArray(battle, target);
-            const wars = findWarsWithUser(
-              targetWars,
-              userWars,
-              targetVillageId,
-              userVillageId,
-            );
-            wars.forEach((war) => {
-              // Determine if the user is on the attacker side (either as main attacker or ally)
-              const isUserOnAttackerSide =
-                war.attackerVillageId === userVillageId ||
-                war.warAllies?.some(
-                  (ally) =>
-                    ally.villageId === userVillageId &&
-                    ally.supportVillageId === war.attackerVillageId,
-                );
-              // Get the names of the village
-              const userVillageName = isUserOnAttackerSide
-                ? war?.attackerVillage?.name || ""
-                : war?.defenderVillage?.name || "";
-              const targetVillageName = isUserOnAttackerSide
-                ? war?.defenderVillage?.name || ""
-                : war?.attackerVillage?.name || "";
-              // Reset to 0 if not in warHealthInfo
-              if (targetVillageName && !(targetVillageName in warHealthInfo)) {
-                warHealthInfo[targetVillageName] = 0;
-              }
-              if (userVillageName && !(userVillageName in warHealthInfo)) {
-                warHealthInfo[userVillageName] = 0;
-              }
-              // Derived
-              const isUserFactionColeader =
-                user.isOutlaw && checkCoLeader(user.userId, userClan);
-              const targetClan = getClan(battle, target.clanId);
-              const isTargetFactionColeader =
-                target.isOutlaw && checkCoLeader(target.userId, targetClan);
-              const isUserAssassin =
-                user.isOutlaw && checkAssassin(user.userId, userClan);
-              const isTargetAssassin =
-                target.isOutlaw && checkAssassin(target.userId, targetClan);
+        targets.forEach((target) => {
+          const wars = getOpposingBattleWars(battle, user, target);
+          wars.forEach(({ war, sideVillageId }) => {
+            const isUserOnAttackerSide = war.attackerVillageId === sideVillageId;
+            // Get the names of the village
+            const userVillageName = isUserOnAttackerSide
+              ? war?.attackerVillage?.name || ""
+              : war?.defenderVillage?.name || "";
+            const targetVillageName = isUserOnAttackerSide
+              ? war?.defenderVillage?.name || ""
+              : war?.attackerVillage?.name || "";
+            // Reset to 0 if not in warHealthInfo
+            if (targetVillageName && !(targetVillageName in warHealthInfo)) {
+              warHealthInfo[targetVillageName] = 0;
+            }
+            if (userVillageName && !(userVillageName in warHealthInfo)) {
+              warHealthInfo[userVillageName] = 0;
+            }
+            // Derived
+            const isUserFactionColeader =
+              user.isOutlaw && checkCoLeader(user.userId, userClan);
+            const targetClan = getClan(battle, target.clanId);
+            const isTargetFactionColeader =
+              target.isOutlaw && checkCoLeader(target.userId, targetClan);
+            const isUserAssassin =
+              user.isOutlaw && checkAssassin(user.userId, userClan);
+            const isTargetAssassin =
+              target.isOutlaw && checkAssassin(target.userId, targetClan);
 
-              // Village wars & raids
-              if (
-                ["VILLAGE_WAR", "WAR_RAID"].includes(war.type) &&
-                battleType === "COMBAT"
-              ) {
-                const targetVillage = getVillage(battle, target.villageId);
-                if (didWin) {
-                  if (village?.kageId === user.userId) {
-                    warHealthChange += WAR_HEALTH_KAGE_RECOVER;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_KAGE_RECOVER;
-                    warHealthInfo[targetVillageName] =
-                      (warHealthInfo[targetVillageName] ?? 0) - WAR_HEALTH_KAGE_REMOVE;
-                  } else if (user.rank === "ELDER") {
-                    warHealthChange += WAR_HEALTH_ELDER_RECOVER;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_ELDER_RECOVER;
-                    warHealthInfo[targetVillageName] =
-                      (warHealthInfo[targetVillageName] ?? 0) - WAR_HEALTH_ELDER_REMOVE;
-                  } else if (isUserFactionColeader) {
-                    warHealthChange += WAR_HEALTH_COLEADER_RECOVER;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) +
-                      WAR_HEALTH_COLEADER_RECOVER;
-                    warHealthInfo[targetVillageName] =
-                      (warHealthInfo[targetVillageName] ?? 0) -
-                      WAR_HEALTH_COLEADER_REMOVE;
-                  } else if (user.anbuId) {
-                    warHealthChange += WAR_HEALTH_ANBU_RECOVER;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_ANBU_RECOVER;
-                    warHealthInfo[targetVillageName] =
-                      (warHealthInfo[targetVillageName] ?? 0) - WAR_HEALTH_ANBU_REMOVE;
-                  } else if (isUserAssassin) {
-                    warHealthChange += WAR_HEALTH_ASSASSIN_RECOVER;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) +
-                      WAR_HEALTH_ASSASSIN_RECOVER;
-                    warHealthInfo[targetVillageName] =
-                      (warHealthInfo[targetVillageName] ?? 0) -
-                      WAR_HEALTH_ASSASSIN_REMOVE;
-                  } else {
-                    warHealthChange += WAR_HEALTH_RECOVER;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_RECOVER;
-                    warHealthInfo[targetVillageName] =
-                      (warHealthInfo[targetVillageName] ?? 0) - WAR_HEALTH_REMOVE;
-                  }
-                  if (targetVillage?.kageId === target.userId) {
-                    warHealthInfo[targetVillageName] =
-                      (warHealthInfo[targetVillageName] ?? 0) -
-                      WAR_HEALTH_KAGEDEATH_REMOVE;
-                  }
+            // Village wars & raids
+            if (
+              ["VILLAGE_WAR", "WAR_RAID"].includes(war.type) &&
+              battleType === "COMBAT"
+            ) {
+              const targetVillage = getVillage(battle, target.villageId);
+              if (didWin) {
+                if (village?.kageId === user.userId) {
+                  warHealthChange += WAR_HEALTH_KAGE_RECOVER;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_KAGE_RECOVER;
+                  warHealthInfo[targetVillageName] =
+                    (warHealthInfo[targetVillageName] ?? 0) - WAR_HEALTH_KAGE_REMOVE;
+                } else if (user.rank === "ELDER") {
+                  warHealthChange += WAR_HEALTH_ELDER_RECOVER;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_ELDER_RECOVER;
+                  warHealthInfo[targetVillageName] =
+                    (warHealthInfo[targetVillageName] ?? 0) - WAR_HEALTH_ELDER_REMOVE;
+                } else if (isUserFactionColeader) {
+                  warHealthChange += WAR_HEALTH_COLEADER_RECOVER;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_COLEADER_RECOVER;
+                  warHealthInfo[targetVillageName] =
+                    (warHealthInfo[targetVillageName] ?? 0) -
+                    WAR_HEALTH_COLEADER_REMOVE;
+                } else if (user.anbuId) {
+                  warHealthChange += WAR_HEALTH_ANBU_RECOVER;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_ANBU_RECOVER;
+                  warHealthInfo[targetVillageName] =
+                    (warHealthInfo[targetVillageName] ?? 0) - WAR_HEALTH_ANBU_REMOVE;
+                } else if (isUserAssassin) {
+                  warHealthChange += WAR_HEALTH_ASSASSIN_RECOVER;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_ASSASSIN_RECOVER;
+                  warHealthInfo[targetVillageName] =
+                    (warHealthInfo[targetVillageName] ?? 0) -
+                    WAR_HEALTH_ASSASSIN_REMOVE;
                 } else {
-                  if (targetVillage?.kageId === target.userId) {
-                    warHealthChange -= WAR_HEALTH_KAGE_REMOVE;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_KAGE_REMOVE;
-                  } else if (target.rank === "ELDER") {
-                    warHealthChange -= WAR_HEALTH_ELDER_REMOVE;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_ELDER_REMOVE;
-                  } else if (isTargetFactionColeader) {
-                    warHealthChange -= WAR_HEALTH_COLEADER_REMOVE;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) -
-                      WAR_HEALTH_COLEADER_REMOVE;
-                  } else if (target.anbuId) {
-                    warHealthChange -= WAR_HEALTH_ANBU_REMOVE;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_ANBU_REMOVE;
-                  } else if (isTargetAssassin) {
-                    warHealthChange -= WAR_HEALTH_ASSASSIN_REMOVE;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) -
-                      WAR_HEALTH_ASSASSIN_REMOVE;
-                  } else {
-                    warHealthChange -= WAR_HEALTH_REMOVE;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_REMOVE;
-                  }
-                  if (village?.kageId === user.userId) {
-                    warHealthChange -= WAR_HEALTH_KAGEDEATH_REMOVE;
-                    warHealthInfo[userVillageName] =
-                      (warHealthInfo[userVillageName] ?? 0) -
-                      WAR_HEALTH_KAGEDEATH_REMOVE;
+                  warHealthChange += WAR_HEALTH_RECOVER;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) + WAR_HEALTH_RECOVER;
+                  warHealthInfo[targetVillageName] =
+                    (warHealthInfo[targetVillageName] ?? 0) - WAR_HEALTH_REMOVE;
+                }
+                if (targetVillage?.kageId === target.userId) {
+                  warHealthInfo[targetVillageName] =
+                    (warHealthInfo[targetVillageName] ?? 0) -
+                    WAR_HEALTH_KAGEDEATH_REMOVE;
+                }
+              } else {
+                if (targetVillage?.kageId === target.userId) {
+                  warHealthChange -= WAR_HEALTH_KAGE_REMOVE;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_KAGE_REMOVE;
+                } else if (target.rank === "ELDER") {
+                  warHealthChange -= WAR_HEALTH_ELDER_REMOVE;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_ELDER_REMOVE;
+                } else if (isTargetFactionColeader) {
+                  warHealthChange -= WAR_HEALTH_COLEADER_REMOVE;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_COLEADER_REMOVE;
+                } else if (target.anbuId) {
+                  warHealthChange -= WAR_HEALTH_ANBU_REMOVE;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_ANBU_REMOVE;
+                } else if (isTargetAssassin) {
+                  warHealthChange -= WAR_HEALTH_ASSASSIN_REMOVE;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_ASSASSIN_REMOVE;
+                } else {
+                  warHealthChange -= WAR_HEALTH_REMOVE;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_REMOVE;
+                }
+                if (village?.kageId === user.userId) {
+                  warHealthChange -= WAR_HEALTH_KAGEDEATH_REMOVE;
+                  warHealthInfo[userVillageName] =
+                    (warHealthInfo[userVillageName] ?? 0) - WAR_HEALTH_KAGEDEATH_REMOVE;
+                }
+              }
+            }
+            // Sector wars
+            if (war.type === "SECTOR_WAR") {
+              const sector = war.sector;
+              if (!(sector in shrineInfo)) {
+                shrineInfo[sector] = 0;
+              }
+              if (battleType === "SHRINE_WAR") {
+                if (
+                  (didWin && isUserOnAttackerSide) ||
+                  (!didWin && !isUserOnAttackerSide)
+                ) {
+                  shrineChangeHp -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
+                  shrineInfo[sector] =
+                    (shrineInfo[sector] ?? 0) - WAR_SECTORWAR_AI_SHRINE_REDUCE;
+                } else {
+                  shrineChangeHp += WAR_SECTORWAR_AI_SHRINE_RECOVER;
+                  shrineInfo[sector] =
+                    (shrineInfo[sector] ?? 0) + WAR_SECTORWAR_AI_SHRINE_RECOVER;
+                }
+              }
+              if (battleType === "COMBAT") {
+                if (
+                  (didWin && isUserOnAttackerSide) ||
+                  (!didWin && !isUserOnAttackerSide)
+                ) {
+                  if (didWin) shrineChangeHp -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                  shrineInfo[sector] =
+                    (shrineInfo[sector] ?? 0) - WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                } else {
+                  if (didWin) shrineChangeHp += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
+                  shrineInfo[sector] =
+                    (shrineInfo[sector] ?? 0) + WAR_SECTORWAR_PVP_SHRINE_RECOVER;
+                }
+              }
+            }
+            // Village wars and raids - abstract shrine HP mechanic
+            // Track per-war to avoid accumulation bug when a user is in multiple wars
+            // Track attacker and defender shrine changes separately
+            if (["VILLAGE_WAR", "WAR_RAID"].includes(war.type)) {
+              if (!(war.id in villageWarShrineInfo)) {
+                villageWarShrineInfo[war.id] = { attacker: 0, defender: 0 };
+                // Create display name for this war using village names
+                const attackerName = war.attackerVillage?.name ?? "Attacker";
+                const defenderName = war.defenderVillage?.name ?? "Defender";
+                warIdToDisplayName[war.id] = `${attackerName} vs ${defenderName}`;
+              }
+              const isUserOnDefenderSide = !isUserOnAttackerSide;
+
+              // Determine which shrine is being targeted based on user's sector
+              const atAttackerVillage = war.attackerVillage?.sector === user.sector;
+              const atDefenderVillage = war.defenderVillage?.sector === user.sector;
+
+              // AI shrine battles (SHRINE_WAR) - attacking the shrine directly
+              if (battleType === "SHRINE_WAR") {
+                const warInfo = villageWarShrineInfo[war.id];
+                if (didWin && warInfo) {
+                  if (isUserOnAttackerSide && atDefenderVillage) {
+                    // Attacker wins at defender's shrine: defender shrine HP down
+                    warInfo.defender -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
+                  } else if (isUserOnAttackerSide && atAttackerVillage) {
+                    // Attacker wins defending own shrine: attacker shrine HP up
+                    warInfo.attacker += WAR_SECTORWAR_AI_SHRINE_RECOVER;
+                  } else if (isUserOnDefenderSide && atAttackerVillage) {
+                    // Defender wins at attacker's shrine: attacker shrine HP down
+                    warInfo.attacker -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
+                  } else if (isUserOnDefenderSide && atDefenderVillage) {
+                    // Defender wins defending own shrine: defender shrine HP up
+                    warInfo.defender += WAR_SECTORWAR_AI_SHRINE_RECOVER;
                   }
                 }
               }
-              // Sector wars
-              if (war.type === "SECTOR_WAR") {
-                const sector = war.sector;
-                if (!(sector in shrineInfo)) {
-                  shrineInfo[sector] = 0;
-                }
-                if (battleType === "SHRINE_WAR") {
-                  if (
-                    (didWin && war.attackerVillageId === vilId) ||
-                    (!didWin && war.defenderVillageId === vilId)
-                  ) {
-                    shrineChangeHp -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
-                    shrineInfo[sector] =
-                      (shrineInfo[sector] ?? 0) - WAR_SECTORWAR_AI_SHRINE_REDUCE;
-                  } else {
-                    shrineChangeHp += WAR_SECTORWAR_AI_SHRINE_RECOVER;
-                    shrineInfo[sector] =
-                      (shrineInfo[sector] ?? 0) + WAR_SECTORWAR_AI_SHRINE_RECOVER;
-                  }
-                }
-                if (battleType === "COMBAT") {
-                  if (
-                    (didWin && war.attackerVillageId === vilId) ||
-                    (!didWin && war.defenderVillageId === vilId)
-                  ) {
-                    if (didWin) shrineChangeHp -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
-                    shrineInfo[sector] =
-                      (shrineInfo[sector] ?? 0) - WAR_SECTORWAR_PVP_SHRINE_REDUCE;
-                  } else {
-                    if (didWin) shrineChangeHp += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
-                    shrineInfo[sector] =
-                      (shrineInfo[sector] ?? 0) + WAR_SECTORWAR_PVP_SHRINE_RECOVER;
-                  }
-                }
-              }
-              // Village wars and raids - abstract shrine HP mechanic
-              // Track per-war to avoid accumulation bug when a user is in multiple wars
-              // Track attacker and defender shrine changes separately
-              if (["VILLAGE_WAR", "WAR_RAID"].includes(war.type)) {
-                if (!(war.id in villageWarShrineInfo)) {
-                  villageWarShrineInfo[war.id] = { attacker: 0, defender: 0 };
-                  // Create display name for this war using village names
-                  const attackerName = war.attackerVillage?.name ?? "Attacker";
-                  const defenderName = war.defenderVillage?.name ?? "Defender";
-                  warIdToDisplayName[war.id] = `${attackerName} vs ${defenderName}`;
-                }
-                const isUserOnAttackerSide =
-                  war.attackerVillageId === vilId ||
-                  war.warAllies?.some(
-                    (ally) =>
-                      ally.villageId === vilId &&
-                      ally.supportVillageId === war.attackerVillageId,
-                  );
-                const isUserOnDefenderSide =
-                  war.defenderVillageId === vilId ||
-                  war.warAllies?.some(
-                    (ally) =>
-                      ally.villageId === vilId &&
-                      ally.supportVillageId === war.defenderVillageId,
-                  );
 
-                // Determine which shrine is being targeted based on user's sector
-                const atAttackerVillage = war.attackerVillage?.sector === user.sector;
-                const atDefenderVillage = war.defenderVillage?.sector === user.sector;
-
-                // AI shrine battles (SHRINE_WAR) - attacking the shrine directly
-                if (battleType === "SHRINE_WAR") {
-                  const warInfo = villageWarShrineInfo[war.id];
-                  if (didWin && warInfo) {
-                    if (isUserOnAttackerSide && atDefenderVillage) {
-                      // Attacker wins at defender's shrine: defender shrine HP down
-                      warInfo.defender -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
-                    } else if (isUserOnAttackerSide && atAttackerVillage) {
-                      // Attacker wins defending own shrine: attacker shrine HP up
-                      warInfo.attacker += WAR_SECTORWAR_AI_SHRINE_RECOVER;
-                    } else if (isUserOnDefenderSide && atAttackerVillage) {
-                      // Defender wins at attacker's shrine: attacker shrine HP down
-                      warInfo.attacker -= WAR_SECTORWAR_AI_SHRINE_REDUCE;
-                    } else if (isUserOnDefenderSide && atDefenderVillage) {
-                      // Defender wins defending own shrine: defender shrine HP up
-                      warInfo.defender += WAR_SECTORWAR_AI_SHRINE_RECOVER;
+              // PvP battles (COMBAT) - affect shrine based on where battle occurred
+              if (battleType === "COMBAT") {
+                const warInfo = villageWarShrineInfo[war.id];
+                if (didWin && warInfo) {
+                  if (atDefenderVillage) {
+                    // Battle at defender village affects defender shrine
+                    if (isUserOnAttackerSide) {
+                      // Attacker kills defender at defender village: defender shrine HP down
+                      warInfo.defender -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                    } else if (isUserOnDefenderSide) {
+                      // Defender kills attacker at own village: defender shrine HP up
+                      warInfo.defender += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
                     }
-                  }
-                }
-
-                // PvP battles (COMBAT) - affect shrine based on where battle occurred
-                if (battleType === "COMBAT") {
-                  const warInfo = villageWarShrineInfo[war.id];
-                  if (didWin && warInfo) {
-                    if (atDefenderVillage) {
-                      // Battle at defender village affects defender shrine
-                      if (isUserOnAttackerSide) {
-                        // Attacker kills defender at defender village: defender shrine HP down
-                        warInfo.defender -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
-                      } else if (isUserOnDefenderSide) {
-                        // Defender kills attacker at own village: defender shrine HP up
-                        warInfo.defender += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
-                      }
-                    } else if (atAttackerVillage) {
-                      // Battle at attacker village affects attacker shrine
-                      if (isUserOnDefenderSide) {
-                        // Defender kills attacker at attacker village: attacker shrine HP down
-                        warInfo.attacker -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
-                      } else if (isUserOnAttackerSide) {
-                        // Attacker kills defender at own village: attacker shrine HP up
-                        warInfo.attacker += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
-                      }
+                  } else if (atAttackerVillage) {
+                    // Battle at attacker village affects attacker shrine
+                    if (isUserOnDefenderSide) {
+                      // Defender kills attacker at attacker village: attacker shrine HP down
+                      warInfo.attacker -= WAR_SECTORWAR_PVP_SHRINE_REDUCE;
+                    } else if (isUserOnAttackerSide) {
+                      // Attacker kills defender at own village: attacker shrine HP up
+                      warInfo.attacker += WAR_SECTORWAR_PVP_SHRINE_RECOVER;
                     }
                   }
                 }
               }
-            });
+            }
           });
+        });
 
         // Handle SHRINE_WAR village wars separately for defend scenarios
         // When defending own shrine, AI target has same villageId as user, so normal
         // target loop doesn't process it. Handle this case based on user's wars directly.
         if (battleType === "SHRINE_WAR" && didWin) {
           userWars
-            .filter((w) => ["VILLAGE_WAR", "WAR_RAID"].includes(w.type))
-            .forEach((war) => {
-              const isUserOnAttackerSide =
-                war.attackerVillageId === vilId ||
-                war.warAllies?.some(
-                  (ally) =>
-                    ally.villageId === vilId &&
-                    ally.supportVillageId === war.attackerVillageId,
-                );
-              const isUserOnDefenderSide =
-                war.defenderVillageId === vilId ||
-                war.warAllies?.some(
-                  (ally) =>
-                    ally.villageId === vilId &&
-                    ally.supportVillageId === war.defenderVillageId,
-                );
+            .filter(({ war }) => ["VILLAGE_WAR", "WAR_RAID"].includes(war.type))
+            .forEach(({ war, sideVillageId }) => {
+              const isUserOnAttackerSide = war.attackerVillageId === sideVillageId;
+              const isUserOnDefenderSide = !isUserOnAttackerSide;
 
               const atAttackerVillage = war.attackerVillage?.sector === user.sector;
               const atDefenderVillage = war.defenderVillage?.sector === user.sector;
@@ -3064,7 +3054,7 @@ export const isValidMove = (info: {
   clicked: TerrainHex;
 }) => {
   const { action, user, users, target, clicked, barriers } = info;
-  const { userId, direction } = user;
+  const { userId } = user;
   const barrier = barriers.find(
     (b) => b.longitude === target.col && b.latitude === target.row,
   );
@@ -3080,12 +3070,12 @@ export const isValidMove = (info: {
       if (opponent) return true;
     } else if (action.target === "OPPONENT") {
       // Opponent = different direction/team
-      if (opponent && opponent.direction !== direction) return true;
+      if (opponent && !areBattleAllies(opponent, user)) return true;
     } else if (action.target === "OTHER_USER") {
       if (opponent && opponent?.userId !== userId) return true;
     } else if (action.target === "ALLY") {
       // Ally = same direction/team
-      if (opponent && opponent.direction === direction) return true;
+      if (opponent && areBattleAllies(opponent, user)) return true;
     } else if (action.target === "SELF") {
       // Allow self-targeting abilities like basic heal even when stealthed
       if (opponent && opponent?.userId === userId) return true;
@@ -3387,7 +3377,7 @@ export const calcHexDistance = (
 /**
  * Get the distance to the closest enemy from a user's position.
  * Returns null if no enemies found or user not found.
- * NPC ally battles use opposite battlefield sides; other modes retain village/controller rules.
+ * Distance follows battle teams regardless of faction or controller identity.
  */
 export const getDistanceToClosestEnemy = (
   battle: ReturnedBattle | undefined | null,
@@ -3398,23 +3388,10 @@ export const getDistanceToClosestEnemy = (
   const user = battle.usersState.find((u) => u.userId === userId);
   if (!user) return null;
 
-  // Authored NPC ally battles identify enemies by battlefield side.
   const effects = battle.usersEffects;
-  const villageIds = [
-    ...new Set(
-      battle.usersState
-        .filter((u) => stillInBattle(u, effects))
-        .map((u) => u.villageId),
-    ),
-  ];
-  const enemies = battle.usersState.filter((u) => {
-    const isEnemy = supportsNpcAllies(battle.battleType)
-      ? u.direction !== user.direction
-      : villageIds.length > 1
-        ? u.villageId !== user.villageId
-        : u.controllerId !== user.controllerId;
-    return isEnemy && stillInBattle(u, effects);
-  });
+  const enemies = battle.usersState.filter(
+    (u) => !areBattleAllies(u, user) && stillInBattle(u, effects),
+  );
 
   if (enemies.length === 0) return null;
 

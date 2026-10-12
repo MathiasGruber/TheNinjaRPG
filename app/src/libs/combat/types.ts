@@ -167,6 +167,7 @@ export type CombatUserFields = {
     creditDamage: boolean;
   }[];
   controllerId: string;
+  /** Fixed battle team, assigned at initiation and inherited by summons/clones. */
   direction: "left" | "right";
   isAggressor: boolean;
   highestGenerals: (typeof GenNames)[number][];
@@ -235,7 +236,6 @@ export type CombatUserFields = {
   summonSourceId?: string;
   // Reference IDs to static data in extraState
   relationIds: string[];
-  warIds: string[];
   /** Base stat values used for additive percentage modifier calculations (e.g., increaseStat, decreaseStat) */
   baseStatsForModifiers?: {
     offence?: number;
@@ -271,7 +271,6 @@ export type ProcessingBattleUser = Omit<CombatQueryUser, "jutsus" | "items"> &
   Omit<CombatUserFields, "basicActions"> & {
     // Full objects needed during processing (not in final BattleUserState)
     relations?: VillageAlliance[];
-    wars?: BattleWar[];
     keystoneItem?: Item | null;
     // Processed jutsus/items with full Jutsu/Item objects
     jutsus: ProcessedJutsu[];

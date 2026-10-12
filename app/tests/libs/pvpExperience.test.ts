@@ -67,7 +67,7 @@ describe("PvP boost reward integration", () => {
   });
   it("earns XP and a weekly kill on a human win but excludes AI, sparring and friendly farming", () => {
     for (const [battleType, isAi, sameVillage, xp] of [["COMBAT", false, false, 250],["COMBAT", true, false, 0],["SPARRING", false, false, 0],["COMBAT", false, true, 0]] as const) {
-      const hero = makeUser({ userId: "hero", villageId: "a", curHealth: 100 });
+      const hero = makeUser({ userId: "hero", direction: "left", villageId: "a", curHealth: 100 });
       const foe = makeUser({ userId: "foe", villageId: sameVillage ? "a" : "b", isAi, curHealth: 0 });
       const battle = makeCompleteBattle({ battleType, rewardScaling: 1, usersState: [hero, foe] });
       const result = calcBattleResult(battle, hero.userId);
@@ -76,7 +76,7 @@ describe("PvP boost reward integration", () => {
     }
   });
   it("cannot turn war-torn losses into positive rewards when ryo was stolen", () => {
-    const hero = makeUser({ userId: "hero", villageId: "a", curHealth: 0, sector: MAP_WAR_TORN_BATTLEGROUND_SECTOR, money: 100, moneyStolen: -500, pvpBoostPercent: 35 });
+    const hero = makeUser({ userId: "hero", direction: "left", villageId: "a", curHealth: 0, sector: MAP_WAR_TORN_BATTLEGROUND_SECTOR, money: 100, moneyStolen: -500, pvpBoostPercent: 35 });
     const foe = makeUser({ userId: "foe", villageId: "b", curHealth: 100 });
     const result = calcBattleResult(makeCompleteBattle({ rewardScaling: 1, usersState: [hero, foe] }), "hero");
     expect(result?.money).toBe(-100);
@@ -84,7 +84,7 @@ describe("PvP boost reward integration", () => {
     expect(result?.weeklyPvpKills).toBe(0);
   });
   it("matches integer combat payouts while preserving fractional prestige and stat XP", () => {
-    const hero = makeUser({ userId: "hero", villageId: "a", isAggressor: true, curHealth: 100, pvpBoostPercent: 15.25, pvpStreak: 0, rank: "JONIN", offence: 0, defence: 0, strength: 0, intelligence: 0, willpower: 0, speed: 0 });
+    const hero = makeUser({ userId: "hero", direction: "left", villageId: "a", isAggressor: true, curHealth: 100, pvpBoostPercent: 15.25, pvpStreak: 0, rank: "JONIN", offence: 0, defence: 0, strength: 0, intelligence: 0, willpower: 0, speed: 0 });
     const foe = makeUser({ userId: "foe", villageId: "b", curHealth: 0 });
     const result = calcBattleResult(makeCompleteBattle({ rewardScaling: 1, usersState: [hero, foe] }), "hero");
     expect(result?.villageTokens).toBe(346);

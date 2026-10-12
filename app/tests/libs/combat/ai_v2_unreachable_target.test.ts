@@ -37,7 +37,7 @@ const mkUser = (over: Partial<BattleUserState>): BattleUserState =>
     originalLevel: 60, originalMoney: 0, originalLongitude: 0, originalLatitude: 0,
     isOriginal: true, usedGenerals: {}, usedStats: {}, moneyStolen: 0,
     allyVillage: false, usedActions: [], initiative: 0,
-    relationIds: [], warIds: [],
+    relationIds: [],
     offence: 100, defence: 100,
     ninjutsuMastery: 100, genjutsuMastery: 100, taijutsuMastery: 100,
     bukijutsuMastery: 100, bloodlineMastery: 100, sageMastery: 100,

@@ -185,6 +185,20 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("preserves the initiating team and its faction credit when the initiator changes loadout", async () => {
+    await seedLobby();
+    const db = await getTestDatabase();
+    const initial = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
+    initial.usersState[0]!.isAggressor = true;
+    initial.usersState[0]!.direction = "left";
+    await db.update(battle).set({ usersState: initial.usersState }).where(eq(battle.id, BATTLE));
+    const result = await (await callerFor(combatRouter, USER)).updateCombatLoadout({ battleId: BATTLE, jutsuLoadoutId: "new-jutsus" });
+    expect(result.success).toBe(true);
+    const updated = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
+    expect(updated.usersState.find((member) => member.userId === USER)?.isAggressor).toBe(true);
+    expect(updated.usersState.find((member) => member.userId === USER)?.direction).toBe("left");
+  });
+
   it.each([[true, false], [false, false], [true, true], [false, true]])("keeps cosmetics with their owner (owner switches first: %s, opponent reskinned: %s)", async (ownerFirst, opponentReskinned) => {
     const { raw, essentials } = await seedLobby();
     const db = await getTestDatabase();

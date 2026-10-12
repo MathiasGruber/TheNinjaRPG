@@ -375,6 +375,13 @@ export const combatRouter = createTRPCRouter({
               ...(result
                 ? [
                     updateUser(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
+                    // Polling settlement pays the same faction counters as an action.
+                    updateVillageAnbuClan(
+                      ctx.drizzle,
+                      settledBattle,
+                      result,
+                      ctx.userId,
+                    ),
                     updateWars(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
                     updateKage(ctx.drizzle, settledBattle, result),
                     updateRaidProgress(ctx.drizzle, settledBattle, ctx.userId),
@@ -1315,6 +1322,8 @@ export const combatRouter = createTRPCRouter({
         reconcileLobbyPools(usersState[0], originalPools, completeUserEffects);
         usersState[0].initiative = originalInitiative;
         usersState[0].direction = originalDirection;
+        // Keep initiating-team reward eligibility across loadout reconstruction.
+        usersState[0].isAggressor = user.isAggressor;
       }
 
       // Merge the user's state with the other user's state
@@ -3147,7 +3156,6 @@ export const processUsersForBattle = async (
     hide,
     leftSideUserIds,
     leftSideUserCount,
-    wars,
     width,
     height,
   } = info;
@@ -3220,7 +3228,6 @@ export const processUsersForBattle = async (
       aiProfile: inputUser.aiProfile ?? info.defaultProfile,
       // Compatibility fields for ReturnedUserState (populated later during conversion)
       relationIds: [],
-      warIds: [],
       // Initialize jutsus and items (will be processed below)
       jutsus: inputUser.jutsus
         .filter((uj) => {
@@ -3738,14 +3745,6 @@ export const processUsersForBattle = async (
       (r) => r.villageIdA === user.villageId || r.villageIdB === user.villageId,
     );
 
-    // Add relevant wars to usersState
-    user.wars = wars.filter(
-      (w) =>
-        w.attackerVillageId === user.villageId ||
-        w.defenderVillageId === user.villageId ||
-        w.warAllies.find((wa) => wa.villageId === user.villageId),
-    );
-
     // Check if we are in ally village or not
     user.allyVillage = false;
     if (inVillage && !ownSector) {
@@ -4006,9 +4005,6 @@ export const processUsersForBattle = async (
     // Get IDs for relations that apply to this user's village
     const relationIds = (user.relations ?? []).map((r: { id: string }) => r.id);
 
-    // Get IDs for wars that apply to this user's village
-    const warIds = (user.wars ?? []).map((w: { id: string }) => w.id);
-
     // Convert jutsus to reference format
     const jutsusRef: BattleUserJutsu[] = user.jutsus.map((uj) => ({
       id: uj.id,
@@ -4065,7 +4061,6 @@ export const processUsersForBattle = async (
       sageMode: _sageMode,
       userSkills: _userSkills,
       relations: _relations,
-      wars: _wars,
       aiProfile,
       keystoneItem,
       // These are stored in extraState, not on the user
@@ -4085,7 +4080,6 @@ export const processUsersForBattle = async (
       jutsus: jutsusRef,
       items: itemsRef,
       relationIds,
-      warIds,
       // Convert full CombatAction[] to slim BattleBasicAction[] (only tracking data)
       basicActions: user.basicActions.map((ba) => ({
         id: ba.id,

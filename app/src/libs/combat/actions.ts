@@ -31,7 +31,7 @@ import {
 import type { Jutsu } from "@/drizzle/schema";
 import { BARRIER_DAMAGE_TAG_TYPES, COMBAT_SECONDS } from "@/libs/combat/constants";
 import { recordMasteryUsage } from "@/libs/combat/mastery";
-import { supportsNpcAllies } from "@/libs/combat/participants";
+import { areBattleAllies } from "@/libs/combat/participants";
 import { resolvePotencyTags } from "@/libs/combat/potency";
 import { applyEffects, checkFriendlyFire } from "@/libs/combat/process";
 import { getPower, realizeTag, updateStatUsage } from "@/libs/combat/tags";
@@ -1061,13 +1061,7 @@ export const insertAction = (info: {
           }
         } else {
           // ADD USER EFFECTS
-          const target = getTargetUser(
-            alive,
-            action.target,
-            tile,
-            user.userId,
-            supportsNpcAllies(battle.battleType),
-          );
+          const target = getTargetUser(alive, action.target, tile, user.userId);
           const effect = realizeTag({
             tag: tag as UserEffect,
             user: user,
@@ -1304,15 +1298,14 @@ export const insertAction = (info: {
 
 /**
  * Resolve a tile occupant eligible for the action's target category.
- * `useBattleTeams` makes ALLY targets follow battlefield side for authored NPC
- * ally battles; other callers retain village-based ally targeting.
+ * ALLY includes the caster's fixed team and self; OPPONENT selects the other team.
+ * OTHER_USER accepts either team but excludes the caster.
  */
 export const getTargetUser = (
   users: BattleUserState[],
   target: (typeof AttackTargets)[number],
   tile: TerrainHex,
   userId: string,
-  useBattleTeams = false,
 ) => {
   let result: BattleUserState | undefined;
   const user = users.find((u) => u.userId === userId);
@@ -1320,14 +1313,9 @@ export const getTargetUser = (
     if (target === "SELF") {
       result = users.find((u) => u.userId === user.userId && u.hex === tile);
     } else if (target === "OPPONENT") {
-      result = users.find((u) => u.direction !== user.direction && u.hex === tile);
+      result = users.find((u) => !areBattleAllies(u, user) && u.hex === tile);
     } else if (target === "ALLY") {
-      result = users.find(
-        (u) =>
-          (useBattleTeams
-            ? u.direction === user.direction
-            : u.villageId === user.villageId) && u.hex === tile,
-      );
+      result = users.find((u) => areBattleAllies(u, user) && u.hex === tile);
     } else if (target === "OTHER_USER") {
       result = users.find((u) => u.userId !== user.userId && u.hex === tile);
     } else if (target === "CHARACTER") {

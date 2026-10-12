@@ -31,7 +31,7 @@ const mkUser = (over: Partial<BattleUserState>): BattleUserState =>
     originalLevel: 10, originalMoney: 0, originalLongitude: 1, originalLatitude: 1,
     isOriginal: true, usedGenerals: {}, usedStats: {}, moneyStolen: 0,
     allyVillage: false, usedActions: [], initiative: 0,
-    relationIds: [], warIds: [],
+    relationIds: [],
     offence: 100, defence: 100, ninjutsuMastery: 100, genjutsuMastery: 100,
     taijutsuMastery: 100, bukijutsuMastery: 100, bloodlineMastery: 100, sageMastery: 100,
     strength: 100, intelligence: 100, willpower: 100, speed: 100,
@@ -89,7 +89,7 @@ const mkBattle = (human: BattleUserState): CompleteBattle =>
 const mkHuman = (over: Partial<BattleUserState> = {}): BattleUserState =>
   mkUser({
     userId: "user_h1", username: "Human", controllerId: "user_h1",
-    isAi: false, aiProfileId: PROFILE, longitude: 2, latitude: 2,
+    isAi: false, direction: "left", aiProfileId: PROFILE, longitude: 2, latitude: 2,
     jutsus: [{ id: "uj1", jutsuId: DAMAGE_JUTSU, level: 1, experience: 0,
                equipped: true, lastUsedRound: -99, originalCooldown: 0 }],
     ...over,

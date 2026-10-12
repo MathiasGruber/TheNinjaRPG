@@ -33,6 +33,7 @@ import {
   dmgConfig as defaultDmgConfig,
 } from "./constants";
 import { type DiffusePacket, deferDiffuseDamage, repayDiffuseDamage } from "./diffuse";
+import { areBattleAllies } from "./participants";
 import {
   absorb,
   adjustAggro,
@@ -149,12 +150,7 @@ import {
 /**
  * Minimal user type for checkFriendlyFire
  */
-type FriendlyFireUser = {
-  userId: string;
-  isSummon?: boolean;
-  controllerId: string;
-  direction: "left" | "right";
-};
+type FriendlyFireUser = Pick<BattleUserState, "userId" | "direction">;
 
 /**
  * Check whether to apply given effect to a user, based on friendly fire settings.
@@ -171,14 +167,8 @@ export const checkFriendlyFire = (
   const creator = usersState.find((u) => u.userId === effect.creatorId);
   if (!creator) return false;
 
-  // For summoned units, check if they belong to the creator (same team)
-  if (target.isSummon) {
-    const isFriendly = target.controllerId === creator.userId;
-    return effect.friendlyFire === "FRIENDLY" ? isFriendly : !isFriendly;
-  }
-
   // Determine if target is friendly based on direction (same side = allies)
-  const isFriendly = creator.direction === target.direction;
+  const isFriendly = areBattleAllies(creator, target);
 
   // Check if effect should be applied based on friendly fire settings
   if (!effect.friendlyFire || effect.friendlyFire === "ALL") {
