@@ -306,19 +306,35 @@ export const HomeScene = ({
                   drag.placement.y - dx / 0.88 + dy / 0.44,
                 );
               }}
-              onPointerUp={() => {
+              onPointerUp={(event) => {
+                const drag = dragRef.current;
+                if (
+                  !drag ||
+                  drag.pointerId !== event.pointerId ||
+                  drag.placement.id !== placement.id
+                )
+                  return;
                 dragRef.current = null;
               }}
-              onPointerCancel={() => {
-                if (dragRef.current)
-                  moveFurniture(
-                    placement.id,
-                    dragRef.current.placement.x,
-                    dragRef.current.placement.y,
-                  );
+              onPointerCancel={(event) => {
+                const drag = dragRef.current;
+                if (
+                  !drag ||
+                  drag.pointerId !== event.pointerId ||
+                  drag.placement.id !== placement.id
+                )
+                  return;
+                moveFurniture(placement.id, drag.placement.x, drag.placement.y);
                 dragRef.current = null;
               }}
-              onLostPointerCapture={() => {
+              onLostPointerCapture={(event) => {
+                const drag = dragRef.current;
+                if (
+                  !drag ||
+                  drag.pointerId !== event.pointerId ||
+                  drag.placement.id !== placement.id
+                )
+                  return;
                 dragRef.current = null;
               }}
               onKeyDown={(event) => {

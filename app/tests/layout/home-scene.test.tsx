@@ -110,6 +110,59 @@ describe("Home scene", () => {
     expect(view.getByRole("button", { name: "Bed: Go to sleep" }).style.left).toBe(before);
   });
 
+  it.each(["pointerup", "pointercancel", "lostpointercapture"])(
+    "ignores %s from another pointer or furniture while dragging",
+    (type) => {
+      const view = render(<HomeScene {...props} canDecorate />);
+      fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      const bed = view.getByRole("button", { name: "Move Bed" });
+      const garden = view.getByRole("button", { name: "Move Garden" });
+      bed.setPointerCapture = vi.fn();
+      view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+        new DOMRect(0, 0, 1000, 1000);
+      const gardenBefore = furniturePosition(garden);
+      firePointerEvent(bed, "pointerdown", 1);
+      firePointerEvent(bed, "pointermove", 1, 120, 120);
+      firePointerEvent(garden, "pointerdown", 2);
+
+      let coordinate = 140;
+      for (const [target, pointerId] of [[bed, 2], [garden, 1], [garden, 2]] as const) {
+        const moved = furniturePosition(bed);
+        firePointerEvent(target, type, pointerId);
+        expect(furniturePosition(garden)).toEqual(gardenBefore);
+        expect(furniturePosition(bed)).toEqual(moved);
+        firePointerEvent(bed, "pointermove", 1, coordinate, coordinate);
+        expect(furniturePosition(bed)).not.toEqual(moved);
+        coordinate += 20;
+      }
+    },
+  );
+
+  it.each(["pointerup", "pointercancel", "lostpointercapture"])(
+    "ends the matching drag on %s and restores the origin only on cancellation",
+    (type) => {
+      const view = render(<HomeScene {...props} canDecorate />);
+      fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      const bed = view.getByRole("button", { name: "Move Bed" });
+      const garden = view.getByRole("button", { name: "Move Garden" });
+      bed.setPointerCapture = vi.fn();
+      view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+        new DOMRect(0, 0, 1000, 1000);
+      const bedBefore = furniturePosition(bed);
+      const gardenBefore = furniturePosition(garden);
+      firePointerEvent(bed, "pointerdown", 1);
+      firePointerEvent(bed, "pointermove", 1, 120, 120);
+      const moved = furniturePosition(bed);
+      expect(moved).not.toEqual(bedBefore);
+      firePointerEvent(bed, type, 1);
+      const expected = type === "pointercancel" ? bedBefore : moved;
+      expect(furniturePosition(bed)).toEqual(expected);
+      expect(furniturePosition(garden)).toEqual(gardenBefore);
+      firePointerEvent(bed, "pointermove", 1, 160, 160);
+      expect(furniturePosition(bed)).toEqual(expected);
+    },
+  );
+
   it("retains rejected drafts and saves only the revision that the player began editing", async () => {
     const onSave = vi.fn().mockResolvedValue(false);
     const view = render(<HomeScene {...props} canDecorate revision={3} onSave={onSave} />);
@@ -137,3 +190,18 @@ describe("Home scene", () => {
     expect(view.queryByRole("button", { name: "Move Woven Rug" })).toBeNull();
   });
 });
+
+const furniturePosition = (target: HTMLElement) => [target.style.left, target.style.top];
+
+const firePointerEvent = (
+  target: HTMLElement,
+  type: string,
+  pointerId: number,
+  clientX = 100,
+  clientY = 100,
+) => {
+  // jsdom has no PointerEvent constructor; dispatch its mouse coordinates with a pointer ID.
+  const event = new window.MouseEvent(type, { bubbles: true, button: 0, clientX, clientY });
+  Object.defineProperty(event, "pointerId", { value: pointerId });
+  fireEvent(target, event);
+};
