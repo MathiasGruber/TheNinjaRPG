@@ -94,7 +94,6 @@ export type DashboardContentSummary = {
   travelSector?: number;
   availability: DashboardAvailability;
   availabilityReason: string | null;
-  actionDisabled?: boolean;
   endsAt: string | null;
 };
 
@@ -280,16 +279,6 @@ export const dashboardContentActionLabel = (entry: {
   if (entry.availability === "blocked") return "View content";
   return "Open content";
 };
-
-/** Needing to travel is actionable; account and status restrictions still block it. */
-export const dashboardContentRestriction = (entry: {
-  availability: DashboardAvailability;
-  availabilityReason: string | null;
-  actionDisabled?: boolean;
-}) =>
-  entry.availability === "travel" && !entry.actionDisabled
-    ? null
-    : entry.availabilityReason;
 
 /** A raid with no sector is fought from Global ANBU HQ, same as one in the current sector. */
 export const raidContinueHref = (
@@ -610,14 +599,13 @@ export const resolveDashboardContent = (
           : user.isBanned
             ? ("blocked" as const)
             : ("available" as const),
-        availabilityReason: requiresVillageTravel
-          ? `Travel to ${location} to begin${user.isBanned ? ". You are banned and cannot start quests" : ""}${user.status && user.status !== "AWAKE" ? ". You must be awake to travel" : ""}`
-          : user.isBanned
-            ? "You are banned and cannot start quests"
-            : null,
-        actionDisabled:
+        availabilityReason:
           requiresVillageTravel &&
-          (user.isBanned || (!!user.status && user.status !== "AWAKE")),
+          (user.isBanned || (!!user.status && user.status !== "AWAKE"))
+            ? `Travel to ${location} to begin${user.isBanned ? ". You are banned and cannot start quests" : ""}${user.status && user.status !== "AWAKE" ? ". You must be awake to travel" : ""}`
+            : user.isBanned
+              ? "You are banned and cannot start quests"
+              : null,
         endsAt: candidate.endsAt,
       },
     ];
@@ -641,8 +629,7 @@ export const buildDashboardCatalogue = (
     (raid) => {
       const action = dashboardRaidAction(raid.sector, user);
       const destination = action.href;
-      const travelRequired =
-        raid.sector !== null && raid.sector !== user.sector && !action.reason;
+      const travelRequired = action.action === "Travel";
       return {
         id: raid.id,
         name: raid.name,

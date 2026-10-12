@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { MAP_WAKE_ISLAND_SECTOR, MISSIONS_PER_DAY } from "@/drizzle/constants";
-import { dashboardContentHref, dashboardContentRestriction, resolveDashboardContent } from "@/libs/profileDashboard";
+import { dashboardContentHref, resolveDashboardContent } from "@/libs/profileDashboard";
 import { ObjectiveReward } from "@/validators/rewards";
 
 type Candidate = Parameters<typeof resolveDashboardContent>[0][number];
@@ -177,26 +177,23 @@ it("marks a banned player's content as view-only and preserves location guidance
 describe("dashboard auto-travel destinations", () => {
   it.each(["story", "event"] as const)("targets Wake Island for remote %s content", (questType) => {
     const [entry] = resolveDashboardContent([candidate({ questType })], user({ sector: 12, status: "AWAKE" }));
-    expect(entry).toMatchObject({ availability: "travel", travelSector: MAP_WAKE_ISLAND_SECTOR, actionDisabled: false });
+    expect(entry).toMatchObject({ availability: "travel", travelSector: MAP_WAKE_ISLAND_SECTOR, availabilityReason: null });
     expect(dashboardContentHref(entry!)).toBe(`/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`);
-    expect(dashboardContentRestriction(entry!)).toBeNull();
   });
 
   it.each(["mission", "errand", "medical", "pvp", "battlepyramid"] as const)("targets the home village for remote %s assignments", (questType) => {
     const [entry] = resolveDashboardContent([candidate({ questType })], user({ sector: 12, status: "AWAKE", village: { ...user().village!, sector: 40 } }));
-    expect(entry).toMatchObject({ availability: "travel", travelSector: 40 });
+    expect(entry).toMatchObject({ availability: "travel", travelSector: 40, availabilityReason: null });
     expect(dashboardContentHref(entry!)).toBe("/travel?sector=40");
   });
 
-  it.each(["ASLEEP", "BATTLE", "HOSPITALIZED", "TRAVEL"] as const)("blocks auto-travel while %s", (status) => {
+  it.each(["ASLEEP", "BATTLE", "HOSPITALIZED", "TRAVEL", "QUEUED", "KAGE_QUEUED"] as const)("blocks auto-travel while %s", (status) => {
     const [entry] = resolveDashboardContent([candidate()], user({ sector: 12, status }));
-    expect(entry?.actionDisabled).toBe(true);
-    expect(dashboardContentRestriction(entry!)).toContain("You must be awake to travel");
+    expect(entry?.availabilityReason).toBe("Travel to Global ANBU HQ to begin. You must be awake to travel");
   });
 
-  it("preserves the ban restriction for remote content", () => {
-    const [entry] = resolveDashboardContent([candidate()], user({ sector: 12, status: "AWAKE", isBanned: true }));
-    expect(entry?.actionDisabled).toBe(true);
-    expect(dashboardContentRestriction(entry!)).toContain("You are banned");
+  it.each(["AWAKE", "ASLEEP"] as const)("preserves the ban restriction for remote content while %s", (status) => {
+    const [entry] = resolveDashboardContent([candidate()], user({ sector: 12, status, isBanned: true }));
+    expect(entry?.availabilityReason).toBe(`Travel to Global ANBU HQ to begin. You are banned and cannot start quests${status !== "AWAKE" ? ". You must be awake to travel" : ""}`);
   });
 });

@@ -14,7 +14,6 @@ import {
   condenseDashboardMissionContent,
   dashboardContentActionLabel,
   dashboardContentHref,
-  dashboardContentRestriction,
   buildDashboardCatalogue,
   dashboardTrainingAction,
   dashboardLevelProgress,
@@ -49,7 +48,7 @@ const createContent = (
   destination: "/missionhall",
   travelSector: 40,
   availability: "travel",
-  availabilityReason: "Travel to Mission Hall to begin",
+  availabilityReason: null,
   endsAt: null,
   ...overrides,
 });
@@ -114,7 +113,6 @@ describe("condenseDashboardMissionContent", () => {
     (availability) => {
       const war = createContent("war", {
         availability,
-        availabilityReason: availability === "travel" ? "Travel to the village" : null,
       });
       const result = condenseDashboardMissionContent(
         [createContent("mission"), createContent("crime"), war],
@@ -221,23 +219,6 @@ describe("dashboard content links", () => {
     });
     expect(dashboardContentHref(entry)).toBe(`/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`);
     expect(dashboardContentActionLabel(entry)).toBe("Travel");
-    expect(dashboardContentRestriction(entry)).toBeNull();
-  });
-
-  it("keeps status and account restrictions visible instead of enabling travel", () => {
-    for (const availabilityReason of [
-      "You must be awake to travel",
-      "You are banned and cannot start quests",
-    ]) {
-      expect(dashboardContentRestriction(createContent("story", {
-        actionDisabled: true,
-        availabilityReason,
-      }))).toBe(availabilityReason);
-    }
-    expect(dashboardContentRestriction(createContent("story", {
-      availability: "blocked",
-      availabilityReason: "You are banned and cannot start quests",
-    }))).toBe("You are banned and cannot start quests");
   });
 
   it("falls back to the travel map when the destination sector is unknown", () => {
@@ -703,6 +684,6 @@ it("keeps remote raid cards actionable with their destination sector", () => {
   const [entry] = buildDashboardCatalogue([], user);
   expect(entry).toMatchObject({ availability: "travel", travelSector: 0 });
   expect(dashboardContentHref(entry!)).toBe("/travel?sector=0");
-  expect(dashboardContentRestriction(entry!)).toBeNull();
+  expect(entry?.availabilityReason).toBeNull();
   expect(buildDashboardCatalogue([], { ...user, status: "ASLEEP" })[0]).toMatchObject({ availability: "blocked", destination: "/globalanbuhq" });
 });

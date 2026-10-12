@@ -55,7 +55,6 @@ import {
   type DashboardCatalogueEntry,
   dashboardContentActionLabel,
   dashboardContentHref,
-  dashboardContentRestriction,
   dashboardLevelProgress,
   dashboardRaidAction,
   dashboardTrainingAction,
@@ -791,7 +790,7 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                 <RowAction
                   href={dashboardContentHref(recommended)}
                   icon={recommended.availability === "travel" ? MapPin : ArrowRight}
-                  restriction={dashboardContentRestriction(recommended)}
+                  restriction={recommended.availabilityReason}
                   restrictionLabel={
                     userData.isBanned
                       ? "Cannot start quests"
@@ -1211,7 +1210,7 @@ function ContentCard({
         <RowAction
           href={destination}
           icon={entry.availability === "travel" ? MapPin : ArrowRight}
-          restriction={dashboardContentRestriction(entry)}
+          restriction={entry.availabilityReason}
           restrictionLabel={
             entry.availability === "travel" && !isBanned
               ? "Must be awake"
