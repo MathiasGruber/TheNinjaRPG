@@ -86,6 +86,8 @@ export const getQuestEntryCharges = (
 /**
  * Commit the receipt, all item debits and battle claim together, or roll them all back.
  * A guarded update cannot cover the receipt, separate inventory stacks and battle inserts.
+ * Battle initiation calls this only for actual ticket debits; later and no-ticket floors
+ * use the ordinary participant claim and compensation path without a transaction.
  * The callback must await writes sequentially on the transaction's PlanetScale session;
  * didClaim verifies the participant claim before committing. Expected conflicts return
  * actionable feedback, while unexpected database errors propagate to the caller.

@@ -80,7 +80,10 @@ export const buildFarmCollectionState = (
   };
 };
 
-/** Fetches the current catalog joined to one user's immutable first-harvest rows. */
+/**
+ * Fetches the current catalog joined to one user's immutable first-harvest rows.
+ * @param inTransaction - Await queries in order on a shared PlanetScale transaction session.
+ */
 export const getFarmCollectionState = async (
   client: DrizzleClient,
   userId: string,
@@ -125,6 +128,7 @@ export const getFarmCollectionState = async (
       columns: { itemId: true, firstHarvestedAt: true },
     }),
   ] as const;
+  // Both builders stay lazy until awaited; a shared transaction session needs ordered queries.
   const [yieldItems, collectionRows] = inTransaction
     ? [await queries[0], await queries[1]]
     : await Promise.all(queries);
@@ -132,6 +136,10 @@ export const getFarmCollectionState = async (
   return buildFarmCollectionState(seeds, yieldItems, collectionRows);
 };
 
+/**
+ * Count crops harvested from the current catalog.
+ * @param inTransaction - Pass the caller's transaction mode through to catalog loading.
+ */
 export const getFarmCollectionCount = async (
   client: DrizzleClient,
   userId: string,

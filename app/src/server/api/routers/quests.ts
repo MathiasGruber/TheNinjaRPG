@@ -10,7 +10,6 @@ import {
   isNull,
   like,
   lte,
-  ne,
   notExists,
   or,
   sql,
@@ -150,7 +149,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
-import { claimUserSnapshot } from "@/server/utils/concurrency";
+import { claimUserSnapshot, getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { setEmptyStringsToNulls } from "@/server/utils/emptyStrings";
 import { reduceActiveFarmPlotTimers } from "@/server/utils/farming";
 import {
@@ -721,49 +720,46 @@ export const questsRouter = createTRPCRouter({
         current.questType === "battlepyramid" ||
         current.isolated ||
         !!current.quest.content.entryItems?.length;
-      const writeAbandonment = (client: DrizzleClient) =>
-        client
-          .update(questHistory)
-          .set({ completed: 0, endAt: new Date() })
-          .where(
-            and(
-              eq(questHistory.id, current.id),
-              isNull(questHistory.endAt),
-              eq(questHistory.completed, 0),
-            ),
-          );
       if (managedRun) {
-        const rejected = new Error("Run changed");
-        try {
-          await retryOnDeadlock(() =>
-            ctx.drizzle.transaction(async (tx) => {
-              const client = tx as unknown as DrizzleClient;
-              const claimed = await claimUserSnapshot({
-                client,
-                userId: ctx.userId,
-                updatedAt: user.updatedAt,
-                where: [ne(userData.status, "BATTLE")],
-                set: {
-                  questFinishAt: new Date(),
-                  questData,
-                  activeNpcQuestId: sql`IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId})`,
-                },
-              });
-              if (!claimed.success) throw rejected;
-              const ended = await writeAbandonment(client);
-              if (ended.rowsAffected !== 1) throw rejected;
-            }),
+        const now = new Date();
+        // Drizzle has no multi-table UPDATE builder. One joined write releases the run
+        // and its account/NPC state together; a combat or snapshot race changes neither.
+        const result = await retryOnDeadlock(() =>
+          ctx.drizzle.execute(sql`
+            UPDATE ${userData}
+            INNER JOIN ${questHistory}
+              ON ${questHistory.userId} = ${userData.userId}
+            SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
+                ${userData.questFinishAt} = ${now},
+                ${userData.questData} = CAST(${JSON.stringify(questData)} AS JSON),
+                ${userData.activeNpcQuestId} = IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId}),
+                ${questHistory.completed} = 0,
+                ${questHistory.endAt} = ${now}
+            WHERE ${userData.userId} = ${ctx.userId}
+              AND ${userData.updatedAt} = ${user.updatedAt}
+              AND ${userData.status} <> 'BATTLE'
+              AND ${questHistory.id} = ${current.id}
+              AND ${questHistory.endAt} IS NULL
+              AND ${questHistory.completed} = 0
+          `),
+        );
+        // MySQL counts both changed tables, so a successful joined claim can affect two rows.
+        if (result.rowsAffected === 0)
+          return errorResponse(
+            "The run changed or entered combat. Finish or flee the battle, then try again.",
           );
-        } catch (error) {
-          if (error === rejected)
-            return errorResponse(
-              "The run changed or entered combat. Finish or flee the battle, then try again.",
-            );
-          throw error;
-        }
       } else {
         await Promise.all([
-          writeAbandonment(ctx.drizzle),
+          ctx.drizzle
+            .update(questHistory)
+            .set({ completed: 0, endAt: new Date() })
+            .where(
+              and(
+                eq(questHistory.id, current.id),
+                isNull(questHistory.endAt),
+                eq(questHistory.completed, 0),
+              ),
+            ),
           ctx.drizzle
             .update(userData)
             .set({
@@ -2844,7 +2840,7 @@ export const assignQuestToUser = async (args: {
 
   // Insert quest entry; for war quests guard the daily limit with a CAS counter update.
   // CAS runs first so that a user at the daily limit is rejected before any quest entry
-  // is written. PlanetScale has no transactions, so this ordering means a crash between
+  // is written. This deliberately nontransactional flow means a crash between
   // the CAS success and the upsert burns one daily slot without delivering the quest
   // (acceptable), whereas the reverse order would deliver a quest when the limit is reached
   // (unacceptable — creates orphaned quest entries the user cannot access). The
@@ -2882,6 +2878,9 @@ export const assignQuestToUser = async (args: {
     questData.questType === "battlepyramid" ||
     questData.content.entryItems?.length
   ) {
+    // Publish the account claim and new history together: another request must not see
+    // a fresh account stamp before the active Pyramid row. A joined UPDATE cannot insert
+    // missing history or commit its tracker and initial recovery with that insertion.
     const assigned = await retryOnDeadlock(() =>
       client.transaction(async (tx) => {
         const database = tx as unknown as DrizzleClient;
@@ -2953,6 +2952,9 @@ export const assignQuestToUser = async (args: {
  * {@link commitQuestObjectiveRewards} uses. The insert branch is idempotent on the
  * `(userId, questId)` unique key, so a stale `null` that races a concurrent insert restarts
  * the existing row rather than throwing.
+ *
+ * @param inTransaction - The caller owns a PlanetScale session and awaits statements in order;
+ * fresh isolated story grants open their own transaction when this is false.
  */
 export const upsertQuestEntry = async (
   client: DrizzleClient,
@@ -3000,7 +3002,8 @@ export const upsertQuestEntry = async (
   const isOpenAttempt = !!entry && entry.completed === 0 && entry.endAt === null;
   const settleRecovery =
     !isOpenAttempt && quest.content.isolated && !getIsolatedPyramid(user);
-  // Story grants also enter through this helper. Commit recovery and isolation together;
+  // Story grants also enter through this helper. History may need insertion, so a joined
+  // UPDATE cannot publish isolation and earned recovery together. Keep this transaction short;
   // the UI/NPC assignment already supplies a transaction and its claimed account snapshot.
   if (settleRecovery && !inTransaction) {
     const assigned = await retryOnDeadlock(() =>
@@ -3145,7 +3148,7 @@ export const upsertQuestEntry = async (
       })
       .where(eq(userData.userId, user.userId)),
   );
-  // Transaction statements share a single PlanetScale session.
+  // Drizzle builders are lazy; await them in order on PlanetScale's shared transaction session.
   if (inTransaction) {
     for (const promise of promises) await promise;
   } else {

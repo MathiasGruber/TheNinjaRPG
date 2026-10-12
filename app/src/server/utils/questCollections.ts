@@ -6,7 +6,10 @@ import type { UserWithRelations } from "@/routers/profile";
 import type { DrizzleClient } from "@/server/db";
 import { getFarmCollectionCount } from "@/server/utils/farming";
 
-/** Load collection snapshots only for unfinished collection goals of active quests. */
+/**
+ * Load collection snapshots only for unfinished collection goals of active quests.
+ * @param inTransaction - Await queries in order on a shared PlanetScale transaction session.
+ */
 export const hydrateQuestCollections = async (
   client: DrizzleClient,
   user: NonNullable<UserWithRelations>,
@@ -40,6 +43,7 @@ export const hydrateQuestCollections = async (
         })
       : undefined,
   ] as const;
+  // Drizzle queries are lazy; independent sessions can run together, a transaction cannot.
   const [farmingCollectionCount, catalogue, rolls] = inTransaction
     ? [await queries[0], await queries[1], await queries[2]]
     : await Promise.all(queries);

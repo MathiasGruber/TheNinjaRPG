@@ -2126,6 +2126,7 @@ export const initiateBattle = async (
       success: false,
       message: "You do not have the required entry items in your inventory.",
     };
+  const hasEntryCharges = entryCharges.length > 0;
   // Consumed equipment/consumables must not contribute stats or remain usable in battle.
   for (const player of fetchedUsers.filter(
     (u) => u.userId === info.questAttempt?.userId,
@@ -2961,14 +2962,18 @@ export const initiateBattle = async (
             .map((jutsu) => jutsu.id);
   }
 
-  // Create the battle and claim its participants in one mutation phase.
-  if (info.questAttempt) {
+  // Only a real payment creates a receipt; paid floors retain their preloaded receipt.
+  if (info.questAttempt && hasEntryCharges) {
     const entry = extraState.userQuests[info.questAttempt.userId]?.find(
       (row) => row.questId === info.questAttempt?.questId,
     );
     if (entry) entry.entryPaid = true;
   }
-  /** Persist the preloaded battle and return the guarded participant claim. */
+  /**
+   * Persist the preloaded battle and return the guarded participant claim.
+   * First payment shares a PlanetScale transaction session, so await its writes in order.
+   * Other battles dispatch independent writes together and settle all siblings before cleanup.
+   */
   const createBattle = async (client: DrizzleClient) => {
     const writes = [
       client.insert(battle).values({
@@ -3191,7 +3196,7 @@ export const initiateBattle = async (
           ]
         : []),
     ] as const;
-    if (info.questAttempt) {
+    if (hasEntryCharges) {
       await writes[0];
       await writes[1];
       const claimedUsers = await writes[2];
@@ -3209,7 +3214,9 @@ export const initiateBattle = async (
   };
   const attempt = info.questAttempt;
   let result: Awaited<ReturnType<typeof createBattle>>;
-  if (attempt) {
+  // Separate ticket stacks, a receipt and battle inserts must commit together on first payment.
+  // Later and no-ticket floors use the existing participant claim and compensation path.
+  if (attempt && hasEntryCharges) {
     const player = users.find((u) => u.userId === attempt.userId);
     const committed = await commitQuestEntryBattle({
       client,
