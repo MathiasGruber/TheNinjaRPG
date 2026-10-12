@@ -50,19 +50,15 @@ export const synchronizeQuestParty = async (
 ): Promise<LoadedQuestParty> => {
   let party = loaded;
   for (let attempt = 0; attempt < 5; attempt++) {
-    const members = committedMember
-      ? [
-          ...party.members.filter(
-            (member) =>
-              party.memberIds.includes(member.userId) &&
-              member.userId !== committedMember.userId,
-          ),
-          committedMember,
-        ]
-      : party.members.filter((member) => party.memberIds.includes(member.userId));
     const liveMembers = party.members.filter((member) =>
       party.memberIds.includes(member.userId),
     );
+    const members = committedMember
+      ? [
+          ...liveMembers.filter((member) => member.userId !== committedMember.userId),
+          committedMember,
+        ]
+      : liveMembers;
     const memberIds = party.memberIds.filter((id) =>
       liveMembers.some((member) => member.userId === id),
     );
