@@ -261,6 +261,194 @@ describeWithDatabase("sanction tombstones", () => {
     expect(logs[0]?.changes).toContain("Matched by: clerkId, email");
   });
 
+  it.each([
+    ["clear", false],
+    ["silence", false],
+    ["ban", false],
+    ["unchanged", false],
+    ["clear", true],
+    ["silence", true],
+    ["ban", true],
+    ["unchanged", true],
+  ] as const)(
+    "captures a completed %s decision during Clerk lookup with independent cases: %p",
+    async (decision, hasIndependentCases) => {
+      const database = await getTestDatabase();
+      const originalEnd = new Date(Date.now() + 10 * DAY);
+      const shorterEnd = new Date(Date.now() + 3 * DAY);
+      const silenceEnd = new Date(Date.now() + 20 * DAY);
+      await insertUsers([{ userId: SANCTIONED }, { userId: "staff", role: "OWNER" }]);
+      await addSanction(SANCTIONED, "BAN_ACTIVATED", originalEnd, "original-case");
+      if (hasIndependentCases) {
+        await addSanction(SANCTIONED, "BAN_ACTIVATED", shorterEnd, "shorter-case");
+        await addSanction(SANCTIONED, "SILENCE_ACTIVATED", silenceEnd, "silence-case");
+      }
+      const clerkIdentity = identity("capture@example.com", [
+        { provider: "oauth_google", providerUserId: "capture-subject" },
+      ]);
+      const getUser = stubClerk({ [SANCTIONED]: clerkIdentity });
+      let enter!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        enter = resolve;
+      });
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      getUser.mockImplementationOnce(async () => {
+        enter();
+        await gate;
+        return clerkIdentity;
+      });
+      vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue();
+      const deleting = deleteUser(database, SANCTIONED);
+      await entered;
+      let revisedEnd = originalEnd;
+      try {
+        expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+        if (decision !== "unchanged") {
+          expect(
+            await (await callerFor(reportsRouter, "staff"))[decision]({
+              object_id: "original-case",
+              comment: "Appeal accepted",
+              banTime: 1,
+              banTimeUnit: "days",
+            }),
+          ).toMatchObject({ success: true });
+        }
+        const revised = await database.query.userReport.findFirst({
+          where: eq(userReport.id, "original-case"),
+        });
+        revisedEnd = revised!.banEnd!;
+      } finally {
+        release();
+      }
+      await deleting;
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, SANCTIONED),
+        }),
+      ).toBeUndefined();
+      expect(await database.query.userReport.findMany()).toHaveLength(0);
+      const sources = await tombstonesOf(SANCTIONED);
+      expect(sources).toHaveLength(
+        (decision === "clear" ? 0 : 1) + (hasIndependentCases ? 2 : 0),
+      );
+      const original = sources.find((source) => source.sourceId === "original-case");
+      if (decision === "clear") expect(original).toBeUndefined();
+      else
+        expect(original).toMatchObject({
+          sanction: decision === "silence" ? "SILENCE" : "BAN",
+          sanctionEndsAt: revisedEnd,
+        });
+      for (const source of sources) {
+        expect(source).toMatchObject({
+          reportIds: [source.sourceId],
+          emailHash: hashSanctionIdentifier("email", "capture@example.com"),
+          accountHashes: [hashSanctionIdentifier("oauth", "google:capture-subject")],
+          carryoverReportIds: [],
+        });
+      }
+      if (hasIndependentCases)
+        expect(sources).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              sourceId: "shorter-case",
+              sanction: "BAN",
+              sanctionEndsAt: shorterEnd,
+            }),
+            expect.objectContaining({
+              sourceId: "silence-case",
+              sanction: "SILENCE",
+              sanctionEndsAt: silenceEnd,
+            }),
+          ]),
+        );
+      expect(await register(SANCTIONED)).toMatchObject({ success: true });
+      const reports = await database.query.userReport.findMany({
+        where: eq(userReport.reportedUserId, SANCTIONED),
+      });
+      const banEnd =
+        hasIndependentCases && decision !== "unchanged"
+          ? shorterEnd
+          : decision === "ban" || decision === "unchanged"
+            ? revisedEnd
+            : null;
+      const expectedSilenceEnd = hasIndependentCases
+        ? silenceEnd
+        : decision === "silence"
+          ? revisedEnd
+          : null;
+      const expected = [
+        ...(banEnd ? [{ status: "BAN_ACTIVATED", banEnd }] : []),
+        ...(expectedSilenceEnd
+          ? [{ status: "SILENCE_ACTIVATED", banEnd: expectedSilenceEnd }]
+          : []),
+      ];
+      expect(reports).toHaveLength(expected.length);
+      expect(reports).toEqual(
+        expect.arrayContaining(
+          expected.map((report) => expect.objectContaining(report)),
+        ),
+      );
+      expect(
+        await database.query.userData.findFirst({
+          columns: { isBanned: true, isSilenced: true },
+          where: eq(userData.userId, SANCTIONED),
+        }),
+      ).toEqual({ isBanned: !!banEnd, isSilenced: !!expectedSilenceEnd });
+    },
+  );
+
+  it("refreshes a captured decision without replacing its ancestry or carryover links", async () => {
+    const database = await getTestDatabase();
+    await insertUsers([{ userId: SANCTIONED }, { userId: "staff", role: "OWNER" }]);
+    await addSanction(
+      SANCTIONED,
+      "BAN_ACTIVATED",
+      new Date(Date.now() + 10 * DAY),
+      "original-case",
+    );
+    const capturedIdentity = identity("capture@example.com");
+    stubClerk({ [SANCTIONED]: capturedIdentity });
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue();
+    await sanctions.recordSanctionTombstone(database, SANCTIONED);
+    await database.update(sanctionTombstone).set({
+      reportIds: ["ancestor-case", "original-case"],
+      carryoverReportIds: ["inherited-case"],
+    });
+    const before = (await tombstonesOf(SANCTIONED))[0]!;
+    expect(
+      await (await callerFor(reportsRouter, "staff")).silence({
+        object_id: "original-case",
+        comment: "Appeal accepted",
+        banTime: 1,
+        banTimeUnit: "days",
+      }),
+    ).toMatchObject({ success: true });
+    const revised = await database.query.userReport.findFirst({
+      where: eq(userReport.id, "original-case"),
+    });
+    // A cleanup retry may still find the original report and must preserve existing links.
+    await sanctions.recordSanctionTombstone(database, SANCTIONED, capturedIdentity);
+    await deleteUser(database, SANCTIONED);
+    expect(await tombstonesOf(SANCTIONED)).toEqual([
+      {
+        ...before,
+        sanction: "SILENCE",
+        sanctionEndsAt: revised!.banEnd!,
+      },
+    ]);
+    await sanctions.recordSanctionTombstone(database, SANCTIONED);
+    expect(await tombstonesOf(SANCTIONED)).toEqual([
+      {
+        ...before,
+        sanction: "SILENCE",
+        sanctionEndsAt: revised!.banEnd!,
+      },
+    ]);
+  });
+
   it("revises every source across repeated web deletions and an identity change", async () => {
     const database = await getTestDatabase();
     await insertUsers([{ userId: SANCTIONED }, { userId: "staff", role: "OWNER" }]);

@@ -16,6 +16,7 @@ import {
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import { getIpHashSecret } from "@/server/utils/ipHash";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 
 /**
  * Sanction tombstones let a banned or silenced player delete their account (GDPR Art. 17,
@@ -55,12 +56,6 @@ export type SanctionMatch = ActiveSanction & {
   matchedBy: ("clerkId" | "email" | "oauth")[];
   tombstones: SanctionTombstone[];
 };
-
-const SANCTION_REPORT_STATES = {
-  BAN_ACTIVATED: "BAN",
-  SILENCE_ACTIVATED: "SILENCE",
-  TIMEOUT_ACTIVATED: "SILENCE",
-} as const satisfies Partial<Record<BanState, SanctionTombstoneType>>;
 
 const REAPPLIED_STATE: Record<SanctionTombstoneType, BanState> = {
   BAN: "BAN_ACTIVATED",
@@ -139,55 +134,38 @@ export const isClerkNotFound = (error: unknown) =>
   "status" in error &&
   error.status === 404;
 
-/** Bans and silences (timeouts included) still running for this account. */
-const fetchActiveSanctions = async (
-  client: DrizzleClient,
-  userId: string,
-): Promise<(ActiveSanction & { sourceId: string })[]> => {
-  const reports = await client.query.userReport.findMany({
-    columns: { id: true, status: true, banEnd: true },
-    where: and(
-      eq(userReport.reportedUserId, userId),
-      inArray(
-        userReport.status,
-        Object.keys(SANCTION_REPORT_STATES) as (keyof typeof SANCTION_REPORT_STATES)[],
-      ),
-      gt(userReport.banEnd, new Date()),
-    ),
-  });
-  return reports.flatMap((report) =>
-    report.banEnd
-      ? [
-          {
-            sourceId: report.id,
-            sanction:
-              SANCTION_REPORT_STATES[
-                report.status as keyof typeof SANCTION_REPORT_STATES
-              ],
-            endsAt: report.banEnd,
-            reportIds: [report.id],
-          },
-        ]
-      : [],
+/** Current bans and silences, including timeouts, at both preflight and persistence. */
+const activeSanctionReportsWhere = (userId: string) =>
+  and(
+    eq(userReport.reportedUserId, userId),
+    inArray(userReport.status, [
+      "BAN_ACTIVATED",
+      "SILENCE_ACTIVATED",
+      "TIMEOUT_ACTIVATED",
+    ]),
+    gt(userReport.banEnd, new Date()),
   );
-};
 
 /**
  * Store a tombstone for every sanction still running on this account. Call it before the
  * account's reports or its Clerk user are removed.
  *
  * Pass the Clerk user when the caller already holds it; otherwise it is loaded, and only
- * when a sanction exists. Once Clerk is gone, keep the captured snapshot: moderation updates
- * it through reviseSanctionTombstones, and the original reports may now be stale. Repeating
- * cleanup after the reports are gone also leaves the snapshot untouched.
+ * when a sanction exists. The write selects current decisions after the Clerk lookup.
+ * Repeated captures preserve case links. Once Clerk is gone, keep the captured snapshot:
+ * moderation updates it through reviseSanctionTombstones, and the original reports may now
+ * be stale. Repeating cleanup after the reports are gone also leaves the snapshot untouched.
  */
 export const recordSanctionTombstone = async (
   client: DrizzleClient,
   userId: string,
   identity?: SanctionIdentity | null,
 ) => {
-  const sanctions = await fetchActiveSanctions(client, userId);
-  if (sanctions.length === 0) return;
+  const activeReport = await client.query.userReport.findFirst({
+    columns: { id: true },
+    where: activeSanctionReportsWhere(userId),
+  });
+  if (!activeReport) return;
   const clerkUser =
     identity === undefined ? await fetchSanctionIdentity(userId) : identity;
   if (!clerkUser) return;
@@ -195,23 +173,35 @@ export const recordSanctionTombstone = async (
     emailHash: primaryEmailHashOf(clerkUser),
     accountHashes: accountHashesOf(clerkUser),
   };
-  await Promise.all(
-    sanctions.map((entry) => {
-      const sanctionFields = {
-        sanction: entry.sanction,
-        sanctionEndsAt: entry.endsAt,
-        reportIds: entry.reportIds,
-      };
-      return client
-        .insert(sanctionTombstone)
-        .values({
-          userId,
-          sourceId: entry.sourceId,
-          ...sanctionFields,
-          ...hashes,
-        })
-        .onDuplicateKeyUpdate({ set: { ...sanctionFields, ...hashes } });
-    }),
+  const sanction = sql<SanctionTombstoneType>`CASE WHEN ${userReport.status} = 'BAN_ACTIVATED' THEN 'BAN' ELSE 'SILENCE' END`;
+  // Select eligibility and the decision in the same write, so a completed staff revision
+  // cannot be replaced by a snapshot from before the Clerk lookup.
+  await retryOnDeadlock(() =>
+    client
+      .insert(sanctionTombstone)
+      .select(
+        client
+          .select({
+            userId: sql`${userId}`.as("userId"),
+            sourceId: userReport.id,
+            sanction: sanction.as("sanction"),
+            sanctionEndsAt: userReport.banEnd,
+            // INSERT SELECT bypasses column encoders; produce SQL JSON for both arrays.
+            reportIds: sql`JSON_ARRAY(${userReport.id})`.as("reportIds"),
+            emailHash: sql`${hashes.emailHash}`.as("emailHash"),
+            accountHashes:
+              sql`CAST(${JSON.stringify(hashes.accountHashes)} AS JSON)`.as(
+                "accountHashes",
+              ),
+            carryoverReportIds: sql`JSON_ARRAY()`.as("carryoverReportIds"),
+            createdAt: sql`CURRENT_TIMESTAMP(3)`.as("createdAt"),
+          })
+          .from(userReport)
+          .where(activeSanctionReportsWhere(userId)),
+      )
+      .onDuplicateKeyUpdate({
+        set: { sanction, sanctionEndsAt: sql`${userReport.banEnd}`, ...hashes },
+      }),
   );
 };
 
