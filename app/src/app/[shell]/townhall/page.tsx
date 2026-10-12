@@ -235,7 +235,8 @@ const ElderHall: React.FC<{
     api.kage.voteOnKageRemoval.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        if (data.success) await refetchVotes();
+        // A rejected removal can resolve a stale motion; refresh it out of the council.
+        await refetchVotes();
       },
     });
 
@@ -252,7 +253,7 @@ const ElderHall: React.FC<{
   const hasMinimumRemovalElders =
     (eldersExcludingKage?.length ?? 0) >= ELDER_MIN_VOTING_COUNT;
 
-  // 4-day lock check: elders can only initiate removal after the kage has been in power for 4 days
+  // Elders can only initiate removal after the current kage's protected tenure.
   const leaderUpdatedAt = villageData?.villageData.leaderUpdatedAt;
   const lockExpiry = leaderUpdatedAt
     ? new Date(leaderUpdatedAt.getTime() + KAGE_ELDER_REMOVAL_LOCK_SECS * 1000)

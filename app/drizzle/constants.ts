@@ -2069,7 +2069,7 @@ export const ELDER_NOMINATION_CUTOFF_DAY = 25;
 export const ELDER_NOMINATION_DEADLINE_DAY = 28;
 
 // Elder governance
-export const KAGE_ELDER_REMOVAL_LOCK_SECS = 4 * 24 * 3600; // 4 days before elders can vote to remove kage
+export const KAGE_ELDER_REMOVAL_LOCK_SECS = 14 * 24 * 3600; // Minimum kage tenure before elder removal votes
 export const ELDER_MIN_VOTING_COUNT = 3; // Minimum elders required to initiate or cast any vote
 export const ELDER_WAR_VOTE_HOURS = 24; // Hours elders have to vote on war declarations
 export const ELDER_KAGE_REMOVAL_VOTE_DAYS = 7; // Days elders have to vote on kage removal
