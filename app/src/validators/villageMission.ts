@@ -6,6 +6,10 @@ export const villageMissionActionSchema = z.object({
   missionId: z.string().min(1).optional(),
 });
 
+export const villageMissionCancelSchema = villageMissionActionSchema.extend({
+  missionId: z.string().min(1),
+});
+
 export const villageMissionObjectiveSchema = z.object({
   id: z.string().min(1),
   task: z.enum(VILLAGE_MISSION_TASKS),

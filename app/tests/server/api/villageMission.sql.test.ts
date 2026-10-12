@@ -86,13 +86,49 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     expect((await db.query.questHistory.findFirst({ where: eq(questHistory.id, "open") }))?.completed).toBe(0);
   });
 
-  it("only the Kage can select; racing starts leave exactly one active mission", async () => {
+  it("ordinary members cannot select; racing starts leave exactly one active mission", async () => {
     expect((await (await callerFor(villageMissionRouter, "member")).select({ villageId: "v1" })).success).toBe(false);
     const caller = await leader();
     const results = await Promise.all([caller.select({ villageId: "v1" }), caller.select({ villageId: "v1" })]);
     expect(results.filter((r) => r.success)).toHaveLength(1);
     expect((await state())?.activeMission).not.toBeNull();
     expect(await (await callerFor(villageMissionRouter, "outsider")).get({ id: "v1" })).toBeNull();
+  });
+
+  it("staff cancel a rerolled mission without a village penalty and immediately start fresh", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ role: "MODERATOR" }).where(eq(userData.userId, "member"));
+    const caller = await leader();
+    await caller.select({ villageId: "v1" });
+    await caller.select({ villageId: "v1", missionId: (await state())!.activeMission!.id });
+    await recordVillageMissionProgress(db, "v1", "member", { combined_mission_effort: 7 });
+    const before = (await state())!;
+    const staff = await callerFor(villageMissionRouter, "member");
+    expect((await staff.get({ id: "v1" }))?.isStaff).toBe(true);
+    expect((await staff.cancel({ villageId: "v1", missionId: before.activeMission!.id })).success).toBe(true);
+    expect(await state()).toEqual({ ...before, activeMission: null });
+    expect((await staff.select({ villageId: "v1" })).success).toBe(true);
+    const after = (await state())!;
+    expect(after.tokens).toBe(before.tokens);
+    expect(after.activeMission?.rerolled).toBe(false);
+    expect(after.activeMission?.baseline).toEqual(after.missionCounters);
+    expect((await staff.cancel({ villageId: "v1", missionId: before.activeMission!.id })).success).toBe(false);
+    expect(await state()).toEqual(after);
+  });
+
+  it("rejects cancellation by ordinary Kage, members, banned staff and staff outside the village", async () => {
+    const db = await getTestDatabase();
+    await (await leader()).select({ villageId: "v1" });
+    const before = (await state())!;
+    const input = { villageId: "v1", missionId: before.activeMission!.id };
+    for (const userId of ["leader", "member", "outsider"]) {
+      expect((await (await callerFor(villageMissionRouter, userId)).cancel(input)).success).toBe(false);
+    }
+    await db.update(userData).set({ role: "MODERATOR", isBanned: true }).where(eq(userData.userId, "member"));
+    expect((await (await callerFor(villageMissionRouter, "member")).cancel(input)).success).toBe(false);
+    await db.update(userData).set({ role: "MODERATOR" }).where(eq(userData.userId, "outsider"));
+    expect((await (await callerFor(villageMissionRouter, "outsider")).cancel(input)).success).toBe(false);
+    expect(await state()).toEqual(before);
   });
 
   it.each([true, false])("rejects a stale personal reward snapshot after content conversion (resolved=%s)", async (resolved) => {

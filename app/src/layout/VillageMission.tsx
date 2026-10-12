@@ -44,8 +44,9 @@ export const VillageMission = ({
   const onError = (error: { message: string }) => setMessage(error.message);
   const select = api.villageMission.select.useMutation({ onSuccess, onError });
   const claim = api.villageMission.claim.useMutation({ onSuccess, onError });
+  const cancel = api.villageMission.cancel.useMutation({ onSuccess, onError });
   const mission = data?.mission;
-  const isBusy = select.isPending || claim.isPending;
+  const isBusy = select.isPending || claim.isPending || cancel.isPending;
 
   return (
     <ContentBox
@@ -57,7 +58,8 @@ export const VillageMission = ({
     >
       <p className="mb-4 text-muted-foreground text-sm">
         Complete objectives together to earn tokens for your village. Your Kage selects
-        the mission and claims the reward.
+        the mission and claims the reward. Staff can cancel and select a new mission
+        without a village penalty.
       </p>
       {isPending ? (
         <Loader explanation="Loading Village Mission" />
@@ -71,7 +73,7 @@ export const VillageMission = ({
       ) : !mission ? (
         <div className="space-y-3">
           <p>No Village Mission is active.</p>
-          {data.isKage ? (
+          {data.isKage || data.isStaff ? (
             <Button disabled={isBusy} onClick={() => select.mutate({ villageId })}>
               {isBusy ? "Selecting..." : "Select random mission"}
             </Button>
@@ -130,15 +132,17 @@ export const VillageMission = ({
               )}
             </div>
           ))}
-          {data.isKage && (
+          {(data.isKage || data.isStaff) && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t pt-3">
-              <Button
-                disabled={isBusy || !mission.completed}
-                onClick={() => claim.mutate({ villageId, missionId: mission.id })}
-              >
-                {claim.isPending ? "Claiming..." : "Claim village tokens"}
-              </Button>
-              {!mission.rerolled && !isBusy && (
+              {data.isKage && (
+                <Button
+                  disabled={isBusy || !mission.completed}
+                  onClick={() => claim.mutate({ villageId, missionId: mission.id })}
+                >
+                  {claim.isPending ? "Claiming..." : "Claim village tokens"}
+                </Button>
+              )}
+              {data.isKage && !mission.rerolled && !isBusy && (
                 <Confirm
                   title="Reroll Village Mission"
                   proceed_label="Reroll"
@@ -161,6 +165,26 @@ export const VillageMission = ({
                   <Check className="size-4 shrink-0" aria-hidden="true" />
                   Reroll used
                 </p>
+              )}
+              {data.isStaff && (
+                <Confirm
+                  title="Cancel Village Mission"
+                  proceed_label="Cancel mission"
+                  disabled={isBusy}
+                  confirmDisabled={isBusy}
+                  onAccept={() => cancel.mutate({ villageId, missionId: mission.id })}
+                  button={
+                    <Button variant="outline" disabled={isBusy}>
+                      Cancel mission (staff)
+                    </Button>
+                  }
+                >
+                  <p>
+                    This discards the current mission and its progress without charging
+                    village tokens or applying a cooldown. A new mission can be selected
+                    immediately.
+                  </p>
+                </Confirm>
               )}
             </div>
           )}
