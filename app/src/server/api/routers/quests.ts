@@ -722,18 +722,16 @@ export const questsRouter = createTRPCRouter({
         current.isolated ||
         !!current.quest.content.entryItems?.length;
       const writeAbandonment = (client: DrizzleClient) =>
-        Promise.all([
-          client
-            .update(questHistory)
-            .set({ completed: 0, endAt: new Date() })
-            .where(
-              and(
-                eq(questHistory.id, current.id),
-                isNull(questHistory.endAt),
-                eq(questHistory.completed, 0),
-              ),
+        client
+          .update(questHistory)
+          .set({ completed: 0, endAt: new Date() })
+          .where(
+            and(
+              eq(questHistory.id, current.id),
+              isNull(questHistory.endAt),
+              eq(questHistory.completed, 0),
             ),
-        ]);
+          );
       if (managedRun) {
         const rejected = new Error("Run changed");
         try {
@@ -752,7 +750,7 @@ export const questsRouter = createTRPCRouter({
                 },
               });
               if (!claimed.success) throw rejected;
-              const [ended] = await writeAbandonment(client);
+              const ended = await writeAbandonment(client);
               if (ended.rowsAffected !== 1) throw rejected;
             }),
           );

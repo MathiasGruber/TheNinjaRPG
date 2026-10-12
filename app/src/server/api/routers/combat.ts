@@ -3187,27 +3187,23 @@ export const initiateBattle = async (
         : []),
     ] as const;
     if (info.questAttempt) {
-      const insertedBattle = await writes[0];
-      const insertedHistory = await writes[1];
+      await writes[0];
+      await writes[1];
       const claimedUsers = await writes[2];
       for (const write of writes.slice(3)) await write;
-      return [insertedBattle, insertedHistory, claimedUsers] as const;
+      return claimedUsers;
     }
     // Compensation must wait until every sibling write has finished.
     const results = await Promise.allSettled(writes);
     const failed = results.find((result) => result.status === "rejected");
     if (failed?.status === "rejected") throw failed.reason;
-    const [insertedBattle, insertedHistory, claimedUsers] = results;
-    if (
-      insertedBattle.status !== "fulfilled" ||
-      insertedHistory.status !== "fulfilled" ||
-      claimedUsers.status !== "fulfilled"
-    )
+    const claimedUsers = results[2];
+    if (claimedUsers.status !== "fulfilled")
       throw new Error("Missing battle participant claim");
-    return [insertedBattle.value, insertedHistory.value, claimedUsers.value] as const;
+    return claimedUsers.value;
   };
   const attempt = info.questAttempt;
-  let created: Awaited<ReturnType<typeof createBattle>>;
+  let result: Awaited<ReturnType<typeof createBattle>>;
   if (attempt) {
     const player = users.find((u) => u.userId === attempt.userId);
     const committed = await commitQuestEntryBattle({
@@ -3216,14 +3212,13 @@ export const initiateBattle = async (
       items: entryInventory,
       role: player?.role ?? "USER",
       createBattle,
-      didClaim: (result) => result[2].rowsAffected === expectedRows,
+      didClaim: (result) => result.rowsAffected === expectedRows,
     });
     if (!committed.success) return { success: false, message: committed.message };
-    created = committed.result;
+    result = committed.result;
   } else {
-    created = await createBattle(client);
+    result = await createBattle(client);
   }
-  const userResult = created[2];
 
   if (
     queuedParticipants.some(
@@ -3232,7 +3227,7 @@ export const initiateBattle = async (
   ) {
     // A partial multi-participant claim still legitimately settles the rows it claimed.
     const claimedIds =
-      userResult.rowsAffected === expectedRows
+      result.rowsAffected === expectedRows
         ? allParticipantIds
         : (
             await client.query.userData.findMany({
@@ -3269,7 +3264,7 @@ export const initiateBattle = async (
   }
 
   // Check if expected number of users were updated - if not, rollback
-  if (userResult.rowsAffected !== expectedRows) {
+  if (result.rowsAffected !== expectedRows) {
     await Promise.all([
       client
         .update(userData)
