@@ -461,6 +461,7 @@ export const StructureRoutes = [
   "/battlearena",
   "/blackmarket",
   "/clanhall",
+  "/dungeon",
   "/globalanbuhq",
   "/home",
   "/hospital",
@@ -475,6 +476,16 @@ export const StructureRoutes = [
   "/auctionhouse",
 ] as const;
 export type StructureRoute = (typeof StructureRoutes)[number];
+
+/** Shared dungeon limits for content validation, party commands, combat and player-facing rules. */
+export const DUNGEON_PARTY_SIZE = 3;
+export const DUNGEON_RUN_SECONDS = 60 * 60;
+export const DUNGEON_MAX_TIERS = 4;
+export const DUNGEON_FLOORS_PER_TIER = 5;
+export const DUNGEON_MAX_WAVES = 5;
+export const ENCOUNTER_MAX_WAVE_DELAY_ROUNDS = 20;
+export const DUNGEON_MAX_MOBS = 10;
+export const DUNGEON_INACTIVE_ROUNDS = 3;
 
 export const ItemSlots = [
   "HEAD",
@@ -891,6 +902,10 @@ export const QUEST_REWARD_MODES = ["all", "choose"] as const;
 export type QuestRewardMode = (typeof QUEST_REWARD_MODES)[number];
 /** Upper bound for how many rewards a "choose" quest lets the player pick. */
 export const QUEST_REWARD_PICK_MAX = 5;
+
+export const QUEST_PARTY_MAX_MEMBERS = 3;
+export const QUEST_PARTY_MAX_INVITATIONS = 30;
+export const QUEST_PARTY_TYPES = ["story", "event", "anbu"] as const;
 
 export const QuestTypes = [
   "starter",

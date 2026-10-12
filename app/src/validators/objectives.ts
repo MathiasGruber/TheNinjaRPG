@@ -53,6 +53,7 @@ import {
   LetterRanks,
   MasteryTypes,
   MEDNIN_RANKS,
+  QUEST_PARTY_TYPES,
   type QuestRewardMode,
   QuestTypes,
   RetryQuestDelays,
@@ -726,6 +727,10 @@ export const ObjectiveTracker = z.object({
   selectedNextObjectiveId: z.string().optional(),
   timestamp: z.iso.datetime().optional(),
   recentlyDied: z.boolean().prefault(false),
+  /** Personal side-effect receipt, independent of copied shared objective completion. */
+  partyEffectsApplied: z.boolean().optional(),
+  /** Personal damage by battle; canonical party goals contain the corresponding team totals. */
+  battleValues: z.record(z.string(), z.number().min(0)).optional(),
 });
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 
@@ -764,6 +769,19 @@ export const QuestTracker = z.object({
   id: z.string(),
   startAt: z.iso.datetime().prefault(new Date().toISOString()),
   goals: z.array(ObjectiveTracker).prefault([]),
+  /** Shared reset epoch; contributions from older generations cannot advance the team. */
+  generation: z.number().int().min(0).optional(),
+  /** Per-goal reset epochs invalidate affected personal receipts while retaining others. */
+  resetGenerations: z.record(z.string(), z.number().int().min(0)).optional(),
+  failed: z.boolean().optional(),
+  /** Cumulative personal contributions; merging these never counts a shared snapshot twice. */
+  party: z
+    .object({
+      id: z.string(),
+      generation: z.number().int().min(0).prefault(0),
+      contributions: z.array(ObjectiveTracker),
+    })
+    .optional(),
 });
 export type QuestTrackerType = z.infer<typeof QuestTracker>;
 
@@ -803,6 +821,7 @@ export const QuestValidatorRawSchema = z.object({
     sceneCharacters: z.array(z.string()).prefault([]),
   }),
   hidden: z.coerce.boolean(),
+  teamEnabled: z.boolean().prefault(false),
   retryDelay: z.enum(RetryQuestDelays).optional(),
   attemptDelay: z.enum(RetryQuestDelays).optional(),
   consecutiveObjectives: z.coerce.boolean(),
@@ -843,6 +862,13 @@ const questSuperRefine = (
       code: "custom",
       path: ["content", "entryItems"],
       message: "Entry items require a battle objective",
+    });
+  }
+  if (val.teamEnabled && !QUEST_PARTY_TYPES.some((type) => type === val.questType)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Quest teams support Story, Event and ANBU quests",
+      path: ["teamEnabled"],
     });
   }
   if (val.questType === "village_mission") {

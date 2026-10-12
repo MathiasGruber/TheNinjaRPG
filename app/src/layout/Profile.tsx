@@ -49,6 +49,7 @@ import Logbook, {
 import Modal from "@/layout/Modal";
 import NavTabs from "@/layout/NavTabs";
 import ProfileDashboard from "@/layout/ProfileDashboard";
+import { QuestTeams } from "@/layout/QuestTeams";
 import StrengthWeaknesses from "@/layout/StrengthWeaknesses";
 import { calcMedninRank } from "@/libs/hospital";
 import { calcLevelRequirements, showUserRank } from "@/libs/profile";
@@ -162,13 +163,13 @@ export function Profile() {
             icons={{
               Dashboard: (
                 <LayoutDashboard
-                  className="h-[20px] w-[20px] @min-[480px]:hidden"
+                  className="@min-[480px]:hidden h-[20px] w-[20px]"
                   aria-hidden="true"
                 />
               ),
               Character: (
                 <UserRound
-                  className="h-[20px] w-[20px] @min-[480px]:hidden"
+                  className="@min-[480px]:hidden h-[20px] w-[20px]"
                   aria-hidden="true"
                 />
               ),
@@ -194,7 +195,7 @@ export function Profile() {
             itemClassName={(option) =>
               `shrink-0 w-[min(44px,calc((100cqw_-_24px)/7))] ${option === "Character" ? "mr-auto" : "mr-0"} ${option === "Dashboard" || option === "Character" ? "@min-[480px]:w-auto" : ""}`
             }
-            className="min-h-[44px] min-w-0 w-full px-0 text-base @min-[480px]:px-[12px]"
+            className="min-h-[44px] w-full min-w-0 @min-[480px]:px-[12px] px-0 text-base"
           />
         </div>
         <TabsContent value="dashboard">
@@ -596,6 +597,7 @@ function ProfileHistory() {
           className="min-h-11 px-3"
         />
       </div>
+      <QuestTeams />
       {tab === "Quests" ? <LogbookHistory /> : <LogbookBattles />}
     </div>
   );

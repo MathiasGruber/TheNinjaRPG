@@ -107,7 +107,10 @@ export const findCompletedPredecessor = (
  * @param tracker - The quest tracker object.
  * @returns A boolean indicating whether the quest is complete.
  */
-export const isQuestComplete = (quest: Quest, tracker: QuestTrackerType) => {
+export const isQuestComplete = (
+  quest: Pick<Quest, "content" | "consecutiveObjectives">,
+  tracker: QuestTrackerType,
+) => {
   const objectives = quest.content.objectives;
   if (!quest.consecutiveObjectives) {
     // All objectives must be complete

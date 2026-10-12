@@ -1294,7 +1294,11 @@ export const applySingleEffect = (
             );
           } else if (effect.type === "heal" && isTargetOrNew) {
             info = heal(effect, newUsersEffects, curTarget, consequences, ratio);
-          } else if (effect.type === "flee" && isTargetOrNew) {
+          } else if (
+            effect.type === "flee" &&
+            isTargetOrNew &&
+            !battle.extraState.dungeon
+          ) {
             info = flee(effect, newUsersEffects, newTarget);
           } else if (effect.type === "increasepoolcost" && isTargetOrNew) {
             info = increasepoolcost(effect, curTarget);

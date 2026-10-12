@@ -138,7 +138,9 @@ export const availableUserActions = (
         ]
       : []),
     ...(!isImmobilized && !isStudent ? [basicActions.basicReplacementTechnique] : []),
-    ...(basicMoves && !isStealth && !isStudent ? [basicActions.basicFlee] : []),
+    ...(basicMoves && !isStealth && !isStudent && !battle?.extraState.dungeon
+      ? [basicActions.basicFlee]
+      : []),
     ...(availableActionPoints && availableActionPoints > 0
       ? [
           {
@@ -1630,6 +1632,8 @@ export const calcActiveUser = (
     activeUserId = inBattleuserIds[newIdx] || userId;
   } else if (inBattleuserIds.length === 1) {
     activeUserId = inBattleuserIds[0];
+    // Survivors still need round ticks while waiting for preloaded encounter waves.
+    if (battle.extraState?.encounter && (check1 || check2)) progressRound = true;
   }
 
   // Find the user in question, and return him

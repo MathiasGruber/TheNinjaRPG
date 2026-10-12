@@ -55,6 +55,40 @@ import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
 import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurniture";
 import type { WarSettlement } from "@/validators/war";
+import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
+
+/** Staff-authored definitions; each lobby captures its own immutable content snapshot. */
+export const dungeon = mysqlTable("Dungeon", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  content: json("content").$type<DungeonContent>().notNull(),
+  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
+});
+/** Shared party progress guarded by version CAS; battleId ties settlement to the active floor. */
+export const dungeonRun = mysqlTable("DungeonRun", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  dungeonId: varchar("dungeonId", { length: 191 }).notNull(),
+  leaderId: varchar("leaderId", { length: 191 }).notNull(),
+  content: json("content").$type<DungeonContent>().notNull(),
+  state: json("state").$type<DungeonRunState>().notNull(),
+  status: mysqlEnum("status", ["LOBBY", "STARTING", "FIGHTING", "BETWEEN", "PAUSED", "COMPLETED", "ENDED"]).notNull(),
+  version: int("version").default(0).notNull(),
+  battleId: varchar("battleId", { length: 191 }),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).notNull(),
+  expiresAt: datetime("expiresAt", { mode: "date", fsp: 3 }),
+}, (table) => ({ status: index("DungeonRun_status_idx").on(table.status) }));
+/** Exclusive active-party reservations and durable, per-member completion receipts. */
+export const dungeonMember = mysqlTable("DungeonMember", {
+  runId: varchar("runId", { length: 191 }).notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  // NULL releases the player for another run while retaining their completion receipt.
+  activeUserId: varchar("activeUserId", { length: 191 }),
+  reward: json("reward").$type<DungeonRewardReceipt>(),
+}, (table) => ({
+  pk: primaryKey({columns: [table.runId, table.userId]}),
+  active: uniqueIndex("DungeonMember_active_idx").on(table.activeUserId),
+  user: index("DungeonMember_user_idx").on(table.userId),
+}));
+export type DungeonRun = InferSelectModel<typeof dungeonRun>;
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -2591,6 +2625,7 @@ export const userData = mysqlTable(
     unreadRecruitRewards: smallint("unreadRecruitRewards").default(0).notNull(),
     unreadNews: smallint("unreadNews").default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
+    questPartyId: varchar("questPartyId", { length: 191 }),
     activeNpcQuestId: varchar("activeNpcQuestId", { length: 191 }),
     senseiId: varchar("senseiId", { length: 191 }),
     medicalExperience: int("medicalExperience").default(0).notNull(),
@@ -2719,6 +2754,7 @@ export const userData = mysqlTable(
       roleIdx: index("UserData_role_idx").on(table.role),
       clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
       anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
+      questPartyIdIdx: index("UserData_questPartyId_idx").on(table.questPartyId),
       jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
       rankedLoadoutIdx: index("UserData_rankedLoadout_idx").on(table.rankedLoadout),
       rankedLpIdx: index("UserData_rankedLp_idx").on(table.rankedLp),
@@ -2811,6 +2847,7 @@ export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
 export const userDataRelations = relations(userData, ({ one, many }) => ({
+  questParty: one(questParty, { fields: [userData.questPartyId], references: [questParty.id] }),
   queue: many(userQueue),
   ips: many(historicalIp),
   bloodline: one(bloodline, {
@@ -3978,6 +4015,7 @@ export const quest = mysqlTable(
     content: json("content").$type<QuestContentType>().notNull(),
     hidden: boolean("hidden").default(false).notNull(),
     consecutiveObjectives: boolean("consecutiveObjectives").default(true).notNull(),
+    teamEnabled: boolean("teamEnabled").default(false).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
     requiredBloodlineId: varchar("requiredBloodlineId", { length: 191 }),
     requiredSageModeId: varchar("requiredSageModeId", { length: 191 }),
@@ -4061,6 +4099,25 @@ export const questRelations = relations(quest, ({ one, many }) => ({
   }),
   raidParticipations: many(raidParticipation),
   raidDamageThresholds: many(raidDamageThreshold),
+}));
+
+export const questParty = mysqlTable("QuestParty", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  questId: varchar("questId", { length: 191 }).notNull(),
+  leaderId: varchar("leaderId", { length: 191 }).notNull(),
+  isPublic: boolean("isPublic").default(false).notNull(),
+  memberIds: json("memberIds").$type<string[]>().notNull(),
+  invitedUserIds: json("invitedUserIds").$type<string[]>().notNull(),
+  tracker: json("tracker").$type<QuestTrackerType>().notNull(),
+  contributions: json("contributions").$type<Record<string, QuestTrackerType["goals"]>>().notNull(),
+  version: int("version").default(0).notNull(),
+  battleId: varchar("battleId", { length: 191 }),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+}, (table) => ({ questIdIdx: index("QuestParty_questId_idx").on(table.questId) }));
+export type QuestParty = InferSelectModel<typeof questParty>;
+export const questPartyRelations = relations(questParty, ({ one, many }) => ({
+  quest: one(quest, { fields: [questParty.questId], references: [quest.id] }),
+  members: many(userData),
 }));
 
 export const questHistory = mysqlTable(

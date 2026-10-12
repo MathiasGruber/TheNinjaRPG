@@ -1,0 +1,318 @@
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { eq } from "drizzle-orm";
+import { aiProfile, battle, battleHistory, quest, questHistory, questParty, overworldAiPlacement, item, userItem, userData, village, villageStructure } from "@/drizzle/schema";
+import * as Sentry from "@sentry/nextjs";
+import { getNewTrackers, getReward } from "@/libs/quest";
+import { Pusher } from "@/libs/pusher";
+import { fetchUpdatedUser, profileRouter } from "@/routers/profile";
+import { questPartyRouter } from "@/routers/questParty";
+import { overworldAiRouter } from "@/routers/overworldAi";
+import { commitQuestObjectiveRewards, questsRouter } from "@/routers/quests";
+import type { DrizzleClient } from "@/server/db";
+import { AllObjectives } from "@/validators/objectives";
+import { ObjectiveReward } from "@/validators/rewards";
+import { insertItems, insertQuestHistory, insertQuests, insertUsers, insertUserItems } from "../../setup/factories";
+import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+
+describeWithDatabase("quest team eligibility and terminal failure", () => {
+  beforeEach(async () => {
+    await resetTables(questParty, quest, questHistory, userData, village, villageStructure, aiProfile, battle, battleHistory, overworldAiPlacement, item, userItem);
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    const realFetch = globalThis.fetch;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) return realFetch(input, init);
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({ result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1 });
+      return Response.json(Array.isArray(commands[0]) ? commands.map((command) => resultFor(command as unknown[])) : resultFor(commands));
+    });
+    const client = await getTestDatabase();
+    await client.insert(village).values({ id: "home", name: "Home", kageId: "leader", sector: 50 });
+    await client.insert(villageStructure).values({ id: "admin", villageId: "home", name: "Administrative Building", route: "/adminbuilding", image: "" });
+    await insertUsers(["leader", "helper"].map((userId) => ({ userId, username: userId, status: "AWAKE", rank: "JONIN", level: 50, experience: 20_000_000, villageId: "home", sector: 50, longitude: 10, latitude: 10, money: 100, regenAt: new Date(), updatedAt: new Date() })));
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  for (const task of ["collect_item", "deliver_item"] as const) {
+    for (const advanced of [false, true]) {
+      const departures = advanced
+        ? ([null] as const)
+        : ([null, "leave", "disband"] as const);
+      for (const departure of departures) {
+        it(`preserves personal inventory effects when joining ${advanced ? "a completed" : "an unfinished"} team goal (${task}, ${departure ?? "attached"})`, async () => {
+          const client = await getTestDatabase();
+          await insertItems([{ id: "scroll" }]);
+          await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: true, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
+            AllObjectives.parse({ id: "inventory", task, ...(task === "collect_item" ? { collectItemIds: ["scroll"] } : { deliverItemIds: ["scroll"] }), item_name: "Scroll", sector: 50, longitude: 11, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "wait" }),
+            AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+          ], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+          const leader = await callerFor(questPartyRouter, "leader");
+          expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+          if (advanced) {
+            if (task === "deliver_item") await insertUserItems([{ id: "leader-copy", userId: "leader", itemId: "scroll" }]);
+            await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, "leader"));
+            await (await callerFor(questsRouter, "leader")).checkLocationQuest();
+          }
+          if (task === "deliver_item") await insertUserItems([1, 2].map((copy) => ({ id: `helper-copy-${copy}`, userId: "helper", itemId: "scroll" })));
+          const personal = await callerFor(questsRouter, "helper");
+          expect((await personal.startQuest({ questId: "team-quest", userSector: 50 })).success).toBe(true);
+          await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, "helper"));
+          await personal.checkLocationQuest();
+          const before = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+          expect(before).toHaveLength(1);
+          const party = await client.query.questParty.findFirst();
+          if (!party) throw new Error("Missing inventory team fixture");
+          expect(party.tracker.goals.find((goal) => goal.id === "inventory")?.done).toBe(advanced);
+          expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+          const joined = await client.query.userData.findFirst({ where: eq(userData.userId, "helper") });
+          expect(joined?.questData?.find((tracker) => tracker.id === "team-quest")?.goals.find((goal) => goal.id === "inventory")).toMatchObject({ done: advanced, partyEffectsApplied: true });
+          if (departure) {
+            const actor = departure === "leave" ? await callerFor(questPartyRouter, "helper") : leader;
+            expect((await actor[departure]({ partyId: party.id })).success).toBe(true);
+          }
+          const profile = await callerFor(profileRouter, "helper");
+          for (let read = 0; read < 2; read++) {
+            await profile.getUser();
+            await personal.checkLocationQuest();
+            await personal.checkRewards({ questId: "team-quest" });
+            expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toEqual(before);
+          }
+          expect(await client.query.questHistory.findFirst({ where: eq(questHistory.userId, "helper") })).toMatchObject({ previousAttempts: 1, completed: 0, endAt: null });
+          const saved = await client.query.userData.findFirst({ where: eq(userData.userId, "helper") });
+          expect(saved?.questPartyId).toBe(departure ? null : party.id);
+          expect(saved?.questData?.find((tracker) => tracker.id === "team-quest")?.goals.find((goal) => goal.id === "inventory")?.done).toBe(true);
+          if (departure) {
+            expect(saved?.questData?.find((tracker) => tracker.id === "team-quest")?.party).toBeUndefined();
+            return;
+          }
+          expect((await client.query.questParty.findFirst())?.tracker.goals.find((goal) => goal.id === "inventory")?.done).toBe(true);
+          for (const userId of ["fresh", "replacement"]) {
+            await insertUsers([{ userId, username: userId, status: "AWAKE", rank: "JONIN", level: 50, experience: 20_000_000, villageId: "home", sector: 50, longitude: 10, latitude: 10, regenAt: new Date(), updatedAt: new Date() }]);
+            if (task === "deliver_item") await insertUserItems([{ id: `${userId}-copy`, userId, itemId: "scroll" }]);
+            const newcomer = await callerFor(questPartyRouter, userId);
+            expect((await newcomer.join({ partyId: party.id })).success).toBe(true);
+            for (let read = 0; read < 2; read++) {
+              await (await callerFor(profileRouter, userId)).getUser();
+              const items = await client.query.userItem.findMany({ where: eq(userItem.userId, userId) });
+              expect(items).toHaveLength(task === "collect_item" ? 1 : 0);
+            }
+            if (userId === "fresh") expect((await newcomer.leave({ partyId: party.id })).success).toBe(true);
+          }
+        });
+      }
+    }
+  }
+
+  for (const mode of ["form", "join", "replacement"] as const) {
+    it(`preserves collection deliveries when entering a team (${mode})`, async () => {
+      const client = await getTestDatabase();
+      await insertItems([{ id: "scroll" }]);
+      await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: true, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
+        AllObjectives.parse({ id: "collect", task: "collect_item", collectItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 11, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "wait" }),
+        AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+      ], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+      const leader = await callerFor(questPartyRouter, "leader");
+      if (mode !== "form") {
+        expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+        await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, "leader"));
+        await (await callerFor(questsRouter, "leader")).checkLocationQuest();
+      }
+      const userId = mode === "form" ? "leader" : "helper";
+      const personal = await callerFor(questsRouter, userId);
+      if (mode !== "replacement") {
+        expect((await personal.startQuest({ questId: "team-quest", userSector: 50 })).success).toBe(true);
+        await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, userId));
+        await personal.checkLocationQuest();
+        const solo = await client.query.userData.findFirst({ where: eq(userData.userId, userId) });
+        const tracker = solo?.questData?.find((entry) => entry.id === "team-quest");
+        expect(tracker?.party).toBeUndefined();
+        expect(tracker?.goals.find((goal) => goal.id === "collect")).toMatchObject({ done: true });
+        expect(tracker?.goals.find((goal) => goal.id === "collect")?.partyEffectsApplied).toBeUndefined();
+      }
+      const before = await client.query.userItem.findMany({ where: eq(userItem.userId, userId) });
+      expect(before).toHaveLength(mode === "replacement" ? 0 : 1);
+      if (mode === "form") {
+        expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+      } else {
+        const party = await client.query.questParty.findFirst();
+        if (!party) throw new Error("Missing collection team fixture");
+        expect((await (await callerFor(questPartyRouter, userId)).join({ partyId: party.id })).success).toBe(true);
+      }
+      const profile = await callerFor(profileRouter, userId);
+      for (let read = 0; read < 2; read++) {
+        await profile.getUser();
+        const items = await client.query.userItem.findMany({ where: eq(userItem.userId, userId) });
+        expect(items).toHaveLength(1);
+        expect(items[0]).toMatchObject({ itemId: "scroll", quantity: 1 });
+        if (mode !== "replacement") expect(items).toEqual(before);
+      }
+      const receipt = await client.query.questHistory.findFirst({ where: eq(questHistory.userId, userId) });
+      expect(receipt).toMatchObject({ previousAttempts: 1, completed: 0, endAt: null });
+      const saved = await client.query.userData.findFirst({ where: eq(userData.userId, userId) });
+      expect(saved?.questData?.find((entry) => entry.id === "team-quest")?.goals.find((goal) => goal.id === "collect")?.partyEffectsApplied).toBe(true);
+      if (mode !== "form") {
+        await (await callerFor(profileRouter, "leader")).getUser();
+        expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "leader") })).toHaveLength(1);
+      }
+    });
+  }
+
+  it("keeps lifetime-completed helpers active across profile reads and encounter preload without reopening or paying their receipt", async () => {
+    const client = await getTestDatabase();
+    await insertUsers([{ userId: "enemy", username: "enemy", isAi: true, level: 10, rank: "GENIN" }]);
+    await client.insert(aiProfile).values({ id: "Default", userId: "enemy", rules: [] });
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 2, maxCompletes: 2, retryDelay: "none", content: { objectives: [AllObjectives.parse({ id: "goal", task: "start_battle", opponentAIs: [{ ids: ["enemy"], number: 1 }] })], reward: ObjectiveReward.parse({ reward_money: 100 }), sceneBackground: "", sceneCharacters: [] } }]);
+    const endAt = new Date("2026-10-01T00:00:00Z");
+    await insertQuestHistory([{ id: "receipt", userId: "helper", questId: "team-quest", questType: "event", completed: 0, previousCompletes: 1, previousAttempts: 1, endAt }]);
+    const leader = await callerFor(questPartyRouter, "leader");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = await client.query.questParty.findFirst();
+    if (!party) throw new Error("Missing team fixture");
+    expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    const fresh = await fetchUpdatedUser({ client, userId: "helper" });
+    expect(fresh.user?.userQuests.find((entry) => entry.questId === "team-quest")?.id).toBe(`party-${party.id}`);
+    expect(fresh.user?.questData?.find((entry) => entry.id === "team-quest")?.party?.id).toBe(party.id);
+    expect((await leader.startEncounter({ partyId: party.id })).success).toBe(true);
+    const savedBattle = await client.query.battle.findFirst();
+    if (!savedBattle) throw new Error("Missing battle fixture");
+    expect(savedBattle.extraState.userQuests.helper?.find((entry) => entry.questId === "team-quest")?.id).toBe(`party-${party.id}`);
+    expect(savedBattle.extraState.questData.helper?.find((entry) => entry.id === "team-quest")?.party?.id).toBe(party.id);
+    const finishedTracker = structuredClone(party.tracker);
+    finishedTracker.goals.forEach((goal) => { goal.done = true; });
+    await client.update(questParty).set({ tracker: finishedTracker, version: party.version + 1 }).where(eq(questParty.id, party.id));
+    await client.update(userData).set({ status: "AWAKE", battleId: null }).where(eq(userData.userId, "helper"));
+    const claimed = await (await callerFor(questsRouter, "helper")).checkRewards({ questId: "team-quest" });
+    expect(claimed.success).toBe(true);
+    const receipt = await client.query.questHistory.findFirst({ where: eq(questHistory.id, "receipt") });
+    expect(receipt).toMatchObject({ completed: 0, previousCompletes: 1, previousAttempts: 2, endAt });
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.money).toBe(100);
+  });
+
+  it("fails every member when a bound NPC was deleted without a failure branch and denies final rewards", async () => {
+    const client = await getTestDatabase();
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 2, retryDelay: "none", content: { objectives: [AllObjectives.parse({ id: "goal", task: "defeat_opponents", overworldPlacementId: "deleted-placement", opponentAIs: [{ ids: ["enemy"], number: 1 }], sector: 50, longitude: 10, latitude: 10 })], reward: ObjectiveReward.parse({ reward_money: 100 }), sceneBackground: "", sceneCharacters: [] } }]);
+    expect((await (await callerFor(questPartyRouter, "leader")).create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = await client.query.questParty.findFirst();
+    if (!party) throw new Error("Missing team fixture");
+    expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    const location = await (await callerFor(questsRouter, "leader")).checkLocationQuest();
+    expect(location.notifications?.some((message) => message.includes("destination was removed"))).toBe(true);
+    expect((await client.query.questParty.findFirst({ where: eq(questParty.id, party.id) }))?.tracker.failed).toBe(true);
+    const overview = await (await callerFor(questPartyRouter, "leader")).overview();
+    expect(overview.current).toMatchObject({ failed: true, completed: false });
+    expect(overview.teams).toHaveLength(0);
+    const teammate = await fetchUpdatedUser({ client, userId: "helper" });
+    expect(teammate.user?.questData?.find((entry) => entry.id === "team-quest")?.failed).toBe(true);
+    const claim = await (await callerFor(questsRouter, "helper")).checkRewards({ questId: "team-quest" });
+    expect(claim.rewards?.reward_money).toBe(0);
+    const histories = await client.query.questHistory.findMany({ where: eq(questHistory.questId, "team-quest") });
+    expect(histories).toHaveLength(2);
+    expect(histories.every((entry) => entry.completed === 0 && entry.endAt !== null)).toBe(true);
+    expect((await client.query.userData.findMany({ where: eq(userData.villageId, "home") })).map((entry) => entry.money)).toEqual([100, 100]);
+  });
+
+  it("reports a successful team completion and pays the eligible member", async () => {
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, retryDelay: "none", content: { objectives: [AllObjectives.parse({ id: "goal", task: "stats_trained", value: 1 })], reward: ObjectiveReward.parse({ reward_money: 100 }), sceneBackground: "", sceneCharacters: [] } }]);
+    const leader = await callerFor(questPartyRouter, "leader");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const client = await getTestDatabase();
+    const { user } = await fetchUpdatedUser({ client, userId: "leader" });
+    if (!user) throw new Error("Missing completed team fixture");
+    user.questData = getNewTrackers(user, [{ task: "stats_trained", increment: 1 }]).trackers;
+    const claim = await commitQuestObjectiveRewards({ client, userId: "leader", user, ...getReward(user, "team-quest") });
+    expect(claim.outcome).toBe("claimed");
+    const overview = await leader.overview();
+    expect(overview.current).toMatchObject({ failed: false, completed: true });
+    expect(overview.teams).toHaveLength(0);
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.money).toBe(200);
+  });
+
+  for (const mode of ["bound-other-tile", "bound-same-tile", "generic"] as const) {
+    it(`starts the selected eligible combat objective (${mode})`, async () => {
+      const client = await getTestDatabase();
+      await insertUsers(["enemy-first", "enemy-selected"].map((userId) => ({ userId, username: userId, isAi: true, level: 10, rank: "GENIN" })));
+      await client.insert(aiProfile).values({ id: "Default", userId: "enemy-selected", rules: [] });
+      if (mode !== "generic") {
+        await client.insert(overworldAiPlacement).values({ id: "selected-npc", aiTemplateUserId: "enemy-selected", interactionType: "HOSTILE", sectorList: [], sector: 50, longitude: 10, latitude: 10, positionVersion: 0 });
+      }
+      await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: false, maxAttempts: 2, retryDelay: "none", content: { objectives: [
+        AllObjectives.parse({ id: "first", task: "defeat_opponents", opponentAIs: [{ ids: ["enemy-first"], number: 1 }], sector: 50, longitude: mode === "bound-same-tile" ? 10 : 5, latitude: 10 }),
+        AllObjectives.parse({ id: "selected", task: "defeat_opponents", overworldPlacementId: mode === "generic" ? undefined : "selected-npc", opponentAIs: [{ ids: ["enemy-selected"], number: 1 }], sector: 50, longitude: 10, latitude: 10 }),
+      ], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+      const leader = await callerFor(questPartyRouter, "leader");
+      expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+      const party = await client.query.questParty.findFirst();
+      if (!party) throw new Error("Missing team fixture");
+      const result = mode === "generic"
+        ? await leader.startEncounter({ partyId: party.id })
+        : await (await callerFor(overworldAiRouter, "leader")).interactWithOverworldAi({ placementId: "selected-npc", positionVersion: 0 });
+      expect(result.success).toBe(true);
+      const savedBattle = await client.query.battle.findFirst();
+      expect(savedBattle?.usersState.some((entry) => entry.controllerId === "enemy-selected")).toBe(true);
+      expect(savedBattle?.usersState.some((entry) => entry.controllerId === "enemy-first")).toBe(false);
+    });
+  }
+
+  for (const failure of ["CAS misses", "database error"] as const) {
+    it(`finishes a claimed payout and consequences and recovers terminal progress after party publication ${failure}`, async () => {
+      const client = await getTestDatabase();
+      const reported = vi.spyOn(Sentry, "captureException").mockReturnValue("reported");
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      await insertItems([{ id: "herb", canBeGathered: true }]);
+      await client.update(userData).set({ occupation: "GATHERING" }).where(eq(userData.userId, "leader"));
+      await insertQuests([
+        { id: "next-quest", questType: "event", hidden: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none" },
+        { id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
+          AllObjectives.parse({ id: "goal", task: "stats_trained", value: 10, reward_money: 25 }),
+        ], reward: ObjectiveReward.parse({ reward_money: 100, reward_gathering_items: true }), sceneBackground: "", sceneCharacters: [] } },
+      ]);
+      expect((await (await callerFor(questPartyRouter, "leader")).create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+      const { user } = await fetchUpdatedUser({ client, userId: "leader" });
+      if (!user) throw new Error("Missing leader fixture");
+      user.questData = getNewTrackers(user, [{ task: "stats_trained", increment: 10 }]).trackers;
+      const reward = getReward(user, "team-quest");
+      expect(reward.resolved).toBe(true);
+      reward.consequences.push({ type: "start_quest", ids: ["next-quest"] });
+      let failedWrites = 0;
+      const injected = new Proxy(client, {
+        get(target, property, receiver) {
+          if (property === "update") return (table: unknown) => table === questParty ? {
+            set: () => ({ where: async () => {
+              failedWrites++;
+              if (failure === "database error") throw new Error("Injected party write failure");
+              return { rowsAffected: 0 };
+            } }),
+          } : target.update(table as typeof userData);
+          return Reflect.get(target, property, receiver);
+        },
+      }) as DrizzleClient;
+      const result = await commitQuestObjectiveRewards({ client: injected, userId: "leader", user, ...reward });
+      expect(result.outcome).toBe("claimed");
+      expect(failedWrites).toBe(failure === "CAS misses" ? 5 : 1);
+      expect(reported).toHaveBeenCalledTimes(1);
+      const receipt = await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "team-quest") });
+      expect(receipt).toMatchObject({ completed: 1, previousCompletes: 1 });
+      expect(receipt?.endAt).not.toBeNull();
+      const saved = await client.query.userData.findFirst({ where: eq(userData.userId, "leader") });
+      expect(saved?.money).toBe(225);
+      const gathered = await client.query.userItem.findMany({ where: eq(userItem.userId, "leader") });
+      expect(gathered).toHaveLength(1);
+      expect(gathered[0]).toMatchObject({ itemId: "herb", quantity: 1 });
+      expect(saved?.questData?.find((entry) => entry.id === "team-quest")?.goals.find((entry) => entry.id === "goal")).toMatchObject({ done: true, value: 10, collected: true });
+      expect(saved?.questData?.find((entry) => entry.id === "team-quest")?.party?.contributions.find((entry) => entry.id === "goal")).toMatchObject({ done: true, value: 10 });
+      const nextReceipt = await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "next-quest") });
+      expect(nextReceipt?.endAt).toBeNull();
+      expect((await client.query.questParty.findFirst())?.tracker.goals.find((entry) => entry.id === "goal")).toMatchObject({ done: false, value: 0 });
+      expect((await commitQuestObjectiveRewards({ client, userId: "leader", user, ...reward })).outcome).toBe("already_completed");
+      await fetchUpdatedUser({ client, userId: "leader" });
+      const canonical = await client.query.questParty.findFirst();
+      expect(canonical?.tracker.goals.find((entry) => entry.id === "goal")).toMatchObject({ done: true, value: 10 });
+      const replay = await (await callerFor(questsRouter, "leader")).checkRewards({ questId: "team-quest" });
+      expect(replay.rewards?.reward_money).toBe(0);
+      expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.money).toBe(225);
+      expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "leader") })).toEqual(gathered);
+      expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "team-quest") })).toEqual(receipt);
+      expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "next-quest") })).toEqual(nextReceipt);
+      expect((await client.query.questParty.findFirst())?.tracker.goals.find((entry) => entry.id === "goal")?.value).toBe(10);
+    });
+  }
+});

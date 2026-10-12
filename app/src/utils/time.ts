@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import type { RetryQuestDelay, TimeUnit } from "@/drizzle/constants";
 import { BANK_INTEREST_CLAIM_DAYS, REGEN_SECONDS } from "@/drizzle/constants";
 
@@ -228,6 +229,10 @@ export const isDifferentDay = (date1: Date, date2: Date): boolean => {
 export const formatDateTimeShort = (date: Date): string => {
   return date.toISOString().replace("T", " ").slice(0, 16);
 };
+
+/** Format local calendar time for a datetime-local input. */
+export const formatLocalDateTimeInput = (date: Date) =>
+  format(date, "yyyy-MM-dd'T'HH:mm");
 
 export const formatTimeAgo = (date: Date) => {
   const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);

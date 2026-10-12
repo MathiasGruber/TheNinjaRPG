@@ -3129,7 +3129,10 @@ export const summon = (
       // userId (=== effect.aiId) and a fresh nanoid as their in-battle userId.
       // We no longer rebind effect.aiId to the spawned summon, so it keeps
       // pointing at the template and re-cast works.
-      const ai = usersState.find((u) => u.controllerId === effect.aiId);
+      // A dungeon enemy can share the source ID after spending its loadout.
+      const ai =
+        usersState.find((u) => u.controllerId === effect.aiId && u.isSummonTemplate) ??
+        usersState.find((u) => u.controllerId === effect.aiId);
       // Cap backstop. The router refuses a blocked cast before any pools are
       // spent, so a human never reaches this; it still guards AI casts and any
       // other path that reaches applyEffects directly.

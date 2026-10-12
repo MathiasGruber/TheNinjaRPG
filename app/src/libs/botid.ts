@@ -47,6 +47,8 @@ export const BOTID_PROTECTED_PROCEDURES = [
   "stealth.trainCovert",
   "quests.startQuest",
   "quests.startRandom",
+  "coop.quest.create",
+  "coop.quest.join",
   "combat.startArenaBattle",
   "farming.harvestPlot",
   "farming.harvestAll",
@@ -55,6 +57,7 @@ export const BOTID_PROTECTED_PROCEDURES = [
   "activityStreak.claimStreakDay",
   "bank.claimInterest",
   "raids.claimDamageReward",
+  "coop.dungeon.claim",
   "pvpRank.claimSeasonRewards",
   // Account creation and value transfer
   "register.createCharacter",

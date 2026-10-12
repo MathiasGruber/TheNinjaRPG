@@ -12,6 +12,7 @@ import ContentBox from "@/layout/ContentBox";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
 import { LogbookEntry, useCheckRewards } from "@/layout/Logbook";
+import { QuestTeams } from "@/layout/QuestTeams";
 import { getActiveObjective } from "@/libs/objectives";
 import { showMutationToast } from "@/libs/toast";
 import { getTutorialHighlightedQuestId } from "@/libs/tutorial";
@@ -205,6 +206,10 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                       showEdit="quest"
                       imageExtra={
                         <div className="mt-2 space-y-2">
+                          <QuestTeams
+                            questId={quest.id}
+                            teamEnabled={quest.teamEnabled}
+                          />
                           {quest.entryRequirements.map((required) => (
                             <p key={required.itemId} className="text-sm">
                               {itemNames?.find((item) => item.id === required.itemId)

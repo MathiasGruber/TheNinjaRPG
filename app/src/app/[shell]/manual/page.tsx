@@ -59,6 +59,7 @@ export default function ManualMain() {
     { name: "crafting_recipes", img: IMG_MANUAL_CRAFTING_RECIPES },
     { name: "ai", img: IMG_MANUAL_AI },
     { name: "quest", img: IMG_MANUAL_QUEST },
+    { name: "dungeon", img: IMG_MANUAL_QUEST },
     { name: "logs", img: IMG_MANUAL_LOGS },
     { name: "damage_calcs", img: IMG_MANUAL_DAM_CALCS },
     { name: "badge", img: IMG_MANUAL_BADGE },

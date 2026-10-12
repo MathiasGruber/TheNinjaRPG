@@ -33,6 +33,7 @@ import {
   COMBAT_BIOMES,
   type CombatBiome,
   CombatStatNames,
+  DUNGEON_PARTY_SIZE,
   ELEMENTAL_MASTERY_BOOST,
   MAP_RESERVED_SECTORS,
   MAP_WAKE_ISLAND_SECTOR,
@@ -64,6 +65,7 @@ import {
   battleAction,
   battleHistory,
   bounty,
+  dungeonRun,
   gameAsset,
   gameSetting,
   item,
@@ -110,6 +112,7 @@ import {
   updateVillageAnbuClan,
   updateWars,
 } from "@/libs/combat/database";
+import { advanceEncounterWave, prepareEncounterWaves } from "@/libs/combat/encounters";
 import { getBattleSpawnLocations, supportsNpcAllies } from "@/libs/combat/participants";
 import {
   applyEffects,
@@ -157,6 +160,8 @@ import {
   resetMasteriesToBase,
   rollInitiative,
 } from "@/libs/combat/util";
+import type { CoopEncounter } from "@/libs/coop";
+import { dungeonBattleOutcome } from "@/libs/dungeon";
 import { activeTrainedElement } from "@/libs/elementalMastery";
 import { fetchDmgConfig } from "@/libs/gamesettings";
 import { computeJutsuLoadoutCapAssignments } from "@/libs/jutsu";
@@ -190,6 +195,7 @@ import {
   mockAchievementHistoryEntries,
 } from "@/libs/quest";
 import { getIsolatedPyramid, isBetweenPyramidBattles } from "@/libs/questRun";
+import { projectPartyTracker } from "@/libs/questParty";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
@@ -244,7 +250,6 @@ import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
 import { getRandomElement } from "@/utils/array";
-import { randomInt } from "@/utils/math";
 import { fedItemLoadouts, fedJutsuLoadouts } from "@/utils/paypal";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
 import { canAccessStructure } from "@/utils/village";
@@ -291,6 +296,10 @@ export const combatRouter = createTRPCRouter({
             return { battle: null, result: null };
           }
 
+          const spawnedWave = advanceEncounterWave(
+            userBattle,
+            !!dungeonBattleOutcome(userBattle),
+          );
           // Current state of battle
           const actId = userBattle.activeUserId;
           const activeUser = userBattle.usersState.find((u) => u.userId === actId);
@@ -312,7 +321,8 @@ export const combatRouter = createTRPCRouter({
           if (progressRound) {
             applySageModeAfterRoundTransition(userBattle);
           }
-          if (changedActor) userBattle.version = userBattle.version + 1;
+          if (changedActor || spawnedWave) userBattle.version = userBattle.version + 1;
+          advanceEncounterWave(userBattle, !!dungeonBattleOutcome(userBattle));
 
           if (!actionRounds.includes(actionRound)) {
             actionRounds.push(actionRound);
@@ -338,6 +348,7 @@ export const combatRouter = createTRPCRouter({
           const history: Parameters<typeof createAction>[2] = [];
           if (shouldTickEffects && !hadActivity && actId && activeUser) {
             const { newBattle, actionEffects } = applyEffects(userBattle, actId);
+            advanceEncounterWave(newBattle, !!dungeonBattleOutcome(newBattle));
             settledBattle = newBattle;
             // Effects ticking on this poll can end the fight -- a lingering
             // damage tag finishing the last opponent -- so the result computed
@@ -372,7 +383,7 @@ export const combatRouter = createTRPCRouter({
             });
           }
 
-          if (result || progressRound || changedActor) {
+          if (result || progressRound || changedActor || spawnedWave) {
             // alignBattle stamps updatedAt on every call. A settlement-only save must
             // keep the fetched value: the next timeout poll reads updatedAt > roundStartAt
             // as "the actor already acted" and would skip the idle actor's effects tick.
@@ -393,7 +404,7 @@ export const combatRouter = createTRPCRouter({
               ...(history.length
                 ? [createAction(ctx.drizzle, settledBattle, history)]
                 : []),
-              ...(result
+              ...(result && !settledBattle.extraState.dungeon
                 ? [
                     updateUser(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
                     // Polling settlement pays the same faction counters as an action.
@@ -631,6 +642,7 @@ export const combatRouter = createTRPCRouter({
         const battle = await fetchBattle(db, input.battleId);
         if (!battle) return { updateClient: true };
 
+        advanceEncounterWave(battle, !!dungeonBattleOutcome(battle));
         // Create the grid for the battle
         const grid = getBattleGrid(1, battle);
 
@@ -770,6 +782,13 @@ export const combatRouter = createTRPCRouter({
             }
           }
 
+          if (
+            performedActionId &&
+            newBattle.extraState.dungeon &&
+            !actor.isAi &&
+            !actor.isSummon
+          )
+            newBattle.extraState.dungeon.lastActionRound[actor.userId] = actionRound;
           // If no description, means no actions, just return now
           let description = battleDescriptions.join(". ");
           if (!description && actionPerformed && history.length === 0) {
@@ -812,6 +831,7 @@ export const combatRouter = createTRPCRouter({
             nActions += 1;
           }
 
+          advanceEncounterWave(newBattle, !!dungeonBattleOutcome(newBattle));
           // Calculate if the battle is over for this user, and if so update user DB
           const result = calcBattleResult(
             newBattle,
@@ -873,13 +893,19 @@ export const combatRouter = createTRPCRouter({
             const [logEntries, { updatedQuestIds }] = await Promise.all([
               createAction(db, newBattle, history),
               updateUser(db, pusher, newBattle, result, suid),
-              saveUsage(db, newBattle, result, suid),
-              updateKage(db, newBattle, result),
-              updateClanLeaders(db, newBattle, result, suid),
-              updateVillageAnbuClan(db, newBattle, result, suid),
-              updateWars(db, pusher, newBattle, result, suid),
-              updateTournament(db, newBattle, result, suid),
-              result ? updateRaidProgress(db, newBattle, suid) : Promise.resolve(),
+              ...(!newBattle.extraState.dungeon
+                ? [
+                    saveUsage(db, newBattle, result, suid),
+                    updateKage(db, newBattle, result),
+                    updateClanLeaders(db, newBattle, result, suid),
+                    updateVillageAnbuClan(db, newBattle, result, suid),
+                    updateWars(db, pusher, newBattle, result, suid),
+                    updateTournament(db, newBattle, result, suid),
+                    result
+                      ? updateRaidProgress(db, newBattle, suid)
+                      : Promise.resolve(),
+                  ]
+                : []),
               finishBattle(),
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
@@ -1861,6 +1887,8 @@ export const initiateBattle = async (
     /** NPC template IDs on the initiating team; repeated IDs request separate copies. */
     allyAiIds?: string[];
     client: DrizzleClient;
+    /** Shared launch contract; each activity keeps its own progress and settlement policy. */
+    coop?: CoopEncounter;
     userStatDistribution?: AssignableUserStats;
     targetStatDistribution?: AssignableUserStats;
     scaleTarget?: boolean;
@@ -1887,6 +1915,13 @@ export const initiateBattle = async (
   scaleGains = 1,
 ) => {
   const { longitude, latitude, sector, userIds, targetIds, client } = info;
+  const dungeonEncounter = info.coop?.kind === "dungeon" ? info.coop : undefined;
+  const questEncounter = info.coop?.kind === "quest" ? info.coop : undefined;
+  if (dungeonEncounter && userIds.length !== DUNGEON_PARTY_SIZE)
+    return {
+      success: false,
+      message: `A dungeon requires ${DUNGEON_PARTY_SIZE} players`,
+    };
 
   const allyAiIds = info.allyAiIds ?? [];
   if (allyAiIds.length > 0 && !supportsNpcAllies(battleType)) {
@@ -1957,7 +1992,10 @@ export const initiateBattle = async (
         },
         completedQuests: {
           columns: { id: true, questId: true, completed: true },
-          where: gte(questHistory.completed, 1),
+          where: or(
+            gte(questHistory.completed, 1),
+            gt(questHistory.previousCompletes, 0),
+          ),
         },
         aiProfile: true,
         bounties: {
@@ -2153,6 +2191,49 @@ export const initiateBattle = async (
       .map((user) => [user.userId, captureCombatCacheSnapshot(user)]),
   );
 
+  if (questEncounter) {
+    const party = questEncounter;
+    for (const participant of fetchedUsers.filter((user) =>
+      userIds.includes(user.userId),
+    )) {
+      if (
+        participant.questPartyId !== party.id ||
+        participant.sector !== sector ||
+        participant.longitude !== longitude ||
+        participant.latitude !== latitude
+      )
+        return { success: false, message: "Quest team membership or location changed" };
+      if (
+        !participant.userQuests.some((entry) => entry.questId === party.quest.id) &&
+        !participant.completedQuests.some((entry) => entry.questId === party.quest.id)
+      )
+        return { success: false, message: "A team member no longer has this quest" };
+      const personal = participant.questData?.find(
+        (entry) => entry.id === party.quest.id,
+      );
+      participant.questData = [
+        ...(participant.questData ?? []).filter((entry) => entry.id !== party.quest.id),
+        projectPartyTracker({ id: party.id, tracker: party.tracker }, personal),
+      ];
+      if (!participant.userQuests.some((entry) => entry.questId === party.quest.id))
+        participant.userQuests.push({
+          id: `party-${party.id}`,
+          userId: participant.userId,
+          questId: party.quest.id,
+          questType: party.quest.questType,
+          startedAt: new Date(party.tracker.startAt),
+          endAt: null,
+          completed: 0,
+          previousCompletes: 0,
+          previousAttempts: 0,
+          periodCompletes: 0,
+          periodStartAt: null,
+          pendingRewardChoice: null,
+          quest: structuredClone(party.quest),
+        });
+    }
+  }
+
   // Capture real awake recovery before combat normalizes stats or changes loadouts.
   const energyRegeneration = Object.fromEntries(
     fetchedUsers.map((user) => [
@@ -2337,6 +2418,13 @@ export const initiateBattle = async (
     .map((id) => structuredClone(fetchedUsers.find((u) => u.userId === id)))
     .filter((u): u is NonNullable<typeof u> => u !== undefined);
 
+  if (
+    dungeonEncounter &&
+    (users.length !== userIds.length + targetIds.length ||
+      users.slice(userIds.length).some((u) => !u.isAi))
+  )
+    return { success: false, message: "A dungeon enemy is unavailable" };
+
   // Hide some information from quests
   users.forEach((user) => {
     user.userQuests?.forEach((q) => {
@@ -2421,7 +2509,9 @@ export const initiateBattle = async (
     ).length;
     if (
       leftSideUserCount > leftCapacity ||
-      users.length - leftSideUserCount > rightCapacity
+      (dungeonEncounter
+        ? Math.max(...dungeonEncounter.waves.map((w) => w.aiIds.length))
+        : users.length - leftSideUserCount) > rightCapacity
     ) {
       return { success: false, message: "Too many NPCs for this battlefield" };
     }
@@ -2653,7 +2743,12 @@ export const initiateBattle = async (
   // Create the users array to be inserted into the battle
   const { userEffects, usersState, extraState, initialDurability } =
     await processUsersForBattle(client, {
-      users,
+      users: dungeonEncounter
+        ? users.slice(
+            0,
+            userIds.length + (dungeonEncounter.waves[0]?.aiIds.length ?? 0),
+          )
+        : users,
       settings,
       relations,
       wars: activeWars,
@@ -2667,6 +2762,41 @@ export const initiateBattle = async (
       leftSideUserCount,
       isSummon: false,
     });
+
+  if (dungeonEncounter) {
+    let offset = userIds.length + (dungeonEncounter.waves[0]?.aiIds.length ?? 0);
+    extraState.encounter = await prepareEncounterWaves(
+      dungeonEncounter.waves,
+      { usersState, userEffects, extraState },
+      async (wave) => {
+        const prepared = await processUsersForBattle(client, {
+          users: users.slice(offset, offset + wave.aiIds.length),
+          settings,
+          relations,
+          wars: activeWars,
+          villages,
+          defaultProfile,
+          battleType,
+          width: gridSize.width,
+          height: gridSize.height,
+          hide: false,
+          leftSideUserCount: 0,
+          isSummon: false,
+        });
+        offset += wave.aiIds.length;
+        return prepared;
+      },
+    );
+    extraState.dungeon = {
+      runId: dungeonEncounter.runId,
+      runVersion: dungeonEncounter.runVersion,
+      runState: dungeonEncounter.runState,
+      totalFloors: dungeonEncounter.totalFloors,
+      roomKind: dungeonEncounter.roomKind,
+      expiresAt: dungeonEncounter.expiresAt,
+      lastActionRound: Object.fromEntries(userIds.map((id) => [id, 0])),
+    };
+  }
 
   // Hand requested users' turns to their own AI profile (auto combat). Gated on
   // AutoCombatBattleTypes so callers cannot enable it for unsupported battles.
@@ -2801,7 +2931,7 @@ export const initiateBattle = async (
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
   // Insert battle entry into DB
-  const battleId = info.clanBattle?.battleId ?? nanoid();
+  const battleId = dungeonEncounter?.battleId ?? info.clanBattle?.battleId ?? nanoid();
 
   // Rows the status update below is expected to claim, used as the CAS guard
   const allParticipantIds = getBattleClaimIds({
@@ -3133,6 +3263,13 @@ export const initiateBattle = async (
             // Redundant with the claim list above, but kept so a drifting AI
             // classification fails the CAS guard instead of claiming a shared row.
             eq(userData.isAi, false),
+            // The team roster and awake status must survive preload until the atomic claim.
+            ...(questEncounter
+              ? [
+                  eq(userData.questPartyId, questEncounter.id),
+                  eq(userData.status, "AWAKE"),
+                ]
+              : []),
             // Ranked participants are claimed straight from the queue, so require
             // QUEUED specifically: a player who just left the queue (now AWAKE)
             // must not be pulled into a ranked battle by a poll whose snapshot
@@ -3186,7 +3323,27 @@ export const initiateBattle = async (
                         )
                       : undefined,
                   ),
-            ...(battleType === "COMBAT"
+            ...(dungeonEncounter
+              ? [
+                  eq(userData.status, "AWAKE"),
+                  exists(
+                    client
+                      .select({ one: sql`1` })
+                      .from(dungeonRun)
+                      .where(
+                        and(
+                          eq(dungeonRun.id, dungeonEncounter.runId),
+                          eq(dungeonRun.version, dungeonEncounter.runVersion),
+                          eq(dungeonRun.battleId, battleId),
+                          eq(dungeonRun.status, "FIGHTING"),
+                          gt(dungeonRun.expiresAt, new Date()),
+                        ),
+                      ),
+                  ),
+                ]
+              : []),
+            // Team members must still occupy the original launch tile after combat preload.
+            ...(battleType === "COMBAT" || questEncounter
               ? [
                   and(
                     ...(sector !== undefined ? [eq(userData.sector, sector)] : []),

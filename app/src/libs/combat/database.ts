@@ -86,6 +86,7 @@ import { battleItemExp, battleJutsuExp } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
 import type { DrizzleClient } from "@/server/db";
 import { rewardClanBattleVictory } from "@/server/utils/clanBattle";
+import { settleDungeonBattle } from "@/server/utils/dungeon";
 import { reduceActiveFarmPlotTimers } from "@/server/utils/farming";
 import { masteryGainUpdates } from "@/server/utils/masteryProgression";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
@@ -129,6 +130,26 @@ export const updateBattle = async (
   fetchedVersion: number,
   pusher?: PusherClient,
 ) => {
+  // A dungeon result transitions and restores the entire party before any ordinary combat payout.
+  if (newBattle.extraState.dungeon && result) {
+    const settled = await settleDungeonBattle(client, newBattle, fetchedVersion);
+    return settled
+      ? {
+          battleOver: true,
+          finishBattle: async () => {
+            if (pusher)
+              await Promise.all(
+                (newBattle.extraState.dungeon?.runState.memberIds ?? []).map((id) =>
+                  pusher.trigger(id, "event", {
+                    type: "battleEnded",
+                    dungeonRunId: newBattle.extraState.dungeon?.runId,
+                  }),
+                ),
+              );
+          },
+        }
+      : null;
+  }
   if (result) {
     result.villageMissionPvpKills =
       claimVillageMissionCombatEvents(newBattle, userId, result).pvp_kills ?? 0;
@@ -200,6 +221,7 @@ export const updateBattle = async (
                 extraState: sql`JSON_SET(${battle.extraState}, '$.revealedActions', CAST(${JSON.stringify(newBattle.extraState.revealedActions)} AS JSON))`,
               }
             : {}),
+          ...(newBattle.extraState.dungeon ? { extraState: newBattle.extraState } : {}),
           activeUserId: newBattle.activeUserId,
           roundStartAt: newBattle.roundStartAt,
           round: newBattle.round,
@@ -382,6 +404,8 @@ export const saveUsage = async (
   result: CombatResult | null,
   userId: string,
 ) => {
+  // Completion claims own dungeon progression and rewards; floors do not train the loadout.
+  if (curBattle.extraState.dungeon) return;
   const user = curBattle.usersState.find((user) => user.userId === userId);
   const battleType = curBattle.battleType;
   if (result && user) {
@@ -1333,6 +1357,8 @@ export const updateUser = async (
   userId: string,
 ) => {
   const updatedQuestIds: string[] = [];
+  // Party settlement restores every member together, bypassing single-player combat rewards.
+  if (curBattle.extraState.dungeon) return { updatedQuestIds };
   const user = curBattle.usersState.find((u) => u.userId === userId);
   if (result && user) {
     const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
@@ -1444,9 +1470,19 @@ export const updateUser = async (
       hydratedUser,
       trackerTasks,
       {
+        battleId: curBattle.id,
         inWarTornSector: isInWarTornSector,
         isWarParticipant: isWarBattleParticipant,
         questBattleSource: curBattle.extraState.questBattleSource,
+        questTeamStillFighting: curBattle.usersState.some(
+          (teammate) =>
+            teammate.controllerId !== user.controllerId &&
+            !teammate.isAi &&
+            !teammate.leftBattle &&
+            !teammate.fledBattle &&
+            stillInBattle(teammate, curBattle.usersEffects) &&
+            areBattleAllies(teammate, user),
+        ),
       },
     );
     updatedQuestIds.push(...questIdsUpdated);

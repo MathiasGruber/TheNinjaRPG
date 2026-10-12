@@ -28,7 +28,7 @@ const chatOptions = (file: string) => {
 };
 
 describe("cached conversation remounts", () => {
-  for (const file of ["Conversation.tsx", "RaidBrowser.tsx"]) {
+  for (const file of ["Conversation.tsx", "TeamChatPanel.tsx"]) {
     it(`${file} refreshes missed parental restrictions and recovers when reopened`, async () => {
       const client = new QueryClient({ defaultOptions: { queries: { staleTime, retry: false } } });
       const queryKey = [["comments", "getConversationComments"], { convo_id: "chat", type: "infinite" }];

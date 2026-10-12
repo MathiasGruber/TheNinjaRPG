@@ -1,0 +1,152 @@
+import { nanoid } from "nanoid";
+import { stillInBattle } from "@/libs/combat/actions";
+import { getBattleSpawnLocations } from "@/libs/combat/participants";
+import type {
+  BattleUserState,
+  CompleteBattle,
+  ExtraState,
+  UserEffect,
+} from "@/libs/combat/types";
+import { applyPoolAdjustmentsToBase } from "@/libs/combat/util";
+import type { EncounterWave } from "@/validators/coop";
+
+/** Spawn only preloaded enemies, after the preceding wave is defeated and its round delay passes. */
+export const advanceEncounterWave = (battle: CompleteBattle, ended = false) => {
+  const state = battle.extraState.encounter;
+  const next = state?.pendingWaves[0];
+  if (!state || !next || ended) return false;
+  if (
+    battle.usersState.some(
+      (u) => u.direction === "right" && stillInBattle(u, battle.usersEffects),
+    )
+  )
+    return false;
+  if (battle.round < state.waveStartedRound + next.delayRounds) return false;
+  // Defeated enemies remain as effect sources until the floor settles.
+  const occupied = battle.usersState.filter((u) =>
+    stillInBattle(u, battle.usersEffects),
+  );
+  const locations = getBattleSpawnLocations(
+    battle.width,
+    battle.height,
+    "right",
+  ).filter((p) => !occupied.some((u) => u.longitude === p.x && u.latitude === p.y));
+  // Moving teammates may occupy the enemy spawn zone; use other unoccupied cells as needed.
+  for (let x = 0; x < battle.width; x++)
+    for (let y = 0; y < battle.height; y++) {
+      if (
+        !occupied.some((u) => u.longitude === x && u.latitude === y) &&
+        !locations.some((p) => p.x === x && p.y === y)
+      )
+        locations.push({ x, y });
+    }
+  next.users
+    .filter((u) => !u.isSummonTemplate)
+    .forEach((u) => {
+      const p = locations.shift();
+      if (!p) throw new Error("No encounter wave spawn cell");
+      u.longitude = p.x;
+      u.latitude = p.y;
+      u.round = battle.round;
+      u.updatedAt = new Date();
+      // Barriers cannot occupy spawn cells; other effects persist through the floor.
+      battle.groundEffects = battle.groundEffects.filter(
+        (e) => e.type !== "barrier" || e.longitude !== p.x || e.latitude !== p.y,
+      );
+    });
+  battle.usersEffects = [...battle.usersEffects, ...next.effects];
+  // Turn scheduling walks usersState in descending initiative order.
+  battle.usersState = [...battle.usersState, ...next.users].sort(
+    (a, b) => b.initiative - a.initiative,
+  );
+  state.pendingWaves.shift();
+  state.wave += 1;
+  state.waveStartedRound = battle.round;
+  return true;
+};
+
+/** Preloaded combatants are private; clients receive only the current wave number. */
+export type EncounterWaveState = {
+  wave: number;
+  waveStartedRound: number;
+  pendingWaves: {
+    users: BattleUserState[];
+    effects: UserEffect[];
+    delayRounds: number;
+  }[];
+};
+
+/** Prepare future waves once during initiation; combat transitions consume only these snapshots. */
+export const prepareEncounterWaves = async (
+  waves: EncounterWave[],
+  opening: PreparedEncounterWave,
+  prepare: (wave: EncounterWave) => Promise<PreparedEncounterWave>,
+): Promise<EncounterWaveState> => {
+  captureEncounterSummonTemplates(opening.usersState, opening.userEffects);
+  const pendingWaves: EncounterWaveState["pendingWaves"] = [];
+  for (const wave of waves.slice(1)) {
+    const prepared = await prepare(wave);
+    captureEncounterSummonTemplates(prepared.usersState, prepared.userEffects);
+    for (const key of [
+      "jutsus",
+      "jutsuReskins",
+      "items",
+      "bloodlines",
+      "enemySkills",
+      "sageModes",
+      "villages",
+      "anbuSquads",
+      "keystoneItems",
+      "wars",
+      "aiProfiles",
+      "relations",
+      "clans",
+      "preBattleGearModifiers",
+    ] as const) {
+      Object.assign(opening.extraState[key] ?? {}, prepared.extraState[key]);
+    }
+    prepared.usersState.forEach((user) => {
+      applyPoolAdjustmentsToBase(user, prepared.userEffects);
+    });
+    pendingWaves.push({
+      users: prepared.usersState,
+      effects: prepared.userEffects,
+      delayRounds: wave.delayRounds,
+    });
+  }
+  return { wave: 1, waveStartedRound: 0, pendingWaves };
+};
+
+/** Keep pristine summon sources from every wave, before their pool adjustments. */
+export const captureEncounterSummonTemplates = (
+  usersState: BattleUserState[],
+  userEffects: UserEffect[],
+) => {
+  const sources = usersState.filter((u) => u.isAi && !u.isSummon);
+  for (const source of sources) {
+    const template = {
+      ...structuredClone(source),
+      userId: nanoid(),
+      isSummon: true,
+      isSummonTemplate: true,
+      curHealth: 0,
+    };
+    usersState.push(template);
+    userEffects.push(
+      ...userEffects
+        .filter((e) => e.targetId === source.userId)
+        .map((e) => ({
+          ...structuredClone(e),
+          id: nanoid(),
+          targetId: template.userId,
+          creatorId: e.creatorId === source.userId ? template.userId : e.creatorId,
+        })),
+    );
+  }
+};
+
+type PreparedEncounterWave = {
+  usersState: BattleUserState[];
+  userEffects: UserEffect[];
+  extraState: ExtraState;
+};
