@@ -168,3 +168,13 @@ it("collects a location item once when reward checking emits both any and collec
   const user = { userId: "one", questPartyId: party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", sector: 1, longitude: 1, latitude: 1, items: [], userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [projectPartyTracker(party)] } as unknown as Parameters<typeof getReward>[0];
   expect(getReward(user, quest.id).consequences.filter((c) => c.type === "add_item")).toEqual([{ type: "add_item", ids: ["scroll"] }]);
 });
+
+it("retains the next objective after an instant team objective completes", () => {
+  const { quest, party } = fixture();
+  quest.consecutiveObjectives = true;
+  quest.content.objectives = [AllObjectives.parse({ id: "goal", task: "new_quest", newQuestIds: ["followon"], nextObjectiveId: "next-goal" }), AllObjectives.parse({ id: "next-goal", task: "stats_trained", value: 10 })];
+  const user = { userId: "one", questPartyId: party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [projectPartyTracker(party)] } as unknown as Parameters<typeof getNewTrackers>[0];
+  const result = getNewTrackers(user, [{ task: "any" }]);
+  expect(result.trackers[0]?.goals[0]).toMatchObject({ done: true, selectedNextObjectiveId: "next-goal" });
+  expect(result.trackers[0]?.goals[1]?.done).toBe(false);
+});

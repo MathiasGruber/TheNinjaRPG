@@ -1474,7 +1474,8 @@ export const getNewTrackers = (
             .forEach((taskUpdate) => {
               // A location action can match both `any` and its explicit task in one
               // pass. Once it completes, its inventory side effects must run only once.
-              if (status.done) return;
+              if (status.done && (task === "collect_item" || task === "deliver_item"))
+                return;
               // War-context kill objectives only advance in their required context (pvp →
               // war-torn sector; war → active-war kill). All other tasks always count.
               // `defeat_opponents` is per-opponent, so a missing `warFoe` must deny rather than
