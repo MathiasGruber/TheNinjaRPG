@@ -126,7 +126,7 @@ export default function OccupationFarming({
           onHarvestAll={controller.harvestAll}
           onOpenCollection={() => setIsCollectionOpen(true)}
         />
-        <div className="grid items-start gap-4 p-2 pb-24 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-4">
+        <div className="grid grid-cols-1 items-start gap-4 p-2 pb-24 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-4">
           <FarmCanvas
             ref={canvasRef}
             initialState={initialVisual}
