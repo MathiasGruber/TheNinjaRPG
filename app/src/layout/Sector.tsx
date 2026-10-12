@@ -1266,9 +1266,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     // query's), so a sector looks identical from every window position
     const entryStructures = [
       ...entry.structures,
-      ...(entry.sector === sector
-        ? structures.filter((s) => s.id.startsWith("dungeon-"))
-        : []),
+      ...(entry.sector === sector ? dungeonStructures : []),
     ];
     if (!entryStructures.find((st) => st.route === "/shrine")) {
       entryStructures.push(createShrineStructure(entry.map, entry.globalTileType));
