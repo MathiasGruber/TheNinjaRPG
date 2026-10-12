@@ -1,4 +1,4 @@
-import { and, eq, exists, gte, isNull, sql } from "drizzle-orm";
+import { and, eq, exists, gte, isNull, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { quest, userData, village } from "@/drizzle/schema";
 import {
@@ -14,10 +14,12 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { getRandomElement } from "@/utils/array";
+import { isStaffRole } from "@/utils/permissions";
 import { idSchema } from "@/validators/misc";
 import {
   type VillageMission,
   villageMissionActionSchema,
+  villageMissionCancelSchema,
   villageMissionObjectiveSchema,
 } from "@/validators/villageMission";
 
@@ -37,6 +39,7 @@ export const villageMissionRouter = createTRPCRouter({
     return {
       mission: getVillageMissionProgress(villageData),
       isKage: villageData.kageId === ctx.userId,
+      isStaff: isStaffRole(user.role) && !user.isBanned,
     };
   }),
   select: protectedProcedure
@@ -57,11 +60,13 @@ export const villageMissionRouter = createTRPCRouter({
         user.isOutlaw
       )
         return errorResponse("You must belong to this village");
-      if (villageData.kageId !== ctx.userId)
-        return errorResponse("Only the Kage can select a Village Mission");
+      if (villageData.kageId !== ctx.userId && !isStaffRole(user.role))
+        return errorResponse("Only the Kage or staff can select a Village Mission");
       if (user.isBanned) return errorResponse("You are banned");
       const current = villageData.activeMission;
       if (input.missionId) {
+        if (villageData.kageId !== ctx.userId)
+          return errorResponse("Only the Kage can reroll a Village Mission");
         if (!current || current.id !== input.missionId)
           return errorResponse("The Village Mission changed; refresh and try again");
         if (current.rerolled)
@@ -102,7 +107,7 @@ export const villageMissionRouter = createTRPCRouter({
         })
         .where(
           and(
-            leaderGuard(ctx.drizzle, input.villageId, ctx.userId),
+            leaderGuard(ctx.drizzle, input.villageId, ctx.userId, !input.missionId),
             current
               ? and(
                   sql`JSON_UNQUOTE(JSON_EXTRACT(${village.activeMission}, '$.id')) = ${current.id}`,
@@ -120,6 +125,41 @@ export const villageMissionRouter = createTRPCRouter({
         message: current
           ? "Village Mission rerolled. Progress starts again for the new mission."
           : "Village Mission selected",
+      };
+    }),
+  cancel: protectedProcedure
+    .input(villageMissionCancelSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (!isStaffRole(user.role))
+        return errorResponse("Only staff can cancel a Village Mission");
+      if (user.isBanned) return errorResponse("You are banned");
+      if (user.villageId !== input.villageId || user.isOutlaw)
+        return errorResponse("You must belong to this village");
+      const result = await ctx.drizzle
+        .update(village)
+        .set({ activeMission: null })
+        .where(
+          and(
+            leaderGuard(ctx.drizzle, input.villageId, ctx.userId, true),
+            sql`JSON_UNQUOTE(JSON_EXTRACT(${village.activeMission}, '$.id')) = ${input.missionId}`,
+            exists(
+              ctx.drizzle
+                .select({ userId: userData.userId })
+                .from(userData)
+                .where(and(eq(userData.userId, ctx.userId), ne(userData.role, "USER"))),
+            ),
+          ),
+        );
+      if (result.rowsAffected === 0)
+        return errorResponse(
+          "Village membership or mission changed; refresh and try again",
+        );
+      return {
+        success: true,
+        message:
+          "Village Mission cancelled without penalty. A new mission can be selected immediately.",
       };
     }),
   claim: protectedProcedure
@@ -177,10 +217,21 @@ const leaderGuard = (
   client: Pick<DrizzleClient, "select">,
   villageId: string,
   userId: string,
+  allowStaff = false,
 ) =>
   and(
     eq(village.id, villageId),
-    eq(village.kageId, userId),
+    allowStaff
+      ? or(
+          eq(village.kageId, userId),
+          exists(
+            client
+              .select({ userId: userData.userId })
+              .from(userData)
+              .where(and(eq(userData.userId, userId), ne(userData.role, "USER"))),
+          ),
+        )
+      : eq(village.kageId, userId),
     eq(village.type, "VILLAGE"),
     exists(
       client
