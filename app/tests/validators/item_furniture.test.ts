@@ -57,6 +57,20 @@ describe("furniture item content", () => {
     expect(ItemValidator.safeParse({ ...furniture, itemType: "MATERIAL" }).success).toBe(false);
   });
 
+  it.each([
+    { farmExtractSeedItemId: "rice-seed" },
+    { farmExtractSeedCount: 5 },
+    { farmExtractSeedItemId: "rice-seed", farmExtractSeedCount: 5 },
+  ])("rejects seed extraction configuration %j", (patch) => {
+    const parsed = ItemValidator.safeParse({ ...furniture, ...patch });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      for (const field of Object.keys(patch)) {
+        expect(parsed.error.issues).toContainEqual(expect.objectContaining({ path: [field] }));
+      }
+    }
+  });
+
   it("validates scene bounds and optional supported home actions", () => {
     expect(furnitureItemSchema.parse({ furnitureAction: "" })).toEqual({
       furnitureAction: null, furnitureWidth: 24, furnitureGroundAnchor: 100, furnitureIsFloor: false,

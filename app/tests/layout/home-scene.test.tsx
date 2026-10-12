@@ -3,9 +3,10 @@ const { act, cleanup, fireEvent, render, waitFor, within } = await import("@test
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { existsSync } from "node:fs";
 import { type ImgHTMLAttributes, type AnchorHTMLAttributes, type ComponentProps, useState } from "react";
-import { HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
+import { HOME_FURNITURE_MAX_PLACEMENTS, HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
 import { HomeScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
 import { getDefaultHomeLayout, type HomeFurniture } from "@/libs/home";
+import { homeFurnitureSaveInputSchema } from "@/validators/home";
 
 // Wrapper stubs isolate the scene's routing destinations and image-failure handling.
 vi.mock("@/layout/Image", () => ({
@@ -414,6 +415,43 @@ describe("Home scene", () => {
       { id: "owned-rug", x: 52, y: 50, rotation: 0 },
       { id: "owned-rug-second", x: 50, y: 50, rotation: 1 },
     ]);
+  });
+
+  it("limits placed furniture while allowing selection and storage to make room", async () => {
+    const copies = Array.from({ length: HOME_FURNITURE_MAX_PLACEMENTS + 1 }, (_, index) => ({
+      ...rugDefinition, id: `owned-rug-${index}`,
+    }));
+    const layout = copies.slice(0, HOME_FURNITURE_MAX_PLACEMENTS).map((piece) => ({
+      id: piece.id, x: 50, y: 50, rotation: 0 as const,
+    }));
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} furniture={copies} layout={layout} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const tray = within(view.getByRole("group", { name: "Owned furniture" }));
+    const spare = tray.getByRole("button", { name: /In inventory/ }) as HTMLButtonElement;
+    expect(spare.disabled).toBe(true);
+    fireEvent.click(spare);
+    expect(view.getAllByRole("button", { name: "Move Woven Rug" })).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
+    expect(view.getByText(/Store a placed piece to make room/).getAttribute("role")).toBe("status");
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(homeFurnitureSaveInputSchema.safeParse(onSave.mock.calls[0]![0]).success).toBe(true);
+
+    const placed = tray.getByRole("button", { name: /Copy 2 of.*Placed/ }) as HTMLButtonElement;
+    expect(placed.disabled).toBe(false);
+    fireEvent.click(placed);
+    expect(placed.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(view.getByRole("button", { name: "Store" }));
+    expect(view.queryByText(/Store a placed piece to make room/)).toBeNull();
+    expect(spare.disabled).toBe(false);
+    fireEvent.click(spare);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    const saved = onSave.mock.calls[1]![0];
+    expect(saved.placements).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
+    expect(saved.placements.some((piece) => piece.id === copies[1]!.id)).toBe(false);
+    expect(saved.placements.some((piece) => piece.id === copies.at(-1)!.id)).toBe(true);
+    expect(homeFurnitureSaveInputSchema.safeParse(saved).success).toBe(true);
   });
 
   it("retains surviving edits when furniture disappears and recovers through the saved layout", () => {

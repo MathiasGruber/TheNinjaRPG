@@ -18,6 +18,7 @@ import {
 import { type ReactNode, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  HOME_FURNITURE_MAX_PLACEMENTS,
   HOME_FURNITURE_POSITION_MAX,
   HOME_FURNITURE_POSITION_MIN,
   type HomeType,
@@ -79,6 +80,7 @@ export const HomeScene = ({
   const hasMissingFurniture =
     isEditing && placements.some((placement) => !furnitureById.has(placement.id));
   const isMovementDisabled = isSaving || isTierChanged || !canDecorate;
+  const hasPlacementLimit = placements.length >= HOME_FURNITURE_MAX_PLACEMENTS;
 
   /** End the current drag before loading the saved layout's home tier and revision. */
   const loadSavedLayout = () => {
@@ -132,7 +134,8 @@ export const HomeScene = ({
   const selectFurniture = (id: string) => {
     setSelectedId(id);
     updatePlacements((placements) =>
-      placements.some((placement) => placement.id === id)
+      placements.some((placement) => placement.id === id) ||
+      placements.length >= HOME_FURNITURE_MAX_PLACEMENTS
         ? placements
         : [...placements, { id, x: 50, y: 50, rotation: 0 }],
     );
@@ -442,12 +445,15 @@ export const HomeScene = ({
           >
             {furniture.map((piece) => {
               const copies = furniture.filter((other) => other.itemId === piece.itemId);
+              const isPlaced = placements.some(
+                (placement) => placement.id === piece.id,
+              );
               return (
                 <button
                   key={piece.id}
                   type="button"
                   aria-pressed={selectedId === piece.id}
-                  disabled={isMovementDisabled}
+                  disabled={isMovementDisabled || (hasPlacementLimit && !isPlaced)}
                   className={cn(
                     "w-24 shrink-0 rounded-lg border bg-background p-2 text-xs focus-visible:outline-2 focus-visible:outline-primary",
                     selectedId === piece.id && "border-primary ring-1 ring-primary",
@@ -470,9 +476,7 @@ export const HomeScene = ({
                     </span>
                   )}
                   <span className="block text-muted-foreground">
-                    {placements.some((placement) => placement.id === piece.id)
-                      ? "Placed"
-                      : "In inventory · Place"}
+                    {isPlaced ? "Placed" : "In inventory · Place"}
                   </span>
                 </button>
               );
@@ -483,6 +487,12 @@ export const HomeScene = ({
               </p>
             )}
           </fieldset>
+          {hasPlacementLimit && (
+            <p role="status" className="text-muted-foreground text-sm">
+              Your home can display up to {HOME_FURNITURE_MAX_PLACEMENTS} pieces of
+              furniture. Store a placed piece to make room.
+            </p>
+          )}
           {isTierChanged && (
             <p role="alert" className="text-destructive text-sm">
               Your home tier changed. Cancel and reopen the editor for this home.

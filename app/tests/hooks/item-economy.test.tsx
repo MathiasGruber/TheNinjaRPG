@@ -98,6 +98,22 @@ describe("staff item economy editor", () => {
     });
     expect(await result.current.form.trigger()).toBe(true);
   });
+  it("clears seed extraction when an extractable crop becomes furniture", async () => {
+    const crop = { ...data, itemType: "COOKING" as const, farmExtractSeedItemId: "rice-seed", farmExtractSeedCount: 5 };
+    expect(ItemValidator.safeParse(crop).success).toBe(true);
+    const { result } = renderHook(() => useItemEditForm(crop, async () => undefined));
+    expect(result.current.formData.some((field) => field.id === "farmExtractSeedItemId")).toBe(true);
+    await act(async () => {
+      result.current.form.setValue("itemType", "FURNITURE");
+    });
+    expect(result.current.form.getValues()).toMatchObject({
+      farmExtractSeedItemId: null, farmExtractSeedCount: 0,
+    });
+    expect(result.current.formData.some((field) => field.id === "farmExtractSeedItemId")).toBe(false);
+    expect(result.current.formData.some((field) => field.id === "farmExtractSeedCount")).toBe(false);
+    expect(await result.current.form.trigger()).toBe(true);
+    expect(ItemValidator.safeParse(result.current.form.getValues()).success).toBe(true);
+  });
   it("starts unrestricted and places fields beside shop/trading settings", () => {
     const { result } = renderHook(() => useItemEditForm(data, async () => undefined));
     expect(result.current.form.getValues("purchaseLimitPeriod")).toBe("NONE");

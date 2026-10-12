@@ -53,4 +53,6 @@ export const FURNITURE_ITEM_DEFAULTS = {
   isFarmSeed: false,
   isFarmFertilizer: false,
   farmSellValue: 0,
+  farmExtractSeedItemId: null,
+  farmExtractSeedCount: 0,
 } satisfies Partial<Item>;
