@@ -231,18 +231,20 @@ export const registerRouter = createTRPCRouter({
       }
       // A ban or silence still running on a deleted account carries over to this one. The
       // Clerk lookup is only needed while some deleted account has a running sanction.
-      const sanctions = tombstones.length
-        ? matchSanctionTombstones(
-            tombstones,
-            ctx.userId,
-            await fetchSanctionIdentity(ctx.userId),
-          )
-        : [];
+      const sanctionIdentity = tombstones.length
+        ? await fetchSanctionIdentity(ctx.userId)
+        : undefined;
+      const sanctions = matchSanctionTombstones(
+        tombstones,
+        ctx.userId,
+        sanctionIdentity ?? null,
+      );
       const sanctionGuard = await reapplySanctions(
         ctx.drizzle,
         ctx.userId,
         sanctions,
         carryoverReports.map((report) => report.id),
+        sanctionIdentity,
       );
       const values = {
         userId: ctx.userId,

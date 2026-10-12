@@ -10,6 +10,7 @@ import {
   isNull,
   lte,
   ne,
+  not,
   or,
   sql,
 } from "drizzle-orm";
@@ -134,6 +135,17 @@ const primaryEmailHashOf = (identity: SanctionIdentity) => {
     : null;
 };
 
+/** Match every verified address with the same normalization used at capture. */
+const emailHashesOf = (identity: SanctionIdentity | null) => [
+  ...new Set(
+    (identity?.emailAddresses ?? [])
+      .filter((email) => email.verification?.status === "verified")
+      .map((email) =>
+        hashSanctionIdentifier("email", normalizeEmail(email.emailAddress)),
+      ),
+  ),
+];
+
 /** Load the Clerk user, or null when Clerk has already deleted it. */
 export const fetchSanctionIdentity = async (
   userId: string,
@@ -238,13 +250,7 @@ export const matchSanctionTombstones = (
   userId: string,
   identity: SanctionIdentity | null,
 ): SanctionMatch[] => {
-  const emailHashes = new Set(
-    (identity?.emailAddresses ?? [])
-      .filter((email) => email.verification?.status === "verified")
-      .map((email) =>
-        hashSanctionIdentifier("email", normalizeEmail(email.emailAddress)),
-      ),
-  );
+  const emailHashes = new Set(emailHashesOf(identity));
   const accountHashes = new Set(identity ? accountHashesOf(identity) : []);
   const matches = new Map<SanctionTombstoneType, SanctionMatch>();
   for (const tombstone of tombstones) {
@@ -383,6 +389,7 @@ export const reapplySanctions = async (
   userId: string,
   matches: SanctionMatch[],
   previousReportIds: string[],
+  identity: SanctionIdentity | null | undefined,
 ) => {
   const reportIds = matches.map((match) => carryoverReportId(userId, match));
   await discardUnpublishedSanctions(
@@ -502,9 +509,37 @@ export const reapplySanctions = async (
   }
   // Publish only after records and links are durable. Abandoned competing attempts
   // cannot become active reports on a later character created with different decisions.
+  // If an empty snapshot skipped Clerk, any newly active source requires a fresh attempt.
+  const emailHashes = emailHashesOf(identity ?? null);
+  const accountHashes = identity ? accountHashesOf(identity) : [];
+  const expectedSources = or(
+    ...matches.flatMap((match) =>
+      match.tombstones.map((source) =>
+        and(
+          eq(sanctionTombstone.userId, source.userId),
+          eq(sanctionTombstone.sourceId, source.sourceId),
+        ),
+      ),
+    ),
+  );
   return and(
     accountAbsent(userId),
-    sourcesUnchanged,
+    sql`NOT EXISTS (SELECT 1 FROM ${sanctionTombstone} WHERE ${and(
+      gt(sanctionTombstone.sanctionEndsAt, sql`CURRENT_TIMESTAMP(3)`),
+      identity === undefined
+        ? undefined
+        : or(
+            eq(sanctionTombstone.userId, userId),
+            emailHashes.length
+              ? inArray(sanctionTombstone.emailHash, emailHashes)
+              : undefined,
+            ...accountHashes.map(
+              (hash) =>
+                sql`JSON_CONTAINS(${sanctionTombstone.accountHashes}, JSON_QUOTE(${hash}))`,
+            ),
+          ),
+      expectedSources ? not(expectedSources) : undefined,
+    )})`,
     sql`NOT EXISTS (SELECT 1 FROM ${userReport} WHERE ${and(
       eq(userReport.reportedUserId, userId),
       eq(userReport.system, "sanction_carryover"),
@@ -586,9 +621,11 @@ export const updateSanctionReport = async (
   // Expiry retires sources in the decision write. Prune only still-expired rows so a
   // delayed clear cannot erase a newer active decision on the same case.
   if (!activeEnd)
-    await client
-      .delete(sanctionTombstone)
-      .where(and(sources, lte(sanctionTombstone.sanctionEndsAt, endsAt)));
+    await retryOnDeadlock(() =>
+      client
+        .delete(sanctionTombstone)
+        .where(and(sources, lte(sanctionTombstone.sanctionEndsAt, endsAt))),
+    );
   return true;
 };
 

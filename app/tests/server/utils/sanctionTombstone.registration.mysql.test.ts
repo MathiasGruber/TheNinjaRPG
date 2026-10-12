@@ -19,6 +19,7 @@ import {
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { registerRouter } from "@/server/api/routers/register";
+import { profileRouter } from "@/server/api/routers/profile";
 import { reportsRouter } from "@/server/api/routers/reports";
 import type { DrizzleClient } from "@/server/db";
 import * as sanctions from "@/server/utils/sanctionTombstone";
@@ -129,18 +130,21 @@ const startRegistration = async () => {
   return { pending, release };
 };
 
-const expectUnpublished = async (existingComments: UserReportComment[] = []) => {
+const expectUnpublished = async (
+  existingComments: UserReportComment[] = [],
+  userId = "Concurrent",
+) => {
   const database = await getTestDatabase();
   expect(
     await database.query.userData.findFirst({
-      where: eq(userData.userId, "Concurrent"),
+      where: eq(userData.userId, userId),
     }),
   ).toBeUndefined();
-  expect(await reportsOf("Concurrent")).toHaveLength(0);
+  expect(await reportsOf(userId)).toHaveLength(0);
   expect(await database.query.userReportComment.findMany()).toEqual(existingComments);
   for (const table of [actionLog, userAttribute, bloodlineRolls, questHistory]) {
     expect(
-      await database.select().from(table).where(eq(table.userId, "Concurrent")),
+      await database.select().from(table).where(eq(table.userId, userId)),
     ).toHaveLength(0);
   }
 };
@@ -253,6 +257,187 @@ describeWithDatabase("registration claims current sanction sources", () => {
     vi.restoreAllMocks();
     // Registration in other suites must not meet this suite's unexpired tombstones.
     await resetTables(sanctionTombstone);
+  });
+
+  it.each(["web", "native"] as const)(
+    "rejects an empty snapshot overtaken by completed %s deletion and honors the retry",
+    async (mode) => {
+      const database = await getTestDatabase();
+      await resetTables(sanctionTombstone);
+      claimIdentity("LateOriginal");
+      await insertUsers([
+        {
+          userId: "LateOriginal",
+          username: "LateOriginal",
+          isBanned: true,
+          deletionAt: new Date(Date.now() - DAY),
+        },
+      ]);
+      await database.insert(userReport).values({
+        id: "late-case",
+        reporterUserId: "staff",
+        reportedUserId: "LateOriginal",
+        system: "tavern_comment",
+        infraction: {},
+        reason: "Spam",
+        aiInterpretation: "",
+        status: "BAN_ACTIVATED",
+        banEnd: new Date(Date.now() + DAY),
+      });
+      const userId = mode === "web" ? "LateOriginal" : "Concurrent";
+      if (mode === "native") claimIdentity(userId, "unrelated@example.com");
+      let enter!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        enter = resolve;
+      });
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const delayed = new Proxy(database, {
+        get(target, property, receiver) {
+          if (property === "query")
+            return {
+              ...target.query,
+              userData: {
+                ...target.query.userData,
+                findFirst: async (
+                  ...args: Parameters<typeof target.query.userData.findFirst>
+                ) => {
+                  await gate;
+                  return target.query.userData.findFirst(...args);
+                },
+              },
+              sanctionTombstone: {
+                ...target.query.sanctionTombstone,
+                findMany: async (
+                  ...args: Parameters<typeof target.query.sanctionTombstone.findMany>
+                ) => {
+                  const result = await target.query.sanctionTombstone.findMany(...args);
+                  expect(result).toHaveLength(0);
+                  enter();
+                  return result;
+                },
+              },
+            };
+          return Reflect.get(target, property, receiver);
+        },
+      });
+      const pending = register(userId, delayed);
+      await entered;
+      try {
+        if (mode === "web")
+          expect(
+            await callerForDatabase(
+              profileRouter,
+              "LateOriginal",
+              database,
+            ).confirmDeletion({ userId: "LateOriginal" }),
+          ).toMatchObject({ success: true });
+        else {
+          await deleteAccount("LateOriginal");
+          owners.delete(userId);
+          claimIdentity(userId);
+        }
+        expect(await database.query.sanctionTombstone.findMany()).toHaveLength(1);
+      } finally {
+        release();
+      }
+      expect(await pending).toEqual({
+        success: false,
+        message: "Account sanctions changed, please try again",
+      });
+      await expectUnpublished([], userId);
+      expect(await register(userId)).toMatchObject({ success: true });
+      expect(
+        await database.query.userData.findFirst({ where: eq(userData.userId, userId) }),
+      ).toMatchObject({ isBanned: true });
+      expect(await reportsOf(userId)).toMatchObject([{ status: "BAN_ACTIVATED" }]);
+    },
+  );
+
+  it.each(
+    (["lookup", "prepared"] as const).flatMap((phase) =>
+      (
+        [
+          "clerkId",
+          "email",
+          "secondary",
+          "oauth",
+          "unverified",
+          "unrelated",
+          "expired",
+        ] as const
+      ).map((kind) => [phase, kind] as const),
+    ),
+  )("checks a new %s source matching %s before publication", async (phase, kind) => {
+    const database = await getTestDatabase();
+    claimIdentity("Concurrent");
+    owners.set("Concurrent", {
+      ...owners.get("Concurrent")!,
+      emailAddresses: [
+        ...owners.get("Concurrent")!.emailAddresses,
+        {
+          id: "secondary",
+          emailAddress: "Late.Match+return@GoogleMail.com",
+          verification: { status: kind === "unverified" ? "unverified" : "verified" },
+        },
+      ],
+      externalAccounts: [{ provider: "oauth_GitHub", providerUserId: "late-provider" }],
+    });
+    let release!: () => void;
+    let entered: Promise<void>;
+    if (phase === "lookup") {
+      gatedId = "Concurrent";
+      entered = new Promise<void>((resolve) => {
+        enterLookup = resolve;
+      });
+      lookupGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    } else ({ entered, release } = prepareAndPause());
+    const pending = register("Concurrent");
+    await entered;
+    try {
+      await database.insert(sanctionTombstone).values({
+        userId: kind === "clerkId" ? "Concurrent" : "LateOriginal",
+        sourceId: "late-case",
+        sanction: phase === "lookup" ? "BAN" : "SILENCE",
+        sanctionEndsAt: new Date(Date.now() + (kind === "expired" ? -DAY : DAY)),
+        emailHash: hashSanctionIdentifier(
+          "email",
+          kind === "secondary" || kind === "unverified"
+            ? "latematch@gmail.com"
+            : kind === "email" || kind === "expired"
+              ? EMAIL
+              : "unrelated@example.com",
+        ),
+        accountHashes:
+          kind === "oauth"
+            ? [hashSanctionIdentifier("oauth", "github:late-provider")]
+            : [],
+      });
+    } finally {
+      release();
+    }
+    const matches = !["unverified", "unrelated", "expired"].includes(kind);
+    expect((await pending).success).toBe(!matches);
+    if (matches) {
+      await expectUnpublished();
+      expect(await register("Concurrent")).toMatchObject({ success: true });
+    }
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "Concurrent"),
+      }),
+    ).toMatchObject({ isBanned: true, isSilenced: matches && phase === "prepared" });
+    const reports = await reportsOf("Concurrent");
+    expect(reports).toHaveLength(matches && phase === "prepared" ? 2 : 1);
+    expect(
+      (await database.query.sanctionTombstone.findMany()).find(
+        (source) => source.sourceId === "late-case",
+      )!.carryoverReportIds,
+    ).toHaveLength(matches ? 1 : 0);
   });
 
   it.each(["clear", "silence", "ban", "unchanged"] as const)(

@@ -268,6 +268,60 @@ describeWithDatabase("original sanctions during native deletion", () => {
     await resetTables(sanctionTombstone);
   });
 
+  it.each([false, true])(
+    "finishes a clear after source pruning (deadlock: %p)",
+    async (deadlock) => {
+      const database = await getTestDatabase();
+      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + DAY));
+      await database
+        .update(userData)
+        .set({ isBanned: true })
+        .where(eq(userData.userId, NATIVE_USER));
+      await recordSanctionTombstone(database, NATIVE_USER, identity);
+      let attempts = 0;
+      const injected = new Proxy(database, {
+        get(target, property, receiver) {
+          if (property === "delete")
+            return (table: Parameters<typeof target.delete>[0]) => {
+              if (table !== sanctionTombstone) return target.delete(table);
+              return {
+                where: async (
+                  ...args: Parameters<ReturnType<typeof target.delete>["where"]>
+                ) => {
+                  attempts += 1;
+                  if (deadlock && attempts === 1)
+                    throw Object.assign(
+                      new Error(
+                        "Deadlock found when trying to get lock; try restarting transaction",
+                      ),
+                      { errno: 1213, code: "ER_LOCK_DEADLOCK", sqlState: "40001" },
+                    );
+                  return target.delete(table).where(...args);
+                },
+              };
+            };
+          return Reflect.get(target, property, receiver);
+        },
+      });
+      expect(
+        await callerForDatabase(reportsRouter, "staff", injected).clear(decisionInput),
+      ).toMatchObject({ success: true });
+      expect(
+        await database.query.userReport.findFirst({
+          where: eq(userReport.id, "original"),
+        }),
+      ).toMatchObject({ status: "REPORT_CLEARED" });
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, NATIVE_USER),
+        }),
+      ).toMatchObject({ isBanned: false });
+      expect(await database.query.userReportComment.findMany()).toHaveLength(1);
+      expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
+      expect(attempts).toBe(deadlock ? 2 : 1);
+    },
+  );
+
   it.each([
     ["BAN_ACTIVATED", "warn"],
     ["SILENCE_ACTIVATED", "warn"],
