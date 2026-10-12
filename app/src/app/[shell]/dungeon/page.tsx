@@ -79,22 +79,14 @@ export default function DungeonPage() {
     action: Parameters<typeof act.mutate>[0]["action"],
     userId?: string,
   ) => act.mutate({ id, action, userId });
-  if (state.error || available.error)
+  if (state.error)
     return (
       <ContentBox title="Dungeon Pyramids" defaultBackHref="/travel">
-        <p role="alert">{state.error?.message || available.error?.message}</p>
-        <Button
-          onClick={() => {
-            void state.refetch();
-            void available.refetch();
-          }}
-        >
-          Retry
-        </Button>
+        <p role="alert">{state.error.message}</p>
+        <Button onClick={() => void state.refetch()}>Retry</Button>
       </ContentBox>
     );
-  if (!user || state.isPending || available.isPending)
-    return <Loader explanation="Loading dungeon parties" />;
+  if (!user || state.isPending) return <Loader explanation="Loading dungeon parties" />;
   return (
     <ContentBox
       title="Dungeon Pyramids"
@@ -317,37 +309,46 @@ export default function DungeonPage() {
             {run.content.name}: {run.state.message}
           </p>
         ))}
+      {/* Entrance lookups must not block party controls or completion claims. */}
       {!current && (
         <div className="mt-4 space-y-3">
           <h2 className="font-bold text-lg">Dungeons in your sector</h2>
-          {available.data?.length === 0 && (
+          {available.error ? (
+            <p role="alert">
+              {available.error.message}{" "}
+              <Button onClick={() => void available.refetch()}>Retry</Button>
+            </p>
+          ) : available.isPending ? (
+            <Loader explanation="Loading dungeon entrances" />
+          ) : available.data?.length === 0 ? (
             <p>
               No dungeon entrances are available here.{" "}
               <Link href="/travel">Explore another sector.</Link>
             </p>
+          ) : (
+            available.data?.map((d) => (
+              <div className="rounded border p-4" key={d.id}>
+                <h3 className="font-bold">{d.content.name}</h3>
+                <p>{d.content.description}</p>
+                <p>
+                  {d.content.tiers.length} tiers · {d.content.tiers.flat().length}{" "}
+                  floors · Background: {d.content.background}
+                </p>
+                <p>
+                  {d.content.rewards.money} Ryo · {d.content.rewards.experience} Exp ·{" "}
+                  {d.content.rewards.tokens} tokens · {d.content.rewards.prestige}{" "}
+                  prestige
+                </p>
+                <Button
+                  className="mt-2"
+                  disabled={pending}
+                  onClick={() => create.mutate({ id: d.id })}
+                >
+                  Create lobby
+                </Button>
+              </div>
+            ))
           )}
-          {available.data?.map((d) => (
-            <div className="rounded border p-4" key={d.id}>
-              <h3 className="font-bold">{d.content.name}</h3>
-              <p>{d.content.description}</p>
-              <p>
-                {d.content.tiers.length} tiers · {d.content.tiers.flat().length} floors
-                · Background: {d.content.background}
-              </p>
-              <p>
-                {d.content.rewards.money} Ryo · {d.content.rewards.experience} Exp ·{" "}
-                {d.content.rewards.tokens} tokens · {d.content.rewards.prestige}{" "}
-                prestige
-              </p>
-              <Button
-                className="mt-2"
-                disabled={pending}
-                onClick={() => create.mutate({ id: d.id })}
-              >
-                Create lobby
-              </Button>
-            </div>
-          ))}
         </div>
       )}
     </ContentBox>
