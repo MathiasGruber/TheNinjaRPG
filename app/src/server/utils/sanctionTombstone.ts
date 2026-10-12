@@ -182,18 +182,45 @@ export const recordSanctionTombstone = async (
   userId: string,
   identity?: SanctionIdentity | null,
 ) => {
-  const sanctions = await fetchActiveSanctions(client, userId);
-  if (sanctions.length === 0) return;
+  const [sanctions, sources] = await Promise.all([
+    fetchActiveSanctions(client, userId),
+    client.query.sanctionTombstone.findMany({
+      where: eq(sanctionTombstone.userId, userId),
+    }),
+  ]);
   const clerkUser =
-    identity === undefined ? await fetchSanctionIdentity(userId) : identity;
+    sanctions.length === 0
+      ? null
+      : identity === undefined
+        ? await fetchSanctionIdentity(userId)
+        : identity;
   const hashes = clerkUser
     ? {
         emailHash: primaryEmailHashOf(clerkUser),
         accountHashes: accountHashesOf(clerkUser),
       }
-    : null;
-  await Promise.all(
-    sanctions.map((entry) => {
+    : hashesOfSources(sources);
+  await replaceSanctionSnapshot(client, userId, sanctions, sources, hashes);
+};
+
+const hashesOfSources = (sources: SanctionTombstone[]) => ({
+  emailHash: sources.find((source) => source.emailHash)?.emailHash ?? null,
+  accountHashes: [...new Set(sources.flatMap((source) => source.accountHashes))],
+});
+
+/** Replace the account's snapshot while its original reports still exist. */
+const replaceSanctionSnapshot = async (
+  client: DrizzleClient,
+  userId: string,
+  sanctions: ActiveSanction[],
+  sources: SanctionTombstone[],
+  hashes: ReturnType<typeof hashesOfSources>,
+) => {
+  const obsolete = sources.filter(
+    (source) => !sanctions.some((entry) => entry.sanction === source.sourceSanction),
+  );
+  await Promise.all([
+    ...sanctions.map((entry) => {
       const sanctionFields = {
         sanction: entry.sanction,
         sanctionEndsAt: entry.endsAt,
@@ -205,12 +232,35 @@ export const recordSanctionTombstone = async (
           userId,
           sourceSanction: entry.sanction,
           ...sanctionFields,
-          emailHash: hashes?.emailHash ?? null,
-          accountHashes: hashes?.accountHashes ?? [],
+          ...hashes,
+          // A type conversion must keep links to registrations made during the native
+          // deletion delay, even when it needs a new row after Clerk is already gone.
+          carryoverReportIds: [
+            ...new Set(
+              sources
+                .filter((source) =>
+                  source.reportIds.some((id) => entry.reportIds.includes(id)),
+                )
+                .flatMap((source) => source.carryoverReportIds),
+            ),
+          ],
         })
-        .onDuplicateKeyUpdate({ set: { ...sanctionFields, ...(hashes ?? {}) } });
+        .onDuplicateKeyUpdate({ set: { ...sanctionFields, ...hashes } });
     }),
-  );
+    ...(obsolete.length
+      ? [
+          client.delete(sanctionTombstone).where(
+            and(
+              eq(sanctionTombstone.userId, userId),
+              inArray(
+                sanctionTombstone.sourceSanction,
+                obsolete.map((source) => source.sourceSanction),
+              ),
+            ),
+          ),
+        ]
+      : []),
+  ]);
 };
 
 /** Unexpired tombstones; registration matches them in memory. */
@@ -350,44 +400,69 @@ export const reapplySanctions = (
     ];
   });
 
-/** Preserve deleted identities while applying a staff-revised type and end date. */
-export const reviseSanctionTombstones = (
+/**
+ * Apply a staff decision to linked carryovers and any captured original-report snapshot.
+ * Native deletion removes Clerk before game cleanup, so original reports can still be
+ * revised while their captured identifiers are the only way to recognise a new account.
+ */
+export const reviseSanctionTombstones = async (
   client: DrizzleClient,
   reportId: string,
   sanction: SanctionTombstoneType,
   endsAt: Date | null,
+  userId: string | null,
 ) => {
-  const sources = sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`;
-  return endsAt
-    ? client
-        .update(sanctionTombstone)
-        .set({ sanction, sanctionEndsAt: endsAt })
-        .where(sources)
-    : client.delete(sanctionTombstone).where(sources);
-};
-
-/**
- * Retire a cleared carryover report's sources. The current account's own tombstone is
- * removed only when no other active reports enforce that sanction type.
- */
-export const clearSanctionTombstones = (
-  client: DrizzleClient,
-  userId: string,
-  reportId: string,
-  sanction: SanctionTombstoneType,
-  hasOtherActiveReports: boolean,
-) =>
-  client
-    .delete(sanctionTombstone)
-    .where(
-      and(
-        eq(sanctionTombstone.sanction, sanction),
-        or(
-          hasOtherActiveReports ? undefined : eq(sanctionTombstone.userId, userId),
-          sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`,
-        ),
+  const [sources, sanctions] = await Promise.all([
+    client.query.sanctionTombstone.findMany({
+      where: or(
+        userId ? eq(sanctionTombstone.userId, userId) : undefined,
+        sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`,
       ),
-    );
+    }),
+    userId ? fetchActiveSanctions(client, userId) : Promise.resolve([]),
+  ]);
+  const originalSources = sources.filter((source) => source.userId === userId);
+  // Moderation of an ordinary account must never start retaining its identity.
+  const hasOriginalSnapshot = originalSources.some((source) =>
+    source.reportIds.includes(reportId),
+  );
+  const carryoverSources = sources.filter(
+    (source) =>
+      source.carryoverReportIds.includes(reportId) &&
+      (!hasOriginalSnapshot || source.userId !== userId),
+  );
+  const carryoverWhere = or(
+    ...carryoverSources.map((source) =>
+      and(
+        eq(sanctionTombstone.userId, source.userId),
+        eq(sanctionTombstone.sourceSanction, source.sourceSanction),
+      ),
+    ),
+  );
+  await Promise.all([
+    ...(carryoverSources.length
+      ? [
+          endsAt
+            ? client
+                .update(sanctionTombstone)
+                .set({ sanction, sanctionEndsAt: endsAt })
+                .where(carryoverWhere)
+            : client.delete(sanctionTombstone).where(carryoverWhere),
+        ]
+      : []),
+    ...(hasOriginalSnapshot && userId
+      ? [
+          replaceSanctionSnapshot(
+            client,
+            userId,
+            sanctions,
+            originalSources,
+            hashesOfSources(originalSources),
+          ),
+        ]
+      : []),
+  ]);
+};
 
 /** Drop tombstones whose sanction has ended; nothing is kept past the sanction. */
 export const removeExpiredSanctionTombstones = (client: DrizzleClient) =>

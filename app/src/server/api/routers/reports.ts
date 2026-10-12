@@ -47,10 +47,7 @@ import {
   protectedProcedure,
   serverError,
 } from "@/server/api/trpc";
-import {
-  clearSanctionTombstones,
-  reviseSanctionTombstones,
-} from "@/server/utils/sanctionTombstone";
+import { reviseSanctionTombstones } from "@/server/utils/sanctionTombstone";
 import {
   canBanUsers,
   canClearReport,
@@ -601,9 +598,13 @@ export const reportsRouter = createTRPCRouter({
           decision: "BAN_ACTIVATED",
         }),
       ]);
-      if (report.system === "sanction_carryover") {
-        await reviseSanctionTombstones(ctx.drizzle, report.id, "BAN", banEnd);
-      }
+      await reviseSanctionTombstones(
+        ctx.drizzle,
+        report.id,
+        "BAN",
+        banEnd,
+        report.reportedUserId,
+      );
       return { success: true, message: "User banned" };
     }),
   // Silence a user. If no escalation: moderator-only. If escalated: admin-only
@@ -654,9 +655,13 @@ export const reportsRouter = createTRPCRouter({
           decision: "SILENCE_ACTIVATED",
         }),
       ]);
-      if (report.system === "sanction_carryover") {
-        await reviseSanctionTombstones(ctx.drizzle, report.id, "SILENCE", banEnd);
-      }
+      await reviseSanctionTombstones(
+        ctx.drizzle,
+        report.id,
+        "SILENCE",
+        banEnd,
+        report.reportedUserId,
+      );
       return { success: true, message: "User silenced" };
     }),
   // Timeout: 1-hour silence. CONTENT-ADMIN and EVENT-ADMIN only.
@@ -701,14 +706,13 @@ export const reportsRouter = createTRPCRouter({
           decision: "TIMEOUT_ACTIVATED",
         }),
       ]);
-      if (report.system === "sanction_carryover") {
-        await reviseSanctionTombstones(
-          ctx.drizzle,
-          report.id,
-          "SILENCE",
-          oneHourFromNow,
-        );
-      }
+      await reviseSanctionTombstones(
+        ctx.drizzle,
+        report.id,
+        "SILENCE",
+        oneHourFromNow,
+        report.reportedUserId,
+      );
       return { success: true, message: "User timed out (1 hour)" };
     }),
   // Issue warning to user
@@ -752,9 +756,13 @@ export const reportsRouter = createTRPCRouter({
           decision: "OFFICIAL_WARNING",
         }),
       ]);
-      if (report.system === "sanction_carryover") {
-        await reviseSanctionTombstones(ctx.drizzle, report.id, "BAN", null);
-      }
+      await reviseSanctionTombstones(
+        ctx.drizzle,
+        report.id,
+        "BAN",
+        null,
+        report.reportedUserId,
+      );
       if (report.reportedUserId) {
         void pusher.trigger(report.reportedUserId, "event", {
           type: "userMessage",
@@ -840,20 +848,6 @@ export const reportsRouter = createTRPCRouter({
           }),
         ]);
         await Promise.all([
-          clearSanctionTombstones(
-            ctx.drizzle,
-            reportedUserId,
-            report.id,
-            "BAN",
-            bans.length > 0,
-          ),
-          clearSanctionTombstones(
-            ctx.drizzle,
-            reportedUserId,
-            report.id,
-            "SILENCE",
-            activeSilenceOrTimeout.length > 0,
-          ),
           ...(bans.length === 0
             ? [
                 ctx.drizzle
@@ -898,6 +892,13 @@ export const reportsRouter = createTRPCRouter({
           decision: "REPORT_CLEARED",
         }),
       ]);
+      await reviseSanctionTombstones(
+        ctx.drizzle,
+        report.id,
+        "BAN",
+        null,
+        report.reportedUserId,
+      );
       return { success: true, message: "Report cleared" };
     }),
   updateUserAvatar: protectedProcedure
@@ -1135,9 +1136,13 @@ export const reportsRouter = createTRPCRouter({
           decision: "TRADE_BAN_ACTIVATED",
         }),
       ]);
-      if (report.system === "sanction_carryover") {
-        await reviseSanctionTombstones(ctx.drizzle, report.id, "BAN", null);
-      }
+      await reviseSanctionTombstones(
+        ctx.drizzle,
+        report.id,
+        "BAN",
+        null,
+        report.reportedUserId,
+      );
       return { success: true, message: "User trade banned" };
     }),
 });
