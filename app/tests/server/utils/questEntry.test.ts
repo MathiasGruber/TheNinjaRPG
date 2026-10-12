@@ -2,7 +2,7 @@ import { ObjectiveReward } from "@/validators/rewards";
 import { beforeEach, expect, it } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
 import { quest, questHistory, userData, userItem, item } from "@/drizzle/schema";
-import { commitQuestEntryBattle } from "@/server/utils/questEntry";
+import { commitQuestEntryBattle, getQuestEntryCharges } from "@/server/utils/questEntry";
 import { insertUsers, insertQuests, insertQuestHistory, insertItems, insertUserItems } from "../../setup/factories";
 import { describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -28,6 +28,14 @@ describeWithDatabase("quest entry receipts", () => {
   // A guarded participant claim with a visible counter detects duplicate commits and rollback.
   const createBattle = (client: Awaited<ReturnType<typeof getTestDatabase>>) => client.update(userData).set({ status: "BATTLE", money: sql`${userData.money} + 1` }).where(and(eq(userData.userId, "hero"), eq(userData.status, "AWAKE")));
   const didClaim = (result: { rowsAffected: number }) => result.rowsAffected === 1;
+
+  it("retains each allocated stack's item identity and original quantity", async () => {
+    const { attempt, items } = await snapshot();
+    expect(getQuestEntryCharges(attempt, items)).toEqual([
+      { id: "a", itemId: "ticket", quantity: 2, expectedQuantity: 2 },
+      { id: "b", itemId: "ticket", quantity: 1, expectedQuantity: 3 },
+    ]);
+  });
 
   it("charges fragmented stacks once under simultaneous first-battle requests", async () => {
     const info = await snapshot();

@@ -53,13 +53,19 @@ export const questAttemptIsActive = (
 /**
  * Allocate required quantities deterministically across available inventory stacks.
  * Returns null for insufficient inventory, or no charges when the attempt is already paid.
- * Expected quantities become CAS guards; each debit is positive and bounded by its stack.
+ * Expected item identities and quantities become CAS guards so evolved stacks cannot pay
+ * for their former item; each debit is positive and bounded by its stack.
  */
 export const getQuestEntryCharges = (
   attempt: UserQuest,
   items: readonly UserItem[],
 ) => {
-  const charges: { id: string; quantity: number; expectedQuantity: number }[] = [];
+  const charges: {
+    id: string;
+    itemId: string;
+    quantity: number;
+    expectedQuantity: number;
+  }[] = [];
   if (!attempt.entryPaid) {
     for (const required of getQuestEntryRequirements(attempt.quest.content)) {
       let remaining = required.quantity;
@@ -74,7 +80,12 @@ export const getQuestEntryCharges = (
         .sort((a, b) => a.id.localeCompare(b.id))) {
         const quantity = Math.min(item.quantity, remaining);
         if (quantity > 0)
-          charges.push({ id: item.id, quantity, expectedQuantity: item.quantity });
+          charges.push({
+            id: item.id,
+            itemId: item.itemId,
+            quantity,
+            expectedQuantity: item.quantity,
+          });
         remaining -= quantity;
       }
       if (remaining > 0) return null;
@@ -139,6 +150,7 @@ export const commitQuestEntryBattle = async <T>({
               expectedQuantity: charge.expectedQuantity,
               nextQuantity: charge.expectedQuantity - charge.quantity,
               where: [
+                eq(userItem.itemId, charge.itemId),
                 eq(userItem.storedAtHome, false),
                 eq(userItem.isInAuction, false),
               ],
