@@ -10,13 +10,18 @@ import {
 } from "@/drizzle/schema";
 import type { CombatQueryUser } from "@/libs/combat/types";
 import { Pusher } from "@/libs/pusher";
+import { calcEnergy } from "@/libs/profile";
 import { processUsersForBattle } from "@/server/api/routers/combat";
-import { fetchUpdatedUser } from "@/server/api/routers/profile";
-import { questsRouter } from "@/server/api/routers/quests";
+import { fetchUpdatedUser, profileRouter } from "@/server/api/routers/profile";
+import { questsRouter, upsertQuestEntry } from "@/server/api/routers/quests";
 import { overworldAiRouter } from "@/server/api/routers/overworldAi";
-import { DialogObjective, InstantStartBattleObjective } from "@/validators/objectives";
+import {
+  DialogObjective,
+  InstantNewQuestObjective,
+  InstantStartBattleObjective,
+} from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
-import { insertUsers, insertQuests } from "../../setup/factories";
+import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/factories";
 import {
   callerFor,
   describeWithDatabase,
@@ -36,12 +41,16 @@ describeWithDatabase("Pyramid entry recovery", () => {
     );
   });
   afterEach(() => vi.restoreAllMocks());
-  for (const [source, isolated] of [
-    ["npc", true],
-    ["npc", false],
-    ["ui", true],
+  for (const [source, isolated, alreadySettled] of [
+    ["npc", true, false],
+    ["npc", false, false],
+    ["ui", true, false],
+    ["ui", false, false],
+    ["story", true, false],
+    ["story", false, false],
+    ["story", true, true],
   ] as const) {
-    it(`preserves pre-entry recovery for ${isolated ? "isolated" : "ordinary"} ${source} Pyramids`, async () => {
+    it(`preserves ${alreadySettled ? "settled" : "pending"} recovery for ${isolated ? "isolated" : "ordinary"} ${source} Pyramids`, async () => {
       const client = await getTestDatabase();
       const prior = new Date(Date.now() - 125_000);
       await insertUsers([
@@ -55,7 +64,7 @@ describeWithDatabase("Pyramid entry recovery", () => {
           latitude: 0,
           isOutlaw: true,
           regeneration: 10,
-          updatedAt: prior,
+          updatedAt: alreadySettled ? new Date(Date.now() - 350_000) : prior,
           regenAt: prior,
           curHealth: 500,
           maxHealth: 1000,
@@ -63,7 +72,7 @@ describeWithDatabase("Pyramid entry recovery", () => {
           maxChakra: 1000,
           curStamina: 1,
           maxStamina: 1000,
-          curEnergy: 10,
+          curEnergy: source === "story" ? calcEnergy(50) - 10 : 10,
           primaryElement: "Fire",
           secondaryElement: "Water",
         },
@@ -142,19 +151,48 @@ describeWithDatabase("Pyramid entry recovery", () => {
         });
         expect(assigned.success).toBe(true);
         expect(assigned.grantedQuestId).toBe("pool-pyramid");
-      } else {
+      } else if (source === "ui") {
         const caller = await callerFor(questsRouter, user.userId);
         const assigned = await caller.startQuest({
           questId: "pool-pyramid",
           userSector: 0,
         });
         expect(assigned.success).toBe(true);
+      } else {
+        await insertQuests([
+          {
+            id: "grant-pyramid",
+            questType: "story",
+            hidden: false,
+            content: {
+              reward: ObjectiveReward.parse({}),
+              sceneBackground: "",
+              sceneCharacters: [],
+              objectives: [
+                InstantNewQuestObjective.parse({
+                  id: "grant",
+                  task: "new_quest",
+                  newQuestIds: ["pool-pyramid"],
+                }),
+              ],
+            },
+          },
+        ]);
+        await insertQuestHistory([
+          { userId: user.userId, questId: "grant-pyramid", questType: "story" },
+        ]);
+        const caller = await callerFor(profileRouter, user.userId);
+        await caller.getUser();
       }
       const started = await fetchUpdatedUser({ client, userId: user.userId });
       if (!started.user) throw new Error("Missing started user");
       const afterEntry = (await preload(started.user)).usersState[0]!.curHealth;
       expect(recoveredBeforeEntry).toBeGreaterThan(500);
       expect(afterEntry).toBe(recoveredBeforeEntry);
+      expect(
+        started.user.userQuests.find((entry) => entry.questId === "pool-pyramid")
+          ?.isolated,
+      ).toBe(isolated);
       if (isolated) {
         const stored = await client.query.userData.findFirst({
           where: eq(userData.userId, user.userId),
@@ -163,13 +201,188 @@ describeWithDatabase("Pyramid entry recovery", () => {
         expect(stored?.curChakra).toBe(1000);
         expect(stored?.curStamina).toBe(21);
         // Energy shares the clock and must retain its earned recovery too.
-        expect(stored?.curEnergy).toBe(30);
+        expect(stored?.curEnergy).toBe(source === "story" ? calcEnergy(50) : 30);
         expect(stored?.regenAt.getTime()).toBe(prior.getTime() + 120_000);
         vi.spyOn(Date, "now").mockReturnValue(Date.now() + 600_000);
         const later = await fetchUpdatedUser({ client, userId: user.userId });
         if (!later.user) throw new Error("Missing isolated user");
         expect((await preload(later.user)).usersState[0]?.curHealth).toBe(520);
       }
+    });
+  }
+  for (const entryPaid of [false, true]) {
+    it(`keeps an open story-granted attempt's pools and receipt, paid=${entryPaid}`, async () => {
+      const client = await getTestDatabase();
+      const prior = new Date(Date.now() - 125_000);
+      const version = new Date("2025-01-01T00:00:00Z");
+      await insertUsers([
+        {
+          userId: "pool-hero",
+          status: "AWAKE",
+          updatedAt: prior,
+          regenAt: prior,
+          regeneration: 10,
+          curHealth: 500,
+          maxHealth: 1000,
+          curChakra: 990,
+          maxChakra: 1000,
+          curStamina: 1,
+          maxStamina: 1000,
+          curEnergy: 10,
+          questData: [
+            {
+              id: "pool-pyramid",
+              goals: [
+                {
+                  id: "wait",
+                  done: false,
+                  value: 0,
+                  collected: false,
+                  recentlyDied: false,
+                },
+              ],
+              startAt: prior.toISOString(),
+            },
+          ],
+        },
+      ]);
+      await insertQuests([
+        {
+          id: "pool-pyramid",
+          questType: "battlepyramid",
+          updatedAt: version,
+          hidden: false,
+          maxAttempts: 100,
+          maxCompletes: 100,
+          content: {
+            isolated: true,
+            reward: ObjectiveReward.parse({}),
+            sceneBackground: "",
+            sceneCharacters: [],
+            objectives: [DialogObjective.parse({ id: "wait", task: "dialog" })],
+          },
+        },
+        {
+          id: "grant-pyramid",
+          questType: "story",
+          hidden: false,
+          content: {
+            reward: ObjectiveReward.parse({}),
+            sceneBackground: "",
+            sceneCharacters: [],
+            objectives: [
+              InstantNewQuestObjective.parse({
+                id: "grant",
+                task: "new_quest",
+                newQuestIds: ["pool-pyramid"],
+              }),
+            ],
+          },
+        },
+      ]);
+      await insertQuestHistory([
+        {
+          id: "open-pyramid",
+          userId: "pool-hero",
+          questId: "pool-pyramid",
+          questType: "battlepyramid",
+          startedAt: prior,
+          isolated: true,
+          entryPaid,
+          questVersion: version,
+        },
+        { userId: "pool-hero", questId: "grant-pyramid", questType: "story" },
+      ]);
+      const caller = await callerFor(profileRouter, "pool-hero");
+      await caller.getUser();
+      const [stored, attempt] = await Promise.all([
+        client.query.userData.findFirst({ where: eq(userData.userId, "pool-hero") }),
+        client.query.questHistory.findFirst({
+          where: eq(questHistory.id, "open-pyramid"),
+        }),
+      ]);
+      expect(stored).toMatchObject({
+        curHealth: 500,
+        curChakra: 990,
+        curStamina: 1,
+        curEnergy: 10,
+        regenAt: prior,
+      });
+      expect(attempt).toMatchObject({ entryPaid, isolated: true, questVersion: version });
+      expect(stored?.questData?.find((tracker) => tracker.id === "pool-pyramid")?.startAt)
+        .toBe(prior.toISOString());
+    });
+  }
+
+  for (const scenario of ["pools changed", "already recovered", "deadlock retry"] as const) {
+    it(`settles fresh isolation safely after ${scenario}`, async () => {
+      const client = await getTestDatabase();
+      const prior = new Date(Date.now() - 125_000);
+      await insertUsers([
+        {
+          userId: "pool-hero",
+          status: "AWAKE",
+          updatedAt: prior,
+          regenAt: prior,
+          regeneration: 10,
+          curHealth: 500,
+          maxHealth: 1000,
+        },
+      ]);
+      await insertQuests([
+        {
+          id: "pool-pyramid",
+          questType: "battlepyramid",
+          content: {
+            isolated: true,
+            reward: ObjectiveReward.parse({}),
+            sceneBackground: "",
+            sceneCharacters: [],
+            objectives: [DialogObjective.parse({ id: "wait", task: "dialog" })],
+          },
+        },
+      ]);
+      const [{ user }, pyramid] = await Promise.all([
+        fetchUpdatedUser({ client, userId: "pool-hero" }),
+        client.query.quest.findFirst({ where: eq(quest.id, "pool-pyramid") }),
+      ]);
+      if (!user || !pyramid) throw new Error("Missing fixture");
+      let attempts = 0;
+      const retryingClient = new Proxy(client, {
+        get(target, property, receiver) {
+          if (property === "transaction" && scenario === "deadlock retry")
+            return (callback: Parameters<typeof client.transaction>[0]) =>
+              target.transaction(async (tx) => {
+                const result = await callback(tx);
+                if (++attempts === 1) throw new Error("Deadlock found when trying to get lock");
+                return result;
+              });
+          return Reflect.get(target, property, receiver);
+        },
+      });
+      if (scenario !== "deadlock retry")
+        await client
+          .update(userData)
+          .set({
+            updatedAt: new Date(),
+            curHealth: scenario === "pools changed" ? 700 : 520,
+            ...(scenario === "already recovered"
+              ? { regenAt: new Date(prior.getTime() + 120_000) }
+              : {}),
+          })
+          .where(eq(userData.userId, user.userId));
+      await upsertQuestEntry(retryingClient, user, pyramid, "quest_objective", null);
+      expect(await client.query.questHistory.findMany()).toHaveLength(1);
+      expect(
+        await client.query.userData.findFirst({ where: eq(userData.userId, user.userId) }),
+      ).toMatchObject({
+        curHealth: scenario === "pools changed" ? 720 : 520,
+        regenAt: new Date(prior.getTime() + 120_000),
+      });
+      expect(user.userQuests).toHaveLength(1);
+      expect(typeof user.curHealth).toBe("number");
+      expect(user.regenAt).toBeInstanceOf(Date);
+      if (scenario === "deadlock retry") expect(attempts).toBe(2);
     });
   }
 });

@@ -106,7 +106,11 @@ import {
   rollObjectiveAttackers,
   verifyQuestContentForSave,
 } from "@/libs/quest";
-import { getQuestEntryRequirements, hasQuestContentChanged } from "@/libs/questRun";
+import {
+  getIsolatedPyramid,
+  getQuestEntryRequirements,
+  hasQuestContentChanged,
+} from "@/libs/questRun";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
   buildRewardChoiceCards,
@@ -2883,11 +2887,6 @@ export const assignQuestToUser = async (args: {
     const assigned = await retryOnDeadlock(() =>
       client.transaction(async (tx) => {
         const database = tx as unknown as DrizzleClient;
-        const ticks = Math.max(
-          0,
-          Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS),
-        );
-        const regen = user.regeneration * ticks;
         const claim = await claimUserSnapshot({
           client: database,
           userId: user.userId,
@@ -2912,38 +2911,27 @@ export const assignQuestToUser = async (args: {
                 ]
               : []),
           ],
-          // Preserve recovery earned before isolation disables HP/CP/SP regeneration.
-          // Energy shares regenAt, so settle it before advancing that clock too.
-          set: questData.content.isolated
-            ? {
-                curHealth: Math.round(Math.min(user.curHealth + regen, user.maxHealth)),
-                curChakra: Math.round(Math.min(user.curChakra + regen, user.maxChakra)),
-                curStamina: Math.round(
-                  Math.min(user.curStamina + regen, user.maxStamina),
-                ),
-                curEnergy: Math.min(user.curEnergy + regen, user.maxEnergy),
-                regenAt: secondsFromDate(ticks * REGEN_SECONDS, user.regenAt),
-              }
-            : {},
         });
         if (!claim.success) return undefined;
+        const claimedUser = { ...user, updatedAt: claim.claimedAt };
         const result = await upsertQuestEntry(
           database,
-          user,
+          claimedUser,
           questData,
           source,
           prevAttempt ?? null,
           true,
         );
         await incrementDailyQuestCounter(database, user, questData.questType);
-        return result;
+        return { result, user: claimedUser };
       }),
     );
     if (!assigned)
       return errorResponse(
         "Your account changed or another Pyramid started. Refresh and try again.",
       );
-    assignment = assigned;
+    Object.assign(user, assigned.user);
+    assignment = assigned.result;
   } else {
     [assignment] = await Promise.all([
       upsertQuestEntry(client, user, questData, source, prevAttempt ?? null),
@@ -2975,7 +2963,10 @@ export const upsertQuestEntry = async (
   source: QuestAcquisitionSource,
   prevEntry?: Awaited<ReturnType<typeof fetchUserQuestByQuestId>> | null,
   inTransaction = false,
-) => {
+): Promise<{
+  entry: NonNullable<Awaited<ReturnType<typeof fetchUserQuestByQuestId>>>;
+  userCacheEligible: boolean;
+}> => {
   if (isNpcOnlyQuestType(quest.questType) && source !== "overworld_npc") {
     throw serverError(
       "PRECONDITION_FAILED",
@@ -3009,6 +3000,55 @@ export const upsertQuestEntry = async (
   // A genuine restart always arrives with the row closed: completed, or ended by the daily reset
   // or abandon.
   const isOpenAttempt = !!entry && entry.completed === 0 && entry.endAt === null;
+  const settleRecovery =
+    !isOpenAttempt && quest.content.isolated && !getIsolatedPyramid(user);
+  // Story grants also enter through this helper. Commit recovery and isolation together;
+  // the UI/NPC assignment already supplies a transaction and its claimed account snapshot.
+  if (settleRecovery && !inTransaction) {
+    const assigned = await retryOnDeadlock(() =>
+      client.transaction(async (tx) => {
+        const claimedUser = { ...user };
+        const result = await upsertQuestEntry(
+          tx as unknown as DrizzleClient,
+          claimedUser,
+          quest,
+          source,
+          entry ?? null,
+          true,
+        );
+        return { result, user: claimedUser };
+      }),
+    );
+    Object.assign(user, assigned.user);
+    return assigned.result;
+  }
+  const ticks = settleRecovery
+    ? Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS))
+    : 0;
+  const regen = user.regeneration * ticks;
+  // Energy shares regenAt, so preserve its earned recovery before advancing that clock too.
+  const recovery = settleRecovery
+    ? {
+        curHealth: Math.round(Math.min(user.curHealth + regen, user.maxHealth)),
+        curChakra: Math.round(Math.min(user.curChakra + regen, user.maxChakra)),
+        curStamina: Math.round(Math.min(user.curStamina + regen, user.maxStamina)),
+        curEnergy: Math.min(user.curEnergy + regen, user.maxEnergy),
+        regenAt: secondsFromDate(ticks * REGEN_SECONDS, user.regenAt),
+      }
+    : {};
+  // Use the persisted pools/clock: a competing account write must not replay recovery
+  // or overwrite the pools after the story's quest tracker has already been claimed.
+  const recoveryTicks = sql`FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${new Date(Date.now())})) / ${REGEN_SECONDS * 1_000_000})`;
+  const poolRecovery = sql`${user.regeneration} * ${recoveryTicks}`;
+  const recoveryUpdate = settleRecovery
+    ? {
+        curHealth: sql`ROUND(LEAST(${userData.curHealth} + ${poolRecovery}, ${userData.maxHealth}))`,
+        curChakra: sql`ROUND(LEAST(${userData.curChakra} + ${poolRecovery}, ${userData.maxChakra}))`,
+        curStamina: sql`ROUND(LEAST(${userData.curStamina} + ${poolRecovery}, ${userData.maxStamina}))`,
+        curEnergy: sql`LEAST(${userData.curEnergy} + ${poolRecovery}, ${user.maxEnergy})`,
+        regenAt: sql`TIMESTAMPADD(SECOND, ${recoveryTicks} * ${REGEN_SECONDS}, ${userData.regenAt})`,
+      }
+    : {};
   if (!isOpenAttempt) {
     user.questData = removeQuestTrackerByQuestId(user.questData, quest.id);
   }
@@ -3103,6 +3143,7 @@ export const upsertQuestEntry = async (
       .update(userData)
       .set({
         questData: filterQuestTrackersForDbPersist(trackers, user),
+        ...recoveryUpdate,
       })
       .where(eq(userData.userId, user.userId)),
   );
@@ -3112,6 +3153,7 @@ export const upsertQuestEntry = async (
   } else {
     await Promise.all(promises);
   }
+  Object.assign(user, recovery);
   user.questData = trackers;
   user.completedQuests = user.completedQuests.filter((row) => row.questId !== quest.id);
   // Instant objectives may become done before a later pass can recover their side effects.
