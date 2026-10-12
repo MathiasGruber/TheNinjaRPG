@@ -16,6 +16,20 @@ it("keeps committed terminal progress when its party CAS must retry", async () =
   expect(result.tracker.goals[0]?.done).toBe(true);
 });
 
+it.each([
+  ["encounter", "encounter", "encounter"],
+  ["fresh", "unrelated", "fresh"],
+  ["claiming:1:reserved", "reserved", "reserved"],
+  ["claiming:1:reserved", "unrelated", null],
+])("reconciles the exact encounter while preserving fresh claims (%s, %s)", async (battleId, memberBattleId, expected) => {
+  if (battleId === "fresh") battleId = `claiming:${Date.now()}:reserved`;
+  const member = { userId: "one", questData: [], battleId: memberBattleId } as unknown as LoadedQuestParty["members"][number];
+  const party = { id: "party", questId: "quest", memberIds: ["one"], leaderId: "one", version: 0, battleId, contributions: {}, tracker: QuestTracker.parse({ id: "quest" }), members: [member], quest: { content: { objectives: [] } } } as unknown as LoadedQuestParty;
+  const client = { update: () => ({ set: () => ({ where: async () => ({ rowsAffected: 1 }) }) }) } as unknown as DrizzleClient;
+  const result = await synchronizeQuestParty(client, party);
+  expect(result.battleId).toBe(expected === "fresh" ? battleId : expected);
+});
+
 import { eq } from "drizzle-orm";
 import { quest, questHistory, questParty, userData } from "@/drizzle/schema";
 import { projectPartyTracker } from "@/libs/questParty";

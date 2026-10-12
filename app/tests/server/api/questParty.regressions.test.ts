@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { aiProfile, battle, battleHistory, quest, questHistory, questParty, overworldAiPlacement, item, userItem, userData, village, villageStructure } from "@/drizzle/schema";
 import * as Sentry from "@sentry/nextjs";
 import { getNewTrackers, getReward } from "@/libs/quest";
+import { projectPartyTracker } from "@/libs/questParty";
 import { Pusher } from "@/libs/pusher";
 import { fetchUpdatedUser, profileRouter } from "@/routers/profile";
 import { questPartyRouter } from "@/routers/questParty";
@@ -12,7 +13,7 @@ import type { DrizzleClient } from "@/server/db";
 import { AllObjectives } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertItems, insertQuestHistory, insertQuests, insertUsers, insertUserItems } from "../../setup/factories";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("quest team eligibility and terminal failure", () => {
   beforeEach(async () => {
@@ -31,6 +32,61 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     await insertUsers(["leader", "helper"].map((userId) => ({ userId, username: userId, status: "AWAKE", rank: "JONIN", level: 50, experience: 20_000_000, villageId: "home", sector: 50, longitude: 10, latitude: 10, money: 100, regenAt: new Date(), updatedAt: new Date() })));
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each([false, true])("retries personal detachment after roster removal fails to save the member (completed helper=%p)", async (completed) => {
+    const client = await getTestDatabase();
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
+      AllObjectives.parse({ id: "paid", task: "stats_trained", value: 10, reward_money: 25 }),
+      AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+    ], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+    if (completed) await insertQuestHistory([{ id: "helper-receipt", userId: "helper", questId: "team-quest", questType: "event", completed: 1, previousCompletes: 1, endAt: new Date() }]);
+    const leader = await callerFor(questPartyRouter, "leader");
+    const helper = await callerFor(questPartyRouter, "helper");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    expect((await helper.join({ partyId: party.id })).success).toBe(true);
+    party.tracker.goals = party.tracker.goals.map((goal) => ({ ...goal, value: goal.id === "paid" ? 10 : 40, done: goal.id === "paid" }));
+    await client.update(questParty).set({ tracker: party.tracker }).where(eq(questParty.id, party.id));
+    const personal = projectPartyTracker(party);
+    personal.goals = personal.goals.map((goal) => ({ ...goal, collected: goal.id === "paid" }));
+    await client.update(userData).set({ questData: [personal] }).where(eq(userData.userId, "helper"));
+    const receipt = await client.query.questHistory.findFirst({ where: eq(questHistory.userId, "helper") });
+    const failing = new Proxy(client, {
+      get(target, key, receiver) {
+        if (key === "update") return (table: unknown) => table === userData ? {
+          set: () => ({ where: async () => { throw new Error("Temporary detach failure"); } }),
+        } : target.update(table as typeof questParty);
+        return Reflect.get(target, key, receiver);
+      },
+    }) as DrizzleClient;
+    await expect(callerForDatabase(questPartyRouter, "helper", failing).leave({ partyId: party.id })).rejects.toThrow("Temporary detach failure");
+    expect((await client.query.questParty.findFirst())?.memberIds).toEqual(["leader"]);
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.questPartyId).toBe(party.id);
+    if (completed) await client.update(userData).set({ updatedAt: new Date(Date.now() - 120_000) }).where(eq(userData.userId, "helper"));
+    await fetchUpdatedUser({ client, userId: "helper" });
+    expect((await helper.leave({ partyId: party.id })).success).toBe(true);
+    const detached = await client.query.userData.findFirst({ where: eq(userData.userId, "helper") });
+    expect(detached?.questPartyId).toBeNull();
+    expect(detached?.money).toBe(100);
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.userId, "helper") })).toEqual(receipt);
+    const tracker = detached?.questData?.find((entry) => entry.id === "team-quest");
+    expect(tracker?.party).toBeUndefined();
+    expect(tracker?.goals.find((goal) => goal.id === "wait")?.value).toBe(40);
+    if (!completed) expect(tracker?.goals.find((goal) => goal.id === "paid")?.collected).toBe(true);
+    expect((await client.query.questParty.findFirst())?.tracker).toEqual(party.tracker);
+    expect((await helper.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+  });
+
+  it("does not detach an in-flight join reservation before its roster CAS", async () => {
+    const client = await getTestDatabase();
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, retryDelay: "none" }]);
+    expect((await (await callerFor(questPartyRouter, "leader")).create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    await client.update(userData).set({ questPartyId: party.id, updatedAt: new Date() }).where(eq(userData.userId, "helper"));
+    expect((await (await callerFor(questPartyRouter, "helper")).leave({ partyId: party.id })).success).toBe(false);
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.questPartyId).toBe(party.id);
+    expect((await client.query.questParty.findFirst())?.memberIds).toEqual(["leader"]);
+  });
 
   for (const task of ["collect_item", "deliver_item"] as const) {
     for (const advanced of [false, true]) {

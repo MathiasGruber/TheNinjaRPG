@@ -17,6 +17,7 @@ import {
 import { Pusher } from "@/libs/pusher";
 import { rollObjectiveAttackers } from "@/libs/quest";
 import { fetchUpdatedUser } from "@/routers/profile";
+import { combatRouter } from "@/routers/combat";
 import { questPartyRouter, startQuestPartyEncounter } from "@/routers/questParty";
 import { travelRouter } from "@/routers/travel";
 import type { DrizzleClient } from "@/server/db";
@@ -120,6 +121,29 @@ describeWithDatabase("quest team encounter location claims", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     invalidatePublishedMapCache();
+  });
+
+  it("releases a settled team encounter when a member enters unrelated PvP", async () => {
+    const client = await getTestDatabase();
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, retryDelay: "none", content: {
+      objectives: [AllObjectives.parse({ id: "goal", task: "stats_trained", value: 100 })],
+      reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [],
+    } }]);
+    const leader = await callerFor(questPartyRouter, "leader");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    // Settlement releases the users and deletes the battle before the next team sync.
+    await client.update(questParty).set({ battleId: "settled-team-battle" }).where(eq(questParty.id, party.id));
+    await insertUsers([{ userId: "outsider", username: "outsider", status: "AWAKE", rank: "JONIN", level: 50, experience: 20_000_000, sector: 50, longitude: 12, latitude: 13, villageId: null }]);
+    const attacked = await (await callerFor(combatRouter, "outsider")).attackUser({ userId: "helper", sector: 50, longitude: 12, latitude: 13 });
+    expect(attacked.success).toBe(true);
+    expect(attacked.battleId).not.toBe("settled-team-battle");
+    const updated = await fetchUpdatedUser({ client, userId: "leader" });
+    expect(updated.user?.questParty?.battleId).toBeNull();
+    expect((await client.query.questParty.findFirst())?.battleId).toBeNull();
+    expect((await leader.leave({ partyId: party.id })).success).toBe(true);
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.battleId).toBe(attacked.battleId);
   });
 
 

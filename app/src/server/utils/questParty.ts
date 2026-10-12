@@ -14,6 +14,7 @@ export type LoadedQuestParty = QuestParty & {
     | "userId"
     | "username"
     | "questData"
+    | "updatedAt"
     | "status"
     | "sector"
     | "longitude"
@@ -30,6 +31,7 @@ export const questPartyRelations = {
       userId: true,
       username: true,
       questData: true,
+      updatedAt: true,
       status: true,
       sector: true,
       longitude: true,
@@ -85,7 +87,9 @@ export const synchronizeQuestParty = async (
       boundBattleId ??
       (party.battleId &&
       !isFreshClaim &&
-      !party.members.some((member) => member.battleId)
+      !party.members.some(
+        (member) => member.battleId === (reservedBattleId ?? party.battleId),
+      )
         ? null
         : party.battleId);
     if (

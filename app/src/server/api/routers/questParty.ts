@@ -44,6 +44,7 @@ import {
   saveQuestPartyMember,
   synchronizeQuestParty,
 } from "@/server/utils/questParty";
+import { secondsPassed } from "@/utils/time";
 import { QuestTracker } from "@/validators/objectives";
 import {
   questPartyCreateSchema,
@@ -422,8 +423,19 @@ export const questPartyRouter = createTRPCRouter({
         where: eq(questParty.id, input.partyId),
         with: questPartyRelations,
       });
-      if (!loaded?.memberIds.includes(ctx.userId))
-        return errorResponse("You are not in this team");
+      if (!loaded) return errorResponse("You are not in this team");
+      if (!loaded.memberIds.includes(ctx.userId)) {
+        const member = loaded.members.find((entry) => entry.userId === ctx.userId);
+        // A saved tracker proves prior membership; otherwise allow the join reservation
+        // its existing grace period before treating the missing roster entry as abandoned.
+        if (
+          !member ||
+          (!member.questData?.some((entry) => entry.party?.id === loaded.id) &&
+            secondsPassed(member.updatedAt) <= 60)
+        )
+          return errorResponse("You are not in this team");
+        return removeMember(ctx.drizzle, input.partyId, ctx.userId);
+      }
       const party = loaded.quest
         ? await synchronizeQuestParty(ctx.drizzle, loaded)
         : loaded;
@@ -531,8 +543,13 @@ const removeMember = async (
       where: eq(questParty.id, partyId),
       with: { quest: true },
     });
-    if (!party?.memberIds.includes(userId))
+    if (!party) return { success: true, message: "Already left quest team" };
+    if (!party.memberIds.includes(userId)) {
+      // The roster CAS may have committed before the personal save failed.
+      await saveQuestPartyMember(client, party, userId, true);
+      await leaveCoopChat(client, partyId, userId);
       return { success: true, message: "Already left quest team" };
+    }
     if (party.battleId && party.battleId !== joinClaimId)
       return errorResponse("Finish the team's encounter before leaving");
     const battleGuard = joinClaimId
