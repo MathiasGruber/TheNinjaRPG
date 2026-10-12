@@ -146,7 +146,14 @@ export default function HomePage() {
       await userHomeRefetch();
     },
   });
-  const buyFurniture = api.home.purchaseFurniture.useMutation();
+  const buyFurniture = api.home.purchaseFurniture.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      if (!result.success) setFurnitureError(result.message);
+      // Keep decorating disabled until ownership, revision and balance are refreshed.
+      await Promise.all([userHomeRefetch(), utils.profile.getUser.invalidate()]);
+    },
+  });
 
   /** Keep unsaved edits available on rejection and refresh the server revision for recovery. */
   const saveLayout = async (draft: {
@@ -175,13 +182,10 @@ export default function HomePage() {
     if (!homeData) return;
     setFurnitureError(null);
     try {
-      const result = await buyFurniture.mutateAsync({
+      await buyFurniture.mutateAsync({
         furnitureId,
         revision: homeData.furnitureRevision,
       });
-      showMutationToast(result);
-      if (!result.success) setFurnitureError(result.message);
-      await Promise.all([userHomeRefetch(), utils.profile.getUser.invalidate()]);
     } catch (error) {
       setFurnitureError(
         error instanceof Error ? error.message : "Unable to buy furniture. Try again.",

@@ -7,6 +7,7 @@
  * its rows leak into it.
  */
 import { afterAll, beforeAll } from "bun:test";
+import * as dialog from "@/components/ui/dialog";
 import {
   closeTestDatabase,
   hasTestDatabase,
@@ -15,6 +16,9 @@ import {
 // Bun preserves loaded exports when a suite supplies a partial module mock.
 // Load the toast module before any suite can hide exports needed by another suite.
 import "@/libs/toast";
+
+// Page integration suites can restore the real dialog after another suite mocks its module.
+export const actualDialog = { ...dialog };
 
 if (hasTestDatabase) {
   // Reconciling the schema is slower than a unit test's default budget.
