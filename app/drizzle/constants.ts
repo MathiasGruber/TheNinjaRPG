@@ -3054,20 +3054,22 @@ export const HomeFurnitureDetails: Record<HomeFurnitureId, {
   description: string;
   width: number;
   image: string;
+  /** Visible ground as a percentage of sprite height; raster cutouts have different padding. */
+  groundAnchor: number;
   action?: HomeFurnitureAction;
 }> = {
-  bed: { name: "Bed", price: 0, description: "Rest here to sleep or wake up.", width: 22, image: "/images/home/furniture/bed.svg", action: "sleep" },
-  armory: { name: "Armory", price: 0, description: "Open your home storage.", width: 20, image: "/images/home/furniture/armory.svg", action: "storage" },
-  kitchen: { name: "Kitchen", price: 0, description: "Visit the ramen shop while cooking is being prepared.", width: 23, image: "/images/home/furniture/kitchen.svg", action: "kitchen" },
-  garden: { name: "Garden", price: 0, description: "Visit your farm.", width: 23, image: "/images/home/furniture/garden.svg", action: "farm" },
-  rug: { name: "Woven Rug", price: 25000, description: "A warm woven accent for your floor.", width: 25, image: "/images/home/furniture/rug.svg" },
-  table: { name: "Tea Table", price: 50000, description: "A low wooden table for quiet moments.", width: 19, image: "/images/home/furniture/table.svg" },
-  bookshelf: { name: "Bookshelf", price: 75000, description: "Keep your favorite stories close at hand.", width: 19, image: "/images/home/furniture/bookshelf.svg" },
-  lantern: { name: "Paper Lantern", price: 30000, description: "A soft light for your home.", width: 13, image: "/images/home/furniture/lantern.svg" },
-  bonsai: { name: "Bonsai", price: 40000, description: "A carefully tended miniature tree.", width: 16, image: "/images/home/furniture/bonsai.svg" },
-  sofa: { name: "Sofa", price: 100000, description: "A comfortable place to unwind.", width: 26, image: "/images/home/furniture/sofa.svg" },
-  screen: { name: "Folding Screen", price: 80000, description: "Divide your room with a wooden screen.", width: 24, image: "/images/home/furniture/screen.svg" },
-  pond: { name: "Stone Pond", price: 150000, description: "A peaceful water feature for your home.", width: 25, image: "/images/home/furniture/pond.svg" },
+  bed: { name: "Bed", price: 0, description: "Rest here to sleep or wake up.", width: 34, image: "/images/home/furniture/bed.webp", groundAnchor: 91.1, action: "sleep" },
+  armory: { name: "Armory", price: 0, description: "Open your home storage.", width: 24, image: "/images/home/furniture/armory.webp", groundAnchor: 95.8, action: "storage" },
+  kitchen: { name: "Kitchen", price: 0, description: "Visit the ramen shop while cooking is being prepared.", width: 32, image: "/images/home/furniture/kitchen.webp", groundAnchor: 89.1, action: "kitchen" },
+  garden: { name: "Garden", price: 0, description: "Visit your farm.", width: 29, image: "/images/home/furniture/garden.webp", groundAnchor: 88.3, action: "farm" },
+  rug: { name: "Woven Rug", price: 25000, description: "A warm woven accent for your floor.", width: 25, image: "/images/home/furniture/rug.webp", groundAnchor: 88.5 },
+  table: { name: "Tea Table", price: 50000, description: "A low wooden table for quiet moments.", width: 19, image: "/images/home/furniture/table.webp", groundAnchor: 90.3 },
+  bookshelf: { name: "Bookshelf", price: 75000, description: "Keep your favorite stories close at hand.", width: 19, image: "/images/home/furniture/bookshelf.webp", groundAnchor: 89.6 },
+  lantern: { name: "Paper Lantern", price: 30000, description: "A soft light for your home.", width: 13, image: "/images/home/furniture/lantern.webp", groundAnchor: 93.6 },
+  bonsai: { name: "Bonsai", price: 40000, description: "A carefully tended miniature tree.", width: 16, image: "/images/home/furniture/bonsai.webp", groundAnchor: 95.9 },
+  sofa: { name: "Sofa", price: 100000, description: "A comfortable place to unwind.", width: 26, image: "/images/home/furniture/sofa.webp", groundAnchor: 88.4 },
+  screen: { name: "Folding Screen", price: 80000, description: "Divide your room with a wooden screen.", width: 24, image: "/images/home/furniture/screen.webp", groundAnchor: 86.6 },
+  pond: { name: "Stone Pond", price: 150000, description: "A peaceful water feature for your home.", width: 25, image: "/images/home/furniture/pond.webp", groundAnchor: 85.8 },
 };
 
 /** Floor-space coordinates leave a margin so furniture remains reachable at the scene edges. */

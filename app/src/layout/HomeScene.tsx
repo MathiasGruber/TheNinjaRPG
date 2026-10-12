@@ -146,20 +146,16 @@ export const HomeScene = ({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="font-semibold">
-            {isGuest ? "Guest residence" : HomeTypeDetails[homeType].name}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            {isEditing
-              ? "Arrange your furniture, then save your layout."
-              : "Select an object to use your home."}
-          </p>
-        </div>
+        <p className="text-muted-foreground text-xs">
+          {isEditing
+            ? "Arrange your furniture, then save your layout."
+            : "Select an object to use your home."}
+        </p>
         {canDecorate && !isEditing && (
           <div className="flex gap-2">
             <Button
               variant="outline"
+              className="min-h-11"
               disabled={isBuying}
               onClick={() => {
                 loadSavedLayout();
@@ -170,6 +166,7 @@ export const HomeScene = ({
             </Button>
             <Button
               variant="outline"
+              className="min-h-11"
               ref={shopTriggerRef}
               disabled={isBuying}
               onClick={() => setIsShopOpen(true)}
@@ -182,7 +179,7 @@ export const HomeScene = ({
       <fieldset
         ref={sceneRef}
         aria-label="Home scene"
-        className="relative mx-auto aspect-square w-full max-w-3xl overflow-hidden rounded-xl border bg-[#272f30]"
+        className="relative mx-auto aspect-[4/3] w-full max-w-3xl overflow-hidden rounded-lg border border-stone-700/40 bg-[#24211c] shadow-md"
       >
         {!hasImageError && (
           <Image
@@ -211,8 +208,12 @@ export const HomeScene = ({
         {placements.map((placement) => {
           const details = HomeFurnitureDetails[placement.id];
           const isSelected = isEditing && selectedId === placement.id;
-          const x = 50 + (placement.x - placement.y) * 0.44;
-          const y = 28 + (placement.x + placement.y) * 0.22;
+          const x =
+            HOME_FLOOR_PROJECTION.x + placement.x * HOME_FLOOR_PROJECTION.scaleX;
+          const y =
+            HOME_FLOOR_PROJECTION.y +
+            placement.y * HOME_FLOOR_PROJECTION.scaleY +
+            (placement.id === "garden" ? HOME_FLOOR_PROJECTION.gardenOffsetY : 0);
           const label = isEditing
             ? `Move ${details.name}`
             : placement.id === "bed"
@@ -228,9 +229,13 @@ export const HomeScene = ({
                     : details.name;
           const image = (
             <>
-              <FurnitureImage id={placement.id} rotation={placement.rotation} />
+              <FurnitureImage
+                id={placement.id}
+                rotation={placement.rotation}
+                isGroundAnchored
+              />
               {details.action && !isEditing && (
-                <span className="pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/85 px-2 py-1 text-white text-xs shadow-sm">
+                <span className="pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/85 px-2 py-1 text-white text-xs opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                   {details.name}
                   {placement.id === "bed" && isAsleep ? " · asleep" : ""}
                 </span>
@@ -238,7 +243,7 @@ export const HomeScene = ({
             </>
           );
           const className = cn(
-            "absolute min-h-11 min-w-11 -translate-x-1/2 -translate-y-full cursor-pointer rounded-lg border-2 border-transparent outline-none focus-visible:border-white",
+            "group absolute min-h-11 min-w-11 -translate-x-1/2 -translate-y-full cursor-pointer rounded-lg border-2 border-transparent outline-none focus-visible:border-white",
             isEditing
               ? "cursor-grab touch-none active:cursor-grabbing"
               : "transition-[filter] hover:brightness-125",
@@ -321,13 +326,13 @@ export const HomeScene = ({
                   !bounds
                 )
                   return;
-                // Invert the shared floor projection; percentages keep a layout stable at any viewport size.
+                // Scale each viewport axis separately; camera and garden offsets cancel in drag deltas.
                 const dx = ((event.clientX - drag.clientX) / bounds.width) * 100;
                 const dy = ((event.clientY - drag.clientY) / bounds.height) * 100;
                 moveFurniture(
                   placement.id,
-                  drag.placement.x + dx / 0.88 + dy / 0.44,
-                  drag.placement.y - dx / 0.88 + dy / 0.44,
+                  drag.placement.x + dx / HOME_FLOOR_PROJECTION.scaleX,
+                  drag.placement.y + dy / HOME_FLOOR_PROJECTION.scaleY,
                 );
               }}
               onPointerUp={(event) => finishDrag(placement.id, event.pointerId)}
@@ -436,10 +441,8 @@ export const HomeScene = ({
                 )}
                 onClick={() => selectFurniture(id)}
               >
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <div className="absolute inset-x-0 bottom-0">
-                    <FurnitureImage id={id} rotation={0} />
-                  </div>
+                <div className="aspect-[4/3]">
+                  <FurnitureImage id={id} rotation={0} />
                 </div>
                 <span>{HomeFurnitureDetails[id].name}</span>
                 <span className="block text-muted-foreground">
@@ -584,10 +587,8 @@ export const HomeScene = ({
                 key={id}
                 className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3"
               >
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <div className="absolute inset-x-0 bottom-0">
-                    <FurnitureImage id={id} rotation={0} />
-                  </div>
+                <div className="aspect-[4/3]">
+                  <FurnitureImage id={id} rotation={0} />
                 </div>
                 <p className="font-semibold text-sm">{details.name}</p>
                 <p className="grow text-muted-foreground text-xs">
@@ -618,18 +619,45 @@ export const HomeScene = ({
   );
 };
 
-/** Transparent sprites use a bottom-center ground anchor and mirror to change facing. */
-const FurnitureImage = ({ id, rotation }: { id: HomeFurnitureId; rotation: 0 | 1 }) => (
-  <Image
-    src={HomeFurnitureDetails[id].image}
-    alt=""
-    width={400}
-    height={400}
-    className="pointer-events-none h-auto w-full select-none"
-    style={{ transform: rotation === 1 ? "scaleX(-1)" : undefined }}
-    draggable={false}
-  />
-);
+/** Align visible ground despite transparent padding; previews retain the complete sprite frame. */
+const FurnitureImage = ({
+  id,
+  rotation,
+  isGroundAnchored = false,
+}: {
+  id: HomeFurnitureId;
+  rotation: 0 | 1;
+  isGroundAnchored?: boolean;
+}) => {
+  const details = HomeFurnitureDetails[id];
+  const groundOffset = isGroundAnchored ? 100 - details.groundAnchor : 0;
+  return (
+    <Image
+      src={details.image}
+      alt=""
+      width={400}
+      height={300}
+      className="pointer-events-none h-auto w-full select-none object-contain"
+      style={{
+        transform: `translateY(${groundOffset}%) scaleX(${rotation === 1 ? -1 : 1})`,
+      }}
+      draggable={false}
+    />
+  );
+};
+
+/**
+ * Every room uses the same overhead camera. Its inset floor leaves room for walls
+ * and reachable furniture edges; the garden sits beyond the front wall outdoors.
+ * These screen percentages preserve normalized saved placements across home tiers.
+ */
+const HOME_FLOOR_PROJECTION = {
+  x: 18,
+  y: 30,
+  scaleX: 0.64,
+  scaleY: 0.5,
+  gardenOffsetY: 14,
+} as const;
 
 /** Keep a furniture anchor inside the usable floor, including keyboard and cancelled drags. */
 const clampPosition = (value: number) =>
@@ -638,26 +666,26 @@ const clampPosition = (value: number) =>
     Math.min(HOME_FURNITURE_POSITION_MAX, Math.round(value * 100) / 100),
   );
 
-/** Keyboard and toolbar movement use the same isometric floor offsets. */
+/** Keyboard and toolbar movement follow the overhead camera's horizontal and vertical axes. */
 const FURNITURE_DIRECTIONS = [
-  { key: "ArrowLeft", icon: ArrowLeft, label: "left", dx: -2, dy: 2 },
-  { key: "ArrowUp", icon: ArrowUp, label: "up", dx: -2, dy: -2 },
-  { key: "ArrowDown", icon: ArrowDown, label: "down", dx: 2, dy: 2 },
-  { key: "ArrowRight", icon: ArrowRight, label: "right", dx: 2, dy: -2 },
+  { key: "ArrowLeft", icon: ArrowLeft, label: "left", dx: -2, dy: 0 },
+  { key: "ArrowUp", icon: ArrowUp, label: "up", dx: 0, dy: -2 },
+  { key: "ArrowDown", icon: ArrowDown, label: "down", dx: 0, dy: 2 },
+  { key: "ArrowRight", icon: ArrowRight, label: "right", dx: 2, dy: 0 },
 ] as const;
 
-/** Unfurnished original room shells share the editor's isometric floor projection. */
+/** Unfurnished room shells share the editor's overhead floor projection. */
 export const HOME_SCENE_IMAGES = {
-  NONE: "/images/home/tent.svg",
-  STUDIO_APARTMENT: "/images/home/studio-apartment.svg",
-  ONE_BED_APARTMENT: "/images/home/one-bed-apartment.svg",
-  TWO_BED_HOUSE: "/images/home/two-bed-house.svg",
-  TOWN_HOUSE: "/images/home/town-house.svg",
-  SMALL_MANSION: "/images/home/small-mansion.svg",
-  SMALL_ESTATE: "/images/home/small-estate.svg",
-  LARGE_ESTATE: "/images/home/large-estate.svg",
-  PALACE: "/images/home/palace.svg",
-  MARSHMALLOWOPOLIS: "/images/home/marshmallowopolis.svg",
+  NONE: "/images/home/tent.webp",
+  STUDIO_APARTMENT: "/images/home/studio-apartment.webp",
+  ONE_BED_APARTMENT: "/images/home/one-bed-apartment.webp",
+  TWO_BED_HOUSE: "/images/home/two-bed-house.webp",
+  TOWN_HOUSE: "/images/home/town-house.webp",
+  SMALL_MANSION: "/images/home/small-mansion.webp",
+  SMALL_ESTATE: "/images/home/small-estate.webp",
+  LARGE_ESTATE: "/images/home/large-estate.webp",
+  PALACE: "/images/home/palace.webp",
+  MARSHMALLOWOPOLIS: "/images/home/marshmallowopolis.webp",
 } satisfies Record<HomeType, string>;
 
 type HomeDraft = { homeType: HomeType; revision: number; placements: HomePlacement[] };

@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { type ImgHTMLAttributes, type AnchorHTMLAttributes, type ComponentProps, useState } from "react";
 import { HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
 import { HomeScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
+import { getDefaultHomeLayout } from "@/libs/home";
 
 // Wrapper stubs isolate the scene's routing destinations and image-failure handling.
 vi.mock("@/layout/Image", () => ({
@@ -108,6 +109,57 @@ describe("Home scene", () => {
     expect(props.onSleep).not.toHaveBeenCalled();
     fireEvent.click(view.getByRole("button", { name: "Cancel" }));
     expect(view.getByRole("button", { name: "Bed: Go to sleep" }).style.left).toBe(before);
+  });
+
+  it.each([
+    { id: "bed", name: "Bed", width: 800, height: 600, dx: 48, dy: 24, groundY: 55 },
+    { id: "bed", name: "Bed", width: 400, height: 300, dx: 24, dy: 12, groundY: 55 },
+    { id: "garden", name: "Garden", width: 800, height: 600, dx: 48, dy: 24, groundY: 69 },
+    { id: "garden", name: "Garden", width: 400, height: 300, dx: 24, dy: 12, groundY: 69 },
+  ] as const)(
+    "keeps $id under the pointer in a $width by $height scene and saves normalized coordinates",
+    async ({ id, name, width, height, dx, dy, groundY }) => {
+      const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+      const layout = getDefaultHomeLayout().map((placement) => ({ ...placement, x: 50, y: 50 }));
+      const view = render(<HomeScene {...props} canDecorate layout={layout} onSave={onSave} />);
+      fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      const furniture = view.getByRole("button", { name: `Move ${name}` });
+      furniture.setPointerCapture = vi.fn();
+      view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+        new DOMRect(0, 0, width, height);
+      const before = [Number.parseFloat(furniture.style.left), Number.parseFloat(furniture.style.top)];
+      expect(before).toEqual([50, groundY]);
+
+      firePointerEvent(furniture, "pointerdown", 1, 110, 140);
+      firePointerEvent(furniture, "pointermove", 1, 110 + dx, 140 + dy);
+      expect((Number.parseFloat(furniture.style.left) - before[0]!) * width / 100).toBeCloseTo(dx, 1);
+      expect((Number.parseFloat(furniture.style.top) - before[1]!) * height / 100).toBeCloseTo(dy, 1);
+      firePointerEvent(furniture, "pointerup", 1, 110 + dx, 140 + dy);
+      fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(onSave.mock.calls[0]![0].placements.find((placement) => placement.id === id)).toEqual({
+        id, x: 59.38, y: 58, rotation: 0,
+      });
+      expect(layout.find((placement) => placement.id === id)).toEqual({ id, x: 50, y: 50, rotation: 0 });
+    },
+  );
+
+  it.each([
+    { key: "ArrowLeft", x: 48, y: 50 },
+    { key: "ArrowUp", x: 50, y: 48 },
+    { key: "ArrowDown", x: 50, y: 52 },
+    { key: "ArrowRight", x: 52, y: 50 },
+  ])("moves $key along the floor axis without changing the other coordinate", async ({ key, x, y }) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const layout = getDefaultHomeLayout().map((placement) => ({ ...placement, x: 50, y: 50 }));
+    const view = render(<HomeScene {...props} canDecorate layout={layout} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.keyDown(view.getByRole("button", { name: "Move Bed" }), { key });
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements.find((placement) => placement.id === "bed")).toEqual({
+      id: "bed", x, y, rotation: 0,
+    });
   });
 
   it.each(["Cancel", "Reload saved layout", "Reset arrangement"])(
