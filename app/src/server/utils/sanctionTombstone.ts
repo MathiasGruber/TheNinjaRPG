@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { clerkClient } from "@clerk/nextjs/server";
-import { and, eq, gt, inArray, lte, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   type BanState,
@@ -66,6 +66,8 @@ const REAPPLIED_STATE: Record<SanctionTombstoneType, BanState> = {
   BAN: "BAN_ACTIVATED",
   SILENCE: "SILENCE_ACTIVATED",
 };
+
+export const SANCTION_SOURCE_CHANGED = Symbol("sanctionSourceChanged");
 
 /**
  * Fold Gmail's documented aliases. Other providers can treat plus signs and dots as
@@ -332,6 +334,9 @@ export const reapplySanctions = (
           `Matched by: ${match.matchedBy.join(", ")}`,
         ],
       }),
+      // Claim the same active decisions and identifiers that supported the match. A
+      // mismatch aborts the registration transaction, including every report and link.
+      // Other registrations may append links without changing this source's authority.
       client
         .update(sanctionTombstone)
         .set({
@@ -343,10 +348,22 @@ export const reapplySanctions = (
               and(
                 eq(sanctionTombstone.userId, source.userId),
                 eq(sanctionTombstone.sourceId, source.sourceId),
+                eq(sanctionTombstone.sanction, source.sanction),
+                eq(sanctionTombstone.sanctionEndsAt, source.sanctionEndsAt),
+                gt(sanctionTombstone.sanctionEndsAt, new Date()),
+                source.emailHash
+                  ? eq(sanctionTombstone.emailHash, source.emailHash)
+                  : isNull(sanctionTombstone.emailHash),
+                sql`${sanctionTombstone.accountHashes} = CAST(${JSON.stringify(source.accountHashes)} AS JSON)`,
               ),
             ),
           ),
-        ),
+        )
+        .then((result) => {
+          if (result.rowsAffected !== match.tombstones.length) {
+            throw SANCTION_SOURCE_CHANGED;
+          }
+        }),
     ];
   });
 

@@ -39,6 +39,7 @@ import {
   fetchSanctionIdentity,
   matchSanctionTombstones,
   reapplySanctions,
+  SANCTION_SOURCE_CHANGED,
 } from "@/server/utils/sanctionTombstone";
 import { checkForBadWords } from "@/utils/profanity";
 import { secondsFromNow } from "@/utils/time";
@@ -230,16 +231,6 @@ export const registerRouter = createTRPCRouter({
             await fetchSanctionIdentity(ctx.userId),
           )
         : [];
-      if (storeAlias) {
-        await ctx.drizzle
-          .delete(storeUserIdAlias)
-          .where(
-            and(
-              eq(storeUserIdAlias.oldUserId, ctx.userId),
-              eq(storeUserIdAlias.newUserId, storeAlias.newUserId),
-            ),
-          );
-      }
       const createUser = (client: DrizzleClient) =>
         client
           .insert(userData)
@@ -267,14 +258,32 @@ export const registerRouter = createTRPCRouter({
       // Ban lookups clear flags without an active report. Publish the character and its
       // carryover records atomically, before ledger settlement or other signup writes.
       const createdUser = sanctions.length
-        ? await ctx.drizzle.transaction(async (tx) => {
-            const created = await createUser(tx);
-            if (created.rowsAffected !== 0) {
-              await Promise.all(reapplySanctions(tx, ctx.userId, sanctions));
-            }
-            return created;
-          })
+        ? await ctx.drizzle
+            .transaction(async (tx) => {
+              const created = await createUser(tx);
+              if (created.rowsAffected !== 0) {
+                await Promise.all(reapplySanctions(tx, ctx.userId, sanctions));
+              }
+              return created;
+            })
+            .catch((error: unknown) => {
+              if (error === SANCTION_SOURCE_CHANGED) return null;
+              throw error;
+            })
         : await createUser(ctx.drizzle);
+      if (!createdUser) {
+        return errorResponse("Account sanctions changed, please try again");
+      }
+      if (storeAlias) {
+        await ctx.drizzle
+          .delete(storeUserIdAlias)
+          .where(
+            and(
+              eq(storeUserIdAlias.oldUserId, ctx.userId),
+              eq(storeUserIdAlias.newUserId, storeAlias.newUserId),
+            ),
+          );
+      }
       // The row exists either way now, so settle before answering a duplicate.
       if (hasLedger) await settleRecordedLedger(ctx.drizzle, ctx.userId);
       if (createdUser.rowsAffected === 0) {
