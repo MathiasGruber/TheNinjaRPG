@@ -47,6 +47,7 @@ import {
   protectedProcedure,
   serverError,
 } from "@/server/api/trpc";
+import { clearSanctionTombstones } from "@/server/utils/sanctionTombstone";
 import {
   canBanUsers,
   canClearReport,
@@ -817,6 +818,20 @@ export const reportsRouter = createTRPCRouter({
           }),
         ]);
         await Promise.all([
+          clearSanctionTombstones(
+            ctx.drizzle,
+            reportedUserId,
+            report.id,
+            "BAN",
+            bans.length > 0,
+          ),
+          clearSanctionTombstones(
+            ctx.drizzle,
+            reportedUserId,
+            report.id,
+            "SILENCE",
+            activeSilenceOrTimeout.length > 0,
+          ),
           ...(bans.length === 0
             ? [
                 ctx.drizzle

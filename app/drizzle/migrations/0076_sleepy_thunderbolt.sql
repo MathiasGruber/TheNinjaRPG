@@ -5,6 +5,7 @@ CREATE TABLE `SanctionTombstone` (
 	`reportIds` json NOT NULL,
 	`emailHash` varchar(64),
 	`accountHashes` json NOT NULL,
+	`carryoverReportIds` json NOT NULL DEFAULT ('[]'),
 	`createdAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
 	CONSTRAINT `SanctionTombstone_userId_sanction_pk` PRIMARY KEY(`userId`,`sanction`)
 );

@@ -6305,10 +6305,15 @@ export const sanctionTombstone = mysqlTable(
     sanctionEndsAt: datetime("sanctionEndsAt", { mode: "date", fsp: 3 }).notNull(),
     /** UserReport ids that imposed the sanction on the deleted account. */
     reportIds: json("reportIds").$type<string[]>().notNull(),
-    /** Keyed hash of the normalized primary email, when Clerk had one. */
+    /** Keyed hash of the verified primary email, when Clerk had one. */
     emailHash: varchar("emailHash", { length: 64 }),
     /** Keyed hashes of each linked OAuth provider and provider user id. */
     accountHashes: json("accountHashes").$type<string[]>().notNull(),
+    /** Carryover reports whose clearing must also retire this retained sanction. */
+    carryoverReportIds: json("carryoverReportIds")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

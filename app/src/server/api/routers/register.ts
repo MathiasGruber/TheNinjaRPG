@@ -27,6 +27,7 @@ import {
   errorResponse,
   protectedProcedure,
 } from "@/server/api/trpc";
+import type { DrizzleClient } from "@/server/db";
 import { hashIp } from "@/server/utils/ipHash";
 import {
   isDeletedStoreUserId,
@@ -239,29 +240,41 @@ export const registerRouter = createTRPCRouter({
             ),
           );
       }
-      const createdUser = await ctx.drizzle
-        .insert(userData)
-        .values({
-          userId: ctx.userId,
-          lastIp: ctx.userIp,
-          recruiterId: input.recruiter_userid,
-          username: input.username,
-          gender: input.gender,
-          avatar: IMG_DEFAULT_PROFILE_PICTURE,
-          villageId: villageData.id,
-          bloodlineId: selectedBloodline.id,
-          approvedTos: true,
-          sector: villageData.sector,
-          extraJutsuSlots: 0,
-          immunityUntil: secondsFromNow(24 * 3600),
-          musicOn: input.musicOn ?? true,
-          sfxOn: input.sfxOn ?? true,
-          buttonSfxOn: input.buttonSfxOn ?? true,
-          isBanned: sanctions.some((match) => match.sanction === "BAN"),
-          isSilenced: sanctions.some((match) => match.sanction === "SILENCE"),
-          ...(reminder ? { earnedExperience: 10000 } : {}),
-        })
-        .onDuplicateKeyUpdate({ set: { userId: sql`userId` } });
+      const createUser = (client: DrizzleClient) =>
+        client
+          .insert(userData)
+          .values({
+            userId: ctx.userId,
+            lastIp: ctx.userIp,
+            recruiterId: input.recruiter_userid,
+            username: input.username,
+            gender: input.gender,
+            avatar: IMG_DEFAULT_PROFILE_PICTURE,
+            villageId: villageData.id,
+            bloodlineId: selectedBloodline.id,
+            approvedTos: true,
+            sector: villageData.sector,
+            extraJutsuSlots: 0,
+            immunityUntil: secondsFromNow(24 * 3600),
+            musicOn: input.musicOn ?? true,
+            sfxOn: input.sfxOn ?? true,
+            buttonSfxOn: input.buttonSfxOn ?? true,
+            isBanned: sanctions.some((match) => match.sanction === "BAN"),
+            isSilenced: sanctions.some((match) => match.sanction === "SILENCE"),
+            ...(reminder ? { earnedExperience: 10000 } : {}),
+          })
+          .onDuplicateKeyUpdate({ set: { userId: sql`userId` } });
+      // Ban lookups clear flags without an active report. Publish the character and its
+      // carryover records atomically, before ledger settlement or other signup writes.
+      const createdUser = sanctions.length
+        ? await ctx.drizzle.transaction(async (tx) => {
+            const created = await createUser(tx);
+            if (created.rowsAffected !== 0) {
+              await Promise.all(reapplySanctions(tx, ctx.userId, sanctions));
+            }
+            return created;
+          })
+        : await createUser(ctx.drizzle);
       // The row exists either way now, so settle before answering a duplicate.
       if (hasLedger) await settleRecordedLedger(ctx.drizzle, ctx.userId);
       if (createdUser.rowsAffected === 0) {
@@ -343,7 +356,6 @@ export const registerRouter = createTRPCRouter({
                 }),
             ]
           : []),
-        ...reapplySanctions(ctx.drizzle, ctx.userId, sanctions),
       ]);
       return { success: true, message: "Character created" };
     }),

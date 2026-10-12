@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as clerk from "@clerk/nextjs/server";
 import { and, eq } from "drizzle-orm";
+import * as ids from "nanoid";
 import {
   actionLog,
   bloodline,
@@ -12,8 +13,10 @@ import {
 } from "@/drizzle/schema";
 import { profileRouter } from "@/routers/profile";
 import { registerRouter } from "@/server/api/routers/register";
+import { reportsRouter } from "@/server/api/routers/reports";
 import { deleteUser } from "@/server/api/routers/staff";
 import { removeAccountIdentity } from "@/server/utils/accountDeletion/identity";
+import * as sanctions from "@/server/utils/sanctionTombstone";
 import {
   hashSanctionIdentifier,
   normalizeEmail,
@@ -104,9 +107,9 @@ const tombstonesOf = async (userId: string) =>
   });
 
 describe("sanction identifier normalization", () => {
-  it("hashes plus-tags, case and Gmail dots of one mailbox alike", () => {
+  it("folds Gmail aliases and preserves distinct local parts at other providers", () => {
     expect(normalizeEmail(" J.Doe+alt@GoogleMail.com ")).toBe("jdoe@gmail.com");
-    expect(normalizeEmail("j.doe+x@example.com")).toBe("j.doe@example.com");
+    expect(normalizeEmail("j.doe+x@example.com")).toBe("j.doe+x@example.com");
     expect(hashSanctionIdentifier("email", "a@b.c")).not.toBe(
       hashSanctionIdentifier("oauth", "a@b.c"),
     );
@@ -128,7 +131,12 @@ describeWithDatabase("sanction tombstones", () => {
     await Promise.all([
       database
         .insert(village)
-        .values({ id: "tombstone-horizon", name: "Horizon", sector: 1, kageId: "kage" }),
+        .values({
+          id: "tombstone-horizon",
+          name: "Horizon",
+          sector: 1,
+          kageId: "kage",
+        }),
       database.insert(bloodline).values({
         id: "tombstone-bloodline",
         name: "tombstone bloodline",
@@ -147,7 +155,9 @@ describeWithDatabase("sanction tombstones", () => {
 
   it("records a running sanction with hashed identifiers only, before the reports go", async () => {
     const silenceEnd = new Date(Date.now() + 30 * DAY);
-    await insertUsers([{ userId: SANCTIONED, username: "Sanctioned", isSilenced: true }]);
+    await insertUsers([
+      { userId: SANCTIONED, username: "Sanctioned", isSilenced: true },
+    ]);
     await addSanction(SANCTIONED, "SILENCE_ACTIVATED", silenceEnd);
     await addSanction(SANCTIONED, "TIMEOUT_ACTIVATED", new Date(Date.now() + DAY));
     stubClerk({
@@ -163,7 +173,7 @@ describeWithDatabase("sanction tombstones", () => {
     expect(tombstone).toMatchObject({
       sanction: "SILENCE",
       sanctionEndsAt: silenceEnd,
-      emailHash: hashSanctionIdentifier("email", "player@example.com"),
+      emailHash: hashSanctionIdentifier("email", "player+evade@example.com"),
       accountHashes: [hashSanctionIdentifier("oauth", "google:google-123")],
     });
     expect([...(tombstone?.reportIds ?? [])].sort()).toEqual([
@@ -228,11 +238,19 @@ describeWithDatabase("sanction tombstones", () => {
     ]);
     expect(user).toMatchObject({ isBanned: true, isSilenced: false });
     expect(reports).toMatchObject([
-      { status: "BAN_ACTIVATED", banEnd, system: "sanction_carryover", adminResolved: true },
+      {
+        status: "BAN_ACTIVATED",
+        banEnd,
+        system: "sanction_carryover",
+        adminResolved: true,
+      },
     ]);
     expect(reports[0]?.reason).not.toContain("original-ban");
     expect(logs).toHaveLength(1);
-    expect(logs[0]).toMatchObject({ tableName: "userReport", relatedId: reports[0]?.id });
+    expect(logs[0]).toMatchObject({
+      tableName: "userReport",
+      relatedId: reports[0]?.id,
+    });
     expect(logs[0]?.changes).toContain("Original reports: original-ban");
     expect(logs[0]?.changes).toContain("Matched by: clerkId, email");
   });
@@ -245,11 +263,11 @@ describeWithDatabase("sanction tombstones", () => {
         sanction: "SILENCE",
         sanctionEndsAt: silenceEnd,
         reportIds: ["original-silence"],
-        emailHash: hashSanctionIdentifier("email", "returner@example.com"),
+        emailHash: hashSanctionIdentifier("email", "returner@gmail.com"),
         accountHashes: [],
       }),
     );
-    stubClerk({ user_returning: identity("Returner+2@EXAMPLE.com") });
+    stubClerk({ user_returning: identity("R.e.t.u.r.n.e.r+2@GoogleMail.com") });
 
     expect(await register("user_returning")).toMatchObject({ success: true });
 
@@ -290,8 +308,11 @@ describeWithDatabase("sanction tombstones", () => {
 
     expect(getUser).not.toHaveBeenCalled();
     expect(
-      (await database.query.userData.findFirst({ where: eq(userData.userId, SANCTIONED) }))
-        ?.isBanned,
+      (
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, SANCTIONED),
+        })
+      )?.isBanned,
     ).toBe(false);
     expect(await database.query.userReport.findMany()).toHaveLength(0);
     await removeExpiredSanctionTombstones(database);
@@ -317,8 +338,201 @@ describeWithDatabase("sanction tombstones", () => {
     });
 
     expect(
-      await database.query.userData.findFirst({ where: eq(userData.userId, SANCTIONED) }),
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, SANCTIONED),
+      }),
     ).toBeUndefined();
     expect(await tombstonesOf(SANCTIONED)).toMatchObject([{ sanction: "SILENCE" }]);
+  });
+
+  it("does not retain an unverified primary email or sanction its verified owner", async () => {
+    await insertUsers([{ userId: SANCTIONED, isBanned: true }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
+    const unverified = identity("another-owner@example.com");
+    unverified.emailAddresses[0]!.verification = { status: "unverified" };
+    stubClerk({
+      [SANCTIONED]: unverified,
+      user_owner: identity("another-owner@example.com"),
+    });
+
+    await deleteUser(await getTestDatabase(), SANCTIONED);
+    expect(await tombstonesOf(SANCTIONED)).toMatchObject([{ emailHash: null }]);
+    expect(await register("user_owner")).toMatchObject({ success: true });
+    expect(
+      (
+        await (
+          await getTestDatabase()
+        ).query.userData.findFirst({
+          where: eq(userData.userId, "user_owner"),
+        })
+      )?.isBanned,
+    ).toBe(false);
+  });
+
+  it("matches linked OAuth identities after an email change", async () => {
+    await insertUsers([{ userId: SANCTIONED, isBanned: true }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
+    stubClerk({
+      [SANCTIONED]: identity("old@example.com", [
+        { provider: "oauth_google", providerUserId: "same-subject" },
+      ]),
+      user_oauth: identity("new@example.com", [
+        { provider: "google", providerUserId: "same-subject" },
+      ]),
+    });
+    await deleteUser(await getTestDatabase(), SANCTIONED);
+
+    expect(await register("user_oauth")).toMatchObject({ success: true });
+    expect(
+      (
+        await (
+          await getTestDatabase()
+        ).query.userData.findFirst({
+          where: eq(userData.userId, "user_oauth"),
+        })
+      )?.isBanned,
+    ).toBe(true);
+  });
+
+  it("keeps a sanctioned character invisible until its reports are durable", async () => {
+    await insertUsers([{ userId: SANCTIONED, isBanned: true }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
+    stubClerk({ [SANCTIONED]: identity("atomic@example.com") });
+    const database = await getTestDatabase();
+    await deleteUser(database, SANCTIONED);
+    let enter!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    let release!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const reapply = sanctions.reapplySanctions;
+    vi.spyOn(sanctions, "reapplySanctions").mockImplementation((...args) => {
+      enter();
+      return [...reapply(...args), paused] as never;
+    });
+    const registration = register(SANCTIONED);
+    await entered;
+    try {
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, SANCTIONED),
+        }),
+      ).toBeUndefined();
+    } finally {
+      release();
+      await registration;
+    }
+    expect(await (await callerFor(reportsRouter, SANCTIONED)).getBan()).toMatchObject({
+      status: "BAN_ACTIVATED",
+    });
+  });
+
+  it("rolls back the character if a carryover report cannot be saved", async () => {
+    await insertUsers([{ userId: SANCTIONED, isBanned: true }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
+    stubClerk({ [SANCTIONED]: identity("rollback@example.com") });
+    const database = await getTestDatabase();
+    await deleteUser(database, SANCTIONED);
+    await addSanction(
+      "another-user",
+      "BAN_ACTIVATED",
+      new Date(Date.now() + DAY),
+      "conflicting-id",
+    );
+    vi.spyOn(ids, "nanoid").mockReturnValue("conflicting-id");
+
+    await expect(register(SANCTIONED)).rejects.toThrow();
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, SANCTIONED),
+      }),
+    ).toBeUndefined();
+    expect(await tombstonesOf(SANCTIONED)).toMatchObject([{ carryoverReportIds: [] }]);
+    expect(await database.query.userReportComment.findMany()).toHaveLength(0);
+  });
+
+  it("does not resurrect a carryover sanction after staff clear it and the player deletes again", async () => {
+    await insertUsers([{ userId: SANCTIONED, isBanned: true }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
+    stubClerk({
+      [SANCTIONED]: identity("cleared@example.com"),
+      user_cleared: identity("cleared@example.com"),
+    });
+    const database = await getTestDatabase();
+    await deleteUser(database, SANCTIONED);
+    await register("user_cleared");
+    await insertUsers([{ userId: "staff", role: "OWNER" }]);
+    const report = await database.query.userReport.findFirst({
+      where: eq(userReport.reportedUserId, "user_cleared"),
+    });
+
+    expect(
+      await (await callerFor(reportsRouter, "staff")).clear({
+        object_id: report!.id,
+        comment: "Sanction lifted",
+        banTime: 1,
+        banTimeUnit: "days",
+      }),
+    ).toMatchObject({ success: true });
+    expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+    await deleteUser(database, "user_cleared");
+    expect(await register("user_cleared")).toMatchObject({ success: true });
+    expect(
+      (
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, "user_cleared"),
+        })
+      )?.isBanned,
+    ).toBe(false);
+  });
+
+  it("retains other active sanctions when staff clear a carryover ban", async () => {
+    await insertUsers([{ userId: SANCTIONED, isBanned: true, isSilenced: true }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
+    await addSanction(SANCTIONED, "SILENCE_ACTIVATED", new Date(Date.now() + DAY));
+    stubClerk({
+      [SANCTIONED]: identity("multiple@example.com"),
+      user_multiple: identity("multiple@example.com"),
+    });
+    const database = await getTestDatabase();
+    await deleteUser(database, SANCTIONED);
+    await register("user_multiple");
+    await insertUsers([{ userId: "staff", role: "OWNER" }]);
+    await addSanction(
+      "user_multiple",
+      "BAN_ACTIVATED",
+      new Date(Date.now() + 2 * DAY),
+      "another-ban",
+    );
+    const report = await database.query.userReport.findFirst({
+      where: and(
+        eq(userReport.reportedUserId, "user_multiple"),
+        eq(userReport.status, "BAN_ACTIVATED"),
+        eq(userReport.system, "sanction_carryover"),
+      ),
+    });
+
+    expect(
+      await (await callerFor(reportsRouter, "staff")).clear({
+        object_id: report!.id,
+        comment: "Lift inherited ban only",
+        banTime: 1,
+        banTimeUnit: "days",
+      }),
+    ).toMatchObject({ success: true });
+    expect(await tombstonesOf(SANCTIONED)).toMatchObject([{ sanction: "SILENCE" }]);
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "user_multiple"),
+      }),
+    ).toMatchObject({ isBanned: true, isSilenced: true });
+    expect(
+      await database.query.userReport.findFirst({
+        where: eq(userReport.id, "another-ban"),
+      }),
+    ).toMatchObject({ status: "BAN_ACTIVATED" });
   });
 });

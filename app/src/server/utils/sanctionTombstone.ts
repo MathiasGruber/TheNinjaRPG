@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { clerkClient } from "@clerk/nextjs/server";
-import { and, eq, gt, inArray, lte } from "drizzle-orm";
+import { and, eq, gt, inArray, lte, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   type BanState,
@@ -53,6 +53,7 @@ type ActiveSanction = {
 
 export type SanctionMatch = ActiveSanction & {
   matchedBy: ("clerkId" | "email" | "oauth")[];
+  tombstoneUserIds: string[];
 };
 
 const SANCTION_REPORT_STATES = {
@@ -67,14 +68,16 @@ const REAPPLIED_STATE: Record<SanctionTombstoneType, BanState> = {
 };
 
 /**
- * Lowercase, drop a `+tag` and, for Gmail, the dots Gmail ignores, so trivially different
- * spellings of one mailbox hash alike.
+ * Fold Gmail's documented aliases. Other providers can treat plus signs and dots as
+ * distinct mailboxes, so preserve their local parts to avoid sanctioning another owner.
  */
 export const normalizeEmail = (email: string) => {
   const [rawLocal = "", rawDomain = ""] = email.trim().toLowerCase().split("@");
   const domain = rawDomain === "googlemail.com" ? "gmail.com" : rawDomain;
-  let local = rawLocal.split("+")[0] ?? "";
-  if (domain === "gmail.com") local = local.replaceAll(".", "");
+  const local =
+    domain === "gmail.com"
+      ? (rawLocal.split("+")[0] ?? "").replaceAll(".", "")
+      : rawLocal;
   return `${local}@${domain}`;
 };
 
@@ -111,7 +114,7 @@ const primaryEmailHashOf = (identity: SanctionIdentity) => {
   const primary = identity.emailAddresses.find(
     (email) => email.id === identity.primaryEmailAddressId,
   );
-  return primary
+  return primary?.verification?.status === "verified"
     ? hashSanctionIdentifier("email", normalizeEmail(primary.emailAddress))
     : null;
 };
@@ -234,6 +237,7 @@ export const matchSanctionTombstones = (
   const accountHashes = new Set(identity ? accountHashesOf(identity) : []);
   const matches = new Map<SanctionTombstoneType, SanctionMatch>();
   for (const tombstone of tombstones) {
+    if (tombstone.sanctionEndsAt <= new Date()) continue;
     const matchedBy: SanctionMatch["matchedBy"] = [
       ...(tombstone.userId === userId ? (["clerkId"] as const) : []),
       ...(tombstone.emailHash && emailHashes.has(tombstone.emailHash)
@@ -253,6 +257,9 @@ export const matchSanctionTombstones = (
           : tombstone.sanctionEndsAt,
       reportIds: [...new Set([...(current?.reportIds ?? []), ...tombstone.reportIds])],
       matchedBy: [...new Set([...(current?.matchedBy ?? []), ...matchedBy])],
+      tombstoneUserIds: [
+        ...new Set([...(current?.tombstoneUserIds ?? []), tombstone.userId]),
+      ],
     });
   }
   return [...matches.values()];
@@ -307,8 +314,42 @@ export const reapplySanctions = (
           `Matched by: ${match.matchedBy.join(", ")}`,
         ],
       }),
+      client
+        .update(sanctionTombstone)
+        .set({
+          carryoverReportIds: sql`JSON_ARRAY_APPEND(${sanctionTombstone.carryoverReportIds}, '$', ${reportId})`,
+        })
+        .where(
+          and(
+            inArray(sanctionTombstone.userId, match.tombstoneUserIds),
+            eq(sanctionTombstone.sanction, match.sanction),
+          ),
+        ),
     ];
   });
+
+/**
+ * Retire a cleared carryover report's sources. The current account's own tombstone is
+ * removed only when no other active reports enforce that sanction type.
+ */
+export const clearSanctionTombstones = (
+  client: DrizzleClient,
+  userId: string,
+  reportId: string,
+  sanction: SanctionTombstoneType,
+  hasOtherActiveReports: boolean,
+) =>
+  client
+    .delete(sanctionTombstone)
+    .where(
+      and(
+        eq(sanctionTombstone.sanction, sanction),
+        or(
+          hasOtherActiveReports ? undefined : eq(sanctionTombstone.userId, userId),
+          sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`,
+        ),
+      ),
+    );
 
 /** Drop tombstones whose sanction has ended; nothing is kept past the sanction. */
 export const removeExpiredSanctionTombstones = (client: DrizzleClient) =>

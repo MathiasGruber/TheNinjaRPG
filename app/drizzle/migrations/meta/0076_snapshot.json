@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "d4f3f46b-d8d3-4662-9ec2-4397f6b247b8",
+  "id": "23365826-fe73-4500-ab40-f55f8ee6a711",
   "prevId": "e778d58b-c8e8-4503-bf5a-db1f88a0de0e",
   "tables": {
     "AbEvent": {
@@ -11148,6 +11148,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "carryoverReportIds": {
+          "name": "carryoverReportIds",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "('[]')"
         },
         "createdAt": {
           "name": "createdAt",
