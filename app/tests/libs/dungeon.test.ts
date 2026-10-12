@@ -51,6 +51,23 @@ describe("dungeon combat rules", () => {
     advanceDungeonWave(battle);
     expect(battle.usersState.some((u) => u.userId === "template")).toBe(true);
   });
+  it("retains active ground traps when clearing barriers for the next wave", () => {
+    const battle = floorBattle();
+    battle.round = 1;
+    battle.usersState[3]!.curHealth = 0;
+    const spawn = getBattleSpawnLocations(battle.width, battle.height, "right")[0]!;
+    const location = {longitude: spawn.x, latitude: spawn.y, creatorId: "a", createdRound: 0, fromType: "jutsu" as const};
+    const trap = makeEffect("damage", {calculation: "static", power: 100, rounds: 5, friendlyFire: "ENEMIES"}, {...location, targetType: "user"});
+    const barrier = makeEffect("barrier", {rounds: 5}, location);
+    battle.groundEffects.push(trap, barrier);
+    battle.extraState.dungeon!.pendingWaves.push({users: [makeUser({userId: "next", isAi: true, direction: "right"})], effects: [], delayRounds: 0});
+
+    expect(advanceDungeonWave(battle)).toBe(true);
+    expect(battle.groundEffects).toEqual([trap]);
+    const processed = applyEffects(battle, "next").newBattle;
+    expect(processed.usersState.find((u) => u.userId === "next")?.curHealth).toBe(4920);
+    expect(processed.groundEffects).toEqual([expect.objectContaining({id: trap.id, rounds: 5})]);
+  });
   it("keeps defeated enemy effects active and visible through the next wave", () => {
     const battle = floorBattle();
     battle.round = 1;

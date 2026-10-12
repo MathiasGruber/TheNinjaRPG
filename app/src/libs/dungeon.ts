@@ -96,8 +96,9 @@ export const advanceDungeonWave = (battle: CompleteBattle) => {
       u.latitude = p.y;
       u.round = battle.round;
       u.updatedAt = new Date();
+      // Barriers cannot occupy spawn cells; other effects persist through the floor.
       battle.groundEffects = battle.groundEffects.filter(
-        (e) => e.longitude !== p.x || e.latitude !== p.y,
+        (e) => e.type !== "barrier" || e.longitude !== p.x || e.latitude !== p.y,
       );
     });
   battle.usersEffects = [...battle.usersEffects, ...next.effects];

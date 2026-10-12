@@ -34,7 +34,11 @@ export default function DungeonPage() {
   const selected = useWatch({ control: form.control, name: "users" });
   const available = api.dungeon.getAvailable.useQuery(
     { sector: user?.sector ?? 1 },
-    { enabled: !!user },
+    {
+      enabled: !!user,
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
   );
   const state = api.dungeon.getState.useQuery(undefined, {
     enabled: !!user,

@@ -23,6 +23,7 @@ import { type DungeonContent, dungeonContentSchema } from "@/validators/dungeon"
 
 export default function DungeonEditor() {
   const { data: user } = useUserData();
+  const utils = api.useUtils();
   const allowed = !!user && canChangeContent(user.role);
   const [id, setId] = useState<string>();
   const [content, setContent] = useState<DungeonContent>(newDungeon());
@@ -40,7 +41,10 @@ export default function DungeonEditor() {
       showMutationToast(result);
       if (result.success && "id" in result) {
         setId(result.id);
-        await definitions.refetch();
+        await Promise.all([
+          definitions.refetch(),
+          utils.dungeon.getAvailable.invalidate(),
+        ]);
       }
     },
     onError: (error) => setMessage(error.message),

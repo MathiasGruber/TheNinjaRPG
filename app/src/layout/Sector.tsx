@@ -443,6 +443,8 @@ const Sector: React.FC<SectorProps> = (props) => {
     { sector },
     {
       enabled: userData?.sector === sector,
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
     },
   );
   const dungeonStructures = useMemo(
