@@ -127,3 +127,29 @@ export const stripBlockquotes = (html: string) =>
     ...sanitizeOptions,
     exclusiveFilter: (frame) => frame.tag === "blockquote",
   });
+
+/** Preserve link and supported embed destinations as untrusted evidence. */
+export const moderationLinks = (html: string): string[] => {
+  const links: string[] = [];
+  const preserveDestination: sanitizeHtml.Transformer = (tagName, attribs) => {
+    const destination = tagName === "a" ? attribs.href : attribs.src;
+    if (destination) links.push(destination);
+    return { tagName, attribs };
+  };
+  sanitizeHtml(html, {
+    transformTags: {
+      a: preserveDestination,
+      img: preserveDestination,
+      iframe: preserveDestination,
+    },
+  });
+  return [...new Set(links)];
+};
+
+export const htmlToModerationInput = (html: string) => {
+  const links = moderationLinks(html);
+  return [
+    htmlToModerationText(html),
+    ...links.map((link) => `Link destination: ${link}`),
+  ].join("\n");
+};

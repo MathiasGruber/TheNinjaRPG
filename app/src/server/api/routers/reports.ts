@@ -5,6 +5,7 @@ import {
   getTableColumns,
   gte,
   inArray,
+  isNull,
   like,
   lte,
   ne,
@@ -14,13 +15,18 @@ import { alias } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { AutomoderationCategory, BanState } from "@/drizzle/constants";
-import { TERR_BOT_ID } from "@/drizzle/constants";
+import {
+  MODERATION_PROMPT_VERSION,
+  OPENAI_MODERATION_MODEL,
+} from "@/drizzle/constants";
 import {
   automatedModeration,
   battleAction,
+  conversation,
   conversationComment,
   forumPost,
   historicalAvatar,
+  moderationScan,
   reportLog,
   userData,
   userNindo,
@@ -28,7 +34,9 @@ import {
   userReportComment,
   userReview,
 } from "@/drizzle/schema";
+import { buildModerationEvidence } from "@/libs/moderation/evidence";
 import { getRelatedReports } from "@/libs/moderation/reportSearch";
+import { buildModBotStats } from "@/libs/moderation/stats";
 import { generateModerationDecision, getAdditionalContext } from "@/libs/moderator";
 import { getServerPusher } from "@/libs/pusher";
 import { createUserAvatar } from "@/routers/avatar";
@@ -52,12 +60,18 @@ import {
   canSilenceUsers,
   canTimeoutUsers,
   canWarnUsers,
+  isStaffRole,
 } from "@/utils/permissions";
 import sanitize from "@/utils/sanitize";
-import { getMillisecondsFromTimeUnit, secondsFromNow } from "@/utils/time";
+import {
+  getMillisecondsFromTimeUnit,
+  getUtcDayWindowStart,
+  secondsFromNow,
+} from "@/utils/time";
 import { idSchema } from "@/validators/misc";
 import type { AdditionalContext, ReportCommentSchema } from "@/validators/reports";
 import {
+  modBotPerformanceSchema,
   reportCommentSchema,
   reportFilteringSchema,
   reportTimeoutSchema,
@@ -118,78 +132,53 @@ export const reportsRouter = createTRPCRouter({
     return { staff, timesReported, timesReporting, decisions };
   }),
   getModBotPerformance: protectedProcedure
-    .input(z.object({ timeframe: z.enum(["daily", "weekly"]) }))
+    .input(modBotPerformanceSchema)
     .query(async ({ ctx, input }) => {
-      // Query selector
-      const selector =
-        input.timeframe === "daily"
-          ? {
-              year: sql<number>`YEAR(CAST(${userReport.createdAt} AS DATE))`,
-              time: sql<number>`DAYOFYEAR(CAST(${userReport.createdAt} AS DATE))`,
-              count: sql`COUNT(${userReport.id})`.mapWith(Number),
-            }
-          : {
-              year: sql<number>`YEAR(CAST(${userReport.createdAt} AS DATE))`,
-              time: sql<number>`WEEK(CAST(${userReport.createdAt} AS DATE))`,
-              count: sql`COUNT(${userReport.id})`.mapWith(Number),
-            };
-      // Where clause
-      const whereClause =
-        input.timeframe === "daily"
-          ? sql`${userReport.createdAt} > CURRENT_TIMESTAMP() -  INTERVAL 30 DAY`
-          : sql`${userReport.createdAt} > CURRENT_TIMESTAMP() -  INTERVAL 4 MONTH`;
-      // Query
-      const [user, totalUserReports, totalBotReports, botReports] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        await ctx.drizzle
-          .select(selector)
-          .from(userReport)
-          .where(
-            and(
-              ne(userReport.reporterUserId, TERR_BOT_ID),
-              ne(userReport.status, "UNVIEWED"),
-              whereClause,
-            ),
-          )
-          .groupBy(selector.year, selector.time),
-        await ctx.drizzle
-          .select(selector)
-          .from(userReport)
-          .where(
-            and(
-              eq(userReport.reporterUserId, TERR_BOT_ID),
-              ne(userReport.status, "UNVIEWED"),
-              ne(userReport.predictedStatus, "REPORT_CLEARED"),
-              whereClause,
-            ),
-          )
-          .groupBy(selector.year, selector.time),
-        await ctx.drizzle
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (!isStaffRole(user.role))
+        throw serverError("UNAUTHORIZED", "Only staff can view bot performance");
+      const now = new Date();
+      const start = getUtcDayWindowStart(input.days, now);
+      const [reports, scans] = await Promise.all([
+        ctx.drizzle
           .select({
-            ...selector,
+            createdAt: userReport.createdAt,
+            reporterUserId: userReport.reporterUserId,
             status: userReport.status,
+            system: userReport.system,
             predictedStatus: userReport.predictedStatus,
+            predictedAt: userReport.predictedAt,
+            promptVersion: userReport.promptVersion,
           })
           .from(userReport)
+          .where(and(gte(userReport.createdAt, start), lte(userReport.createdAt, now))),
+        ctx.drizzle
+          .select({
+            createdAt: sql<Date>`MIN(${moderationScan.createdAt})`.mapWith(
+              moderationScan.createdAt,
+            ),
+            count: sql`COUNT(*)`.mapWith(Number),
+            relationType: moderationScan.relationType,
+            outcome: moderationScan.outcome,
+            flagged: moderationScan.flagged,
+            promptVersion: moderationScan.promptVersion,
+          })
+          .from(moderationScan)
           .where(
             and(
-              eq(userReport.reporterUserId, TERR_BOT_ID),
-              ne(userReport.status, "UNVIEWED"),
-              ne(userReport.predictedStatus, "REPORT_CLEARED"),
-              whereClause,
+              gte(moderationScan.createdAt, start),
+              lte(moderationScan.createdAt, now),
             ),
           )
           .groupBy(
-            selector.year,
-            selector.time,
-            userReport.status,
-            userReport.predictedStatus,
+            sql`DATE(${moderationScan.createdAt})`,
+            moderationScan.relationType,
+            moderationScan.outcome,
+            moderationScan.flagged,
+            moderationScan.promptVersion,
           ),
       ]);
-      if (user.role === "USER") {
-        throw serverError("UNAUTHORIZED", "You cannot view this page");
-      }
-      return { totalUserReports, totalBotReports, botReports };
+      return buildModBotStats(reports, scans, input, now);
     }),
   getUserReports: protectedProcedure
     .input(z.object({ userId: z.string() }))
@@ -434,27 +423,35 @@ export const reportsRouter = createTRPCRouter({
               forumPostData?.createdAt,
               forumPostData?.threadId,
             );
-            await ctx.drizzle
-              .update(forumPost)
-              .set({ isReported: true })
-              .where(eq(forumPost.id, input.system_id));
             return { infraction: forumPostData, context: threadContext };
           }
           case "conversation_comment": {
             const commentData = await ctx.drizzle.query.conversationComment.findFirst({
               where: eq(conversationComment.id, input.system_id),
             });
-            const convoContext = await getAdditionalContext(
-              ctx.drizzle,
-              system,
-              commentData?.createdAt,
-              commentData?.conversationId,
-            );
-            await ctx.drizzle
-              .update(conversationComment)
-              .set({ isReported: true })
-              .where(eq(conversationComment.id, input.system_id));
-            return { infraction: commentData, context: convoContext };
+            const [convoContext, sourceConversation] = await Promise.all([
+              getAdditionalContext(
+                ctx.drizzle,
+                system,
+                commentData?.createdAt,
+                commentData?.conversationId,
+              ),
+              commentData?.conversationId
+                ? ctx.drizzle.query.conversation.findFirst({
+                    columns: { isPublic: true },
+                    where: eq(conversation.id, commentData.conversationId),
+                  })
+                : Promise.resolve(undefined),
+            ]);
+            return {
+              infraction: commentData,
+              context: convoContext,
+              visibility: sourceConversation
+                ? sourceConversation.isPublic
+                  ? ("public" as const)
+                  : ("private" as const)
+                : undefined,
+            };
           }
           case "user_profile":
             return {
@@ -467,10 +464,6 @@ export const reportsRouter = createTRPCRouter({
               context: [],
             };
           case "battle_log": {
-            await ctx.drizzle
-              .update(battleAction)
-              .set({ updatedAt: secondsFromNow(72 * 3600) })
-              .where(eq(battleAction.id, input.system_id));
             return {
               infraction: {
                 content: `<br /><a href="/battlelog/${input.system_id}"><b>Link to Battle Log (available for 72h)<b></a>`,
@@ -482,13 +475,8 @@ export const reportsRouter = createTRPCRouter({
             throw serverError("INTERNAL_SERVER_ERROR", "Invalid report system");
         }
       };
-      // Create interpretation
-      const { infraction, context } = await getInfraction(input.system);
-      const { decision, aiInterpretation } = await generateModerationDecision(
-        ctx.drizzle,
-        JSON.stringify(input),
-        context,
-      );
+      const source = await getInfraction(input.system);
+      const { infraction, context } = source;
       // Guard
       if (!infraction) return errorResponse("Infraction not found");
       if ("isReported" in infraction && infraction.isReported) {
@@ -501,17 +489,60 @@ export const reportsRouter = createTRPCRouter({
           : "userId" in infraction
             ? infraction.userId
             : input.reported_userId;
+      const evidence = buildModerationEvidence({
+        infraction,
+        context,
+        system: input.system,
+        sourceId: input.system_id,
+        reportedUserId,
+        reporterReason: input.reason,
+        visibility: "visibility" in source ? source.visibility : undefined,
+      });
+      // Save evidence before optional AI enrichment so provider failures cannot lose a human report.
       // Mutate
-      await insertUserReport(ctx.drizzle, {
+      const reportId = await insertUserReport(ctx.drizzle, {
         userId: ctx.userId,
         reportedUserId: reportedUserId,
         system: input.system,
         infraction: infraction,
         reason: input.reason,
-        aiInterpretation: aiInterpretation,
-        predictedStatus: decision.createReport,
+        aiInterpretation: "",
+        predictedStatus: null,
         additionalContext: context,
       });
+      if (input.system === "forum_comment") {
+        await ctx.drizzle
+          .update(forumPost)
+          .set({ isReported: true })
+          .where(eq(forumPost.id, input.system_id));
+      } else if (input.system === "conversation_comment") {
+        await ctx.drizzle
+          .update(conversationComment)
+          .set({ isReported: true })
+          .where(eq(conversationComment.id, input.system_id));
+      } else if (input.system === "battle_log") {
+        await ctx.drizzle
+          .update(battleAction)
+          .set({ updatedAt: secondsFromNow(72 * 3600) })
+          .where(eq(battleAction.id, input.system_id));
+      }
+      try {
+        const prediction = await generateModerationDecision(ctx.drizzle, evidence, {
+          excludeReportId: reportId,
+        });
+        await ctx.drizzle
+          .update(userReport)
+          .set({
+            aiInterpretation: prediction.aiInterpretation,
+            predictedStatus: prediction.decision.createReport,
+            predictedAt: new Date(),
+            predictionModel: OPENAI_MODERATION_MODEL,
+            promptVersion: MODERATION_PROMPT_VERSION,
+          })
+          .where(and(eq(userReport.id, reportId), isNull(userReport.predictedAt)));
+      } catch (error) {
+        console.error("Could not enrich saved report with AI prediction", error);
+      }
       // Return
       return {
         success: true,
@@ -1132,11 +1163,12 @@ export const insertUserReport = async (
     additionalContext: AdditionalContext[];
     reason: string;
     aiInterpretation: string;
-    predictedStatus: BanState;
+    predictedStatus: BanState | null;
   },
 ) => {
+  const id = nanoid();
   await client.insert(userReport).values({
-    id: nanoid(),
+    id,
     reporterUserId: info.userId,
     reportedUserId: info.reportedUserId,
     system: info.system,
@@ -1144,8 +1176,12 @@ export const insertUserReport = async (
     aiInterpretation: info.aiInterpretation,
     reason: sanitize(info.reason),
     predictedStatus: info.predictedStatus,
+    predictedAt: info.predictedStatus ? new Date() : null,
+    predictionModel: info.predictedStatus ? OPENAI_MODERATION_MODEL : null,
+    promptVersion: info.predictedStatus ? MODERATION_PROMPT_VERSION : null,
     additionalContext: info.additionalContext,
   });
+  return id;
 };
 
 /**

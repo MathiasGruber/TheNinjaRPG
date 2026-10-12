@@ -1,8 +1,12 @@
 import { z } from "zod";
-import { BanStates } from "@/drizzle/constants";
 
 export const moderationDecisionSchema = z.object({
-  createReport: z.enum(BanStates),
+  createReport: z.enum([
+    "REPORT_CLEARED",
+    "OFFICIAL_WARNING",
+    "SILENCE_ACTIVATED",
+    "BAN_ACTIVATED",
+  ]),
   reasoning: z.string(),
 });
 

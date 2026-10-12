@@ -3,8 +3,9 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { userReport } from "@/drizzle/schema";
 import { checkGameTimer, updateGameSetting } from "@/libs/gamesettings";
+import { buildModerationEvidence } from "@/libs/moderation/evidence";
 import { indexReportEmbeddings } from "@/libs/moderation/reportSearch";
-import { generateModerationDecision } from "@/libs/moderator";
+import { generateAiSummary } from "@/libs/moderator";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 
@@ -25,6 +26,8 @@ export async function GET(request: Request) {
     const reports = await drizzleDB.query.userReport.findMany({
       columns: {
         id: true,
+        system: true,
+        reportedUserId: true,
         infraction: true,
         additionalContext: true,
       },
@@ -39,18 +42,20 @@ export async function GET(request: Request) {
 
     // Generate summaries before indexing eligible resolved reports
     for (const report of reports) {
-      const { decision, aiInterpretation } = await generateModerationDecision(
-        drizzleDB,
-        JSON.stringify(report.infraction),
-        report.additionalContext,
+      const aiInterpretation = await generateAiSummary(
+        buildModerationEvidence({
+          infraction: report.infraction,
+          context: report.additionalContext,
+          system: report.system,
+          reportedUserId: report.reportedUserId ?? undefined,
+        }),
       );
       await drizzleDB
         .update(userReport)
         .set({
           aiInterpretation: aiInterpretation,
-          predictedStatus: decision.createReport,
         })
-        .where(eq(userReport.id, report.id));
+        .where(and(eq(userReport.id, report.id), eq(userReport.aiInterpretation, "")));
     }
 
     await indexReportEmbeddings(drizzleDB);

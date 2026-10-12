@@ -45,6 +45,7 @@ export type UserReviewSchema = z.infer<typeof userReviewSchema>;
 
 export type AdditionalContext = {
   userId: string;
+  authorId?: string;
   username: string;
   avatar: string | null;
   level: number;
@@ -65,3 +66,10 @@ export const reportFilteringSchema = z.object({
   system: z.string().optional(),
 });
 export type ReportFilteringSchema = z.infer<typeof reportFilteringSchema>;
+
+export const modBotPerformanceSchema = z.object({
+  days: z.union([z.literal(7), z.literal(30), z.literal(90)]).default(30),
+  interval: z.enum(["daily", "weekly"]).default("daily"),
+  surface: z.enum(["all", "conversation", "forum", "profile", "other"]).default("all"),
+});
+export type ModBotPerformanceInput = z.infer<typeof modBotPerformanceSchema>;
