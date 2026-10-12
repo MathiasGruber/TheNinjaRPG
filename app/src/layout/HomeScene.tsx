@@ -78,30 +78,34 @@ export const HomeScene = ({
       : "Go to sleep";
   const isTierChanged = draft !== null && draft.homeType !== homeType;
 
-  const moveFurniture = (id: HomeFurnitureId, x: number, y: number) => {
+  const updatePlacements = (
+    transform: (placements: HomePlacement[]) => HomePlacement[],
+  ) => {
     setDraft(
       (current) =>
         current && {
           ...current,
-          placements: current.placements.map((placement) =>
-            placement.id === id
-              ? { ...placement, x: clampPosition(x), y: clampPosition(y) }
-              : placement,
-          ),
+          placements: transform(current.placements),
         },
+    );
+  };
+
+  const moveFurniture = (id: HomeFurnitureId, x: number, y: number) => {
+    updatePlacements((placements) =>
+      placements.map((placement) =>
+        placement.id === id
+          ? { ...placement, x: clampPosition(x), y: clampPosition(y) }
+          : placement,
+      ),
     );
   };
 
   const selectFurniture = (id: HomeFurnitureId) => {
     setSelectedId(id);
-    setDraft(
-      (current) =>
-        current && {
-          ...current,
-          placements: current.placements.some((placement) => placement.id === id)
-            ? current.placements
-            : [...current.placements, { id, x: 50, y: 50, rotation: 0 }],
-        },
+    updatePlacements((placements) =>
+      placements.some((placement) => placement.id === id)
+        ? placements
+        : [...placements, { id, x: 50, y: 50, rotation: 0 }],
     );
   };
 
@@ -319,20 +323,16 @@ export const HomeScene = ({
               }}
               onKeyDown={(event) => {
                 if (!isEditing || isSaving) return;
-                const directions: Record<string, [number, number]> = {
-                  ArrowLeft: [-2, 2],
-                  ArrowRight: [2, -2],
-                  ArrowUp: [-2, -2],
-                  ArrowDown: [2, 2],
-                };
-                const direction = directions[event.key];
+                const direction = FURNITURE_DIRECTIONS.find(
+                  (direction) => direction.key === event.key,
+                );
                 if (!direction) return;
                 event.preventDefault();
                 setSelectedId(placement.id);
                 moveFurniture(
                   placement.id,
-                  placement.x + direction[0],
-                  placement.y + direction[1],
+                  placement.x + direction.dx,
+                  placement.y + direction.dy,
                 );
               }}
             >
@@ -352,14 +352,7 @@ export const HomeScene = ({
             </div>
             {selected && (
               <div className="flex flex-wrap gap-1">
-                {(
-                  [
-                    { icon: ArrowLeft, label: "left", dx: -2, dy: 2 },
-                    { icon: ArrowUp, label: "up", dx: -2, dy: -2 },
-                    { icon: ArrowDown, label: "down", dx: 2, dy: 2 },
-                    { icon: ArrowRight, label: "right", dx: 2, dy: -2 },
-                  ] as const
-                ).map(({ icon: Icon, label, dx, dy }) => (
+                {FURNITURE_DIRECTIONS.map(({ icon: Icon, label, dx, dy }) => (
                   <Button
                     key={label}
                     variant="outline"
@@ -378,19 +371,15 @@ export const HomeScene = ({
                   variant="outline"
                   disabled={isSaving}
                   onClick={() =>
-                    setDraft(
-                      (current) =>
-                        current && {
-                          ...current,
-                          placements: current.placements.map((placement) =>
-                            placement.id === selectedId
-                              ? {
-                                  ...placement,
-                                  rotation: placement.rotation === 0 ? 1 : 0,
-                                }
-                              : placement,
-                          ),
-                        },
+                    updatePlacements((placements) =>
+                      placements.map((placement) =>
+                        placement.id === selectedId
+                          ? {
+                              ...placement,
+                              rotation: placement.rotation === 0 ? 1 : 0,
+                            }
+                          : placement,
+                      ),
                     )
                   }
                 >
@@ -403,14 +392,8 @@ export const HomeScene = ({
                     variant="outline"
                     disabled={isSaving}
                     onClick={() =>
-                      setDraft(
-                        (current) =>
-                          current && {
-                            ...current,
-                            placements: current.placements.filter(
-                              (placement) => placement.id !== selectedId,
-                            ),
-                          },
+                      updatePlacements((placements) =>
+                        placements.filter((placement) => placement.id !== selectedId),
                       )
                     }
                   >
@@ -491,12 +474,7 @@ export const HomeScene = ({
             <Button
               variant="ghost"
               disabled={isSaving}
-              onClick={() =>
-                setDraft(
-                  (current) =>
-                    current && { ...current, placements: getDefaultHomeLayout() },
-                )
-              }
+              onClick={() => updatePlacements(getDefaultHomeLayout)}
             >
               Reset arrangement
             </Button>
@@ -646,6 +624,14 @@ const clampPosition = (value: number) =>
     HOME_FURNITURE_POSITION_MIN,
     Math.min(HOME_FURNITURE_POSITION_MAX, Math.round(value * 100) / 100),
   );
+
+/** Keyboard and toolbar movement use the same isometric floor offsets. */
+const FURNITURE_DIRECTIONS = [
+  { key: "ArrowLeft", icon: ArrowLeft, label: "left", dx: -2, dy: 2 },
+  { key: "ArrowUp", icon: ArrowUp, label: "up", dx: -2, dy: -2 },
+  { key: "ArrowDown", icon: ArrowDown, label: "down", dx: 2, dy: 2 },
+  { key: "ArrowRight", icon: ArrowRight, label: "right", dx: 2, dy: -2 },
+] as const;
 
 /** Unfurnished original room shells share the editor's isometric floor projection. */
 export const HOME_SCENE_IMAGES = {
