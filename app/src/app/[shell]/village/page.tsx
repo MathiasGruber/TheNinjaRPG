@@ -248,6 +248,7 @@ export default function VillageOverview() {
             </AlertDescription>
           </Alert>
         )}
+        {/* Keep mobile building tiles compact to reduce scrolling. */}
         <div className="grid grid-cols-3 items-start sm:grid-cols-4">
           {shownStructures?.map((structure) => (
             <div
