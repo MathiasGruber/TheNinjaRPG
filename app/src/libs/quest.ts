@@ -48,6 +48,7 @@ import {
 import { canPromoteMastery } from "@/libs/masteryProgression";
 import {
   findCompletedPredecessor,
+  findPredecessor,
   isQuestComplete,
   isQuestObjectiveAvailable,
 } from "@/libs/objectives";
@@ -939,6 +940,16 @@ export const getNewTrackers = (
           notifications.push(`Your quest team failed: ${quest.name}`);
           return questTracker;
         }
+        const undeliveredCollections =
+          applyPartyEffects &&
+          questTracker.goals.some(
+            (goal) =>
+              goal.done &&
+              !goal.partyEffectsApplied &&
+              (questTracker.party || goal.partyEffectsApplied === false),
+          )
+            ? getUndeliveredCollectionItems(quest, questTracker)
+            : undefined;
         // Update the goals of the quest
         questTracker.goals = quest.content.objectives.map((objective, i) => {
           // Get the current goal, or create it
@@ -1107,17 +1118,7 @@ export const getNewTrackers = (
               } else if (objective.task === "collect_item") {
                 // Each member carries undelivered quest items, so a collector leaving cannot
                 // strand the team. Replacements never receive already-delivered items.
-                const outstanding = objective.collectItemIds.filter(
-                  (id) =>
-                    !quest.content.objectives.some(
-                      (delivery) =>
-                        delivery.task === "deliver_item" &&
-                        delivery.deliverItemIds.includes(id) &&
-                        questTracker.goals.some(
-                          (goal) => goal.id === delivery.id && goal.done,
-                        ),
-                    ),
-                );
+                const outstanding = undeliveredCollections?.get(objective.id) ?? [];
                 if (outstanding.length > 0)
                   consequences.push({ type: "add_item", ids: outstanding });
               } else if (objective.task === "deliver_item") {
@@ -1683,6 +1684,68 @@ export const getNewTrackers = (
     consequences,
     questIdsUpdated,
   };
+};
+
+/** Match completed deliveries to individual collections, retaining each undelivered copy. */
+const getUndeliveredCollectionItems = (
+  quest: Pick<Quest, "content" | "consecutiveObjectives">,
+  tracker: QuestTrackerType,
+) => {
+  const objectives = quest.content.objectives;
+  const definitions = new Map(objectives.map((objective) => [objective.id, objective]));
+  const goals = new Map(tracker.goals.map((goal) => [goal.id, goal]));
+  let completedObjectives: AllObjectivesType[] = [];
+  if (quest.consecutiveObjectives) {
+    const visited = new Set<string>();
+    let objectiveId = objectives.find(
+      (objective) => !findPredecessor(objectives, objective.id),
+    )?.id;
+    while (objectiveId && !visited.has(objectiveId)) {
+      const objective = definitions.get(objectiveId);
+      const goal = goals.get(objectiveId);
+      if (!objective || !goal?.done) break;
+      visited.add(objectiveId);
+      completedObjectives.push(objective);
+      objectiveId = goal.selectedNextObjectiveId;
+    }
+  } else {
+    const completed = objectives.filter((objective) => goals.get(objective.id)?.done);
+    // Parallel goals have no completion order. Consume applied collections first so
+    // pending delivery removal retires an existing copy while the next copy is granted.
+    const collections = completed.filter(
+      (objective) => objective.task === "collect_item",
+    );
+    collections.sort(
+      (a, b) =>
+        Number(!!goals.get(b.id)?.partyEffectsApplied) -
+        Number(!!goals.get(a.id)?.partyEffectsApplied),
+    );
+    completedObjectives = [
+      ...collections,
+      ...completed.filter((objective) => objective.task === "deliver_item"),
+    ];
+  }
+
+  const outstanding = new Map<string, string[]>();
+  const collectionsByItem = new Map<string, string[]>();
+  for (const objective of completedObjectives) {
+    if (objective.task === "collect_item") {
+      outstanding.set(objective.id, [...objective.collectItemIds]);
+      for (const itemId of objective.collectItemIds) {
+        const collections = collectionsByItem.get(itemId) ?? [];
+        collections.push(objective.id);
+        collectionsByItem.set(itemId, collections);
+      }
+    } else if (objective.task === "deliver_item") {
+      // The consequence handler retires one owned row per distinct item ID.
+      for (const itemId of new Set(objective.deliverItemIds)) {
+        const collectionId = collectionsByItem.get(itemId)?.shift();
+        const items = collectionId ? outstanding.get(collectionId) : undefined;
+        if (items) items.splice(items.indexOf(itemId), 1);
+      }
+    }
+  }
+  return outstanding;
 };
 
 // Type returned by getNewTrackers

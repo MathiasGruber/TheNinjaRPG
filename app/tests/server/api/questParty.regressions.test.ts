@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import type { UserItem } from "@/drizzle/schema";
 import { aiProfile, battle, battleHistory, quest, questHistory, questParty, overworldAiPlacement, item, userItem, userData, user2conversation, village, villageStructure } from "@/drizzle/schema";
 import * as Sentry from "@sentry/nextjs";
-import { getNewTrackers, getReward } from "@/libs/quest";
+import { getNewTrackers, getReward, verifyQuestContentForSave } from "@/libs/quest";
 import { projectPartyTracker } from "@/libs/questParty";
 import { Pusher } from "@/libs/pusher";
 import { fetchUpdatedUser, profileRouter } from "@/routers/profile";
@@ -12,7 +12,7 @@ import { overworldAiRouter } from "@/routers/overworldAi";
 import { commitQuestObjectiveRewards, handleQuestConsequences, questsRouter } from "@/routers/quests";
 import type { DrizzleClient } from "@/server/db";
 import { type LoadedQuestParty, questPartyRelations, synchronizeQuestParty } from "@/server/utils/questParty";
-import { AllObjectives, QuestTracker } from "@/validators/objectives";
+import { AllObjectives, QuestTracker, QuestValidator } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertItems, insertQuestHistory, insertQuests, insertUsers, insertUserItems } from "../../setup/factories";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -423,6 +423,118 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
           }
         });
       }
+    }
+  }
+
+  for (const mode of ["existing member", "replacement"] as const) {
+    for (const secondId of ["scroll", "second-scroll"]) {
+      it(`continues repeated collection and delivery after the collector leaves (${mode}, ${secondId})`, async () => {
+        const client = await getTestDatabase();
+        await insertItems([{ id: "scroll" }, { id: "second-scroll" }]);
+        // Array order is independent of the authored links, including the selected dialog branch.
+        const objectives = [
+          AllObjectives.parse({ id: "collect2", task: "collect_item", collectItemIds: [secondId], item_name: "New scroll", sector: 50, longitude: 13, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "deliver2" }),
+          AllObjectives.parse({ id: "deliver2", task: "deliver_item", deliverItemIds: [secondId], item_name: "New scroll", sector: 50, longitude: 14, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "wait" }),
+          AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+          AllObjectives.parse({ id: "choice", task: "dialog", nextObjectiveId: [{ text: "Collect another scroll", nextObjectiveId: "collect2" }, { text: "Train instead", nextObjectiveId: "skip" }] }),
+          AllObjectives.parse({ id: "skip", task: "stats_trained", value: 100, nextObjectiveId: "wait" }),
+          AllObjectives.parse({ id: "collect1", task: "collect_item", collectItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 11, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "deliver1" }),
+          AllObjectives.parse({ id: "deliver1", task: "deliver_item", deliverItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 12, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "choice" }),
+        ];
+        expect(verifyQuestContentForSave(objectives, true).check).toBe(true);
+        await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: true, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives, reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+        expect(QuestValidator.safeParse(await client.query.quest.findFirst()).success).toBe(true);
+        const leader = await callerFor(questPartyRouter, "leader");
+        const helper = await callerFor(questPartyRouter, "helper");
+        expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+        const party = (await client.query.questParty.findFirst())!;
+        if (mode === "existing member") expect((await helper.join({ partyId: party.id })).success).toBe(true);
+        const leaderQuest = await callerFor(questsRouter, "leader");
+        const helperQuest = await callerFor(questsRouter, "helper");
+        await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, "leader"));
+        expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+        if (mode === "existing member") {
+          await fetchUpdatedUser({ client, userId: "helper" });
+          expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toHaveLength(1);
+        }
+        await client.update(userData).set({ longitude: 12 }).where(eq(userData.userId, "leader"));
+        expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+        if (mode === "existing member") {
+          await fetchUpdatedUser({ client, userId: "helper" });
+          expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toHaveLength(0);
+        }
+        expect((await leaderQuest.checkRewards({ questId: "team-quest", nextObjectiveId: "collect2" })).success).toBe(true);
+        await client.update(userData).set({ longitude: 13 }).where(eq(userData.userId, "leader"));
+        expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+        expect((await client.query.questParty.findFirst())?.tracker.goals.find((goal) => goal.id === "collect2")?.done).toBe(true);
+        if (mode === "replacement") expect((await helper.join({ partyId: party.id })).success).toBe(true);
+        expect((await leader.leave({ partyId: party.id })).success).toBe(true);
+        for (let read = 0; read < 2; read++) {
+          await fetchUpdatedUser({ client, userId: "helper" });
+          const copies = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+          expect(copies).toHaveLength(1);
+          expect(copies[0]).toMatchObject({ itemId: secondId, quantity: 1 });
+        }
+        const personal = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+        expect(personal.questData?.find((tracker) => tracker.id === "team-quest")?.goals.find((goal) => goal.id === "collect2")).toMatchObject({ done: true, partyEffectsApplied: true });
+        await client.update(userData).set({ longitude: 14 }).where(eq(userData.userId, "helper"));
+        expect((await helperQuest.checkLocationQuest()).success).toBe(true);
+        expect((await client.query.questParty.findFirst())?.tracker.goals.find((goal) => goal.id === "deliver2")?.done).toBe(true);
+        expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toHaveLength(0);
+        // A replacement after both deliveries inherits receipts without receiving retired copies.
+        await insertUsers([{ userId: "late", username: "late", status: "AWAKE", rank: "JONIN", level: 50, experience: 20_000_000, villageId: "home", sector: 50, longitude: 10, latitude: 10, regenAt: new Date(), updatedAt: new Date() }]);
+        expect((await (await callerFor(questPartyRouter, "late")).join({ partyId: party.id })).success).toBe(true);
+        for (let read = 0; read < 2; read++) {
+          await fetchUpdatedUser({ client, userId: "late" });
+          expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "late") })).toHaveLength(0);
+        }
+        const late = (await client.query.userData.findFirst({ where: eq(userData.userId, "late") }))!;
+        expect(late.questData?.find((tracker) => tracker.id === "team-quest")?.goals.filter((goal) => ["collect1", "collect2", "deliver1", "deliver2"].includes(goal.id)).every((goal) => goal.partyEffectsApplied)).toBe(true);
+      });
+    }
+  }
+
+  for (const consecutiveObjectives of [false, true]) {
+    for (const refreshed of [false, true]) {
+      it(`retains one copy after two shared collections and one delivery (${consecutiveObjectives ? "consecutive" : "parallel"}, ${refreshed ? "first receipt applied" : "unrefreshed"})`, async () => {
+        const client = await getTestDatabase();
+        await insertItems([{ id: "scroll" }]);
+        const objectives = [
+          AllObjectives.parse({ id: "second", task: "collect_item", collectItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 13, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "delivery" }),
+          AllObjectives.parse({ id: "delivery", task: "deliver_item", deliverItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 14, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "wait" }),
+          AllObjectives.parse({ id: "first", task: "collect_item", collectItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 11, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "second" }),
+          AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+        ];
+        expect(verifyQuestContentForSave(objectives, consecutiveObjectives).check).toBe(true);
+        await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives, reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+        expect(QuestValidator.safeParse(await client.query.quest.findFirst()).success).toBe(true);
+        const leader = await callerFor(questPartyRouter, "leader");
+        expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+        const party = (await client.query.questParty.findFirst())!;
+        expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+        const leaderQuest = await callerFor(questsRouter, "leader");
+        await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, "leader"));
+        expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+        if (refreshed) await fetchUpdatedUser({ client, userId: "helper" });
+        const firstCopies = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+        expect(firstCopies).toHaveLength(refreshed ? 1 : 0);
+        await client.update(userData).set({ longitude: 13 }).where(eq(userData.userId, "leader"));
+        expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+        expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "leader") })).toHaveLength(2);
+        await client.update(userData).set({ longitude: 14 }).where(eq(userData.userId, "leader"));
+        expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+        expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "leader") })).toHaveLength(1);
+        expect((await leader.leave({ partyId: party.id })).success).toBe(true);
+        await fetchUpdatedUser({ client, userId: "helper" });
+        const copies = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+        expect(copies).toHaveLength(1);
+        expect(copies[0]).toMatchObject({ itemId: "scroll", quantity: 1 });
+        if (refreshed) expect(copies[0]?.id).not.toBe(firstCopies[0]?.id);
+        await fetchUpdatedUser({ client, userId: "helper" });
+        expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toEqual(copies);
+        const personal = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+        expect(personal.questData?.find((tracker) => tracker.id === "team-quest")?.goals.filter((goal) => ["first", "second", "delivery"].includes(goal.id)).every((goal) => goal.done && goal.partyEffectsApplied)).toBe(true);
+      });
     }
   }
 

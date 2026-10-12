@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Quest, QuestParty } from "@/drizzle/schema";
-import { getNewTrackers, getReward } from "@/libs/quest";
+import { getNewTrackers, getReward, verifyQuestContentForSave } from "@/libs/quest";
 import { mergePartyProgress, projectPartyTracker, recordPartyContributions } from "@/libs/questParty";
 import { AllObjectives, ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
@@ -137,6 +137,34 @@ it("replacements receive undelivered quest items once and shared delivery remove
   expect(getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true).consequences.some((c) => c.type === "remove_item")).toBe(true);
   user.questData = [projectPartyTracker(party)];
   expect(getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true).consequences.some((c) => c.type === "add_item")).toBe(false);
+});
+
+it("retains the undelivered quantity when two shared collections reuse an item before one delivery", () => {
+  for (const consecutive of [false, true]) for (const detached of [false, true]) {
+    const { quest, party } = fixture();
+    quest.consecutiveObjectives = consecutive;
+    quest.content.objectives = [
+      AllObjectives.parse({ id: "delivery", task: "deliver_item", deliverItemIds: ["scroll"], item_name: "Scroll", nextObjectiveId: "wait" }),
+      AllObjectives.parse({ id: "second", task: "collect_item", collectItemIds: ["scroll"], item_name: "Scroll", nextObjectiveId: "delivery" }),
+      AllObjectives.parse({ id: "first", task: "collect_item", collectItemIds: ["scroll"], item_name: "Scroll", nextObjectiveId: "second" }),
+      AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+    ];
+    expect(verifyQuestContentForSave(quest.content.objectives, consecutive).check).toBe(true);
+    party.tracker.goals = [
+      ObjectiveTracker.parse({ id: "first", done: true, selectedNextObjectiveId: "second" }),
+      ObjectiveTracker.parse({ id: "second", done: true, selectedNextObjectiveId: "delivery" }),
+      ObjectiveTracker.parse({ id: "delivery", done: true, selectedNextObjectiveId: "wait" }),
+      ObjectiveTracker.parse({ id: "wait" }),
+    ];
+    const tracker = projectPartyTracker(party);
+    if (detached) delete tracker.party;
+    const user = { userId: "replacement", questPartyId: detached ? null : party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", sector: 3, longitude: 1, latitude: 1, items: [], userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [tracker] } as unknown as Parameters<typeof getNewTrackers>[0];
+    const result = getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true);
+    expect(result.consequences.filter((consequence) => consequence.type === "add_item")).toEqual([{ type: "add_item", ids: ["scroll"] }]);
+    expect(result.trackers[0]?.goals.filter((goal) => goal.done).every((goal) => goal.partyEffectsApplied)).toBe(true);
+    user.questData = result.trackers;
+    expect(getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true).consequences.some((consequence) => consequence.type === "add_item")).toBe(false);
+  }
 });
 
 it("sums teammates' damage within one battle, without adding separate battles or replayed settlements", () => {
