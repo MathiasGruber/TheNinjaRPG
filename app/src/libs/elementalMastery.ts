@@ -14,13 +14,21 @@ export type ElementalMasterySource = {
   bloodline?: { effects: ZodAllTags[] } | null;
 };
 
-/** Innate elements remain ineligible even while a bloodline overrides them. */
-export const providedElements = (user: ElementalMasterySource): ElementName[] => [
-  ...(user.primaryElement ? [user.primaryElement] : []),
-  ...(user.secondaryElement ? [user.secondaryElement] : []),
-  ...getBloodlineElements(user),
-];
+/**
+ * Resolves supplied elements without changing stored innate rolls.
+ * Bloodline grants replace both slots; without elemental grants, the innate pair
+ * supplies access instead. Deduplication preserves element order.
+ */
+export const providedElements = (user: ElementalMasterySource): ElementName[] => {
+  const bloodlineElements = getBloodlineElements(user);
+  const elements =
+    bloodlineElements.length > 0
+      ? bloodlineElements
+      : [user.primaryElement, user.secondaryElement];
+  return [...new Set(elements)].filter((element): element is ElementName => !!element);
+};
 
+/** Remaining mastery capacity; currently supplied elements cannot gain mastery. */
 export const elementalGainRoom = (
   user: ElementalMasterySource,
   element: BasicElement,

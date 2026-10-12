@@ -27,10 +27,11 @@ describe("createAssignedExperienceSchema", () => {
       bloodline: { effects: [AllTags.parse({ type: "increasedamagegiven", elements: ["Wind"], power: 40 })] },
       elementalMastery: { Earth: ELEMENTAL_MASTERY_CAP - 0.5, Lightning: ELEMENTAL_MASTERY_CAP },
     } as NonNullable<UserWithRelations>);
-    expect(maxValues).toMatchObject({ Fire: 0, Water: 0, Wind: 0, Earth: 1, Lightning: 0 });
+    expect(maxValues).toMatchObject({ Fire: ELEMENTAL_MASTERY_CAP, Water: ELEMENTAL_MASTERY_CAP, Wind: 0, Earth: 1, Lightning: 0 });
+    expect(schema.safeParse({ Fire: 1, Water: 1 }).success).toBe(true);
     expect(schema.safeParse({ Earth: 1 }).success).toBe(true);
     expect(schema.safeParse({ Earth: 2 }).success).toBe(false);
-    for (const element of ["Fire", "Water", "Wind", "Lightning"] as const) {
+    for (const element of ["Wind", "Lightning"] as const) {
       expect(schema.safeParse({ [element]: 1 }).success).toBe(false);
     }
   });

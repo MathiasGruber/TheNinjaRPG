@@ -29,6 +29,7 @@ import {
 } from "@/libs/profile";
 import { hasEnergyQueue } from "@/libs/queue";
 import { filterValidElementsTypeguard } from "@/libs/train";
+import { getBloodlineElements } from "@/libs/userElements";
 import { fetchVillages } from "@/routers/village";
 import { createTRPCRouter, errorResponse, protectedProcedure } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
@@ -42,6 +43,7 @@ import {
 } from "@/utils/permissions";
 import { secondsFromDate } from "@/utils/time";
 import type { DatabasePromiseReturn } from "@/utils/typeutils";
+import { rerollElementSchema } from "@/validators/blackmarket";
 import { statSchema } from "@/validators/combat";
 import { genders } from "@/validators/register";
 import {
@@ -590,16 +592,23 @@ export const blackMarketRouter = createTRPCRouter({
     .meta({
       mcp: { description: "Reroll primary or secondary element" },
     })
-    .input(z.object({ elementType: z.enum(["primary", "secondary"]) }))
+    .input(rerollElementSchema)
     .output(userDeltaResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      // Fetch user and rolled elements in parallel
+      // Load bloodline eligibility and roll history together before any writes.
       const [user, rollHistory] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId),
+          with: { bloodline: true },
+        }),
         getRolledElements(ctx.drizzle, ctx.userId),
       ]);
 
-      // Guard
+      // Reject overridden rolls before recording history or spending reputation.
+      if (!user) return errorResponse("User not found");
+      if (getBloodlineElements(user).length > 0) {
+        return errorResponse("Your bloodline overrides both innate elements");
+      }
       if (user.reputationPoints < COST_REROLL_ELEMENT) {
         return errorResponse("Not enough reputation points");
       }
@@ -613,7 +622,7 @@ export const blackMarketRouter = createTRPCRouter({
       // All the promises to be executed at the end
       const mutations: Promise<DatabasePromiseReturn>[] = [];
 
-      // Ensure current elements are in actionLog if not already tracked
+      // Concurrent attempts may repeat existing history; getRolledElements deduplicates it.
       if (user.primaryElement && !rollHistory.primary.includes(user.primaryElement)) {
         mutations.push(
           addElementRoll(ctx.drizzle, ctx.userId, "primary", user.primaryElement),
@@ -661,7 +670,8 @@ export const blackMarketRouter = createTRPCRouter({
         );
       }
 
-      // Mutation for updating the user data
+      // Charge and replace the roll atomically; balance, bloodline and innate-slot
+      // guards below reject stale snapshots without a transaction or locking read.
       const updateData: Record<string, unknown> = {
         reputationPoints: sql`reputationPoints - ${COST_REROLL_ELEMENT}`,
       };
@@ -677,6 +687,9 @@ export const blackMarketRouter = createTRPCRouter({
           and(
             eq(userData.userId, ctx.userId),
             gte(userData.reputationPoints, COST_REROLL_ELEMENT),
+            user.bloodlineId === null
+              ? isNull(userData.bloodlineId)
+              : eq(userData.bloodlineId, user.bloodlineId),
             user.primaryElement === null
               ? isNull(userData.primaryElement)
               : eq(userData.primaryElement, user.primaryElement),

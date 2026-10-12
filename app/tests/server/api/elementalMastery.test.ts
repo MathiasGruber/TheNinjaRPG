@@ -57,6 +57,25 @@ describeWithDatabase("elemental mastery guarded progression", () => {
     expect(masteryTotal(after)).toBe(masteryTotal(before));
   });
 
+  it.each([["Wind"], ["Wind", "Earth"]] satisfies BasicElement[][])("trains overridden innate elements with bloodline %j", async (...elements) => {
+    const effects = [IncreaseDamageGivenTag.parse({ elements })];
+    await (await getTestDatabase()).insert(bloodline).values({ id: "override-line", name: "Override Line", image: "/test.png", rank: "C", description: "test", effects });
+    await patch({ bloodlineId: "override-line" });
+    const caller = await api();
+    expect((await caller.startMasteryTraining({ stat: "Fire" })).success).toBe(true);
+    const startedAt = new Date(Date.now() - 1_800_000);
+    await patch({ elementalTrainingStartedAt: startedAt });
+    expect((await caller.stopMasteryTraining({ stat: "Fire", startedAt })).success).toBe(true);
+    expect((await readUser()).elementalMastery.Fire).toBeGreaterThan(0);
+    expect((await assign("Water", ELEMENTAL_MASTERY_CAP)).success).toBe(true);
+    expect((await caller.selectTrainedElement({ element: "Water" })).success).toBe(true);
+    expect(getUserElements({ ...await readUser(), bloodline: { effects } } as never)).toEqual([...elements, "Water", "None"]);
+    expect((await caller.startMasteryTraining({ stat: "Wind" })).success).toBe(false);
+    await patch({ bloodlineId: null });
+    expect((await caller.selectTrainedElement({ element: "Water" })).success).toBe(false);
+    expect((await readUser()).elementalMastery.Water).toBe(ELEMENTAL_MASTERY_CAP);
+  });
+
   it("finishes a fractional timed balance with one whole unused XP point", async () => {
     await patch({ elementalMastery: { Wind: ELEMENTAL_MASTERY_CAP - 0.5 } });
     expect((await assign("Wind", 1)).success).toBe(true);

@@ -54,7 +54,8 @@ export const ElementalMastery = () => {
         Each element caps at {ELEMENTAL_MASTERY_CAP.toLocaleString()} mastery and
         unlocks at its cap with a {ELEMENTAL_MASTERY_BOOST}% damage boost. One
         additional trained element can be active. Elemental progress adds no character
-        XP and has its own cap.
+        XP and has its own cap. Bloodline elements replace your primary and secondary
+        elements; any element not currently provided can be trained.
       </p>
       {message && (
         <p role="status" className="mb-3 text-sm">

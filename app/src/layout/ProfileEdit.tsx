@@ -165,7 +165,7 @@ import {
 import {
   type GenderChangeSchema,
   genderChangeSchema,
-  getUserElements,
+  getBloodlineElements,
   type TitleChangeSchema,
   titleChangeSchema,
   updateUserPreferencesSchema,
@@ -180,8 +180,8 @@ export function ProfileEdit() {
   // Loaders
   if (!userData) return <Loader explanation="Loading profile page..." />;
 
-  // Derived
-  const activeElements = getUserElements(userData);
+  // Labels describe bloodline grants independently of the active trained element.
+  const bloodlineElements = Array.from(new Set(getBloodlineElements(userData)));
 
   return (
     <ContentBox title="Edit Profile" subtitle="Customize Character" padding={false}>
@@ -374,15 +374,15 @@ export function ProfileEdit() {
               {userData.primaryElement ? (
                 <p>
                   Current primary element: {userData.primaryElement}{" "}
-                  {activeElements[0] === userData.primaryElement ||
-                    `- Overwritten by bloodline (${activeElements[0]})`}
+                  {bloodlineElements.length > 0 &&
+                    `- Overwritten by bloodline (${bloodlineElements.join(", ")})`}
                 </p>
               ) : undefined}
               {userData.secondaryElement ? (
                 <p>
                   Current secondary element: {userData.secondaryElement}{" "}
-                  {activeElements[1] === userData.secondaryElement ||
-                    `- Overwritten by bloodline (${activeElements[1]})`}
+                  {bloodlineElements.length > 0 &&
+                    `- Overwritten by bloodline (${bloodlineElements.join(", ")})`}
                 </p>
               ) : undefined}
             </div>
@@ -2024,15 +2024,13 @@ const ElementRerollButton: React.FC<ElementRerollButtonProps> = ({
   </Confirm>
 );
 
-/**
- * Re-Roll Elements
- */
+/** Paid innate rerolls are unavailable while a bloodline overrides the pair. */
 const RerollElement: React.FC = () => {
   // State
   const { data: userData, prepareUserUpdate, updateUser } = useRequiredUserData();
 
-  // Derived
-  const activeElements = getUserElements(userData);
+  // Training an overridden innate element does not make its stored slot rerollable.
+  const hasBloodlineElements = getBloodlineElements(userData).length > 0;
 
   // Mutations
   const { mutate: roll, isPending: isRolling } =
@@ -2058,10 +2056,8 @@ const RerollElement: React.FC = () => {
 
   // Guards
   const canAfford = userData && userData.reputationPoints >= COST_REROLL_ELEMENT;
-  const canChangeFirst =
-    userData?.primaryElement && activeElements[0] === userData.primaryElement;
-  const canChangeSecond =
-    userData?.secondaryElement && activeElements[1] === userData.secondaryElement;
+  const canChangeFirst = !!userData?.primaryElement && !hasBloodlineElements;
+  const canChangeSecond = !!userData?.secondaryElement && !hasBloodlineElements;
 
   return (
     <div className="space-y-3">
@@ -2069,13 +2065,13 @@ const RerollElement: React.FC = () => {
         <ElementRerollButton
           elementType="primary"
           canAfford={canAfford ?? false}
-          canChange={canChangeFirst ?? false}
+          canChange={canChangeFirst}
           onReroll={(elementType) => roll({ elementType })}
         />
         <ElementRerollButton
           elementType="secondary"
           canAfford={canAfford ?? false}
-          canChange={canChangeSecond ?? false}
+          canChange={canChangeSecond}
           onReroll={(elementType) => roll({ elementType })}
         />
       </div>
