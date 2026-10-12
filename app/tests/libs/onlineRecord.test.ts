@@ -18,7 +18,7 @@ describe("isNewOnlineRecord", () => {
     expect(isNewOnlineRecord(0, 101)).toBe(false);
   });
 
-  // 2026-10-12: a cron bumped updatedAt on all ~48k accounts and the record jumped to 48491.
+  // A bulk `updatedAt` write makes every account look online at once.
   it("rejects a jump that only a bulk write could produce", () => {
     expect(isNewOnlineRecord(600, 48491)).toBe(false);
     expect(isNewOnlineRecord(600, 1201)).toBe(false);

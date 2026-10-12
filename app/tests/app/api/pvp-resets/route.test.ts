@@ -80,8 +80,8 @@ describe("PvP reset crons", () => {
   });
 
   // updatedAt is every player's last activity: online counts, the online record,
-  // inactive-account cleanup and sector lists all read it. A bulk bump marks all
-  // ~48k accounts as online at once (incident 2026-10-12).
+  // inactive-account cleanup and sector lists all read it. A bulk bump marks every
+  // account as online at once.
   it("daily decay does not mark every player as recently active", async () => {
     const response = await dailyPvp(cronRequest("daily-pvp"));
 
