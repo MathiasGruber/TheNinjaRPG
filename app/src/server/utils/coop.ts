@@ -72,6 +72,7 @@ export const joinCoopChat = async (
   ]);
 };
 
+/** Idempotently revoke this member's conversation access after preserving their quest progress. */
 export const leaveCoopChat = (client: DrizzleClient, partyId: string, userId: string) =>
   client
     .delete(user2conversation)

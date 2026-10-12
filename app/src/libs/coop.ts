@@ -44,7 +44,11 @@ export const questCoopParty = (party: {
   phase: party.battleId ? "FIGHTING" : "ACTIVE",
 });
 
-/** Validate and calculate a party transition in memory; adapters commit it through their CAS. */
+/**
+ * Validate a command against the activity policy and return a cloned next party or a rejection.
+ * This function neither mutates the input nor writes persistence; adapters must guard their
+ * commit with the loaded version and apply any returned membership reservation changes.
+ */
 export const transitionCoopParty = (
   kind: CoopKind,
   current: CoopParty,
@@ -164,7 +168,9 @@ export const transitionCoopParty = (
   };
 };
 
+/** Activity key selecting roster capacity, readiness and membership mutability. */
 export type CoopKind = keyof typeof coopPolicies;
+/** Adapter phases shared by command validation; progress remains activity-specific. */
 export type CoopPhase =
   | "LOBBY"
   | "ACTIVE"
@@ -174,11 +180,13 @@ export type CoopPhase =
   | "PAUSED"
   | "COMPLETED"
   | "ENDED";
+/** Normalized command input supplied by a quest or dungeon persistence adapter. */
 export type CoopParty = CoopRoster & {
   leaderId: string;
   isPublic: boolean;
   phase: CoopPhase;
 };
+/** Supported roster, readiness and lifecycle commands; policies restrict their availability. */
 export type CoopAction =
   | "invite"
   | "join"
@@ -191,6 +199,7 @@ export type CoopAction =
   | "start"
   | "pause"
   | "resume";
+/** A rejection or the next party plus reservation changes the adapter must commit. */
 export type CoopTransition =
   | { success: false; message: string }
   | {

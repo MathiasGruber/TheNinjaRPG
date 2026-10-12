@@ -29,6 +29,7 @@ export const QuestTeams = ({
     // Shared progress needs frequent updates; team and invitation discovery can poll less often.
     refetchInterval: (query) => (query.state.data?.current ? 5000 : 30000),
   });
+  /** Keep rejections beside the controls; successful changes refresh shared and personal progress. */
   const refresh = async (result: { success: boolean; message: string }) => {
     setMessage(result.message);
     if (result.success)
@@ -38,6 +39,7 @@ export const QuestTeams = ({
         updateUser(undefined),
       ]);
   };
+  /** Mutation and background refresh failures retain controls and show a recoverable message. */
   const onError = (error: { message: string }) => setMessage(error.message);
   const create = api.coop.quest.create.useMutation({ onSuccess: refresh, onError });
   const join = api.coop.quest.join.useMutation({ onSuccess: refresh, onError });

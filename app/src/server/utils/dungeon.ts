@@ -40,7 +40,12 @@ export const rollbackDungeonStart = (
       );
   });
 
-/** Commit the battle claim, party transition and revival together, using only preloaded state. */
+/**
+ * Atomically claim the battle version, advance its run and restore every bound member.
+ * Uses only preloaded combat state: settlement adds no reads to the action mutation phase.
+ * Return false when another caller won the battle claim; a run mismatch throws and rolls back
+ * the deletion, keeping the battle available for recovery instead of losing party progress.
+ */
 export const settleDungeonBattle = async (
   client: DrizzleClient,
   current: CompleteBattle,
@@ -58,8 +63,8 @@ export const settleDungeonBattle = async (
       : next.floor === meta.totalFloors
         ? "COMPLETED"
         : "BETWEEN";
-  // Battle deletion, floor advancement, revival and terminal membership release form one
-  // commit; a later failure must leave the battle available to retry without partial progress.
+  // These changes span battle, run, character and membership rows. A single guarded update
+  // cannot delete the battle too; retain a short transaction so failed revival is retryable.
   return retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       const claim = await tx
@@ -116,7 +121,11 @@ export const settleDungeonBattle = async (
   );
 };
 
-/** Lazy expiration also releases parties whose clients were closed during combat. */
+/**
+ * End an expired run, delete its battle, restore bound members and release reservations.
+ * A loaded run version claims the whole cleanup; terminal, unexpired and stale snapshots
+ * are no-ops. Fetch the battle only when needed for its preloaded energy recovery values.
+ */
 export const expireDungeonRun = async (
   client: DrizzleClient,
   run: typeof dungeonRun.$inferSelect,
@@ -131,8 +140,8 @@ export const expireDungeonRun = async (
   const snapshot = run.battleId
     ? await client.query.battle.findFirst({ where: eq(battle.id, run.battleId) })
     : undefined;
-  // Closing the run must commit with battle removal, revival and reservation release:
-  // an ENDED run skips later expiry, so a partial commit could strand users permanently.
+  // The terminal status disables future expiry, so battle removal, revival and reservation
+  // release must commit with it. A single run CAS cannot express those multi-table effects.
   await retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       const claim = await tx

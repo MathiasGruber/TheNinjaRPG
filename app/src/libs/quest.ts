@@ -1686,7 +1686,12 @@ export const getNewTrackers = (
   };
 };
 
-/** Match completed item effects, cancelling pairs whose collection has not applied personally. */
+/**
+ * Return remaining collection grants and inventory removals by completed objective ID.
+ * Follow the selected consecutive path, or match applied receipts first for parallel goals.
+ * A collection/delivery pair that never ran personally cancels both effects, preserving the
+ * member's prior inventory; an already-applied collection still requires its matching removal.
+ */
 const getPendingQuestItemEffects = (
   quest: Pick<Quest, "content" | "consecutiveObjectives">,
   tracker: QuestTrackerType,

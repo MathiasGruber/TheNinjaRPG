@@ -1,7 +1,7 @@
 import type { Quest, QuestParty } from "@/drizzle/schema";
 import type { ObjectiveTrackerType, QuestTrackerType } from "@/validators/objectives";
 
-/** Preserve counters as per-member contributions, independent of shared progress copied on reads. */
+/** Record personal deltas in the outgoing trackers in place; copied team totals never contribute. */
 export const recordPartyContributions = (
   before: QuestTrackerType[],
   after: QuestTrackerType[],
@@ -36,7 +36,11 @@ export const recordPartyContributions = (
   }
 };
 
-/** Merge cumulative contributions once, retaining departed members' progress and one dialog branch. */
+/**
+ * Return cloned canonical progress and acknowledged contribution receipts without changing inputs.
+ * Counter deltas accumulate once; snapshot objectives use maxima, and damage totals stay scoped
+ * to their battle. Departed contributions and the first selected dialogue branch remain canonical.
+ */
 export const mergePartyProgress = (
   party: QuestParty,
   members: { userId: string; questData: QuestTrackerType[] | null }[],
@@ -140,7 +144,7 @@ export const mergePartyProgress = (
   return { tracker, contributions };
 };
 
-/** Reward collection remains personal even though objective completion belongs to the team. */
+/** Copy team progress into a personal tracker, preserving only receipts valid for its reset epoch. */
 export const projectPartyTracker = (
   party: Pick<QuestParty, "id" | "tracker">,
   personal?: QuestTrackerType,

@@ -52,7 +52,9 @@ import {
   questPartyInviteSchema,
 } from "@/validators/questParty";
 
+/** Shared quest progress uses party CAS; membership and reward receipts remain personal. */
 export const questPartyRouter = createTRPCRouter({
+  /** Preserve each member's solo continuation before deleting the canonical team tracker. */
   disband: protectedProcedure
     .input(questPartyIdSchema)
     .mutation(async ({ ctx, input }) => {
@@ -123,6 +125,7 @@ export const questPartyRouter = createTRPCRouter({
         message: "Quest team disbanded. Members can continue their own quests",
       };
     }),
+  /** Let the leader launch the current objective using the synchronized, co-located roster. */
   startEncounter: protectedProcedure
     .input(questPartyIdSchema)
     .mutation(async ({ ctx, input }) => {
@@ -137,6 +140,7 @@ export const questPartyRouter = createTRPCRouter({
         partyId: input.partyId,
       });
     }),
+  /** Return the current team and discoverable invitations without exposing private trackers. */
   overview: protectedProcedure.query(async ({ ctx }) => {
     const [{ user }, parties] = await Promise.all([
       fetchUpdatedUser({
@@ -221,6 +225,7 @@ export const questPartyRouter = createTRPCRouter({
         })),
     };
   }),
+  /** Reserve the character's team slot before accepting the quest and creating its shared tracker. */
   create: protectedProcedure
     .input(questPartyCreateSchema)
     .mutation(async ({ ctx, input }) => {
@@ -289,6 +294,7 @@ export const questPartyRouter = createTRPCRouter({
         throw error;
       }
     }),
+  /** Reserve membership and claim one roster version before adopting existing shared progress. */
   join: protectedProcedure
     .input(questPartyIdSchema)
     .mutation(async ({ ctx, input }) => {
@@ -382,6 +388,7 @@ export const questPartyRouter = createTRPCRouter({
         throw error;
       }
     }),
+  /** Add a username-resolved invitation through the leader's current party version. */
   invite: protectedProcedure
     .input(questPartyInviteSchema)
     .mutation(async ({ ctx, input }) => {
@@ -429,6 +436,7 @@ export const questPartyRouter = createTRPCRouter({
           }
         : errorResponse("Team changed. Please try again");
     }),
+  /** Detach with personal receipts intact; retries finish an earlier partial departure. */
   leave: protectedProcedure
     .input(questPartyIdSchema)
     .mutation(async ({ ctx, input }) => {
@@ -463,6 +471,7 @@ export const questPartyRouter = createTRPCRouter({
     }),
 });
 
+/** Return an expected rejection for characters or quest types that cannot use teams. */
 const teamQuestBlock = (
   user: NonNullable<UserWithRelations>,
   definition: Quest | undefined,
@@ -540,6 +549,7 @@ const acceptTeamQuest = async (
   });
 };
 
+/** Release only this party's character reservation and invalidate stale character snapshots. */
 const releaseTeamSlot = (client: DrizzleClient, userId: string, partyId: string) =>
   client
     .update(userData)
@@ -549,6 +559,11 @@ const releaseTeamSlot = (client: DrizzleClient, userId: string, partyId: string)
     })
     .where(and(eq(userData.userId, userId), eq(userData.questPartyId, partyId)));
 
+/**
+ * Remove one roster member through CAS, then save their solo continuation and revoke chat access.
+ * The canonical tracker survives partial cleanup; unrelated combat defers detachment so its
+ * immutable quest snapshot cannot overwrite the saved personal receipts during settlement.
+ */
 const removeMember = async (
   client: DrizzleClient,
   partyId: string,

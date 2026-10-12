@@ -7,6 +7,7 @@ import type { DrizzleClient } from "@/server/db";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import type { QuestTrackerType } from "@/validators/objectives";
 
+/** Canonical progress plus the member snapshots needed for synchronization and encounter guards. */
 export type LoadedQuestParty = QuestParty & {
   quest: Quest;
   members: Pick<
@@ -24,6 +25,7 @@ export type LoadedQuestParty = QuestParty & {
   >[];
 };
 
+/** Preload synchronization inputs with the character query, avoiding per-member round trips. */
 export const questPartyRelations = {
   quest: true,
   members: {
@@ -42,7 +44,11 @@ export const questPartyRelations = {
   },
 } as const;
 
-/** The member snapshots arrive in the user query. Only CAS contention needs another read. */
+/**
+ * Merge preloaded contributions through party CAS, rereading only after contention.
+ * A committed member may have departed since preload; include that accepted progress once
+ * without restoring their membership. Return the synchronized party with its live roster.
+ */
 export const synchronizeQuestParty = async (
   client: DrizzleClient,
   loaded: LoadedQuestParty,
@@ -239,7 +245,11 @@ export const applyQuestParty = (
     ];
 };
 
-/** Save canonical progress with membership; false means combat must settle before detachment. */
+/**
+ * Save canonical progress and personal receipts through the character snapshot guard.
+ * Detachment releases membership in the same write; false defers it until combat settles.
+ * Already-detached or missing members are successful no-ops, making cleanup retryable.
+ */
 export const saveQuestPartyMember = async (
   client: DrizzleClient,
   party: Pick<QuestParty, "id" | "questId" | "tracker"> &

@@ -4736,7 +4736,11 @@ const describePackageRewards = (
   if (reward.reward_gathering_items) entries.push("Gathering material drops");
   return entries;
 };
-/** Defer statement execution so transaction session tokens cannot be shared by concurrent calls. */
+/**
+ * Run deferred reward queries or writes, retaining parallel phases for ordinary callers.
+ * Transaction callers must pass unevaluated tasks: each statement starts after the previous
+ * statement supplies the driver's next session token. Results preserve the input tuple order.
+ */
 const runRewardTasks =
   (inTransaction: boolean) =>
   async <T extends readonly (() => unknown)[]>(

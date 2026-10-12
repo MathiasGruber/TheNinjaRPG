@@ -230,7 +230,7 @@ export const formatDateTimeShort = (date: Date): string => {
   return date.toISOString().replace("T", " ").slice(0, 16);
 };
 
-/** Format local calendar time for a datetime-local input. */
+/** Format browser-local calendar time for a datetime-local input, without converting it to UTC. */
 export const formatLocalDateTimeInput = (date: Date) =>
   format(date, "yyyy-MM-dd'T'HH:mm");
 

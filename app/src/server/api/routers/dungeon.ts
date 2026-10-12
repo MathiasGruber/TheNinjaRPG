@@ -465,8 +465,9 @@ export const dungeonRouter = createTRPCRouter({
         return true;
       };
       try {
-        // Accept/remove/end touch reservations too: a partial commit could put a player
-        // in two parties or release an account still present in another party's state.
+        // Roster changes span the run and unique activeUserId reservation. Neither row's
+        // guard alone can keep them consistent after failure; use a short transaction only
+        // for these changes. Invitations, readiness and pause/resume need just the run CAS.
         const saved = await retryOnDeadlock(() =>
           joined || removedUser || ending
             ? ctx.drizzle.transaction(updateParty)
@@ -481,7 +482,7 @@ export const dungeonRouter = createTRPCRouter({
         throw error;
       }
     }),
-  /** Deliver the complete pyramid's independent reward roll once per member. */
+  /** Deliver one complete-pyramid roll per member; repeat claims return its saved receipt. */
   claim: protectedProcedure
     .use(ratelimitMiddleware)
     .input(dungeonIdSchema)
@@ -531,8 +532,9 @@ export const dungeonRouter = createTRPCRouter({
         items: rolled.reward_items,
         jutsus: rolled.reward_jutsus,
       };
-      // The receipt, scalar grants and item/jutsu inserts must commit together: recording
-      // the receipt first loses rewards on failure, while granting first permits duplicates.
+      // A single guarded update cannot include item/jutsu inserts and village token grants.
+      // Keep them atomic with the personal receipt: recording it first can lose rewards,
+      // while granting first can duplicate them. Failed grants leave the receipt unclaimed.
       const paid = await retryOnDeadlock(() =>
         ctx.drizzle.transaction(async (tx) => {
           const claim = await tx

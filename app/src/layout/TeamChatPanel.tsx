@@ -86,6 +86,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
     commentsData?.pages[0]?.restrictionMessage ??
     commentsData?.pages[0]?.convo?.sendRestriction;
 
+  /** Validate the draft while retaining it on failure; the conversation router enforces access. */
   const handleSendMessage = () => {
     if (!conversationId || restrictionMessage) return;
     const trimmedMessage = message.trim();

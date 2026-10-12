@@ -75,6 +75,7 @@ export default function DungeonPage() {
     if (battleId) pushToCombat(router, battleId);
   }, [battleId, router]);
   const pending = create.isPending || act.isPending || claim.isPending;
+  /** Send a party command; the shared mutation callbacks display failures and refresh run state. */
   const action = (
     id: string,
     action: Parameters<typeof act.mutate>[0]["action"],

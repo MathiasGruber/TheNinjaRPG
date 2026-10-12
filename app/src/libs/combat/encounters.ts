@@ -10,7 +10,10 @@ import type {
 import { applyPoolAdjustmentsToBase } from "@/libs/combat/util";
 import type { EncounterWave } from "@/validators/coop";
 
-/** Spawn only preloaded enemies, after the preceding wave is defeated and its round delay passes. */
+/**
+ * Advance battle state in place once the preceding enemies and authored round delay are done.
+ * Spawn only preloaded combatants and effects; return whether a wave was consumed, without I/O.
+ */
 export const advanceEncounterWave = (battle: CompleteBattle, ended = false) => {
   const state = battle.extraState.encounter;
   const next = state?.pendingWaves[0];
@@ -76,7 +79,11 @@ export type EncounterWaveState = {
   }[];
 };
 
-/** Prepare future waves once during initiation; combat transitions consume only these snapshots. */
+/**
+ * Prepare future waves during initiation and merge their lookup data into the opening state.
+ * Preparation stays ordered because the adapter consumes successive slices of preloaded users.
+ * Combat actions later consume these snapshots without fetching enemies or their content.
+ */
 export const prepareEncounterWaves = async (
   waves: EncounterWave[],
   opening: PreparedEncounterWave,

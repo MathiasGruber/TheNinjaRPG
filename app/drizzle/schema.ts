@@ -88,6 +88,7 @@ export const dungeonMember = mysqlTable("DungeonMember", {
   active: uniqueIndex("DungeonMember_active_idx").on(table.activeUserId),
   user: index("DungeonMember_user_idx").on(table.userId),
 }));
+/** Persisted run snapshot used by versioned transitions, start recovery and expiration. */
 export type DungeonRun = InferSelectModel<typeof dungeonRun>;
 
 export const vector = customType<{
@@ -4101,6 +4102,7 @@ export const questRelations = relations(quest, ({ one, many }) => ({
   raidDamageThresholds: many(raidDamageThreshold),
 }));
 
+/** Canonical quest progress and acknowledged member contributions, guarded by party version CAS. */
 export const questParty = mysqlTable("QuestParty", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   questId: varchar("questId", { length: 191 }).notNull(),
@@ -4114,7 +4116,9 @@ export const questParty = mysqlTable("QuestParty", {
   battleId: varchar("battleId", { length: 191 }),
   createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
 }, (table) => ({ questIdIdx: index("QuestParty_questId_idx").on(table.questId) }));
+/** Persisted team progress; personal reward and side-effect receipts stay on each character. */
 export type QuestParty = InferSelectModel<typeof questParty>;
+/** Hydrate the quest definition and attached character snapshots with the party's initial read. */
 export const questPartyRelations = relations(questParty, ({ one, many }) => ({
   quest: one(quest, { fields: [questParty.questId], references: [quest.id] }),
   members: many(userData),
