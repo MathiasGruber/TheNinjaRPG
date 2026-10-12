@@ -1941,17 +1941,6 @@ export const itemRouter = createTRPCRouter({
         }
       }
 
-      const consumeResult = await consumeUserItemAtomically({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-        userItemId: input.userItemId,
-        expectedQuantity: useritem.quantity,
-        where: [eq(userItem.isInAuction, false)],
-      });
-      if (!consumeResult) {
-        return errorResponse("Item no longer available — please refresh and try again");
-      }
-
       // Bookkeeping
       const messages: string[] = [];
       const updates = {
@@ -2172,6 +2161,35 @@ export const itemRouter = createTRPCRouter({
         const collapsedRewards = collapseRewards(rewards);
         processedRewards = postProcessRewards(collapsedRewards);
       }
+      // Claim the account, apply its effects and debit the stack together. A run
+      // or battle that wins the account race leaves the item available for retry.
+      // Drizzle cannot express this joined UPDATE. Empty stacks are cleaned up
+      // after the claim; quantity zero cannot be consumed or used as an entry item.
+      const consumeResult = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+          UPDATE ${userData}
+          INNER JOIN ${userItem} ON ${userItem.userId} = ${userData.userId}
+          SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt)},
+              ${userData.curHealth} = ${updates.curHealth},
+              ${userData.curChakra} = ${updates.curChakra},
+              ${userData.curStamina} = ${updates.curStamina},
+              ${userData.marriageSlots} = ${updates.marriageSlots},
+              ${userData.extraReskinSlots} = ${updates.extraReskinSlots},
+              ${userData.sageModeId} = COALESCE(${userData.sageModeId}, ${grantedSageModeId}),
+              ${userItem.quantity} = ${useritem.quantity - 1}
+          WHERE ${userData.userId} = ${ctx.userId}
+            AND ${userData.updatedAt} = ${user.updatedAt}
+            AND ${userData.status} = 'AWAKE'
+            AND ${userData.battleId} IS NULL
+            AND ${userItem.id} = ${input.userItemId}
+            AND ${userItem.quantity} = ${useritem.quantity}
+            AND ${userItem.quantity} > 0
+            AND ${userItem.isInAuction} = FALSE
+        `),
+      );
+      if (consumeResult.rowsAffected === 0) {
+        return errorResponse("Item no longer available — please refresh and try again");
+      }
       // Mutate
       const [{ items, jutsus, bloodlines, badges, sageModes }] = await Promise.all([
         processedRewards
@@ -2182,24 +2200,26 @@ export const itemRouter = createTRPCRouter({
               reason: "ITEM/CONSUME",
             })
           : { items: [], jutsus: [], bloodlines: [], badges: [], sageModes: [] },
-        ctx.drizzle
-          .update(userData)
-          // Grant the sage mode atomically. The COALESCE keeps the DB's current value when it is
-          // non-null so a concurrent grant (e.g. a quest reward) committing between this endpoint's
-          // read and write is not clobbered; the fallback is `grantedSageModeId` (null unless THIS
-          // request rolled a mode), so a no-grant flush leaves the column untouched and never
-          // resurrects a mode a concurrent removal cleared to null.
-          .set({
-            ...(changedBloodlineId !== undefined
-              ? {
-                  ...bloodrightSwapRefund(changedBloodlineId),
-                  bloodlineId: changedBloodlineId,
-                }
-              : {}),
-            ...updates,
-            sageModeId: sql`COALESCE(${userData.sageModeId}, ${grantedSageModeId})`,
-          })
-          .where(eq(userData.userId, ctx.userId)),
+        changedBloodlineId !== undefined
+          ? ctx.drizzle
+              .update(userData)
+              .set({
+                ...bloodrightSwapRefund(changedBloodlineId),
+                bloodlineId: changedBloodlineId,
+              })
+              .where(eq(userData.userId, ctx.userId))
+          : undefined,
+        useritem.quantity === 1
+          ? ctx.drizzle
+              .delete(userItem)
+              .where(
+                and(
+                  eq(userItem.id, input.userItemId),
+                  eq(userItem.userId, ctx.userId),
+                  eq(userItem.quantity, 0),
+                ),
+              )
+          : undefined,
         useritem.quantity === 1
           ? ctx.drizzle
               .delete(userItemImbuement)

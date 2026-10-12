@@ -284,7 +284,8 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
   });
 
   it("racing structure upgrades charge only once and reject maximum level", async () => {
-    const caller = await callerFor(kageRouter, "leader"); const db = await getTestDatabase();
+    const db = await getTestDatabase();
+    const caller = callerForDatabase(kageRouter, "leader", synchronizeUpgradeClaims(db));
     const results = await Promise.all([caller.upgradeStructure({ structureId: "bank", villageId: "v1" }), caller.upgradeStructure({ structureId: "bank", villageId: "v1" })]);
     expect(results.filter((r) => r.success)).toHaveLength(1);
     expect((await state())?.tokens).toBe(350_000);
@@ -425,7 +426,7 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
         return Reflect.get(target, property, receiver);
       },
     });
-    const caller = callerForDatabase(kageRouter, "leader", noTransactions);
+    const caller = callerForDatabase(kageRouter, "leader", synchronizeUpgradeClaims(noTransactions));
     const results = await Promise.all([1, 2].map(() => caller.upgradeStructure({ structureId: "bank", villageId: "v1", clanId: "c1" })));
     expect(results.filter((result) => result.success)).toHaveLength(1);
     expect((await db.query.clan.findFirst({ where: eq(clan.id, "c1") }))?.points).toBe(500_000 - BUILDING_UPGRADE_BASE_COST - BUILDING_UPGRADE_PER_LEVEL_COST);
@@ -463,3 +464,20 @@ const shrineBattle = async (type: "SECTOR_WAR" | "VILLAGE_WAR" | "WAR_RAID") => 
 };
 
 const shrineResult = (change: number) => ({ didWin: 1, shrineChangeHp: change, villageWarShrineInfo: { w1: { attacker: 0, defender: change } }, warHealthChange: 0, notifications: [] } as unknown as CombatResult);
+
+/** Both requests must load the same level before either guarded upgrade can commit. */
+const synchronizeUpgradeClaims = (db: Awaited<ReturnType<typeof getTestDatabase>>) => {
+  let release!: () => void;
+  const ready = new Promise<void>((resolve) => { release = resolve; });
+  let writes = 0;
+  return new Proxy(db, {
+    get(target, property, receiver) {
+      if (property === "execute") return async (...args: Parameters<typeof db.execute>) => {
+        if (++writes === 2) release();
+        await ready;
+        return db.execute(...args);
+      };
+      return Reflect.get(target, property, receiver);
+    },
+  });
+};

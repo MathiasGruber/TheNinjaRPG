@@ -10,6 +10,7 @@ import {
   isNull,
   like,
   lte,
+  ne,
   notExists,
   or,
   sql,
@@ -734,7 +735,7 @@ export const questsRouter = createTRPCRouter({
             SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
                 ${userData.questFinishAt} = ${now},
                 ${userData.questData} = CAST(${JSON.stringify(questData)} AS JSON),
-                ${userData.curEnergy} = IF(${questHistory.isolated}, LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${user.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000})), ${userData.curEnergy}),
+                ${userData.curEnergy} = IF(${questHistory.isolated}, LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${user.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${user.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000})), ${userData.curEnergy}),
                 ${userData.regenAt} = IF(${questHistory.isolated}, ${now}, ${userData.regenAt}),
                 ${userData.status} = IF(${questHistory.isolated}, 'AWAKE', ${userData.status}),
                 ${userData.activeNpcQuestId} = IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId}),
@@ -973,25 +974,30 @@ export const questsRouter = createTRPCRouter({
             input.data,
           ).length === 0;
         const updatedAt = new Date(Math.max(Date.now(), entry.updatedAt.getTime() + 1));
-        // Visibility changes pause/resume the same run; authored edits invalidate its version.
+        // Publish visibility and accepted run versions together so another quest's
+        // tracker persistence cannot discard a checkpoint during a split revision.
+        // Drizzle cannot express a multi-table UPDATE; authored edits use its builder.
+        const definitionWrite = isVisibilityOnlyChange
+          ? await retryOnDeadlock(() =>
+              ctx.drizzle.execute(sql`
+                UPDATE ${quest}
+                LEFT JOIN ${questHistory}
+                  ON ${questHistory.questId} = ${quest.id}
+                  AND ${questHistory.questVersion} = ${entry.updatedAt}
+                SET ${quest.hidden} = ${input.data.hidden},
+                    ${quest.updatedAt} = ${updatedAt},
+                    ${questHistory.questVersion} = ${updatedAt}
+                WHERE ${quest.id} = ${entry.id}
+                  AND ${quest.updatedAt} = ${entry.updatedAt}
+              `),
+            )
+          : await ctx.drizzle
+              .update(quest)
+              .set({ ...input.data, updatedAt })
+              .where(and(eq(quest.id, entry.id), eq(quest.updatedAt, entry.updatedAt)));
+        if (definitionWrite.rowsAffected === 0)
+          return errorResponse("Quest changed while saving. Refresh and try again.");
         await Promise.all([
-          ctx.drizzle
-            .update(quest)
-            .set({ ...input.data, updatedAt })
-            .where(eq(quest.id, entry.id)),
-          ...(isVisibilityOnlyChange
-            ? [
-                ctx.drizzle
-                  .update(questHistory)
-                  .set({ questVersion: updatedAt })
-                  .where(
-                    and(
-                      eq(questHistory.questId, entry.id),
-                      eq(questHistory.questVersion, entry.updatedAt),
-                    ),
-                  ),
-              ]
-            : []),
           // Village Missions retire personal attempts without granting completions
           // or reclassifying completed history as collective progress.
           data.questType === "village_mission"
@@ -3375,6 +3381,19 @@ export const commitQuestObjectiveRewards = async (info: {
   }
   const rewardChoice = resolved ? (info.rewardChoice ?? null) : null;
   const isolatedRun = getIsolatedPyramid(user);
+  // A loaded reward must still belong to playable content when its write claims.
+  // Visibility-only saves keep history valid, but any in-flight claim retries on
+  // their new version; authored edits require the versioned run to restart.
+  const liveQuestCondition = userQuest
+    ? sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${and(
+        eq(quest.id, userQuest.questId),
+        ne(quest.questType, "village_mission"),
+        canPlayHiddenQuests(user.role) ? undefined : eq(quest.hidden, false),
+        userQuest.quest.questType === "battlepyramid" || userQuest.isolated
+          ? eq(quest.updatedAt, userQuest.quest.updatedAt)
+          : undefined,
+      )})`
+    : undefined;
   const senseiId =
     user.rank === "GENIN" && userQuest?.quest.questType === "mission"
       ? user.senseiId
@@ -3478,8 +3497,7 @@ export const commitQuestObjectiveRewards = async (info: {
           eq(questHistory.userId, userId),
           eq(questHistory.completed, 0),
           isNull(questHistory.endAt),
-          // Content conversion can retire a personal attempt after its reward snapshot was loaded.
-          sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${questHistory.questId} AND ${quest.questType} != 'village_mission')`,
+          liveQuestCondition,
           ...(rewardChoice ? [isNull(questHistory.pendingRewardChoice)] : []),
         ),
       );
@@ -3513,6 +3531,7 @@ export const commitQuestObjectiveRewards = async (info: {
       alwaysClaimUserState: true,
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
       claimConditions: [
+        liveQuestCondition,
         ...(isolatedRun
           ? [
               eq(userData.status, "BATTLE"),
@@ -3520,14 +3539,9 @@ export const commitQuestObjectiveRewards = async (info: {
               isolatedRun.questId === userQuest?.questId ? undefined : sql`FALSE`,
             ]
           : []),
-        ...(!resolved && userQuest
+        ...(!resolved && userQuest && userQuest.quest.questType !== "achievement"
           ? [
-              sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${userQuest.questId} AND ${quest.questType} != 'village_mission')`,
-              ...(userQuest.quest.questType === "achievement"
-                ? []
-                : [
-                    sql`EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.questId} = ${userQuest.questId} AND ${questHistory.userId} = ${userId} AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL)`,
-                  ]),
+              sql`EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.questId} = ${userQuest.questId} AND ${questHistory.userId} = ${userId} AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL)`,
             ]
           : []),
       ],
