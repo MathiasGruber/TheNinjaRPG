@@ -73,7 +73,8 @@ import type { WarSettlement } from "@/validators/war";
 
 /** Raid combat closes at the deadline or the first defeated structure, even before settlement runs. */
 export const warRaidCombatGuard = () =>
-  sql`(${war.type} != 'WAR_RAID' OR (${war.startedAt} > NOW(3) - INTERVAL ${FACTION_RAID_MAX_DAYS * 24} HOUR AND ${war.attackerWarHealth} > 0 AND ${war.defenderWarHealth} > 0))`;
+  // SYSDATE reevaluates wall time after a row-lock wait; NOW freezes it at statement start.
+  sql`(${war.type} != 'WAR_RAID' OR (${war.startedAt} > SYSDATE(3) - INTERVAL ${FACTION_RAID_MAX_DAYS * 24} HOUR AND ${war.attackerWarHealth} > 0 AND ${war.defenderWarHealth} > 0))`;
 
 /**
  * SQL fragment that extends `userData.warParticipantUntil` to the larger of its current

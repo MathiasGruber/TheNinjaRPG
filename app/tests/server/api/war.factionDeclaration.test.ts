@@ -1,10 +1,13 @@
 
-import { and, eq, getTableName } from "drizzle-orm";
+import { and, eq, getTableName, sql } from "drizzle-orm";
 import { beforeEach, expect, it, vi } from "bun:test";
+import mysql from "mysql2/promise";
+import { setTimeout } from "node:timers/promises";
 import {
   ELDER_MIN_VOTING_COUNT,
   WAR_DECLARATION_COST,
   FACTION_RAID_COST,
+  FACTION_RAID_MAX_DAYS,
   FACTION_RAID_MIN_MEMBERS,
   FACTION_RAID_REWARD,
   WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE,
@@ -23,6 +26,7 @@ import {
 } from "@/drizzle/schema";
 import { warRouter, fetchActiveWar } from "@/routers/war";
 import * as serverSentry from "@/server/utils/sentry";
+import { applyVillageMissionShrineDamage } from "@/server/utils/villageMission";
 import { startDeclaredWar, handleWarEnd, warRaidCombatGuard, applyRaidHealthDecay } from "@/server/utils/war";
 import { insertUsers } from "../../setup/factories";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -399,6 +403,62 @@ describeWithDatabase("faction war declarations", () => {
     expect(ended?.status).toBe("ATTACKER_VICTORY");
     expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST + FACTION_RAID_REWARD);
   });
+
+  it.each([false, true])("resolves a blocked killing shrine hit using the write time (deadline passes=%s)", async (expiresWhileBlocked) => {
+    await seedWorld();
+    await declare(LEADER, FACTION);
+    const db = await getTestDatabase();
+    const [raid] = await db.select().from(war);
+    await db.update(war).set({
+      startedAt: sql`SYSDATE(3) - INTERVAL ${FACTION_RAID_MAX_DAYS * 24} HOUR + INTERVAL 3 SECOND`,
+      defenderWarHealth: 100,
+      defenderShrineHp: 10,
+    }).where(eq(war.id, raid!.id));
+    const blocker = await mysql.createConnection(process.env.TEST_MYSQL_URL!);
+    let hit: Promise<boolean> | undefined;
+    try {
+      // Hold the row only in the test to exercise the production helper's lock wait.
+      await blocker.beginTransaction();
+      await blocker.query("SELECT id FROM War WHERE id = ? FOR UPDATE", [raid!.id]);
+      hit = applyVillageMissionShrineDamage(db, null, LEADER, raid!.id, "defenderShrineHp", 20, true);
+      let waiting = false;
+      for (let attempt = 0; attempt < 100 && !waiting; attempt++) {
+        const [locks] = await blocker.query<mysql.RowDataPacket[]>(`
+          SELECT COUNT(*) AS waiting FROM performance_schema.data_lock_waits AS waits
+          INNER JOIN performance_schema.data_locks AS blocking
+            ON blocking.ENGINE_LOCK_ID = waits.BLOCKING_ENGINE_LOCK_ID
+          WHERE blocking.OBJECT_SCHEMA = DATABASE() AND blocking.OBJECT_NAME = ?
+        `, [getTableName(war)]);
+        waiting = Number(locks[0]?.waiting) > 0;
+        if (!waiting) await setTimeout(10);
+      }
+      expect(waiting).toBe(true);
+      const [clock] = await blocker.query<mysql.RowDataPacket[]>(`
+        SELECT TIMESTAMPDIFF(MICROSECOND, SYSDATE(3), startedAt + INTERVAL ? HOUR) / 1000 AS remainingMs
+        FROM War WHERE id = ?
+      `, [FACTION_RAID_MAX_DAYS * 24, raid!.id]);
+      const remainingMs = Number(clock[0]?.remainingMs);
+      expect(remainingMs).toBeGreaterThan(0);
+      if (expiresWhileBlocked) await setTimeout(remainingMs + 250);
+      await blocker.commit();
+      expect(await hit).toBe(!expiresWhileBlocked);
+    } finally {
+      await blocker.rollback();
+      await hit?.catch(() => {});
+      await blocker.end();
+    }
+    const [damaged] = await db.select().from(war).where(eq(war.id, raid!.id));
+    expect(damaged).toMatchObject({
+      defenderWarHealth: expiresWhileBlocked ? 100 : 0,
+      defenderShrineHp: expiresWhileBlocked ? 10 : 0,
+      defenderShrineStatus: expiresWhileBlocked ? "ACTIVE" : "CAPTURED",
+    });
+    // Settle later, after the deadline, to preserve an on-time victory only.
+    await db.update(war).set({ startedAt: new Date(Date.now() - (FACTION_RAID_MAX_DAYS * 24 + 1) * 3600_000) }).where(eq(war.id, raid!.id));
+    const ended = await handleWarEnd((await fetchActiveWar(db, raid!.id))!, db);
+    expect(ended.status).toBe(expiresWhileBlocked ? "DEFENDER_VICTORY" : "ATTACKER_VICTORY");
+    expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST + (expiresWhileBlocked ? 0 : FACTION_RAID_REWARD));
+  }, 10_000);
 
   it("drains both structures by 300 per day once without touching treasury balances", async () => {
     await seedWorld();
