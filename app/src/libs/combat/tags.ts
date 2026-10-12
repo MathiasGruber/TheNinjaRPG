@@ -19,7 +19,7 @@ import {
   TRANSFER_EXCLUDED_SOURCE_TYPES,
 } from "@/drizzle/constants";
 import type { Battle } from "@/drizzle/schema";
-import { damageModifierTypes } from "@/libs/combat/constants";
+import { damageDerivedTagTypes, damageModifierTypes } from "@/libs/combat/constants";
 import { getPotencyDescription } from "@/libs/combat/potency";
 import {
   isClone,
@@ -633,7 +633,7 @@ export const adjustStats = (effect: UserEffect, target: BattleUserState) => {
   const affected = getAffected(effect);
   if ("statTypes" in effect || "generalTypes" in effect) {
     if (!effect.isNew && !effect.castThisRound) {
-      if (effect.statTypes && effect.statTypes.length > 0) {
+      if ("statTypes" in effect && effect.statTypes?.length) {
         if (effect.direction === "offence" || effect.direction === "both") {
           applyCombatStatChange(target, "offence", power, effect.calculation);
         }
@@ -1876,7 +1876,6 @@ export const wound = (
               targetId: effect.targetId,
               types: [
                 "wound",
-                ...("statTypes" in effect && effect.statTypes ? effect.statTypes : []),
                 ...("generalTypes" in effect && effect.generalTypes
                   ? effect.generalTypes
                   : []),
@@ -3423,6 +3422,14 @@ export const getPower = (effect: UserEffect | GroundEffect) => {
  * matched in the RHS, whereas a ratio of 1 means everything is matched by a value in RHS
  */
 export const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
+  // Damage-derived tags without general or element restrictions apply to any hit.
+  if (
+    damageDerivedTagTypes.includes(effect.type) &&
+    !("generalTypes" in effect && effect.generalTypes?.length) &&
+    !("elements" in effect && effect.elements?.length)
+  ) {
+    return 1;
+  }
   // Damage modifiers are universal unless explicitly limited to matching elements.
   if (damageModifierTypes.includes(effect.type)) {
     if (!("elements" in effect) || !effect.elements?.length) return 1;
@@ -3437,7 +3444,8 @@ export const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) =>
   // We need to get the list of dmgEffect stats/gens/elements and effect stats/gens/elements
   const getTags = (e: UserEffect) => {
     const tags: string[] = [];
-    if ("statTypes" in e) {
+    // Catalog JSON and active battles can still contain fields removed from schemas.
+    if (!damageDerivedTagTypes.includes(e.type) && "statTypes" in e) {
       e.statTypes?.forEach((statType: StatType) => {
         tags.push(statType);
       });

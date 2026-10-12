@@ -172,6 +172,16 @@ export const damageModifierTypes: string[] = [
   ...damageBoostTypes,
 ];
 
+/** Damage-derived tags match generals and elements, without a jutsu stat filter. */
+export const damageDerivedTagTypes: string[] = [
+  "afterburn",
+  "lifesteal",
+  "recoil",
+  "absorb",
+  "reflect",
+  "wound",
+];
+
 /**
  * Post-pierce tags that must run AFTER pierce effects (per sortEffects ordering).
  * These tags read damage consequences that pierce creates, so they must run after pierce.
