@@ -260,6 +260,7 @@ describeWithDatabase("sanction tombstones", () => {
     await getTestDatabase().then((database) =>
       database.insert(sanctionTombstone).values({
         userId: "user_deleted",
+        sourceSanction: "SILENCE",
         sanction: "SILENCE",
         sanctionEndsAt: silenceEnd,
         reportIds: ["original-silence"],
@@ -296,6 +297,7 @@ describeWithDatabase("sanction tombstones", () => {
     const database = await getTestDatabase();
     await database.insert(sanctionTombstone).values({
       userId: SANCTIONED,
+      sourceSanction: "BAN",
       sanction: "BAN",
       sanctionEndsAt: new Date(Date.now() - 1000),
       reportIds: ["expired-ban"],
@@ -535,4 +537,207 @@ describeWithDatabase("sanction tombstones", () => {
       }),
     ).toMatchObject({ status: "BAN_ACTIVATED" });
   });
+
+  it.each(["ban", "silence"] as const)(
+    "preserves a staff-revised %s through the deleted identity and another deletion",
+    async (decision) => {
+      const database = await getTestDatabase();
+      const status = decision === "ban" ? "BAN_ACTIVATED" : "SILENCE_ACTIVATED";
+      const sanction = decision === "ban" ? "BAN" : "SILENCE";
+      const originalEnd = new Date(Date.now() + 10 * DAY);
+      await insertUsers([{ userId: SANCTIONED }]);
+      await addSanction(SANCTIONED, status, originalEnd, "original-sanction");
+      const clerkUsers: Record<string, SanctionIdentity> = {
+        [SANCTIONED]: identity("appeal@example.com"),
+        user_appealed: identity("appeal@example.com"),
+        user_old_email: identity("appeal@example.com"),
+      };
+      stubClerk(clerkUsers);
+      await removeAccountIdentity(SANCTIONED);
+      delete clerkUsers[SANCTIONED];
+      await deleteUser(database, SANCTIONED);
+      expect(await register("user_appealed")).toMatchObject({ success: true });
+      clerkUsers.user_appealed = identity("changed@example.com");
+      await insertUsers([{ userId: "staff", role: "OWNER" }]);
+      const report = await database.query.userReport.findFirst({
+        where: eq(userReport.reportedUserId, "user_appealed"),
+      });
+      const staff = await callerFor(reportsRouter, "staff");
+      const input = { object_id: report!.id, comment: "Reduce sanction after appeal" };
+      expect(
+        await staff[decision]({ ...input, banTime: 1, banTimeUnit: "days" }),
+      ).toMatchObject({ success: true });
+      const revised = await database.query.userReport.findFirst({
+        where: eq(userReport.id, report!.id),
+      });
+      expect(revised!.banEnd!.getTime()).toBeLessThan(originalEnd.getTime());
+      expect(await tombstonesOf(SANCTIONED)).toMatchObject([
+        {
+          sanction,
+          reportIds: ["original-sanction"],
+          emailHash: hashSanctionIdentifier("email", "appeal@example.com"),
+        },
+      ]);
+      expect((await tombstonesOf(SANCTIONED))[0]!.sanctionEndsAt).toEqual(
+        revised!.banEnd!,
+      );
+      // The deleted identity still enforces the revised sanction after an email change.
+      expect(await register("user_old_email")).toMatchObject({ success: true });
+      const oldEmailReport = await database.query.userReport.findFirst({
+        where: eq(userReport.reportedUserId, "user_old_email"),
+      });
+      expect(oldEmailReport).toMatchObject({ status });
+      expect(oldEmailReport!.banEnd).toEqual(revised!.banEnd);
+      await deleteUser(database, "user_appealed");
+      expect(await register("user_appealed")).toMatchObject({ success: true });
+      const returnedReport = await database.query.userReport.findFirst({
+        where: eq(userReport.reportedUserId, "user_appealed"),
+      });
+      expect(returnedReport).toMatchObject({ status });
+      expect(returnedReport!.banEnd).toEqual(revised!.banEnd);
+    },
+  );
+
+  it("clears every ancestor of an inherited ban while retaining an independent silence", async () => {
+    const database = await getTestDatabase();
+    const banEnd = new Date(Date.now() + 10 * DAY);
+    const silenceEnd = new Date(Date.now() + 20 * DAY);
+    await insertUsers([{ userId: SANCTIONED }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", banEnd, "original-ban");
+    await addSanction(SANCTIONED, "SILENCE_ACTIVATED", silenceEnd, "original-silence");
+    const clerkUsers: Record<string, SanctionIdentity> = {
+      [SANCTIONED]: identity("original@example.com"),
+    };
+    stubClerk(clerkUsers);
+    let previousUserId = SANCTIONED;
+    for (const [userId, email] of [
+      ["user_second", "original@example.com"],
+      ["user_third", "changed@example.com"],
+      ["user_fourth", "changed-again@example.com"],
+    ] as const) {
+      clerkUsers[previousUserId] = identity(email);
+      clerkUsers[userId] = identity(email);
+      await removeAccountIdentity(previousUserId);
+      delete clerkUsers[previousUserId];
+      await deleteUser(database, previousUserId);
+      expect(await register(userId)).toMatchObject({ success: true });
+      previousUserId = userId;
+    }
+    const report = await database.query.userReport.findFirst({
+      where: and(
+        eq(userReport.reportedUserId, previousUserId),
+        eq(userReport.status, "BAN_ACTIVATED"),
+      ),
+    });
+    expect(
+      await database.query.actionLog.findFirst({
+        where: eq(actionLog.relatedId, report!.id),
+      }),
+    ).toMatchObject({
+      changes: expect.arrayContaining([expect.stringContaining("original-ban")]),
+    });
+    await insertUsers([{ userId: "staff", role: "OWNER" }]);
+    expect(
+      await (await callerFor(reportsRouter, "staff")).clear({
+        object_id: report!.id,
+        comment: "Lift inherited ban",
+        banTime: 1,
+        banTimeUnit: "days",
+      }),
+    ).toMatchObject({ success: true });
+    const retained = await database.query.sanctionTombstone.findMany();
+    expect(retained).toMatchObject([
+      { sanction: "SILENCE", sanctionEndsAt: silenceEnd },
+      { sanction: "SILENCE", sanctionEndsAt: silenceEnd },
+      { sanction: "SILENCE", sanctionEndsAt: silenceEnd },
+    ]);
+    expect(retained.map((source) => source.sanctionEndsAt)).toEqual([
+      silenceEnd, silenceEnd, silenceEnd,
+    ]);
+    clerkUsers[previousUserId] = identity("original@example.com");
+    await deleteUser(database, previousUserId);
+    expect(await register(previousUserId)).toMatchObject({ success: true });
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, previousUserId),
+      }),
+    ).toMatchObject({ isBanned: false, isSilenced: true });
+    expect(
+      await database.query.userReport.findMany({
+        where: eq(userReport.reportedUserId, previousUserId),
+      }),
+    ).toMatchObject([{ status: "SILENCE_ACTIVATED", banEnd: silenceEnd }]);
+  });
+
+  it.each(["ban", "silence"] as const)(
+    "preserves a sanction revised into a %s when staff clear a separate longer sanction",
+    async (decision) => {
+      const database = await getTestDatabase();
+      const status = decision === "ban" ? "BAN_ACTIVATED" : "SILENCE_ACTIVATED";
+      const originalStatus = decision === "ban" ? "SILENCE_ACTIVATED" : "BAN_ACTIVATED";
+      await insertUsers([{ userId: SANCTIONED }]);
+      await addSanction(SANCTIONED, originalStatus, new Date(Date.now() + 10 * DAY));
+      await addSanction(SANCTIONED, status, new Date(Date.now() + 20 * DAY));
+      const clerkUsers: Record<string, SanctionIdentity> = {
+        [SANCTIONED]: identity("conversion@example.com"),
+        user_converted: identity("conversion@example.com"),
+        user_old_identity: identity("conversion@example.com"),
+      };
+      stubClerk(clerkUsers);
+      await removeAccountIdentity(SANCTIONED);
+      delete clerkUsers[SANCTIONED];
+      await deleteUser(database, SANCTIONED);
+      await register("user_converted");
+      clerkUsers.user_converted = identity("new-conversion@example.com");
+      await insertUsers([{ userId: "staff", role: "OWNER" }]);
+      const staff = await callerFor(reportsRouter, "staff");
+      const reports = await database.query.userReport.findMany({
+        where: eq(userReport.reportedUserId, "user_converted"),
+      });
+      const original = reports.find((report) => report.status === originalStatus)!;
+      const separate = reports.find((report) => report.status === status)!;
+      expect(
+        await staff[decision]({
+          object_id: original.id,
+          comment: "Revise the inherited sanction",
+          banTime: 1,
+          banTimeUnit: "days",
+        }),
+      ).toMatchObject({ success: true });
+      const revised = await database.query.userReport.findFirst({
+        where: eq(userReport.id, original.id),
+      });
+      const sources = await tombstonesOf(SANCTIONED);
+      const sourceSanction = decision === "ban" ? "BAN" : "SILENCE";
+      expect(sources).toHaveLength(2);
+      expect(sources.every((source) => source.sanction === sourceSanction)).toBe(true);
+      expect(
+        sources.find((source) => source.sourceSanction === sourceSanction)!
+          .sanctionEndsAt,
+      ).toEqual(separate.banEnd!);
+      expect(
+        await staff.clear({
+          object_id: separate.id,
+          comment: "Lift the separate sanction",
+          banTime: 1,
+          banTimeUnit: "days",
+        }),
+      ).toMatchObject({ success: true });
+      expect(await register("user_old_identity")).toMatchObject({ success: true });
+      const inherited = await database.query.userReport.findMany({
+        where: eq(userReport.reportedUserId, "user_old_identity"),
+      });
+      expect(inherited).toHaveLength(1);
+      expect(inherited[0]!.status).toBe(status);
+      expect(inherited[0]!.banEnd).toEqual(revised!.banEnd);
+      await deleteUser(database, "user_converted");
+      expect(await register("user_converted")).toMatchObject({ success: true });
+      const returned = await database.query.userReport.findMany({
+        where: eq(userReport.reportedUserId, "user_converted"),
+      });
+      expect(returned).toHaveLength(1);
+      expect(returned[0]!.status).toBe(status);
+      expect(returned[0]!.banEnd).toEqual(revised!.banEnd);
+    },
+  );
 });

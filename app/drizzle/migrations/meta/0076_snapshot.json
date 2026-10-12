@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "23365826-fe73-4500-ab40-f55f8ee6a711",
+  "id": "fa5d1889-2d12-4bba-8515-e219b0e0d7bb",
   "prevId": "e778d58b-c8e8-4503-bf5a-db1f88a0de0e",
   "tables": {
     "AbEvent": {
@@ -11114,6 +11114,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "sourceSanction": {
+          "name": "sourceSanction",
+          "type": "enum('BAN','SILENCE')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "sanction": {
           "name": "sanction",
           "type": "enum('BAN','SILENCE')",
@@ -11177,11 +11184,11 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "SanctionTombstone_userId_sanction_pk": {
-          "name": "SanctionTombstone_userId_sanction_pk",
+        "SanctionTombstone_userId_sourceSanction_pk": {
+          "name": "SanctionTombstone_userId_sourceSanction_pk",
           "columns": [
             "userId",
-            "sanction"
+            "sourceSanction"
           ]
         }
       },

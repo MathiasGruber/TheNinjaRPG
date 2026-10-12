@@ -6301,6 +6301,9 @@ export const sanctionTombstone = mysqlTable(
   {
     /** Clerk user id of the deleted account. */
     userId: varchar("userId", { length: 191 }).notNull(),
+    /** Stable source key: the sanction type when this account was deleted. */
+    sourceSanction: mysqlEnum("sourceSanction", consts.SanctionTombstoneTypes).notNull(),
+    /** Current type, including subsequent staff revisions of a carryover report. */
     sanction: mysqlEnum("sanction", consts.SanctionTombstoneTypes).notNull(),
     sanctionEndsAt: datetime("sanctionEndsAt", { mode: "date", fsp: 3 }).notNull(),
     /** UserReport ids that imposed the sanction on the deleted account. */
@@ -6319,7 +6322,7 @@ export const sanctionTombstone = mysqlTable(
       .notNull(),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.sanction] }),
+    pk: primaryKey({ columns: [table.userId, table.sourceSanction] }),
     // Registration reads every unexpired row and matches identifiers in memory: rows only
     // exist while a deleted account's sanction runs, so the set stays small.
     sanctionEndsAtIdx: index("SanctionTombstone_sanctionEndsAt_idx").on(

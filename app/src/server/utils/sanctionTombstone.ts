@@ -53,7 +53,7 @@ type ActiveSanction = {
 
 export type SanctionMatch = ActiveSanction & {
   matchedBy: ("clerkId" | "email" | "oauth")[];
-  tombstoneUserIds: string[];
+  tombstones: SanctionTombstone[];
 };
 
 const SANCTION_REPORT_STATES = {
@@ -195,6 +195,7 @@ export const recordSanctionTombstone = async (
   await Promise.all(
     sanctions.map((entry) => {
       const sanctionFields = {
+        sanction: entry.sanction,
         sanctionEndsAt: entry.endsAt,
         reportIds: entry.reportIds,
       };
@@ -202,7 +203,7 @@ export const recordSanctionTombstone = async (
         .insert(sanctionTombstone)
         .values({
           userId,
-          sanction: entry.sanction,
+          sourceSanction: entry.sanction,
           ...sanctionFields,
           emailHash: hashes?.emailHash ?? null,
           accountHashes: hashes?.accountHashes ?? [],
@@ -257,10 +258,27 @@ export const matchSanctionTombstones = (
           : tombstone.sanctionEndsAt,
       reportIds: [...new Set([...(current?.reportIds ?? []), ...tombstone.reportIds])],
       matchedBy: [...new Set([...(current?.matchedBy ?? []), ...matchedBy])],
-      tombstoneUserIds: [
-        ...new Set([...(current?.tombstoneUserIds ?? []), tombstone.userId]),
-      ],
+      tombstones: [...(current?.tombstones ?? []), tombstone],
     });
+  }
+  // A later deletion references its inherited report. Follow those links back to every
+  // source, even when the registering identity no longer matches an ancestor's hashes.
+  for (const match of matches.values()) {
+    const reportIds = new Set(match.reportIds);
+    for (const source of match.tombstones) {
+      for (const ancestor of tombstones) {
+        if (
+          ancestor.sanction !== match.sanction ||
+          ancestor.sanctionEndsAt <= new Date() ||
+          match.tombstones.includes(ancestor) ||
+          !ancestor.carryoverReportIds.some((id) => source.reportIds.includes(id))
+        )
+          continue;
+        match.tombstones.push(ancestor);
+        for (const id of ancestor.reportIds) reportIds.add(id);
+      }
+    }
+    match.reportIds = [...reportIds];
   }
   return [...matches.values()];
 };
@@ -320,13 +338,33 @@ export const reapplySanctions = (
           carryoverReportIds: sql`JSON_ARRAY_APPEND(${sanctionTombstone.carryoverReportIds}, '$', ${reportId})`,
         })
         .where(
-          and(
-            inArray(sanctionTombstone.userId, match.tombstoneUserIds),
-            eq(sanctionTombstone.sanction, match.sanction),
+          or(
+            ...match.tombstones.map((source) =>
+              and(
+                eq(sanctionTombstone.userId, source.userId),
+                eq(sanctionTombstone.sourceSanction, source.sourceSanction),
+              ),
+            ),
           ),
         ),
     ];
   });
+
+/** Preserve deleted identities while applying a staff-revised type and end date. */
+export const reviseSanctionTombstones = (
+  client: DrizzleClient,
+  reportId: string,
+  sanction: SanctionTombstoneType,
+  endsAt: Date | null,
+) => {
+  const sources = sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`;
+  return endsAt
+    ? client
+        .update(sanctionTombstone)
+        .set({ sanction, sanctionEndsAt: endsAt })
+        .where(sources)
+    : client.delete(sanctionTombstone).where(sources);
+};
 
 /**
  * Retire a cleared carryover report's sources. The current account's own tombstone is

@@ -47,7 +47,10 @@ import {
   protectedProcedure,
   serverError,
 } from "@/server/api/trpc";
-import { clearSanctionTombstones } from "@/server/utils/sanctionTombstone";
+import {
+  clearSanctionTombstones,
+  reviseSanctionTombstones,
+} from "@/server/utils/sanctionTombstone";
 import {
   canBanUsers,
   canClearReport,
@@ -570,6 +573,7 @@ export const reportsRouter = createTRPCRouter({
       if (!input.banTime || input.banTime <= 0) {
         return errorResponse("Ban time must be specified.");
       }
+      const banEnd = getBanEndDate(input);
       // Update
       await Promise.all([
         ...(report.reportedUserId
@@ -586,7 +590,7 @@ export const reportsRouter = createTRPCRouter({
             status: "BAN_ACTIVATED",
             adminResolved: canMarkAdminResolved(user.role),
             updatedAt: new Date(),
-            banEnd: getBanEndDate(input),
+            banEnd,
           })
           .where(eq(userReport.id, input.object_id)),
         ctx.drizzle.insert(userReportComment).values({
@@ -597,6 +601,9 @@ export const reportsRouter = createTRPCRouter({
           decision: "BAN_ACTIVATED",
         }),
       ]);
+      if (report.system === "sanction_carryover") {
+        await reviseSanctionTombstones(ctx.drizzle, report.id, "BAN", banEnd);
+      }
       return { success: true, message: "User banned" };
     }),
   // Silence a user. If no escalation: moderator-only. If escalated: admin-only
@@ -619,6 +626,7 @@ export const reportsRouter = createTRPCRouter({
       if (!input.banTime || input.banTime <= 0) {
         return errorResponse("Ban time must be specified.");
       }
+      const banEnd = getBanEndDate(input);
       // Update
       await Promise.all([
         ...(report.reportedUserId
@@ -635,7 +643,7 @@ export const reportsRouter = createTRPCRouter({
             status: "SILENCE_ACTIVATED",
             adminResolved: canMarkAdminResolved(user.role),
             updatedAt: new Date(),
-            banEnd: getBanEndDate(input),
+            banEnd,
           })
           .where(eq(userReport.id, input.object_id)),
         ctx.drizzle.insert(userReportComment).values({
@@ -646,6 +654,9 @@ export const reportsRouter = createTRPCRouter({
           decision: "SILENCE_ACTIVATED",
         }),
       ]);
+      if (report.system === "sanction_carryover") {
+        await reviseSanctionTombstones(ctx.drizzle, report.id, "SILENCE", banEnd);
+      }
       return { success: true, message: "User silenced" };
     }),
   // Timeout: 1-hour silence. CONTENT-ADMIN and EVENT-ADMIN only.
@@ -690,6 +701,14 @@ export const reportsRouter = createTRPCRouter({
           decision: "TIMEOUT_ACTIVATED",
         }),
       ]);
+      if (report.system === "sanction_carryover") {
+        await reviseSanctionTombstones(
+          ctx.drizzle,
+          report.id,
+          "SILENCE",
+          oneHourFromNow,
+        );
+      }
       return { success: true, message: "User timed out (1 hour)" };
     }),
   // Issue warning to user
