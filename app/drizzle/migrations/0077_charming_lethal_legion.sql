@@ -4,6 +4,7 @@ ALTER TABLE `Item` ADD `furnitureAction` enum('sleep','storage','kitchen','farm'
 ALTER TABLE `Item` ADD `furnitureWidth` double DEFAULT 24 NOT NULL;
 ALTER TABLE `Item` ADD `furnitureGroundAnchor` double DEFAULT 100 NOT NULL;
 ALTER TABLE `Item` ADD `furnitureIsFloor` boolean DEFAULT false NOT NULL;
+ALTER TABLE `UserData` ADD `homeFurnitureRevision` int unsigned DEFAULT 0 NOT NULL;
 ALTER TABLE `UserItem` ADD `homeX` double;
 ALTER TABLE `UserItem` ADD `homeY` double;
 ALTER TABLE `UserItem` ADD `homeRotation` tinyint unsigned DEFAULT 0 NOT NULL;
@@ -25,81 +26,17 @@ VALUES
   ('NONE', 'SELF', 'SINGLE', 'NONE', NULL, JSON_ARRAY(), '', 0, true, false, false, 1, 0, 0, false, 0, 0, 0, 0, 0, 0, 0, 0, 100, NULL, NULL, NULL, NULL, false, false, 0, 'FURNITURE', 'COMMON', false, true, true, 'home-pond', 'Stone Pond', 'A peaceful water feature for your home.', '/images/home/furniture/pond.webp', 150000, 25.0, 85.8, NULL, false)
 ON DUPLICATE KEY UPDATE `id` = `Item`.`id`;
 
--- One owned row per purchased decoration or starter fixture. Deterministic identifiers keep
--- a retried backfill from granting additional copies or overwriting a resident's arrangement.
--- The active home layout becomes the shared arrangement used after home upgrades.
--- Convert the former decorative/action projections to one floor projection, keeping edge
--- positions within the editor's bounds. Decorations absent from the active room stay unplaced.
+-- Deterministic starter identifiers make repeat grants preserve the owned copy and its placement.
 INSERT INTO `UserItem` (`id`, `userId`, `itemId`, `quantity`, `equipped`, `storedAtHome`, `homeX`, `homeY`, `homeRotation`)
 SELECT
-  SHA2(CONCAT('home-furniture:', `source`.`userId`, ':', `source`.`itemId`), 256),
-  `source`.`userId`,
-  `source`.`itemId`,
-  1,
-  'NONE',
-  true,
-  COALESCE(
-    JSON_UNQUOTE(JSON_EXTRACT(`source`.`activeLayout`, REPLACE(`source`.`placementPath`, '.id', '.x'))) + 0,
-    `source`.`defaultX`
-  ),
-  COALESCE(
-    LEAST(92, GREATEST(8, ROUND((
-      0.5 * (JSON_UNQUOTE(JSON_EXTRACT(`source`.`activeLayout`, REPLACE(`source`.`placementPath`, '.id', '.y'))) + 0)
-      + CASE WHEN `source`.`legacyId` = 'garden' THEN 14 ELSE 0 END
-    ) / 0.66, 2))),
-    `source`.`defaultY`
-  ),
-  COALESCE(
-    JSON_UNQUOTE(JSON_EXTRACT(`source`.`activeLayout`, REPLACE(`source`.`placementPath`, '.id', '.rotation'))) + 0,
-    0
-  )
-FROM (
-  SELECT
-    `resident`.`userId`,
-    `stock`.`legacyId`,
-    `stock`.`itemId`,
-    `stock`.`defaultX`,
-    `stock`.`defaultY`,
-    `resident`.`activeLayout`,
-    JSON_UNQUOTE(JSON_SEARCH(`resident`.`activeLayout`, 'one', `stock`.`legacyId`, NULL, '$[*].id')) AS `placementPath`
-  FROM (
-    SELECT
-      `userId`,
-      `homeFurniture`,
-      JSON_EXTRACT(`homeFurniture`, CONCAT('$.layouts.', `homeType`)) AS `activeLayout`
-    FROM `UserData`
-  ) AS `resident`
-  INNER JOIN (
-    SELECT 'bed' AS `legacyId`, 'home-bed' AS `itemId`, 22 AS `defaultX`, 15.15 AS `defaultY`, 1 AS `isCore`
-    UNION ALL
-    SELECT 'armory', 'home-armory', 75, 15.15, 1
-    UNION ALL
-    SELECT 'kitchen', 'home-kitchen', 76, 57.58, 1
-    UNION ALL
-    SELECT 'garden', 'home-garden', 86, 90.91, 1
-    UNION ALL
-    SELECT 'rug', 'home-rug', NULL, NULL, 0
-    UNION ALL
-    SELECT 'table', 'home-table', NULL, NULL, 0
-    UNION ALL
-    SELECT 'bookshelf', 'home-bookshelf', NULL, NULL, 0
-    UNION ALL
-    SELECT 'lantern', 'home-lantern', NULL, NULL, 0
-    UNION ALL
-    SELECT 'bonsai', 'home-bonsai', NULL, NULL, 0
-    UNION ALL
-    SELECT 'sofa', 'home-sofa', NULL, NULL, 0
-    UNION ALL
-    SELECT 'screen', 'home-screen', NULL, NULL, 0
-    UNION ALL
-    SELECT 'pond', 'home-pond', NULL, NULL, 0
-  ) AS `stock`
-    ON `stock`.`isCore` = 1
-      OR JSON_CONTAINS(JSON_EXTRACT(`resident`.`homeFurniture`, '$.owned'), JSON_QUOTE(`stock`.`legacyId`))
-) AS `source`
-INNER JOIN `Item` AS `definition`
-  ON `definition`.`id` = `source`.`itemId` AND `definition`.`itemType` = 'FURNITURE'
+  SHA2(CONCAT('home-furniture:', `resident`.`userId`, ':', `starter`.`itemId`), 256),
+  `resident`.`userId`, `starter`.`itemId`, 1, 'NONE', true, `starter`.`x`, `starter`.`y`, 0
+FROM `UserData` AS `resident`
+CROSS JOIN (
+  SELECT 'home-bed' AS `itemId`, 22 AS `x`, 15.15 AS `y`
+  UNION ALL SELECT 'home-armory', 75, 15.15
+  UNION ALL SELECT 'home-kitchen', 76, 57.58
+  UNION ALL SELECT 'home-garden', 86, 90.91
+) AS `starter`
+WHERE true -- Disambiguate the JOIN from INSERT's ON DUPLICATE KEY clause.
 ON DUPLICATE KEY UPDATE `id` = `UserItem`.`id`;
-
--- Ownership and active placement have been copied into inventory before removing the JSON.
-ALTER TABLE `UserData` DROP COLUMN `homeFurniture`;

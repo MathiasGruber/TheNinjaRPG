@@ -4,170 +4,124 @@ import mysql from "mysql2/promise";
 import { describeWithDatabase } from "../setup/testDatabase";
 
 describeWithDatabase("home furniture inventory migration", () => {
-  it("preserves ownership and the active room without duplicating grants or replacing staff edits", async () => {
+  it("seeds ordinary furniture and grants starter copies without changing balances or existing inventory", async () => {
     const connection = await mysql.createConnection({
       uri: process.env.TEST_MYSQL_URL,
       multipleStatements: true,
     });
     try {
-      // Temporary tables shadow the normal tables only on this connection, keeping
-      // the historical schema isolated from the other suites' current schema.
+      // Connection-local temporary tables isolate the baseline schema from other suites.
       const snapshot = JSON.parse(
         await readFile("drizzle/migrations/meta/0076_snapshot.json", "utf8"),
       ) as { tables: Record<string, SnapshotTable> };
-      for (const name of ["Item", "UserItem", "UserData"]) {
+      for (const name of ["Item", "UserItem", "UserData"])
         await connection.query(temporaryTableSql(snapshot.tables[name]!));
-      }
-      const core = [
-        { id: "bed", x: 22, y: 20, rotation: 0 },
-        { id: "armory", x: 75, y: 20, rotation: 0 },
-        { id: "kitchen", x: 76, y: 76, rotation: 0 },
-        { id: "garden", x: 86, y: 92, rotation: 0 },
-      ];
-      for (const resident of [
-        {
-          userId: "active",
-          homeType: "PALACE",
-          homeFurniture: {
-            owned: ["rug", "sofa"],
-            layouts: {
-              PALACE: [
-                ...core,
-                { id: "rug", x: 41, y: 70, rotation: 1 },
-                { id: "table", x: 51, y: 50, rotation: 0 },
-              ],
-              NONE: [...core, { id: "rug", x: 40, y: 90, rotation: 0 }],
-            },
-          },
-        },
-        {
-          userId: "fresh",
-          homeType: "NONE",
-          homeFurniture: { owned: [], layouts: {} },
-        },
-        {
-          userId: "edge",
-          homeType: "NONE",
-          homeFurniture: {
-            owned: ["rug"],
-            layouts: { NONE: [...core, { id: "rug", x: 8, y: 8, rotation: 0 }] },
-          },
-        },
-        {
-          userId: "u".repeat(191),
-          homeType: "NONE",
-          homeFurniture: {
-            owned: ["lantern"],
-            layouts: {
-              PALACE: [...core, { id: "lantern", x: 45, y: 65, rotation: 1 }],
-            },
-          },
-        },
+      for (const [userId, homeType] of [
+        ["resident", "PALACE"],
+        ["fresh", "NONE"],
+        ["u".repeat(191), "STUDIO_APARTMENT"],
       ]) {
         await connection.query(
-          "INSERT INTO UserData (userId, username, gender, homeType, homeFurniture, homeFurnitureRevision, money) VALUES (?, ?, 'Other', ?, ?, 7, 100000)",
-          [
-            resident.userId,
-            resident.userId,
-            resident.homeType,
-            JSON.stringify(resident.homeFurniture),
-          ],
+          "INSERT INTO UserData (userId, username, gender, homeType, money, bank) VALUES (?, ?, 'Other', ?, 100000, 54321)",
+          [userId, userId, homeType],
         );
       }
+      await connection.query(
+        "INSERT INTO Item (id, name, description, image, effects, itemType, rarity, slot, target) VALUES ('gear', 'Existing gear', 'Existing gear', '/gear.webp', JSON_ARRAY(), 'WEAPON', 'COMMON', 'ITEM', 'CHARACTER'); INSERT INTO UserItem (id, userId, itemId, quantity, level, experience, durability, equipped) VALUES ('owned-gear', 'resident', 'gear', 2, 7, 45, 55, 'ITEM_1');",
+      );
       const migration = await readFile(
-        "drizzle/migrations/0077_dear_kinsey_walden.sql",
+        "drizzle/migrations/0077_charming_lethal_legion.sql",
         "utf8",
       );
-      const dropLegacyColumn = "ALTER TABLE `UserData` DROP COLUMN `homeFurniture`;";
-      expect(migration.trimEnd().endsWith(dropLegacyColumn)).toBe(true);
-      await connection.query(migration.replace(dropLegacyColumn, ""));
-
+      expect(migration).not.toMatch(/JSON_(EXTRACT|SEARCH|CONTAINS|SET)/i);
+      await connection.query(migration);
+      const [columns] = await connection.query<mysql.RowDataPacket[]>(
+        "SHOW COLUMNS FROM UserData",
+      );
+      expect(
+        columns
+          .filter((column) => !snapshot.tables.UserData!.columns[column.Field])
+          .map((column) => column.Field),
+      ).toEqual(["homeFurnitureRevision"]);
       const [inventory] = await connection.query<mysql.RowDataPacket[]>(
         "SELECT * FROM UserItem",
       );
-      expect(inventory).toHaveLength(20);
-      expect(
-        inventory.find((row) => row.userId === "active" && row.itemId === "home-rug"),
-      ).toMatchObject({ homeX: 41, homeY: 53.03, homeRotation: 1 });
-      expect(
-        inventory.find((row) => row.userId === "active" && row.itemId === "home-sofa"),
-      ).toMatchObject({ homeX: null, homeY: null });
-      expect(inventory.some((row) => row.itemId === "home-table")).toBe(false);
-      expect(
-        inventory.find((row) => row.userId === "edge" && row.itemId === "home-rug"),
-      ).toMatchObject({ homeX: 8, homeY: 8 });
-      expect(inventory.find((row) => row.itemId === "home-lantern")).toMatchObject({
+      expect(inventory).toHaveLength(13);
+      expect(inventory.find((row) => row.id === "owned-gear")).toMatchObject({
+        quantity: 2,
+        level: 7,
+        experience: 45,
+        durability: 55,
+        equipped: "ITEM_1",
+        storedAtHome: 0,
         homeX: null,
         homeY: null,
       });
       expect(
         inventory
           .filter((row) => row.userId === "fresh")
-          .map((row) => [row.itemId, row.homeX, row.homeY])
+          .map((row) => [row.itemId, row.homeX, row.homeY, row.homeRotation])
           .sort(),
       ).toEqual([
-        ["home-armory", 75, 15.15],
-        ["home-bed", 22, 15.15],
-        ["home-garden", 86, 90.91],
-        ["home-kitchen", 76, 57.58],
+        ["home-armory", 75, 15.15, 0],
+        ["home-bed", 22, 15.15, 0],
+        ["home-garden", 86, 90.91, 0],
+        ["home-kitchen", 76, 57.58, 0],
       ]);
       expect(
-        inventory.every(
-          (row) =>
-            row.id.length === 64 &&
-            row.storedAtHome === 1 &&
-            row.quantity === 1 &&
-            row.equipped === "NONE",
-        ),
+        inventory
+          .filter((row) => row.id !== "owned-gear")
+          .every(
+            (row) =>
+              row.id.length === 64 &&
+              row.quantity === 1 &&
+              row.storedAtHome === 1 &&
+              row.equipped === "NONE",
+          ),
       ).toBe(true);
-
       await connection.query(
-        "UPDATE Item SET name = 'Staff Rug', cost = 33333 WHERE id = 'home-rug'; UPDATE UserItem SET homeX = 44, homeY = 66 WHERE userId = 'active' AND itemId = 'home-rug';",
+        "UPDATE Item SET name = 'Staff Rug', cost = 33333 WHERE id = 'home-rug'; UPDATE UserItem SET homeX = 44, homeY = 66 WHERE userId = 'resident' AND itemId = 'home-bed';",
       );
       await connection.query(
         migration.slice(
           migration.indexOf("-- Furnishings use the ordinary content catalogue;"),
-          migration.lastIndexOf(dropLegacyColumn),
         ),
       );
       const [retriedInventory] = await connection.query<mysql.RowDataPacket[]>(
         "SELECT * FROM UserItem",
       );
-      expect(retriedInventory).toHaveLength(20);
+      expect(retriedInventory).toHaveLength(13);
       expect(
         retriedInventory.find(
-          (row) => row.userId === "active" && row.itemId === "home-rug",
+          (row) => row.userId === "resident" && row.itemId === "home-bed",
         ),
       ).toMatchObject({ homeX: 44, homeY: 66 });
-      const [definitions] =
-        await connection.query<mysql.RowDataPacket[]>("SELECT * FROM Item");
+      const [definitions] = await connection.query<mysql.RowDataPacket[]>(
+        "SELECT * FROM Item WHERE itemType = 'FURNITURE'",
+      );
       expect(definitions).toHaveLength(12);
       expect(definitions.find((row) => row.id === "home-rug")).toMatchObject({
         name: "Staff Rug",
         cost: 33333,
         furnitureIsFloor: 1,
       });
+      expect(definitions.filter((row) => row.cost === 0)).toHaveLength(4);
       expect(
         definitions
           .filter((row) => row.cost === 0)
           .every((row) => !row.inShop && !row.canBeTraded),
       ).toBe(true);
       const [residents] = await connection.query<mysql.RowDataPacket[]>(
-        "SELECT money, homeFurnitureRevision FROM UserData",
+        "SELECT money, bank, homeFurnitureRevision FROM UserData",
       );
       expect(
         residents.every(
-          (row) => row.money === 100000 && row.homeFurnitureRevision === 7,
+          (row) =>
+            row.money === 100000 &&
+            row.bank === 54321 &&
+            row.homeFurnitureRevision === 0,
         ),
       ).toBe(true);
-      await connection.query(dropLegacyColumn);
-      const [columns] = await connection.query<mysql.RowDataPacket[]>(
-        "SHOW COLUMNS FROM UserData",
-      );
-      expect(columns.some((column) => column.Field === "homeFurniture")).toBe(false);
-      expect(columns.some((column) => column.Field === "homeFurnitureRevision")).toBe(
-        true,
-      );
     } finally {
       await connection.end();
     }
