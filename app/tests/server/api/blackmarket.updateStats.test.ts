@@ -2,8 +2,9 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, it } from "bun:test";
 import { COST_REROLL_ELEMENT, COST_RESET_STATS, getUserCaps } from "@/drizzle/constants";
-import { actionLog, userData } from "@/drizzle/schema";
+import { actionLog, bloodline, userData } from "@/drizzle/schema";
 import { blackMarketRouter } from "@/server/api/routers/blackmarket";
+import { IncreaseDamageGivenTag } from "@/validators/combat";
 import { insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
 import {
@@ -50,7 +51,7 @@ const readUser = async () => {
 
 describeWithDatabase("blackmarket updateStats against a real MySQL", () => {
   beforeEach(async () => {
-    await resetTables(actionLog, userData);
+    await resetTables(actionLog, userData, bloodline);
   });
 
   it("redistributes the points stored above the rank cap instead of dropping them", async () => {
@@ -85,6 +86,18 @@ describeWithDatabase("blackmarket updateStats against a real MySQL", () => {
     expect(result.userPatch?.primaryElement).not.toBe("Fire");
     expect(result.userDelta).toEqual({ reputationPoints: -COST_REROLL_ELEMENT });
     expect(saved.reputationPoints).toBe(0);
+  });
+
+  it.each(["primary", "secondary"] as const)("rejects a bloodline-overridden %s reroll before spending or logging", async (elementType) => {
+    const database = await getTestDatabase();
+    await database.insert(bloodline).values({ id: "wind-line", name: "Wind Line", image: "/test.png", rank: "C", description: "test", effects: [IncreaseDamageGivenTag.parse({ elements: ["Wind"] })] });
+    await insertUsers([{ userId: USER_ID, username: "Roller", rank: "JONIN", primaryElement: "Fire", secondaryElement: "Water", bloodlineId: "wind-line", activeTrainedElement: "Water", reputationPoints: COST_REROLL_ELEMENT } as never]);
+    const api = await callerFor(blackMarketRouter, USER_ID);
+    const result = await api.rerollElement({ elementType });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("bloodline overrides");
+    expect(await readUser()).toMatchObject({ primaryElement: "Fire", secondaryElement: "Water", reputationPoints: COST_REROLL_ELEMENT });
+    expect(await database.select().from(actionLog).where(eq(actionLog.userId, USER_ID))).toEqual([]);
   });
 
   it("rejects a redistribution that leaves the above-cap points out", async () => {

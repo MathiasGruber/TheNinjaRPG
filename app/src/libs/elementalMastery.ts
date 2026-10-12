@@ -14,12 +14,20 @@ export type ElementalMasterySource = {
   bloodline?: { effects: ZodAllTags[] } | null;
 };
 
-/** Innate elements remain ineligible even while a bloodline overrides them. */
-export const providedElements = (user: ElementalMasterySource): ElementName[] => [
-  ...(user.primaryElement ? [user.primaryElement] : []),
-  ...(user.secondaryElement ? [user.secondaryElement] : []),
-  ...getBloodlineElements(user),
-];
+/** Bloodline elements replace the innate pair for both access and mastery eligibility. */
+export const providedElements = (user: ElementalMasterySource): ElementName[] => {
+  const bloodlineElements = getBloodlineElements(user);
+  return Array.from(
+    new Set(
+      bloodlineElements.length > 0
+        ? bloodlineElements
+        : [
+            ...(user.primaryElement ? [user.primaryElement] : []),
+            ...(user.secondaryElement ? [user.secondaryElement] : []),
+          ],
+    ),
+  );
+};
 
 export const elementalGainRoom = (
   user: ElementalMasterySource,

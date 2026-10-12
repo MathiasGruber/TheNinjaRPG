@@ -1,10 +1,5 @@
 import { z } from "zod";
-import type {
-  BasicElement,
-  ElementName,
-  LetterRank,
-  QuestType,
-} from "@/drizzle/constants";
+import type { BasicElement, LetterRank, QuestType } from "@/drizzle/constants";
 import {
   BasicElementName,
   ELEMENTAL_MASTERY_CAP,
@@ -15,11 +10,14 @@ import {
   UserRanks,
   UserRoles,
 } from "@/drizzle/constants";
-import { getBloodlineElements } from "@/libs/userElements";
 
 export { getBloodlineElements, isBloodlineEffectBeneficial } from "@/libs/userElements";
 
-import { activeTrainedElement, elementalGainRoom } from "@/libs/elementalMastery";
+import {
+  activeTrainedElement,
+  elementalGainRoom,
+  providedElements,
+} from "@/libs/elementalMastery";
 import { masteryGainRoom } from "@/libs/masteryProgression";
 import type { UserWithRelations } from "@/routers/profile";
 import { createStatSchema } from "@/validators/combat";
@@ -108,38 +106,7 @@ export const getQuestCounterFieldName = (
 export type QuestCounterFieldName = ReturnType<typeof getQuestCounterFieldName>;
 
 export const getUserElements = (user: UserWithRelations) => {
-  // Natural elements
-  const userElements: ElementName[] = [];
-  if (user?.primaryElement) userElements.push(user.primaryElement);
-  if (user?.secondaryElement) userElements.push(user.secondaryElement);
-  // Bloodline elements
-  const bloodlineElements = getBloodlineElements(user);
-  // Create final list of elements
-  let finalElements: ElementName[] = [];
-
-  if (bloodlineElements.length === 1 && userElements.length === 2) {
-    const bloodlineElement = bloodlineElements[0];
-    const primaryElement = userElements[0];
-    const secondaryElement = userElements[1];
-    if (!bloodlineElement || !primaryElement || !secondaryElement) {
-      return userElements;
-    }
-
-    if (secondaryElement === bloodlineElement) {
-      // Secondary matches bloodline, keep primary and bloodline
-      finalElements = [primaryElement, bloodlineElement];
-    } else {
-      // Secondary doesn't match bloodline, replace primary with bloodline
-      finalElements = [bloodlineElement, secondaryElement];
-    }
-  } else if (bloodlineElements.length > 0) {
-    // Multiple bloodline elements or no secondary element
-    finalElements = bloodlineElements;
-  } else {
-    // No bloodline elements
-    finalElements = userElements;
-  }
-
+  const finalElements = user ? providedElements(user) : [];
   const trained = user && activeTrainedElement(user);
   if (trained) finalElements.push(trained);
   finalElements.push("None");

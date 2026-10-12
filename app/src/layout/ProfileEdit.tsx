@@ -165,7 +165,7 @@ import {
 import {
   type GenderChangeSchema,
   genderChangeSchema,
-  getUserElements,
+  getBloodlineElements,
   type TitleChangeSchema,
   titleChangeSchema,
   updateUserPreferencesSchema,
@@ -181,7 +181,7 @@ export function ProfileEdit() {
   if (!userData) return <Loader explanation="Loading profile page..." />;
 
   // Derived
-  const activeElements = getUserElements(userData);
+  const bloodlineElements = Array.from(new Set(getBloodlineElements(userData)));
 
   return (
     <ContentBox title="Edit Profile" subtitle="Customize Character" padding={false}>
@@ -374,15 +374,15 @@ export function ProfileEdit() {
               {userData.primaryElement ? (
                 <p>
                   Current primary element: {userData.primaryElement}{" "}
-                  {activeElements[0] === userData.primaryElement ||
-                    `- Overwritten by bloodline (${activeElements[0]})`}
+                  {bloodlineElements.length > 0 &&
+                    `- Overwritten by bloodline (${bloodlineElements.join(", ")})`}
                 </p>
               ) : undefined}
               {userData.secondaryElement ? (
                 <p>
                   Current secondary element: {userData.secondaryElement}{" "}
-                  {activeElements[1] === userData.secondaryElement ||
-                    `- Overwritten by bloodline (${activeElements[1]})`}
+                  {bloodlineElements.length > 0 &&
+                    `- Overwritten by bloodline (${bloodlineElements.join(", ")})`}
                 </p>
               ) : undefined}
             </div>
@@ -2032,7 +2032,7 @@ const RerollElement: React.FC = () => {
   const { data: userData, prepareUserUpdate, updateUser } = useRequiredUserData();
 
   // Derived
-  const activeElements = getUserElements(userData);
+  const hasBloodlineElements = getBloodlineElements(userData).length > 0;
 
   // Mutations
   const { mutate: roll, isPending: isRolling } =
@@ -2058,10 +2058,8 @@ const RerollElement: React.FC = () => {
 
   // Guards
   const canAfford = userData && userData.reputationPoints >= COST_REROLL_ELEMENT;
-  const canChangeFirst =
-    userData?.primaryElement && activeElements[0] === userData.primaryElement;
-  const canChangeSecond =
-    userData?.secondaryElement && activeElements[1] === userData.secondaryElement;
+  const canChangeFirst = !!userData?.primaryElement && !hasBloodlineElements;
+  const canChangeSecond = !!userData?.secondaryElement && !hasBloodlineElements;
 
   return (
     <div className="space-y-3">

@@ -8,7 +8,7 @@ import { isEffectActive } from "@/libs/combat/util";
 import { activeTrainedElement, elementalGainRoom } from "@/libs/elementalMastery";
 import { processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
-import { DamageTag } from "@/validators/combat";
+import { DamageTag, IncreaseDamageGivenTag } from "@/validators/combat";
 import { getUserElements } from "@/validators/user";
 import { makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
 
@@ -51,6 +51,15 @@ describe("elemental mastery battle integration", () => {
       expect((await preload(caster)).userEffects.filter(effect => effect.fromType === "elementalMastery")).toHaveLength(0);
     }
     expect((await preload(user(), "RANKED_PVP")).userEffects.filter(effect => effect.fromType === "elementalMastery")).toHaveLength(0);
+  });
+
+  it("preloads the trained passive for an innate element overridden by a bloodline", async () => {
+    const caster = user({ primaryElement: "Wind" });
+    caster.bloodline = { effects: [IncreaseDamageGivenTag.parse({ elements: ["Fire"] })] } as NonNullable<CombatQueryUser["bloodline"]>;
+    const result = await preload(caster);
+    const effects = result.userEffects.filter(effect => effect.fromType === "elementalMastery");
+    expect(effects).toHaveLength(1);
+    expect(packet(effects, "Wind")).toBeCloseTo(packet([], "Wind") * (1 + ELEMENTAL_MASTERY_BOOST / 100));
   });
 
   it("clear preserves the preloaded elemental passive while removing a temporary buff", async () => {
