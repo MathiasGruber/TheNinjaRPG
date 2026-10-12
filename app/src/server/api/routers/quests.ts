@@ -1006,7 +1006,10 @@ export const questsRouter = createTRPCRouter({
                   questType: input.data.questType,
                   ...(entry.questType === "battlepyramid" &&
                   input.data.questType !== "battlepyramid"
-                    ? { endAt: updatedAt }
+                    ? {
+                        // Retire open runs without rewriting completed or abandoned history.
+                        endAt: sql`IF(${questHistory.endAt} IS NULL AND ${questHistory.completed} = 0, ${updatedAt}, ${questHistory.endAt})`,
+                      }
                     : {}),
                 })
                 .where(eq(questHistory.questId, entry.id)),
@@ -2625,6 +2628,7 @@ export const upsertQuestEntries = async (
   }
 };
 
+/** Increment the SQL counter and the supplied user projection together. */
 export const incrementDailyQuestCounter = async (
   client: DrizzleClient,
   user: UserData,
@@ -2919,7 +2923,7 @@ export const assignQuestToUser = async (args: {
           prevAttempt ?? null,
           true,
         );
-        await incrementDailyQuestCounter(database, user, questData.questType);
+        await incrementDailyQuestCounter(database, claimedUser, questData.questType);
         return { result, user: claimedUser };
       }),
     );

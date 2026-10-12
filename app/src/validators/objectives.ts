@@ -1004,7 +1004,17 @@ export const QuestFormRawSchema = QuestValidatorRawSchema.extend(
     sceneCharacters: z.array(z.string()).prefault([]),
   }).shape,
 );
-export const QuestFormSchema = QuestFormRawSchema.superRefine(questSuperRefine);
+/** Validate the editor's flattened run fields, clearing settings hidden by a type change. */
+export const QuestFormSchema = QuestFormRawSchema.transform((val) => ({
+  ...val,
+  content: {
+    ...val.content,
+    entryItems: ["raid", "village_mission", "achievement"].includes(val.questType)
+      ? []
+      : val.entryItems,
+    isolated: val.questType === "battlepyramid" && val.isolated,
+  },
+})).superRefine(questSuperRefine);
 export type ZodQuestFormType = z.output<typeof QuestFormSchema>;
 export type ZodQuestFormInput = z.input<typeof QuestFormSchema>;
 

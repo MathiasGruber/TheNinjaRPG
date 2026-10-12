@@ -159,8 +159,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
       endsAt: data.endsAt ? data.endsAt : null,
       startsAt: data.startsAt ? data.startsAt : null,
       content: {
-        entryItems: data.entryItems,
-        isolated: data.questType === "battlepyramid" && data.isolated,
+        entryItems: data.content.entryItems,
+        isolated: data.content.isolated,
         sceneBackground: data.sceneBackground,
         sceneCharacters: data.sceneCharacters,
         objectives: newObjectives,

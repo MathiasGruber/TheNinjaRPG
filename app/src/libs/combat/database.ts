@@ -1430,7 +1430,8 @@ export const updateUser = async (
 
     // Single call to getNewTrackers with all tasks
     const hydratedUser = hydrateUserForQuests(curBattle, user);
-    // Keep an isolated defeat at its checkpoint, including the confirmed client pool patch.
+    // Every isolated defeat stays awake: hospital healing and regeneration remain blocked
+    // until completion or abandonment, including after an unrelated battle.
     if (getIsolatedPyramid(hydratedUser))
       result.curHealth = Math.max(1, result.curHealth);
     const previouslyDoneGoals = new Set(

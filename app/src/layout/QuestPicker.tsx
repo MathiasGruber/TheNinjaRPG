@@ -244,8 +244,8 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                                 })
                               }
                             >
-                              Entry items are consumed at your first battle and will not
-                              be refunded on abandonment.{" "}
+                              {quest.entryRequirements.length > 0 &&
+                                "Entry items are consumed at your first battle and will not be refunded on abandonment. "}
                               {quest.content.isolated &&
                                 "Outside healing, inventory and travel are restricted for this run."}
                             </Confirm>

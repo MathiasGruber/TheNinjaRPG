@@ -853,10 +853,12 @@ const renderBattlePyramidTips = (quest: DeepPartial<ZodCombinedQuest>) => {
             <h4 className="mb-2 font-medium text-red-900">⚠️ Invalid Objective Types</h4>
             <p className="text-red-800">
               Battle pyramid quests should only contain{" "}
-              <code className="rounded bg-red-100 px-1">dialog</code>,
-              <code className="rounded bg-red-100 px-1">start_battle</code>, or
-              <code className="rounded bg-red-100 px-1">reset_quest</code> objectives.
-              Found invalid types:{" "}
+              {allowedTypes.map((task) => (
+                <code key={task} className="mx-1 inline-block rounded bg-red-100 px-1">
+                  {task}
+                </code>
+              ))}{" "}
+              objectives. Found invalid types:{" "}
               {invalidObjectives.map((obj) => (
                 <code key={obj.id} className="mx-1 rounded bg-red-100 px-1">
                   {obj.task}

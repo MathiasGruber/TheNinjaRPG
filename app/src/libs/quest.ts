@@ -1539,6 +1539,21 @@ export const getNewTrackers = (
     })
     .filter((q): q is QuestTrackerType => !!q);
 
+  // Hidden Pyramids pause without losing their checkpoint; never evaluate their objectives.
+  trackers.push(
+    ...questData.filter((tracker) =>
+      user.userQuests.some(
+        (entry) =>
+          entry.questId === tracker.id &&
+          entry.questType === "battlepyramid" &&
+          entry.quest?.hidden &&
+          !entry.completed &&
+          !entry.endAt &&
+          !hasQuestContentChanged(entry),
+      ),
+    ),
+  );
+
   return {
     trackers: getUnique(trackers, "id"),
     notifications,
