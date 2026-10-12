@@ -1051,3 +1051,9 @@ export const canRollPrimaryElement = (user: UserData) => {
 export const canRollSecondaryElement = (user: UserData) => {
   return !["STUDENT", "GENIN", "NONE"].includes(user.rank);
 };
+
+/** Rewards catalog maintenance is limited to content/event leadership. */
+export const canManageRewards = (role: UserRole) =>
+  ["CONTENT-ADMIN", "EVENT-ADMIN", "HEAD_CONTENT", "HEAD_EVENT", "OWNER"].includes(
+    role,
+  );

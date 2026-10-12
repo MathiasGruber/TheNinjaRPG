@@ -163,6 +163,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
         rewardMode: data.rewardMode,
         rewardPickCount: data.rewardPickCount,
         reward: {
+          reward_packages: data.reward_packages,
           reward_money: data.reward_money,
           reward_seichi_silver: data.reward_seichi_silver,
           reward_clanpoints: data.reward_clanpoints,

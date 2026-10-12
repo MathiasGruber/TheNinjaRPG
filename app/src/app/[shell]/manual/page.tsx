@@ -84,7 +84,11 @@ export default function ManualMain() {
     : withRecruitment;
   // Staff suggest content changes here; content staff review them.
   const entries = isStaffRole(role)
-    ? [{ name: "review", img: IMG_MANUAL_REVIEW }, ...withBackups]
+    ? [
+        { name: "review", img: IMG_MANUAL_REVIEW },
+        { name: "rewards", img: IMG_MANUAL_AWARDS },
+        ...withBackups,
+      ]
     : withBackups;
 
   return (

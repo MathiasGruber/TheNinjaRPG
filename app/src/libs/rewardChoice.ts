@@ -1,6 +1,9 @@
 import { QUEST_REWARD_PICK_MAX } from "@/drizzle/constants";
+import { collapseRewards } from "@/libs/rewards";
 import type { QuestContentType } from "@/validators/objectives";
+import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
 import {
+  hasReward,
   ObjectiveReward,
   type ObjectiveRewardType,
   type PendingRewardChoice,
@@ -18,7 +21,8 @@ import {
  * jutsu, bloodline, sage mode and badge id is one card. Rank promotion, village membership and
  * the hunter/gathering material drops are structural outcomes rather than loot, so they are always
  * granted alongside the picked cards. Picked items are guaranteed: the editor's drop chance only
- * applies to quests that grant every reward. Cards for content the player already holds stay on
+ * applies to quests that grant every reward. Package cards retain all their rewards, including
+ * structural outcomes and item chances, until that bundle is picked. Cards for content the player already holds stay on
  * the offer but cannot be picked, and one pick holds at most one sage mode.
  */
 
@@ -52,9 +56,7 @@ export const getFixedChoiceRewards = (
   });
 
 /** Splits a reward into pickable cards, in a stable order with stable ids. */
-export const buildRewardChoiceCards = (
-  reward: ObjectiveRewardType,
-): RewardChoiceCard[] => {
+export const buildRewardChoiceCards = (reward: QuestRewardType): RewardChoiceCard[] => {
   const cards: RewardChoiceCard[] = [];
   for (const field of REWARD_CHOICE_AMOUNT_FIELDS) {
     const amount = Math.floor(Number(reward[field] ?? 0));
@@ -77,15 +79,28 @@ export const buildRewardChoiceCards = (
       cards.push({ id: `${field}:${contentId}`, field, amount: 1, contentId });
     }
   }
+  for (const pack of reward.reward_packages ?? []) {
+    if (!hasReward(pack.rewards)) continue;
+    cards.push({
+      id: `reward_package:${pack.id}`,
+      field: "reward_package",
+      amount: 1,
+      packageName: pack.name,
+      rewards: pack.rewards,
+    });
+  }
   return cards;
 };
 
 /** Sage modes fill the single equipped slot, so one pick holds at most one of them. */
-export const isSageModeCard = (card: Pick<RewardChoiceCard, "field">) =>
-  card.field === "reward_sage_modes";
+export const isSageModeCard = (card: Pick<RewardChoiceCard, "field" | "rewards">) =>
+  card.field === "reward_sage_modes" ||
+  (card.rewards?.reward_sage_modes.length ?? 0) > 0;
 
 /** Most cards one pick can hold: every non-sage card plus a single sage mode. */
-export const maxRewardPicks = (cards: Pick<RewardChoiceCard, "field">[]) => {
+export const maxRewardPicks = (
+  cards: Pick<RewardChoiceCard, "field" | "rewards">[],
+) => {
   const sageModes = cards.filter(isSageModeCard).length;
   return cards.length - sageModes + Math.min(sageModes, 1);
 };
@@ -115,6 +130,22 @@ export const getUnavailableRewardCards = (
 ): Map<string, string> => {
   const unavailable = new Map<string, string>();
   for (const card of cards) {
+    if (card.field === "reward_package" && card.rewards) {
+      if (!hasReward(card.rewards)) {
+        unavailable.set(card.id, "No rewards available");
+        continue;
+      }
+      const childCards = buildRewardChoiceCards(card.rewards);
+      const blocked = getUnavailableRewardCards(childCards, ownership);
+      const fixed = getFixedChoiceRewards(card.rewards);
+      if (
+        childCards.length > 0 &&
+        blocked.size === childCards.length &&
+        !hasReward(fixed)
+      )
+        unavailable.set(card.id, REWARD_CHOICE_OWNED_REASON);
+      continue;
+    }
     const id = card.contentId;
     if (!id) continue;
     if (card.field === "reward_sage_modes" && ownership.hasSageMode) {
@@ -196,7 +227,7 @@ export const toggleRewardPick = (
   selected: string[],
   cardId: string,
   required: number,
-  cards: Pick<RewardChoiceCard, "id" | "field">[] = [],
+  cards: Pick<RewardChoiceCard, "id" | "field" | "rewards">[] = [],
 ): string[] => {
   if (selected.includes(cardId)) return selected.filter((id) => id !== cardId);
   if (required === 1) return [cardId];
@@ -213,9 +244,12 @@ export const toggleRewardPick = (
 export const rewardFromChoiceCards = (
   cards: RewardChoiceCard[],
 ): ObjectiveRewardType => {
-  const reward = ObjectiveReward.parse({});
+  let reward = ObjectiveReward.parse({});
   for (const card of cards) {
     switch (card.field) {
+      case "reward_package":
+        if (card.rewards) reward = collapseRewards([reward, card.rewards]);
+        break;
       case "reward_items":
         if (card.contentId) {
           reward.reward_items.push({
@@ -248,7 +282,7 @@ export const verifyRewardChoiceForSave = (
 ): { check: boolean; message: string } => {
   if (!isRewardChoiceQuest(content)) return { check: true, message: "" };
   const pickable = maxRewardPicks(
-    buildRewardChoiceCards(ObjectiveReward.parse(content.reward)),
+    buildRewardChoiceCards(QuestReward.parse(content.reward)),
   );
   const pickCount = getRewardPickCount(content);
   if (pickable <= pickCount) {
@@ -313,4 +347,5 @@ export const REWARD_CHOICE_CATEGORY_LABELS: Record<RewardChoiceCard["field"], st
     reward_bloodlines: "Bloodline",
     reward_sage_modes: "Sage Mode",
     reward_badges: "Badge",
+    reward_package: "Reward Package",
   } as Record<RewardChoiceCard["field"], string>;

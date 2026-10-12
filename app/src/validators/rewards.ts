@@ -193,7 +193,13 @@ export type RewardChoiceContentField = (typeof REWARD_CHOICE_CONTENT_FIELDS)[num
  */
 export const RewardChoiceCardSchema = z.object({
   id: z.string().min(1),
-  field: z.enum([...REWARD_CHOICE_AMOUNT_FIELDS, ...REWARD_CHOICE_CONTENT_FIELDS]),
+  field: z.enum([
+    ...REWARD_CHOICE_AMOUNT_FIELDS,
+    ...REWARD_CHOICE_CONTENT_FIELDS,
+    "reward_package",
+  ]),
+  packageName: z.string().optional(),
+  rewards: ObjectiveReward.optional(),
   amount: z.number().int().min(1),
   contentId: z.string().optional(),
 });
@@ -227,6 +233,7 @@ export const RewardChoiceDisplaySchema = z.object({
       image: z.string().nullable(),
       rarity: z.string().nullable(),
       description: z.string().nullable(),
+      includedRewards: z.array(z.string()).optional(),
       /** Why this player cannot pick the card (e.g. already owned), or null if pickable. */
       unavailableReason: z.string().nullable(),
     }),

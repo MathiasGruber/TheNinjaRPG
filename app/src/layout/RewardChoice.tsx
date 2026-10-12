@@ -226,7 +226,7 @@ const RewardChoiceCard: React.FC<{
   onToggle: () => void;
 }> = ({ card, isSelected, isBlocked, onToggle }) => {
   const Icon = getAmountIcon(card.field);
-  const isAmountCard = !card.contentId;
+  const isAmountCard = !card.contentId && card.field !== "reward_package";
   return (
     <button
       type="button"
@@ -267,6 +267,15 @@ const RewardChoiceCard: React.FC<{
         {REWARD_CHOICE_CATEGORY_LABELS[card.field]}
         {!isAmountCard && card.amount > 1 && ` · x${card.amount}`}
       </div>
+      {card.includedRewards && (
+        <ul className="max-h-48 w-full overflow-y-auto text-left text-xs sm:text-sm">
+          {card.includedRewards.map((entry, index) => (
+            <li key={`${index}:${entry}`} className="py-0.5">
+              {entry}
+            </li>
+          ))}
+        </ul>
+      )}
       {card.description && (
         <div className="line-clamp-2 text-muted-foreground text-xs sm:line-clamp-3">
           {parseHtml(card.description)}

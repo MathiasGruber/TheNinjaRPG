@@ -1,3 +1,5 @@
+"use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, ChevronsUpDown, Loader2, Plus, X } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -48,6 +50,7 @@ import { CoordinateTargetingEditor } from "@/layout/CoordinateTargetingEditor";
 import { EpidemicSfxSearch } from "@/layout/EpidemicSfxSearch";
 import Image from "@/layout/Image";
 import Modal from "@/layout/Modal";
+import { RewardEditor } from "@/layout/RewardEditor";
 import RichInput from "@/layout/RichInput";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import Table from "@/layout/Table";
@@ -150,6 +153,9 @@ interface EditContentProps<T, K, S extends FieldValues> {
   form: UseFormReturn<S, any>;
   formData: FormEntry<K>[];
   showSubmit: boolean;
+  fieldsOnly?: boolean;
+  allowMaterialRewards?: boolean;
+  children?: React.ReactNode;
   formClassName?: string;
   buttonTxt?: string;
   allowImageUpload?: boolean;
@@ -367,13 +373,14 @@ export const EditContent = <
     return "default";
   };
 
+  const FormTag = props.fieldsOnly ? "div" : "form";
   // Count how many columns have been used
   let columnCount = 0;
   let lastCategory = "default";
 
   return (
     <Form {...form}>
-      <form
+      <FormTag
         onSubmit={props.onAccept}
         className={
           formClassName ?? "grid grid-cols-1 items-center gap-1 md:grid-cols-2"
@@ -515,7 +522,8 @@ export const EditContent = <
                 formEntry.id,
               ) ||
               questType === "hunting" ||
-              props.type === "activityStreak"
+              props.type === "activityStreak" ||
+              props.allowMaterialRewards
             );
           })
           .filter((formEntry) => {
@@ -524,7 +532,8 @@ export const EditContent = <
                 formEntry.id,
               ) ||
               questType === "gathering" ||
-              props.type === "activityStreak"
+              props.type === "activityStreak" ||
+              props.allowMaterialRewards
             );
           })
           .map((formEntry) => {
@@ -1576,6 +1585,7 @@ export const EditContent = <
               </Fragment>
             );
           })}
+        {props.children}
         {showSubmit && props.onAccept && (
           <div className="col-span-full mt-3 items-center">
             <span className="sr-only" role="status" aria-live="polite">
@@ -1602,7 +1612,7 @@ export const EditContent = <
           </div>
         )}
         </fieldset>
-      </form>
+      </FormTag>
     </Form>
   );
 };
@@ -2378,6 +2388,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Parse how to present the tag form
   const formData: FormEntry<Attribute>[] = attributes
+    .filter((value) => value !== "reward_packages")
     .filter(
       (value) =>
         ![
@@ -2711,16 +2722,23 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     <EditContent
       schema={objectiveSchema}
       form={form}
-      formData={formData}
+      formData={formData.filter((entry) => !String(entry.id).startsWith("reward_"))}
       formClassName={formClassName}
       showSubmit={false}
       buttonTxt="Confirm Changes (No database sync)"
       submitLoading={props.submitLoading}
-    />
+    >
+      <RewardEditor
+        form={form}
+        formData={formData}
+        hideFields={["reward_mastery_stat", "reward_mastery_rank"]}
+      />
+    </EditContent>
   );
 };
 
 interface RewardFormWrapperProps {
+  grouped?: boolean;
   idx: number;
   reward: ObjectiveRewardType;
   rewards: ObjectiveRewardType[];
@@ -2745,6 +2763,7 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
     type,
   } = props;
 
+  const { data: rewardUser } = useUserData();
   // Parse reward with schema
   const parsedReward = ObjectiveReward.safeParse(reward);
   const shownReward = parsedReward.success ? parsedReward.data : reward;
@@ -2771,8 +2790,10 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
   useEffect(() => {
     const newRewards = [...rewards];
     const parsed = ObjectiveReward.safeParse(watchAll);
-    if (parsed.success) {
-      newRewards[idx] = parsed.data;
+    if (parsed.success || props.grouped) {
+      newRewards[idx] = parsed.success
+        ? parsed.data
+        : (watchAll as ObjectiveRewardType);
       const diff = calculateContentDiff(rewards, newRewards);
       if (diff.length > 0) {
         setRewards(newRewards);
@@ -2863,6 +2884,9 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
           id: value,
           label: FORM_LABEL_MAP[value] ?? value,
           type: "number" as const,
+          readonly:
+            value === "reward_reputation" &&
+            !canAwardReputation(rewardUser?.role ?? "USER"),
         };
       } else if (innerType instanceof z.ZodBoolean) {
         return {
@@ -2886,8 +2910,18 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
       }
     });
 
+  if (props.grouped)
+    return (
+      <RewardEditor
+        form={form}
+        formData={formData}
+        allowPackages={false}
+        hideFields={hideFields}
+      />
+    );
   return (
     <EditContent
+      fieldsOnly
       schema={ObjectiveReward}
       form={form}
       formData={formData}

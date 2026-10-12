@@ -63,11 +63,11 @@ import { idsWithNumberField } from "@/validators/base";
 import { AllTags, SuperRefinePassiveEffects } from "@/validators/combat";
 import { masteryRequirementFields } from "@/validators/mastery";
 import {
-  ObjectiveReward,
-  type ObjectiveRewardType,
-  questRewardModeFields,
-  rewardFields,
-} from "@/validators/rewards";
+  QuestReward,
+  type QuestRewardType,
+  questRewardFields,
+} from "@/validators/rewardPackages";
+import { ObjectiveReward, questRewardModeFields } from "@/validators/rewards";
 import { villageMissionContentError } from "@/validators/villageMission";
 
 // Re-export idsWithNumberField so consumers can import from objectives
@@ -429,28 +429,28 @@ export const SimpleObjective = z.object({
   ...baseObjectiveFields,
   task: z.enum(SimpleTasks),
   value: z.coerce.number().min(0).prefault(3),
-  ...rewardFields,
+  ...questRewardFields,
   ...attackerFields,
 });
 
 export const InstantWinLoseObjective = z.object({
   ...baseObjectiveFields,
   task: z.enum(["fail_quest", "win_quest"]),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 export const ResetQuestObjective = z.object({
   ...baseObjectiveFields,
   task: z.literal("reset_quest"),
   resetObjectiveId: z.string().optional(),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 export const InstantNewQuestObjective = z.object({
   ...baseObjectiveFields,
   task: z.literal("new_quest"),
   newQuestIds: z.array(z.string()).prefault([]),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 export const InstantStartBattleObjective = z.object({
@@ -461,7 +461,7 @@ export const InstantStartBattleObjective = z.object({
   opponentAIs: idsWithNumberField.refine((data) => data.length > 0, {
     error: "At least one opponent AI is required",
   }),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 const SECTOR_TYPES = [
@@ -490,7 +490,7 @@ const complexObjectiveFields = {
   hideLocation: z.coerce.boolean().prefault(false),
   completed: z.coerce.number().min(0).max(1).prefault(0),
   image: z.string().prefault(""),
-  ...rewardFields,
+  ...questRewardFields,
   ...attackerFields,
 };
 export const baseComplexObjective = z.object(complexObjectiveFields);
@@ -499,7 +499,7 @@ export type ComplexObjectiveFields = z.infer<typeof baseComplexObjective>;
 // Dialog objective schema
 export const DialogObjective = z.object({
   ...baseObjectiveFields,
-  ...rewardFields,
+  ...questRewardFields,
   ...attackerFields,
   task: z.literal("dialog"),
   image: z.string().prefault(""),
@@ -569,7 +569,7 @@ export const RaidObjective = z.object({
   // Override default descriptions for raid context
   failDescription: z.string().prefault("You failed to defeat the raid boss"),
   fleeDescription: z.string().prefault("You fled from the raid boss"),
-  ...rewardFields,
+  ...questRewardFields,
 });
 export type RaidObjectiveType = z.infer<typeof RaidObjective>;
 
@@ -579,7 +579,7 @@ export const CraftSpecificItem = z.object({
   task: z.literal("craft_specific_item"),
   craftItemIds: z.array(z.string()).prefault([]),
   value: z.coerce.number().min(0).prefault(1),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 // contentId stores the trained jutsu id (matched against trainJutsuIds).
@@ -589,7 +589,7 @@ export const TrainSpecificJutsu = z.object({
   trainJutsuIds: z.array(z.string()).prefault([]),
   masteryType: z.enum(["None", ...MasteryTypes]).prefault("None"),
   value: z.coerce.number().min(0).prefault(1),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 // contentId stores the completed quest id (matched against completeQuestIds).
@@ -598,7 +598,7 @@ export const CompleteSpecificQuest = z.object({
   task: z.literal("complete_specific_quest"),
   completeQuestIds: z.array(z.string()).prefault([]),
   value: z.coerce.number().min(0).prefault(1),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 // contentId stores the purchased item id (matched against buyItemIds). NPC shop only (v1).
@@ -607,7 +607,7 @@ export const BuyItem = z.object({
   task: z.literal("buy_item"),
   buyItemIds: z.array(z.string()).prefault([]),
   value: z.coerce.number().min(0).prefault(1),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 // contentId stores a used item id from this battle (matched against useItemIds).
@@ -616,7 +616,7 @@ export const UseSpecificItemCombat = z.object({
   task: z.literal("use_specific_item_combat"),
   useItemIds: z.array(z.string()).prefault([]),
   value: z.coerce.number().min(0).prefault(1),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 // contentId stores a used jutsu id from this battle (matched against useJutsuIds).
@@ -627,7 +627,7 @@ export const UseSpecificJutsuCombat = z.object({
   masteryType: z.enum(["None", ...MasteryTypes]).prefault("None"),
   combatType: z.enum(["Any", "PVP", "PVE"]).prefault("Any"),
   value: z.coerce.number().min(0).prefault(1),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 // contentId stores an applied combat tag type from a won battle (matched against tagType).
@@ -638,7 +638,7 @@ export const TagUsageWin = z.object({
   // safeParse fails, falls back to the raw object, and never renders the tag picker).
   tagType: z.enum(OBJECTIVE_TAG_TYPES).prefault(OBJECTIVE_TAG_TYPES[0]),
   value: z.coerce.number().min(0).prefault(1),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 // value = damage threshold. singleBattle=false accumulates across the quest's battles;
@@ -650,14 +650,14 @@ export const DamageDealt = z.object({
   task: z.literal("damage_dealt"),
   singleBattle: z.coerce.boolean().prefault(false),
   value: z.coerce.number().min(0).prefault(1),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 export const BloodlineCollection = z.object({
   ...baseObjectiveFields,
   task: z.literal("bloodline_collection"),
   bloodlineRank: z.enum(["ALL", ...LetterRanks]).prefault("ALL"),
-  ...rewardFields,
+  ...questRewardFields,
 });
 
 export const AllObjectives = z.discriminatedUnion("task", [
@@ -704,7 +704,7 @@ export const ObjectiveTracker = z.object({
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 
 export type QuestContentType = {
-  reward: ObjectiveRewardType;
+  reward: QuestRewardType;
   /** Absent on quests saved before reward choice existed; treated as "all". */
   rewardMode?: QuestRewardMode;
   /** Rewards the player picks when `rewardMode` is "choose". */
@@ -750,7 +750,7 @@ export const QuestValidatorRawSchema = z.object({
   questType: z.enum(QuestTypes),
   content: z.object({
     objectives: z.array(AllObjectives),
-    reward: ObjectiveReward,
+    reward: QuestReward,
     ...questRewardModeFields,
     sceneBackground: z.string().prefault(""),
     sceneCharacters: z.array(z.string()).prefault([]),
@@ -807,12 +807,17 @@ const questSuperRefine = (
       path: ["content", "objectives"],
     });
   }
-  const reward = val.content.reward;
-  const hasPromotionStat =
-    !!reward.reward_mastery_stat && reward.reward_mastery_stat !== "None";
-  const hasPromotionRank =
-    !!reward.reward_mastery_rank && reward.reward_mastery_rank !== "NONE";
-  if (hasPromotionStat !== hasPromotionRank) {
+  const promotionRewards = [
+    val.content.reward,
+    ...(val.content.reward.reward_packages ?? []).map((pack) => pack.rewards),
+  ];
+  if (
+    promotionRewards.some(
+      (reward) =>
+        (!!reward.reward_mastery_stat && reward.reward_mastery_stat !== "None") !==
+        (!!reward.reward_mastery_rank && reward.reward_mastery_rank !== "NONE"),
+    )
+  ) {
     ctx.addIssue({
       code: "custom",
       message: "Select both the mastery and its rank reward",
@@ -820,9 +825,13 @@ const questSuperRefine = (
     });
   }
   if (
-    val.content.objectives.some(
-      (objective) =>
-        objective.reward_mastery_rank && objective.reward_mastery_rank !== "NONE",
+    val.content.objectives.some((objective) =>
+      [
+        objective,
+        ...(objective.reward_packages ?? []).map((pack) => pack.rewards),
+      ].some(
+        (reward) => reward.reward_mastery_rank && reward.reward_mastery_rank !== "NONE",
+      ),
     )
   ) {
     ctx.addIssue({
@@ -929,7 +938,7 @@ export type ZodQuestType = z.infer<typeof QuestValidator>;
 // - Scene fields at top level (for easy form binding)
 // - The superRefine validations
 export const QuestFormRawSchema = QuestValidatorRawSchema.extend(
-  ObjectiveReward.shape,
+  QuestReward.shape,
 ).extend(
   z.object({
     ...questRewardModeFields,
