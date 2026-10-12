@@ -9,12 +9,14 @@ import {
 import { AllTags } from "@/validators/combat";
 import { getUserElements } from "@/validators/user";
 
+// A mastered innate element becomes active only when a bloodline replaces its slot.
 const trainee = {
   primaryElement: "Fire",
   secondaryElement: "Water",
   elementalMastery: { Fire: ELEMENTAL_MASTERY_CAP },
   activeTrainedElement: "Fire",
 } satisfies ElementalMasterySource;
+/** Creates a beneficial elemental grant for bloodline override scenarios. */
 const bloodline = (elements: BasicElement[]) => ({
   effects: [AllTags.parse({ type: "increasedamagegiven", elements, power: 40 })],
 });

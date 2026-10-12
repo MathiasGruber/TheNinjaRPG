@@ -180,7 +180,7 @@ export function ProfileEdit() {
   // Loaders
   if (!userData) return <Loader explanation="Loading profile page..." />;
 
-  // Derived
+  // Labels describe bloodline grants independently of the active trained element.
   const bloodlineElements = Array.from(new Set(getBloodlineElements(userData)));
 
   return (
@@ -2024,14 +2024,12 @@ const ElementRerollButton: React.FC<ElementRerollButtonProps> = ({
   </Confirm>
 );
 
-/**
- * Re-Roll Elements
- */
+/** Paid innate rerolls are unavailable while a bloodline overrides the pair. */
 const RerollElement: React.FC = () => {
   // State
   const { data: userData, prepareUserUpdate, updateUser } = useRequiredUserData();
 
-  // Derived
+  // Training an overridden innate element does not make its stored slot rerollable.
   const hasBloodlineElements = getBloodlineElements(userData).length > 0;
 
   // Mutations

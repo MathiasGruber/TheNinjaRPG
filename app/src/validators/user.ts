@@ -105,11 +105,13 @@ export const getQuestCounterFieldName = (
 };
 export type QuestCounterFieldName = ReturnType<typeof getQuestCounterFieldName>;
 
+/** Returns usable elements, including an optional active trained element and "None". */
 export const getUserElements = (user: UserWithRelations) => {
   const finalElements = user ? providedElements(user) : [];
   const trained = user && activeTrainedElement(user);
   if (trained) finalElements.push(trained);
   finalElements.push("None");
+  // A bloodline may already supply "None"; neutral access stays available only once.
   return Array.from(new Set(finalElements));
 };
 

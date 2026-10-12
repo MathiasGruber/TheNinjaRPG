@@ -595,7 +595,7 @@ export const blackMarketRouter = createTRPCRouter({
     .input(rerollElementSchema)
     .output(userDeltaResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      // Fetch user and rolled elements in parallel
+      // Load bloodline eligibility and roll history together before any writes.
       const [user, rollHistory] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
@@ -604,7 +604,7 @@ export const blackMarketRouter = createTRPCRouter({
         getRolledElements(ctx.drizzle, ctx.userId),
       ]);
 
-      // Guard
+      // Reject overridden rolls before recording history or spending reputation.
       if (!user) return errorResponse("User not found");
       if (getBloodlineElements(user).length > 0) {
         return errorResponse("Your bloodline overrides both innate elements");
@@ -622,7 +622,7 @@ export const blackMarketRouter = createTRPCRouter({
       // All the promises to be executed at the end
       const mutations: Promise<DatabasePromiseReturn>[] = [];
 
-      // Ensure current elements are in actionLog if not already tracked
+      // Concurrent attempts may repeat existing history; getRolledElements deduplicates it.
       if (user.primaryElement && !rollHistory.primary.includes(user.primaryElement)) {
         mutations.push(
           addElementRoll(ctx.drizzle, ctx.userId, "primary", user.primaryElement),
@@ -670,7 +670,8 @@ export const blackMarketRouter = createTRPCRouter({
         );
       }
 
-      // Mutation for updating the user data
+      // Charge and replace the roll atomically; balance, bloodline and innate-slot
+      // guards below reject stale snapshots without a transaction or locking read.
       const updateData: Record<string, unknown> = {
         reputationPoints: sql`reputationPoints - ${COST_REROLL_ELEMENT}`,
       };
