@@ -100,6 +100,18 @@ export const HomeScene = ({
     );
   };
 
+  /** Finish only the active drag, restoring its original position on cancellation. */
+  const finishDrag = (
+    id: HomeFurnitureId,
+    pointerId: number,
+    shouldRestoreOrigin = false,
+  ) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== pointerId || drag.placement.id !== id) return;
+    if (shouldRestoreOrigin) moveFurniture(id, drag.placement.x, drag.placement.y);
+    dragRef.current = null;
+  };
+
   const selectFurniture = (id: HomeFurnitureId) => {
     setSelectedId(id);
     updatePlacements((placements) =>
@@ -306,37 +318,13 @@ export const HomeScene = ({
                   drag.placement.y - dx / 0.88 + dy / 0.44,
                 );
               }}
-              onPointerUp={(event) => {
-                const drag = dragRef.current;
-                if (
-                  !drag ||
-                  drag.pointerId !== event.pointerId ||
-                  drag.placement.id !== placement.id
-                )
-                  return;
-                dragRef.current = null;
-              }}
-              onPointerCancel={(event) => {
-                const drag = dragRef.current;
-                if (
-                  !drag ||
-                  drag.pointerId !== event.pointerId ||
-                  drag.placement.id !== placement.id
-                )
-                  return;
-                moveFurniture(placement.id, drag.placement.x, drag.placement.y);
-                dragRef.current = null;
-              }}
-              onLostPointerCapture={(event) => {
-                const drag = dragRef.current;
-                if (
-                  !drag ||
-                  drag.pointerId !== event.pointerId ||
-                  drag.placement.id !== placement.id
-                )
-                  return;
-                dragRef.current = null;
-              }}
+              onPointerUp={(event) => finishDrag(placement.id, event.pointerId)}
+              onPointerCancel={(event) =>
+                finishDrag(placement.id, event.pointerId, true)
+              }
+              onLostPointerCapture={(event) =>
+                finishDrag(placement.id, event.pointerId)
+              }
               onKeyDown={(event) => {
                 if (!isEditing || isSaving) return;
                 const direction = FURNITURE_DIRECTIONS.find(
