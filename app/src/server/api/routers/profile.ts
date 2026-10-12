@@ -3192,6 +3192,7 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests = user.userQuests.filter((entry) => entry.quest);
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     progressionQuestCandidates = [...user.userQuests];
+    // Retain paused/invalid run history so isolation and abandonment stay accessible.
     user.userQuests = user.userQuests.filter(
       (q) =>
         ((q.questType === "battlepyramid" || q.isolated) && !q.endAt && !q.completed) ||
@@ -3431,6 +3432,7 @@ export const fetchUpdatedUser = async (props: {
           ? { ...user, questData: structuredClone(user.questData) }
           : null;
       const regen = user.regeneration * ticks;
+      // Isolation freezes HP/CP/SP; energy keeps its ordinary recovery on the shared clock.
       const poolRegen = getIsolatedPyramid(user) ? 0 : regen;
       // These pools are integer columns; expose the same rounding MySQL persists.
       user.curHealth = Math.round(Math.min(user.curHealth + poolRegen, user.maxHealth));

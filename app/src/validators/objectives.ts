@@ -414,6 +414,7 @@ export const battleObjectiveFields = {
   drawDescription: z.string().prefault("The battle ended in a draw"),
   scaleGains: z.coerce.number().min(0).max(1).prefault(1),
   keepOriginalPools: z.coerce.boolean().prefault(false),
+  // Absent means carry pools; an explicit percentage replaces all three starting pools.
   givePools: z.preprocess(
     (value) => (value === "" || value === null ? undefined : value),
     z.coerce.number().min(0).max(100).optional(),
@@ -715,6 +716,7 @@ export const ObjectiveTracker = z.object({
 });
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 
+/** Each selected ID is required at the given quantity; duplicates add rather than offer alternatives. */
 export const questEntryItemsSchema = z
   .array(
     z.object({
@@ -724,13 +726,16 @@ export const questEntryItemsSchema = z
   )
   .prefault([]);
 
+/** Shared authoring fields; entry is paid at the first battle and isolation is Pyramid-only. */
 export const questRunFields = {
   entryItems: questEntryItemsSchema,
   isolated: z.coerce.boolean().prefault(false),
 };
 
 export type QuestContentType = {
+  /** Personal-run item requirements, consumed once at the first battle. */
   entryItems?: z.infer<typeof questEntryItemsSchema>;
+  /** Freeze outside recovery and restrict inventory/travel until the attempt closes. */
   isolated?: boolean;
   reward: QuestRewardType;
   /** Absent on quests saved before reward choice existed; treated as "all". */

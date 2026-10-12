@@ -127,6 +127,7 @@ export const hospitalRouter = createTRPCRouter({
       const { user: t } = updatedTarget;
       if (!u) return errorResponse("Your user was not found");
       if (!t) return errorResponse("Your target was not found");
+      // The healer's middleware cannot enforce isolation for a different recipient.
       if (getIsolatedPyramid(t)) return errorResponse(ISOLATED_PYRAMID_MESSAGE);
       // Derived
       const pools = calcHospitalHealPools(u, isSelfHeal);

@@ -264,6 +264,7 @@ const enforceUserIsAuthed = t.middleware(async ({ ctx: context, path, next }) =>
   return next({ ctx: { userId: context.userId } });
 });
 
+/** Enforce persisted isolation even when hidden content or stale client state omits its tracker. */
 const enforcePyramidIsolation = t.middleware(async ({ ctx, path, type, next }) => {
   if (ctx.userId && isPyramidRestrictedProcedure(path)) {
     const isolated = await ctx.drizzle.query.questHistory.findFirst({

@@ -4071,9 +4071,11 @@ export const questHistory = mysqlTable(
     // Completions counted within the current retryDelay calendar period.
     periodCompletes: int("periodCompletes").default(0).notNull(),
     periodStartAt: datetime("periodStartAt", { mode: "date", fsp: 3 }),
-    /** Run state survives checkpoint resets, hidden content and logout. */
+    /** First-battle receipt; retained across floors/checkpoints until the attempt restarts. */
     entryPaid: boolean("entryPaid").default(false).notNull(),
+    /** Attempt-owned restriction that survives hidden content, tracker resets and logout. */
     isolated: boolean("isolated").default(false).notNull(),
+    /** Content revision accepted at entry; authored changes require a new attempt. */
     questVersion: datetime("questVersion", { mode: "date", fsp: 3 }),
     // Reward offer of a "choose" quest completion, cleared atomically when the player picks.
     pendingRewardChoice: json("pendingRewardChoice").$type<PendingRewardChoice>(),

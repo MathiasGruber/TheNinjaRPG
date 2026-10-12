@@ -1,6 +1,7 @@
 import type { UserQuest } from "@/drizzle/schema";
 import type { QuestContentType } from "@/validators/objectives";
 
+/** Shared feedback for server rejections and the isolated-run boundary. */
 export const ISOLATED_PYRAMID_MESSAGE =
   "Complete or abandon your isolated Battle Pyramid before using outside healing, inventory or travel.";
 
@@ -10,6 +11,7 @@ export const getIsolatedPyramid = (
 ) =>
   user?.userQuests?.find((entry) => entry.isolated && !entry.endAt && !entry.completed);
 
+/** Versioned runs must restart after authored edits; visibility-only edits keep the run valid. */
 export const hasQuestContentChanged = (entry: UserQuest) =>
   (entry.questType === "battlepyramid" || entry.isolated) &&
   !!entry.questVersion &&
@@ -27,11 +29,13 @@ export const getQuestEntryRequirements = (
   return [...quantities].map(([itemId, quantity]) => ({ itemId, quantity }));
 };
 
+/** Block outside recovery, inventory and travel pages, including their nested routes. */
 export const isPyramidRestrictedPath = (pathname: string) =>
   ["/hospital", "/ramenshop", "/items", "/inventory", "/travel"].some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
 
+/** Enforce player restrictions without blocking staff item-content management procedures. */
 export const isPyramidRestrictedProcedure = (path: string) =>
   path.startsWith("hospital.") ||
   path.startsWith("travel.") ||

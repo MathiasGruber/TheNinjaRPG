@@ -16,6 +16,11 @@ import { showMutationToast } from "@/libs/toast";
 import { usePublicPathname } from "@/utils/routing";
 import { useUserData } from "@/utils/UserContext";
 
+/**
+ * Keep the run's return/abandon controls available even when content is hidden or edited.
+ * Isolated runs prevent restricted page children from mounting their queries; the server
+ * independently enforces the same restriction for stale tabs and direct procedure calls.
+ */
 export const PyramidRunBoundary = ({ children }: { children: React.ReactNode }) => {
   const { data: user } = useUserData();
   const pathname = usePublicPathname();

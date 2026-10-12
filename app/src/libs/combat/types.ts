@@ -431,8 +431,9 @@ export type ExtraState = {
   preBattleGearModifiers?: Record<string, PreBattleGearModifiers>;
   settings?: GameSetting[];
   initialDurability?: Record<string, Record<string, number>>; // userId -> userItemId -> durability
-  // Raid-specific data
+  /** Owning quest/objective; ticketed or versioned runs ignore kills from unrelated battles. */
   questBattleSource?: { questId: string; objectiveId: string };
+  // Raid-specific data
   raidQuestId?: string; // The quest ID for raid battles
   raidInitialBossHp?: number; // Initial boss HP at start of raid battle
   raidStartBattleCount?: Record<string, number>; // userId -> battleCount at battle start

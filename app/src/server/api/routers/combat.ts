@@ -1862,9 +1862,13 @@ export const initiateBattle = async (
     forceDefenderVillageId?: string;
     biome?: CombatBiome;
     forceKeepPools?: boolean;
+    /** Replace the initiating players' HP/CP/SP with this percentage of effective maxima. */
     givePools?: number;
+    /** Full authored tags applied only to initiating human players, including the opening round. */
     startingEffects?: ZodAllTags[];
+    /** Open run whose version, receipt and inventory are guarded at battle creation. */
     questAttempt?: UserQuest;
+    /** Attribute battle progress to its owning objective instead of unrelated matching kills. */
     questBattleSource?: { questId: string; objectiveId: string };
     raidQuestId?: string;
     topPlayersLP?: number[];
@@ -2964,6 +2968,7 @@ export const initiateBattle = async (
     );
     if (entry) entry.entryPaid = true;
   }
+  /** Persist the preloaded battle and return the guarded participant claim. */
   const createBattle = async (client: DrizzleClient) => {
     const writes = [
       client.insert(battle).values({

@@ -3807,7 +3807,7 @@ export const EffectFieldSelector: React.FC<{
   );
 };
 
-/** Reuses the combat tag editor, including each tag's power, filters and duration. */
+/** Reuse full combat tag configuration while keeping authored starting effects player-only. */
 const QuestBattleEffects = ({
   title,
   effects,

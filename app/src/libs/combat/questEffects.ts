@@ -22,7 +22,12 @@ import {
 import type { BattleUserState, UserEffect } from "@/libs/combat/types";
 import type { ZodAllTags } from "@/validators/combat";
 
-/** Establish chance-sensitive effects before opening-turn action availability is calculated. */
+/**
+ * Clone authored tags into player-only battle effects without mutating quest content.
+ * Initialize chance/immunity-sensitive statuses before opening-turn actions are calculated;
+ * ordinary round processing would also tick, stack and expire effects at this stage.
+ * Duration includes the opening round, and ongoing effects use the normal combat lifecycle.
+ */
 export const addQuestStartingEffects = (
   player: BattleUserState,
   usersEffects: UserEffect[],

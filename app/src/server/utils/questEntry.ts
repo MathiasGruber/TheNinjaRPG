@@ -13,6 +13,7 @@ import { updateUserItemQuantityAtomically } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canPlayHiddenQuests } from "@/utils/permissions";
 
+/** Match the same open attempt and its playable content inside a guarded write. */
 const questAttemptWhere = (client: DrizzleClient, attempt: UserQuest, role: UserRole) =>
   and(
     eq(questHistory.id, attempt.id),
@@ -36,6 +37,7 @@ const questAttemptWhere = (client: DrizzleClient, attempt: UserQuest, role: User
     ),
   );
 
+/** Embed attempt/version/visibility validation in the battle participant claim without a fetch. */
 export const questAttemptIsActive = (
   client: DrizzleClient,
   attempt: UserQuest,
@@ -48,6 +50,11 @@ export const questAttemptIsActive = (
       .where(questAttemptWhere(client, attempt, role)),
   );
 
+/**
+ * Allocate required quantities deterministically across available inventory stacks.
+ * Returns null for insufficient inventory, or no charges when the attempt is already paid.
+ * Expected quantities become CAS guards; each debit is positive and bounded by its stack.
+ */
 export const getQuestEntryCharges = (
   attempt: UserQuest,
   items: readonly UserItem[],
@@ -76,7 +83,13 @@ export const getQuestEntryCharges = (
   return charges;
 };
 
-/** The receipt, all item debits and the battle claim commit together or roll back together. */
+/**
+ * Commit the receipt, all item debits and battle claim together, or roll them all back.
+ * A guarded update cannot cover the receipt, separate inventory stacks and battle inserts.
+ * The callback must await writes sequentially on the transaction's PlanetScale session;
+ * didClaim verifies the participant claim before committing. Expected conflicts return
+ * actionable feedback, while unexpected database errors propagate to the caller.
+ */
 export const commitQuestEntryBattle = async <T>({
   client,
   attempt,

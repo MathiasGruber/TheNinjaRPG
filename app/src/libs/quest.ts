@@ -102,6 +102,7 @@ import { getQuestCounterFieldName } from "@/validators/user";
 /**
  * Get currently active quests for a user
  */
+/** Select playable definitions; raw history remains available for isolation and recovery controls. */
 export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
   const userQuests =
     user?.userQuests
@@ -720,20 +721,24 @@ export type QuestConsequence = {
   scaleStats?: boolean;
   scaleGains?: number;
   forceKeepPools?: boolean;
+  /** Owning battle objective, carried through consequences into battle progress attribution. */
   questId?: string;
   objectiveId?: string;
+  /** Optional shared HP/CP/SP starting percentage; absence preserves carried pools. */
   givePools?: number;
+  /** Fully configured player tags whose duration includes the opening round. */
   startingEffects?: ZodAllTags[];
   /** Expanded NPC template IDs for combat consequences; duplicates request separate allies. */
   allyAiIds?: string[];
 };
 
 /**
- * Battle context for gating "war-context" kill objectives. Supplied only from the combat path.
+ * Combat-only context for war kill eligibility and managed-run objective attribution.
  */
 export type CombatQuestContext = {
   inWarTornSector: boolean;
   isWarParticipant: boolean;
+  /** Prevent unrelated fights from advancing ticketed or versioned run objectives. */
   questBattleSource?: { questId: string; objectiveId: string };
 };
 

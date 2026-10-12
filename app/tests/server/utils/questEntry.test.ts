@@ -15,6 +15,7 @@ describeWithDatabase("quest entry receipts", () => {
     await insertItems([{ id: "ticket" }]);
     await insertUserItems([{ id: "a", userId: "hero", itemId: "ticket", quantity: 2 }, { id: "b", userId: "hero", itemId: "ticket", quantity: 3 }]);
   });
+  /** Read the same preloaded attempt/inventory snapshot consumed by first-battle entry. */
   const snapshot = async () => {
     const client = await getTestDatabase();
     const [attempt, items] = await Promise.all([
@@ -24,6 +25,7 @@ describeWithDatabase("quest entry receipts", () => {
     if (!attempt) throw new Error("Missing run fixture");
     return { client, attempt, items, role: "USER" as const };
   };
+  // A guarded participant claim with a visible counter detects duplicate commits and rollback.
   const createBattle = (client: Awaited<ReturnType<typeof getTestDatabase>>) => client.update(userData).set({ status: "BATTLE", money: sql`${userData.money} + 1` }).where(and(eq(userData.userId, "hero"), eq(userData.status, "AWAKE")));
   const didClaim = (result: { rowsAffected: number }) => result.rowsAffected === 1;
 

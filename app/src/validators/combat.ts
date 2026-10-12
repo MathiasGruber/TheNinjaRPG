@@ -1116,6 +1116,7 @@ export const questBuffTypes = [
   "immunity",
   "summonprevent",
 ] as const;
+/** Player debuffs whose existing handlers support authored starting effects. */
 export const questDebuffTypes = [
   "afterburn",
   "buffprevent",
@@ -1142,6 +1143,7 @@ export const questDebuffTypes = [
   "wound",
 ] as const;
 
+/** Validate full combat tags against the permitted list and require an opening-round duration. */
 export const questStartingEffectsSchema = (types: readonly string[]) =>
   z
     .array(AllTags)
