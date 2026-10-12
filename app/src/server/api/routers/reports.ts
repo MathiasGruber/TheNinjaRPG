@@ -752,6 +752,9 @@ export const reportsRouter = createTRPCRouter({
           decision: "OFFICIAL_WARNING",
         }),
       ]);
+      if (report.system === "sanction_carryover") {
+        await reviseSanctionTombstones(ctx.drizzle, report.id, "BAN", null);
+      }
       if (report.reportedUserId) {
         void pusher.trigger(report.reportedUserId, "event", {
           type: "userMessage",
@@ -1132,6 +1135,9 @@ export const reportsRouter = createTRPCRouter({
           decision: "TRADE_BAN_ACTIVATED",
         }),
       ]);
+      if (report.system === "sanction_carryover") {
+        await reviseSanctionTombstones(ctx.drizzle, report.id, "BAN", null);
+      }
       return { success: true, message: "User trade banned" };
     }),
 });

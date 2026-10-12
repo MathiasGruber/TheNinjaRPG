@@ -11,6 +11,7 @@ import {
   userReportComment,
   village,
 } from "@/drizzle/schema";
+import { Pusher } from "@/libs/pusher";
 import { profileRouter } from "@/routers/profile";
 import { registerRouter } from "@/server/api/routers/register";
 import { reportsRouter } from "@/server/api/routers/reports";
@@ -490,6 +491,119 @@ describeWithDatabase("sanction tombstones", () => {
       )?.isBanned,
     ).toBe(false);
   });
+
+  it.each([
+    ["BAN_ACTIVATED", "warn"],
+    ["SILENCE_ACTIVATED", "warn"],
+    ["BAN_ACTIVATED", "tradeBan"],
+    ["SILENCE_ACTIVATED", "tradeBan"],
+  ] as const)(
+    "does not restore a carryover %s replaced by staff %s after another deletion",
+    async (status, decision) => {
+      const database = await getTestDatabase();
+      await insertUsers([{ userId: SANCTIONED }]);
+      await addSanction(SANCTIONED, status, new Date(Date.now() + DAY));
+      stubClerk({
+        [SANCTIONED]: identity("replaced@example.com"),
+        user_replaced: identity("replaced@example.com"),
+      });
+      vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue();
+      await deleteUser(database, SANCTIONED);
+      expect(await register("user_replaced")).toMatchObject({ success: true });
+      await deleteUser(database, "user_replaced");
+      expect(await register("user_replaced")).toMatchObject({ success: true });
+      expect(await database.query.sanctionTombstone.findMany()).toHaveLength(2);
+      const report = await database.query.userReport.findFirst({
+        where: eq(userReport.reportedUserId, "user_replaced"),
+      });
+      expect(report).toMatchObject({ status, system: "sanction_carryover" });
+      await insertUsers([{ userId: "staff", role: "OWNER" }]);
+
+      expect(
+        await (await callerFor(reportsRouter, "staff"))[decision]({
+          object_id: report!.id,
+          comment: "Replace the inherited sanction",
+          banTime: 1,
+          banTimeUnit: "days",
+        }),
+      ).toMatchObject({ success: true });
+      expect(
+        await database.query.userReport.findFirst({
+          where: eq(userReport.id, report!.id),
+        }),
+      ).toMatchObject({
+        status: decision === "warn" ? "OFFICIAL_WARNING" : "TRADE_BAN_ACTIVATED",
+      });
+      expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
+      await (await callerFor(reportsRouter, "user_replaced")).getBan();
+      await deleteUser(database, "user_replaced");
+      expect(await register("user_replaced")).toMatchObject({ success: true });
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, "user_replaced"),
+        }),
+      ).toMatchObject({ isBanned: false, isSilenced: false });
+    },
+  );
+
+  it.each(["warn", "tradeBan"] as const)(
+    "retains an independent ban when staff %s replaces a silence revised into a ban",
+    async (decision) => {
+      const database = await getTestDatabase();
+      const independentEnd = new Date(Date.now() + 20 * DAY);
+      await insertUsers([{ userId: SANCTIONED }]);
+      await addSanction(
+        SANCTIONED,
+        "SILENCE_ACTIVATED",
+        new Date(Date.now() + 10 * DAY),
+        "original-silence",
+      );
+      await addSanction(SANCTIONED, "BAN_ACTIVATED", independentEnd, "original-ban");
+      stubClerk({
+        [SANCTIONED]: identity("independent@example.com"),
+        user_revised: identity("independent@example.com"),
+      });
+      vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue();
+      await deleteUser(database, SANCTIONED);
+      expect(await register("user_revised")).toMatchObject({ success: true });
+      await insertUsers([{ userId: "staff", role: "OWNER" }]);
+      const staff = await callerFor(reportsRouter, "staff");
+      const report = await database.query.userReport.findFirst({
+        where: and(
+          eq(userReport.reportedUserId, "user_revised"),
+          eq(userReport.status, "SILENCE_ACTIVATED"),
+        ),
+      });
+      const input = {
+        object_id: report!.id,
+        comment: "Revise the inherited sanction",
+        banTime: 1,
+        banTimeUnit: "days" as const,
+      };
+      expect(await staff.ban(input)).toMatchObject({ success: true });
+      expect(await staff[decision](input)).toMatchObject({ success: true });
+      expect(await tombstonesOf(SANCTIONED)).toMatchObject([
+        {
+          sourceSanction: "BAN",
+          sanction: "BAN",
+          sanctionEndsAt: independentEnd,
+          reportIds: ["original-ban"],
+        },
+      ]);
+      await deleteUser(database, "user_revised");
+      expect(await register("user_revised")).toMatchObject({ success: true });
+      expect(
+        await database.query.userReport.findMany({
+          where: eq(userReport.reportedUserId, "user_revised"),
+        }),
+      ).toMatchObject([{ status: "BAN_ACTIVATED", banEnd: independentEnd }]);
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, "user_revised"),
+        }),
+      ).toMatchObject({ isBanned: true, isSilenced: false });
+    },
+  );
 
   it("retains other active sanctions when staff clear a carryover ban", async () => {
     await insertUsers([{ userId: SANCTIONED, isBanned: true, isSilenced: true }]);
