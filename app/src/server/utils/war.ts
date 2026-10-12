@@ -45,6 +45,7 @@ import {
   villageStructure,
   type War,
   war,
+  warAlly,
 } from "@/drizzle/schema";
 import { isVillageInvolvedInAnyWar } from "@/libs/war";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
@@ -211,11 +212,12 @@ export const handleWarEnd = async (
     const defender = alias(village, "defender");
     const related = alias(war, "related");
     const unlisted = alias(war, "unlisted");
+    const membership = alias(warAlly, "wa");
     const rosterMatches = current.warAllies.length
       ? sql.join(
           current.warAllies.map(
             (ally) =>
-              sql`(wa.villageId = ${ally.villageId} AND wa.supportVillageId = ${ally.supportVillageId})`,
+              sql`(${membership.villageId} = ${ally.villageId} AND ${membership.supportVillageId} = ${ally.supportVillageId})`,
           ),
           sql` OR `,
         )
@@ -272,8 +274,8 @@ export const handleWarEnd = async (
         AND ${attacker.tokens} = ${current.attackerVillage.tokens} AND ${defender.tokens} = ${current.defenderVillage.tokens}
         ${options.shrineBuilderId ? sql`AND ${attacker.kageId} = ${options.shrineBuilderId} AND ${attacker.tokens} >= ${WAR_PURCHASE_SHRINE_TOKEN_COST} AND ${war.defenderShrineHp} <= 0` : sql``}
         ${isSector ? sql`AND ${sector.villageId} = ${current.defenderVillageId} AND ${unlisted.id} IS NULL` : sql``}
-        AND (SELECT COUNT(*) FROM WarAlly wa WHERE wa.warId = ${war.id} AND wa.acceptedAt IS NOT NULL AND wa.endedAt IS NULL) = ${current.warAllies.length}
-        AND NOT EXISTS (SELECT 1 FROM WarAlly wa WHERE wa.warId = ${war.id} AND wa.acceptedAt IS NOT NULL AND wa.endedAt IS NULL AND NOT (${rosterMatches}))
+        AND (SELECT COUNT(*) FROM ${warAlly} wa WHERE ${membership.warId} = ${war.id} AND ${membership.acceptedAt} IS NOT NULL AND ${membership.endedAt} IS NULL) = ${current.warAllies.length}
+        AND NOT EXISTS (SELECT 1 FROM ${warAlly} wa WHERE ${membership.warId} = ${war.id} AND ${membership.acceptedAt} IS NOT NULL AND ${membership.endedAt} IS NULL AND NOT (${rosterMatches}))
     `),
     );
     if (claimed.rowsAffected > 0) {

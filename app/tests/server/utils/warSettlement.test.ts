@@ -724,7 +724,7 @@ describeWithDatabase("guarded war settlement and delivery", () => {
     const db = await seed();
     await addOffer(db);
     const client = intercept(db, async (query, execute) => {
-      if (statement(query).includes("UPDATE UserRequest r"))
+      if (statement(query).includes("UPDATE `UserRequest` r"))
         throw new Error("Payment unavailable");
       return execute();
     });
@@ -765,7 +765,7 @@ describeWithDatabase("guarded war settlement and delivery", () => {
           requiresUserRefresh: false,
         }));
         const paymentFailure = intercept(db, async (query, execute) => {
-          if (statement(query).includes("UPDATE UserRequest r"))
+          if (statement(query).includes("UPDATE `UserRequest` r"))
             throw new Error("Payment unavailable");
           return execute();
         });
@@ -917,8 +917,8 @@ describeWithDatabase("guarded war settlement and delivery", () => {
           if (
             statement(query).includes(
               phase === "reservation"
-                ? "INSERT IGNORE INTO WarAlly"
-                : "UPDATE UserRequest r",
+                ? "INSERT IGNORE INTO `WarAlly`"
+                : "UPDATE `UserRequest` r",
             )
           )
             expect((await closeOffer(db)).success).toBe(true);

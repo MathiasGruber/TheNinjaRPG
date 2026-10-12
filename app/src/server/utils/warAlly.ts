@@ -1,6 +1,7 @@
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { WAR_LOSING_COOLDOWN_DAYS } from "@/drizzle/constants";
-import { warAlly } from "@/drizzle/schema";
+import { userRequest, village, war, warAlly } from "@/drizzle/schema";
 import { errorResponse } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
@@ -16,15 +17,17 @@ export const closeWarAllyOffer = async (
   userId: string,
   status: "CANCELLED" | "REJECTED",
 ) => {
+  const request = alias(userRequest, "r");
+  const membership = alias(warAlly, "wa");
   // Drizzle cannot express a multi-table write. Ending only an unpaid reservation
   // preserves accepted history and frees the unique slot even if the response fails.
   const closed = await retryOnDeadlock(() =>
     client.execute(sql`
-    UPDATE UserRequest r
-    LEFT JOIN WarAlly wa ON wa.id = r.id AND wa.acceptedAt IS NULL AND wa.endedAt IS NULL
-    SET r.status = ${status}, wa.endedAt = CURRENT_TIMESTAMP(3)
-    WHERE r.id = ${offerId} AND r.type = 'WAR_ALLY' AND r.status = 'PENDING'
-      AND ${status === "CANCELLED" ? sql`r.senderId` : sql`r.receiverId`} = ${userId}
+    UPDATE ${userRequest} r
+    LEFT JOIN ${warAlly} wa ON ${membership.id} = ${request.id} AND ${membership.acceptedAt} IS NULL AND ${membership.endedAt} IS NULL
+    SET ${request.status} = ${status}, ${membership.endedAt} = CURRENT_TIMESTAMP(3)
+    WHERE ${request.id} = ${offerId} AND ${request.type} = 'WAR_ALLY' AND ${request.status} = 'PENDING'
+      AND ${status === "CANCELLED" ? request.senderId : request.receiverId} = ${userId}
   `),
   );
   return closed.rowsAffected > 0;
@@ -41,18 +44,23 @@ export const acceptWarAllyOffer = async (
     userId: string;
   },
 ) => {
+  const request = alias(userRequest, "r");
+  const membership = alias(warAlly, "wa");
+  const activeWar = alias(war, "w");
+  const joining = alias(village, "joining");
+  const supporting = alias(village, "supporting");
   await retryOnDeadlock(() =>
     client.execute(sql`
-    INSERT IGNORE INTO WarAlly (id, warId, villageId, supportVillageId, tokensPaid, acceptedAt)
-    SELECT r.id, w.id, joining.id, supporting.id, 0, NULL
-    FROM UserRequest r
-    INNER JOIN War w ON w.id = r.relatedId
-    INNER JOIN Village joining ON joining.id = ${offer.villageId} AND joining.kageId = r.receiverId
-    INNER JOIN Village supporting ON supporting.id = ${offer.supportVillageId} AND supporting.kageId = r.senderId
-    WHERE r.id = ${offer.offerId} AND r.type = 'WAR_ALLY' AND r.status = 'PENDING'
-      AND r.receiverId = ${offer.userId} AND r.value >= 0
-      AND w.id = ${offer.warId} AND w.status = 'ACTIVE' AND w.endedAt IS NULL
-      AND supporting.id IN (w.attackerVillageId, w.defenderVillageId)
+    INSERT IGNORE INTO ${warAlly} (id, warId, villageId, supportVillageId, tokensPaid, acceptedAt)
+    SELECT ${request.id}, ${activeWar.id}, ${joining.id}, ${supporting.id}, 0, NULL
+    FROM ${userRequest} r
+    INNER JOIN ${war} w ON ${activeWar.id} = ${request.relatedId}
+    INNER JOIN ${village} joining ON ${joining.id} = ${offer.villageId} AND ${joining.kageId} = ${request.receiverId}
+    INNER JOIN ${village} supporting ON ${supporting.id} = ${offer.supportVillageId} AND ${supporting.kageId} = ${request.senderId}
+    WHERE ${request.id} = ${offer.offerId} AND ${request.type} = 'WAR_ALLY' AND ${request.status} = 'PENDING'
+      AND ${request.receiverId} = ${offer.userId} AND ${request.value} >= 0
+      AND ${activeWar.id} = ${offer.warId} AND ${activeWar.status} = 'ACTIVE' AND ${activeWar.endedAt} IS NULL
+      AND ${supporting.id} IN (${activeWar.attackerVillageId}, ${activeWar.defenderVillageId})
   `),
   );
 
@@ -60,18 +68,18 @@ export const acceptWarAllyOffer = async (
   // accepted membership change together, so a failed delivery remains retryable.
   const delivered = await retryOnDeadlock(() =>
     client.execute(sql`
-    UPDATE UserRequest r
-    INNER JOIN WarAlly wa ON wa.id = r.id AND wa.warId = r.relatedId
-    INNER JOIN War w ON w.id = wa.warId
-    INNER JOIN Village joining ON joining.id = wa.villageId AND joining.kageId = r.receiverId
-    INNER JOIN Village supporting ON supporting.id = wa.supportVillageId AND supporting.kageId = r.senderId
-    SET r.status = 'ACCEPTED', wa.acceptedAt = CURRENT_TIMESTAMP(3), wa.tokensPaid = r.value,
-        joining.tokens = joining.tokens + r.value, supporting.tokens = supporting.tokens - r.value
-    WHERE r.id = ${offer.offerId} AND r.type = 'WAR_ALLY' AND r.status = 'PENDING'
-      AND r.receiverId = ${offer.userId} AND r.value >= 0 AND supporting.tokens >= r.value
-      AND wa.villageId = ${offer.villageId} AND wa.supportVillageId = ${offer.supportVillageId}
-      AND wa.acceptedAt IS NULL AND wa.endedAt IS NULL
-      AND w.status = 'ACTIVE' AND w.endedAt IS NULL
+    UPDATE ${userRequest} r
+    INNER JOIN ${warAlly} wa ON ${membership.id} = ${request.id} AND ${membership.warId} = ${request.relatedId}
+    INNER JOIN ${war} w ON ${activeWar.id} = ${membership.warId}
+    INNER JOIN ${village} joining ON ${joining.id} = ${membership.villageId} AND ${joining.kageId} = ${request.receiverId}
+    INNER JOIN ${village} supporting ON ${supporting.id} = ${membership.supportVillageId} AND ${supporting.kageId} = ${request.senderId}
+    SET ${request.status} = 'ACCEPTED', ${membership.acceptedAt} = CURRENT_TIMESTAMP(3), ${membership.tokensPaid} = ${request.value},
+        ${joining.tokens} = ${joining.tokens} + ${request.value}, ${supporting.tokens} = ${supporting.tokens} - ${request.value}
+    WHERE ${request.id} = ${offer.offerId} AND ${request.type} = 'WAR_ALLY' AND ${request.status} = 'PENDING'
+      AND ${request.receiverId} = ${offer.userId} AND ${request.value} >= 0 AND ${supporting.tokens} >= ${request.value}
+      AND ${membership.villageId} = ${offer.villageId} AND ${membership.supportVillageId} = ${offer.supportVillageId}
+      AND ${membership.acceptedAt} IS NULL AND ${membership.endedAt} IS NULL
+      AND ${activeWar.status} = 'ACTIVE' AND ${activeWar.endedAt} IS NULL
   `),
   );
   if (delivered.rowsAffected > 0)
@@ -104,17 +112,20 @@ export const withdrawWarAlly = async (
   villageId: string,
   userId: string,
 ) => {
+  const membership = alias(warAlly, "wa");
+  const activeWar = alias(war, "w");
+  const withdrawing = alias(village, "v");
   const endedAt = new Date();
   const cooldown = secondsFromDate(WAR_LOSING_COOLDOWN_DAYS * DAY_S, endedAt);
   const withdrawn = await retryOnDeadlock(() =>
     client.execute(sql`
-    UPDATE WarAlly wa
-    INNER JOIN War w ON w.id = wa.warId
-    INNER JOIN Village v ON v.id = wa.villageId
-    SET wa.endedAt = ${endedAt}, v.warExhaustionEndedAt = ${cooldown}, v.lastWarEndedAt = ${endedAt}
-    WHERE wa.warId = ${warId} AND wa.villageId = ${villageId}
-      AND wa.acceptedAt IS NOT NULL AND wa.endedAt IS NULL
-      AND w.status = 'ACTIVE' AND w.endedAt IS NULL AND v.kageId = ${userId}
+    UPDATE ${warAlly} wa
+    INNER JOIN ${war} w ON ${activeWar.id} = ${membership.warId}
+    INNER JOIN ${village} v ON ${withdrawing.id} = ${membership.villageId}
+    SET ${membership.endedAt} = ${endedAt}, ${withdrawing.warExhaustionEndedAt} = ${cooldown}, ${withdrawing.lastWarEndedAt} = ${endedAt}
+    WHERE ${membership.warId} = ${warId} AND ${membership.villageId} = ${villageId}
+      AND ${membership.acceptedAt} IS NOT NULL AND ${membership.endedAt} IS NULL
+      AND ${activeWar.status} = 'ACTIVE' AND ${activeWar.endedAt} IS NULL AND ${withdrawing.kageId} = ${userId}
   `),
   );
   if (withdrawn.rowsAffected === 0)

@@ -79,7 +79,7 @@ describeWithDatabase("war ally reservations during request expiry", () => {
     const interrupted = new Proxy(db, {
       get(target, property, receiver) {
         if (property === "execute") return (query: SQL) => {
-          if (dialect.sqlToQuery(query).sql.includes("UPDATE UserRequest r")) throw new Error("Payment interrupted");
+          if (dialect.sqlToQuery(query).sql.includes("UPDATE `UserRequest` r")) throw new Error("Payment interrupted");
           return target.execute(query);
         };
         return Reflect.get(target, property, receiver);
@@ -114,7 +114,7 @@ describeWithDatabase("war ally reservations during request expiry", () => {
     const overlapping = new Proxy(db, {
       get(target, property, receiver) {
         if (property === "execute") return async (query: SQL) => {
-          if (dialect.sqlToQuery(query).sql.includes("UPDATE UserRequest r")) {
+          if (dialect.sqlToQuery(query).sql.includes("UPDATE `UserRequest` r")) {
             await expireRequests(db);
             throw new Error("Payment interrupted after expiry");
           }

@@ -53,6 +53,7 @@ import type {
 } from "@/validators/towerDefense";
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
+import type { WarSettlement } from "@/validators/war";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -4619,7 +4620,7 @@ export const war = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
-    settlement: json("settlement").$type<import("@/validators/war").WarSettlement>(),
+    settlement: json("settlement").$type<WarSettlement>(),
     settlementPending: boolean("settlementPending").default(false).notNull(),
     status: mysqlEnum("status", consts.WAR_STATES).notNull(),
     type: mysqlEnum("type", consts.WAR_TYPES).notNull(),
