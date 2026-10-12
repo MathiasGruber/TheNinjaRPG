@@ -8,7 +8,7 @@ import { masteryQuestTemplates } from "@/libs/masteryQuests";
 import { QuestValidator, SimpleObjective } from "@/validators/objectives";
 import { villageMissionContentError } from "@/validators/villageMission";
 import { getNewTrackers, getReward, postProcessRewards } from "@/libs/quest";
-import { buildRewardChoiceCards, getUnavailableRewardCards, requiredRewardPicks, rewardFromChoiceCards, validateRewardPicks, verifyRewardChoiceForSave } from "@/libs/rewardChoice";
+import { buildRewardChoiceCards, getUnavailableRewardCards, maxRewardPicks, requiredRewardPicks, rewardFromChoiceCards, toggleRewardPick, validateRewardPicks, verifyRewardChoiceForSave } from "@/libs/rewardChoice";
 import { validateQuestRewardPackages } from "@/server/api/routers/rewardPackages";
 import { QuestReward, RewardNodeValidator, RewardPackageValidator } from "@/validators/rewardPackages";
 import { ObjectiveReward } from "@/validators/rewards";
@@ -159,6 +159,59 @@ describe("reward packages", () => {
     const cards=buildRewardChoiceCards(QuestReward.parse({reward_sage_modes:["sage"],reward_packages:[packageReward("a",{reward_sage_modes:["other"],reward_money:50})],reward_money:10}));
     const picks=validateRewardPicks({id:"choice",cards,pickCount:2},cards.filter((card)=>card.field!=="reward_money").map((card)=>card.id));
     expect(picks.success).toBe(false);
+  });
+  it("selects only one eligible mastery promotion in either package order", () => {
+    const promotions = [
+      packageReward("ninjutsu", { reward_mastery_stat: "ninjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 100 }),
+      packageReward("genjutsu", { reward_mastery_stat: "genjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 200 }),
+    ];
+    const owner = { ...ownership, masteryRanks: { ninjutsuMastery: "NOVICE" as const, genjutsuMastery: "NOVICE" as const } };
+    for (const packages of [promotions, [...promotions].reverse()]) {
+      const reward = QuestReward.parse({ reward_money: 10, reward_exp: 20, reward_packages: packages });
+      const cards = buildRewardChoiceCards(reward);
+      const choice = { id: "multi-promotion", cards, pickCount: 2 };
+      const blocked = getUnavailableRewardCards(cards, owner);
+      const ids = cards.filter((card) => card.field === "reward_package").map((card) => card.id);
+      expect(blocked.size).toBe(0);
+      expect(requiredRewardPicks(choice, blocked)).toBe(2);
+      expect(verifyRewardChoiceForSave({ reward, rewardMode: "choose", rewardPickCount: 2 }).check).toBe(true);
+      expect(validateRewardPicks(choice, ids, blocked)).toEqual({ success: false, message: "Only one mastery promotion can be picked" });
+      expect(toggleRewardPick([ids[0]!, "reward_money"], ids[1]!, 2, cards)).toEqual([ids[1]!, "reward_money"]);
+      const picks = validateRewardPicks(choice, [ids[0]!, "reward_money"], blocked);
+      expect(picks.success).toBe(true);
+      const payout = rewardFromChoiceCards(picks.success ? picks.cards : []);
+      expect(payout.reward_mastery_stat).toBe(packages[0]!.rewards.reward_mastery_stat);
+      expect(payout.reward_mastery_rank).toBe("ADEPT");
+      expect(payout.reward_money).toBe(packages[0]!.rewards.reward_money + 10);
+    }
+    const reward = QuestReward.parse({ reward_money: 10, reward_packages: promotions });
+    expect(verifyRewardChoiceForSave({ reward, rewardMode: "choose", rewardPickCount: 2 }).check).toBe(false);
+    const cards = buildRewardChoiceCards(QuestReward.parse({ reward_packages: promotions }));
+    const legacy = { id: "legacy-two-promotion", cards, pickCount: 2 };
+    expect(requiredRewardPicks(legacy)).toBe(1);
+    expect(validateRewardPicks(legacy, [cards[0]!.id]).success).toBe(true);
+    expect(toggleRewardPick([cards[0]!.id], cards[1]!.id, 1, cards)).toEqual([cards[1]!.id]);
+  });
+  it("counts and toggles overlapping sage and mastery bundles coherently", () => {
+    const cards = buildRewardChoiceCards(QuestReward.parse({ reward_money: 10, reward_packages: [
+      packageReward("both", { reward_sage_modes: ["toad"], reward_mastery_stat: "ninjutsuMastery", reward_mastery_rank: "ADEPT" }),
+      packageReward("mastery", { reward_mastery_stat: "genjutsuMastery", reward_mastery_rank: "ADEPT" }),
+      packageReward("sage", { reward_sage_modes: ["snake"] }),
+    ] }));
+    const [money, both, mastery, sage] = cards;
+    expect(maxRewardPicks(cards)).toBe(3);
+    expect(maxRewardPicks([money!, both!, mastery!])).toBe(2);
+    expect(maxRewardPicks([money!, both!, sage!])).toBe(2);
+    expect(maxRewardPicks([both!, { ...both!, id: "second-both" }])).toBe(1);
+    const choice = { id: "overlap", cards, pickCount: 2 };
+    expect(validateRewardPicks(choice, [mastery!.id, sage!.id]).success).toBe(true);
+    expect(validateRewardPicks(choice, [both!.id, money!.id]).success).toBe(true);
+    expect(validateRewardPicks(choice, [both!.id, mastery!.id]).success).toBe(false);
+    expect(validateRewardPicks(choice, [both!.id, sage!.id]).success).toBe(false);
+    expect(toggleRewardPick([mastery!.id, sage!.id], both!.id, 2, cards)).toEqual([both!.id]);
+    expect(toggleRewardPick([mastery!.id, money!.id, sage!.id], both!.id, 3, cards)).toEqual([both!.id, money!.id]);
+    expect(toggleRewardPick([both!.id, money!.id], mastery!.id, 2, cards)).toEqual([mastery!.id, money!.id]);
+    expect(toggleRewardPick([both!.id, money!.id], sage!.id, 2, cards)).toEqual([sage!.id, money!.id]);
   });
   it("allows approved reputation snapshots and rejects amount tampering", () => {
     const pack=packageReward("a",{reward_reputation:5});
