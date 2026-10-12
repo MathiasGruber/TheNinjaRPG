@@ -248,7 +248,7 @@ export default function VillageOverview() {
             </AlertDescription>
           </Alert>
         )}
-        <div className="grid grid-cols-2 items-start sm:grid-cols-4 min-[400px]:grid-cols-3">
+        <div className="grid grid-cols-3 items-start sm:grid-cols-4">
           {shownStructures?.map((structure) => (
             <div
               key={structure.id}
