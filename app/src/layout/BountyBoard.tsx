@@ -306,9 +306,7 @@ export default function BountyBoard({ userData }: BountyBoardProps) {
         <div className="flex items-center justify-end gap-2 p-2">
           <Select
             value={bountyStatus}
-            onValueChange={(
-              value: "OPEN" | "CLAIMED" | "EXPIRED" | "CANCELLED" | "all",
-            ) => setBountyStatus(value)}
+            onValueChange={(value) => setBountyStatus(value as typeof bountyStatus)}
           >
             <SelectTrigger className="w-48">
               <SelectValue />
