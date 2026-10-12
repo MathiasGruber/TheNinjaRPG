@@ -1,4 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { eq, type SQL } from "drizzle-orm";
+import { MySqlDialect } from "drizzle-orm/mysql-core";
+import { userRequest, village, war, warAlly } from "@/drizzle/schema";
+import type { DrizzleClient } from "@/server/db";
+import { acceptWarAllyOffer } from "@/server/utils/warAlly";
+import { describeWithDatabase, getTestDatabase, resetTables } from "../../../setup/testDatabase";
 import * as contentReviewCleanup from "@/libs/contentReview/cleanup";
 import * as gamesettings from "@/libs/gamesettings";
 import * as travel from "@/routers/travel";
@@ -14,6 +20,114 @@ const mocks = { process: vi.fn(), lock: vi.fn(), reset: vi.fn(), execute: vi.fn(
 
 const request = (secret = "test-cron") => new Request("https://example.com/api/cleaner", {
   headers: { authorization: `Bearer ${secret}` },
+});
+
+const dialect = new MySqlDialect();
+const offer = {
+  offerId: "expiring-offer",
+  warId: "expiry-war",
+  villageId: "joining",
+  supportVillageId: "supporting",
+  userId: "joining-kage",
+};
+const addOffer = (db: DrizzleClient, offerId = offer.offerId) => db.insert(userRequest).values({
+  id: offerId,
+  type: "WAR_ALLY",
+  status: "PENDING",
+  senderId: "supporting-kage",
+  receiverId: offer.userId,
+  relatedId: offer.warId,
+  value: 100,
+  createdAt: new Date(Date.now() - 25 * 3_600_000),
+});
+
+const expireRequests = async (db: DrizzleClient) => {
+  stubDatabase({
+    execute: (query: SQL) => {
+      const statement = dialect.sqlToQuery(query).sql;
+      return statement.includes("DELETE") && statement.includes("UserRequest")
+        ? db.execute(query)
+        : Promise.resolve({ rowsAffected: 0 });
+    },
+    delete: (table: object) => table === userRequest ? db.delete(userRequest) : ({ where: vi.fn().mockResolvedValue(undefined) }),
+    update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }),
+  });
+  vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ isNewHour: true, prevTime: new Date(0) } as Awaited<ReturnType<typeof gamesettings.lockWithHourlyTimer>>);
+  vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({ isNewDay: false } as Awaited<ReturnType<typeof gamesettings.lockWithDailyTimer>>);
+  vi.spyOn(travel, "completeExpiredGlobalTravel").mockResolvedValue(undefined);
+  vi.spyOn(raids, "cleanupExpiredExclusiveRaids").mockResolvedValue(0);
+  vi.spyOn(contentReviewCleanup, "cleanupContentProposals").mockResolvedValue({ removed: 0, filesDeleted: 0 });
+  vi.spyOn(grant, "reconcileFederalStatuses").mockImplementation(vi.fn());
+  vi.spyOn(processor, "processAccountDeletions").mockResolvedValue({ processed: 0, failed: 0 });
+  process.env["CRON_SECRET"] = "test-cron";
+  expect((await GET(request())).status).toBe(200);
+};
+
+describeWithDatabase("war ally reservations during request expiry", () => {
+  beforeEach(async () => {
+    await resetTables(userRequest, warAlly, war, village);
+    const db = await getTestDatabase();
+    await db.insert(village).values(["supporting", "joining", "defending"].map((id, index) => ({
+      id, name: id, sector: 101 + index, kageId: `${id}-kage`, tokens: 1000,
+    })));
+    await db.insert(war).values({ id: offer.warId, type: "VILLAGE_WAR", status: "ACTIVE", attackerVillageId: "supporting", defenderVillageId: "defending" });
+    await addOffer(db);
+  });
+
+  it("releases an interrupted reservation so a replacement offer can pay once", async () => {
+    const db = await getTestDatabase();
+    const interrupted = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property === "execute") return (query: SQL) => {
+          if (dialect.sqlToQuery(query).sql.includes("UPDATE `UserRequest` r")) throw new Error("Payment interrupted");
+          return target.execute(query);
+        };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    await expect(acceptWarAllyOffer(interrupted, offer)).rejects.toThrow("Payment interrupted");
+    expect(await db.select().from(warAlly)).toHaveLength(1);
+    await expireRequests(db);
+    expect(await db.select().from(userRequest)).toHaveLength(0);
+    expect(await db.select().from(warAlly)).toHaveLength(0);
+    await addOffer(db, "replacement-offer");
+    const replacement = { ...offer, offerId: "replacement-offer" };
+    expect((await Promise.all([acceptWarAllyOffer(db, replacement), acceptWarAllyOffer(db, replacement)])).every((row) => row.success)).toBe(true);
+    expect(await db.select().from(warAlly)).toHaveLength(1);
+    expect((await db.query.village.findFirst({ where: eq(village.id, "supporting") }))?.tokens).toBe(900);
+    expect((await db.query.village.findFirst({ where: eq(village.id, "joining") }))?.tokens).toBe(1100);
+  });
+
+  it("preserves an accepted membership and its payment after the request expires", async () => {
+    const db = await getTestDatabase();
+    expect((await acceptWarAllyOffer(db, offer)).success).toBe(true);
+    const accepted = await db.query.warAlly.findFirst();
+    await expireRequests(db);
+    expect(await db.select().from(userRequest)).toHaveLength(0);
+    expect(await db.query.warAlly.findFirst()).toEqual(accepted);
+    expect((await db.query.village.findFirst({ where: eq(village.id, "supporting") }))?.tokens).toBe(900);
+    expect((await db.query.village.findFirst({ where: eq(village.id, "joining") }))?.tokens).toBe(1100);
+  });
+
+  it("expiry overlapping interrupted admission leaves neither reservation nor payment", async () => {
+    const db = await getTestDatabase();
+    const overlapping = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property === "execute") return async (query: SQL) => {
+          if (dialect.sqlToQuery(query).sql.includes("UPDATE `UserRequest` r")) {
+            await expireRequests(db);
+            throw new Error("Payment interrupted after expiry");
+          }
+          return target.execute(query);
+        };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    await expect(acceptWarAllyOffer(overlapping, offer)).rejects.toThrow("Payment interrupted after expiry");
+    expect(await db.select().from(userRequest)).toHaveLength(0);
+    expect(await db.select().from(warAlly)).toHaveLength(0);
+    expect((await db.select().from(village)).every((row) => row.tokens === 1000)).toBe(true);
+  });
 });
 
 afterEach(() => { process.env = { ...originalEnv }; vi.restoreAllMocks(); resetServerModuleStubs(); });

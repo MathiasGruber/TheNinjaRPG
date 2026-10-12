@@ -53,6 +53,7 @@ import type {
 } from "@/validators/towerDefense";
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
+import type { WarSettlement } from "@/validators/war";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -2061,11 +2062,13 @@ export const notification = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
+    warId: varchar("warId", { length: 191 }),
     content: text("content").notNull(),
   },
   (table) => {
     return {
       createdAtIdx: index("Notification_createdAt_idx").on(table.createdAt),
+      warIdUnique: uniqueIndex("Notification_warId_key").on(table.warId),
     };
   },
 );
@@ -4617,6 +4620,8 @@ export const war = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
+    settlement: json("settlement").$type<WarSettlement>(),
+    settlementPending: boolean("settlementPending").default(false).notNull(),
     status: mysqlEnum("status", consts.WAR_STATES).notNull(),
     type: mysqlEnum("type", consts.WAR_TYPES).notNull(),
     sector: smallint("sector").default(0).notNull(),
@@ -4669,6 +4674,9 @@ export const war = mysqlTable(
       ),
       sectorIdx: index("War_sector_idx").on(table.sector),
       statusIdx: index("War_status_idx").on(table.status),
+      settlementPendingIdx: index("War_settlementPending_idx").on(
+        table.settlementPending,
+      ),
     };
   },
 );
@@ -4701,6 +4709,15 @@ export const warAlly = mysqlTable(
     villageId: varchar("villageId", { length: 191 }).notNull(),
     supportVillageId: varchar("supportVillageId", { length: 191 }).notNull(),
     tokensPaid: int("tokensPaid").notNull(),
+    acceptedAt: datetime("acceptedAt", { mode: "date", fsp: 3 }).default(
+      sql`(CURRENT_TIMESTAMP(3))`,
+    ),
+    endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
+    // Pending delivery also reserves membership; a departed ally releases it.
+    activeVillageId: varchar("activeVillageId", { length: 191 }).generatedAlwaysAs(
+      sql`CASE WHEN \`endedAt\` IS NULL THEN \`villageId\` ELSE NULL END`,
+      { mode: "stored" },
+    ),
     joinedAt: datetime("joinedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
@@ -4709,6 +4726,10 @@ export const warAlly = mysqlTable(
     return {
       warIdIdx: index("WarAlly_warId_idx").on(table.warId),
       villageIdIdx: index("WarAlly_villageId_idx").on(table.villageId),
+      activeVillageUnique: uniqueIndex("WarAlly_active_village_key").on(
+        table.warId,
+        table.activeVillageId,
+      ),
     };
   },
 );

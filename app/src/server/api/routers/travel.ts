@@ -89,6 +89,7 @@ import {
   publishedMapsToPrefetchForMove,
   resolveSectorCrossing,
 } from "@/server/utils/sectorMap";
+import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
 import { groupBy } from "@/utils/grouping";
 import { secondsFromNow } from "@/utils/time";
@@ -413,6 +414,7 @@ export const travelRouter = createTRPCRouter({
                 columns: { name: true, id: true, villageGraphic: true, sector: true },
               },
               warAllies: {
+                where: activeWarAllyWhere(),
                 columns: { villageId: true, supportVillageId: true },
               },
             },

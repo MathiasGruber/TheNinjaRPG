@@ -31,7 +31,11 @@ import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { fetchActiveWars } from "@/server/api/routers/war";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
-import { handleWarEnd, startDeclaredWar } from "@/server/utils/war";
+import {
+  handleWarEnd,
+  resumePendingWarSettlements,
+  startDeclaredWar,
+} from "@/server/utils/war";
 
 const ENDPOINT_NAME = "hourly-war";
 const DAILY_DECAY_TIMER = "daily-war-decay";
@@ -59,6 +63,8 @@ export async function GET(request: Request) {
       dailyDecayTimer.time.getUTCDate(),
     );
     const shouldRunDailyDecay = nowUTC !== prevUTC;
+
+    await resumePendingWarSettlements(drizzleDB);
 
     // =============================================
     // DAILY TASK: Token decay and war health drain
@@ -101,7 +107,7 @@ export async function GET(request: Request) {
 
         // Check if war has exceeded max duration (14 days) - auto-resolve
         if (warDuration >= WAR_MAX_DURATION_DAYS) {
-          await handleWarEnd(activeWar);
+          await handleWarEnd(activeWar, drizzleDB, { resolveByHealth: true });
           continue;
         }
 

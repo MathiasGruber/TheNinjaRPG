@@ -62,6 +62,7 @@ import {
   purgeRaidChatMembership,
 } from "@/server/utils/raidChat";
 import { fetchRaidJoinUser, fetchRaidListUser } from "@/server/utils/raidUser";
+import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { canChangeContent } from "@/utils/permissions";
 import { secondsFromDate } from "@/utils/time";
 import { AllTags } from "@/validators/combat";
@@ -169,6 +170,7 @@ export const raidsRouter = createTRPCRouter({
           columns: { id: true, sector: true, attackerVillageId: true },
           with: {
             warAllies: {
+              where: activeWarAllyWhere(),
               columns: { villageId: true, supportVillageId: true },
             },
           },
@@ -944,6 +946,7 @@ export const raidsRouter = createTRPCRouter({
             columns: { attackerVillageId: true },
             with: {
               warAllies: {
+                where: activeWarAllyWhere(),
                 columns: { villageId: true, supportVillageId: true },
               },
             },
