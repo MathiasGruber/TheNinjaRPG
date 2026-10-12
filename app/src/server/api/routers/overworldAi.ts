@@ -357,8 +357,8 @@ export const overworldAiRouter = createTRPCRouter({
       // userData when forceRegen is true, which would add a DB write to EVERY overworld
       // click (including plain HOSTILE fights). We only need the in-memory user + quest
       // relations + settings. The battle snapshot is re-fetched/regenerated inside
-      // initiateBattle, and the reward paths use atomic SQL increments, so none of the
-      // paths below depend on persisted regen.
+      // initiateBattle, reward paths use atomic SQL increments, and isolated quest
+      // assignment settles pending pools in its guarded entry write.
       const [placement, { user: activeUser, settings }, useritems] = await Promise.all([
         fetchPlacement(ctx.drizzle, input.placementId),
         fetchUpdatedUser({

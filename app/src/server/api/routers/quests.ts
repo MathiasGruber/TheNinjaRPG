@@ -28,6 +28,7 @@ import {
   MEDNIN_EXP_CAP,
   NPC_ONLY_QUEST_TYPES,
   QuestTypes,
+  REGEN_SECONDS,
   SAGE_MASTERY_EXP_CAP,
   SENSEI_STUDENT_RYO_PER_MISSION,
   TUTORIAL_GENIN_EXAM_QUEST_ID,
@@ -169,7 +170,12 @@ import {
   canOnlyEditSelf,
   canPlayHiddenQuests,
 } from "@/utils/permissions";
-import { periodStart, secondsFromNow } from "@/utils/time";
+import {
+  periodStart,
+  secondsFromDate,
+  secondsFromNow,
+  secondsPassed,
+} from "@/utils/time";
 import type { QueryCondition } from "@/utils/typeutils";
 import { canAccessStructure } from "@/utils/village";
 import { idSchema } from "@/validators/misc";
@@ -2877,6 +2883,11 @@ export const assignQuestToUser = async (args: {
     const assigned = await retryOnDeadlock(() =>
       client.transaction(async (tx) => {
         const database = tx as unknown as DrizzleClient;
+        const ticks = Math.max(
+          0,
+          Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS),
+        );
+        const regen = user.regeneration * ticks;
         const claim = await claimUserSnapshot({
           client: database,
           userId: user.userId,
@@ -2901,7 +2912,19 @@ export const assignQuestToUser = async (args: {
                 ]
               : []),
           ],
-          set: {},
+          // Preserve recovery earned before isolation disables HP/CP/SP regeneration.
+          // Energy shares regenAt, so settle it before advancing that clock too.
+          set: questData.content.isolated
+            ? {
+                curHealth: Math.round(Math.min(user.curHealth + regen, user.maxHealth)),
+                curChakra: Math.round(Math.min(user.curChakra + regen, user.maxChakra)),
+                curStamina: Math.round(
+                  Math.min(user.curStamina + regen, user.maxStamina),
+                ),
+                curEnergy: Math.min(user.curEnergy + regen, user.maxEnergy),
+                regenAt: secondsFromDate(ticks * REGEN_SECONDS, user.regenAt),
+              }
+            : {},
         });
         if (!claim.success) return undefined;
         const result = await upsertQuestEntry(

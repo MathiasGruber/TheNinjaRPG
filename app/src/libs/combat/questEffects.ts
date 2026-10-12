@@ -1,14 +1,21 @@
 import {
+  buffPrevent,
+  debuffPrevent,
   disarm,
   elementalseal,
+  fleePrevent,
   healPrevent,
   immunity,
   movePrevent,
+  onehitkillPrevent,
   realizeTag,
+  robPrevent,
   seal,
+  sealPrevent,
   shield,
   stealth,
   stun,
+  stunPrevent,
   summonPrevent,
   weakness,
 } from "@/libs/combat/tags";
@@ -50,6 +57,27 @@ export const addQuestStartingEffects = (
         break;
       case "immunity":
         immunity(effect, player);
+        break;
+      case "buffprevent":
+        buffPrevent(effect, usersEffects, player);
+        break;
+      case "debuffprevent":
+        debuffPrevent(effect, usersEffects, player);
+        break;
+      case "fleeprevent":
+        fleePrevent(effect, usersEffects, player);
+        break;
+      case "onehitkillprevent":
+        onehitkillPrevent(effect, usersEffects, player);
+        break;
+      case "robprevent":
+        robPrevent(effect, usersEffects, player);
+        break;
+      case "sealprevent":
+        sealPrevent(effect, usersEffects, player);
+        break;
+      case "stunprevent":
+        stunPrevent(effect, usersEffects, player);
         break;
       case "stun":
         stun(effect, usersEffects, player);
