@@ -270,12 +270,38 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Store" }));
     expect(view.queryByRole("button", { name: "Move Woven Rug" })).toBeNull();
   });
+
+  it("ends a captured decoration drag when storing it and permits another furniture drag", () => {
+    const view = render(<HomeScene {...props} canDecorate owned={["rug"]} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(view.getByRole("button", { name: /Woven Rug.*In storage/ }));
+    const rug = view.getByRole("button", { name: "Move Woven Rug" });
+    rug.setPointerCapture = vi.fn();
+    view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+      new DOMRect(0, 0, 1000, 1000);
+    firePointerEvent(rug, "pointerdown", 1);
+    firePointerEvent(rug, "pointermove", 1, 140, 140);
+    fireEvent.click(view.getByRole("button", { name: "Store" }));
+    expect(view.queryByRole("button", { name: "Move Woven Rug" })).toBeNull();
+    // Removing the capture target sends its capture loss and pointer release to the document.
+    firePointerEvent(document, "lostpointercapture", 1);
+    firePointerEvent(document, "pointerup", 1);
+
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    bed.setPointerCapture = vi.fn();
+    const origin = furniturePosition(bed);
+    firePointerEvent(bed, "pointerdown", 2);
+    firePointerEvent(bed, "pointermove", 2, 120, 120);
+    expect(furniturePosition(bed)).not.toEqual(origin);
+    expect(bed.setPointerCapture).toHaveBeenCalledWith(2);
+    expect(view.getByRole("button", { name: /Woven Rug.*In storage/ })).toBeTruthy();
+  });
 });
 
 const furniturePosition = (target: HTMLElement) => [target.style.left, target.style.top];
 
 const firePointerEvent = (
-  target: HTMLElement,
+  target: HTMLElement | Document,
   type: string,
   pointerId: number,
   clientX = 100,

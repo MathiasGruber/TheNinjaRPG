@@ -407,11 +407,12 @@ export const HomeScene = ({
                   <Button
                     variant="outline"
                     disabled={isSaving}
-                    onClick={() =>
+                    onClick={() => {
+                      dragRef.current = null;
                       updatePlacements((placements) =>
                         placements.filter((placement) => placement.id !== selectedId),
-                      )
-                    }
+                      );
+                    }}
                   >
                     <Package className="mr-2 h-4 w-4" aria-hidden /> Store
                   </Button>
@@ -421,7 +422,7 @@ export const HomeScene = ({
           </div>
           <fieldset
             aria-label="Owned furniture"
-            className="flex gap-2 overflow-x-auto pb-2"
+            className="flex min-w-0 gap-2 overflow-x-auto pb-2"
           >
             {[...HomeFurnitureCoreIds, ...owned].map((id) => (
               <button
