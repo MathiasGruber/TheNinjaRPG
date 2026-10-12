@@ -1,15 +1,23 @@
-import type { UserQuest } from "@/drizzle/schema";
+import type { UserData, UserQuest } from "@/drizzle/schema";
 import type { QuestContentType } from "@/validators/objectives";
 
 /** Shared feedback for server rejections and the isolated-run boundary. */
 export const ISOLATED_PYRAMID_MESSAGE =
-  "Complete or abandon your isolated Battle Pyramid before using outside healing, inventory or travel.";
+  "Complete or abandon your isolated Battle Pyramid before starting outside activities.";
 
 /** History owns isolation so hidden content and discarded checkpoint trackers cannot unlock it. */
 export const getIsolatedPyramid = (
   user: { userQuests?: readonly UserQuest[] } | null | undefined,
 ) =>
   user?.userQuests?.find((entry) => entry.isolated && !entry.endAt && !entry.completed);
+
+/** BATTLE without a fight keeps the run locked while its own quest can advance or end. */
+export const isBetweenPyramidBattles = (
+  user:
+    | (Pick<UserData, "status" | "battleId"> & { userQuests?: readonly UserQuest[] })
+    | null
+    | undefined,
+) => user?.status === "BATTLE" && user.battleId === null && !!getIsolatedPyramid(user);
 
 /** Versioned runs must restart after authored edits; visibility-only edits keep the run valid. */
 export const hasQuestContentChanged = (entry: UserQuest) =>
@@ -29,42 +37,16 @@ export const getQuestEntryRequirements = (
   return [...quantities].map(([itemId, quantity]) => ({ itemId, quantity }));
 };
 
-/** Block outside recovery, inventory and travel pages, including their nested routes. */
-export const isPyramidRestrictedPath = (pathname: string) =>
-  ["/hospital", "/ramenshop", "/items", "/inventory", "/travel"].some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  );
-
-/** Enforce player restrictions without blocking staff item-content management procedures. */
+/** Only run progression, combat controls, preferences and authorized staff rescue remain usable. */
 export const isPyramidRestrictedProcedure = (path: string) =>
-  path.startsWith("hospital.") ||
-  path.startsWith("travel.") ||
-  path === "village.buyFood" ||
-  path === "combat.battleArenaHeal" ||
-  (path.startsWith("item.") &&
-    [
-      "getUserItem",
-      "getUserItems",
-      "getUserItemsWithVariants",
-      "getUserItemCounts",
-      "evolveItem",
-      "purchaseVariant",
-      "selectVariant",
-      "consumeVariantToken",
-      "mergeStacks",
-      "mergeAllStacks",
-      "splitStack",
-      "sellUserItem",
-      "toggleEquip",
-      "unequipAllItems",
-      "consume",
-      "repair",
-      "repairAll",
-      "useRepairItem",
-      "useRepairAll",
-      "buy",
-      "autoEquipOptimal",
-      "getItemLoadouts",
-      "selectItemLoadout",
-      "renameLoadout",
-    ].includes(path.slice("item.".length)));
+  ![
+    "quests.checkRewards",
+    "quests.retryBattle",
+    "quests.abandon",
+    "combat.performAction",
+    "combat.toggleAutoCombat",
+    "combat.iAmHere",
+    "combat.updateCombatLoadout",
+    "profile.updatePreferences",
+    "staff.forceAwake",
+  ].includes(path);

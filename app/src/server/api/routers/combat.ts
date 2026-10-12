@@ -189,7 +189,7 @@ import {
   getNewTrackers,
   mockAchievementHistoryEntries,
 } from "@/libs/quest";
-import { getIsolatedPyramid } from "@/libs/questRun";
+import { getIsolatedPyramid, isBetweenPyramidBattles } from "@/libs/questRun";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
@@ -929,11 +929,13 @@ export const combatRouter = createTRPCRouter({
       if (user.money < BATTLE_ARENA_HEAL_COST)
         return errorResponse("You don't have enough money");
       if (user.isBanned) return errorResponse("You are banned");
+      if (user.status !== "AWAKE")
+        return errorResponse("You must be awake to heal in the Battle Arena");
       // Mutate with guard
       const result = await ctx.drizzle
         .update(userData)
         .set({
-          money: user.money - BATTLE_ARENA_HEAL_COST,
+          money: sql`${userData.money} - ${BATTLE_ARENA_HEAL_COST}`,
           curHealth: user.maxHealth,
           curStamina: user.maxStamina,
           curChakra: user.maxChakra,
@@ -941,6 +943,7 @@ export const combatRouter = createTRPCRouter({
         .where(
           and(
             eq(userData.userId, ctx.userId),
+            eq(userData.status, "AWAKE"),
             gte(userData.money, BATTLE_ARENA_HEAL_COST),
           ),
         );
@@ -2175,6 +2178,8 @@ export const initiateBattle = async (
     const ticks = Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
     const trainingUser = {
       ...user,
+      // Existing training keeps its earned Energy when the next isolated floor starts.
+      status: "AWAKE" as const,
       regeneration: calcActiveUserRegen(user, settings),
       maxEnergy: calcMaxEnergy(user),
     } as unknown as NonNullable<UserWithRelations>;
@@ -2477,7 +2482,12 @@ export const initiateBattle = async (
         ? user.status === "QUEUED"
         : isShrineBattle
           ? ["AWAKE", "QUEUED"].includes(user.status)
-          : user.status === "AWAKE";
+          : user.status === "AWAKE" ||
+            (battleType === "QUEST" &&
+              isBetweenPyramidBattles(user) &&
+              info.questAttempt?.isolated &&
+              getIsolatedPyramid(user)?.id === info.questAttempt.id &&
+              info.questBattleSource?.questId === info.questAttempt.questId);
       if (!isOk) {
         return { success: false, message: `User ${user.username} is not awake` };
       }
@@ -3160,6 +3170,15 @@ export const initiateBattle = async (
                     eq(userData.status, "AWAKE"),
                     eq(userData.status, "QUEUED"),
                     eq(userData.status, "KAGE_QUEUED"),
+                    info.questAttempt?.isolated &&
+                      battleType === "QUEST" &&
+                      info.questBattleSource?.questId === info.questAttempt.questId
+                      ? and(
+                          eq(userData.userId, info.questAttempt.userId),
+                          eq(userData.status, "BATTLE"),
+                          isNull(userData.battleId),
+                        )
+                      : undefined,
                   ),
             ...(battleType === "COMBAT"
               ? [
@@ -3282,7 +3301,9 @@ export const initiateBattle = async (
       client
         .update(userData)
         .set({
-          status: battleClaimRollbackStatus(client, battleType, userIds),
+          status: info.questAttempt?.isolated
+            ? sql`CASE WHEN ${userData.userId} = ${info.questAttempt.userId} THEN 'BATTLE' ELSE ${battleClaimRollbackStatus(client, battleType, userIds)} END`
+            : battleClaimRollbackStatus(client, battleType, userIds),
           battleId: null,
         })
         .where(eq(userData.battleId, battleId)),
@@ -3465,9 +3486,10 @@ export const processUsersForBattle = async (
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle
     const regen = calcActiveUserRegen(user, settings);
-    const restored = getIsolatedPyramid(inputUser)
-      ? 0
-      : regen * Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
+    const restored =
+      inputUser.status === "BATTLE"
+        ? 0
+        : regen * Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
     user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);

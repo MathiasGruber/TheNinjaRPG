@@ -57,7 +57,11 @@ import {
   pickPlaceableSector,
 } from "@/libs/overworldAi";
 import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
-import { hasQuestContentChanged } from "@/libs/questRun";
+import {
+  getIsolatedPyramid,
+  hasQuestContentChanged,
+  isBetweenPyramidBattles,
+} from "@/libs/questRun";
 import {
   buildRewardChoiceCards,
   getFixedChoiceRewards,
@@ -1186,7 +1190,9 @@ export const getNewTrackers = (
             if (
               opponentIds.length > 0 &&
               "opponentAIs" in objective &&
-              user.status === "AWAKE"
+              (user.status === "AWAKE" ||
+                (isBetweenPyramidBattles(user) &&
+                  getIsolatedPyramid(user)?.questId === quest.id))
             ) {
               notifications.push(
                 `Attacking ${opponentIds.length} target${opponentIds.length > 1 ? "s" : ""} for ${quest.name}.`,

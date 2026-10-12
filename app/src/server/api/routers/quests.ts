@@ -109,6 +109,7 @@ import {
   getIsolatedPyramid,
   getQuestEntryRequirements,
   hasQuestContentChanged,
+  isBetweenPyramidBattles,
 } from "@/libs/questRun";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
@@ -705,8 +706,9 @@ export const questsRouter = createTRPCRouter({
       }
       if (
         user.status === "BATTLE" &&
-        (current.questType === "battlepyramid" ||
-          current.quest.content.entryItems?.length)
+        (user.battleId ||
+          getIsolatedPyramid(user)?.id !== current.id ||
+          !current.isolated)
       )
         return errorResponse(
           "Finish or flee your current battle before abandoning this run.",
@@ -732,12 +734,15 @@ export const questsRouter = createTRPCRouter({
             SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
                 ${userData.questFinishAt} = ${now},
                 ${userData.questData} = CAST(${JSON.stringify(questData)} AS JSON),
+                ${userData.curEnergy} = IF(${questHistory.isolated}, LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${user.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000})), ${userData.curEnergy}),
+                ${userData.regenAt} = IF(${questHistory.isolated}, ${now}, ${userData.regenAt}),
+                ${userData.status} = IF(${questHistory.isolated}, 'AWAKE', ${userData.status}),
                 ${userData.activeNpcQuestId} = IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId}),
                 ${questHistory.completed} = 0,
                 ${questHistory.endAt} = ${now}
             WHERE ${userData.userId} = ${ctx.userId}
               AND ${userData.updatedAt} = ${user.updatedAt}
-              AND ${userData.status} <> 'BATTLE'
+              AND (${userData.status} <> 'BATTLE' OR (${questHistory.isolated} = TRUE AND ${userData.battleId} IS NULL))
               AND ${questHistory.id} = ${current.id}
               AND ${questHistory.endAt} IS NULL
               AND ${questHistory.completed} = 0
@@ -1249,7 +1254,11 @@ export const questsRouter = createTRPCRouter({
       if (!user) {
         return errorResponse("User does not exist");
       }
-      if (user.status !== "AWAKE") {
+      const isolatedRun = getIsolatedPyramid(user);
+      if (
+        user.status !== "AWAKE" &&
+        !(isBetweenPyramidBattles(user) && isolatedRun?.questId === input.questId)
+      ) {
         return errorResponse("Must be awake to finish quests");
       }
 
@@ -1291,6 +1300,14 @@ export const questsRouter = createTRPCRouter({
         consequences,
         existingHistory: questHistoryPrefetch ?? null,
         rewardChoice,
+        ...(resolved && isolatedRun?.questId === input.questId
+          ? {
+              postClaimUserDataPatch: {
+                // A delayed payout must not unlock a different run or a claimed battle.
+                status: sql`CASE WHEN ${userData.battleId} IS NULL AND NOT EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.userId} = ${ctx.userId} AND ${questHistory.isolated} = TRUE AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL) THEN 'AWAKE' ELSE ${userData.status} END`,
+              },
+            }
+          : {}),
       });
 
       if (claim.outcome === "already_completed") {
@@ -1683,6 +1700,23 @@ export const questsRouter = createTRPCRouter({
       if (!tracker?.goals.some((goal) => canRetryQuestBattle(goal))) {
         return errorResponse("There is no lost battle to retry in this quest");
       }
+      if (
+        user.status === "BATTLE" &&
+        (!isBetweenPyramidBattles(user) ||
+          getIsolatedPyramid(user)?.questId !== input.questId)
+      )
+        return errorResponse("Finish your current battle before retrying a quest");
+      const activeAttempt = user.userQuests.find(
+        (entry) => entry.questId === input.questId && !entry.endAt,
+      );
+      if (
+        activeAttempt &&
+        (hasQuestContentChanged(activeAttempt) ||
+          (activeAttempt.quest.hidden && !canPlayHiddenQuests(user.role)))
+      )
+        return errorResponse(
+          "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it.",
+        );
       // Get updated quest information with start_battle task and retry flag
       const { notifications, consequences } = getNewTrackers(user, [
         { task: "start_battle", text: "retry" },
@@ -3139,6 +3173,7 @@ export const upsertQuestEntry = async (
     ...user.userQuests.filter((row) => row.questId !== quest.id),
     { ...entry, quest },
   ];
+  if (entry.isolated) user.status = "BATTLE";
   const trackerUser = await hydrateQuestCollections(client, user, inTransaction);
   const { trackers, consequences, notifications } = getNewTrackers(trackerUser, [
     { task: "any" },
@@ -3149,6 +3184,7 @@ export const upsertQuestEntry = async (
       .set({
         questData: filterQuestTrackersForDbPersist(trackers, user),
         ...recoveryUpdate,
+        ...(entry.isolated ? { status: "BATTLE" as const } : {}),
       })
       .where(eq(userData.userId, user.userId)),
   );
@@ -3338,6 +3374,7 @@ export const commitQuestObjectiveRewards = async (info: {
     return { outcome: "not_found" };
   }
   const rewardChoice = resolved ? (info.rewardChoice ?? null) : null;
+  const isolatedRun = getIsolatedPyramid(user);
   const senseiId =
     user.rank === "GENIN" && userQuest?.quest.questType === "mission"
       ? user.senseiId
@@ -3366,6 +3403,8 @@ export const commitQuestObjectiveRewards = async (info: {
   // Consequences can start battles or change inventory/quest relations outside this snapshot.
   const userCacheEligible =
     consequences.every((entry) => entry.type === "update_user") &&
+    // Terminal isolation release is conditional on the current run at payout time.
+    !(resolved && isolatedRun) &&
     !(resolved && userQuest?.quest.questType === "achievement") &&
     !(resolved && info.existingHistory === null);
 
@@ -3413,7 +3452,7 @@ export const commitQuestObjectiveRewards = async (info: {
     }
 
     const retryDelay = userQuest?.quest?.retryDelay ?? "none";
-    completedEndAt = new Date();
+    completedEndAt = getNextUserSnapshotAt(user.updatedAt);
     const cps =
       retryDelay === "none" ? undefined : periodStart(retryDelay, completedEndAt);
     periodCounterWritten = !!cps;
@@ -3473,8 +3512,15 @@ export const commitQuestObjectiveRewards = async (info: {
     {
       alwaysClaimUserState: true,
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
-      claimConditions:
-        !resolved && userQuest
+      claimConditions: [
+        ...(isolatedRun
+          ? [
+              eq(userData.status, "BATTLE"),
+              isNull(userData.battleId),
+              isolatedRun.questId === userQuest?.questId ? undefined : sql`FALSE`,
+            ]
+          : []),
+        ...(!resolved && userQuest
           ? [
               sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${userQuest.questId} AND ${quest.questType} != 'village_mission')`,
               ...(userQuest.quest.questType === "achievement"
@@ -3483,7 +3529,8 @@ export const commitQuestObjectiveRewards = async (info: {
                     sql`EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.questId} = ${userQuest.questId} AND ${questHistory.userId} = ${userId} AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL)`,
                   ]),
             ]
-          : [],
+          : []),
+      ],
     },
   );
 
@@ -3534,11 +3581,21 @@ export const commitQuestObjectiveRewards = async (info: {
       : undefined;
   const energyReward =
     resolved && userQuest ? (ENERGY_QUEST_REWARDS[userQuest.quest.questType] ?? 0) : 0;
+  const releaseIsolation =
+    resolved &&
+    isolatedRun?.questId === userQuest?.questId &&
+    !!info.postClaimUserDataPatch?.status;
+  const releasedAt = new Date();
+  const energyRecovery = releaseIsolation
+    ? user.regeneration *
+      Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS))
+    : 0;
   const energyPatch =
-    energyReward > 0
+    energyReward > 0 || releaseIsolation
       ? {
           maxEnergy: user.maxEnergy,
-          curEnergy: sql`LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${energyReward})`,
+          curEnergy: sql`LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${energyReward} + ${releaseIsolation ? sql`${user.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${releasedAt})) / ${REGEN_SECONDS * 1_000_000})` : sql`0`})`,
+          ...(releaseIsolation ? { regenAt: releasedAt } : {}),
           // Invalidate passive-regeneration snapshots taken between the claim and payout.
           updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
         }
@@ -3615,6 +3672,10 @@ export const commitQuestObjectiveRewards = async (info: {
       : []),
   ]);
   const { items, jutsus, bloodlines, badges, sageModes } = rewardResult;
+  if (releaseIsolation) {
+    user.status = "AWAKE";
+    user.regenAt = releasedAt;
+  }
   if (userDelta) {
     user.money += userDelta.money ?? 0;
     user.seichiSilver += userDelta.seichiSilver ?? 0;
@@ -3655,8 +3716,11 @@ export const commitQuestObjectiveRewards = async (info: {
   );
   if (questCounterField) user[questCounterField] += 1;
   if (questCounterField) user.questFinishAt = farmRewardAt;
-  if (energyReward > 0)
-    user.curEnergy = Math.min(user.maxEnergy, user.curEnergy + energyReward);
+  if (energyReward > 0 || releaseIsolation)
+    user.curEnergy = Math.min(
+      user.maxEnergy,
+      user.curEnergy + energyReward + energyRecovery,
+    );
 
   if (energyReward > 0) {
     postNotifications.push(`Energy reward: ${energyReward} (restored up to capacity).`);

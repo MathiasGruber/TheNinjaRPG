@@ -71,7 +71,7 @@ import {
 } from "@/libs/combat/util";
 import { useGameMenu } from "@/libs/menus";
 import { calcLevelRequirements, getExpBracket } from "@/libs/profile";
-import { getIsolatedPyramid } from "@/libs/questRun";
+import { isBetweenPyramidBattles } from "@/libs/questRun";
 import { cn } from "@/libs/shadui";
 import { calcCovertTrainingFinishAt } from "@/libs/stealth";
 import { masteryTrainingEndsAt } from "@/libs/train";
@@ -172,6 +172,8 @@ const MenuBoxProfile: React.FC = () => {
 
   // Battle user state
   const battleUser = battle?.usersState.find((u) => u.userId === userData?.userId);
+  // Checkpoints display the carried pools without the generic hidden BATTLE bars.
+  const hasBattlePools = !!battleUser || isBetweenPyramidBattles(userData);
 
   // Calculate effective pool values with fallbacks (effectivePools → battleUser → userData)
   const pools = useEffectivePools({
@@ -247,10 +249,8 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-red-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={
-                battleUser || getIsolatedPyramid(userData) ? 0 : userData?.regeneration
-              }
-              status={battleUser ? "AWAKE" : userData?.status}
+              regen={hasBattlePools ? 0 : userData?.regeneration}
+              status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curHealth}
               total={pools.maxHealth}
               timeDiff={timeDiff}
@@ -262,10 +262,8 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-blue-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={
-                battleUser || getIsolatedPyramid(userData) ? 0 : userData?.regeneration
-              }
-              status={battleUser ? "AWAKE" : userData?.status}
+              regen={hasBattlePools ? 0 : userData?.regeneration}
+              status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curChakra}
               total={pools.maxChakra}
               timeDiff={timeDiff}
@@ -277,10 +275,8 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-green-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={
-                battleUser || getIsolatedPyramid(userData) ? 0 : userData?.regeneration
-              }
-              status={battleUser ? "AWAKE" : userData?.status}
+              regen={hasBattlePools ? 0 : userData?.regeneration}
+              status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curStamina}
               total={pools.maxStamina}
               timeDiff={timeDiff}

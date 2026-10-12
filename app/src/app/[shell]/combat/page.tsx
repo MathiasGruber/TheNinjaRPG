@@ -16,6 +16,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import CombatHistory from "@/layout/CombatHistory";
 import CombatTimeline from "@/layout/CombatTimeline";
 import Loader from "@/layout/Loader";
+import { PyramidRun } from "@/layout/PyramidRunBoundary";
 import { UserCombatSettings } from "@/layout/UserCombatSettings";
 import { availableUserActions } from "@/libs/combat/actions";
 import type { BattleState } from "@/libs/combat/types";
@@ -23,6 +24,7 @@ import {
   getBattlefieldHeightRatio,
   resolveControlledActorId,
 } from "@/libs/combat/util";
+import { isBetweenPyramidBattles } from "@/libs/questRun";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
 import {
@@ -443,6 +445,7 @@ export default function CombatPage() {
   ]);
 
   if (!userData) return <Loader explanation="Loading userdata" />;
+  if (isBetweenPyramidBattles(userData) && !results) return <PyramidRun />;
 
   // Determine which components are tabbed vs standalone
   const tabbedIds: CombatLayoutComponentId[] = ["actions", "timeline", "battlelog"];

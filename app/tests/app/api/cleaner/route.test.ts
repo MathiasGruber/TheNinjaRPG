@@ -3,6 +3,9 @@ import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
 import {
   mpvpBattleUser,
+  battle,
+  quest,
+  questHistory,
   rankedPvpQueue,
   userData,
   userRequest,
@@ -20,7 +23,7 @@ import * as grant from "@/server/utils/purchases/grant";
 import * as processor from "@/server/utils/accountDeletion/process";
 import { stubDatabase, resetServerModuleStubs } from "../../../setup/serverModules";
 import { GET } from "@/app/api/cleaner/route";
-import { insertUsers } from "../../../setup/factories";
+import { insertQuestHistory, insertQuests, insertUsers } from "../../../setup/factories";
 import {
   describeWithDatabase,
   getTestDatabase,
@@ -226,6 +229,44 @@ describe("account deletion in the existing cleaner", () => {
           where: eq(userData.userId, "claimed"),
         }))?.status,
       ).toBe("QUEUED");
+    });
+  });
+  describeWithDatabase("isolated Pyramid status repair", () => {
+    afterEach(async () => { await resetTables(questHistory); });
+    it("clears missing fights while keeping isolated runs in BATTLE and preserving their pools", async () => {
+      const db = await getTestDatabase();
+      await resetTables(battle, questHistory, quest, userData);
+      await insertUsers(["isolated", "ordinary", "ended", "between"].map((userId) => ({
+        userId, username: userId, status: "BATTLE", battleId: userId === "between" ? null : `missing-${userId}`,
+        curHealth: 37, curChakra: 45, curStamina: 55, curEnergy: 10, maxEnergy: 100,
+        regeneration: 10, regenAt: new Date(Date.now() - 125_000),
+      })));
+      await insertQuests([{ id: "pyramid", questType: "battlepyramid" }]);
+      await insertQuestHistory(["isolated", "ended", "between"].map((userId) => ({
+        userId, questId: "pyramid", questType: "battlepyramid", isolated: true,
+        ...(userId === "ended" ? { endAt: new Date() } : {}),
+      })));
+      stubDatabase({
+        execute: mocks.execute,
+        delete: () => ({ where: vi.fn().mockResolvedValue(undefined) }),
+        update: (table: object) => ({
+          set: (values: Record<string, unknown>) => ({
+            // Only the missing-fight repair runs against SQL; other cron work stays stubbed.
+            where: (condition: SQL) => table === userData && values.battleId === null
+              ? db.update(userData).set(values).where(condition)
+              : Promise.resolve(undefined),
+          }),
+        }),
+      });
+      mocks.lock.mockResolvedValueOnce({ isNewHour: true, prevTime: new Date(0) });
+      expect((await GET(request())).status).toBe(200);
+      const users = await db.query.userData.findMany();
+      for (const user of users) {
+        expect(user).toMatchObject({ battleId: null, curHealth: 37, curChakra: 45, curStamina: 55 });
+        expect(user.status).toBe(["isolated", "between"].includes(user.userId) ? "BATTLE" : "AWAKE");
+        if (user.userId === "between") expect(user.curEnergy).toBe(10);
+        else expect(user.curEnergy).toBeGreaterThan(10);
+      }
     });
   });
 });

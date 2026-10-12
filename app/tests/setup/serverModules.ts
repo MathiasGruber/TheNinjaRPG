@@ -15,7 +15,7 @@ import * as actualDb from "@/server/db";
 import * as actualProfile from "@/routers/profile";
 import * as actualSparring from "@/routers/sparring";
 import * as actualCron from "@/server/utils/cron";
-import { peekTestDatabase } from "./testDatabase";
+import { peekTestDatabase, withEmptyIsolationHistory } from "./testDatabase";
 
 type AnyFn = (...args: never[]) => unknown;
 
@@ -63,7 +63,7 @@ vi.mock("@/server/db", () => ({ ...actualDb, drizzleDB: databaseProxy }));
 
 /** Route `drizzleDB` to `stub` for the current suite. */
 export const stubDatabase = (stub: object) => {
-  databaseStub = stub;
+  databaseStub = withEmptyIsolationHistory(stub);
 };
 
 /** Route one `@/routers/profile` export to `implementation` for the current suite. */

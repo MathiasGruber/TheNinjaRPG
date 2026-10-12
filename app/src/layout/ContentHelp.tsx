@@ -823,11 +823,11 @@ const renderBattlePyramidTips = (quest: DeepPartial<ZodCombinedQuest>) => {
           <strong>Battle Pyramid Quest Tips:</strong>
           <p>
             Entry items are consumed once at the first battle of each run. Checkpoint
-            resets keep the paid entry. Isolated runs block outside healing, inventory
-            and travel, and freeze pool regeneration. Set Starting pools to refill a
-            checkpoint; leave it empty for attrition. Starting effects apply to the
-            player, and their duration includes the opening round. Hidden runs pause;
-            content edits require abandonment and a fresh run.
+            resets keep the paid entry. Isolated runs keep players in combat and block
+            outside activities until completion or abandonment. Set Starting pools to
+            refill a checkpoint; leave it empty for attrition. Starting effects apply to
+            the player, and their duration includes the opening round. Hidden runs
+            pause; content edits require abandonment and a fresh run.
           </p>
         </AlertDescription>
       </Alert>

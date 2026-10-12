@@ -20,6 +20,7 @@ import { initiateBattle } from "@/server/api/routers/combat";
 import { overworldAiRouter } from "@/server/api/routers/overworldAi";
 import { questsRouter } from "@/server/api/routers/quests";
 import type { DrizzleClient } from "@/server/db";
+import { createTRPCRouter } from "@/server/api/trpc";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import {
   DefeatOpponents,
@@ -44,6 +45,8 @@ import {
   resetTables,
   runRawSql,
 } from "../../setup/testDatabase";
+
+const router = createTRPCRouter({ quests: questsRouter });
 
 /** Fail if a floor or abandonment unnecessarily opens a transaction. */
 const withoutTransactions = (client: DrizzleClient): DrizzleClient =>
@@ -91,7 +94,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
     await insertUsers([
       {
         userId: "hero",
-        status: "AWAKE",
+        status: "BATTLE",
         rank: "JONIN",
         curHealth: 1000,
         maxHealth: 1000,
@@ -133,7 +136,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
       .insert(aiProfile)
       .values({ id: "Default", userId: "default-ai", rules: [] });
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(async () => { vi.restoreAllMocks(); await resetTables(questHistory); });
 
   /** Read the persisted attempt and content without inventing an entry receipt. */
   const snapshot = async () => {
@@ -168,6 +171,8 @@ describeWithDatabase("managed quest battle and abandonment", () => {
   /** Bind an unticketed Pyramid floor to the player's current overworld NPC tile. */
   const overworldFloorSnapshot = async () => {
     const { client, attempt } = await floorSnapshot(false);
+    await client.update(questHistory).set({ isolated: false }).where(eq(questHistory.id, "run"));
+    await client.update(userData).set({ status: "AWAKE" }).where(eq(userData.userId, "hero"));
     await client.insert(overworldAiPlacement).values({
       id: "npc",
       aiTemplateUserId: "foe",
@@ -179,6 +184,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
       .set({
         content: {
           ...attempt.quest.content,
+          isolated: false,
           objectives: [
             DefeatOpponents.parse({
               id: "floor",
@@ -257,10 +263,10 @@ describeWithDatabase("managed quest battle and abandonment", () => {
               .where(eq(questHistory.id, "run"));
           if (state === "abandoned") {
             const caller = callerForDatabase(
-              questsRouter,
+              router,
               "hero",
               withoutTransactions(client),
-            );
+            ).quests;
             expect((await caller.abandon({ id: "pyramid" })).success).toBe(true);
           }
         },
@@ -307,7 +313,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
         await client.delete(battle);
         await client
           .update(userData)
-          .set({ status: "AWAKE", battleId: null })
+          .set({ status: "BATTLE", battleId: null })
           .where(eq(userData.userId, "hero"));
       }
     });
@@ -329,7 +335,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
         expect(await client.query.battleHistory.findMany()).toHaveLength(0);
         expect(
           await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
-        ).toMatchObject({ status: "AWAKE", battleId: null });
+        ).toMatchObject({ status: "BATTLE", battleId: null });
         expect((await client.query.questHistory.findFirst())?.entryPaid).toBe(paid);
       });
     }
@@ -370,7 +376,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
     expect(await client.query.battleHistory.findMany()).toHaveLength(0);
     expect(
       await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
-    ).toMatchObject({ status: "AWAKE", battleId: null });
+    ).toMatchObject({ status: "BATTLE", battleId: null });
   });
 
   it("preserves a different concurrent battle while removing a failed floor's rows", async () => {
@@ -380,7 +386,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
     const otherHistory = (await client.query.battleHistory.findFirst())!;
     await client
       .update(userData)
-      .set({ status: "AWAKE", battleId: null })
+      .set({ status: "BATTLE", battleId: null })
       .where(eq(userData.userId, "hero"));
     const raced = beforeStatements(withoutTransactions(client), userData, [
       async () => {
@@ -419,7 +425,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
       where: eq(userData.userId, "hero"),
     }))!;
     expect(after).toMatchObject({
-      status: "AWAKE",
+      status: "BATTLE",
       battleId: null,
       energyQueueHead: 1,
     });
@@ -458,7 +464,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
       expect(await client.query.battleHistory.findMany()).toHaveLength(0);
       expect(
         await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
-      ).toMatchObject({ status: "AWAKE", battleId: null });
+      ).toMatchObject({ status: "BATTLE", battleId: null });
     } finally {
       await runRawSql("DROP TRIGGER managed_entry_reject_claim");
     }
@@ -625,7 +631,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
       .update(userData)
       .set({ activeNpcQuestId: "pyramid" })
       .where(eq(userData.userId, "hero"));
-    const caller = callerForDatabase(questsRouter, "hero", withoutTransactions(client));
+    const caller = callerForDatabase(router, "hero", withoutTransactions(client)).quests;
     const { result, statements } = await recordQueries(() =>
       caller.abandon({ id: "pyramid" }),
     );
@@ -675,7 +681,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
           beforeRun = await client.query.questHistory.findFirst();
         },
       ]);
-      const caller = callerForDatabase(questsRouter, "hero", raced);
+      const caller = callerForDatabase(router, "hero", raced).quests;
       expect((await caller.abandon({ id: "pyramid" })).success).toBe(false);
       expect(
         await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
@@ -686,7 +692,7 @@ describeWithDatabase("managed quest battle and abandonment", () => {
 
   it("arbitrates simultaneous paid entry and abandonment without split state", async () => {
     const { client, attempt } = await snapshot();
-    const caller = callerForDatabase(questsRouter, "hero", withoutTransactions(client));
+    const caller = callerForDatabase(router, "hero", withoutTransactions(client)).quests;
     const [started, abandoned] = await Promise.all([
       startFloor(withoutTransactions(client), attempt),
       caller.abandon({ id: "pyramid" }),

@@ -56,6 +56,7 @@ describe("hospital self-heal loading", () => {
     });
     stubProfile("fetchUpdatedUser", fetchUpdatedUser as never);
     const database = {
+      query: { questHistory: { findFirst: vi.fn().mockResolvedValue(undefined) } },
       select: vi.fn(() => ({
         from: vi.fn(() => ({
           innerJoin: vi.fn(() => ({
@@ -366,7 +367,7 @@ describeWithDatabase("hospital healing another user", () => {
     const result = await api.userHeal({ userId: TARGET_ID, healPercentage: 30 });
 
     expect(result.success).toBe(false);
-    expect(result.message).toContain("isolated Battle Pyramid");
+    expect(result.message).toContain("awake or hospitalized");
     expect((await readHealer(TARGET_ID))?.curHealth).toBe(100);
     expect(await readHealer()).toMatchObject({ curChakra: 8000, medicalExperience: MEDNIN_REQUIRED_EXP.LEGENDARY });
     expect((await readHealer(STUDENT_ID))?.medicalExperience).toBe(0);

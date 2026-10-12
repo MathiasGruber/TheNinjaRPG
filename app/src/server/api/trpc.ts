@@ -266,7 +266,7 @@ const enforceUserIsAuthed = t.middleware(async ({ ctx: context, path, next }) =>
 
 /** Enforce persisted isolation even when hidden content or stale client state omits its tracker. */
 const enforcePyramidIsolation = t.middleware(async ({ ctx, path, type, next }) => {
-  if (ctx.userId && isPyramidRestrictedProcedure(path)) {
+  if (type === "mutation" && ctx.userId && isPyramidRestrictedProcedure(path)) {
     const isolated = await ctx.drizzle.query.questHistory.findFirst({
       columns: { id: true },
       where: and(
@@ -277,15 +277,13 @@ const enforcePyramidIsolation = t.middleware(async ({ ctx, path, type, next }) =
       ),
     });
     if (isolated) {
-      // Mutations use the normal rejection contract; blocked pages explain the restriction
-      // and expose abandonment before mounting inventory/hospital query components.
-      if (type === "mutation")
-        return {
-          ok: true,
-          data: errorResponse(ISOLATED_PYRAMID_MESSAGE),
-          marker: middlewareMarker,
-        };
-      throw serverError("FORBIDDEN", ISOLATED_PYRAMID_MESSAGE);
+      // Some activities allow ordinary BATTLE players. Restrict isolated runs to their
+      // own progression and combat controls; the existing response contract permits recovery.
+      return {
+        ok: true,
+        data: errorResponse(ISOLATED_PYRAMID_MESSAGE),
+        marker: middlewareMarker,
+      };
     }
   }
   return next();

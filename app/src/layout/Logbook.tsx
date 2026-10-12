@@ -29,11 +29,17 @@ import {
 } from "@/libs/objectives";
 import { useInfinitePagination } from "@/libs/pagination";
 import { isReducedMissionReward } from "@/libs/quest";
+import {
+  getIsolatedPyramid,
+  hasQuestContentChanged,
+  isBetweenPyramidBattles,
+} from "@/libs/questRun";
 import { getRewardPickCount, isRewardChoiceQuest } from "@/libs/rewardChoice";
 import { cn } from "@/libs/shadui";
 import { showMutationToast, showRewardToast } from "@/libs/toast";
 import { isRetryableTrpcError } from "@/utils/error";
 import { parseHtml } from "@/utils/parse";
+import { canPlayHiddenQuests } from "@/utils/permissions";
 import { capitalizeFirstLetter } from "@/utils/string";
 import type { ArrayElement } from "@/utils/typeutils";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -449,6 +455,15 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
       ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
       : 1;
   const allDone = isQuestComplete(quest, tracker);
+  const isPaused =
+    quest.questType === "battlepyramid" &&
+    ((quest.hidden && !canPlayHiddenQuests(userData?.role ?? "USER")) ||
+      hasQuestContentChanged(userQuest));
+  const canProgress =
+    !isPaused &&
+    (userData?.status === "AWAKE" ||
+      (isBetweenPyramidBattles(userData) &&
+        getIsolatedPyramid(userData)?.questId === quest.id));
   const utils = api.useUtils();
   const questStartedAt = userQuest.startedAt;
   const abandonIdentity = `${userQuest.id}:${quest.id}:${questStartedAt?.toISOString() ?? "missing-start"}`;
@@ -666,7 +681,12 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  disabled={isAbandoning}
+                  disabled={
+                    isAbandoning ||
+                    (!!userData?.battleId &&
+                      (quest.questType === "battlepyramid" ||
+                        !!quest.content.entryItems?.length))
+                  }
                   aria-label={`Abandon ${quest.name}`}
                   aria-busy={isAbandoning}
                   hoverText={`Abandon ${quest.name}`}
@@ -705,11 +725,21 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
             <p className="font-semibold text-orange-500">
               This attempt still counts toward your daily limit.
             </p>
+            {!!quest.content.entryItems?.length && (
+              <p>Consumed entry items will not be returned.</p>
+            )}
           </Modal>
         </div>
       }
     >
       <div className="flex h-full flex-col gap-3" id={`logbook-entry-${quest.id}`}>
+        {isPaused && (
+          <p role="status" className="p-3 text-orange-500">
+            {hasQuestContentChanged(userQuest)
+              ? "This Pyramid was edited. Abandon this run and start again."
+              : "This Pyramid is hidden. Your run is paused; you can still abandon it."}
+          </p>
+        )}
         {!hideTitle && (
           <div className={cn(showScene ? "px-3 pt-3" : "")}>
             <div className={"font-bold text-xl"}>
@@ -746,7 +776,8 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
           />
         )}
         {/* Dialog options */}
-        {activeObjective?.task === "dialog" &&
+        {canProgress &&
+          activeObjective?.task === "dialog" &&
           // Placement-bound dialog choices are only actionable at their NPC. The Sector dialog
           // renders them after the server verifies the player's authoritative placement tile.
           !activeObjective.overworldPlacementId && (
@@ -813,7 +844,9 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                   titlePrefix={
                     quest.consecutiveObjectives ? "Objective: " : `${i + 1}. `
                   }
-                  grayedOut={!isQuestObjectiveAvailable(quest, tracker, i)}
+                  grayedOut={
+                    !canProgress || !isQuestObjectiveAvailable(quest, tracker, i)
+                  }
                   hideIfNoRewards={hideIfNoRewards}
                 />
               );
@@ -821,7 +854,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
           </div>
         )}
 
-        {allDone && !userQuest.completed && userData?.status === "AWAKE" && (
+        {allDone && !userQuest.completed && canProgress && (
           <div className={cn("w-full grow", showScene ? "p-3" : "")}>
             <Button
               id="return"

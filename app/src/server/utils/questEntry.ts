@@ -18,6 +18,8 @@ const questAttemptWhere = (client: DrizzleClient, attempt: UserQuest, role: User
   and(
     eq(questHistory.id, attempt.id),
     eq(questHistory.userId, attempt.userId),
+    eq(questHistory.questId, attempt.questId),
+    eq(questHistory.isolated, attempt.isolated ?? false),
     attempt.startedAt ? eq(questHistory.startedAt, attempt.startedAt) : sql`FALSE`,
     isNull(questHistory.endAt),
     eq(questHistory.completed, 0),

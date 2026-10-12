@@ -14,6 +14,7 @@ import {
   lt,
   lte,
   ne,
+  notExists,
   notInArray,
   or,
   sql,
@@ -3114,7 +3115,13 @@ export const fetchUpdatedUser = async (props: {
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
         completedQuests: {
-          columns: { id: true, questId: true, completed: true },
+          columns: {
+            id: true,
+            questId: true,
+            completed: true,
+            isolated: true,
+            endAt: true,
+          },
           where: gte(questHistory.completed, 1),
         },
         votes: true,
@@ -3198,6 +3205,85 @@ export const fetchUpdatedUser = async (props: {
         ((q.questType === "battlepyramid" || q.isolated) && !q.endAt && !q.completed) ||
         isAvailableUserQuests({ ...q.quest, ...q }, user, true).check,
     );
+    // Retired or deleted content cannot leave a player between floors indefinitely.
+    // Recheck persisted isolation with the status claim so a fresh run wins the race.
+    if (
+      user.status === "BATTLE" &&
+      !user.battleId &&
+      !getIsolatedPyramid(user) &&
+      // Completion closes history before claiming its tracker; let that claim finish.
+      !user.completedQuests.some(
+        (entry) =>
+          entry.isolated &&
+          entry.endAt &&
+          entry.endAt > user.updatedAt &&
+          user.questData?.some((tracker) => tracker.id === entry.questId),
+      )
+    ) {
+      const regeneration = calcActiveUserRegen(user, settings);
+      const maxEnergy = calcMaxEnergy(user);
+      const energy = Math.min(
+        maxEnergy,
+        user.curEnergy +
+          regeneration *
+            Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS)),
+      );
+      const claim = await claimUserSnapshot({
+        client,
+        userId,
+        updatedAt: user.updatedAt,
+        where: [
+          eq(userData.status, "BATTLE"),
+          isNull(userData.battleId),
+          notExists(
+            client
+              .select({ one: sql`1` })
+              .from(questHistory)
+              .innerJoin(quest, eq(quest.id, questHistory.questId))
+              .where(
+                and(
+                  eq(questHistory.userId, userId),
+                  eq(questHistory.isolated, true),
+                  eq(questHistory.completed, 0),
+                  isNull(questHistory.endAt),
+                ),
+              ),
+          ),
+          notExists(
+            client
+              .select({ one: sql`1` })
+              .from(questHistory)
+              .where(
+                and(
+                  eq(questHistory.userId, userId),
+                  eq(questHistory.isolated, true),
+                  eq(questHistory.completed, 1),
+                  gt(questHistory.endAt, userData.updatedAt),
+                  sql`JSON_CONTAINS(${userData.questData}, JSON_OBJECT('id', ${questHistory.questId}))`,
+                ),
+              ),
+          ),
+        ],
+        set: {
+          status: "AWAKE",
+          curEnergy: sql`LEAST(${maxEnergy}, ${userData.curEnergy} + ${regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000}))`,
+          regenAt: now,
+        },
+      });
+      requiresUserRefresh = true;
+      requiresProgressionRefresh = true;
+      if (claim.success)
+        Object.assign(user, {
+          status: "AWAKE",
+          updatedAt: claim.claimedAt,
+          regenAt: now,
+          curEnergy: energy,
+        });
+      else {
+        const freshUser = await queryUpdatedUser();
+        if (freshUser) Object.assign(user, freshUser);
+      }
+    }
   }
 
   // Filter and attach active wars for enemy_village sector type resolution
@@ -3432,14 +3518,10 @@ export const fetchUpdatedUser = async (props: {
           ? { ...user, questData: structuredClone(user.questData) }
           : null;
       const regen = user.regeneration * ticks;
-      // Isolation freezes HP/CP/SP; energy keeps its ordinary recovery on the shared clock.
-      const poolRegen = getIsolatedPyramid(user) ? 0 : regen;
       // These pools are integer columns; expose the same rounding MySQL persists.
-      user.curHealth = Math.round(Math.min(user.curHealth + poolRegen, user.maxHealth));
-      user.curStamina = Math.round(
-        Math.min(user.curStamina + poolRegen, user.maxStamina),
-      );
-      user.curChakra = Math.round(Math.min(user.curChakra + poolRegen, user.maxChakra));
+      user.curHealth = Math.round(Math.min(user.curHealth + regen, user.maxHealth));
+      user.curStamina = Math.round(Math.min(user.curStamina + regen, user.maxStamina));
+      user.curChakra = Math.round(Math.min(user.curChakra + regen, user.maxChakra));
       user.curEnergy =
         queuedTraining?.curEnergy ?? Math.min(user.curEnergy + regen, user.maxEnergy);
       if (queuedTraining) {

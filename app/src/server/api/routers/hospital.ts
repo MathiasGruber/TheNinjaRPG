@@ -1,17 +1,5 @@
 import type { ExecutedQuery } from "@planetscale/database";
-import {
-  and,
-  asc,
-  eq,
-  gte,
-  inArray,
-  isNull,
-  lt,
-  lte,
-  notExists,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { after } from "next/server";
 import {
@@ -22,7 +10,7 @@ import {
   SENSEI_GENIN_MED_EXP_SHARE_PERC,
   SENSEI_MAX_STUDENT_LEVEL,
 } from "@/drizzle/constants";
-import { questHistory, userData } from "@/drizzle/schema";
+import { userData } from "@/drizzle/schema";
 import {
   calcHealCost,
   calcHealFinish,
@@ -33,7 +21,6 @@ import {
 } from "@/libs/hospital";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
-import { getIsolatedPyramid, ISOLATED_PYRAMID_MESSAGE } from "@/libs/questRun";
 import { hasRequiredRank } from "@/libs/train";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchAlliances, fetchStructures } from "@/routers/village";
@@ -141,8 +128,6 @@ export const hospitalRouter = createTRPCRouter({
       const { user: t } = updatedTarget;
       if (!u) return errorResponse("Your user was not found");
       if (!t) return errorResponse("Your target was not found");
-      // The healer's middleware cannot enforce isolation for a different recipient.
-      if (getIsolatedPyramid(t)) return errorResponse(ISOLATED_PYRAMID_MESSAGE);
       // Derived
       const pools = calcHospitalHealPools(u, isSelfHeal);
       const { toHeal } = calcHowMuchToHeal(u, t, input.healPercentage, pools);
@@ -256,8 +241,8 @@ export const hospitalRouter = createTRPCRouter({
       } else {
         const recipient = alias(userData, "recipient");
         // Drizzle has no multi-table UPDATE builder. A joined write delivers healing and
-        // claims the healer's payment, experience and trackers together. Persisted history
-        // guards a recipient who enters isolation after the initial read; rejection changes
+        // claims the healer's payment, experience and trackers together. Recipient status
+        // guards a player who enters battle after the initial read; rejection changes
         // neither account and cannot award student shares. Energy is settled before
         // resetting the hospital admission/regen clock; checkout remains manual.
         const result = await retryOnDeadlock(() =>
@@ -284,19 +269,7 @@ export const hospitalRouter = createTRPCRouter({
               eq(userData.updatedAt, u.updatedAt),
               eq(userData.status, "AWAKE"),
               gte(userData.curChakra, chakraCost),
-              notExists(
-                ctx.drizzle
-                  .select({ id: questHistory.id })
-                  .from(questHistory)
-                  .where(
-                    and(
-                      eq(questHistory.userId, recipient.userId),
-                      eq(questHistory.isolated, true),
-                      isNull(questHistory.endAt),
-                      eq(questHistory.completed, 0),
-                    ),
-                  ),
-              ),
+              inArray(recipient.status, MEDNIN_HEALABLE_STATES),
             )}
           `),
         );

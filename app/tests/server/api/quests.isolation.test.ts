@@ -40,7 +40,7 @@ describeWithDatabase("Pyramid entry recovery", () => {
       overworldAiPlacementQuest,
     );
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(async () => { vi.restoreAllMocks(); await resetTables(questHistory); });
   for (const [source, isolated, alreadySettled] of [
     ["npc", true, false],
     ["npc", false, false],
@@ -218,7 +218,7 @@ describeWithDatabase("Pyramid entry recovery", () => {
       await insertUsers([
         {
           userId: "pool-hero",
-          status: "AWAKE",
+          status: "BATTLE",
           updatedAt: prior,
           regenAt: prior,
           regeneration: 10,

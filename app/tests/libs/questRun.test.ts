@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { UserQuest } from "@/drizzle/schema";
-import { getIsolatedPyramid, getQuestEntryRequirements, hasQuestContentChanged, isPyramidRestrictedPath, isPyramidRestrictedProcedure } from "@/libs/questRun";
+import { getIsolatedPyramid, getQuestEntryRequirements, hasQuestContentChanged, isBetweenPyramidBattles, isPyramidRestrictedProcedure } from "@/libs/questRun";
 import { getTagSchema } from "@/validators/combat";
 import { DefeatOpponents, InstantStartBattleObjective, questEntryItemsSchema } from "@/validators/objectives";
 
@@ -36,9 +36,16 @@ describe("quest run configuration", () => {
   });
   it("blocks inventory, outside healing and travel while retaining quest and battle controls", () => {
     for (const path of ["item.consume", "item.toggleEquip", "hospital.npcHeal", "village.buyFood", "combat.battleArenaHeal", "travel.startTravel"]) expect(isPyramidRestrictedProcedure(path)).toBe(true);
-    for (const path of ["quests.abandon", "quests.checkRewards", "combat.performAction", "item.update"]) expect(isPyramidRestrictedProcedure(path)).toBe(false);
-    expect(isPyramidRestrictedPath("/items")).toBe(true);
-    expect(isPyramidRestrictedPath("/hospitalized-guide")).toBe(false);
+    for (const path of ["bank.toBank", "village.buyFood", "quests.startRandom", "combat.startArenaBattle", "item.update"]) expect(isPyramidRestrictedProcedure(path)).toBe(true);
+    for (const path of ["quests.abandon", "quests.checkRewards", "quests.retryBattle", "combat.performAction", "combat.toggleAutoCombat", "combat.iAmHere", "combat.updateCombatLoadout", "profile.updatePreferences", "staff.forceAwake"]) expect(isPyramidRestrictedProcedure(path)).toBe(false);
+  });
+  it("allows continuation only between battles of an open isolated run", () => {
+    const run = { isolated: true, completed: 0, endAt: null } as UserQuest;
+    const user = { status: "BATTLE" as const, battleId: null, userQuests: [run] };
+    expect(isBetweenPyramidBattles(user)).toBe(true);
+    expect(isBetweenPyramidBattles({ ...user, battleId: "fight" })).toBe(false);
+    expect(isBetweenPyramidBattles({ ...user, status: "AWAKE" })).toBe(false);
+    expect(isBetweenPyramidBattles({ ...user, userQuests: [{ ...run, endAt: new Date() }] })).toBe(false);
   });
 });
 

@@ -215,8 +215,8 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                           ))}
                           {quest.content.isolated && (
                             <p className="text-sm">
-                              Isolated run: outside healing, inventory and travel are
-                              blocked until completion or abandonment.
+                              Isolated run: outside activities are blocked until
+                              completion or abandonment.
                             </p>
                           )}
                           {quest.entryRequirements.length > 0 ||
@@ -247,7 +247,7 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                               {quest.entryRequirements.length > 0 &&
                                 "Entry items are consumed at your first battle and will not be refunded on abandonment. "}
                               {quest.content.isolated &&
-                                "Outside healing, inventory and travel are restricted for this run."}
+                                "Outside activities are blocked until this run is completed or abandoned."}
                             </Confirm>
                           ) : (
                             <Button

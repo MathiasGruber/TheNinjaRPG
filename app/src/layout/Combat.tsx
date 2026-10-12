@@ -49,6 +49,7 @@ import {
 import type { TerrainHex } from "@/libs/hexgrid";
 import { LIGHT_LAYOUT_STORAGE_KEY } from "@/libs/layoutPreference";
 import { haptics } from "@/libs/native";
+import { getIsolatedPyramid } from "@/libs/questRun";
 import { getBackgroundColor } from "@/libs/threejs/biome";
 import {
   drawCombatBackground,
@@ -1468,7 +1469,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const showNextMatch =
     result?.outcome === "Won" && (battleType === "ARENA" || battleType === "TRAINING");
   const showShrineAgain = result?.outcome === "Won" && battleType === "SHRINE_WAR";
-  const showTravelBtn = battleType === "QUEST";
+  const showTravelBtn = battleType === "QUEST" && !getIsolatedPyramid(userData);
   const arenaOpponentId = battleRef.current?.usersState.find(
     (u) => u.userId !== suid && !u.isSummon && u.isAi,
   )?.controllerId;
@@ -1775,11 +1776,25 @@ const Combat: React.FC<CombatProps> = (props) => {
 
             <div className="flex flex-row justify-center gap-2 p-5">
               <Link
-                href={toHospital ? "/hospital" : "/profile"}
+                href={
+                  getIsolatedPyramid(userData)
+                    ? "/combat"
+                    : toHospital
+                      ? "/hospital"
+                      : "/profile"
+                }
                 className={`${showNextMatch || showTravelBtn || showShrineAgain ? "basis-1/2" : "basis-1/1"} w-full`}
               >
-                <Button id="return" className="w-full">
-                  Return to {toHospital ? "Hospital" : "Profile"}
+                <Button
+                  id="return"
+                  className="w-full"
+                  onClick={() => {
+                    if (getIsolatedPyramid(userData)) setBattleState(undefined);
+                  }}
+                >
+                  {getIsolatedPyramid(userData)
+                    ? "Continue Pyramid"
+                    : `Return to ${toHospital ? "Hospital" : "Profile"}`}
                 </Button>
               </Link>
               {showShrineAgain && (

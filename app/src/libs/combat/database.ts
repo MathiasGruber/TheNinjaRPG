@@ -1430,8 +1430,7 @@ export const updateUser = async (
 
     // Single call to getNewTrackers with all tasks
     const hydratedUser = hydrateUserForQuests(curBattle, user);
-    // Every isolated defeat stays awake: hospital healing and regeneration remain blocked
-    // until completion or abandonment, including after an unrelated battle.
+    // An isolated defeat stays in the run so its authored checkpoint remains playable.
     if (getIsolatedPyramid(hydratedUser))
       result.curHealth = Math.max(1, result.curHealth);
     const previouslyDoneGoals = new Set(
@@ -1790,7 +1789,7 @@ export const updateUser = async (
                     ? sql`NOW() + INTERVAL 1 MINUTE`
                     : sql`immunityUntil`,
               }
-            : { status: "AWAKE" }),
+            : { status: getIsolatedPyramid(hydratedUser) ? "BATTLE" : "AWAKE" }),
           // Deactivate stealth and set cooldown after leaving combat (20 seconds)
           stealthActive: false,
           stealthActivatedAt: null,
@@ -1862,6 +1861,7 @@ export const updateUser = async (
         baseline: cacheBaseline,
         userDelta,
         userPatch: {
+          status: getIsolatedPyramid(hydratedUser) ? "BATTLE" : "AWAKE",
           curHealth: Math.round(result.curHealth),
           curStamina: Math.round(result.curStamina),
           curChakra: Math.round(result.curChakra),

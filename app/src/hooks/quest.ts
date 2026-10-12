@@ -317,7 +317,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
     formData.push({
       id: "isolated",
       type: "boolean",
-      label: "Isolated run (no outside healing, inventory or travel)",
+      label: "Isolated run (no outside activities)",
     });
 
   if (QuestTypesWithMaxAttempts.includes(questType)) {
