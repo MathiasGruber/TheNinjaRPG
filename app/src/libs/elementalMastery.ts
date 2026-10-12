@@ -17,16 +17,11 @@ export type ElementalMasterySource = {
 /** Bloodline elements replace the innate pair for both access and mastery eligibility. */
 export const providedElements = (user: ElementalMasterySource): ElementName[] => {
   const bloodlineElements = getBloodlineElements(user);
-  return Array.from(
-    new Set(
-      bloodlineElements.length > 0
-        ? bloodlineElements
-        : [
-            ...(user.primaryElement ? [user.primaryElement] : []),
-            ...(user.secondaryElement ? [user.secondaryElement] : []),
-          ],
-    ),
-  );
+  const elements =
+    bloodlineElements.length > 0
+      ? bloodlineElements
+      : [user.primaryElement, user.secondaryElement];
+  return [...new Set(elements)].filter((element): element is ElementName => !!element);
 };
 
 export const elementalGainRoom = (
