@@ -578,6 +578,47 @@ export const didKageChallengerWin = (
 ): boolean => stillInBattle(challenger, effects) && !stillInBattle(kage, effects);
 
 /**
+ * Resolve the two sides of a Kage challenge: the challenger is always the
+ * non-summon aggressor and the defending kage the non-summon defender, both from
+ * the same village. Returns null for other battle types or inconsistent state.
+ */
+export const getKageChallengeParticipants = (
+  battle: Pick<CompleteBattle, "battleType" | "usersState">,
+): { challenger: KageChallengeSide; kage: KageChallengeSide } | null => {
+  if (!["KAGE_AI", "KAGE_PVP"].includes(battle.battleType)) return null;
+  const challenger = battle.usersState.find((u) => u.isAggressor && !u.isSummon);
+  const kage = battle.usersState.find((u) => !u.isAggressor && !u.isSummon);
+  if (!challenger || !kage) return null;
+  if (!challenger.villageId || !kage.villageId) return null;
+  if (challenger.villageId !== kage.villageId) return null;
+  return {
+    challenger: { ...challenger, villageId: challenger.villageId },
+    kage: { ...kage, villageId: kage.villageId },
+  };
+};
+
+type KageChallengeSide = BattleUserState & { villageId: string };
+
+/**
+ * Whether the given user takes the kage seat as a result of this battle: only a
+ * winning Kage challenger does. A kage cannot also be an elder, so this gates the
+ * ELDER to JONIN rank change applied during settlement; the defending kage and a
+ * losing challenger keep their rank.
+ */
+export const didUserTakeKageSeat = (
+  battle: Pick<CompleteBattle, "battleType" | "usersState" | "usersEffects">,
+  userId: string,
+): boolean => {
+  const participants = getKageChallengeParticipants(battle);
+  if (!participants) return false;
+  const { challenger, kage } = participants;
+  return (
+    challenger.userId === userId &&
+    didKageChallengerWin(challenger, kage, battle.usersEffects)
+  );
+};
+
+/**
  * Build the combat objective tracker tasks from pre-loaded battle state.
  *
  * Pure: reads only accumulated battle-state fields (usedActions, usedTagTypes, damageDealt)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { didKageChallengerWin } from "@/libs/combat/util";
-import { makeBattleUser } from "./helpers/battleScenario";
+import { didKageChallengerWin, didUserTakeKageSeat } from "@/libs/combat/util";
+import { makeBattleUser, makeCompleteBattle } from "./helpers/battleScenario";
 
 describe("Kage challenge outcome", () => {
   it("does not treat the defending Kage's victory as a challenger win", () => {
@@ -37,5 +37,57 @@ describe("Kage challenge outcome", () => {
 
     expect(didKageChallengerWin(defeatedChallenger, defeatedKage, [])).toBe(false);
     expect(didKageChallengerWin(fleeingChallenger, standingKage, [])).toBe(false);
+  });
+});
+
+describe("Kage seat change after a challenge", () => {
+  const kageBattle = (challengerHealth: number, kageHealth: number) =>
+    makeCompleteBattle({
+      battleType: "KAGE_PVP",
+      usersState: [
+        makeBattleUser("challenger", {
+          isAggressor: true,
+          villageId: "village-1",
+          curHealth: challengerHealth,
+        }),
+        makeBattleUser("kage", {
+          isAggressor: false,
+          villageId: "village-1",
+          curHealth: kageHealth,
+        }),
+      ],
+    });
+
+  it("seats a winning challenger, so only they lose an elder rank", () => {
+    const battle = kageBattle(100, 0);
+
+    expect(didUserTakeKageSeat(battle, "challenger")).toBe(true);
+    expect(didUserTakeKageSeat(battle, "kage")).toBe(false);
+  });
+
+  it("keeps a defending kage's rank when they lose the seat", () => {
+    expect(didUserTakeKageSeat(kageBattle(100, 0), "kage")).toBe(false);
+  });
+
+  it("keeps a losing challenger's rank", () => {
+    const battle = kageBattle(0, 100);
+
+    expect(didUserTakeKageSeat(battle, "challenger")).toBe(false);
+    expect(didUserTakeKageSeat(battle, "kage")).toBe(false);
+  });
+
+  it("never seats a summon or a user outside a Kage challenge", () => {
+    const withSummon = kageBattle(100, 0);
+    withSummon.usersState.push(
+      makeBattleUser("summon", {
+        isAggressor: true,
+        isSummon: true,
+        villageId: "village-1",
+      }),
+    );
+    const arena = { ...kageBattle(100, 0), battleType: "ARENA" as const };
+
+    expect(didUserTakeKageSeat(withSummon, "summon")).toBe(false);
+    expect(didUserTakeKageSeat(arena, "challenger")).toBe(false);
   });
 });
