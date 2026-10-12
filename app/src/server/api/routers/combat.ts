@@ -1941,7 +1941,10 @@ export const initiateBattle = async (
         },
         completedQuests: {
           columns: { id: true, questId: true, completed: true },
-          where: gte(questHistory.completed, 1),
+          where: or(
+            gte(questHistory.completed, 1),
+            gt(questHistory.previousCompletes, 0),
+          ),
         },
         aiProfile: true,
         bounties: {

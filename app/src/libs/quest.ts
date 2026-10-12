@@ -1310,6 +1310,7 @@ export const getNewTrackers = (
               if ("failObjectiveId" in objective && objective.failObjectiveId) {
                 status.selectedNextObjectiveId = objective.failObjectiveId;
               } else {
+                if (questTracker?.party) questTracker.failed = true;
                 consequences.push({ type: "fail_quest", ids: [quest.id] });
               }
               status.done = true;

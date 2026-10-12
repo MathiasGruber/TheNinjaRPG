@@ -14,6 +14,20 @@ const fixture = (task = "stats_trained", value = 10) => {
 const contributor = (party: QuestParty, userId: string, value: number) => ({ userId, questData: [{ ...projectPartyTracker(party), party: { id: party.id, generation: party.tracker.generation ?? 0, contributions: [ObjectiveTracker.parse({ id: "goal", value })] } }] });
 
 describe("quest team progress", () => {
+  it("shares an authored failure branch after a bound NPC is deleted without failing the team", () => {
+    const { quest, party } = fixture();
+    quest.consecutiveObjectives = true;
+    quest.content.objectives = [
+      AllObjectives.parse({ id: "goal", task: "defeat_opponents", overworldPlacementId: "deleted", opponentAIs: [{ ids: ["enemy"], number: 1 }], failObjectiveId: "recovery" }),
+      AllObjectives.parse({ id: "recovery", task: "stats_trained", value: 10 }),
+    ];
+    const user = { userId: "one", questPartyId: party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [projectPartyTracker(party)] } as unknown as Parameters<typeof getNewTrackers>[0];
+    const result = getNewTrackers(user, [], undefined, new Map());
+    expect(result.consequences.some((entry) => entry.type === "fail_quest")).toBe(false);
+    const shared = mergePartyProgress(party, [{ userId: user.userId, questData: result.trackers }], quest);
+    expect(shared.tracker.failed).toBeFalsy();
+    expect(projectPartyTracker({ ...party, ...shared }).goals.find((entry) => entry.id === "goal")).toMatchObject({ done: true, selectedNextObjectiveId: "recovery" });
+  });
   it("adds simultaneous contributions and never reapplies a member snapshot", () => {
     const { quest, party } = fixture();
     const members = [contributor(party, "one", 6), contributor(party, "two", 4)];

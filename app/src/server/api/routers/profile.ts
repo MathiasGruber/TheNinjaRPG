@@ -3126,7 +3126,10 @@ export const fetchUpdatedUser = async (props: {
         },
         completedQuests: {
           columns: { id: true, questId: true, completed: true },
-          where: gte(questHistory.completed, 1),
+          where: or(
+            gte(questHistory.completed, 1),
+            gt(questHistory.previousCompletes, 0),
+          ),
         },
         votes: true,
         userSkills: { where: eq(userSkill.activated, true), with: { skill: true } },
