@@ -234,7 +234,7 @@ describeWithDatabase("guarded war settlement and delivery", () => {
         },
       ]);
       const migration = readFileSync(
-        new URL("../../../drizzle/migrations/0072_powerful_lake.sql", import.meta.url),
+        new URL("../../../drizzle/migrations/0073_classy_ink.sql", import.meta.url),
         "utf8",
       );
       const deduplicate = migration.match(/UPDATE `WarAlly`[\s\S]+?;/)?.[0];
