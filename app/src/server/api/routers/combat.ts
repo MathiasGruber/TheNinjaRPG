@@ -55,6 +55,7 @@ import type {
   GameSetting,
   Jutsu,
   RankedLoadout,
+  UserQuest,
   Village,
   VillageAlliance,
 } from "@/drizzle/schema";
@@ -117,6 +118,7 @@ import {
   consolidatePreBattleDamageModifiers,
   emptyPreBattleGearModifiers,
 } from "@/libs/combat/process";
+import { addQuestStartingEffects } from "@/libs/combat/questEffects";
 import {
   mergeLoadoutParticipants,
   summonActionBlockedReason,
@@ -144,6 +146,7 @@ import {
   getBattleClaimIds,
   getBattleGrid,
   getDefaultBattleSizes,
+  getEffectiveMaxPool,
   getPoolKeys,
   getTurnControl,
   isEffectActive,
@@ -186,6 +189,7 @@ import {
   getNewTrackers,
   mockAchievementHistoryEntries,
 } from "@/libs/quest";
+import { getIsolatedPyramid } from "@/libs/questRun";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
@@ -229,6 +233,11 @@ import {
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
+import {
+  commitQuestEntryBattle,
+  getQuestEntryCharges,
+  questAttemptIsActive,
+} from "@/server/utils/questEntry";
 import { fetchSanninRankedPlayers } from "@/server/utils/ranked";
 import { hasDueTimedJob, settleDueTimedQueues } from "@/server/utils/userQueue";
 import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/war";
@@ -239,7 +248,7 @@ import { randomInt } from "@/utils/math";
 import { fedItemLoadouts, fedJutsuLoadouts } from "@/utils/paypal";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
 import { canAccessStructure } from "@/utils/village";
-import type { AssignableUserStats } from "@/validators/combat";
+import type { AssignableUserStats, ZodAllTags } from "@/validators/combat";
 import {
   BarrierTag,
   IncreaseDamageGivenTag,
@@ -1853,6 +1862,10 @@ export const initiateBattle = async (
     forceDefenderVillageId?: string;
     biome?: CombatBiome;
     forceKeepPools?: boolean;
+    givePools?: number;
+    startingEffects?: ZodAllTags[];
+    questAttempt?: UserQuest;
+    questBattleSource?: { questId: string; objectiveId: string };
     raidQuestId?: string;
     topPlayersLP?: number[];
     /** Reserved lobby/combat IDs used to reject participants after lobby deletion. */
@@ -1965,6 +1978,7 @@ export const initiateBattle = async (
     sectorExclusiveRaids,
     raidParticipations,
     rankedTopPlayersLP,
+    entryInventory,
   ] = await Promise.all([
     // Essentials
     fetchBattleEssentials(client),
@@ -2061,6 +2075,22 @@ export const initiateBattle = async (
     battleType === "RANKED_PVP"
       ? (info.topPlayersLP ?? fetchSanninRankedPlayers(client))
       : [],
+    info.questAttempt &&
+    !info.questAttempt.entryPaid &&
+    info.questAttempt.quest.content.entryItems?.length
+      ? client.query.userItem.findMany({
+          where: and(
+            eq(userItem.userId, info.questAttempt.userId),
+            gt(userItem.quantity, 0),
+            eq(userItem.storedAtHome, false),
+            eq(userItem.isInAuction, false),
+            or(
+              isNull(userItem.craftingFinishedAt),
+              lt(userItem.craftingFinishedAt, new Date()),
+            ),
+          ),
+        })
+      : [],
   ]);
 
   // Start due jutsu levels and crafts before the participants are read for the fight,
@@ -2082,6 +2112,28 @@ export const initiateBattle = async (
         tags: { source: "battleQueueSettlement" },
       });
     }
+  }
+
+  const entryCharges = info.questAttempt
+    ? getQuestEntryCharges(info.questAttempt, entryInventory)
+    : [];
+  if (!entryCharges)
+    return {
+      success: false,
+      message: "You do not have the required entry items in your inventory.",
+    };
+  // Consumed equipment/consumables must not contribute stats or remain usable in battle.
+  for (const player of fetchedUsers.filter(
+    (u) => u.userId === info.questAttempt?.userId,
+  )) {
+    player.items = player.items
+      .map((row) => ({
+        ...row,
+        quantity:
+          row.quantity -
+          (entryCharges.find((charge) => charge.id === row.id)?.quantity ?? 0),
+      }))
+      .filter((row) => row.quantity > 0);
   }
 
   const profileCacheSnapshots = Object.fromEntries(
@@ -2609,6 +2661,17 @@ export const initiateBattle = async (
     });
   }
 
+  for (const user of usersState.filter(
+    (u) => !u.isAi && userIds.includes(u.controllerId),
+  )) {
+    addQuestStartingEffects(
+      user,
+      userEffects,
+      info.startingEffects ?? [],
+      `quest-${info.questAttempt?.questId ?? "battle"}`,
+    );
+  }
+
   // Apply pool adjustments to base values for all users with pool effects at battle start
   usersState.forEach((user) => {
     const hasPoolEffects = userEffects.some(
@@ -2621,6 +2684,19 @@ export const initiateBattle = async (
       applyPoolAdjustmentsToBase(user, userEffects);
     }
   });
+
+  if (info.givePools !== undefined) {
+    for (const user of usersState.filter(
+      (u) => !u.isAi && userIds.includes(u.controllerId),
+    )) {
+      user.curHealth =
+        (getEffectiveMaxPool(user, userEffects, "Health") * info.givePools) / 100;
+      user.curChakra =
+        (getEffectiveMaxPool(user, userEffects, "Chakra") * info.givePools) / 100;
+      user.curStamina =
+        (getEffectiveMaxPool(user, userEffects, "Stamina") * info.givePools) / 100;
+    }
+  }
 
   // Mastery tags from the bloodline, skills and gear count from the first action
   refreshMasteries(usersState, userEffects);
@@ -2881,226 +2957,273 @@ export const initiateBattle = async (
             .map((jutsu) => jutsu.id);
   }
 
-  // Run battle creation and user status updates in parallel for performance
-  const creationResults = await Promise.allSettled([
-    client.insert(battle).values({
-      id: battleId,
-      battleType: battleType,
-      background: background,
-      usersState: usersState,
-      usersEffects: userEffects,
-      groundEffects: groundEffects,
-      width: gridSize.width,
-      height: gridSize.height,
-      extraState: {
-        ...extraState,
-        profileCacheSnapshots,
-        pvpExperienceScaling,
-        energyRewardEligible: (previousBattleResults?.[0]?.count ?? 0) === 0,
-        energyRegeneration,
-        energyCapacity,
-        jutsus: {
-          ...extraState.jutsus,
-          ...Object.fromEntries(injectableJutsus.map((j) => [j.id, j])),
-          [SAGE_MODE_ACTIVATION_JUTSU_ID]: SAGE_MODE_ACTIVATION_JUTSU,
+  // Create the battle and claim its participants in one mutation phase.
+  if (info.questAttempt) {
+    const entry = extraState.userQuests[info.questAttempt.userId]?.find(
+      (row) => row.questId === info.questAttempt?.questId,
+    );
+    if (entry) entry.entryPaid = true;
+  }
+  const createBattle = async (client: DrizzleClient) => {
+    const writes = [
+      client.insert(battle).values({
+        id: battleId,
+        battleType: battleType,
+        background: background,
+        usersState: usersState,
+        usersEffects: userEffects,
+        groundEffects: groundEffects,
+        width: gridSize.width,
+        height: gridSize.height,
+        extraState: {
+          ...extraState,
+          profileCacheSnapshots,
+          pvpExperienceScaling,
+          energyRewardEligible: (previousBattleResults?.[0]?.count ?? 0) === 0,
+          energyRegeneration,
+          energyCapacity,
+          jutsus: {
+            ...extraState.jutsus,
+            ...Object.fromEntries(injectableJutsus.map((j) => [j.id, j])),
+            [SAGE_MODE_ACTIVATION_JUTSU_ID]: SAGE_MODE_ACTIVATION_JUTSU,
+          },
+          dmgConfig: dmgConfig,
+          settings: settings,
+          initialDurability: initialDurability,
+          questBattleSource: info.questBattleSource,
+          raidQuestId: info.raidQuestId,
+          raidInitialBossHp: raidInitialBossHp,
+          raidStartBattleCount: Object.fromEntries(
+            raidParticipations.map((p) => [p.userId, p.battleCount]),
+          ),
+          sectorExclusiveRaids: sectorExclusiveRaids,
+          topPlayersLP: rankedTopPlayersLP,
         },
-        dmgConfig: dmgConfig,
-        settings: settings,
-        initialDurability: initialDurability,
-        raidQuestId: info.raidQuestId,
-        raidInitialBossHp: raidInitialBossHp,
-        raidStartBattleCount: Object.fromEntries(
-          raidParticipations.map((p) => [p.userId, p.battleCount]),
+        rewardScaling: rewardScaling,
+        createdAt: startTime,
+        updatedAt: startTime,
+        roundStartAt: startTime,
+        activeUserId: activeUserId,
+        forceKeepPools: info.forceKeepPools ?? false,
+      }),
+      client.insert(battleHistory).values(
+        userIds.flatMap((i) =>
+          targetIds.map((t) => ({
+            battleId,
+            battleType: battleType,
+            attackedId: i,
+            defenderId: t,
+            createdAt: new Date(),
+          })),
         ),
-        sectorExclusiveRaids: sectorExclusiveRaids,
-        topPlayersLP: rankedTopPlayersLP,
-      },
-      rewardScaling: rewardScaling,
-      createdAt: startTime,
-      updatedAt: startTime,
-      roundStartAt: startTime,
-      activeUserId: activeUserId,
-      forceKeepPools: info.forceKeepPools ?? false,
-    }),
-    client.insert(battleHistory).values(
-      userIds.flatMap((i) =>
-        targetIds.map((t) => ({
-          battleId,
-          battleType: battleType,
-          attackedId: i,
-          defenderId: t,
-          createdAt: new Date(),
-        })),
       ),
-    ),
-    client
-      .update(userData)
-      .set({
-        ...queueUpdate,
-        status: "BATTLE",
-        battleId: battleId,
-        pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
-          ? sql`${userData.pvpFights} + 1`
-          : sql`${userData.pvpFights}`,
-        pveFights: !["SPARRING", "COMBAT"].includes(battleType)
-          ? sql`${userData.pveFights} + 1`
-          : sql`${userData.pveFights}`,
-        immunityUntil: ["SPARRING", "COMBAT"].includes(battleType)
-          ? sql`CASE WHEN ${inArray(userData.userId, userIds)} THEN NOW() ELSE ${userData.immunityUntil} END`
-          : sql`immunityUntil`,
-        // Break stealth when entering combat
-        // Defenders (being attacked) always lose stealth
-        // Attackers roll to keep stealth based on their stealth stat
-        stealthActive:
-          stealthBreakUserIds.length > 0
-            ? sql`CASE WHEN ${inArray(userData.userId, stealthBreakUserIds)} THEN false ELSE ${userData.stealthActive} END`
-            : sql`stealthActive`,
-        stealthActivatedAt:
-          stealthBreakUserIds.length > 0
-            ? sql`CASE WHEN ${inArray(userData.userId, stealthBreakUserIds)} THEN NULL ELSE ${userData.stealthActivatedAt} END`
-            : sql`stealthActivatedAt`,
-        // Stamp war aggressors AND bracket-immunity aggressors in the same update so the WHERE guard
-        // (status/sector match) gates both the battle entry and these timers atomically. GREATEST never
-        // shortens an existing longer stamp; any leak on the rollback path is bounded (war ~2h, bracket
-        // immunity ~5m) and fail-safe — a lingering bracket lift only makes the aggressor more attackable.
-        ...(warAggressorIds.length > 0
-          ? {
-              warParticipantUntil: sql`CASE WHEN ${inArray(userData.userId, warAggressorIds)} THEN ${extendWarParticipantSql()} ELSE ${userData.warParticipantUntil} END`,
-            }
-          : {}),
-        ...(bracketImmunityAggressorIds.length > 0
-          ? {
-              bracketImmunityLiftedUntil: sql`CASE WHEN ${inArray(userData.userId, bracketImmunityAggressorIds)} THEN ${liftBracketImmunitySql()} ELSE ${userData.bracketImmunityLiftedUntil} END`,
-            }
-          : {}),
-      })
-      .where(
-        and(
-          // Exactly the rows the CAS guard counts (expectedRows), so the
-          // predicate and the expected count derive from one source and cannot
-          // drift apart. The list already excludes AI rows, so the shared AI
-          // row is never even examined (or locked) by this update. Drizzle
-          // compiles an empty list to FALSE, matching expectedRows === 0.
-          inArray(userData.userId, allParticipantIds),
-          // Queue spending must match its preload even if movement or another claim raced us.
-          ...queuedParticipants.map(({ original }) =>
-            or(
-              ne(userData.userId, original.userId),
-              and(
-                eq(userData.updatedAt, original.updatedAt),
-                eq(userData.status, original.status),
-                eq(userData.sector, original.sector),
-                eq(userData.longitude, original.longitude),
-                eq(userData.latitude, original.latitude),
-                eq(userData.rank, original.rank),
-                ...MasteryNames.map((stat) => eq(userData[stat], original[stat])),
-                ...elementalSnapshotConditions(original),
-                sql`${userData.masteryRanks} = CAST(${JSON.stringify(original.masteryRanks)} AS JSON)`,
-                eq(userData.isBanned, original.isBanned),
-                eq(userData.isOutlaw, original.isOutlaw),
-                original.villageId
-                  ? eq(userData.villageId, original.villageId)
-                  : isNull(userData.villageId),
+      client
+        .update(userData)
+        .set({
+          ...queueUpdate,
+          status: "BATTLE",
+          battleId: battleId,
+          pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
+            ? sql`${userData.pvpFights} + 1`
+            : sql`${userData.pvpFights}`,
+          pveFights: !["SPARRING", "COMBAT"].includes(battleType)
+            ? sql`${userData.pveFights} + 1`
+            : sql`${userData.pveFights}`,
+          immunityUntil: ["SPARRING", "COMBAT"].includes(battleType)
+            ? sql`CASE WHEN ${inArray(userData.userId, userIds)} THEN NOW() ELSE ${userData.immunityUntil} END`
+            : sql`immunityUntil`,
+          // Break stealth when entering combat
+          // Defenders (being attacked) always lose stealth
+          // Attackers roll to keep stealth based on their stealth stat
+          stealthActive:
+            stealthBreakUserIds.length > 0
+              ? sql`CASE WHEN ${inArray(userData.userId, stealthBreakUserIds)} THEN false ELSE ${userData.stealthActive} END`
+              : sql`stealthActive`,
+          stealthActivatedAt:
+            stealthBreakUserIds.length > 0
+              ? sql`CASE WHEN ${inArray(userData.userId, stealthBreakUserIds)} THEN NULL ELSE ${userData.stealthActivatedAt} END`
+              : sql`stealthActivatedAt`,
+          // Stamp war aggressors AND bracket-immunity aggressors in the same update so the WHERE guard
+          // (status/sector match) gates both the battle entry and these timers atomically. GREATEST never
+          // shortens an existing longer stamp; any leak on the rollback path is bounded (war ~2h, bracket
+          // immunity ~5m) and fail-safe — a lingering bracket lift only makes the aggressor more attackable.
+          ...(warAggressorIds.length > 0
+            ? {
+                warParticipantUntil: sql`CASE WHEN ${inArray(userData.userId, warAggressorIds)} THEN ${extendWarParticipantSql()} ELSE ${userData.warParticipantUntil} END`,
+              }
+            : {}),
+          ...(bracketImmunityAggressorIds.length > 0
+            ? {
+                bracketImmunityLiftedUntil: sql`CASE WHEN ${inArray(userData.userId, bracketImmunityAggressorIds)} THEN ${liftBracketImmunitySql()} ELSE ${userData.bracketImmunityLiftedUntil} END`,
+              }
+            : {}),
+        })
+        .where(
+          and(
+            // Exactly the rows the CAS guard counts (expectedRows), so the
+            // predicate and the expected count derive from one source and cannot
+            // drift apart. The list already excludes AI rows, so the shared AI
+            // row is never even examined (or locked) by this update. Drizzle
+            // compiles an empty list to FALSE, matching expectedRows === 0.
+            inArray(userData.userId, allParticipantIds),
+            info.questAttempt
+              ? questAttemptIsActive(
+                  client,
+                  info.questAttempt,
+                  users.find((u) => u.userId === info.questAttempt?.userId)?.role ??
+                    "USER",
+                )
+              : undefined,
+            // Queue spending must match its preload even if movement or another claim raced us.
+            ...queuedParticipants.map(({ original }) =>
+              or(
+                ne(userData.userId, original.userId),
+                and(
+                  eq(userData.updatedAt, original.updatedAt),
+                  eq(userData.status, original.status),
+                  eq(userData.sector, original.sector),
+                  eq(userData.longitude, original.longitude),
+                  eq(userData.latitude, original.latitude),
+                  eq(userData.rank, original.rank),
+                  ...MasteryNames.map((stat) => eq(userData[stat], original[stat])),
+                  ...elementalSnapshotConditions(original),
+                  sql`${userData.masteryRanks} = CAST(${JSON.stringify(original.masteryRanks)} AS JSON)`,
+                  eq(userData.isBanned, original.isBanned),
+                  eq(userData.isOutlaw, original.isOutlaw),
+                  original.villageId
+                    ? eq(userData.villageId, original.villageId)
+                    : isNull(userData.villageId),
+                ),
               ),
             ),
-          ),
-          // A refund or swap may finish after preload but before the participant status claim.
-          or(
-            ...users
-              .filter((user) => allParticipantIds.includes(user.userId))
-              .map(matchBloodrightSnapshot),
-          ),
-          // Never move an AI into a battle: its row is shared by everyone
-          // fighting it, and the battle state clones it under a fresh id anyway.
-          // Redundant with the claim list above, but kept so a drifting AI
-          // classification fails the CAS guard instead of claiming a shared row.
-          eq(userData.isAi, false),
-          // Ranked participants are claimed straight from the queue, so require
-          // QUEUED specifically: a player who just left the queue (now AWAKE)
-          // must not be pulled into a ranked battle by a poll whose snapshot
-          // predated their leave.
-          battleType === "CLAN_BATTLE" && info.clanBattle
-            ? and(
-                eq(userData.status, "QUEUED"),
-                exists(
-                  client
-                    .select({ one: sql`1` })
-                    .from(mpvpBattleUser)
-                    .innerJoin(
-                      mpvpBattleQueue,
-                      eq(mpvpBattleUser.clanBattleId, mpvpBattleQueue.id),
-                    )
-                    .where(
-                      and(
-                        eq(mpvpBattleUser.userId, userData.userId),
-                        eq(mpvpBattleQueue.id, info.clanBattle.queueId),
-                        eq(mpvpBattleQueue.battleId, battleId),
-                      ),
-                    ),
-                ),
-              )
-            : battleType === "RANKED_PVP"
+            // A refund or swap may finish after preload but before the participant status claim.
+            or(
+              ...users
+                .filter((user) => allParticipantIds.includes(user.userId))
+                .map(matchBloodrightSnapshot),
+            ),
+            // Never move an AI into a battle: its row is shared by everyone
+            // fighting it, and the battle state clones it under a fresh id anyway.
+            // Redundant with the claim list above, but kept so a drifting AI
+            // classification fails the CAS guard instead of claiming a shared row.
+            eq(userData.isAi, false),
+            // Ranked participants are claimed straight from the queue, so require
+            // QUEUED specifically: a player who just left the queue (now AWAKE)
+            // must not be pulled into a ranked battle by a poll whose snapshot
+            // predated their leave.
+            battleType === "CLAN_BATTLE" && info.clanBattle
               ? and(
                   eq(userData.status, "QUEUED"),
                   exists(
                     client
                       .select({ one: sql`1` })
-                      .from(rankedPvpQueue)
+                      .from(mpvpBattleUser)
+                      .innerJoin(
+                        mpvpBattleQueue,
+                        eq(mpvpBattleUser.clanBattleId, mpvpBattleQueue.id),
+                      )
                       .where(
                         and(
-                          eq(rankedPvpQueue.userId, userData.userId),
-                          eq(rankedPvpQueue.hasClaimed, true),
+                          eq(mpvpBattleUser.userId, userData.userId),
+                          eq(mpvpBattleQueue.id, info.clanBattle.queueId),
+                          eq(mpvpBattleQueue.battleId, battleId),
                         ),
                       ),
                   ),
                 )
-              : or(
-                  eq(userData.status, "AWAKE"),
-                  eq(userData.status, "QUEUED"),
-                  eq(userData.status, "KAGE_QUEUED"),
-                ),
-          ...(battleType === "COMBAT"
-            ? [
-                and(
-                  ...(sector !== undefined ? [eq(userData.sector, sector)] : []),
-                  ...(longitude !== undefined
-                    ? [eq(userData.longitude, longitude)]
-                    : []),
-                  ...(latitude !== undefined ? [eq(userData.latitude, latitude)] : []),
-                ),
-              ]
-            : []),
+              : battleType === "RANKED_PVP"
+                ? and(
+                    eq(userData.status, "QUEUED"),
+                    exists(
+                      client
+                        .select({ one: sql`1` })
+                        .from(rankedPvpQueue)
+                        .where(
+                          and(
+                            eq(rankedPvpQueue.userId, userData.userId),
+                            eq(rankedPvpQueue.hasClaimed, true),
+                          ),
+                        ),
+                    ),
+                  )
+                : or(
+                    eq(userData.status, "AWAKE"),
+                    eq(userData.status, "QUEUED"),
+                    eq(userData.status, "KAGE_QUEUED"),
+                  ),
+            ...(battleType === "COMBAT"
+              ? [
+                  and(
+                    ...(sector !== undefined ? [eq(userData.sector, sector)] : []),
+                    ...(longitude !== undefined
+                      ? [eq(userData.longitude, longitude)]
+                      : []),
+                    ...(latitude !== undefined
+                      ? [eq(userData.latitude, latitude)]
+                      : []),
+                  ),
+                ]
+              : []),
+          ),
         ),
-      ),
-    ...(battleType === "TOURNAMENT"
-      ? [
-          client
-            .update(tournamentMatch)
-            .set({ battleId })
-            .where(
-              or(
-                and(
-                  inArray(tournamentMatch.userId1, userIds),
-                  inArray(tournamentMatch.userId2, targetIds),
-                ),
-                and(
-                  inArray(tournamentMatch.userId2, userIds),
-                  inArray(tournamentMatch.userId1, targetIds),
+      ...(battleType === "TOURNAMENT"
+        ? [
+            client
+              .update(tournamentMatch)
+              .set({ battleId })
+              .where(
+                or(
+                  and(
+                    inArray(tournamentMatch.userId1, userIds),
+                    inArray(tournamentMatch.userId2, targetIds),
+                  ),
+                  and(
+                    inArray(tournamentMatch.userId2, userIds),
+                    inArray(tournamentMatch.userId1, targetIds),
+                  ),
                 ),
               ),
-            ),
-        ]
-      : []),
-  ]);
-
-  // Callers may compensate a failed start only after every sibling write has
-  // finished; Promise.all would reject while combat/history inserts still run.
-  const failedCreation = creationResults.find((entry) => entry.status === "rejected");
-  if (failedCreation?.status === "rejected") throw failedCreation.reason;
-  const userClaimResult = creationResults[2];
-  if (userClaimResult?.status !== "fulfilled")
-    throw new Error("Missing battle participant claim");
-  const userResult = userClaimResult.value;
+          ]
+        : []),
+    ] as const;
+    if (info.questAttempt) {
+      const insertedBattle = await writes[0];
+      const insertedHistory = await writes[1];
+      const claimedUsers = await writes[2];
+      for (const write of writes.slice(3)) await write;
+      return [insertedBattle, insertedHistory, claimedUsers] as const;
+    }
+    // Compensation must wait until every sibling write has finished.
+    const results = await Promise.allSettled(writes);
+    const failed = results.find((result) => result.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
+    const [insertedBattle, insertedHistory, claimedUsers] = results;
+    if (
+      insertedBattle.status !== "fulfilled" ||
+      insertedHistory.status !== "fulfilled" ||
+      claimedUsers.status !== "fulfilled"
+    )
+      throw new Error("Missing battle participant claim");
+    return [insertedBattle.value, insertedHistory.value, claimedUsers.value] as const;
+  };
+  const attempt = info.questAttempt;
+  let created: Awaited<ReturnType<typeof createBattle>>;
+  if (attempt) {
+    const player = users.find((u) => u.userId === attempt.userId);
+    const committed = await commitQuestEntryBattle({
+      client,
+      attempt,
+      items: entryInventory,
+      role: player?.role ?? "USER",
+      createBattle,
+      didClaim: (result) => result[2].rowsAffected === expectedRows,
+    });
+    if (!committed.success) return { success: false, message: committed.message };
+    created = committed.result;
+  } else {
+    created = await createBattle(client);
+  }
+  const userResult = created[2];
 
   if (
     queuedParticipants.some(
@@ -3333,8 +3456,9 @@ export const processUsersForBattle = async (
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle
     const regen = calcActiveUserRegen(user, settings);
-    const restored =
-      regen * Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
+    const restored = getIsolatedPyramid(inputUser)
+      ? 0
+      : regen * Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
     user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);

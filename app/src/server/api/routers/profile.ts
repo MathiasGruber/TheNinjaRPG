@@ -151,6 +151,7 @@ import {
   questHasOverworldObjectives,
   snapQuestTargetsToReachable,
 } from "@/libs/quest";
+import { getIsolatedPyramid } from "@/libs/questRun";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
   getRaidObjectiveData,
@@ -3192,7 +3193,9 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     progressionQuestCandidates = [...user.userQuests];
     user.userQuests = user.userQuests.filter(
-      (q) => isAvailableUserQuests({ ...q.quest, ...q }, user, true).check,
+      (q) =>
+        ((q.questType === "battlepyramid" || q.isolated) && !q.endAt && !q.completed) ||
+        isAvailableUserQuests({ ...q.quest, ...q }, user, true).check,
     );
   }
 
@@ -3428,10 +3431,13 @@ export const fetchUpdatedUser = async (props: {
           ? { ...user, questData: structuredClone(user.questData) }
           : null;
       const regen = user.regeneration * ticks;
+      const poolRegen = getIsolatedPyramid(user) ? 0 : regen;
       // These pools are integer columns; expose the same rounding MySQL persists.
-      user.curHealth = Math.round(Math.min(user.curHealth + regen, user.maxHealth));
-      user.curStamina = Math.round(Math.min(user.curStamina + regen, user.maxStamina));
-      user.curChakra = Math.round(Math.min(user.curChakra + regen, user.maxChakra));
+      user.curHealth = Math.round(Math.min(user.curHealth + poolRegen, user.maxHealth));
+      user.curStamina = Math.round(
+        Math.min(user.curStamina + poolRegen, user.maxStamina),
+      );
+      user.curChakra = Math.round(Math.min(user.curChakra + poolRegen, user.maxChakra));
       user.curEnergy =
         queuedTraining?.curEnergy ?? Math.min(user.curEnergy + regen, user.maxEnergy);
       if (queuedTraining) {

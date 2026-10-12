@@ -60,6 +60,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
   const initialData = {
     ...quest,
     ...quest.content.reward,
+    entryItems: quest.content.entryItems ?? [],
+    isolated: quest.content.isolated ?? false,
     sceneBackground: quest.content.sceneBackground,
     sceneCharacters: quest.content.sceneCharacters,
     rewardMode: quest.content.rewardMode ?? "all",
@@ -157,6 +159,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
       endsAt: data.endsAt ? data.endsAt : null,
       startsAt: data.startsAt ? data.startsAt : null,
       content: {
+        entryItems: data.entryItems,
+        isolated: data.questType === "battlepyramid" && data.isolated,
         sceneBackground: data.sceneBackground,
         sceneCharacters: data.sceneCharacters,
         objectives: newObjectives,
@@ -299,6 +303,22 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
       label: "Characters (if not sequential)",
     },
   ];
+
+  if (items && !["raid", "village_mission", "achievement"].includes(questType))
+    formData.push({
+      id: "entryItems",
+      type: "db_values_with_number",
+      values: items,
+      multiple: true,
+      doubleWidth: true,
+      label: "Entry items (quantity consumed at first battle)",
+    });
+  if (questType === "battlepyramid")
+    formData.push({
+      id: "isolated",
+      type: "boolean",
+      label: "Isolated run (no outside healing, inventory or travel)",
+    });
 
   if (QuestTypesWithMaxAttempts.includes(questType)) {
     formData.push({ id: "maxAttempts", type: "number", label: "Max Attempts" });

@@ -84,6 +84,7 @@ export const buildFarmCollectionState = (
 export const getFarmCollectionState = async (
   client: DrizzleClient,
   userId: string,
+  inTransaction = false,
 ): Promise<FarmCollectionState> => {
   const seeds = await client.query.item.findMany({
     where: and(
@@ -111,7 +112,7 @@ export const getFarmCollectionState = async (
     return { collected: 0, total: 0, items: [] };
   }
 
-  const [yieldItems, collectionRows] = await Promise.all([
+  const queries = [
     client.query.item.findMany({
       where: and(inArray(item.id, yieldItemIds), eq(item.hidden, false)),
       columns: { id: true, name: true, image: true, hidden: true },
@@ -123,13 +124,19 @@ export const getFarmCollectionState = async (
       ),
       columns: { itemId: true, firstHarvestedAt: true },
     }),
-  ]);
+  ] as const;
+  const [yieldItems, collectionRows] = inTransaction
+    ? [await queries[0], await queries[1]]
+    : await Promise.all(queries);
 
   return buildFarmCollectionState(seeds, yieldItems, collectionRows);
 };
 
-export const getFarmCollectionCount = async (client: DrizzleClient, userId: string) =>
-  (await getFarmCollectionState(client, userId)).collected;
+export const getFarmCollectionCount = async (
+  client: DrizzleClient,
+  userId: string,
+  inTransaction = false,
+) => (await getFarmCollectionState(client, userId, inTransaction)).collected;
 
 /**
  * Records each yielded crop once. The duplicate-key branch deliberately updates only the

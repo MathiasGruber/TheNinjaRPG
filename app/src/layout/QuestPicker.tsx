@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { QuestType } from "@/drizzle/constants";
 import { useTutorialStep } from "@/hooks/tutorial";
 import Accordion from "@/layout/Accordion";
+import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
@@ -33,6 +34,7 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
   const util = api.useUtils();
 
   // State
+  const [startError, setStartError] = useState("");
   const [localActiveElement, setLocalActiveElement] = useState<string>("");
   const { data: userData, prepareUserUpdate, updateUser } = useRequiredUserData();
 
@@ -49,6 +51,10 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
     { enabled: !!userData },
   );
 
+  const { data: itemNames } = api.item.getAllNames.useQuery(undefined, {
+    enabled: quests?.some((quest) => quest.entryRequirements.length > 0) ?? false,
+  });
+
   // Tutorial step
   const { currentStep, handleNextStepAsync } = useTutorialStep();
 
@@ -57,6 +63,7 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
     onMutate: () => ({ userRevision: prepareUserUpdate() }),
     onSuccess: async (data, _variables, context) => {
       showMutationToast(data);
+      setStartError(data.success ? "" : data.message);
       await updateUser(data.userPatch, {
         revision: context?.userRevision,
         achievementProgress: data.achievementProgress,
@@ -152,6 +159,11 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
           {props.introduction}
         </p>
       )}
+      {startError && (
+        <p role="alert" className="p-3 text-destructive">
+          {startError}
+        </p>
+      )}
       {isPending && <Loader explanation="Starting quest..." />}
       {!userData && <Loader explanation="Loading userdata..." />}
       {!isPending && userData && (
@@ -192,19 +204,66 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                       item={quest}
                       showEdit="quest"
                       imageExtra={
-                        <Button
-                          id={`tutorial-take-quest-${quest.id}`}
-                          className="mt-2"
-                          onClick={() =>
-                            startQuest({
-                              questId: quest.id,
-                              userSector: userData.sector,
-                            })
-                          }
-                        >
-                          <Gamepad2 className="mr-1 h-6 w-6" />
-                          Take Quest
-                        </Button>
+                        <div className="mt-2 space-y-2">
+                          {quest.entryRequirements.map((required) => (
+                            <p key={required.itemId} className="text-sm">
+                              {itemNames?.find((item) => item.id === required.itemId)
+                                ?.name ?? required.name}
+                              : {required.owned} / {required.quantity} owned. Consumed
+                              at the first battle.
+                            </p>
+                          ))}
+                          {quest.content.isolated && (
+                            <p className="text-sm">
+                              Isolated run: outside healing, inventory and travel are
+                              blocked until completion or abandonment.
+                            </p>
+                          )}
+                          {quest.entryRequirements.length > 0 ||
+                          quest.content.isolated ? (
+                            <Confirm
+                              title={`Start ${quest.name}?`}
+                              disabled={quest.entryRequirements.some(
+                                (required) => required.owned < required.quantity,
+                              )}
+                              button={
+                                <Button
+                                  id={`tutorial-take-quest-${quest.id}`}
+                                  disabled={quest.entryRequirements.some(
+                                    (required) => required.owned < required.quantity,
+                                  )}
+                                >
+                                  <Gamepad2 className="mr-1 h-6 w-6" />
+                                  Take Quest
+                                </Button>
+                              }
+                              onAccept={() =>
+                                startQuest({
+                                  questId: quest.id,
+                                  userSector: userData.sector,
+                                })
+                              }
+                            >
+                              Entry items are consumed at your first battle and will not
+                              be refunded on abandonment.{" "}
+                              {quest.content.isolated &&
+                                "Outside healing, inventory and travel are restricted for this run."}
+                            </Confirm>
+                          ) : (
+                            <Button
+                              id={`tutorial-take-quest-${quest.id}`}
+                              onClick={() =>
+                                startQuest({
+                                  questId: quest.id,
+                                  userSector: userData.sector,
+                                })
+                              }
+                            >
+                              <Gamepad2 className="mr-1 h-6 w-6" />
+                              Take Quest
+                            </Button>
+                          )}
+                        </div>
                       }
                       hideTitle
                     />

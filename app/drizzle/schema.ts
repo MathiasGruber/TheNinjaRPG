@@ -4071,6 +4071,10 @@ export const questHistory = mysqlTable(
     // Completions counted within the current retryDelay calendar period.
     periodCompletes: int("periodCompletes").default(0).notNull(),
     periodStartAt: datetime("periodStartAt", { mode: "date", fsp: 3 }),
+    /** Run state survives checkpoint resets, hidden content and logout. */
+    entryPaid: boolean("entryPaid").default(false).notNull(),
+    isolated: boolean("isolated").default(false).notNull(),
+    questVersion: datetime("questVersion", { mode: "date", fsp: 3 }),
     // Reward offer of a "choose" quest completion, cleared atomically when the player picks.
     pendingRewardChoice: json("pendingRewardChoice").$type<PendingRewardChoice>(),
   },

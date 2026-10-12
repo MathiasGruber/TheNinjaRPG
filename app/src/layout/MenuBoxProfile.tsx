@@ -71,6 +71,7 @@ import {
 } from "@/libs/combat/util";
 import { useGameMenu } from "@/libs/menus";
 import { calcLevelRequirements, getExpBracket } from "@/libs/profile";
+import { getIsolatedPyramid } from "@/libs/questRun";
 import { cn } from "@/libs/shadui";
 import { calcCovertTrainingFinishAt } from "@/libs/stealth";
 import { masteryTrainingEndsAt } from "@/libs/train";
@@ -246,7 +247,9 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-red-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={battleUser ? 0 : userData?.regeneration}
+              regen={
+                battleUser || getIsolatedPyramid(userData) ? 0 : userData?.regeneration
+              }
               status={battleUser ? "AWAKE" : userData?.status}
               current={pools.curHealth}
               total={pools.maxHealth}
@@ -259,7 +262,9 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-blue-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={battleUser ? 0 : userData?.regeneration}
+              regen={
+                battleUser || getIsolatedPyramid(userData) ? 0 : userData?.regeneration
+              }
               status={battleUser ? "AWAKE" : userData?.status}
               current={pools.curChakra}
               total={pools.maxChakra}
@@ -272,7 +277,9 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-green-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={battleUser ? 0 : userData?.regeneration}
+              regen={
+                battleUser || getIsolatedPyramid(userData) ? 0 : userData?.regeneration
+              }
               status={battleUser ? "AWAKE" : userData?.status}
               current={pools.curStamina}
               total={pools.maxStamina}

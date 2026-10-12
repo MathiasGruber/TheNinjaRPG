@@ -5,6 +5,7 @@ import {
   OVERWORLD_QUEST_ROLLS_PER_DAY,
   WAR_MISSIONS_PER_DAY,
 } from "@/drizzle/constants";
+import type { UserQuest } from "@/drizzle/schema";
 import {
   overworldAiPlacement,
   overworldAiPlacementQuest,
@@ -53,6 +54,7 @@ import type { DrizzleClient } from "@/server/db";
 import { claimActiveNpcQuest, clearActiveNpcQuest } from "@/server/utils/concurrency";
 import { fetchPublishedSectorMap } from "@/server/utils/sectorMap";
 import { canChangeContent } from "@/utils/permissions";
+import type { ZodAllTags } from "@/validators/combat";
 import { idSchema } from "@/validators/misc";
 import { OverworldPlacementSchema } from "@/validators/overworldAi";
 
@@ -434,6 +436,20 @@ export const overworldAiRouter = createTRPCRouter({
             userId: ctx.userId,
             scaleTarget,
             scaleGains,
+            questBattleSource: { questId: bound.questId, objectiveId: full.id },
+            givePools: "givePools" in full ? full.givePools : undefined,
+            startingEffects:
+              "applyBuffs" in full
+                ? [...(full.applyBuffs ?? []), ...(full.applyDebuffs ?? [])]
+                : [],
+            forceKeepPools:
+              "keepOriginalPools" in full ? full.keepOriginalPools : false,
+            questAttempt: activeUser.userQuests.find(
+              (entry) =>
+                entry.questId === bound.questId &&
+                !entry.endAt &&
+                !!entry.quest.content.entryItems?.length,
+            ),
             allyAiIds:
               "allyAIs" in full
                 ? full.allyAIs.flatMap((ally) =>
@@ -838,6 +854,11 @@ const startOverworldBattle = (opts: {
   scaleTarget: boolean;
   scaleGains: number;
   allyAiIds?: string[];
+  givePools?: number;
+  startingEffects?: ZodAllTags[];
+  questAttempt?: UserQuest;
+  questBattleSource?: { questId: string; objectiveId: string };
+  forceKeepPools?: boolean;
 }) =>
   initiateBattle(
     {
@@ -847,6 +868,11 @@ const startOverworldBattle = (opts: {
       userIds: [opts.userId],
       targetIds: [opts.placement.aiTemplateUserId],
       allyAiIds: opts.allyAiIds,
+      givePools: opts.givePools,
+      startingEffects: opts.startingEffects,
+      questAttempt: opts.questAttempt,
+      questBattleSource: opts.questBattleSource,
+      forceKeepPools: opts.forceKeepPools,
       client: opts.client,
       scaleTarget: opts.scaleTarget,
       biome: "default",

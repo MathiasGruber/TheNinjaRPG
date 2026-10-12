@@ -77,6 +77,7 @@ import {
   getNewTrackers,
   getPublicQuestUser,
 } from "@/libs/quest";
+import { getIsolatedPyramid } from "@/libs/questRun";
 import {
   getRaidChatConversationId,
   prepareExclusiveRaidActivation,
@@ -1429,6 +1430,9 @@ export const updateUser = async (
 
     // Single call to getNewTrackers with all tasks
     const hydratedUser = hydrateUserForQuests(curBattle, user);
+    // Keep an isolated defeat at its checkpoint, including the confirmed client pool patch.
+    if (getIsolatedPyramid(hydratedUser))
+      result.curHealth = Math.max(1, result.curHealth);
     const previouslyDoneGoals = new Set(
       hydratedUser.questData.flatMap((tracker) =>
         tracker.goals
@@ -1442,6 +1446,7 @@ export const updateUser = async (
       {
         inWarTornSector: isInWarTornSector,
         isWarParticipant: isWarBattleParticipant,
+        questBattleSource: curBattle.extraState.questBattleSource,
       },
     );
     updatedQuestIds.push(...questIdsUpdated);
@@ -1768,7 +1773,8 @@ export const updateUser = async (
                 rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
               }
             : {}),
-          ...(!curBattle.forceKeepPools &&
+          ...(!getIsolatedPyramid(hydratedUser) &&
+          !curBattle.forceKeepPools &&
           result.curHealth <= 0 &&
           !["SPARRING", "RANKED_PVP", "RANKED_SPARRING"].includes(curBattle.battleType)
             ? {

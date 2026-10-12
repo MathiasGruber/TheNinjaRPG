@@ -57,6 +57,7 @@ import {
   pickPlaceableSector,
 } from "@/libs/overworldAi";
 import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
+import { hasQuestContentChanged } from "@/libs/questRun";
 import {
   buildRewardChoiceCards,
   getFixedChoiceRewards,
@@ -79,6 +80,7 @@ import {
   getStrucBoost,
   type SectorVillage,
 } from "@/utils/village";
+import type { ZodAllTags } from "@/validators/combat";
 import type {
   AllObjectivesType,
   AllObjectiveTask,
@@ -103,7 +105,7 @@ import { getQuestCounterFieldName } from "@/validators/user";
 export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
   const userQuests =
     user?.userQuests
-      .filter((uq) => !!uq.quest)
+      .filter((uq) => !!uq.quest && !hasQuestContentChanged(uq))
       .filter((uq) => isAvailableUserQuests({ ...uq.quest, ...uq }, user, true).check)
       .map((uq) => ({ ...uq, ...uq.quest })) ?? [];
   return userQuests;
@@ -718,6 +720,10 @@ export type QuestConsequence = {
   scaleStats?: boolean;
   scaleGains?: number;
   forceKeepPools?: boolean;
+  questId?: string;
+  objectiveId?: string;
+  givePools?: number;
+  startingEffects?: ZodAllTags[];
   /** Expanded NPC template IDs for combat consequences; duplicates request separate allies. */
   allyAiIds?: string[];
 };
@@ -728,6 +734,7 @@ export type QuestConsequence = {
 export type CombatQuestContext = {
   inWarTornSector: boolean;
   isWarParticipant: boolean;
+  questBattleSource?: { questId: string; objectiveId: string };
 };
 
 /**
@@ -1192,6 +1199,13 @@ export const getNewTrackers = (
                 scaleStats: objective.opponent_scaled_to_user,
                 scaleGains: objective.scaleGains,
                 forceKeepPools: objective.keepOriginalPools ?? false,
+                questId: quest.id,
+                objectiveId: objective.id,
+                givePools: objective.givePools,
+                startingEffects: [
+                  ...(objective.applyBuffs ?? []),
+                  ...(objective.applyDebuffs ?? []),
+                ],
               });
             }
           };
@@ -1440,6 +1454,13 @@ export const getNewTrackers = (
               ) {
                 if (
                   killCounts &&
+                  (!(
+                    quest.content.entryItems?.length ||
+                    quest.content.isolated ||
+                    (quest.questType === "battlepyramid" && quest.questVersion)
+                  ) ||
+                    (combatContext?.questBattleSource?.questId === quest.id &&
+                      combatContext.questBattleSource.objectiveId === objective.id)) &&
                   taskUpdate.text &&
                   opponentIds.includes(taskUpdate.contentId || "1337")
                 ) {
@@ -1735,6 +1756,9 @@ export const mockAchievementHistoryEntries = (
       periodCompletes: 0,
       periodStartAt: null,
       pendingRewardChoice: null,
+      entryPaid: false,
+      isolated: false,
+      questVersion: null,
       quest: a,
       endAt: null,
       startedAt: new Date(),

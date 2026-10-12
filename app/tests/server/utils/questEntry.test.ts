@@ -1,0 +1,68 @@
+import { ObjectiveReward } from "@/validators/rewards";
+import { beforeEach, expect, it } from "bun:test";
+import { and, eq, sql } from "drizzle-orm";
+import { quest, questHistory, userData, userItem, item } from "@/drizzle/schema";
+import { commitQuestEntryBattle } from "@/server/utils/questEntry";
+import { insertUsers, insertQuests, insertQuestHistory, insertItems, insertUserItems } from "../../setup/factories";
+import { describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+
+describeWithDatabase("quest entry receipts", () => {
+  beforeEach(async () => {
+    await resetTables(quest, questHistory, userData, userItem, item);
+    await insertUsers([{ userId: "hero", status: "AWAKE" }]);
+    await insertQuests([{ id: "pyramid", questType: "battlepyramid", content: { entryItems: [{ ids: ["ticket"], number: 3 }], isolated: true, objectives: [], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+    await insertQuestHistory([{ id: "run", userId: "hero", questId: "pyramid", questType: "battlepyramid", isolated: true }]);
+    await insertItems([{ id: "ticket" }]);
+    await insertUserItems([{ id: "a", userId: "hero", itemId: "ticket", quantity: 2 }, { id: "b", userId: "hero", itemId: "ticket", quantity: 3 }]);
+  });
+  const snapshot = async () => {
+    const client = await getTestDatabase();
+    const [attempt, items] = await Promise.all([
+      client.query.questHistory.findFirst({ where: eq(questHistory.id, "run"), with: { quest: true } }),
+      client.query.userItem.findMany({ where: eq(userItem.userId, "hero") }),
+    ]);
+    if (!attempt) throw new Error("Missing run fixture");
+    return { client, attempt, items, role: "USER" as const };
+  };
+  const createBattle = (client: Awaited<ReturnType<typeof getTestDatabase>>) => client.update(userData).set({ status: "BATTLE", money: sql`${userData.money} + 1` }).where(and(eq(userData.userId, "hero"), eq(userData.status, "AWAKE")));
+  const didClaim = (result: { rowsAffected: number }) => result.rowsAffected === 1;
+
+  it("charges fragmented stacks once under simultaneous first-battle requests", async () => {
+    const info = await snapshot();
+    const results = await Promise.all([1, 2].map(() => commitQuestEntryBattle({ ...info, createBattle, didClaim })));
+    expect(results.filter((r) => r.success)).toHaveLength(1);
+    expect((await info.client.query.userItem.findMany()).map((r) => r.quantity).sort()).toEqual([0, 2]);
+    expect((await info.client.query.questHistory.findFirst())?.entryPaid).toBe(true);
+  });
+  it("rolls back items and receipt if battle creation rejects or throws", async () => {
+    const info = await snapshot();
+    expect((await commitQuestEntryBattle({ ...info, createBattle: async () => ({ rowsAffected: 0 }), didClaim })).success).toBe(false);
+    await expect(commitQuestEntryBattle({ ...info, createBattle: async () => { throw new Error("Battle write failed"); }, didClaim })).rejects.toThrow("Battle write failed");
+    expect((await info.client.query.userItem.findMany()).map((r) => r.quantity).sort()).toEqual([2, 3]);
+    expect((await info.client.query.questHistory.findFirst())?.entryPaid).toBe(false);
+  });
+  it("retains the receipt for another floor, and requires tickets for a new attempt", async () => {
+    const info = await snapshot();
+    expect((await commitQuestEntryBattle({ ...info, createBattle, didClaim })).success).toBe(true);
+    await info.client.update(userData).set({ status: "AWAKE" }).where(eq(userData.userId, "hero"));
+    expect((await commitQuestEntryBattle({ ...await snapshot(), createBattle, didClaim })).success).toBe(true);
+    expect((await info.client.query.userItem.findMany()).reduce((sum, r) => sum + r.quantity, 0)).toBe(2);
+    await info.client.update(questHistory).set({ entryPaid: false }).where(eq(questHistory.id, "run"));
+    expect((await commitQuestEntryBattle({ ...await snapshot(), createBattle, didClaim })).success).toBe(false);
+  });
+  for (const state of ["abandoned", "edited", "hidden", "items changed"] as const) {
+    it(`rejects ${state} snapshots before any committed charge`, async () => {
+      const info = await snapshot();
+      if (state === "abandoned") await info.client.update(questHistory).set({ endAt: new Date() }).where(eq(questHistory.id, "run"));
+      if (state === "edited") {
+        info.attempt.questVersion = info.attempt.quest.updatedAt;
+        await info.client.update(quest).set({ updatedAt: new Date(info.attempt.quest.updatedAt.getTime() + 1000) }).where(eq(quest.id, "pyramid"));
+      }
+      if (state === "hidden") await info.client.update(quest).set({ hidden: true }).where(eq(quest.id, "pyramid"));
+      if (state === "items changed") await info.client.update(userItem).set({ quantity: 1 }).where(eq(userItem.id, "a"));
+      expect((await commitQuestEntryBattle({ ...info, createBattle, didClaim })).success).toBe(false);
+      expect((await info.client.query.questHistory.findFirst())?.entryPaid).toBe(false);
+      expect((await info.client.query.userData.findFirst())?.status).toBe("AWAKE");
+    });
+  }
+});

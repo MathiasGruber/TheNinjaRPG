@@ -1,0 +1,151 @@
+import { and, eq, exists, gte, isNull, sql } from "drizzle-orm";
+import type { UserRole } from "@/drizzle/constants";
+import {
+  quest,
+  questHistory,
+  type UserItem,
+  type UserQuest,
+  userItem,
+} from "@/drizzle/schema";
+import { getQuestEntryRequirements } from "@/libs/questRun";
+import type { DrizzleClient } from "@/server/db";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { canPlayHiddenQuests } from "@/utils/permissions";
+
+const questAttemptWhere = (client: DrizzleClient, attempt: UserQuest, role: UserRole) =>
+  and(
+    eq(questHistory.id, attempt.id),
+    eq(questHistory.userId, attempt.userId),
+    attempt.startedAt ? eq(questHistory.startedAt, attempt.startedAt) : sql`FALSE`,
+    isNull(questHistory.endAt),
+    eq(questHistory.completed, 0),
+    exists(
+      client
+        .select({ one: sql`1` })
+        .from(quest)
+        .where(
+          and(
+            eq(quest.id, attempt.questId),
+            attempt.questVersion
+              ? eq(quest.updatedAt, attempt.questVersion)
+              : undefined,
+            canPlayHiddenQuests(role) ? undefined : eq(quest.hidden, false),
+          ),
+        ),
+    ),
+  );
+
+export const questAttemptIsActive = (
+  client: DrizzleClient,
+  attempt: UserQuest,
+  role: UserRole,
+) =>
+  exists(
+    client
+      .select({ one: sql`1` })
+      .from(questHistory)
+      .where(questAttemptWhere(client, attempt, role)),
+  );
+
+export const getQuestEntryCharges = (
+  attempt: UserQuest,
+  items: readonly UserItem[],
+) => {
+  const charges: { id: string; quantity: number; expectedQuantity: number }[] = [];
+  if (!attempt.entryPaid) {
+    for (const required of getQuestEntryRequirements(attempt.quest.content)) {
+      let remaining = required.quantity;
+      for (const item of items
+        .filter(
+          (row) =>
+            row.itemId === required.itemId &&
+            !row.storedAtHome &&
+            !row.isInAuction &&
+            row.quantity > 0,
+        )
+        .sort((a, b) => a.id.localeCompare(b.id))) {
+        const quantity = Math.min(item.quantity, remaining);
+        if (quantity > 0)
+          charges.push({ id: item.id, quantity, expectedQuantity: item.quantity });
+        remaining -= quantity;
+      }
+      if (remaining > 0) return null;
+    }
+  }
+  return charges;
+};
+
+/** The receipt, all item debits and the battle claim commit together or roll back together. */
+export const commitQuestEntryBattle = async <T>({
+  client,
+  attempt,
+  items,
+  role,
+  createBattle,
+  didClaim,
+}: {
+  client: DrizzleClient;
+  attempt: UserQuest;
+  items: readonly UserItem[];
+  role: UserRole;
+  createBattle: (client: DrizzleClient) => Promise<T>;
+  didClaim: (result: T) => boolean;
+}) => {
+  const rejected = new Error("Quest entry rejected");
+  let message = "This quest changed or ended. Abandon it and start again.";
+  const charges = getQuestEntryCharges(attempt, items);
+  if (!charges)
+    return {
+      success: false as const,
+      message: "You do not have the required entry items in your inventory.",
+    };
+  try {
+    const result = await retryOnDeadlock(() =>
+      client.transaction(async (tx) => {
+        const database = tx as unknown as DrizzleClient;
+        if (!attempt.entryPaid) {
+          const receipt = await tx
+            .update(questHistory)
+            .set({ entryPaid: true })
+            .where(
+              and(
+                eq(questHistory.id, attempt.id),
+                eq(questHistory.entryPaid, false),
+                questAttemptWhere(database, attempt, role),
+              ),
+            );
+          if (receipt.rowsAffected !== 1) throw rejected;
+          for (const charge of charges) {
+            const debit = await tx
+              .update(userItem)
+              .set({ quantity: sql`${userItem.quantity} - ${charge.quantity}` })
+              .where(
+                and(
+                  eq(userItem.id, charge.id),
+                  eq(userItem.userId, attempt.userId),
+                  eq(userItem.storedAtHome, false),
+                  eq(userItem.isInAuction, false),
+                  eq(userItem.quantity, charge.expectedQuantity),
+                  gte(userItem.quantity, charge.quantity),
+                ),
+              );
+            if (debit.rowsAffected !== 1) {
+              message = "Your entry items changed. Please try again.";
+              throw rejected;
+            }
+          }
+        }
+        const created = await createBattle(database);
+        if (!didClaim(created)) {
+          message = "Battle could not start. Please try again.";
+          throw rejected;
+        }
+        return created;
+      }),
+    );
+    return { success: true as const, result };
+  } catch (error) {
+    if (error === rejected) return { success: false as const, message };
+    throw error;
+  }
+};

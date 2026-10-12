@@ -80,6 +80,8 @@ import {
   getTagSchema,
   ItemValidator,
   JutsuValidator,
+  questBuffTypes,
+  questDebuffTypes,
 } from "@/validators/combat";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
 import type { AllObjectivesType } from "@/validators/objectives";
@@ -2395,6 +2397,8 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     .filter(
       (value) =>
         ![
+          "applyBuffs",
+          "applyDebuffs",
           "task",
           "id",
           "image",
@@ -2722,22 +2726,52 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Re-used EditContent component for actually showing the form
   return (
-    <EditContent
-      schema={objectiveSchema}
-      form={form}
-      formData={formData.filter((entry) => !String(entry.id).startsWith("reward_"))}
-      formClassName={formClassName}
-      showSubmit={false}
-      buttonTxt="Confirm Changes (No database sync)"
-      submitLoading={props.submitLoading}
-    >
-      <RewardEditor
+    <>
+      {"applyBuffs" in shownTag && (
+        <>
+          <QuestBattleEffects
+            title="Starting buffs"
+            effects={watchAll.applyBuffs ?? []}
+            availableTags={questBuffTypes}
+            setEffects={(effects) =>
+              form.setValue("applyBuffs", effects, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+            disabled={props.submitLoading}
+          />
+          <QuestBattleEffects
+            title="Starting debuffs"
+            effects={watchAll.applyDebuffs ?? []}
+            availableTags={questDebuffTypes}
+            setEffects={(effects) =>
+              form.setValue("applyDebuffs", effects, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+            disabled={props.submitLoading}
+          />
+        </>
+      )}
+      <EditContent
+        schema={objectiveSchema}
         form={form}
-        formData={formData}
-        hideFields={["reward_mastery_stat", "reward_mastery_rank"]}
-        isObjectiveReward
-      />
-    </EditContent>
+        formData={formData.filter((entry) => !String(entry.id).startsWith("reward_"))}
+        formClassName={formClassName}
+        showSubmit={false}
+        buttonTxt="Confirm Changes (No database sync)"
+        submitLoading={props.submitLoading}
+      >
+        <RewardEditor
+          form={form}
+          formData={formData}
+          hideFields={["reward_mastery_stat", "reward_mastery_rank"]}
+          isObjectiveReward
+        />
+      </EditContent>
+    </>
   );
 };
 
@@ -2986,6 +3020,7 @@ export const FORM_LABEL_MAP: Record<string, string> = {
   opponent_scaled_to_user: "Scale Opponent to user level",
   scaleGains: "Scale opponent combat gains",
   keepOriginalPools: "Reset pools after opponent battle",
+  givePools: "Starting pools (% of maximum; leave empty to carry pools)",
   attackers: "Random Encounter AIs [and encounter chance%]",
   attackers_scaled_to_user: "Scale random encounter to user lvl",
   attackers_scale_gains: "Scale random encounter combat gains",
@@ -3771,3 +3806,69 @@ export const EffectFieldSelector: React.FC<{
     </div>
   );
 };
+
+/** Reuses the combat tag editor, including each tag's power, filters and duration. */
+const QuestBattleEffects = ({
+  title,
+  effects,
+  setEffects,
+  availableTags,
+  disabled,
+}: {
+  title: string;
+  effects: ZodAllTags[];
+  setEffects: (effects: ZodAllTags[]) => void;
+  availableTags: readonly ZodAllTags["type"][];
+  disabled?: boolean;
+}) => (
+  <div className="my-4 space-y-3 rounded border p-3">
+    <div className="flex items-center justify-between">
+      <h3 className="font-bold">{title}</h3>
+      <Button
+        type="button"
+        size="sm"
+        disabled={disabled}
+        onClick={() => {
+          const type = availableTags[0];
+          if (type)
+            setEffects([
+              ...effects,
+              getTagSchema(type).parse({ target: "SELF", rounds: 3 }) as ZodAllTags,
+            ]);
+        }}
+      >
+        Add effect
+      </Button>
+    </div>
+    <p className="text-muted-foreground text-sm">
+      Applies to the player. Duration includes the opening round.
+    </p>
+    {effects.map((effect, idx) => (
+      <div key={`${effect.type}-${idx}`} className="rounded border p-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => setEffects(effects.filter((_, i) => i !== idx))}
+        >
+          Remove effect {idx + 1}
+        </Button>
+        <EffectFormWrapper
+          idx={idx}
+          type="jutsu"
+          tag={effect}
+          effects={effects}
+          availableTags={availableTags}
+          editableFields={Object.keys(getTagSchema(effect.type).shape).filter(
+            (field) => field !== "target" && field !== "friendlyFire",
+          )}
+          submitLoading={disabled}
+          setEffects={(values) =>
+            setEffects(values.map((tag) => ({ ...tag, target: "SELF" })))
+          }
+        />
+      </div>
+    ))}
+  </div>
+);

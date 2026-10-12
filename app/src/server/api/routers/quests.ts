@@ -10,6 +10,8 @@ import {
   isNull,
   like,
   lte,
+  ne,
+  notExists,
   or,
   sql,
 } from "drizzle-orm";
@@ -103,6 +105,7 @@ import {
   rollObjectiveAttackers,
   verifyQuestContentForSave,
 } from "@/libs/quest";
+import { getQuestEntryRequirements, hasQuestContentChanged } from "@/libs/questRun";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
   buildRewardChoiceCards,
@@ -372,7 +375,7 @@ export const questsRouter = createTRPCRouter({
         return [];
       }
       // Query
-      const [{ user }, quests] = await Promise.all([
+      const [{ user }, quests, inventory] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
@@ -381,12 +384,41 @@ export const questsRouter = createTRPCRouter({
           questTypes: [input.questType],
           level: input.level,
         }),
+        ctx.drizzle.query.userItem.findMany({
+          where: and(
+            eq(userItem.userId, ctx.userId),
+            eq(userItem.storedAtHome, false),
+            eq(userItem.isInAuction, false),
+            or(
+              isNull(userItem.craftingFinishedAt),
+              lte(userItem.craftingFinishedAt, new Date()),
+            ),
+            gt(userItem.quantity, 0),
+          ),
+          columns: { itemId: true, quantity: true },
+          with: { item: { columns: { name: true } } },
+        }),
       ]);
       if (!user) return [];
       quests.forEach((r) => {
         controlShownQuestLocationInformation(r);
       });
-      return quests.filter((e) => isAvailableUserQuests(e, user, true).check);
+      return quests
+        .filter((e) => isAvailableUserQuests(e, user, true).check)
+        .map((entry) => ({
+          ...entry,
+          entryRequirements: getQuestEntryRequirements(entry.content).map(
+            (required) => ({
+              ...required,
+              name:
+                inventory.find((row) => row.itemId === required.itemId)?.item.name ??
+                required.itemId,
+              owned: inventory
+                .filter((row) => row.itemId === required.itemId)
+                .reduce((sum, row) => sum + row.quantity, 0),
+            }),
+          ),
+        }));
     }),
   startRandom: protectedProcedure
     .meta({ mcp: { description: "Start a random mission or errand" } })
@@ -431,6 +463,9 @@ export const questsRouter = createTRPCRouter({
             historyStartedAt: questHistory.startedAt,
             historyEndAt: questHistory.endAt,
             historyPendingRewardChoice: questHistory.pendingRewardChoice,
+            historyEntryPaid: questHistory.entryPaid,
+            historyIsolated: questHistory.isolated,
+            historyQuestVersion: questHistory.questVersion,
           })
           .from(quest)
           .leftJoin(
@@ -542,6 +577,9 @@ export const questsRouter = createTRPCRouter({
               periodCompletes: result.periodCompletes ?? 0,
               periodStartAt: result.periodStartAt,
               pendingRewardChoice: result.historyPendingRewardChoice,
+              entryPaid: result.historyEntryPaid ?? false,
+              isolated: result.historyIsolated ?? false,
+              questVersion: result.historyQuestVersion,
             }
           : null;
 
@@ -656,34 +694,78 @@ export const questsRouter = createTRPCRouter({
       ) {
         return errorResponse(`Cannot abandon ${current.questType} quest type.`);
       }
+      if (
+        user.status === "BATTLE" &&
+        (current.questType === "battlepyramid" ||
+          current.quest.content.entryItems?.length)
+      )
+        return errorResponse(
+          "Finish or flee your current battle before abandoning this run.",
+        );
       // Derived
       const questData = filterQuestTrackersForDbPersist(
         user.questData?.filter((q) => q.id !== input.id) ?? [],
         user,
       );
-      // Mutate
-      await Promise.all([
-        ctx.drizzle
-          .update(questHistory)
-          .set({ completed: 0, endAt: new Date() })
-          .where(
-            and(
-              eq(questHistory.questId, input.id),
-              eq(questHistory.userId, ctx.userId),
+      const managedRun =
+        current.questType === "battlepyramid" ||
+        current.isolated ||
+        !!current.quest.content.entryItems?.length;
+      const writeAbandonment = (client: DrizzleClient) =>
+        Promise.all([
+          client
+            .update(questHistory)
+            .set({ completed: 0, endAt: new Date() })
+            .where(
+              and(
+                eq(questHistory.id, current.id),
+                isNull(questHistory.endAt),
+                eq(questHistory.completed, 0),
+              ),
             ),
-          ),
-        ctx.drizzle
-          .update(userData)
-          .set({
-            questFinishAt: new Date(),
-            questData: questData,
-            // If the abandoned quest held the single active-NPC-mission slot, free it in the same
-            // write (questId-scoped so a concurrent grant of a different quest is never cleared).
-            // Otherwise the slot stays stale and blocks the next overworld NPC interaction.
-            activeNpcQuestId: sql`IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId})`,
-          })
-          .where(eq(userData.userId, ctx.userId)),
-      ]);
+        ]);
+      if (managedRun) {
+        const rejected = new Error("Run changed");
+        try {
+          await retryOnDeadlock(() =>
+            ctx.drizzle.transaction(async (tx) => {
+              const client = tx as unknown as DrizzleClient;
+              const claimed = await claimUserSnapshot({
+                client,
+                userId: ctx.userId,
+                updatedAt: user.updatedAt,
+                where: [ne(userData.status, "BATTLE")],
+                set: {
+                  questFinishAt: new Date(),
+                  questData,
+                  activeNpcQuestId: sql`IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId})`,
+                },
+              });
+              if (!claimed.success) throw rejected;
+              const [ended] = await writeAbandonment(client);
+              if (ended.rowsAffected !== 1) throw rejected;
+            }),
+          );
+        } catch (error) {
+          if (error === rejected)
+            return errorResponse(
+              "The run changed or entered combat. Finish or flee the battle, then try again.",
+            );
+          throw error;
+        }
+      } else {
+        await Promise.all([
+          writeAbandonment(ctx.drizzle),
+          ctx.drizzle
+            .update(userData)
+            .set({
+              questFinishAt: new Date(),
+              questData,
+              activeNpcQuestId: sql`IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId})`,
+            })
+            .where(eq(userData.userId, ctx.userId)),
+        ]);
+      }
       return { success: true, message: `Quest abandoned` };
     }),
   getQuestHistory: protectedProcedure
@@ -874,9 +956,33 @@ export const questsRouter = createTRPCRouter({
           );
         }
 
-        // Update database
+        const parsedPrevious = QuestValidator.safeParse(entry);
+        const isVisibilityOnlyChange =
+          parsedPrevious.success &&
+          calculateContentDiff(
+            { ...parsedPrevious.data, hidden: input.data.hidden },
+            input.data,
+          ).length === 0;
+        const updatedAt = new Date(Math.max(Date.now(), entry.updatedAt.getTime() + 1));
+        // Visibility changes pause/resume the same run; authored edits invalidate its version.
         await Promise.all([
-          ctx.drizzle.update(quest).set(input.data).where(eq(quest.id, entry.id)),
+          ctx.drizzle
+            .update(quest)
+            .set({ ...input.data, updatedAt })
+            .where(eq(quest.id, entry.id)),
+          ...(isVisibilityOnlyChange
+            ? [
+                ctx.drizzle
+                  .update(questHistory)
+                  .set({ questVersion: updatedAt })
+                  .where(
+                    and(
+                      eq(questHistory.questId, entry.id),
+                      eq(questHistory.questVersion, entry.updatedAt),
+                    ),
+                  ),
+              ]
+            : []),
           // Village Missions retire personal attempts without granting completions
           // or reclassifying completed history as collective progress.
           data.questType === "village_mission"
@@ -892,7 +998,13 @@ export const questsRouter = createTRPCRouter({
                 )
             : ctx.drizzle
                 .update(questHistory)
-                .set({ questType: input.data.questType })
+                .set({
+                  questType: input.data.questType,
+                  ...(entry.questType === "battlepyramid" &&
+                  input.data.questType !== "battlepyramid"
+                    ? { endAt: updatedAt }
+                    : {}),
+                })
                 .where(eq(questHistory.questId, entry.id)),
           ctx.drizzle.insert(actionLog).values({
             id: nanoid(),
@@ -1133,6 +1245,18 @@ export const questsRouter = createTRPCRouter({
       if (user.status !== "AWAKE") {
         return errorResponse("Must be awake to finish quests");
       }
+
+      const activeAttempt = user.userQuests.find(
+        (entry) => entry.questId === input.questId && !entry.endAt,
+      );
+      if (
+        activeAttempt &&
+        (hasQuestContentChanged(activeAttempt) ||
+          (activeAttempt.quest.hidden && !canPlayHiddenQuests(user.role)))
+      )
+        return errorResponse(
+          "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it.",
+        );
 
       // Figure out if any finished quests & get rewards
       const {
@@ -2682,6 +2806,12 @@ export const assignQuestToUser = async (args: {
     );
   }
 
+  if (
+    (questData.questType === "battlepyramid" || questData.content.entryItems?.length) &&
+    user.status !== "AWAKE"
+  )
+    return errorResponse("You must be awake and outside combat to start this run.");
+
   // Per-type concurrent-limit guard (pure, no DB)
   const block = questTypeConcurrentBlockMessage(questData, user);
   if (block) return errorResponse(block);
@@ -2740,6 +2870,57 @@ export const assignQuestToUser = async (args: {
       source,
       prevAttempt ?? null,
     );
+  } else if (
+    questData.questType === "battlepyramid" ||
+    questData.content.entryItems?.length
+  ) {
+    const assigned = await retryOnDeadlock(() =>
+      client.transaction(async (tx) => {
+        const database = tx as unknown as DrizzleClient;
+        const claim = await claimUserSnapshot({
+          client: database,
+          userId: user.userId,
+          updatedAt: user.updatedAt,
+          where: [
+            eq(userData.status, "AWAKE"),
+            ...(questData.questType === "battlepyramid"
+              ? [
+                  notExists(
+                    database
+                      .select({ one: sql`1` })
+                      .from(questHistory)
+                      .where(
+                        and(
+                          eq(questHistory.userId, user.userId),
+                          eq(questHistory.questType, "battlepyramid"),
+                          isNull(questHistory.endAt),
+                          eq(questHistory.completed, 0),
+                        ),
+                      ),
+                  ),
+                ]
+              : []),
+          ],
+          set: {},
+        });
+        if (!claim.success) return undefined;
+        const result = await upsertQuestEntry(
+          database,
+          user,
+          questData,
+          source,
+          prevAttempt ?? null,
+          true,
+        );
+        await incrementDailyQuestCounter(database, user, questData.questType);
+        return result;
+      }),
+    );
+    if (!assigned)
+      return errorResponse(
+        "Your account changed or another Pyramid started. Refresh and try again.",
+      );
+    assignment = assigned;
   } else {
     [assignment] = await Promise.all([
       upsertQuestEntry(client, user, questData, source, prevAttempt ?? null),
@@ -2770,6 +2951,7 @@ export const upsertQuestEntry = async (
   quest: Quest,
   source: QuestAcquisitionSource,
   prevEntry?: Awaited<ReturnType<typeof fetchUserQuestByQuestId>> | null,
+  inTransaction = false,
 ) => {
   if (isNpcOnlyQuestType(quest.questType) && source !== "overworld_npc") {
     throw serverError(
@@ -2820,6 +3002,13 @@ export const upsertQuestEntry = async (
           // Atomic increment so a concurrent restart of the same row can't lose a count to a
           // stale JS-side base; matches the insert branch's onDuplicateKeyUpdate below.
           previousAttempts: sql`${questHistory.previousAttempts} + 1`,
+          ...(!isOpenAttempt
+            ? {
+                entryPaid: false,
+                isolated: quest.content.isolated ?? false,
+                questVersion: quest.updatedAt,
+              }
+            : {}),
         })
         .where(eq(questHistory.id, entry.id)),
     );
@@ -2829,6 +3018,13 @@ export const upsertQuestEntry = async (
       endAt: null,
       completed: 0,
       previousAttempts: entry.previousAttempts + 1,
+      ...(!isOpenAttempt
+        ? {
+            entryPaid: false,
+            isolated: quest.content.isolated ?? false,
+            questVersion: quest.updatedAt,
+          }
+        : {}),
     };
   } else {
     entry = {
@@ -2844,6 +3040,9 @@ export const upsertQuestEntry = async (
       periodCompletes: 0,
       periodStartAt: null,
       pendingRewardChoice: null,
+      entryPaid: false,
+      isolated: quest.content.isolated ?? false,
+      questVersion: quest.updatedAt,
     };
     // Idempotent on the (userId, questId) unique key: if a concurrent start (double-tap, or a
     // UI + overworld race, possibly past a stale `prevEntry`) already inserted the row, restart
@@ -2860,6 +3059,9 @@ export const upsertQuestEntry = async (
             endAt: null,
             completed: 0,
             previousAttempts: sql`${questHistory.previousAttempts} + 1`,
+            entryPaid: false,
+            isolated: quest.content.isolated ?? false,
+            questVersion: quest.updatedAt,
           },
         }),
     );
@@ -2869,7 +3071,7 @@ export const upsertQuestEntry = async (
     ...user.userQuests.filter((row) => row.questId !== quest.id),
     { ...entry, quest },
   ];
-  const trackerUser = await hydrateQuestCollections(client, user);
+  const trackerUser = await hydrateQuestCollections(client, user, inTransaction);
   const { trackers, consequences, notifications } = getNewTrackers(trackerUser, [
     { task: "any" },
   ]);
@@ -2881,8 +3083,12 @@ export const upsertQuestEntry = async (
       })
       .where(eq(userData.userId, user.userId)),
   );
-  // Execute promises
-  await Promise.all(promises);
+  // Transaction statements share a single PlanetScale session.
+  if (inTransaction) {
+    for (const promise of promises) await promise;
+  } else {
+    await Promise.all(promises);
+  }
   user.questData = trackers;
   user.completedQuests = user.completedQuests.filter((row) => row.questId !== quest.id);
   // Instant objectives may become done before a later pass can recover their side effects.
@@ -3528,6 +3734,21 @@ const executeClaimedQuestConsequences = async ({
                 scaleTarget: !!opponent.scaleStats,
                 biome: "default",
                 forceKeepPools: opponent.forceKeepPools ?? false,
+                questBattleSource:
+                  opponent.questId && opponent.objectiveId
+                    ? { questId: opponent.questId, objectiveId: opponent.objectiveId }
+                    : undefined,
+                givePools: opponent.givePools,
+                startingEffects: opponent.startingEffects,
+                questAttempt: opponent.questId
+                  ? user.userQuests.find(
+                      (entry) =>
+                        entry.questId === opponent.questId &&
+                        !entry.endAt &&
+                        (entry.questType === "battlepyramid" ||
+                          !!entry.quest.content.entryItems?.length),
+                    )
+                  : undefined,
                 // Honour the player's stored preference here too. Without it the
                 // tutorial teaches auto combat in the arena and then hands the
                 // player a manual quest fight, which reads as the setting having

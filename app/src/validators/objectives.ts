@@ -60,7 +60,13 @@ import {
 } from "@/drizzle/constants";
 import { DateTimeRegExp } from "@/utils/regex";
 import { idsWithNumberField } from "@/validators/base";
-import { AllTags, SuperRefinePassiveEffects } from "@/validators/combat";
+import {
+  AllTags,
+  questBuffTypes,
+  questDebuffTypes,
+  questStartingEffectsSchema,
+  SuperRefinePassiveEffects,
+} from "@/validators/combat";
 import { masteryRequirementFields } from "@/validators/mastery";
 import {
   QuestReward,
@@ -408,6 +414,12 @@ export const battleObjectiveFields = {
   drawDescription: z.string().prefault("The battle ended in a draw"),
   scaleGains: z.coerce.number().min(0).max(1).prefault(1),
   keepOriginalPools: z.coerce.boolean().prefault(false),
+  givePools: z.preprocess(
+    (value) => (value === "" || value === null ? undefined : value),
+    z.coerce.number().min(0).max(100).optional(),
+  ),
+  applyBuffs: questStartingEffectsSchema(questBuffTypes),
+  applyDebuffs: questStartingEffectsSchema(questDebuffTypes),
 };
 
 export const baseObjectiveFields = {
@@ -703,7 +715,23 @@ export const ObjectiveTracker = z.object({
 });
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 
+export const questEntryItemsSchema = z
+  .array(
+    z.object({
+      ids: z.array(z.string().min(1)).min(1),
+      number: z.coerce.number().int().min(1).max(9999),
+    }),
+  )
+  .prefault([]);
+
+export const questRunFields = {
+  entryItems: questEntryItemsSchema,
+  isolated: z.coerce.boolean().prefault(false),
+};
+
 export type QuestContentType = {
+  entryItems?: z.infer<typeof questEntryItemsSchema>;
+  isolated?: boolean;
   reward: QuestRewardType;
   /** Absent on quests saved before reward choice existed; treated as "all". */
   rewardMode?: QuestRewardMode;
@@ -749,6 +777,7 @@ export const QuestValidatorRawSchema = z.object({
   tierLevel: z.coerce.number().min(0).max(100).nullable(),
   questType: z.enum(QuestTypes),
   content: z.object({
+    ...questRunFields,
     objectives: z.array(AllObjectives),
     reward: QuestReward,
     ...questRewardModeFields,
@@ -770,6 +799,34 @@ const questSuperRefine = (
   val: z.infer<typeof QuestValidatorRawSchema>,
   ctx: z.RefinementCtx,
 ) => {
+  if (val.content.isolated && val.questType !== "battlepyramid") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["content", "isolated"],
+      message: "Only Battle Pyramids can isolate a run",
+    });
+  }
+  if (
+    val.content.entryItems.length > 0 &&
+    ["raid", "village_mission", "achievement"].includes(val.questType)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["content", "entryItems"],
+      message:
+        "Entry items require a personal quest run; shared raids, Village Missions and achievements do not have personal entry receipts",
+    });
+  }
+  if (
+    val.content.entryItems.length > 0 &&
+    !val.content.objectives.some((o) => "opponentAIs" in o)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["content", "entryItems"],
+      message: "Entry items require a battle objective",
+    });
+  }
   if (val.questType === "village_mission") {
     const error = villageMissionContentError(val.content, val.consecutiveObjectives);
     if (error) ctx.addIssue({ code: "custom", message: error, path: ["content"] });
@@ -936,6 +993,7 @@ export const QuestFormRawSchema = QuestValidatorRawSchema.extend(
   QuestReward.shape,
 ).extend(
   z.object({
+    ...questRunFields,
     ...questRewardModeFields,
     sceneBackground: z.string().prefault(""),
     sceneCharacters: z.array(z.string()).prefault([]),

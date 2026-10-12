@@ -43,6 +43,7 @@ export const getRaidObjectiveData = (questData: { content: Quest["content"] }) =
     opponentAIs,
     sector,
     firstAiId,
+    objective: typedObjective,
   };
 };
 

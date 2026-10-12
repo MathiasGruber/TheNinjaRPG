@@ -11,17 +11,22 @@ import { auth } from "@clerk/nextjs/server";
 import * as Sentry from "@sentry/node";
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { TRPC_ERROR_CODE_KEY } from "@trpc/server/rpc";
+import { middlewareMarker } from "@trpc/server/unstable-core-do-not-import";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapters/headers";
 import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import type { NextRequest } from "next/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
-import { userData } from "@/drizzle/schema";
+import { questHistory, userData } from "@/drizzle/schema";
 import { LEMU_EXPERIMENT, normalizeLemuVariant } from "@/libs/lemuExperiment";
 import type { McpMeta } from "@/libs/mcp";
+import {
+  ISOLATED_PYRAMID_MESSAGE,
+  isPyramidRestrictedProcedure,
+} from "@/libs/questRun";
 import {
   parseWallpaperVariant,
   WALLPAPER_EXPERIMENT,
@@ -259,8 +264,35 @@ const enforceUserIsAuthed = t.middleware(async ({ ctx: context, path, next }) =>
   return next({ ctx: { userId: context.userId } });
 });
 
+const enforcePyramidIsolation = t.middleware(async ({ ctx, path, type, next }) => {
+  if (ctx.userId && isPyramidRestrictedProcedure(path)) {
+    const isolated = await ctx.drizzle.query.questHistory.findFirst({
+      columns: { id: true },
+      where: and(
+        eq(questHistory.userId, ctx.userId),
+        eq(questHistory.isolated, true),
+        isNull(questHistory.endAt),
+        eq(questHistory.completed, 0),
+      ),
+    });
+    if (isolated) {
+      // Mutations use the normal rejection contract; blocked pages explain the restriction
+      // and expose abandonment before mounting inventory/hospital query components.
+      if (type === "mutation")
+        return {
+          ok: true,
+          data: errorResponse(ISOLATED_PYRAMID_MESSAGE),
+          marker: middlewareMarker,
+        };
+      throw serverError("FORBIDDEN", ISOLATED_PYRAMID_MESSAGE);
+    }
+  }
+  return next();
+});
+
 export const protectedProcedure = t.procedure
   .use(enforceUserIsAuthed)
+  .use(enforcePyramidIsolation)
   .use(botIdMiddleware)
   .use(sentryMiddleware);
 

@@ -2,7 +2,7 @@ import { Client as PlanetScaleClient } from "@planetscale/database";
 import * as Sentry from "@sentry/nextjs";
 import type { inferRouterOutputs } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { after } from "next/server";
 import { z } from "zod";
@@ -412,6 +412,18 @@ export const staffRouter = createTRPCRouter({
           .update(userData)
           .set({ status: "AWAKE", travelFinishAt: null, battleId: null })
           .where(eq(userData.userId, targetUser.userId)),
+        // Pulling a stranded player out of a Pyramid cancels that attempt.
+        ctx.drizzle
+          .update(questHistory)
+          .set({ endAt: new Date(), completed: 0 })
+          .where(
+            and(
+              eq(questHistory.userId, input.userId),
+              eq(questHistory.questType, "battlepyramid"),
+              eq(questHistory.completed, 0),
+              isNull(questHistory.endAt),
+            ),
+          ),
         // Clean up raid/clan/shrine battle queue
         ctx.drizzle
           .delete(mpvpBattleUser)

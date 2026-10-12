@@ -432,6 +432,7 @@ export type ExtraState = {
   settings?: GameSetting[];
   initialDurability?: Record<string, Record<string, number>>; // userId -> userItemId -> durability
   // Raid-specific data
+  questBattleSource?: { questId: string; objectiveId: string };
   raidQuestId?: string; // The quest ID for raid battles
   raidInitialBossHp?: number; // Initial boss HP at start of raid battle
   raidStartBattleCount?: Record<string, number>; // userId -> battleCount at battle start
@@ -650,7 +651,8 @@ export type BattleEffect = ZodAllTags & {
     | "ranked"
     | "sageMode"
     | "sageModeAfter"
-    | "elementalMastery";
+    | "elementalMastery"
+    | "quest";
   targetType?: "user" | "barrier";
   power?: number;
   highestGenerals?: (typeof GenNames)[number][];

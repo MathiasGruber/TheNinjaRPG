@@ -20,6 +20,7 @@ import {
 } from "@/libs/hospital";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
+import { getIsolatedPyramid, ISOLATED_PYRAMID_MESSAGE } from "@/libs/questRun";
 import { hasRequiredRank } from "@/libs/train";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchAlliances, fetchStructures } from "@/routers/village";
@@ -126,6 +127,7 @@ export const hospitalRouter = createTRPCRouter({
       const { user: t } = updatedTarget;
       if (!u) return errorResponse("Your user was not found");
       if (!t) return errorResponse("Your target was not found");
+      if (getIsolatedPyramid(t)) return errorResponse(ISOLATED_PYRAMID_MESSAGE);
       // Derived
       const pools = calcHospitalHealPools(u, isSelfHeal);
       const { toHeal } = calcHowMuchToHeal(u, t, input.healPercentage, pools);
