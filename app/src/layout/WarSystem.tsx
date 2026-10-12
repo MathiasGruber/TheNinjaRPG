@@ -668,6 +668,7 @@ export const WarMap: React.FC<{
             if (!canDeclareWar) {
               showMutationToast({ success: false, message: "You are not the leader" });
             } else {
+              setDeclarationError(null);
               setTargetSector(sector);
               setShowModal(true);
             }

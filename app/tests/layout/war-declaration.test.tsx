@@ -21,9 +21,14 @@ import { ensureDom } from "../setup-dom.mjs";
 vi.spyOn(dynamic, "default").mockImplementation(
   () =>
     ((props: { onTileClick: (sector: number) => void }) => (
-      <button type="button" onClick={() => props.onTileClick(102)}>
-        Target tile
-      </button>
+      <>
+        <button type="button" onClick={() => props.onTileClick(102)}>
+          Target tile
+        </button>
+        <button type="button" onClick={() => props.onTileClick(103)}>
+          Alliance tile
+        </button>
+      </>
     )) as never,
 );
 const { WarMap } = await import("@/layout/WarSystem");
@@ -83,6 +88,7 @@ const target = {
   type: "VILLAGE",
   allianceSystem: true,
 } as Village;
+const allied = { ...target, id: "allied", name: "Allied", sector: 103 };
 const structures = [
   { id: "mission", name: "Mission Hall", route: "/missionhall" },
   { id: "training", name: "Training Grounds", route: "/traininggrounds" },
@@ -183,13 +189,19 @@ const mount = () =>
     <WarMap
       user={user}
       isKage
-      villages={ownsSector ? [user.village!] : [user.village!, target]}
+      villages={ownsSector ? [user.village!] : [user.village!, target, allied]}
       relationships={[
         {
           id: "enemies",
           villageIdA: own.id,
           villageIdB: target.id,
           status: relationshipStatus,
+        } as VillageAlliance,
+        {
+          id: "allies",
+          villageIdA: own.id,
+          villageIdB: allied.id,
+          status: "ALLY",
         } as VillageAlliance,
       ]}
     />,
@@ -227,6 +239,19 @@ describe("war declaration targets", () => {
 });
 
 describe("war map confirmations", () => {
+  it("clears a rejected declaration when opening another target from the map", async () => {
+    const view = mount();
+    fireEvent.click(view.getByRole("button", { name: "Target tile" }));
+    fireEvent.click(view.getByRole("button", { name: "Declare War" }));
+    await act(() => declarations.respond({ success: false, message: "Declaration rejected" }));
+    expect(view.getByRole("alert").textContent).toBe("Declaration rejected");
+    fireEvent.click(view.getAllByRole("button", { name: /^Close$/ })[0]!);
+    expect(view.queryByRole("dialog")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Alliance tile" }));
+    expect(view.getByRole("button", { name: "Break Alliance" })).toBeDefined();
+    expect(view.queryByRole("alert")?.textContent ?? null).toBeNull();
+  });
+
   for (const scenario of [
     { label: "Declare Enemy", status: "NEUTRAL", action: declareEnemy },
     { label: "Break Alliance", status: "ALLY", action: leaveAlliance },
