@@ -25,7 +25,8 @@ export const QuestTeams = ({
   const [message, setMessage] = useState("");
   const { data, error, isPending } = api.questParty.overview.useQuery(undefined, {
     enabled: !!user && teamEnabled,
-    refetchInterval: 5000,
+    // Shared progress needs frequent updates; team and invitation discovery can poll less often.
+    refetchInterval: (query) => (query.state.data?.current ? 5000 : 30000),
   });
   const refresh = async (result: { success: boolean; message: string }) => {
     setMessage(result.message);
