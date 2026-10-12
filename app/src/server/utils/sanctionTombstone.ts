@@ -174,8 +174,9 @@ const fetchActiveSanctions = async (
  * account's reports or its Clerk user are removed.
  *
  * Pass the Clerk user when the caller already holds it; otherwise it is loaded, and only
- * when a sanction exists. A Clerk user that is already gone (the native deletion removes it
- * first) leaves hashes stored by an earlier call untouched. Repeating the call is harmless.
+ * when a sanction exists. Once Clerk is gone, keep the captured snapshot: moderation updates
+ * it through reviseSanctionTombstones, and the original reports may now be stale. Repeating
+ * cleanup after the reports are gone also leaves the snapshot untouched.
  */
 export const recordSanctionTombstone = async (
   client: DrizzleClient,
@@ -188,18 +189,14 @@ export const recordSanctionTombstone = async (
       where: eq(sanctionTombstone.userId, userId),
     }),
   ]);
+  if (sanctions.length === 0) return;
   const clerkUser =
-    sanctions.length === 0
-      ? null
-      : identity === undefined
-        ? await fetchSanctionIdentity(userId)
-        : identity;
-  const hashes = clerkUser
-    ? {
-        emailHash: primaryEmailHashOf(clerkUser),
-        accountHashes: accountHashesOf(clerkUser),
-      }
-    : hashesOfSources(sources);
+    identity === undefined ? await fetchSanctionIdentity(userId) : identity;
+  if (!clerkUser) return;
+  const hashes = {
+    emailHash: primaryEmailHashOf(clerkUser),
+    accountHashes: accountHashesOf(clerkUser),
+  };
   await replaceSanctionSnapshot(client, userId, sanctions, sources, hashes);
 };
 

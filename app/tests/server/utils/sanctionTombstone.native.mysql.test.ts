@@ -15,9 +15,11 @@ import {
 import { Pusher } from "@/libs/pusher";
 import { registerRouter } from "@/server/api/routers/register";
 import { reportsRouter } from "@/server/api/routers/reports";
+import { removeAccountGameData } from "@/server/utils/accountDeletion/cleanup";
 import { processAccountDeletions } from "@/server/utils/accountDeletion/process";
 import {
   hashSanctionIdentifier,
+  recordSanctionTombstone,
   type SanctionIdentity,
 } from "@/server/utils/sanctionTombstone";
 import { insertUsers } from "../../setup/factories";
@@ -86,24 +88,24 @@ const startDeletion = async () => {
   );
 };
 
-const finishDeletion = async () => {
+const finishDeletion = async (userId = NATIVE_USER) => {
   const database = await getTestDatabase();
   await database
     .update(accountDeletion)
     .set({ nextAttemptAt: new Date(Date.now() - 1) })
-    .where(eq(accountDeletion.userId, NATIVE_USER));
-  expect(await processAccountDeletions(NATIVE_USER)).toEqual({
+    .where(eq(accountDeletion.userId, userId));
+  expect(await processAccountDeletions(userId)).toEqual({
     processed: 1,
     failed: 0,
   });
   expect(
     await database.query.accountDeletion.findFirst({
-      where: eq(accountDeletion.userId, NATIVE_USER),
+      where: eq(accountDeletion.userId, userId),
     }),
   ).toMatchObject({ phase: "COMPLETE" });
   expect(
     await database.query.userReport.findFirst({
-      where: eq(userReport.reportedUserId, NATIVE_USER),
+      where: eq(userReport.reportedUserId, userId),
     }),
   ).toBeUndefined();
 };
@@ -383,6 +385,109 @@ describeWithDatabase("original sanctions during native deletion", () => {
       { status: "BAN_ACTIVATED", banEnd: end },
     ]);
   });
+
+  it.each([
+    ["ban", true],
+    ["silence", true],
+    ["clear", true],
+    ["silence", false],
+    ["clear", false],
+  ] as const)(
+    "preserves carryover %s through native cleanup with independent silence: %p",
+    async (decision, hasIndependentSilence) => {
+      const database = await getTestDatabase();
+      const originalEnd = new Date(Date.now() + 10 * DAY);
+      const independentEnd = new Date(Date.now() + 20 * DAY);
+      await addReport("original", "BAN_ACTIVATED", originalEnd);
+      if (hasIndependentSilence)
+        await addReport("independent-silence", "SILENCE_ACTIVATED", independentEnd);
+      await startDeletion();
+      const duringDelay = await register("DuringDelay");
+      const inherited = duringDelay.find(
+        (report) => report.status === "BAN_ACTIVATED",
+      )!;
+      expect(
+        await (await callerFor(reportsRouter, "staff"))[decision]({
+          ...decisionInput,
+          object_id: inherited.id,
+          banTime: decision === "ban" ? 20 : 1,
+        }),
+      ).toMatchObject({ success: true });
+      const revised = await database.query.userReport.findFirst({
+        where: eq(userReport.id, inherited.id),
+      });
+      const snapshot = await database.query.sanctionTombstone.findMany({
+        where: eq(sanctionTombstone.userId, NATIVE_USER),
+      });
+      if (decision === "clear") {
+        expect(snapshot.some((source) => source.sourceSanction === "BAN")).toBe(false);
+      } else {
+        expect(
+          snapshot.find((source) => source.sourceSanction === "BAN"),
+        ).toMatchObject({
+          ...hashes,
+          sanction: decision === "ban" ? "BAN" : "SILENCE",
+          sanctionEndsAt: revised!.banEnd,
+        });
+      }
+      await recordSanctionTombstone(database, NATIVE_USER, null);
+      expect(
+        await database.query.sanctionTombstone.findMany({
+          where: eq(sanctionTombstone.userId, NATIVE_USER),
+        }),
+      ).toEqual(snapshot);
+      await finishDeletion();
+      expect(
+        await database.query.sanctionTombstone.findMany({
+          where: eq(sanctionTombstone.userId, NATIVE_USER),
+        }),
+      ).toEqual(snapshot);
+      // A retry after the reports are gone must preserve the retained staff decision.
+      await removeAccountGameData(NATIVE_USER);
+      expect(
+        await database.query.sanctionTombstone.findMany({
+          where: eq(sanctionTombstone.userId, NATIVE_USER),
+        }),
+      ).toEqual(snapshot);
+
+      // Release the replacement's sign-in identity before another account reuses it.
+      await database.insert(accountDeletion).values({ userId: "DuringDelay" });
+      expect(await processAccountDeletions("DuringDelay")).toEqual({
+        processed: 1,
+        failed: 0,
+      });
+      await finishDeletion("DuringDelay");
+      const returned = await register("AfterCleanup");
+      const expected = [
+        ...(decision === "ban"
+          ? [{ status: "BAN_ACTIVATED", banEnd: revised!.banEnd }]
+          : []),
+        ...(hasIndependentSilence
+          ? [{ status: "SILENCE_ACTIVATED", banEnd: independentEnd }]
+          : decision === "silence"
+            ? [{ status: "SILENCE_ACTIVATED", banEnd: revised!.banEnd }]
+            : []),
+      ];
+      expect(returned).toHaveLength(expected.length);
+      expect(returned).toEqual(
+        expect.arrayContaining(
+          expected.map((report) => expect.objectContaining(report)),
+        ),
+      );
+      if (hasIndependentSilence) {
+        expect(
+          snapshot.find((source) => source.sourceSanction === "SILENCE"),
+        ).toMatchObject({
+          ...hashes,
+          sanction: "SILENCE",
+          sanctionEndsAt: independentEnd,
+          reportIds: ["independent-silence"],
+        });
+      } else if (decision === "clear") {
+        expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
+      }
+    },
+  );
 
   it("does not retain identifiers when an ordinary account receives a sanction", async () => {
     await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
