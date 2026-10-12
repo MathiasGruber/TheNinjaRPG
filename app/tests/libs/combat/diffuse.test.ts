@@ -192,7 +192,6 @@ describe("Diffuse damage resolution", () => {
       {
         power: 80,
         calculation: "percentage",
-        statTypes: ["Ninjutsu"],
         rounds: 3,
       },
       runtime(),
@@ -217,7 +216,6 @@ describe("Diffuse damage resolution", () => {
       {
         power: 30,
         calculation: "percentage",
-        statTypes: ["Ninjutsu"],
         rounds: 3,
       },
       runtime(),
@@ -236,7 +234,6 @@ describe("Diffuse damage resolution", () => {
       {
         power: 30,
         calculation: "percentage",
-        statTypes: ["Ninjutsu"],
         rounds: 3,
       },
       runtime(),
@@ -252,7 +249,6 @@ describe("Diffuse damage resolution", () => {
         power: 20,
         rounds: 3,
         timeTracker: { originalDamage: 100 },
-        statTypes: ["Ninjutsu"],
       },
       { ...runtime(), creatorId: "attacker" },
     );
@@ -301,7 +297,6 @@ describe("Diffuse damage resolution", () => {
       {
         power: 30,
         calculation: "percentage",
-        statTypes: ["Ninjutsu"],
         rounds: 3,
       },
       runtime(),
@@ -362,7 +357,6 @@ describe("Diffuse damage resolution", () => {
         {
           power: 50,
           calculation: "percentage",
-          statTypes: ["Ninjutsu"],
           rounds: 3,
         },
         runtime(type === "reflect" ? "defender" : "attacker"),
@@ -384,7 +378,7 @@ describe("Diffuse damage resolution", () => {
         for (const hitCount of [1, 2]) {
           const effects = [
             ...Array.from({ length: hitCount }, (_, i) => attack({ id: `hit-${i}` })),
-            makeEffect("reflect", { power, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, runtime()),
+            makeEffect("reflect", { power, calculation: "percentage", rounds: 3 }, runtime()),
             ...targetIds.map((targetId) => ({ ...diffuse({ delayRounds: 1 }), ...runtime(targetId), id: `diffuse-${targetId}` })),
           ];
           let current = run(effects).newBattle;
@@ -409,11 +403,11 @@ describe("Diffuse damage resolution", () => {
       attack(),
       diffuse({ delayRounds: 1 }),
       { ...diffuse({ delayRounds: 1 }), ...runtime("attacker"), id: "diffuse-attacker" },
-      makeEffect("reflect", { power: 100, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, runtime()),
+      makeEffect("reflect", { power: 100, calculation: "percentage", rounds: 3 }, runtime()),
       makeEffect("decreasedamagetaken", { power: 50, calculation: "percentage", rounds: 3 }, runtime()),
       ...["attacker", "defender"].flatMap((targetId) => [
         makeEffect("shield", { power: 5, health: 5 }, { ...runtime(targetId), id: `shield-${targetId}` }),
-        makeEffect("absorb", { power: 50, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, { ...runtime(targetId), id: `absorb-${targetId}` }),
+        makeEffect("absorb", { power: 50, calculation: "percentage", rounds: 3 }, { ...runtime(targetId), id: `absorb-${targetId}` }),
       ]),
     ];
     let current = run(effects).newBattle;
@@ -436,8 +430,8 @@ describe("Diffuse damage resolution", () => {
     const initial = battle([
       attack(),
       diffuse(),
-      makeEffect("reflect", { power: 100, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, runtime()),
-      makeEffect("lifesteal", { power: 100, calculation: "percentage", statTypes: ["Ninjutsu"], rounds: 3 }, runtime("attacker")),
+      makeEffect("reflect", { power: 100, calculation: "percentage", rounds: 3 }, runtime()),
+      makeEffect("lifesteal", { power: 100, calculation: "percentage", rounds: 3 }, runtime("attacker")),
       makeEffect("vamp", { power: 100, calculation: "percentage" }, { ...runtime("attacker"), isNew: true, castThisRound: true, createdRound: ROUND }),
       makeEffect("shield", { power: 40, health: 40 }, runtime()),
     ]);
@@ -506,7 +500,6 @@ describe("Diffuse damage resolution", () => {
         {
           power: 50,
           calculation: "percentage",
-          statTypes: ["Ninjutsu"],
           rounds: 3,
         },
         runtime(type === "reflect" ? "defender" : "attacker"),
@@ -519,7 +512,6 @@ describe("Diffuse damage resolution", () => {
         {
           power: 50,
           calculation: "percentage",
-          statTypes: ["Ninjutsu"],
           rounds: 3,
         },
         runtime("attacker"),

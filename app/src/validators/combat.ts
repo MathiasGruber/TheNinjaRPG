@@ -129,6 +129,11 @@ const PoolAttributes = {
   poolsAffected: z.array(z.enum(PoolTypes)).prefault(["Health"]).optional(),
 };
 
+const IncludeGeneralsAndElements = {
+  generalTypes: z.array(z.enum(GeneralTypes)).optional(),
+  elements: z.array(z.enum(ElementNames)).optional(),
+};
+
 const IncludeStats = {
   // Power has the following meaning depending on calculation
   // static: directly equates to the amount returned
@@ -141,8 +146,7 @@ const IncludeStats = {
         .transform((value) => (value === "Highest" ? "None" : value)),
     )
     .optional(),
-  generalTypes: z.array(z.enum(GeneralTypes)).optional(),
-  elements: z.array(z.enum(ElementNames)).optional(),
+  ...IncludeGeneralsAndElements,
 };
 
 /******************** */
@@ -217,7 +221,7 @@ export type PotencyTag = z.infer<typeof IncreasePotencyTag | typeof DecreasePote
 
 export const AbsorbTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
+  ...IncludeGeneralsAndElements,
   ...PowerAttributes,
   type: z.literal("absorb").prefault("absorb"),
   calculation: z.enum(["percentage"]).prefault("percentage"),
@@ -597,7 +601,7 @@ export const HealPreventTag = z.object({
 
 export const LifeStealTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
+  ...IncludeGeneralsAndElements,
   ...PowerAttributes,
   type: z.literal("lifesteal").prefault("lifesteal"),
   description: msg("Heal based on damage given"),
@@ -712,7 +716,7 @@ export const OneHitKillPreventTag = z.object({
 
 export const ReflectTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
+  ...IncludeGeneralsAndElements,
   ...PowerAttributes,
   type: z.literal("reflect").prefault("reflect"),
   description: msg("Reflect damage taken"),
@@ -721,7 +725,7 @@ export const ReflectTag = z.object({
 
 export const WoundTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
+  ...IncludeGeneralsAndElements,
   ...PowerAttributes,
   type: z.literal("wound").prefault("wound"),
   description: msg("Applies wound damage over multiple turns based on damage dealt"),
@@ -758,7 +762,7 @@ export const RemoveBloodline = z.object({
 
 export const RecoilTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
+  ...IncludeGeneralsAndElements,
   ...PowerAttributes,
   type: z.literal("recoil").prefault("recoil"),
   description: msg("Recoil damage given back to self"),
@@ -767,7 +771,7 @@ export const RecoilTag = z.object({
 
 export const AfterburnTag = z.object({
   ...BaseAttributes,
-  ...IncludeStats,
+  ...IncludeGeneralsAndElements,
   ...PowerAttributes,
   type: z.literal("afterburn").prefault("afterburn"),
   description: msg("Take a percentage of incoming damage as afterburndamage"),

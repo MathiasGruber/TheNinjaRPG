@@ -95,6 +95,7 @@ import { availableUserActions, calcActiveUser, stillInBattle } from "./actions";
 import {
   allState,
   BARRIER_DAMAGE_TAG_TYPES,
+  damageDerivedTagTypes,
   damageModifierTypes,
   POST_PIERCE_TAGS,
   publicState,
@@ -3451,7 +3452,7 @@ export const getPreventTypeName = (preventType: string): string => {
 /**
  * What an effect's statTypes stand for. increasestat/decreasestat move the unified
  * Offence/Defence, picked by direction, and any statTypes only switch that on; every
- * other tag uses them to match jutsu types.
+ * other tag that supports statTypes uses them to match jutsu types.
  */
 export const getStatTypeLabels = (effect: {
   type: string;
@@ -3461,6 +3462,7 @@ export const getStatTypeLabels = (effect: {
 }): (StatType | CombatStatType | "All damage")[] => {
   if (damageModifierTypes.includes(effect.type))
     return effect.elements?.length ? [] : ["All damage"];
+  if (damageDerivedTagTypes.includes(effect.type)) return [];
   const statTypes = effect.statTypes ?? [];
   if (effect.type !== "increasestat" && effect.type !== "decreasestat") {
     return [...statTypes];

@@ -47,8 +47,8 @@ export const CoordinateTargetingEditor = (props: {
           <Select
             value={pattern.origin}
             disabled={props.readonly}
-            onValueChange={(origin: CoordinateTargeting["origin"]) =>
-              update({ origin })
+            onValueChange={(origin) =>
+              update({ origin: origin as CoordinateTargeting["origin"] })
             }
           >
             <SelectTrigger aria-label="Coordinate origin">
@@ -68,8 +68,8 @@ export const CoordinateTargetingEditor = (props: {
           <Select
             value={pattern.selection}
             disabled={props.readonly}
-            onValueChange={(selection: CoordinateTargeting["selection"]) =>
-              update({ selection })
+            onValueChange={(selection) =>
+              update({ selection: selection as CoordinateTargeting["selection"] })
             }
           >
             <SelectTrigger aria-label="Tile selection">

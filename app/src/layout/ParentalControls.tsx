@@ -169,8 +169,8 @@ function ParentalSettingsForm({
               <Label htmlFor="parental-messages">Private messages</Label>
               <Select
                 value={privateMessages}
-                onValueChange={(value: typeof privateMessages) =>
-                  setPrivateMessages(value)
+                onValueChange={(value) =>
+                  setPrivateMessages(value as typeof privateMessages)
                 }
               >
                 <SelectTrigger id="parental-messages">
