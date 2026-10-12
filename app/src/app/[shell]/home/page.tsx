@@ -138,7 +138,14 @@ export default function HomePage() {
 
   const { toggleSleep, isTogglingSleep } = useSleepToggle();
   const utils = api.useUtils();
-  const saveFurniture = api.home.saveFurnitureLayout.useMutation();
+  const saveFurniture = api.home.saveFurnitureLayout.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      if (!result.success) setFurnitureError(result.message);
+      // Keep the editor disabled until its saved layout and server revision are refreshed.
+      await userHomeRefetch();
+    },
+  });
   const buyFurniture = api.home.purchaseFurniture.useMutation();
 
   /** Keep unsaved edits available on rejection and refresh the server revision for recovery. */
@@ -150,9 +157,6 @@ export default function HomePage() {
     setFurnitureError(null);
     try {
       const result = await saveFurniture.mutateAsync(draft);
-      showMutationToast(result);
-      if (!result.success) setFurnitureError(result.message);
-      await userHomeRefetch();
       return result.success;
     } catch (error) {
       setFurnitureError(
