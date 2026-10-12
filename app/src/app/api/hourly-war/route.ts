@@ -1,7 +1,8 @@
-import { and, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import {
   ELDER_MIN_VOTING_COUNT,
+  KAGE_ELDER_REMOVAL_LOCK_SECS,
   WAR_DAILY_HEALTH_DRAIN,
   WAR_DAILY_TOKEN_DECAY_PERCENT_BASE,
   WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_5,
@@ -38,6 +39,7 @@ import {
   resumePendingWarSettlements,
   startDeclaredWar,
 } from "@/server/utils/war";
+import { secondsFromNow } from "@/utils/time";
 
 const ENDPOINT_NAME = "hourly-war";
 const DAILY_DECAY_TIMER = "daily-war-decay";
@@ -486,13 +488,19 @@ async function handleExpiredKageRemoval(
       return;
     }
 
-    // Guarded village update — only succeeds if the target is still the current kage
+    // Protect the current tenure even for motions created before the removal lock changed.
     const villageUpdateResult = await drizzleDB
       .update(village)
       .set({ kageId: replacement.userId, leaderUpdatedAt: new Date() })
-      .where(and(eq(village.id, vote.villageId), eq(village.kageId, vote.targetId)));
+      .where(
+        and(
+          eq(village.id, vote.villageId),
+          eq(village.kageId, vote.targetId),
+          lte(village.leaderUpdatedAt, secondsFromNow(-KAGE_ELDER_REMOVAL_LOCK_SECS)),
+        ),
+      );
     if (villageUpdateResult.rowsAffected === 0) {
-      // Kage already changed via another path — revert our APPROVED claim
+      // The target changed or their current tenure is protected; reject our claim.
       await drizzleDB
         .update(villageElderVote)
         .set({ status: "REJECTED" })

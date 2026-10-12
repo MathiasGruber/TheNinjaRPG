@@ -792,7 +792,7 @@ export const kageRouter = createTRPCRouter({
       };
     }),
 
-  // Initiate a kage removal vote (elder-only, once per 7 days, requires 4-day kage lock to have passed)
+  // Elders can initiate removal once the current kage's protected tenure has passed.
   initiateKageRemovalVote: protectedProcedure
     .meta({
       mcp: {
@@ -825,7 +825,7 @@ export const kageRouter = createTRPCRouter({
       if (user.userId === uVillage.kageId)
         return errorResponse("You cannot remove yourself as kage");
 
-      // Check 4-day kage action lock
+      // Check the current kage's protected tenure.
       if (
         uVillage.leaderUpdatedAt instanceof Date &&
         !Number.isNaN(uVillage.leaderUpdatedAt.getTime())
@@ -1011,10 +1011,14 @@ export const kageRouter = createTRPCRouter({
             and(
               eq(village.id, user.villageId),
               eq(village.kageId, voteRecord.targetId),
+              lte(
+                village.leaderUpdatedAt,
+                secondsFromNow(-KAGE_ELDER_REMOVAL_LOCK_SECS),
+              ),
             ),
           );
         if (villageUpdateResult.rowsAffected === 0) {
-          // Kage already changed via another path — revert our APPROVED claim
+          // Reject stale motions or votes started before the current protection period applied.
           await ctx.drizzle
             .update(villageElderVote)
             .set({ status: "REJECTED" })
@@ -1025,7 +1029,7 @@ export const kageRouter = createTRPCRouter({
               ),
             );
           return errorResponse(
-            "The kage has already changed — vote is no longer valid",
+            "The kage has changed or is still protected — vote is no longer valid",
           );
         }
 
