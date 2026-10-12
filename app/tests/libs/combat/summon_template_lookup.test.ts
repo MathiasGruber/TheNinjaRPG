@@ -85,6 +85,38 @@ const mkBattle = (): Battle =>
   }) as unknown as Battle;
 
 describe("summon() template lookup", () => {
+  it("uses the pristine template when a depleted enemy shares its controllerId", () => {
+    const template = {
+      ...mkTemplate(),
+      actionPoints: 100,
+      items: [{ quantity: 1 }],
+      jutsus: [{ lastUsedRound: -5 }],
+    } as BattleUserState;
+    const defeated = {
+      ...structuredClone(template),
+      userId: "defeated-enemy",
+      isSummon: false,
+      isSummonTemplate: false,
+      actionPoints: 0,
+      items: [{ quantity: 0 }],
+      jutsus: [{ lastUsedRound: 1 }],
+    } as BattleUserState;
+    const usersState = [mkPlayer(), defeated, template];
+
+    expect(summon(usersState, mkSummonEffect(), [], mkBattle())?.color).toBe("blue");
+    const spawned = usersState.find((u) => u.isSummon && u.controllerId === PLAYER_ID);
+    expect(spawned?.actionPoints).toBe(100);
+    expect(spawned?.items[0]?.quantity).toBe(1);
+    expect(spawned?.jutsus[0]?.lastUsedRound).toBe(-5);
+    expect(usersState).toContain(defeated);
+  });
+
+  it("can still summon from a matching source without the template flag", () => {
+    const usersState = [mkPlayer(), { ...mkTemplate(), isSummonTemplate: false }];
+    expect(summon(usersState, mkSummonEffect(), [], mkBattle())?.color).toBe("blue");
+    expect(usersState.find((u) => u.controllerId === PLAYER_ID && u.isSummon)?.curHealth).toBe(500);
+  });
+
   it("finds the template by controllerId (the loaded aiId) and spawns the summon", () => {
     const usersState = [mkPlayer(), mkTemplate()];
     const userEffects: UserEffect[] = [];

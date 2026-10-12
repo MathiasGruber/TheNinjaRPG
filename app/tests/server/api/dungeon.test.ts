@@ -42,6 +42,33 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     expect((await b.getState()).runs[0]?.id).toBe(id);
     const outsider = await callerFor(dungeonRouter, "outsider"); expect((await outsider.getState()).runs).toHaveLength(0);
   });
+  it("keeps an older accepted party and its unclaimed rewards visible beyond twenty invitations", async () => {
+    const db = await getTestDatabase();
+    await insertUsers(Array.from({length: 21}, (_, i) => ({userId: `leader-${i}`, username: `leader-${i}`, status: "AWAKE", sector: 1})));
+    const member = await callerFor(dungeonRouter, "b");
+    let acceptedId = "";
+    for (let i = 0; i < 21; i++) {
+      const leader = await callerFor(dungeonRouter, `leader-${i}`);
+      const created = await leader.create({id: "definition"});
+      if (!created.success || !("id" in created)) throw Error("Lobby creation failed");
+      expect((await leader.act({id: created.id, action: "invite", userId: "b"})).success).toBe(true);
+      if (i === 0) acceptedId = created.id;
+    }
+    expect((await member.act({id: acceptedId, action: "accept"})).success).toBe(true);
+    const state = await member.getState();
+    expect(state.runs).toHaveLength(20);
+    expect(state.runs.some((r) => r.id === acceptedId)).toBe(true);
+    expect(state.members).toContainEqual(expect.objectContaining({runId: acceptedId, activeUserId: "b"}));
+    expect((await member.create({id: "definition"})).success).toBe(false);
+
+    const run = await db.query.dungeonRun.findFirst({where: eq(dungeonRun.id, acceptedId)});
+    if (!run) throw Error("Missing accepted run");
+    await db.update(dungeonRun).set({status: "COMPLETED", state: {...run.state, floor: 5, clearedFloors: [0,1,2,3,4]}}).where(eq(dungeonRun.id, acceptedId));
+    expect((await member.getState()).runs).toContainEqual(expect.objectContaining({id: acceptedId, status: "COMPLETED"}));
+    expect((await member.claim({id: acceptedId})).success).toBe(true);
+    expect((await db.query.dungeonMember.findFirst({where: eq(dungeonMember.activeUserId, "b")}))).toBeUndefined();
+    expect((await db.query.userData.findFirst({where: eq(userData.userId, "b")}))?.money).toBe(100);
+  });
   it("reserves exactly one active party under simultaneous lobby creation", async () => {
     const a = await callerFor(dungeonRouter, "a");
     const results = await Promise.all([a.create({id: "definition"}), a.create({id: "definition"})]);

@@ -69,7 +69,13 @@ export const dungeonRouter = createTRPCRouter({
           ),
         ),
       )
-      .orderBy(desc(dungeonRun.createdAt))
+      .orderBy(
+        // Keep the player's party and unclaimed completion rewards within the limit.
+        desc(
+          sql`EXISTS (SELECT 1 FROM ${dungeonMember} WHERE ${dungeonMember.runId} = ${dungeonRun.id} AND ${dungeonMember.activeUserId} = ${ctx.userId})`,
+        ),
+        desc(dungeonRun.createdAt),
+      )
       .limit(20);
     await Promise.all(runs.map((run) => expireDungeonRun(ctx.drizzle, run)));
     const ids = [
