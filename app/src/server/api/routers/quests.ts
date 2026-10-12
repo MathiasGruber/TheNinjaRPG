@@ -3773,16 +3773,15 @@ export const resolveRewardChoiceDisplays = async (
         ]
       : [];
   });
+  const expandedCards = offers.flatMap((offer) =>
+    offer.cards.flatMap((card) =>
+      card.rewards ? buildRewardChoiceCards(card.rewards) : [card],
+    ),
+  );
   const idsFor = (field: RewardChoiceCard["field"]) => [
     ...new Set(
-      offers.flatMap((offer) =>
-        offer.cards
-          .flatMap((card) =>
-            card.rewards ? buildRewardChoiceCards(card.rewards) : [card],
-          )
-          .flatMap((card) =>
-            card.field === field && card.contentId ? [card.contentId] : [],
-          ),
+      expandedCards.flatMap((card) =>
+        card.field === field && card.contentId ? [card.contentId] : [],
       ),
     ),
   ];

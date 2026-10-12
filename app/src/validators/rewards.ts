@@ -105,16 +105,7 @@ export const hasReward = (reward: ObjectiveRewardType) => {
   const parsedReward = ObjectiveReward.parse(reward);
   return (
     (parsedReward.reward_mastery_rank && parsedReward.reward_mastery_rank !== "NONE") ||
-    MASTERY_EXPERIENCE_FIELDS.some((field) => (parsedReward[field] ?? 0) > 0) ||
-    parsedReward.reward_money > 0 ||
-    parsedReward.reward_seichi_silver > 0 ||
-    parsedReward.reward_clanpoints > 0 ||
-    parsedReward.reward_anbupoints > 0 ||
-    parsedReward.reward_exp > 0 ||
-    parsedReward.reward_tokens > 0 ||
-    parsedReward.reward_prestige > 0 ||
-    parsedReward.reward_reputation > 0 ||
-    parsedReward.reward_skillpoints > 0 ||
+    REWARD_CHOICE_AMOUNT_FIELDS.some((field) => (parsedReward[field] ?? 0) > 0) ||
     parsedReward.reward_rank !== "NONE" ||
     parsedReward.reward_village_membership !== "NONE" ||
     parsedReward.reward_items.length > 0 ||
@@ -123,14 +114,7 @@ export const hasReward = (reward: ObjectiveRewardType) => {
     parsedReward.reward_sage_modes.length > 0 ||
     parsedReward.reward_badges.length > 0 ||
     parsedReward.reward_hunter_items ||
-    parsedReward.reward_gathering_items ||
-    parsedReward.reward_medical_experience > 0 ||
-    parsedReward.reward_hunting_experience > 0 ||
-    parsedReward.reward_crafting_experience > 0 ||
-    parsedReward.reward_gathering_experience > 0 ||
-    parsedReward.reward_sage_mastery_experience > 0 ||
-    parsedReward.reward_war_damage > 0 ||
-    parsedReward.reward_war_healing > 0
+    parsedReward.reward_gathering_items
   );
 };
 

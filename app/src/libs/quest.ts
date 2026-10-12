@@ -93,6 +93,7 @@ import {
   MASTERY_EXPERIENCE_FIELDS,
   ObjectiveReward,
   type PostProcessedRewards,
+  REWARD_CHOICE_AMOUNT_FIELDS,
 } from "@/validators/rewards";
 import { getQuestCounterFieldName } from "@/validators/user";
 
@@ -436,59 +437,9 @@ export const getReward = (
           rawRewards = collapseRewards([rawRewards, objectiveReward]);
           return;
         }
-        if (objective.reward_money) {
-          rawRewards.reward_money += objective.reward_money;
-        }
-        if (objective.reward_seichi_silver) {
-          rawRewards.reward_seichi_silver += objective.reward_seichi_silver;
-        }
-        if (objective.reward_clanpoints) {
-          rawRewards.reward_clanpoints += objective.reward_clanpoints;
-        }
-        if (objective.reward_anbupoints) {
-          rawRewards.reward_anbupoints += objective.reward_anbupoints;
-        }
-        if (objective.reward_exp) {
-          rawRewards.reward_exp += objective.reward_exp;
-        }
-        if (objective.reward_tokens) {
-          rawRewards.reward_tokens += objective.reward_tokens;
-        }
-        if (objective.reward_prestige) {
-          rawRewards.reward_prestige += objective.reward_prestige;
-        }
-        if (objective.reward_reputation) {
-          rawRewards.reward_reputation += objective.reward_reputation;
-        }
-        if (objective.reward_skillpoints) {
-          rawRewards.reward_skillpoints += objective.reward_skillpoints;
-        }
-        if (objective.reward_medical_experience) {
-          rawRewards.reward_medical_experience += objective.reward_medical_experience;
-        }
-        if (objective.reward_hunting_experience) {
-          rawRewards.reward_hunting_experience += objective.reward_hunting_experience;
-        }
-        if (objective.reward_crafting_experience) {
-          rawRewards.reward_crafting_experience += objective.reward_crafting_experience;
-        }
-        if (objective.reward_gathering_experience) {
-          rawRewards.reward_gathering_experience +=
-            objective.reward_gathering_experience;
-        }
-        for (const field of MASTERY_EXPERIENCE_FIELDS)
+        for (const field of REWARD_CHOICE_AMOUNT_FIELDS)
           if (objective[field])
             rawRewards[field] = (rawRewards[field] ?? 0) + (objective[field] ?? 0);
-        if (objective.reward_sage_mastery_experience) {
-          rawRewards.reward_sage_mastery_experience +=
-            objective.reward_sage_mastery_experience;
-        }
-        if (objective.reward_war_damage) {
-          rawRewards.reward_war_damage += objective.reward_war_damage;
-        }
-        if (objective.reward_war_healing) {
-          rawRewards.reward_war_healing += objective.reward_war_healing;
-        }
         if (objective.reward_jutsus) {
           rawRewards.reward_jutsus.push(...objective.reward_jutsus);
         }

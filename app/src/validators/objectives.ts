@@ -807,17 +807,12 @@ const questSuperRefine = (
       path: ["content", "objectives"],
     });
   }
-  const promotionRewards = [
-    val.content.reward,
-    ...(val.content.reward.reward_packages ?? []).map((pack) => pack.rewards),
-  ];
-  if (
-    promotionRewards.some(
-      (reward) =>
-        (!!reward.reward_mastery_stat && reward.reward_mastery_stat !== "None") !==
-        (!!reward.reward_mastery_rank && reward.reward_mastery_rank !== "NONE"),
-    )
-  ) {
+  const reward = val.content.reward;
+  const hasPromotionStat =
+    !!reward.reward_mastery_stat && reward.reward_mastery_stat !== "None";
+  const hasPromotionRank =
+    !!reward.reward_mastery_rank && reward.reward_mastery_rank !== "NONE";
+  if (hasPromotionStat !== hasPromotionRank) {
     ctx.addIssue({
       code: "custom",
       message: "Select both the mastery and its rank reward",
