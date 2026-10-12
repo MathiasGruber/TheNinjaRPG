@@ -1,8 +1,8 @@
 import { ensureDom } from "../setup-dom.mjs";
-const { cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
+const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { existsSync } from "node:fs";
-import type { ImgHTMLAttributes, AnchorHTMLAttributes } from "react";
+import { type ImgHTMLAttributes, type AnchorHTMLAttributes, type ComponentProps, useState } from "react";
 import { HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
 import { HomeScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
 
@@ -178,6 +178,54 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     await waitFor(() => expect(view.getByRole("button", { name: "Decorate" })).toBeTruthy());
     expect(onSave.mock.calls[1]![0].revision).toBe(4);
+  });
+
+  it("ends a captured drag when saving and preserves its submitted position after rejection", async () => {
+    let resolveSave!: (success: boolean) => void;
+    const pendingSave = new Promise<boolean>((resolve) => { resolveSave = resolve; });
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>(() => pendingSave);
+    const PendingSaveScene = () => {
+      const [isSaving, setIsSaving] = useState(false);
+      return (
+        <HomeScene
+          {...props}
+          canDecorate
+          isSaving={isSaving}
+          onSave={async (draft) => {
+            setIsSaving(true);
+            const success = await onSave(draft);
+            setIsSaving(false);
+            return success;
+          }}
+        />
+      );
+    };
+    const view = render(<PendingSaveScene />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    bed.setPointerCapture = vi.fn();
+    view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+      new DOMRect(0, 0, 1000, 1000);
+    const origin = furniturePosition(bed);
+    firePointerEvent(bed, "pointerdown", 1);
+    firePointerEvent(bed, "pointermove", 1, 120, 120);
+    const submitted = furniturePosition(bed);
+    expect(submitted).not.toEqual(origin);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((bed as HTMLButtonElement).disabled).toBe(true);
+
+    for (const type of ["pointermove", "pointercancel", "lostpointercapture"]) {
+      firePointerEvent(bed, type, 1, 140, 140);
+      expect(furniturePosition(bed)).toEqual(submitted);
+    }
+    await act(async () => { resolveSave(false); await pendingSave; });
+    expect(view.getByRole("button", { name: "Move Bed" })).toBe(bed);
+    firePointerEvent(bed, "pointermove", 1, 160, 160);
+    expect(furniturePosition(bed)).toEqual(submitted);
+    firePointerEvent(bed, "pointerdown", 2);
+    firePointerEvent(bed, "pointermove", 2, 180, 180);
+    expect(furniturePosition(bed)).not.toEqual(submitted);
   });
 
   it("keeps essential actions placed and lets owned decorations be placed and stored", () => {

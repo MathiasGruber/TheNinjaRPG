@@ -187,6 +187,7 @@ for (const success of [true, false]) {
 }
 
 for (const lastRefresh of ["home", "profile"] as const) {
+  // Real dialog, purchase, refetch, and layout-save lifecycles need an integration-test budget.
   it(`keeps decorating disabled until the purchase's ${lastRefresh} refresh finishes`, async () => {
     let finishHomeRefresh = () => {};
     const homeRefreshed = new Promise<void>((resolve) => {
@@ -333,5 +334,5 @@ for (const lastRefresh of ["home", "profile"] as const) {
     );
     expect(view.queryByRole("alert")).toBeNull();
     queryClient.clear();
-  });
+  }, 15_000);
 }

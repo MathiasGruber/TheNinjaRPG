@@ -78,6 +78,7 @@ export const HomeScene = ({
       : "Go to sleep";
   const isTierChanged = draft !== null && draft.homeType !== homeType;
 
+  /** Change the active draft's placements while preserving its home tier and revision. */
   const updatePlacements = (
     transform: (placements: HomePlacement[]) => HomePlacement[],
   ) => {
@@ -90,6 +91,7 @@ export const HomeScene = ({
     );
   };
 
+  /** Apply the shared floor bounds to pointer, keyboard, toolbar, and cancellation movement. */
   const moveFurniture = (id: HomeFurnitureId, x: number, y: number) => {
     updatePlacements((placements) =>
       placements.map((placement) =>
@@ -112,6 +114,7 @@ export const HomeScene = ({
     dragRef.current = null;
   };
 
+  /** Select an owned instance, reusing its placement or placing it at the floor's center. */
   const selectFurniture = (id: HomeFurnitureId) => {
     setSelectedId(id);
     updatePlacements((placements) =>
@@ -121,8 +124,11 @@ export const HomeScene = ({
     );
   };
 
+  /** Retain a rejected draft and leave the editor only after its snapshot is accepted. */
   const saveLayout = async () => {
     if (!draft || !onSave || isSaving || isTierChanged) return;
+    // End the drag so captured events cannot move the draft away from its submitted snapshot.
+    dragRef.current = null;
     // Keep the exact editing revision: a stale tab must not overwrite another saved layout.
     if (await onSave(draft)) setDraft(null);
   };
