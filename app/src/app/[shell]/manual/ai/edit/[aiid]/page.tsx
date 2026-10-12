@@ -21,7 +21,6 @@ import { useAiEditForm } from "@/libs/ais";
 import { showMutationToast } from "@/libs/toast";
 import type { AiWithRelations } from "@/routers/profile";
 import { canChangeContent, isStaffRole } from "@/utils/permissions";
-import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { tagTypes, WeaknessTag, type ZodAllTags } from "@/validators/combat";
 
@@ -32,14 +31,11 @@ export default function ManualAisEdit(props: { params: Promise<{ aiid: string }>
   const router = useRouter();
   const { data: userData } = useRequiredUserData();
 
-  // Queries
+  // Keep fetched values intact: nullable enums must stay null for form validation.
   const { data, isPending, refetch } = api.profile.getAi.useQuery(
     { userId: aiId },
     { enabled: aiId !== undefined },
   );
-
-  // Convert key null values to empty strings, preparing data for form
-  setNullsToEmptyStrings(data);
 
   // Redirect to profile if not staff
   useEffect(() => {
