@@ -9,11 +9,7 @@ import { showMutationToast } from "@/libs/toast";
 import { parseHtml } from "@/utils/parse";
 import { useRequiredUserData } from "@/utils/UserContext";
 
-interface TeamChatPanelProps {
-  title?: string;
-  conversationId: string;
-}
-
+/** Shared raid/quest chat using conversation permissions and live message invalidation. */
 export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
   conversationId,
   title = "Team Chat",
@@ -194,3 +190,8 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
     </div>
   );
 };
+
+interface TeamChatPanelProps {
+  title?: string;
+  conversationId: string;
+}

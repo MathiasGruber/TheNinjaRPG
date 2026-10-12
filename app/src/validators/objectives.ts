@@ -701,6 +701,7 @@ export const ObjectiveTracker = z.object({
   selectedNextObjectiveId: z.string().optional(),
   timestamp: z.iso.datetime().optional(),
   recentlyDied: z.boolean().prefault(false),
+  /** Personal side-effect receipt, independent of copied shared objective completion. */
   partyEffectsApplied: z.boolean().optional(),
   /** Personal damage by battle; canonical party goals contain the corresponding team totals. */
   battleValues: z.record(z.string(), z.number().min(0)).optional(),
@@ -722,7 +723,9 @@ export const QuestTracker = z.object({
   id: z.string(),
   startAt: z.iso.datetime().prefault(new Date().toISOString()),
   goals: z.array(ObjectiveTracker).prefault([]),
+  /** Shared reset epoch; contributions from older generations cannot advance the team. */
   generation: z.number().int().min(0).optional(),
+  /** Per-goal reset epochs invalidate affected personal receipts while retaining others. */
   resetGenerations: z.record(z.string(), z.number().int().min(0)).optional(),
   failed: z.boolean().optional(),
   /** Cumulative personal contributions; merging these never counts a shared snapshot twice. */

@@ -920,7 +920,9 @@ export type QuestConsequence = {
 };
 
 /**
- * Battle context for gating "war-context" kill objectives. Supplied only from the combat path.
+ * Combat-only context for war kill eligibility and shared encounter settlement.
+ * The battle ID groups teammates' damage within one battle; a team still fighting
+ * defers defeat/retry handling until the remaining participants have settled.
  */
 export type CombatQuestContext = {
   battleId?: string;
@@ -1050,10 +1052,13 @@ export type ObjectiveTrackerTaskInput = {
  *
  * @param user - Fully hydrated user whose active quest trackers are evaluated.
  * @param tasks - Objective events to apply; `any` re-evaluates passive objective state.
- * @param combatContext - Optional battle context used to gate PvP and war kill objectives.
+ * @param combatContext - Optional battle context for kill eligibility and team settlement.
  * @param boundPlacementStatus - Optional placement state keyed by id (`true` active, `false`
  * deactivated, absent deleted). Deleted bindings fail while deactivated bindings stay frozen.
  * @param atPlacementIds - Placement ids the user is authoritatively interacting with now.
+ * @param applyPartyEffects - Emit personal team effects for callers that handle guarded
+ * consequences. Tracker-only callers leave this false; solo effects are unaffected.
+ * This function returns consequences without executing their database writes.
  */
 export const getNewTrackers = (
   user: NonNullable<UserWithRelations> & {
@@ -1602,6 +1607,13 @@ export const getNewTrackers = (
               ) {
                 if (task === "move_to_location") {
                   notifications.push(`You arrived at destination for ${quest.name}.`);
+                  status.done = true;
+                } else if (
+                  status.partyEffectsApplied &&
+                  (task === "collect_item" || task === "deliver_item")
+                ) {
+                  // Joining can copy an earlier shared goal over a completed personal one.
+                  // Its inventory receipt still proves completion for this attempt.
                   status.done = true;
                 } else if (
                   task === "collect_item" &&

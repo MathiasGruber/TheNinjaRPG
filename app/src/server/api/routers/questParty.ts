@@ -413,6 +413,11 @@ const teamQuestBlock = (
   return null;
 };
 
+/**
+ * Accept a quest after the caller reserves membership: reuse an active attempt,
+ * consume an attempt for a closed completed helper without reopening its reward receipt,
+ * or assign a new attempt through the existing UI eligibility guards.
+ */
 const acceptTeamQuest = async (
   client: DrizzleClient,
   user: NonNullable<UserWithRelations>,
@@ -528,16 +533,14 @@ const removeMember = async (
             );
     if (saved.rowsAffected !== 1) continue;
     await saveQuestPartyMember(client, party, userId, true);
-    await Promise.all([
-      client
-        .delete(user2conversation)
-        .where(
-          and(
-            eq(user2conversation.conversationId, partyId),
-            eq(user2conversation.userId, userId),
-          ),
+    await client
+      .delete(user2conversation)
+      .where(
+        and(
+          eq(user2conversation.conversationId, partyId),
+          eq(user2conversation.userId, userId),
         ),
-    ]);
+      );
     return {
       success: true,
       message: "Left quest team. Remaining members keep the shared progress",
@@ -546,6 +549,10 @@ const removeMember = async (
   return errorResponse("Team changed. Please try again");
 };
 
+/**
+ * Upsert the private party-ID conversation and its membership idempotently.
+ * As with raid chat, unenforced foreign keys let these independent writes run in parallel.
+ */
 const joinChat = async (
   client: DrizzleClient,
   partyId: string,
@@ -570,6 +577,12 @@ const joinChat = async (
   ]);
 };
 
+/**
+ * Start the shared encounter from the lobby, a bound NPC interaction or an authored ambush.
+ * Server callers supply trusted selectors; the leader and awake, co-located roster are
+ * validated before a versioned claim. Initiation preloads team quest state into combat,
+ * and a failed initiation releases only this invocation's claim.
+ */
 export const startQuestPartyEncounter = async ({
   client,
   user,
@@ -585,7 +598,9 @@ export const startQuestPartyEncounter = async ({
   partyId: string;
   /** Objective selected by an authoritative server interaction, never client input. */
   objectiveId?: string;
+  /** Placements verified by the server interaction as satisfying the objective location. */
   atPlacementIds?: ReadonlySet<string>;
+  /** Authored quest attackers rolled by the server's travel consequence handler. */
   ambush?: QuestConsequence;
 }) => {
   const party = user?.questParty;

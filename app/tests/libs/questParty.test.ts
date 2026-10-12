@@ -183,6 +183,43 @@ it("collects a location item once when reward checking emits both any and collec
   expect(getReward(user, quest.id).consequences.filter((c) => c.type === "add_item")).toEqual([{ type: "add_item", ids: ["scroll"] }]);
 });
 
+for (const task of ["collect_item", "deliver_item"] as const) {
+  it(`uses personal effect receipts independently of shared completion (${task})`, () => {
+    for (const done of [false, true]) for (const applied of [false, true]) {
+      const { quest, party } = fixture();
+      quest.content.objectives = [AllObjectives.parse({ id: "goal", task, ...(task === "collect_item" ? { collectItemIds: ["scroll"] } : { deliverItemIds: ["scroll"] }), item_name: "Scroll", sector: 1, longitude: 1, latitude: 1, sectorType: "specific", locationType: "specific" })];
+      party.tracker.goals[0]!.done = done;
+      const personal = projectPartyTracker(party);
+      personal.goals[0]!.partyEffectsApplied = applied;
+      const user = { userId: "one", questPartyId: party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", sector: 1, longitude: 1, latitude: 1, useritems: [{ itemId: "scroll" }], userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [projectPartyTracker(party, personal)] } as unknown as Parameters<typeof getNewTrackers>[0];
+      const result = getNewTrackers(user, [{ task: "any" }, { task }], undefined, undefined, undefined, true);
+      expect(result.consequences.filter((consequence) => consequence.type === (task === "collect_item" ? "add_item" : "remove_item"))).toHaveLength(applied ? 0 : 1);
+      expect(result.trackers[0]?.goals[0]).toMatchObject({ done: true, partyEffectsApplied: true });
+      expect(result.trackers[0]?.party?.contributions.some((goal) => goal.id === "goal" && goal.done)).toBe(!done);
+    }
+  });
+
+  it(`invalidates only reset goals' personal effect receipts (${task})`, () => {
+    for (const done of [false, true]) for (const resetGoal of ["goal", "unrelated"]) {
+      const { quest, party } = fixture();
+      quest.content.objectives = [AllObjectives.parse({ id: "goal", task, ...(task === "collect_item" ? { collectItemIds: ["scroll"] } : { deliverItemIds: ["scroll"] }), item_name: "Scroll", sector: 1, longitude: 1, latitude: 1, sectorType: "specific", locationType: "specific" })];
+      const personal = projectPartyTracker(party);
+      personal.goals[0]!.partyEffectsApplied = true;
+      personal.goals[0]!.collected = true;
+      party.tracker.goals[0]!.done = done;
+      party.tracker.generation = 1;
+      party.tracker.resetGenerations = { [resetGoal]: 1 };
+      const projected = projectPartyTracker(party, personal);
+      expect(projected.goals[0]?.partyEffectsApplied).toBe(resetGoal !== "goal");
+      expect(projected.goals[0]?.collected).toBe(resetGoal !== "goal");
+      const user = { userId: "one", questPartyId: party.id, level: 50, rank: "JONIN", role: "USER", status: "AWAKE", sector: 1, longitude: 1, latitude: 1, useritems: [{ itemId: "scroll" }], userQuests: [{ id: "history", questId: quest.id, completed: 0, previousCompletes: 0, quest }], completedQuests: [], questData: [projected] } as unknown as Parameters<typeof getNewTrackers>[0];
+      const result = getNewTrackers(user, [{ task: "any" }], undefined, undefined, undefined, true);
+      expect(result.consequences.filter((consequence) => consequence.type === (task === "collect_item" ? "add_item" : "remove_item"))).toHaveLength(resetGoal === "goal" ? 1 : 0);
+      expect(result.trackers[0]?.goals[0]?.done).toBe(true);
+    }
+  });
+}
+
 it("retains the next objective after an instant team objective completes", () => {
   const { quest, party } = fixture();
   quest.consecutiveObjectives = true;

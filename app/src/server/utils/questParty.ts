@@ -128,6 +128,11 @@ export const publishQuestPartyProgress = async (
   );
 };
 
+/**
+ * Publish the caller's post-reset personal tracker with a new shared generation via CAS.
+ * Clear acknowledged contributions and mark removed goals so unrelated receipts survive.
+ * Adopt a concurrently advanced generation instead of applying the same reset twice.
+ */
 export const resetQuestPartyProgress = async (
   client: DrizzleClient,
   user: NonNullable<UserWithRelations>,
@@ -183,6 +188,11 @@ export const resetQuestPartyProgress = async (
   throw new Error("Quest team reset changed repeatedly; please try again");
 };
 
+/**
+ * Project shared progress onto the hydrated user in memory, retaining personal receipts.
+ * Closed lifetime-completed helpers receive a synthetic zero-reward active quest;
+ * their persisted history is never reopened by this projection.
+ */
 export const applyQuestParty = (
   user: NonNullable<UserWithRelations>,
   party: LoadedQuestParty,

@@ -10,6 +10,7 @@ import Loader from "@/layout/Loader";
 import { TeamChatPanel } from "@/layout/TeamChatPanel";
 import { useRequiredUserData } from "@/utils/UserContext";
 
+/** Quest-specific creation/join controls when embedded; full roster and chat otherwise. */
 export const QuestTeams = ({
   questId,
   teamEnabled = true,
@@ -56,6 +57,7 @@ export const QuestTeams = ({
   const teamVersion = data?.current
     ? `${data.current.id}:${data.current.version}`
     : null;
+  // Overview updates carry shared progress; refresh the personal projection and receipts too.
   useEffect(() => {
     if (questId && data?.current?.questId !== questId) return;
     if (
