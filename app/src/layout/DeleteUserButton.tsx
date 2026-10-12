@@ -128,8 +128,8 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
           A character with an active ban or silence can be deleted too. To enforce the
           sanction, a minimal record (the account identifier, hashed sign-in
           identifiers, the sanction type, its end date and a reference to the moderation
-          case) is kept until the sanction ends, and a new character for the same account
-          serves the remaining time.
+          case) is kept until the sanction ends, and a new character for the same
+          account serves the remaining time.
         </p>
         {userData.deletionAt && (
           <Button

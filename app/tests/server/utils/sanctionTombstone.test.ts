@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as clerk from "@clerk/nextjs/server";
 import { and, eq } from "drizzle-orm";
-import * as ids from "nanoid";
+import { MySqlDialect } from "drizzle-orm/mysql-core";
 import {
   accountDeletion,
   actionLog,
@@ -16,6 +16,7 @@ import {
 import { Pusher } from "@/libs/pusher";
 import { profileRouter } from "@/routers/profile";
 import { registerRouter } from "@/server/api/routers/register";
+import type { DrizzleClient } from "@/server/db";
 import { reportsRouter } from "@/server/api/routers/reports";
 import { deleteUser } from "@/server/api/routers/staff";
 import { removeAccountIdentity } from "@/server/utils/accountDeletion/identity";
@@ -86,9 +87,9 @@ const addSanction = async (
   });
 };
 
-const register = async (userId: string) =>
+const register = async (userId: string, database?: DrizzleClient) =>
   registerRouter
-    .createCaller({ drizzle: await getTestDatabase(), userId } as never)
+    .createCaller({ drizzle: database ?? (await getTestDatabase()), userId } as never)
     .createCharacter({
       username: `n${userId.slice(-11)}`.replace(/[^a-zA-Z0-9]/g, ""),
       gender: "Male",
@@ -731,9 +732,11 @@ describeWithDatabase("sanction tombstones", () => {
       release = resolve;
     });
     const reapply = sanctions.reapplySanctions;
-    vi.spyOn(sanctions, "reapplySanctions").mockImplementation((...args) => {
+    vi.spyOn(sanctions, "reapplySanctions").mockImplementation(async (...args) => {
+      const guard = await reapply(...args);
       enter();
-      return [...reapply(...args), paused] as never;
+      await paused;
+      return guard;
     });
     const registration = register(SANCTIONED);
     await entered;
@@ -752,21 +755,30 @@ describeWithDatabase("sanction tombstones", () => {
     });
   });
 
-  it("rolls back the character if a carryover report cannot be saved", async () => {
+  it("leaves no character or partial carryover if a supporting record cannot be saved", async () => {
     await insertUsers([{ userId: SANCTIONED, isBanned: true }]);
     await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
-    stubClerk({ [SANCTIONED]: identity("rollback@example.com") });
+    stubClerk({ [SANCTIONED]: identity("partial@example.com") });
     const database = await getTestDatabase();
     await deleteUser(database, SANCTIONED);
-    await addSanction(
-      "another-user",
-      "BAN_ACTIVATED",
-      new Date(Date.now() + DAY),
-      "conflicting-id",
+    const failingDatabase = new Proxy(database, {
+      get(target, property, receiver) {
+        if (property === "execute")
+          return async (query: Parameters<DrizzleClient["execute"]>[0]) => {
+            const statement =
+              typeof query === "string"
+                ? query
+                : new MySqlDialect().sqlToQuery(query.getSQL()).sql;
+            if (statement.includes("INSERT INTO `ActionLog`"))
+              throw new Error("Failed to save supporting record");
+            return target.execute(query);
+          };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    await expect(register(SANCTIONED, failingDatabase)).rejects.toThrow(
+      "Failed to save supporting record",
     );
-    vi.spyOn(ids, "nanoid").mockReturnValue("conflicting-id");
-
-    await expect(register(SANCTIONED)).rejects.toThrow();
     expect(
       await database.query.userData.findFirst({
         where: eq(userData.userId, SANCTIONED),

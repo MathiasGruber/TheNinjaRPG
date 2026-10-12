@@ -1,8 +1,19 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { clerkClient } from "@clerk/nextjs/server";
-import { and, eq, gt, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
-import { nanoid } from "nanoid";
 import {
   type BanState,
   type SanctionTombstoneType,
@@ -15,6 +26,7 @@ import {
   sanctionTombstone,
   storeUserIdAlias,
   type UserReport,
+  userData,
   userReport,
   userReportComment,
 } from "@/drizzle/schema";
@@ -67,9 +79,6 @@ const REAPPLIED_STATE: Record<SanctionTombstoneType, BanState> = {
   BAN: "BAN_ACTIVATED",
   SILENCE: "SILENCE_ACTIVATED",
 };
-
-/** Abort registration and roll back its records when a matched source changes. */
-export const SANCTION_SOURCE_CHANGED = Symbol("sanctionSourceChanged");
 
 /**
  * Fold Gmail's documented aliases. Other providers can treat plus signs and dots as
@@ -284,87 +293,242 @@ export const matchSanctionTombstones = (
   return [...matches.values()];
 };
 
-/**
- * Give a new character the matched sanctions through the ordinary moderation records: an
- * activated report with the same type and end date, a decision comment, and an ActionLog
- * entry that links the original reports. The player only sees the report and comment, which
- * say the sanction carried over and nothing about how the account was recognised. The
- * ActionLog table name is not one of the public log types.
- */
-export const reapplySanctions = (
+/** Stable across retries of the same decisions; a deleted child case changes the key. */
+export const carryoverReportId = (userId: string, match: SanctionMatch) =>
+  `carryover-${createHash("sha256")
+    .update(
+      JSON.stringify([
+        userId,
+        match.sanction,
+        match.endsAt,
+        match.tombstones
+          .map(
+            ({
+              userId,
+              sourceId,
+              sanction,
+              sanctionEndsAt,
+              emailHash,
+              accountHashes,
+            }) => [
+              userId,
+              sourceId,
+              sanction,
+              sanctionEndsAt,
+              emailHash,
+              [...accountHashes].sort(),
+            ],
+          )
+          .map((source) => JSON.stringify(source))
+          .sort(),
+      ]),
+    )
+    .digest("hex")}`;
+
+/** Staged carryovers may change only while their character is absent. */
+const accountAbsent = (userId: string) => sql`NOT EXISTS (
+  SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${userId}
+)`;
+
+/** Match authority excludes appended links, which other registrations may add. */
+const unchangedSource = (source: SanctionTombstone) =>
+  and(
+    eq(sanctionTombstone.userId, source.userId),
+    eq(sanctionTombstone.sourceId, source.sourceId),
+    eq(sanctionTombstone.sanction, source.sanction),
+    eq(sanctionTombstone.sanctionEndsAt, source.sanctionEndsAt),
+    gt(sanctionTombstone.sanctionEndsAt, sql`CURRENT_TIMESTAMP(3)`),
+    source.emailHash
+      ? eq(sanctionTombstone.emailHash, source.emailHash)
+      : isNull(sanctionTombstone.emailHash),
+    sql`${sanctionTombstone.accountHashes} = CAST(${JSON.stringify(source.accountHashes)} AS JSON)`,
+  );
+
+/** Remove only unpublished records; a concurrent successful registration keeps its cases. */
+export const discardUnpublishedSanctions = async (
   client: DrizzleClient,
   userId: string,
-  matches: SanctionMatch[],
-) =>
-  matches.flatMap((match) => {
-    const reportId = nanoid();
-    const status = REAPPLIED_STATE[match.sanction];
-    return [
-      client.insert(userReport).values({
-        id: reportId,
-        reporterUserId: TERR_BOT_ID,
-        reportedUserId: userId,
-        system: "sanction_carryover",
-        infraction: {},
-        reason:
-          "This account is subject to a sanction that was still active on a previously deleted account.",
-        aiInterpretation: "",
-        status,
-        adminResolved: true,
-        banEnd: match.endsAt,
-      }),
-      client.insert(userReportComment).values({
-        id: nanoid(),
-        userId: TERR_BOT_ID,
-        reportId,
-        content:
-          "The remaining sanction from a previously deleted account was re-applied.",
-        decision: status,
-      }),
-      client.insert(actionLog).values({
-        id: nanoid(),
-        userId,
-        tableName: "userReport",
-        relatedId: reportId,
-        relatedMsg: `Re-applied ${match.sanction.toLowerCase()} from a deleted account`,
-        changes: [
-          `Sanction: ${match.sanction} until ${match.endsAt.toISOString()}`,
-          `Original reports: ${match.reportIds.join(", ")}`,
-          `Matched by: ${match.matchedBy.join(", ")}`,
-        ],
-      }),
-      // Claim the same active decisions and identifiers that supported the match. A
-      // mismatch aborts the registration transaction, including every report and link.
-      // Other registrations may append links without changing this source's authority.
+  reportIds: string[],
+) => {
+  if (!reportIds.length) return;
+  for (const reportId of reportIds) {
+    await retryOnDeadlock(() =>
       client
         .update(sanctionTombstone)
         .set({
-          carryoverReportIds: sql`JSON_ARRAY_APPEND(${sanctionTombstone.carryoverReportIds}, '$', ${reportId})`,
+          carryoverReportIds: sql`JSON_REMOVE(${sanctionTombstone.carryoverReportIds}, JSON_UNQUOTE(JSON_SEARCH(${sanctionTombstone.carryoverReportIds}, 'one', ${reportId})))`,
         })
         .where(
-          or(
-            ...match.tombstones.map((source) =>
-              and(
-                eq(sanctionTombstone.userId, source.userId),
-                eq(sanctionTombstone.sourceId, source.sourceId),
-                eq(sanctionTombstone.sanction, source.sanction),
-                eq(sanctionTombstone.sanctionEndsAt, source.sanctionEndsAt),
-                gt(sanctionTombstone.sanctionEndsAt, new Date()),
-                source.emailHash
-                  ? eq(sanctionTombstone.emailHash, source.emailHash)
-                  : isNull(sanctionTombstone.emailHash),
-                sql`${sanctionTombstone.accountHashes} = CAST(${JSON.stringify(source.accountHashes)} AS JSON)`,
-              ),
+          and(
+            accountAbsent(userId),
+            sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`,
+          ),
+        ),
+    );
+  }
+  // One delete keeps each case and its supporting records together during retries.
+  await retryOnDeadlock(() =>
+    client.execute(sql`
+    DELETE ${userReport}, ${userReportComment}, ${actionLog} FROM ${userReport}
+    LEFT JOIN ${userReportComment} ON ${eq(userReportComment.reportId, userReport.id)}
+    LEFT JOIN ${actionLog} ON ${and(eq(actionLog.relatedId, userReport.id), eq(actionLog.tableName, "userReport"), eq(actionLog.userId, userId))}
+    WHERE ${and(eq(userReport.reportedUserId, userId), eq(userReport.system, "sanction_carryover"), inArray(userReport.id, reportIds), accountAbsent(userId))}
+  `),
+  );
+};
+
+/** Prepare idempotent moderation records; return the guard that publishes the character. */
+export const reapplySanctions = async (
+  client: DrizzleClient,
+  userId: string,
+  matches: SanctionMatch[],
+  previousReportIds: string[],
+) => {
+  const reportIds = matches.map((match) => carryoverReportId(userId, match));
+  await discardUnpublishedSanctions(
+    client,
+    userId,
+    previousReportIds.filter((id) => !reportIds.includes(id)),
+  );
+  const sourcesUnchanged =
+    and(
+      ...matches.flatMap((match) =>
+        match.tombstones.map(
+          (source) => sql`EXISTS (
+    SELECT 1 FROM ${sanctionTombstone} WHERE ${unchangedSource(source)}
+  )`,
+        ),
+      ),
+    ) ?? sql`TRUE`;
+  // Drizzle INSERT SELECT requires every table column, including defaults. These small
+  // records need subset columns and an account-absence guard, so use parameterized SQL.
+  const insertRecord = (
+    table: typeof userReport | typeof userReportComment | typeof actionLog,
+    values: Record<string, unknown>,
+    guard: ReturnType<typeof and>,
+  ) => {
+    const columns = getTableColumns(table);
+    const keys = Object.keys(values) as (keyof typeof columns)[];
+    return retryOnDeadlock(() =>
+      client.execute(sql`
+      INSERT INTO ${table} (${sql.join(
+        keys.map((key) => sql.identifier(columns[key].name)),
+        sql`, `,
+      )})
+      SELECT ${sql.join(
+        keys.map((key) => sql.param(values[key], columns[key])),
+        sql`, `,
+      )}
+      WHERE ${guard}
+      ON DUPLICATE KEY UPDATE id = id
+    `),
+    );
+  };
+  try {
+    for (const match of matches) {
+      const reportId = carryoverReportId(userId, match);
+      const status = REAPPLIED_STATE[match.sanction];
+      const writable = and(accountAbsent(userId), sourcesUnchanged);
+      await insertRecord(
+        userReport,
+        {
+          id: reportId,
+          reporterUserId: TERR_BOT_ID,
+          reportedUserId: userId,
+          system: "sanction_carryover",
+          infraction: {},
+          reason:
+            "This account is subject to a sanction that was still active on a previously deleted account.",
+          aiInterpretation: "",
+          status,
+          adminResolved: true,
+          banEnd: match.endsAt,
+        } satisfies typeof userReport.$inferInsert,
+        writable,
+      );
+      const reportExists = sql`EXISTS (SELECT 1 FROM ${userReport} WHERE ${and(eq(userReport.id, reportId), eq(userReport.reportedUserId, userId), eq(userReport.status, status), eq(userReport.banEnd, match.endsAt))})`;
+      const records = await Promise.allSettled([
+        insertRecord(
+          userReportComment,
+          {
+            id: `${reportId}-comment`,
+            userId: TERR_BOT_ID,
+            reportId,
+            content:
+              "The remaining sanction from a previously deleted account was re-applied.",
+            decision: status,
+          } satisfies typeof userReportComment.$inferInsert,
+          and(writable, reportExists),
+        ),
+        insertRecord(
+          actionLog,
+          {
+            id: `${reportId}-log`,
+            userId,
+            tableName: "userReport",
+            relatedId: reportId,
+            relatedMsg: `Re-applied ${match.sanction.toLowerCase()} from a deleted account`,
+            changes: [
+              `Sanction: ${match.sanction} until ${match.endsAt.toISOString()}`,
+              `Original reports: ${match.reportIds.join(", ")}`,
+              `Matched by: ${match.matchedBy.join(", ")}`,
+            ],
+          } satisfies typeof actionLog.$inferInsert,
+          and(writable, reportExists),
+        ),
+      ]);
+      for (const result of records) {
+        if (result.status === "rejected") throw result.reason;
+      }
+      await retryOnDeadlock(() =>
+        client
+          .update(sanctionTombstone)
+          .set({
+            carryoverReportIds: sql`JSON_ARRAY_APPEND(${sanctionTombstone.carryoverReportIds}, '$', ${reportId})`,
+          })
+          .where(
+            and(
+              accountAbsent(userId),
+              reportExists,
+              or(...match.tombstones.map(unchangedSource)),
+              sql`NOT JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`,
             ),
           ),
-        )
-        .then((result) => {
-          if (result.rowsAffected !== match.tombstones.length) {
-            throw SANCTION_SOURCE_CHANGED;
-          }
-        }),
-    ];
-  });
+      );
+    }
+  } catch (error) {
+    await discardUnpublishedSanctions(client, userId, reportIds);
+    throw error;
+  }
+  // Publish only after records and links are durable. Abandoned competing attempts
+  // cannot become active reports on a later character created with different decisions.
+  return and(
+    accountAbsent(userId),
+    sourcesUnchanged,
+    sql`NOT EXISTS (SELECT 1 FROM ${userReport} WHERE ${and(
+      eq(userReport.reportedUserId, userId),
+      eq(userReport.system, "sanction_carryover"),
+      reportIds.length
+        ? sql`${userReport.id} NOT IN (${sql.join(
+            reportIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})`
+        : undefined,
+    )})`,
+    ...matches.map((match) => {
+      const reportId = carryoverReportId(userId, match);
+      return and(
+        sql`EXISTS (SELECT 1 FROM ${userReport} WHERE ${and(eq(userReport.id, reportId), eq(userReport.reportedUserId, userId), eq(userReport.status, REAPPLIED_STATE[match.sanction]), eq(userReport.banEnd, match.endsAt))})`,
+        sql`EXISTS (SELECT 1 FROM ${userReportComment} WHERE ${eq(userReportComment.id, `${reportId}-comment`)})`,
+        sql`EXISTS (SELECT 1 FROM ${actionLog} WHERE ${eq(actionLog.id, `${reportId}-log`)})`,
+        ...match.tombstones.map(
+          (source) =>
+            sql`EXISTS (SELECT 1 FROM ${sanctionTombstone} WHERE ${and(unchangedSource(source), sql`JSON_CONTAINS(${sanctionTombstone.carryoverReportIds}, JSON_QUOTE(${reportId}))`)})`,
+        ),
+      );
+    }),
+  );
+};
 
 /**
  * Commit a report decision and its retained sources atomically; omitted banEnd is preserved.

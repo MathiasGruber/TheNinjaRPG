@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
@@ -18,6 +18,7 @@ import {
   storeUserIdAlias,
   userAttribute,
   userData,
+  userReport,
   village,
   visitorLog,
 } from "@/drizzle/schema";
@@ -27,19 +28,20 @@ import {
   errorResponse,
   protectedProcedure,
 } from "@/server/api/trpc";
-import type { DrizzleClient } from "@/server/db";
 import { hashIp } from "@/server/utils/ipHash";
+import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import {
   isDeletedStoreUserId,
   settleRecordedLedger,
 } from "@/server/utils/purchases/grant";
 import { checkRecruitSignupEligibility } from "@/server/utils/recruitment";
 import {
+  carryoverReportId,
+  discardUnpublishedSanctions,
   fetchActiveSanctionTombstones,
   fetchSanctionIdentity,
   matchSanctionTombstones,
   reapplySanctions,
-  SANCTION_SOURCE_CHANGED,
 } from "@/server/utils/sanctionTombstone";
 import { checkForBadWords } from "@/utils/profanity";
 import { secondsFromNow } from "@/utils/time";
@@ -117,6 +119,7 @@ export const registerRouter = createTRPCRouter({
         paypalHistory,
         recruitEligibility,
         tombstones,
+        carryoverReports,
       ] = await Promise.all([
         ctx.drizzle.query.village.findFirst({
           where: eq(village.name, "Horizon"),
@@ -161,6 +164,13 @@ export const registerRouter = createTRPCRouter({
             })
           : Promise.resolve(null),
         fetchActiveSanctionTombstones(ctx.drizzle),
+        ctx.drizzle.query.userReport.findMany({
+          columns: { id: true },
+          where: and(
+            eq(userReport.reportedUserId, ctx.userId),
+            eq(userReport.system, "sanction_carryover"),
+          ),
+        }),
       ]);
       // Whatever the ledger holds for this identity is settled once a character row exists,
       // on every path that reaches one. A tombstone seen here means receipts can still be
@@ -197,9 +207,6 @@ export const registerRouter = createTRPCRouter({
           `${input.skin_color} skin`,
         ]),
       ].sort();
-      // The account row is written on its own before anything that references it, so
-      // registration never leaves rows behind that look like orphans to the cleaner.
-      //
       // Deleting a character retires the Clerk identity in the store ledger, so events for a
       // character that no longer exists are recorded without being delivered. The identity
       // coming back to make another character is the ordinary flow, and the web delete
@@ -231,48 +238,77 @@ export const registerRouter = createTRPCRouter({
             await fetchSanctionIdentity(ctx.userId),
           )
         : [];
-      const createUser = (client: DrizzleClient) =>
-        client
-          .insert(userData)
-          .values({
-            userId: ctx.userId,
-            lastIp: ctx.userIp,
-            recruiterId: input.recruiter_userid,
-            username: input.username,
-            gender: input.gender,
-            avatar: IMG_DEFAULT_PROFILE_PICTURE,
-            villageId: villageData.id,
-            bloodlineId: selectedBloodline.id,
-            approvedTos: true,
-            sector: villageData.sector,
-            extraJutsuSlots: 0,
-            immunityUntil: secondsFromNow(24 * 3600),
-            musicOn: input.musicOn ?? true,
-            sfxOn: input.sfxOn ?? true,
-            buttonSfxOn: input.buttonSfxOn ?? true,
-            isBanned: sanctions.some((match) => match.sanction === "BAN"),
-            isSilenced: sanctions.some((match) => match.sanction === "SILENCE"),
-            ...(reminder ? { earnedExperience: 10000 } : {}),
-          })
-          .onDuplicateKeyUpdate({ set: { userId: sql`userId` } });
-      // Ban lookups clear flags without an active report. Publish the character and its
-      // carryover records atomically, before ledger settlement or other signup writes.
-      const createdUser = sanctions.length
-        ? await ctx.drizzle
-            .transaction(async (tx) => {
-              const created = await createUser(tx);
-              if (created.rowsAffected !== 0) {
-                await Promise.all(reapplySanctions(tx, ctx.userId, sanctions));
-              }
-              return created;
-            })
-            .catch((error: unknown) => {
-              if (error === SANCTION_SOURCE_CHANGED) return null;
-              throw error;
-            })
-        : await createUser(ctx.drizzle);
-      if (!createdUser) {
-        return errorResponse("Account sanctions changed, please try again");
+      const sanctionGuard = await reapplySanctions(
+        ctx.drizzle,
+        ctx.userId,
+        sanctions,
+        carryoverReports.map((report) => report.id),
+      );
+      const values = {
+        userId: ctx.userId,
+        lastIp: ctx.userIp,
+        recruiterId: input.recruiter_userid,
+        username: input.username,
+        gender: input.gender,
+        avatar: IMG_DEFAULT_PROFILE_PICTURE,
+        villageId: villageData.id,
+        bloodlineId: selectedBloodline.id,
+        approvedTos: true,
+        sector: villageData.sector,
+        extraJutsuSlots: 0,
+        immunityUntil: secondsFromNow(24 * 3600),
+        musicOn: input.musicOn ?? true,
+        sfxOn: input.sfxOn ?? true,
+        buttonSfxOn: input.buttonSfxOn ?? true,
+        isBanned: sanctions.some((match) => match.sanction === "BAN"),
+        isSilenced: sanctions.some((match) => match.sanction === "SILENCE"),
+        ...(reminder ? { earnedExperience: 10000 } : {}),
+      } satisfies typeof userData.$inferInsert;
+      const columns = getTableColumns(userData);
+      const keys = Object.keys(values) as (keyof typeof values)[];
+      // INSERT SELECT publishes flags only with durable cases and unchanged sources.
+      // Drizzle's builder requires every table column for SELECT, including defaults.
+      const createdUser = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+        INSERT INTO ${userData} (${sql.join(
+          keys.map((key) => sql.identifier(columns[key].name)),
+          sql`, `,
+        )})
+        SELECT ${sql.join(
+          keys.map((key) => sql.param(values[key] ?? null, columns[key])),
+          sql`, `,
+        )}
+        WHERE ${sanctionGuard} AND NOT EXISTS (SELECT 1 FROM ${userData} WHERE ${eq(userData.username, input.username)})
+      `),
+      ).catch(async (error: unknown) => {
+        if (isMysqlDuplicateKeyError(error)) return { rowsAffected: 0 };
+        await discardUnpublishedSanctions(
+          ctx.drizzle,
+          ctx.userId,
+          sanctions.map((match) => carryoverReportId(ctx.userId, match)),
+        );
+        throw error;
+      });
+      if (createdUser.rowsAffected === 0) {
+        const currentUser = await ctx.drizzle.query.userData.findFirst({
+          columns: { userId: true },
+          where: or(
+            eq(userData.userId, ctx.userId),
+            eq(userData.username, input.username),
+          ),
+        });
+        if (!currentUser || currentUser.userId !== ctx.userId) {
+          await discardUnpublishedSanctions(
+            ctx.drizzle,
+            ctx.userId,
+            sanctions.map((match) => carryoverReportId(ctx.userId, match)),
+          );
+          return errorResponse(
+            currentUser
+              ? "Username already taken"
+              : "Account sanctions changed, please try again",
+          );
+        }
       }
       if (storeAlias) {
         await ctx.drizzle

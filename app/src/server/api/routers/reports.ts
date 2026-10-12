@@ -3,12 +3,14 @@ import {
   desc,
   eq,
   getTableColumns,
+  gt,
   gte,
   inArray,
   isNull,
   like,
   lte,
   ne,
+  notExists,
   sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
@@ -291,9 +293,7 @@ export const reportsRouter = createTRPCRouter({
     }),
   // Get user report
   getBan: protectedProcedure.query(async ({ ctx }) => {
-    // Selector statement
-    const [user, allReports] = await Promise.all([
-      fetchUser(ctx.drizzle, ctx.userId),
+    const loadReports = () =>
       ctx.drizzle.query.userReport.findMany({
         where: and(
           inArray(userReport.status, [
@@ -330,54 +330,80 @@ export const reportsRouter = createTRPCRouter({
             },
           },
         },
-      }),
+      });
+    const [user, initialReports] = await Promise.all([
+      fetchUser(ctx.drizzle, ctx.userId),
+      loadReports(),
     ]);
-
-    const banReport = allReports?.find(
-      (r) => r.status === "BAN_ACTIVATED" && r.banEnd && r.banEnd > new Date(),
-    );
-    const silenceReport = allReports?.find(
-      (r) => r.status === "SILENCE_ACTIVATED" && r.banEnd && r.banEnd > new Date(),
-    );
-    const timeoutReport = allReports?.find(
-      (r) => r.status === "TIMEOUT_ACTIVATED" && r.banEnd && r.banEnd > new Date(),
-    );
+    let allReports = initialReports;
+    const activeReport = (status: BanState) =>
+      allReports.find(
+        (report) =>
+          report.status === status && report.banEnd && report.banEnd > new Date(),
+      );
+    // Parallel reads can straddle registration or moderation. Recheck in the write;
+    // a rejected reset reloads the cases so the sanction screen has a current report.
+    const noActiveReport = (statuses: BanState[]) =>
+      notExists(
+        ctx.drizzle
+          .select({ id: userReport.id })
+          .from(userReport)
+          .where(
+            and(
+              eq(userReport.reportedUserId, ctx.userId),
+              inArray(userReport.status, statuses),
+              gt(userReport.banEnd, sql`CURRENT_TIMESTAMP(3)`),
+            ),
+          ),
+      );
+    const resets = await Promise.all([
+      ...(!activeReport("SILENCE_ACTIVATED") &&
+      !activeReport("TIMEOUT_ACTIVATED") &&
+      !activeReport("BAN_ACTIVATED") &&
+      user.isSilenced
+        ? [
+            ctx.drizzle
+              .update(userData)
+              .set({ isSilenced: false })
+              .where(
+                and(
+                  eq(userData.userId, ctx.userId),
+                  noActiveReport([
+                    "SILENCE_ACTIVATED",
+                    "TIMEOUT_ACTIVATED",
+                    "BAN_ACTIVATED",
+                  ]),
+                ),
+              ),
+          ]
+        : []),
+      ...(!activeReport("BAN_ACTIVATED") && user.isBanned
+        ? [
+            ctx.drizzle
+              .update(userData)
+              .set({ isBanned: false })
+              .where(
+                and(eq(userData.userId, ctx.userId), noActiveReport(["BAN_ACTIVATED"])),
+              ),
+          ]
+        : []),
+    ]);
+    if (
+      resets.some((result) => result.rowsAffected === 0) ||
+      allReports.some((report) => !report.reportedUser)
+    )
+      allReports = await loadReports();
     const warningReport = user.isWarned
-      ? allReports?.find((r) => r.status === "OFFICIAL_WARNING")
+      ? allReports.find((report) => report.status === "OFFICIAL_WARNING")
       : null;
-
-    // If user can not see secret data, hide reporter
-    if (!canSeeSecretData(user.role)) {
-      if (banReport) {
-        banReport.reporterUser = null;
-      }
-      if (silenceReport) {
-        silenceReport.reporterUser = null;
-      }
-      if (timeoutReport) {
-        timeoutReport.reporterUser = null;
-      }
-      if (warningReport) {
-        warningReport.reporterUser = null;
-      }
-    }
-
-    // Unsilence user if no active silence, timeout, or ban
-    if (!silenceReport && !timeoutReport && !banReport && user.isSilenced) {
-      await ctx.drizzle
-        .update(userData)
-        .set({ isSilenced: false })
-        .where(eq(userData.userId, ctx.userId));
-    }
-
-    // Unban user if ban no longer active
-    if (!banReport && user.isBanned) {
-      await ctx.drizzle
-        .update(userData)
-        .set({ isBanned: false })
-        .where(eq(userData.userId, ctx.userId));
-    }
-    return warningReport ?? banReport ?? silenceReport ?? timeoutReport ?? null;
+    const report =
+      warningReport ??
+      activeReport("BAN_ACTIVATED") ??
+      activeReport("SILENCE_ACTIVATED") ??
+      activeReport("TIMEOUT_ACTIVATED") ??
+      null;
+    if (report && !canSeeSecretData(user.role)) report.reporterUser = null;
+    return report;
   }),
   // Accept warning
   acceptWarning: protectedProcedure

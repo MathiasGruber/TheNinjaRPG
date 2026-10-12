@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import * as clerk from "@clerk/nextjs/server";
 import { eq, sql } from "drizzle-orm";
+import { MySqlDialect } from "drizzle-orm/mysql-core";
 import {
   accountDeletion,
   actionLog,
@@ -19,6 +20,8 @@ import {
 import { Pusher } from "@/libs/pusher";
 import { registerRouter } from "@/server/api/routers/register";
 import { reportsRouter } from "@/server/api/routers/reports";
+import type { DrizzleClient } from "@/server/db";
+import * as sanctions from "@/server/utils/sanctionTombstone";
 import { processAccountDeletions } from "@/server/utils/accountDeletion/process";
 import { DELETED_STORE_USER_PREFIX } from "@/server/utils/purchases/grant";
 import {
@@ -28,6 +31,8 @@ import {
 import { insertUsers } from "../../setup/factories";
 import {
   callerFor,
+  callerForDatabase,
+  recordQueries,
   describeWithDatabase,
   getTestDatabase,
   resetTables,
@@ -56,8 +61,12 @@ const claimIdentity = (userId: string, email = EMAIL) => {
   owners.set(userId, identity(email));
 };
 
-const register = async (userId: string) =>
-  (await callerFor(registerRouter, userId)).createCharacter({
+const register = async (userId: string, database?: DrizzleClient) =>
+  callerForDatabase(
+    registerRouter,
+    userId,
+    database ?? (await getTestDatabase()),
+  ).createCharacter({
     username: userId,
     gender: "Male",
     hair_color: "Black",
@@ -120,7 +129,7 @@ const startRegistration = async () => {
   return { pending, release };
 };
 
-const expectRolledBack = async (existingComments: UserReportComment[] = []) => {
+const expectUnpublished = async (existingComments: UserReportComment[] = []) => {
   const database = await getTestDatabase();
   expect(
     await database.query.userData.findFirst({
@@ -134,6 +143,41 @@ const expectRolledBack = async (existingComments: UserReportComment[] = []) => {
       await database.select().from(table).where(eq(table.userId, "Concurrent")),
     ).toHaveLength(0);
   }
+};
+
+/** Pause after durable cases, before the character is published. */
+const prepareAndPause = () => {
+  let enter!: () => void;
+  const entered = new Promise<void>((resolve) => {
+    enter = resolve;
+  });
+  let release!: () => void;
+  const paused = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const reapply = sanctions.reapplySanctions;
+  let first = true;
+  vi.spyOn(sanctions, "reapplySanctions").mockImplementation(async (...args) => {
+    const guard = await reapply(...args);
+    if (first) {
+      first = false;
+      enter();
+      await paused;
+    }
+    return guard;
+  });
+  return { entered, release };
+};
+
+const addSilenceSource = async () => {
+  const database = await getTestDatabase();
+  const source = (await database.query.sanctionTombstone.findFirst())!;
+  await database.insert(sanctionTombstone).values({
+    ...source,
+    sourceId: "silence-case",
+    sanction: "SILENCE",
+    sanctionEndsAt: new Date(Date.now() + 3 * DAY),
+  });
 };
 
 describeWithDatabase("registration claims current sanction sources", () => {
@@ -250,7 +294,7 @@ describeWithDatabase("registration claims current sanction sources", () => {
           success: false,
           message: "Account sanctions changed, please try again",
         });
-        await expectRolledBack(savedComments);
+        await expectUnpublished(savedComments);
         expect(await database.query.sanctionTombstone.findMany()).toEqual(saved);
         expect(
           await database.query.storeUserIdAlias.findFirst({
@@ -286,7 +330,7 @@ describeWithDatabase("registration claims current sanction sources", () => {
   );
 
   it.each(["matched", "ancestor", "other-type"] as const)(
-    "rolls back every report and link when one %s source changes",
+    "discards every unpublished report and link when one %s source changes",
     async (changed) => {
       const database = await getTestDatabase();
       const source = (await database.query.sanctionTombstone.findFirst())!;
@@ -326,7 +370,7 @@ describeWithDatabase("registration claims current sanction sources", () => {
         release();
       }
       expect(await pending).toMatchObject({ success: false });
-      await expectRolledBack();
+      await expectUnpublished();
       const saved = await database.query.sanctionTombstone.findMany();
       expect(saved).toHaveLength(3);
       expect(
@@ -351,19 +395,17 @@ describeWithDatabase("registration claims current sanction sources", () => {
       const database = await getTestDatabase();
       const { pending, release } = await startRegistration();
       try {
-        await database
-          .update(sanctionTombstone)
-          .set(
-            change === "email"
-              ? { emailHash: hashSanctionIdentifier("email", "different@example.com") }
-              : change === "oauth"
-                ? { accountHashes: ["changed-oauth-hash"] }
-                : change === "expired"
-                  ? { sanctionEndsAt: new Date(Date.now() - 1) }
-                  : {
-                      carryoverReportIds: sql`JSON_ARRAY_APPEND(${sanctionTombstone.carryoverReportIds}, '$', 'other-registration')`,
-                    },
-          );
+        await database.update(sanctionTombstone).set(
+          change === "email"
+            ? { emailHash: hashSanctionIdentifier("email", "different@example.com") }
+            : change === "oauth"
+              ? { accountHashes: ["changed-oauth-hash"] }
+              : change === "expired"
+                ? { sanctionEndsAt: new Date(Date.now() - 1) }
+                : {
+                    carryoverReportIds: sql`JSON_ARRAY_APPEND(${sanctionTombstone.carryoverReportIds}, '$', 'other-registration')`,
+                  },
+        );
       } finally {
         release();
       }
@@ -373,7 +415,7 @@ describeWithDatabase("registration claims current sanction sources", () => {
           (await database.query.sanctionTombstone.findFirst())!.carryoverReportIds,
         ).toEqual(["other-registration", (await reportsOf("Concurrent"))[0]!.id]);
       } else {
-        await expectRolledBack();
+        await expectUnpublished();
         expect(
           (await database.query.sanctionTombstone.findFirst())!.carryoverReportIds,
         ).toEqual([]);
@@ -382,4 +424,396 @@ describeWithDatabase("registration claims current sanction sources", () => {
       }
     },
   );
+
+  it.each(["type", "deadline", "clear"] as const)(
+    "rejects a %s change after records and source links are prepared",
+    async (change) => {
+      const database = await getTestDatabase();
+      await addSilenceSource();
+      claimIdentity("Concurrent");
+      const { entered, release } = prepareAndPause();
+      const pending = register("Concurrent");
+      await entered;
+      expect(await reportsOf("Concurrent")).toHaveLength(2);
+      try {
+        if (change === "clear")
+          await database
+            .delete(sanctionTombstone)
+            .where(eq(sanctionTombstone.sourceId, "original-case"));
+        else
+          await database
+            .update(sanctionTombstone)
+            .set(
+              change === "type"
+                ? { sanction: "SILENCE" }
+                : { sanctionEndsAt: new Date(Date.now() + DAY) },
+            )
+            .where(eq(sanctionTombstone.sourceId, "original-case"));
+      } finally {
+        release();
+      }
+      expect(await pending).toEqual({
+        success: false,
+        message: "Account sanctions changed, please try again",
+      });
+      await expectUnpublished();
+      expect(
+        (await database.query.sanctionTombstone.findMany()).every(
+          (source) => source.carryoverReportIds.length === 0,
+        ),
+      ).toBe(true);
+      expect(await register("Concurrent")).toMatchObject({ success: true });
+      expect(
+        (
+          await database.query.userData.findFirst({
+            where: eq(userData.userId, "Concurrent"),
+          })
+        )?.isBanned,
+      ).toBe(change === "deadline");
+      expect(
+        (await reportsOf("Concurrent")).map((report) => report.status).sort(),
+      ).toEqual(
+        change === "deadline"
+          ? ["BAN_ACTIVATED", "SILENCE_ACTIVATED"]
+          : ["SILENCE_ACTIVATED"],
+      );
+    },
+  );
+
+  it("shares prepared cases across identical retries without duplicate links or transactions", async () => {
+    const database = await getTestDatabase();
+    await addSilenceSource();
+    claimIdentity("Concurrent");
+    const source = (await database.query.sanctionTombstone.findFirst())!;
+    await database
+      .insert(sanctionTombstone)
+      .values({ ...source, userId: "second-source", sourceId: "second-case" });
+    const { entered, release } = prepareAndPause();
+    const pending = register("Concurrent");
+    await entered;
+    const prepared = await reportsOf("Concurrent");
+    const fetch = sanctions.fetchActiveSanctionTombstones;
+    vi.spyOn(sanctions, "fetchActiveSanctionTombstones").mockImplementation(
+      (...args) =>
+        Promise.resolve(fetch(...args)).then((sources) => sources.reverse()) as never,
+    );
+    try {
+      const recorded = await recordQueries(() => register("Concurrent"));
+      expect(recorded.result).toMatchObject({ success: true });
+      expect(
+        recorded.statements.some((statement) =>
+          /^(?:begin|start transaction|commit|rollback)\b/i.test(statement.trim()),
+        ),
+      ).toBe(false);
+    } finally {
+      release();
+    }
+    expect(await pending).toMatchObject({
+      success: false,
+      message: "Character already created for this account",
+    });
+    expect(await reportsOf("Concurrent")).toEqual(prepared);
+    expect(await database.query.userReportComment.findMany()).toHaveLength(2);
+    expect(await database.query.actionLog.findMany()).toHaveLength(2);
+    expect(
+      (await database.query.sanctionTombstone.findMany()).every(
+        (source) => source.carryoverReportIds.length === 1,
+      ),
+    ).toBe(true);
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "Concurrent"),
+      }),
+    ).toMatchObject({ isBanned: true, isSilenced: true });
+  });
+
+  it("lets a retry replace an in-flight abandoned decision without deleting the winner's records", async () => {
+    const database = await getTestDatabase();
+    claimIdentity("Concurrent");
+    const { entered, release } = prepareAndPause();
+    const pending = register("Concurrent");
+    await entered;
+    const stale = (await reportsOf("Concurrent"))[0]!;
+    await database
+      .update(sanctionTombstone)
+      .set({ sanction: "SILENCE", sanctionEndsAt: new Date(Date.now() + DAY) });
+    try {
+      expect(await register("Concurrent")).toMatchObject({ success: true });
+    } finally {
+      release();
+    }
+    expect(await pending).toMatchObject({ success: false });
+    const active = await reportsOf("Concurrent");
+    expect(active).toHaveLength(1);
+    expect(active[0]).toMatchObject({ status: "SILENCE_ACTIVATED" });
+    expect(active[0]!.id).not.toBe(stale.id);
+    expect(await database.query.userReportComment.findMany()).toHaveLength(1);
+    expect(await database.query.actionLog.findMany()).toHaveLength(1);
+    expect(
+      (await database.query.sanctionTombstone.findFirst())!.carryoverReportIds,
+    ).toEqual([active[0]!.id]);
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "Concurrent"),
+      }),
+    ).toMatchObject({ isBanned: false, isSilenced: true });
+  });
+
+  it("repairs failed creation and interrupted cleanup after staff clear the source", async () => {
+    const database = await getTestDatabase();
+    claimIdentity("Replacement");
+    expect(await register("Replacement")).toMatchObject({ success: true });
+    const inherited = (await reportsOf("Replacement"))[0]!;
+    owners.set("Replacement", identity("different-owner@example.com"));
+    claimIdentity("Concurrent");
+    const failingDatabase = new Proxy(database, {
+      get(target, property, receiver) {
+        if (property === "execute")
+          return async (query: Parameters<DrizzleClient["execute"]>[0]) => {
+            const statement =
+              typeof query === "string"
+                ? query
+                : new MySqlDialect().sqlToQuery(query.getSQL()).sql;
+            if (
+              statement.includes("INSERT INTO `UserData`") ||
+              statement.includes("DELETE `UserReport`")
+            )
+              throw new Error("Database unavailable");
+            return target.execute(query);
+          };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    await expect(register("Concurrent", failingDatabase)).rejects.toThrow(
+      "Database unavailable",
+    );
+    expect(await reportsOf("Concurrent")).toHaveLength(1);
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "Concurrent"),
+      }),
+    ).toBeUndefined();
+    expect(
+      await (await callerFor(reportsRouter, "staff")).clear({
+        object_id: inherited.id,
+        comment: "Appeal accepted",
+        banTime: 1,
+        banTimeUnit: "days",
+      }),
+    ).toMatchObject({ success: true });
+    expect(await database.query.sanctionTombstone.findMany()).toHaveLength(0);
+    expect(await register("Concurrent")).toMatchObject({ success: true });
+    expect(await reportsOf("Concurrent")).toHaveLength(0);
+    expect(
+      (await database.query.actionLog.findMany()).filter(
+        (log) => log.userId === "Concurrent",
+      ),
+    ).toHaveLength(0);
+    expect(await (await callerFor(reportsRouter, "Concurrent")).getBan()).toBeNull();
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "Concurrent"),
+      }),
+    ).toMatchObject({ isBanned: false, isSilenced: false });
+    await deleteAccount("Concurrent");
+    claimIdentity("LaterReturn");
+    expect(await register("LaterReturn")).toMatchObject({ success: true });
+    expect(await reportsOf("LaterReturn")).toHaveLength(0);
+  });
+
+  it.each(["empty", "prepared"] as const)(
+    "returns a complete report when getBan reads %s records during registration",
+    async (records) => {
+      const database = await getTestDatabase();
+      await addSilenceSource();
+      claimIdentity("Concurrent");
+      const preparation = records === "prepared" ? prepareAndPause() : null;
+      const registration = preparation ? register("Concurrent") : null;
+      if (preparation) await preparation.entered;
+      let enter!: () => void;
+      const readReports = new Promise<void>((resolve) => {
+        enter = resolve;
+      });
+      let release!: () => void;
+      const paused = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const getBanDatabase = new Proxy(database, {
+        get(target, property, receiver) {
+          if (property === "query")
+            return {
+              ...target.query,
+              userData: {
+                ...target.query.userData,
+                findFirst: async (
+                  ...args: Parameters<typeof database.query.userData.findFirst>
+                ) => {
+                  await paused;
+                  return target.query.userData.findFirst(...args);
+                },
+              },
+              userReport: {
+                ...target.query.userReport,
+                findMany: async (
+                  ...args: Parameters<typeof database.query.userReport.findMany>
+                ) => {
+                  const reports = await target.query.userReport.findMany(...args);
+                  enter();
+                  return reports;
+                },
+              },
+            };
+          return Reflect.get(target, property, receiver);
+        },
+      });
+      const lookup = callerForDatabase(
+        reportsRouter,
+        "Concurrent",
+        getBanDatabase,
+      ).getBan();
+      await readReports;
+      try {
+        preparation?.release();
+        expect(await (registration ?? register("Concurrent"))).toMatchObject({
+          success: true,
+        });
+      } finally {
+        release();
+      }
+      expect(await lookup).toMatchObject({
+        status: "BAN_ACTIVATED",
+        reportedUser: { userId: "Concurrent", username: "Concurrent" },
+      });
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, "Concurrent"),
+        }),
+      ).toMatchObject({ isBanned: true, isSilenced: true });
+      expect(
+        await (await callerFor(reportsRouter, "Concurrent")).getBan(),
+      ).toMatchObject({ status: "BAN_ACTIVATED" });
+    },
+  );
+
+  it("keeps distinct original cases after repeatedly deleting and recreating the same account", async () => {
+    const database = await getTestDatabase();
+    await addSilenceSource();
+    claimIdentity("Concurrent");
+    expect(await register("Concurrent")).toMatchObject({ success: true });
+    const first = await reportsOf("Concurrent");
+    await deleteAccount("Concurrent");
+    claimIdentity("Concurrent");
+    expect(await register("Concurrent")).toMatchObject({ success: true });
+    const second = await reportsOf("Concurrent");
+    expect(second).toHaveLength(2);
+    expect(
+      second.every((report) => first.every((previous) => previous.id !== report.id)),
+    ).toBe(true);
+    for (const previous of first)
+      expect(
+        second.find((report) => report.status === previous.status)!.banEnd,
+      ).toEqual(previous.banEnd);
+    expect(await database.query.sanctionTombstone.findMany()).toHaveLength(4);
+  });
+
+  it("rejects a source that expires while publication is paused", async () => {
+    const database = await getTestDatabase();
+    await addSilenceSource();
+    const endsAt = new Date(Date.now() + 750);
+    await database
+      .update(sanctionTombstone)
+      .set({ sanctionEndsAt: endsAt })
+      .where(eq(sanctionTombstone.sourceId, "original-case"));
+    claimIdentity("Concurrent");
+    const { entered, release } = prepareAndPause();
+    const pending = register("Concurrent");
+    await entered;
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.max(0, endsAt.getTime() - Date.now()) + 30),
+    );
+    release();
+    expect(await pending).toMatchObject({ success: false });
+    await expectUnpublished();
+    expect(await register("Concurrent")).toMatchObject({ success: true });
+    expect(await reportsOf("Concurrent")).toMatchObject([
+      { status: "SILENCE_ACTIVATED" },
+    ]);
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "Concurrent"),
+      }),
+    ).toMatchObject({ isBanned: false, isSilenced: true });
+  });
+
+  it("creates one character and one case per type for simultaneous attempts", async () => {
+    const database = await getTestDatabase();
+    await addSilenceSource();
+    claimIdentity("Concurrent");
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () => register("Concurrent")),
+    );
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(await reportsOf("Concurrent")).toHaveLength(2);
+    expect(await database.query.userReportComment.findMany()).toHaveLength(2);
+    expect(await database.query.actionLog.findMany()).toHaveLength(2);
+    expect(
+      (await database.query.sanctionTombstone.findMany()).every(
+        (source) => source.carryoverReportIds.length === 1,
+      ),
+    ).toBe(true);
+    expect(await database.query.bloodlineRolls.findMany()).toHaveLength(1);
+  });
+
+  it("keeps a concurrent winner when a failed attempt resumes cleanup", async () => {
+    const database = await getTestDatabase();
+    await addSilenceSource();
+    claimIdentity("Concurrent");
+    let enter!: () => void;
+    const reachedInsert = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    let release!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const failingDatabase = new Proxy(database, {
+      get(target, property, receiver) {
+        if (property === "execute")
+          return async (query: Parameters<DrizzleClient["execute"]>[0]) => {
+            const statement =
+              typeof query === "string"
+                ? query
+                : new MySqlDialect().sqlToQuery(query.getSQL()).sql;
+            if (statement.includes("INSERT INTO `UserData`")) {
+              enter();
+              await paused;
+              throw new Error("Character insert failed");
+            }
+            return target.execute(query);
+          };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const failing = register("Concurrent", failingDatabase);
+    await reachedInsert;
+    try {
+      expect(await register("Concurrent")).toMatchObject({ success: true });
+    } finally {
+      release();
+    }
+    await expect(failing).rejects.toThrow("Character insert failed");
+    expect(await reportsOf("Concurrent")).toHaveLength(2);
+    expect(await database.query.userReportComment.findMany()).toHaveLength(2);
+    expect(await database.query.actionLog.findMany()).toHaveLength(2);
+    expect(
+      (await database.query.sanctionTombstone.findMany()).every(
+        (source) => source.carryoverReportIds.length === 1,
+      ),
+    ).toBe(true);
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "Concurrent"),
+      }),
+    ).toMatchObject({ isBanned: true, isSilenced: true });
+  });
 });
