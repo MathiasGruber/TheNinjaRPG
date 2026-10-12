@@ -1744,13 +1744,23 @@ export const profileRouter = createTRPCRouter({
       input.data.customTitle = input.data.customTitle ?? "";
 
       // Queries
-      const [user, ai, villages] = await Promise.all([
+      const newUsername = input.data.username;
+      const [user, ai, villages, usernameTaken] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, input.id),
           with: { jutsus: true, items: true },
         }),
         fetchVillages(ctx.drizzle),
+        newUsername
+          ? ctx.drizzle.query.userData.findFirst({
+              columns: { userId: true },
+              where: and(
+                eq(userData.username, newUsername),
+                ne(userData.userId, input.id),
+              ),
+            })
+          : undefined,
       ]);
 
       // Guards
@@ -1759,6 +1769,7 @@ export const profileRouter = createTRPCRouter({
       if (!ai) return errorResponse("AI not found");
       if (!ai.isAi) return errorResponse("Not an AI");
       if (!canChangeContent(user.role)) return errorResponse("Not allowed");
+      if (usernameTaken) return errorResponse("Username already taken");
       if (
         input.data.customTitle &&
         input.data.customTitle !== ai.customTitle &&
