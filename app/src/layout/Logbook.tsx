@@ -19,6 +19,7 @@ import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import NavTabs from "@/layout/NavTabs";
 import { EventTimer, Objective, Reward } from "@/layout/Objective";
+import { QuestTeams } from "@/layout/QuestTeams";
 import { PendingRewardChoices, useOpenRewardChoice } from "@/layout/RewardChoice";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { getLemuImage, LEMU_EXPERIMENT } from "@/libs/lemuExperiment";
@@ -69,6 +70,7 @@ const Logbook: React.FC = () => {
       }
     >
       <PendingRewardChoices />
+      <QuestTeams />
       {tab === "Active" && <LogbookActive />}
       {tab === "History" && <LogbookHistory />}
       {tab === "Battles" && <LogbookBattles />}
@@ -710,6 +712,9 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
       }
     >
       <div className="flex h-full flex-col gap-3" id={`logbook-entry-${quest.id}`}>
+        {quest.teamEnabled && (
+          <QuestTeams questId={quest.id} teamEnabled={quest.teamEnabled} />
+        )}
         {!hideTitle && (
           <div className={cn(showScene ? "px-3 pt-3" : "")}>
             <div className={"font-bold text-xl"}>

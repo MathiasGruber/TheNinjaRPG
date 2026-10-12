@@ -11,6 +11,7 @@ import ContentBox from "@/layout/ContentBox";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
 import { LogbookEntry, useCheckRewards } from "@/layout/Logbook";
+import { QuestTeams } from "@/layout/QuestTeams";
 import { getActiveObjective } from "@/libs/objectives";
 import { showMutationToast } from "@/libs/toast";
 import { getTutorialHighlightedQuestId } from "@/libs/tutorial";
@@ -192,19 +193,25 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                       item={quest}
                       showEdit="quest"
                       imageExtra={
-                        <Button
-                          id={`tutorial-take-quest-${quest.id}`}
-                          className="mt-2"
-                          onClick={() =>
-                            startQuest({
-                              questId: quest.id,
-                              userSector: userData.sector,
-                            })
-                          }
-                        >
-                          <Gamepad2 className="mr-1 h-6 w-6" />
-                          Take Quest
-                        </Button>
+                        <div>
+                          <QuestTeams
+                            questId={quest.id}
+                            teamEnabled={quest.teamEnabled}
+                          />
+                          <Button
+                            id={`tutorial-take-quest-${quest.id}`}
+                            className="mt-2"
+                            onClick={() =>
+                              startQuest({
+                                questId: quest.id,
+                                userSector: userData.sector,
+                              })
+                            }
+                          >
+                            <Gamepad2 className="mr-1 h-6 w-6" />
+                            Take Quest
+                          </Button>
+                        </div>
                       }
                       hideTitle
                     />

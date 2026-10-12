@@ -79,7 +79,6 @@ import {
 import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
-  combineTrackerResults,
   controlShownQuestLocationInformation,
   fallbackQuestsFilter,
   filterQuestTrackersForDbPersist,
@@ -126,6 +125,7 @@ import {
   fetchUser,
   getUserProgressionUpdate,
 } from "@/routers/profile";
+import { startQuestPartyEncounter } from "@/routers/questParty";
 import { deleteRequests } from "@/routers/sensei";
 import { fetchSectorVillage } from "@/routers/village";
 import { fetchActiveWars } from "@/routers/war";
@@ -149,6 +149,10 @@ import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
+import {
+  publishQuestPartyProgress,
+  resetQuestPartyProgress,
+} from "@/server/utils/questParty";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import { extendWarParticipantSql } from "@/server/utils/war";
@@ -629,6 +633,8 @@ export const questsRouter = createTRPCRouter({
       });
       if (!user) return errorResponse("User does not exist");
       const current = user?.userQuests?.find((q) => q.questId === input.id && !q.endAt);
+      if (user.questParty?.questId === input.id)
+        return errorResponse("Leave your quest team before abandoning this quest");
       if (!current) {
         return { success: true, message: `Quest already abandoned` };
       }
@@ -1112,6 +1118,12 @@ export const questsRouter = createTRPCRouter({
       if (user.status !== "AWAKE") {
         return errorResponse("Must be awake to finish quests");
       }
+      if (
+        user.questParty?.questId === input.questId &&
+        input.nextObjectiveId &&
+        user.questParty.leaderId !== ctx.userId
+      )
+        return errorResponse("The quest team leader chooses dialog branches");
 
       // Figure out if any finished quests & get rewards
       const {
@@ -1413,11 +1425,25 @@ export const questsRouter = createTRPCRouter({
         ],
         undefined,
         boundPlacementStatus,
+        undefined,
+        true,
       );
 
-      // Combine and destructure for local usage
-      const { trackers, notifications, consequences, questIdsUpdated } =
-        combineTrackerResults(updatedTrackerResults, trackerResults);
+      // fetchUpdatedUser already committed its consequences. Process only this
+      // location pass, and keep one current tracker per quest to avoid duplicate items.
+      const { trackers, consequences } = updatedTrackerResults;
+      const notifications = [
+        ...new Set([
+          ...trackerResults.notifications,
+          ...updatedTrackerResults.notifications,
+        ]),
+      ];
+      const questIdsUpdated = [
+        ...new Set([
+          ...trackerResults.questIdsUpdated,
+          ...updatedTrackerResults.questIdsUpdated,
+        ]),
+      ];
 
       const fullTrackers = trackers;
       user.questData = filterQuestTrackersForDbPersist(trackers, user);
@@ -3008,6 +3034,28 @@ export const commitQuestObjectiveRewards = async (info: {
     notifications,
     consequences,
   } = info;
+  if (userQuest?.id === `party-${user.questPartyId}`) {
+    // Helpers keep their original completion receipt; this also covers bound NPC objectives.
+    user.questData = trackers;
+    const helperClaim = await handleQuestConsequences(
+      client,
+      user,
+      consequences,
+      notifications,
+      { alwaysClaimUserState: true, partyTrackers: trackers },
+    );
+    return helperClaim.claimed
+      ? {
+          outcome: "claimed",
+          postNotifications: helperClaim.notifications,
+          rewards: PostProcessedRewardSchema.parse({}),
+          badges: [],
+          rewardChoicePending: false,
+          userCacheEligible: false,
+          userDelta: undefined,
+        }
+      : { outcome: "state_changed" };
+  }
   // Collective tokens are paid only by villageMission.claim, never personal history.
   if (userQuest?.quest.questType === "village_mission") {
     return { outcome: "not_found" };
@@ -3147,6 +3195,7 @@ export const commitQuestObjectiveRewards = async (info: {
     notifications,
     {
       alwaysClaimUserState: true,
+      partyTrackers: trackers,
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
       claimConditions:
         !resolved && userQuest
@@ -3407,6 +3456,12 @@ const executeClaimedQuestConsequences = async ({
             // edges to quests that cannot be personally assigned; skip those destinations.
             const startable = quests.filter(
               (q) =>
+                !user.userQuests.some(
+                  (entry) =>
+                    entry.questId === q.id &&
+                    !entry.endAt &&
+                    entry.id !== `party-${user.questPartyId}`,
+                ) &&
                 !isNpcOnlyQuestType(q.questType) &&
                 q.questType !== "village_mission" &&
                 !(q.questType === "mission" && q.questRank === "S"),
@@ -3433,6 +3488,8 @@ const executeClaimedQuestConsequences = async ({
               and(
                 inArray(questHistory.questId, endedQuestIds),
                 eq(questHistory.userId, user.userId),
+                eq(questHistory.completed, 0),
+                isNull(questHistory.endAt),
               ),
             ),
         ]
@@ -3467,6 +3524,17 @@ const executeClaimedQuestConsequences = async ({
     ...[
       opponent
         ? (async () => {
+            if (user.questParty && opponent.questId === user.questParty.questId) {
+              const result = await startQuestPartyEncounter({
+                client,
+                user,
+                userId: user.userId,
+                partyId: user.questParty.id,
+                ambush: opponent,
+              });
+              if (!result.success) notifications.push(result.message);
+              return;
+            }
             const result = await initiateBattle(
               {
                 longitude: user.longitude,
@@ -3510,6 +3578,7 @@ export const handleQuestConsequences = async (
   notifications: string[],
   options?: {
     alwaysClaimUserState?: boolean;
+    partyTrackers?: QuestTrackerType[];
     /** Conditions that must still hold when the reward/consequence snapshot is claimed. */
     claimConditions?: QueryCondition[];
     /** Roll the active objectives' ambush attackers; only the travel movement check sets it. */
@@ -3532,9 +3601,29 @@ export const handleQuestConsequences = async (
   const collected = consequences.filter((c) => c.type === "add_item");
   // Items removed
   const removed = consequences.filter((c) => c.type === "remove_item");
-  const removedUserItemIds = removed
-    .flatMap((c) => c.ids)
-    .map((id) => user.items.find((ui) => ui.itemId === id)?.id)
+  const removedItemIds = [...new Set(removed.flatMap((c) => c.ids))];
+  const missingItemIds = removedItemIds.filter(
+    (id) => !user.items.some((item) => item.itemId === id),
+  );
+  // Profile snapshots carry equipped items only; shared deliveries must also retire
+  // unequipped quest copies. Only missing rows require this consequence-dependent read.
+  const additionalItems =
+    missingItemIds.length > 0
+      ? await client.query.userItem.findMany({
+          where: and(
+            eq(userItem.userId, user.userId),
+            inArray(userItem.itemId, missingItemIds),
+            gt(userItem.quantity, 0),
+            eq(userItem.isInAuction, false),
+            eq(userItem.storedAtHome, false),
+            isNull(userItem.craftingFinishedAt),
+          ),
+          columns: { id: true, itemId: true },
+        })
+      : [];
+  const ownedItems = [...user.items, ...additionalItems];
+  const removedUserItemIds = removedItemIds
+    .map((id) => ownedItems.find((item) => item.itemId === id)?.id)
     .filter(Boolean) as string[];
   // Opponents to attack
   let opponent = consequences.find((c) => c.type === "combat");
@@ -3542,7 +3631,21 @@ export const handleQuestConsequences = async (
   // movement check (checkLocationQuest) of an awake player. Page loads (getUser), reward claims
   // and battle retries must never start a random encounter on their own.
   if (!opponent && options?.rollObjectiveAttackers && user.status === "AWAKE") {
-    opponent = rollObjectiveAttackers(getActiveObjectives(user), user.sector);
+    const partyObjectiveIds = new Set(
+      user.questParty?.quest.content.objectives.map((objective) => objective.id) ?? [],
+    );
+    const objectives = getActiveObjectives(user).filter(
+      (objective) =>
+        !partyObjectiveIds.has(objective.id) ||
+        user.questParty?.leaderId === user.userId,
+    );
+    opponent = rollObjectiveAttackers(
+      objectives,
+      user.sector,
+      undefined,
+      (objective) =>
+        partyObjectiveIds.has(objective.id) ? user.questParty?.questId : undefined,
+    );
     if (opponent) notifications.push("You have been attacked!");
   }
   // If quests were reset, update the user's quest data
@@ -3578,13 +3681,25 @@ export const handleQuestConsequences = async (
       client,
       userId: user.userId,
       updatedAt: user.updatedAt,
-      where: options?.claimConditions,
+      where: [
+        ...(options?.claimConditions ?? []),
+        ...(user.questParty ? [eq(userData.questPartyId, user.questParty.id)] : []),
+      ],
       set: {
         questData: filterQuestTrackersForDbPersist(user.questData ?? [], user),
       },
     });
 
     if (claimResult.success) {
+      if (
+        resetQuests.some((reset) => reset.ids.includes(user.questParty?.questId ?? ""))
+      )
+        await resetQuestPartyProgress(client, user);
+      await publishQuestPartyProgress(
+        client,
+        user,
+        options?.partyTrackers ?? user.questData ?? [],
+      );
       await executeClaimedQuestConsequences({
         client,
         user,

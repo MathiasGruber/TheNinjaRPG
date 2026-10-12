@@ -54,6 +54,7 @@ import type {
   AiProfile,
   GameSetting,
   Jutsu,
+  Quest,
   RankedLoadout,
   Village,
   VillageAlliance,
@@ -182,6 +183,7 @@ import {
   getNewTrackers,
   mockAchievementHistoryEntries,
 } from "@/libs/quest";
+import { projectPartyTracker } from "@/libs/questParty";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
@@ -242,6 +244,7 @@ import {
   performActionSchema,
   statSchema,
 } from "@/validators/combat";
+import type { QuestTrackerType } from "@/validators/objectives";
 import { sectorIdSchema } from "@/validators/travel";
 import { fetchUpdatedUser, fetchUser, type UserWithRelations } from "./profile";
 
@@ -1856,6 +1859,8 @@ export const initiateBattle = async (
     biome?: CombatBiome;
     forceKeepPools?: boolean;
     raidQuestId?: string;
+    /** Shared quest state is preloaded once; actions never fetch party state. */
+    questParty?: { id: string; quest: Quest; tracker: QuestTrackerType };
     topPlayersLP?: number[];
     /** Reserved lobby/combat IDs used to reject participants after lobby deletion. */
     clanBattle?: { queueId: string; battleId: string };
@@ -2091,6 +2096,49 @@ export const initiateBattle = async (
       .filter((user) => !user.isAi && !user.isSummon)
       .map((user) => [user.userId, captureCombatCacheSnapshot(user)]),
   );
+
+  if (info.questParty) {
+    const party = info.questParty;
+    for (const participant of fetchedUsers.filter((user) =>
+      userIds.includes(user.userId),
+    )) {
+      if (
+        participant.questPartyId !== party.id ||
+        participant.sector !== sector ||
+        participant.longitude !== longitude ||
+        participant.latitude !== latitude
+      )
+        return { success: false, message: "Quest team membership or location changed" };
+      if (
+        !participant.userQuests.some((entry) => entry.questId === party.quest.id) &&
+        !participant.completedQuests.some((entry) => entry.questId === party.quest.id)
+      )
+        return { success: false, message: "A team member no longer has this quest" };
+      const personal = participant.questData?.find(
+        (entry) => entry.id === party.quest.id,
+      );
+      participant.questData = [
+        ...(participant.questData ?? []).filter((entry) => entry.id !== party.quest.id),
+        projectPartyTracker({ id: party.id, tracker: party.tracker }, personal),
+      ];
+      if (!participant.userQuests.some((entry) => entry.questId === party.quest.id))
+        participant.userQuests.push({
+          id: `party-${party.id}`,
+          userId: participant.userId,
+          questId: party.quest.id,
+          questType: party.quest.questType,
+          startedAt: new Date(party.tracker.startAt),
+          endAt: null,
+          completed: 0,
+          previousCompletes: 0,
+          previousAttempts: 0,
+          periodCompletes: 0,
+          periodStartAt: null,
+          pendingRewardChoice: null,
+          quest: structuredClone(party.quest),
+        });
+    }
+  }
 
   // Capture real awake recovery before combat normalizes stats or changes loadouts.
   const energyRegeneration = Object.fromEntries(

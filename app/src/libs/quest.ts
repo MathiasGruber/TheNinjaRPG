@@ -57,6 +57,7 @@ import {
   pickPlaceableSector,
 } from "@/libs/overworldAi";
 import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
+import { recordPartyContributions } from "@/libs/questParty";
 import {
   buildRewardChoiceCards,
   getFixedChoiceRewards,
@@ -254,6 +255,7 @@ export const rollObjectiveAttackers = (
   objectives: AllObjectivesType[],
   sector: number,
   random: () => number = Math.random,
+  questForObjective?: (objective: AllObjectivesType) => string | undefined,
 ): QuestConsequence | undefined => {
   for (const objective of objectives) {
     if (!("attackers" in objective) || objective.attackers.length === 0) continue;
@@ -275,6 +277,9 @@ export const rollObjectiveAttackers = (
     if (opponents.length > 0) {
       return {
         type: "random_encounter",
+        ...(questForObjective?.(objective)
+          ? { questId: questForObjective(objective) }
+          : {}),
         ids: opponents,
         scaleStats: objective.attackers_scaled_to_user,
         scaleGains: objective.attackers_scale_gains,
@@ -376,11 +381,21 @@ export const getReward = (
     undefined, // combatContext
     undefined, // boundPlacementStatus (getReward binds via atPlacementIds instead)
     atPlacementIds,
+    true,
   );
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
+  const isCompletedHelper = userQuest?.id === `party-${user.questPartyId}`;
   let resolved = false;
   // Start mutating
-  if (userQuest && !userQuest.completed && userQuest?.quest) {
+  if (isCompletedHelper && userQuest) {
+    const tracker = trackers.find((entry) => entry.id === questId);
+    resolved =
+      !!tracker && !tracker.failed && isQuestComplete(userQuest.quest, tracker);
+    tracker?.goals.forEach((goal) => {
+      if (goal.done) goal.collected = true;
+    });
+  }
+  if (userQuest && !userQuest.completed && userQuest?.quest && !isCompletedHelper) {
     // See if we have a shrine boost
     const sectors = user.village?.sectors?.length || 0;
     const errandsBoost = getShrineBoost(sectors, "Errands", user.village);
@@ -405,7 +420,8 @@ export const getReward = (
     // Get rewards
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
     const goals = tracker?.goals ?? [];
-    resolved = !tracker || isQuestComplete(userQuest.quest, tracker);
+    resolved =
+      !tracker || (!tracker.failed && isQuestComplete(userQuest.quest, tracker));
     if (resolved) {
       const questReward = ObjectiveReward.parse(userQuest.quest.content.reward);
       if (isRewardChoiceQuest(userQuest.quest.content)) {
@@ -620,7 +636,7 @@ export const getReward = (
   const followupTrackerTasks: Parameters<typeof getNewTrackers>[1] = [
     ...experienceTrackerTasks,
   ];
-  if (resolved && userQuest) {
+  if (resolved && userQuest && !isCompletedHelper) {
     followupTrackerTasks.push({
       task: "complete_specific_quest",
       increment: 1,
@@ -894,6 +910,7 @@ export type QuestConsequence = {
     | "reset_quest"
     | "update_user";
   ids: string[];
+  questId?: string;
   info?: string;
   scaleStats?: boolean;
   scaleGains?: number;
@@ -906,6 +923,8 @@ export type QuestConsequence = {
  * Battle context for gating "war-context" kill objectives. Supplied only from the combat path.
  */
 export type CombatQuestContext = {
+  battleId?: string;
+  questTeamStillFighting?: boolean;
   inWarTornSector: boolean;
   isWarParticipant: boolean;
 };
@@ -1046,7 +1065,14 @@ export const getNewTrackers = (
   combatContext?: CombatQuestContext,
   boundPlacementStatus?: ReadonlyMap<string, boolean>,
   atPlacementIds?: ReadonlySet<string>,
+  applyPartyEffects = false,
 ) => {
+  for (const tracker of user.questData ?? []) {
+    if (tracker.party && tracker.party.id !== user.questPartyId) delete tracker.party;
+  }
+  const previousPartyTrackers = structuredClone(
+    (user.questData ?? []).filter((tracker) => tracker.party),
+  );
   const questData = user.questData ?? [];
   const activeQuests = getUserQuests(user);
   const notifications: string[] = [];
@@ -1065,6 +1091,11 @@ export const getNewTrackers = (
         let questTracker = questData.find((q) => q.id === quest.id);
         if (!questTracker) {
           questTracker = QuestTracker.parse({ id: quest.id });
+        }
+        if (questTracker.party && questTracker.failed) {
+          consequences.push({ type: "fail_quest", ids: [quest.id] });
+          notifications.push(`Your quest team failed: ${quest.name}`);
+          return questTracker;
         }
         // Update the goals of the quest
         questTracker.goals = quest.content.objectives.map((objective, i) => {
@@ -1223,6 +1254,38 @@ export const getNewTrackers = (
 
           // If done, return status
           if (status.done) {
+            if (
+              applyPartyEffects &&
+              questTracker?.party &&
+              !status.partyEffectsApplied
+            ) {
+              if (objective.task === "new_quest") {
+                consequences.push({ type: "start_quest", ids: objective.newQuestIds });
+              } else if (objective.task === "collect_item") {
+                // Each member carries undelivered quest items, so a collector leaving cannot
+                // strand the team. Replacements never receive already-delivered items.
+                const outstanding = objective.collectItemIds.filter(
+                  (id) =>
+                    !quest.content.objectives.some(
+                      (delivery) =>
+                        delivery.task === "deliver_item" &&
+                        delivery.deliverItemIds.includes(id) &&
+                        questTracker.goals.some(
+                          (goal) => goal.id === delivery.id && goal.done,
+                        ),
+                    ),
+                );
+                if (outstanding.length > 0)
+                  consequences.push({ type: "add_item", ids: outstanding });
+              } else if (objective.task === "deliver_item") {
+                consequences.push({
+                  type: "remove_item",
+                  ids: objective.deliverItemIds,
+                });
+              } else return status;
+              status.partyEffectsApplied = true;
+              consequences.push({ type: "update_user", ids: [quest.id] });
+            }
             return status;
           }
 
@@ -1351,6 +1414,8 @@ export const getNewTrackers = (
 
           /** Helper function to put the user in combat */
           const putInCombat = () => {
+            // Quest teams explicitly assemble through their leader's encounter action.
+            if (questTracker?.party) return;
             if (
               opponentIds.length > 0 &&
               "opponentAIs" in objective &&
@@ -1386,11 +1451,15 @@ export const getNewTrackers = (
               info: objective.resetObjectiveId,
             });
           } else if (task === "fail_quest") {
+            if (questTracker?.party) questTracker.failed = true;
             consequences.push({ type: "fail_quest", ids: [quest.id] });
             notifications.push(objective.description || `Failed: ${quest.name}`);
           } else if (task === "new_quest" && "newQuestIds" in objective) {
             status.done = true;
-            consequences.push({ type: "start_quest", ids: objective.newQuestIds });
+            if (!questTracker?.party || applyPartyEffects) {
+              if (questTracker?.party) status.partyEffectsApplied = true;
+              consequences.push({ type: "start_quest", ids: objective.newQuestIds });
+            }
           } else if (task === "start_battle") {
             if (!status.recentlyDied) {
               putInCombat();
@@ -1403,6 +1472,9 @@ export const getNewTrackers = (
               (taskUpdate) => taskUpdate.task === task || taskUpdate.task === "any",
             )
             .forEach((taskUpdate) => {
+              // A location action can match both `any` and its explicit task in one
+              // pass. Once it completes, its inventory side effects must run only once.
+              if (status.done) return;
               // War-context kill objectives only advance in their required context (pvp →
               // war-torn sector; war → active-war kill). All other tasks always count.
               // `defeat_opponents` is per-opponent, so a missing `warFoe` must deny rather than
@@ -1467,6 +1539,13 @@ export const getNewTrackers = (
                 const dealt = taskUpdate.increment ?? 0;
                 if ("singleBattle" in objective && objective.singleBattle) {
                   status.value = Math.max(status.value, dealt);
+                  if (questTracker?.party && combatContext?.battleId) {
+                    status.battleValues ??= {};
+                    status.battleValues[combatContext.battleId] = Math.max(
+                      status.battleValues[combatContext.battleId] ?? 0,
+                      dealt,
+                    );
+                  }
                 } else {
                   status.value += dealt;
                 }
@@ -1477,6 +1556,7 @@ export const getNewTrackers = (
                 taskUpdate.contentId &&
                 // A placement-bound dialog can only advance through the authoritative NPC
                 // interaction path. This blocks direct Logbook/API completion from anywhere.
+                (!questTracker?.party || user.questParty?.leaderId === user.userId) &&
                 (!objective.overworldPlacementId ||
                   isObjectiveLocationSatisfied(user, objective, atPlacementIds))
               ) {
@@ -1523,6 +1603,7 @@ export const getNewTrackers = (
                   status.done = true;
                 } else if (
                   task === "collect_item" &&
+                  (!questTracker?.party || applyPartyEffects) &&
                   "item_name" in objective &&
                   "collectItemIds" in objective &&
                   objective.collectItemIds
@@ -1554,12 +1635,14 @@ export const getNewTrackers = (
                       type: "add_item",
                       ids: objective.collectItemIds,
                     });
+                    if (questTracker?.party) status.partyEffectsApplied = true;
                     status.done = true;
                   } else {
                     questIdsUpdated.push(quest.id);
                   }
                 } else if (
                   task === "deliver_item" &&
+                  (!questTracker?.party || applyPartyEffects) &&
                   "item_name" in objective &&
                   "deliverItemIds" in objective &&
                   objective.deliverItemIds
@@ -1582,6 +1665,7 @@ export const getNewTrackers = (
                     type: "remove_item",
                     ids: objective.deliverItemIds,
                   });
+                  if (questTracker?.party) status.partyEffectsApplied = true;
                   status.done = true;
                 } else if (task === "defeat_opponents" && opponentIds.length > 0) {
                   if (!opponentIds.includes(taskUpdate.contentId || "1337")) {
@@ -1618,6 +1702,12 @@ export const getNewTrackers = (
                 "opponentAIs" in objective &&
                 opponentIds.length > 0
               ) {
+                if (
+                  questTracker?.party &&
+                  combatContext?.questTeamStillFighting &&
+                  taskUpdate.text !== "Won"
+                )
+                  return;
                 if (
                   killCounts &&
                   taskUpdate.text &&
@@ -1693,6 +1783,7 @@ export const getNewTrackers = (
     })
     .filter((q): q is QuestTrackerType => !!q);
 
+  recordPartyContributions(previousPartyTrackers, trackers);
   return {
     trackers: getUnique(trackers, "id"),
     notifications,
@@ -1960,6 +2051,8 @@ export const getPublicQuestUser = <T extends NonNullable<UserWithRelations>>(
     userQuests: structuredClone(user.userQuests),
     questData: structuredClone(user.questData),
   };
+  // Party members' private trackers and invitation lists are never part of profile responses.
+  delete responseUser.questParty;
   responseUser.userQuests.forEach((entry) => {
     controlShownQuestLocationInformation(entry.quest, responseUser);
   });

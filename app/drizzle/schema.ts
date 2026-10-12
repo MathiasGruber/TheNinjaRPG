@@ -2588,6 +2588,7 @@ export const userData = mysqlTable(
     unreadRecruitRewards: smallint("unreadRecruitRewards").default(0).notNull(),
     unreadNews: smallint("unreadNews").default(0).notNull(),
     questData: json("questData").$type<QuestTrackerType[]>(),
+    questPartyId: varchar("questPartyId", { length: 191 }),
     activeNpcQuestId: varchar("activeNpcQuestId", { length: 191 }),
     senseiId: varchar("senseiId", { length: 191 }),
     medicalExperience: int("medicalExperience").default(0).notNull(),
@@ -2715,6 +2716,7 @@ export const userData = mysqlTable(
       roleIdx: index("UserData_role_idx").on(table.role),
       clanIdIdx: index("UserData_clanId_idx").on(table.clanId),
       anbuIdIdx: index("UserData_anbuId_idx").on(table.anbuId),
+      questPartyIdIdx: index("UserData_questPartyId_idx").on(table.questPartyId),
       jutsuLoadoutIdx: index("UserData_jutsuLoadout_idx").on(table.jutsuLoadout),
       rankedLoadoutIdx: index("UserData_rankedLoadout_idx").on(table.rankedLoadout),
       rankedLpIdx: index("UserData_rankedLp_idx").on(table.rankedLp),
@@ -2806,6 +2808,7 @@ export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
 export const userDataRelations = relations(userData, ({ one, many }) => ({
+  questParty: one(questParty, { fields: [userData.questPartyId], references: [questParty.id] }),
   queue: many(userQueue),
   ips: many(historicalIp),
   bloodline: one(bloodline, {
@@ -3949,6 +3952,7 @@ export const quest = mysqlTable(
     content: json("content").$type<QuestContentType>().notNull(),
     hidden: boolean("hidden").default(false).notNull(),
     consecutiveObjectives: boolean("consecutiveObjectives").default(true).notNull(),
+    teamEnabled: boolean("teamEnabled").default(false).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
     requiredBloodlineId: varchar("requiredBloodlineId", { length: 191 }),
     requiredSageModeId: varchar("requiredSageModeId", { length: 191 }),
@@ -4032,6 +4036,25 @@ export const questRelations = relations(quest, ({ one, many }) => ({
   }),
   raidParticipations: many(raidParticipation),
   raidDamageThresholds: many(raidDamageThreshold),
+}));
+
+export const questParty = mysqlTable("QuestParty", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  questId: varchar("questId", { length: 191 }).notNull(),
+  leaderId: varchar("leaderId", { length: 191 }).notNull(),
+  isPublic: boolean("isPublic").default(false).notNull(),
+  memberIds: json("memberIds").$type<string[]>().notNull(),
+  invitedUserIds: json("invitedUserIds").$type<string[]>().notNull(),
+  tracker: json("tracker").$type<QuestTrackerType>().notNull(),
+  contributions: json("contributions").$type<Record<string, QuestTrackerType["goals"]>>().notNull(),
+  version: int("version").default(0).notNull(),
+  battleId: varchar("battleId", { length: 191 }),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+}, (table) => ({ questIdIdx: index("QuestParty_questId_idx").on(table.questId) }));
+export type QuestParty = InferSelectModel<typeof questParty>;
+export const questPartyRelations = relations(questParty, ({ one, many }) => ({
+  quest: one(quest, { fields: [questParty.questId], references: [quest.id] }),
+  members: many(userData),
 }));
 
 export const questHistory = mysqlTable(

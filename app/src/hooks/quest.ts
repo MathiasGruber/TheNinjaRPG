@@ -272,6 +272,11 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
     { id: "name", label: "Title", type: "text" },
     { id: "hidden", type: "boolean", label: "Hidden" },
     { id: "consecutiveObjectives", type: "boolean", label: "Sequential Objectives" },
+    {
+      id: "teamEnabled",
+      type: "boolean",
+      label: "Allow Quest Teams (Story, Event, ANBU)",
+    },
     { id: "questType", type: "str_array", values: QuestTypes },
     { id: "questRank", type: "str_array", values: LetterRanks },
     { id: "medicalRank", type: "str_array", values: MEDNIN_RANKS },

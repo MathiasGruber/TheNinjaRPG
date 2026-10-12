@@ -700,6 +700,9 @@ export const ObjectiveTracker = z.object({
   selectedNextObjectiveId: z.string().optional(),
   timestamp: z.iso.datetime().optional(),
   recentlyDied: z.boolean().prefault(false),
+  partyEffectsApplied: z.boolean().optional(),
+  /** Personal damage by battle; canonical party goals contain the corresponding team totals. */
+  battleValues: z.record(z.string(), z.number().min(0)).optional(),
 });
 export type ObjectiveTrackerType = z.infer<typeof ObjectiveTracker>;
 
@@ -718,6 +721,17 @@ export const QuestTracker = z.object({
   id: z.string(),
   startAt: z.iso.datetime().prefault(new Date().toISOString()),
   goals: z.array(ObjectiveTracker).prefault([]),
+  generation: z.number().int().min(0).optional(),
+  resetGenerations: z.record(z.string(), z.number().int().min(0)).optional(),
+  failed: z.boolean().optional(),
+  /** Cumulative personal contributions; merging these never counts a shared snapshot twice. */
+  party: z
+    .object({
+      id: z.string(),
+      generation: z.number().int().min(0).prefault(0),
+      contributions: z.array(ObjectiveTracker),
+    })
+    .optional(),
 });
 export type QuestTrackerType = z.infer<typeof QuestTracker>;
 
@@ -756,6 +770,7 @@ export const QuestValidatorRawSchema = z.object({
     sceneCharacters: z.array(z.string()).prefault([]),
   }),
   hidden: z.coerce.boolean(),
+  teamEnabled: z.boolean().prefault(false),
   retryDelay: z.enum(RetryQuestDelays).optional(),
   attemptDelay: z.enum(RetryQuestDelays).optional(),
   consecutiveObjectives: z.coerce.boolean(),
@@ -770,6 +785,13 @@ const questSuperRefine = (
   val: z.infer<typeof QuestValidatorRawSchema>,
   ctx: z.RefinementCtx,
 ) => {
+  if (val.teamEnabled && !["story", "event", "anbu"].includes(val.questType)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Quest teams support Story, Event and ANBU quests",
+      path: ["teamEnabled"],
+    });
+  }
   if (val.questType === "village_mission") {
     const error = villageMissionContentError(val.content, val.consecutiveObjectives);
     if (error) ctx.addIssue({ code: "custom", message: error, path: ["content"] });

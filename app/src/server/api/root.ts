@@ -44,6 +44,7 @@ import { profileRouter } from "./routers/profile";
 import { purchasesRouter } from "./routers/purchases";
 import { pushRouter } from "./routers/push";
 import { pvpRankRouter } from "./routers/pvprank";
+import { questPartyRouter } from "./routers/questParty";
 import { questsRouter } from "./routers/quests";
 import { raidsRouter } from "./routers/raids";
 import { registerRouter } from "./routers/register";
@@ -110,6 +111,7 @@ export const appRouter = createTRPCRouter({
   push: pushRouter,
   purchases: purchasesRouter,
   quests: questsRouter,
+  questParty: questPartyRouter,
   register: registerRouter,
   reports: reportsRouter,
   sensei: senseiRouter,

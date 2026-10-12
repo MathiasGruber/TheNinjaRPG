@@ -886,6 +886,9 @@ export type QuestRewardMode = (typeof QUEST_REWARD_MODES)[number];
 /** Upper bound for how many rewards a "choose" quest lets the player pick. */
 export const QUEST_REWARD_PICK_MAX = 5;
 
+export const QUEST_PARTY_MAX_MEMBERS = 3;
+export const QUEST_PARTY_TYPES = ["story", "event", "anbu"] as const;
+
 export const QuestTypes = [
   "starter",
   "tier",

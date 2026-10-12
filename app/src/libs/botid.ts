@@ -47,6 +47,8 @@ export const BOTID_PROTECTED_PROCEDURES = [
   "stealth.trainCovert",
   "quests.startQuest",
   "quests.startRandom",
+  "questParty.create",
+  "questParty.join",
   "combat.startArenaBattle",
   "farming.harvestPlot",
   "farming.harvestAll",

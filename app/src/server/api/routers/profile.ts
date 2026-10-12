@@ -197,6 +197,12 @@ import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoverySummaryCandidates } from "@/server/utils/questDiscovery";
 import {
+  applyQuestParty,
+  type LoadedQuestParty,
+  questPartyRelations,
+  synchronizeQuestParty,
+} from "@/server/utils/questParty";
+import {
   awardRecruitRankMilestonesSafely,
   fetchRecruitMilestoneSummary,
 } from "@/server/utils/recruitment";
@@ -3080,6 +3086,7 @@ export const fetchUpdatedUser = async (props: {
       where: eq(userData.userId, userId),
       with: {
         bloodline: true,
+        questParty: { with: questPartyRelations },
         sageMode: true,
         activeReskin: true,
         clan: true,
@@ -3199,6 +3206,31 @@ export const fetchUpdatedUser = async (props: {
     user.userQuests = user.userQuests.filter(
       (q) => isAvailableUserQuests({ ...q.quest, ...q }, user, true).check,
     );
+  }
+
+  // Recover abandoned reservations after allowing an in-flight team creation to finish.
+  // Deleted content also releases its slot through the same character snapshot guard.
+  if (
+    user?.questPartyId &&
+    ((!user.questParty && secondsPassed(user.updatedAt) > 60) ||
+      (user.questParty && !user.questParty.quest))
+  ) {
+    const released = await claimUserSnapshot({
+      client,
+      userId: user.userId,
+      updatedAt: user.updatedAt,
+      where: [eq(userData.questPartyId, user.questPartyId)],
+      set: { questPartyId: null },
+    });
+    if (released.success) {
+      user.updatedAt = released.claimedAt;
+      user.questPartyId = null;
+      user.questParty = null;
+    }
+  }
+  if (user?.questParty) {
+    user.questParty = await synchronizeQuestParty(client, user.questParty);
+    applyQuestParty(user, user.questParty);
   }
 
   // Filter and attach active wars for enemy_village sector type resolution
@@ -3528,7 +3560,14 @@ export const fetchUpdatedUser = async (props: {
     user.maxEnergy = calcMaxEnergy(user);
     const trackerUser = await hydrateQuestCollections(client, user);
     // Get the latest quest trackers
-    const trackerResults = getNewTrackers(trackerUser, [{ task: "any" }]);
+    const trackerResults = getNewTrackers(
+      trackerUser,
+      [{ task: "any" }],
+      undefined,
+      undefined,
+      undefined,
+      true,
+    );
 
     // Destructure for local usage
     const { trackers, notifications, consequences } = trackerResults;
@@ -4213,6 +4252,7 @@ export const scaleEditedAi = (stored: UserData, edited: UserData) => {
 
 export type UserWithRelations =
   | (UserData & {
+      questParty?: LoadedQuestParty | null;
       pvpBoost?: ReturnType<typeof getPvpBoost>;
       effectiveMasteries?: MasteryStatSource;
       userSkills?: NonNullable<MasterySources["userSkills"]>;

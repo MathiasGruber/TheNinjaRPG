@@ -1428,8 +1428,18 @@ export const updateUser = async (
       hydratedUser,
       trackerTasks,
       {
+        battleId: curBattle.id,
         inWarTornSector: isInWarTornSector,
         isWarParticipant: isWarBattleParticipant,
+        questTeamStillFighting: curBattle.usersState.some(
+          (teammate) =>
+            teammate.controllerId !== user.controllerId &&
+            !teammate.isAi &&
+            !teammate.leftBattle &&
+            !teammate.fledBattle &&
+            stillInBattle(teammate, curBattle.usersEffects) &&
+            areBattleAllies(teammate, user),
+        ),
       },
     );
     updatedQuestIds.push(...questIdsUpdated);

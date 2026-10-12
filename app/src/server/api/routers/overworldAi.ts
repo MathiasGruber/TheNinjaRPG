@@ -36,6 +36,7 @@ import { availableQuestLetterRanks } from "@/libs/train";
 import { initiateBattle } from "@/routers/combat";
 import { fetchUserItems } from "@/routers/item";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
+import { startQuestPartyEncounter } from "@/routers/questParty";
 import {
   assignQuestToUser,
   commitQuestObjectiveRewards,
@@ -417,6 +418,22 @@ export const overworldAiRouter = createTRPCRouter({
           : null;
 
       if (bound) {
+        if (activeUser.questParty?.questId === bound.questId) {
+          if (bound.objective.task === "defeat_opponents")
+            return startQuestPartyEncounter({
+              client: ctx.drizzle,
+              user: activeUser,
+              userId: ctx.userId,
+              partyId: activeUser.questParty.id,
+              atPlacementIds: new Set([placement.id]),
+            });
+          if (
+            bound.objective.task === "dialog" &&
+            input.dialogContentId &&
+            activeUser.questParty.leaderId !== ctx.userId
+          )
+            return errorResponse("The quest team leader chooses dialog branches");
+        }
         // Defeat target: start a battle vs the placement's AI. The win is recorded by
         // the normal post-battle tracker path (updateUser -> getNewTrackers): the
         // player's questData is loaded into battle state and opponentAIs == this
