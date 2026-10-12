@@ -8,6 +8,10 @@ import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import { cn } from "@/libs/shadui";
 
+/**
+ * Residence navigation through labeled scene objects and equivalent text controls.
+ * The home page owns sleep mutations, dialog state, and their user feedback.
+ */
 export const HomeScene = ({
   homeType,
   isGuest,
@@ -17,6 +21,7 @@ export const HomeScene = ({
   onStorage,
   onManage,
 }: HomeSceneProps) => {
+  // A new tier can load its artwork without remounting the controls used as dialog focus targets.
   const [failedHomeType, setFailedHomeType] = useState<HomeType | null>(null);
   const hasImageError = failedHomeType === homeType;
   const sleepLabel = isTogglingSleep
@@ -148,6 +153,7 @@ export const HomeScene = ({
   );
 };
 
+/** Square tier artwork sharing the same relative bed, armory, kitchen, and garden positions. */
 export const HOME_SCENE_IMAGES = {
   NONE: "/images/home/tent.webp",
   STUDIO_APARTMENT: "/images/home/studio-apartment.webp",
@@ -161,12 +167,16 @@ export const HOME_SCENE_IMAGES = {
   MARSHMALLOWOPOLIS: "/images/home/marshmallowopolis.webp",
 } satisfies Record<HomeType, string>;
 
+/** Residence state and actions supplied by the home page's existing tRPC flows. */
 type HomeSceneProps = {
   homeType: HomeType;
+  /** Guests retain navigation and sleep controls while owner-only panels stay unavailable. */
   isGuest: boolean;
   isAsleep: boolean;
   isTogglingSleep: boolean;
   onSleep: () => void;
+  /** Open storage and retain the invoking control as the dialog's focus-return target. */
   onStorage: (trigger: HTMLButtonElement) => void;
+  /** Open home management and retain its invoking control for focus restoration. */
   onManage: (trigger: HTMLButtonElement) => void;
 };

@@ -1,8 +1,5 @@
 "use client";
 import { Loader2 } from "lucide-react";
-/**
- * This is a modal that is used to display a modal.
- */
 import type React from "react";
 import { useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -53,10 +50,14 @@ interface ModalProps {
   footerClassName?: string;
   /** Close when clicking outside the dialog (default true). */
   dismissOnInteractOutside?: boolean;
-  /** Restore focus when the dialog is opened without a Radix DialogTrigger. */
+  /** Restore focus to a mounted caller control when opened without a Radix DialogTrigger. */
   returnFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
+/**
+ * Shared dialog with a scrollable body, pending-action guards, and optional confirmation.
+ * Callers own its open state and can supply a focus target for programmatic opening.
+ */
 export const Modal: React.FC<ModalProps> = (props) => {
   const bodyRef = useRef<HTMLDivElement>(null);
   const confirmBtnClassName = props.confirmClassName
@@ -155,6 +156,7 @@ export const Modal: React.FC<ModalProps> = (props) => {
         )}
         aria-busy={props.isLoading}
         onCloseAutoFocus={(event) => {
+          // Override Radix's trigger focus only while the caller's target is still mounted.
           if (props.returnFocusRef?.current?.isConnected) {
             event.preventDefault();
             props.returnFocusRef.current.focus();

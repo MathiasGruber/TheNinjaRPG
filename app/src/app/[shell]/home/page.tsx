@@ -54,6 +54,7 @@ import { remainingXpToLevel } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { getStrucBoost } from "@/utils/village";
 
+/** Residence hub for shared sleep actions and owner-only storage and home management. */
 export default function HomePage() {
   const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
 
@@ -64,13 +65,14 @@ export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [isManagementOpen, setIsManagementOpen] = useState(false);
+  // Either a scene hotspot or a text control can open each dialog.
   const storageTriggerRef = useRef<HTMLButtonElement>(null);
   const managementTriggerRef = useRef<HTMLButtonElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState("ALL");
   const [rarityFilter, setRarityFilter] = useState("ALL");
 
-  // Queries
+  // Guests use common navigation without fetching owner-only data; hooks stay unconditional.
   const {
     data: homeData,
     isLoading: isHomeLoading,
@@ -112,6 +114,7 @@ export default function HomePage() {
     api.home.toggleStoreItem.useMutation({
       onSuccess: (data) => {
         showMutationToast(data);
+        // Keep item details open after a rejection so the player can read feedback and retry.
         if (data.success) {
           void userHomeRefetch();
           void userItemsRefetch();

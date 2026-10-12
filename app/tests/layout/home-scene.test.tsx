@@ -6,6 +6,7 @@ import type { ImgHTMLAttributes, AnchorHTMLAttributes } from "react";
 import { HomeTypes } from "@/drizzle/constants";
 import { HomeScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
 
+// Wrapper stubs isolate the scene's routing destinations and image-failure handling.
 vi.mock("@/layout/Image", () => ({
   default: ({ src, alt, onError }: ImgHTMLAttributes<HTMLImageElement>) => (
     // biome-ignore lint/performance/noImgElement: isolated image-failure test stub
@@ -26,6 +27,7 @@ const props = {
   onManage: vi.fn(),
 };
 
+/** Regression coverage for residence navigation, owner access, and artwork recovery. */
 describe("Home scene", () => {
   beforeEach(() => {
     ensureDom();
