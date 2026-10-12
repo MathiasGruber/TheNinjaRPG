@@ -1955,36 +1955,34 @@ export const updateRewards = async (info: {
             .set({ points: sql`${anbuSquad.points} + ${rewards.reward_anbupoints}` })
             .where(eq(anbuSquad.id, user.anbuId))
         : undefined,
-    ...[
+    () =>
       jutsus.length > 0 &&
-        client
-          .insert(userJutsu)
-          .values(
-            jutsus.map(({ id }) => ({
+      client
+        .insert(userJutsu)
+        .values(
+          jutsus.map(({ id }) => ({
+            id: nanoid(),
+            userId: user.userId,
+            jutsuId: id,
+          })),
+        )
+        .onDuplicateKeyUpdate({ set: { id: sql`id` } }),
+    () =>
+      bloodlines.length > 0 &&
+      client.insert(bloodlineRolls).values(
+        bloodlines.map(
+          ({ id, rank }) =>
+            ({
               id: nanoid(),
               userId: user.userId,
-              jutsuId: id,
-            })),
-          )
-          .onDuplicateKeyUpdate({ set: { id: sql`id` } }),
-    ].map((task) => () => task),
-    ...[
-      bloodlines.length > 0 &&
-        client.insert(bloodlineRolls).values(
-          bloodlines.map(
-            ({ id, rank }) =>
-              ({
-                id: nanoid(),
-                userId: user.userId,
-                type: "QUEST",
-                bloodlineId: id,
-                goal: rank,
-                used: 1,
-                pityRolls: 0,
-              }) as const,
-          ),
+              type: "QUEST",
+              bloodlineId: id,
+              goal: rank,
+              used: 1,
+              pityRolls: 0,
+            }) as const,
         ),
-    ].map((task) => () => task),
+      ),
     () =>
       rolledSageMode
         ? client.insert(sageModeRolls).values({
@@ -1994,27 +1992,25 @@ export const updateRewards = async (info: {
             sageModeId: rolledSageMode.id,
           })
         : undefined,
-    ...[
+    () =>
       itemsToInsert.length > 0 &&
-        client.insert(userItem).values(
-          itemsToInsert.map(({ id, quantity }) => ({
-            id: nanoid(),
-            userId: user.userId,
-            itemId: id,
-            quantity: quantity,
-          })),
-        ),
-    ].map((task) => () => task),
-    ...[
+      client.insert(userItem).values(
+        itemsToInsert.map(({ id, quantity }) => ({
+          id: nanoid(),
+          userId: user.userId,
+          itemId: id,
+          quantity: quantity,
+        })),
+      ),
+    () =>
       badges.length > 0 &&
-        client.insert(userBadge).values(
-          badges.map(({ id }) => ({
-            id: nanoid(),
-            userId: user.userId,
-            badgeId: id,
-          })),
-        ),
-    ].map((task) => () => task),
+      client.insert(userBadge).values(
+        badges.map(({ id }) => ({
+          id: nanoid(),
+          userId: user.userId,
+          badgeId: id,
+        })),
+      ),
     ...(() => {
       if (!activeWars || activeWars.length === 0) return [];
       // Find ALL applicable wars (VILLAGE_WAR or WAR_RAID)

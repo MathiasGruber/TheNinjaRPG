@@ -24,6 +24,7 @@ import type { DrizzleClient } from "@/server/db";
 import { expireDungeonRun, rollbackDungeonStart } from "@/server/utils/dungeon";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canChangeContent } from "@/utils/permissions";
+import { secondsFromNow } from "@/utils/time";
 import {
   dungeonActionSchema,
   dungeonContentSchema,
@@ -81,7 +82,7 @@ export const dungeonRouter = createTRPCRouter({
     const ids = [
       ...new Set(runs.flatMap((r) => [...r.state.memberIds, ...r.state.invitedIds])),
     ];
-    const [users, members, currentRuns] = await Promise.all([
+    const [users, members, refreshedRuns] = await Promise.all([
       ids.length
         ? ctx.drizzle.query.userData.findMany({
             where: inArray(userData.userId, ids),
@@ -106,6 +107,7 @@ export const dungeonRouter = createTRPCRouter({
           })
         : [],
     ]);
+    let currentRuns = refreshedRuns;
     const interrupted = currentRuns.filter(
       (r) =>
         r.status === "FIGHTING" &&
@@ -140,18 +142,13 @@ export const dungeonRouter = createTRPCRouter({
         ),
       );
       if (missing.length)
-        return {
-          runs: await ctx.drizzle.query.dungeonRun.findMany({
-            where: inArray(
-              dungeonRun.id,
-              currentRuns.map((r) => r.id),
-            ),
-            orderBy: desc(dungeonRun.createdAt),
-          }),
-          users,
-          members: members.filter((m) => m.userId === ctx.userId),
-          serverTime: new Date(),
-        };
+        currentRuns = await ctx.drizzle.query.dungeonRun.findMany({
+          where: inArray(
+            dungeonRun.id,
+            currentRuns.map((r) => r.id),
+          ),
+          orderBy: desc(dungeonRun.createdAt),
+        });
     }
     return {
       runs: currentRuns,
@@ -411,8 +408,7 @@ export const dungeonRouter = createTRPCRouter({
         const floor = dungeonFloorAt(run.content, state.floor);
         if (!floor) return errorResponse("This floor is unavailable.");
         const battleId = nanoid();
-        const expiresAt =
-          run.expiresAt ?? new Date(Date.now() + DUNGEON_RUN_SECONDS * 1000);
+        const expiresAt = run.expiresAt ?? secondsFromNow(DUNGEON_RUN_SECONDS);
         const claimed = await ctx.drizzle
           .update(dungeonRun)
           .set({

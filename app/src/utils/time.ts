@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import type { RetryQuestDelay, TimeUnit } from "@/drizzle/constants";
 import { BANK_INTEREST_CLAIM_DAYS, REGEN_SECONDS } from "@/drizzle/constants";
 
@@ -231,9 +232,7 @@ export const formatDateTimeShort = (date: Date): string => {
 
 /** Format local calendar time for a datetime-local input. */
 export const formatLocalDateTimeInput = (date: Date) =>
-  new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
+  format(date, "yyyy-MM-dd'T'HH:mm");
 
 export const formatTimeAgo = (date: Date) => {
   const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
