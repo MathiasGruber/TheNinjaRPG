@@ -38,39 +38,39 @@ export async function GET(request: Request) {
         ),
       );
 
-    // The maintenance claim and charge commit together; a concurrent debit cannot overdraw faction points.
+    // Claim maintenance and charge or downgrade together, using the current locked balance.
     await Promise.all(
-      strongholdsDueForMaintainance.map(({ Clan: faction, Village: settlement }) =>
-        retryOnDeadlock(() =>
-          drizzleDB.transaction(async (tx) => {
-            const claimed = await tx
-              .update(village)
-              .set({ lastMaintenancePaidAt: new Date() })
-              .where(
-                and(
-                  eq(village.id, settlement.id),
-                  eq(village.type, "STRONGHOLD"),
-                  eq(village.lastMaintenancePaidAt, settlement.lastMaintenancePaidAt),
-                ),
-              );
-            if (claimed.rowsAffected === 0) return;
-            const payment = await tx
-              .update(clan)
-              .set({ points: sql`${clan.points} - ${STRONGHOLD_MONTHLY_MAINTENANCE}` })
-              .where(
-                and(
-                  eq(clan.id, faction.id),
-                  gte(clan.points, STRONGHOLD_MONTHLY_MAINTENANCE),
-                ),
-              );
-            if (payment.rowsAffected === 0)
-              await tx
-                .update(village)
-                .set({ type: "HIDEOUT", wasDowngraded: true })
-                .where(eq(village.id, settlement.id));
-          }),
-        ),
-      ),
+      strongholdsDueForMaintainance.map(({ Clan: faction, Village: settlement }) => {
+        const guards = and(
+          eq(clan.id, faction.id),
+          eq(village.id, settlement.id),
+          eq(village.type, "STRONGHOLD"),
+          eq(village.lastMaintenancePaidAt, settlement.lastMaintenancePaidAt),
+        );
+        // LIMIT prevents derived-table merging. The locking snapshot keeps the payment
+        // decision independent of joined UPDATE assignment order and sees waiting debits.
+        const snapshot = drizzleDB
+          .select({ id: village.id, points: clan.points })
+          .from(village)
+          .innerJoin(clan, eq(clan.villageId, village.id))
+          .where(guards)
+          .limit(1)
+          .for("update")
+          .as("maintenance_snapshot");
+        const canPay = gte(snapshot.points, STRONGHOLD_MONTHLY_MAINTENANCE);
+        return retryOnDeadlock(() =>
+          drizzleDB.execute(sql`
+            UPDATE ${village}
+            INNER JOIN ${clan} ON ${clan.villageId} = ${village.id}
+            INNER JOIN ${snapshot} ON ${snapshot.id} = ${village.id}
+            SET ${clan.points} = IF(${canPay}, ${snapshot.points} - ${STRONGHOLD_MONTHLY_MAINTENANCE}, ${snapshot.points}),
+                ${village.lastMaintenancePaidAt} = ${new Date()},
+                ${village.type} = IF(${canPay}, ${village.type}, 'HIDEOUT'),
+                ${village.wasDowngraded} = IF(${canPay}, ${village.wasDowngraded}, TRUE)
+            WHERE ${guards}
+          `),
+        );
+      }),
     );
 
     return NextResponse.json({

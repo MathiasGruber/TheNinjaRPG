@@ -14,7 +14,6 @@ import {
   notExists,
   or,
   sql,
-  TransactionRollbackError,
 } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -200,7 +199,7 @@ export const clanRouter = createTRPCRouter({
       return { success: true, message: "Hideout purchased successfully" };
     }),
   upgradeHideoutToStronghold: protectedProcedure
-    .meta({ mcp: { description: "Upgrade hideout to stronghold" } })
+    .meta({ mcp: { description: "Restore a former Stronghold" } })
     .input(restoreStrongholdSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
@@ -234,43 +233,30 @@ export const clanRouter = createTRPCRouter({
         return errorResponse(
           `Restoring a Stronghold costs ${STRONGHOLD_REESTABLISH_COST.toLocaleString()} Ryo`,
         );
-      // The settlement claim and payment must commit together to prevent duplicate charges.
-      const restored = await retryOnDeadlock(() =>
-        ctx.drizzle.transaction(async (tx) => {
-          const claim = await tx
-            .update(village)
-            .set({
-              type: "STRONGHOLD",
-              belowMemberMinimumSince: null,
-              lastMaintenancePaidAt: new Date(),
-            })
-            .where(
-              and(
-                eq(village.id, clanHideout.id),
-                eq(village.type, "HIDEOUT"),
-                eq(village.wasDowngraded, true),
-                eq(village.kageId, user.userId),
-                sql`(SELECT COUNT(*) FROM ${userData} WHERE ${userData.clanId} = ${fetchedClan.id} AND ${userData.isAi} = 0) >= ${FACTION_MIN_MEMBERS_FOR_STRONGHOLD}`,
-              ),
-            );
-          if (claim.rowsAffected === 0) return false;
-          const payment = await tx
-            .update(clan)
-            .set({ bank: sql`${clan.bank} - ${STRONGHOLD_REESTABLISH_COST}` })
-            .where(
-              and(
-                eq(clan.id, input.clanId),
-                gte(clan.bank, STRONGHOLD_REESTABLISH_COST),
-              ),
-            );
-          if (payment.rowsAffected === 0) tx.rollback();
-          return true;
-        }),
-      ).catch((error: unknown) => {
-        if (error instanceof TransactionRollbackError) return false;
-        throw error;
-      });
-      return restored
+      const guards = and(
+        eq(clan.id, input.clanId),
+        eq(clan.leaderId, user.userId),
+        gte(clan.bank, STRONGHOLD_REESTABLISH_COST),
+        eq(village.id, clanHideout.id),
+        eq(village.type, "HIDEOUT"),
+        eq(village.wasDowngraded, true),
+        eq(village.kageId, user.userId),
+        sql`(SELECT COUNT(*) FROM ${userData} WHERE ${userData.clanId} = ${fetchedClan.id} AND ${userData.isAi} = 0) >= ${FACTION_MIN_MEMBERS_FOR_STRONGHOLD}`,
+      );
+      // A joined write restores the guarded settlement and charges its owning faction
+      // together; a duplicate request or changed balance cannot leave a partial payment.
+      const result = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+          UPDATE ${village}
+          INNER JOIN ${clan} ON ${clan.villageId} = ${village.id}
+          SET ${village.type} = 'STRONGHOLD',
+              ${village.belowMemberMinimumSince} = NULL,
+              ${village.lastMaintenancePaidAt} = ${new Date()},
+              ${clan.bank} = ${clan.bank} - ${STRONGHOLD_REESTABLISH_COST}
+          WHERE ${guards}
+        `),
+      );
+      return result.rowsAffected > 0
         ? { success: true, message: "Stronghold restored successfully" }
         : errorResponse(
             "Stronghold could not be restored; refresh the faction and check its balance and membership",

@@ -75,6 +75,7 @@ import { secondsFromNow } from "@/utils/time";
 import { declareVillageWarSchema, raidOptionsSchema } from "@/validators/war";
 
 export const warRouter = createTRPCRouter({
+  /** Preview structure eligibility; declaration rechecks membership, funds and cooldowns under lock. */
   getRaidOptions: protectedProcedure
     .input(raidOptionsSchema)
     .query(async ({ ctx, input }) => {
@@ -1637,10 +1638,11 @@ export type GetActiveWarsReturnType = NonNullable<
 >;
 
 /**
- * Get the member count for a village
+ * Count non-AI members of the owning faction for Hideouts and Strongholds,
+ * or ordinary residents for other village types.
  * @param client - The DrizzleClient instance
  * @param villageId - The ID of the village
- * @returns The number of members in the village
+ * @returns The member count used for declaration eligibility
  */
 const getVillageMemberCount = async (
   client: DrizzleClient,

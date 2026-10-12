@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     if (shouldRunDailyDecay) {
       // fetchActiveWars is expensive (loads village structures); only fetch when needed
       const activeWars = await fetchActiveWars(drizzleDB);
-      // Filter to VILLAGE_WAR and WAR_RAID for decay (include Outlaws/Factions)
+      // Ordinary village wars drain treasury tokens; raid HP decay runs separately.
       const decayWars = activeWars.filter((w) => w.type === "VILLAGE_WAR");
 
       for (const activeWar of decayWars) {

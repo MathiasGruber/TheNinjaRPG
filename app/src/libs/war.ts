@@ -211,7 +211,7 @@ export const isVillageInvolvedInAnyWar = (
 export const isFactionVillage = (target: Pick<Village, "type">) =>
   FACTION_VILLAGE_TYPES.some((type) => type === target.type);
 
-/** The target structure is represented by each side's per-conflict health pool. */
+/** End a raid when either structure is defeated or its two-day deadline is reached. */
 export const shouldEndRaid = (
   raid: Pick<War, "startedAt" | "attackerWarHealth" | "defenderWarHealth">,
   now = new Date(),
@@ -220,6 +220,10 @@ export const shouldEndRaid = (
   raid.defenderWarHealth <= 0 ||
   now.getTime() - raid.startedAt.getTime() >= FACTION_RAID_MAX_DAYS * 86400_000;
 
+/**
+ * Return the first user-facing structure or cooldown rejection, or undefined if eligible.
+ * Shared by the options preview and the authoritative declaration guards.
+ */
 export const getRaidDeclarationBlock = (
   attacker: Pick<Village, "raidRetryCooldowns">,
   attackerStructures: VillageStructure[],

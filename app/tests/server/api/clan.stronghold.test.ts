@@ -9,7 +9,7 @@ import { clanRouter } from "@/server/api/routers/clan";
 import { profileRouter } from "@/server/api/routers/profile";
 import { syncStrongholdMembership } from "@/server/utils/faction";
 import { insertUsers } from "../../setup/factories";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables, runRawSql } from "../../setup/testDatabase";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables, runRawSql } from "../../setup/testDatabase";
 
 const legacyDowngradeBackfill = readFileSync(resolve(process.cwd(), "drizzle/migrations/0076_brave_nico_minoru.sql"), "utf8").split(";").find((statement) => statement.includes("SET `wasDowngraded` = 1"));
 
@@ -99,6 +99,28 @@ describeWithDatabase("Stronghold membership and restoration", () => {
     expect(faction?.bank).toBe(STRONGHOLD_REESTABLISH_COST);
     const [settlement] = await db.select().from(village);
     expect(settlement).toMatchObject({ type: "STRONGHOLD", belowMemberMinimumSince: null });
+  });
+
+  it.each(["bank", "members", "former", "leader", "owner"] as const)("rejects restoration when %s changes after prefetch", async (changed) => {
+    await seedFaction("HIDEOUT");
+    const db = await getTestDatabase();
+    const before = await db.query.village.findFirst();
+    const guarded = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property !== "execute" && property !== "transaction") return Reflect.get(target, property, receiver);
+        return async (...args: unknown[]) => {
+          if (changed === "bank") await db.update(clan).set({ bank: STRONGHOLD_REESTABLISH_COST - 1 });
+          if (changed === "members") await db.update(userData).set({ isAi: true }).where(eq(userData.userId, "member-29"));
+          if (changed === "former") await db.update(village).set({ wasDowngraded: false });
+          if (changed === "leader") await db.update(clan).set({ leaderId: "another" });
+          if (changed === "owner") await db.update(clan).set({ villageId: "another" });
+          return Reflect.apply(Reflect.get(target, property, receiver), target, args);
+        };
+      },
+    });
+    expect((await callerForDatabase(clanRouter, "leader", guarded).upgradeHideoutToStronghold({ clanId: "faction" })).success).toBe(false);
+    expect(await db.query.village.findFirst()).toMatchObject({ type: "HIDEOUT", lastMaintenancePaidAt: before?.lastMaintenancePaidAt });
+    expect((await db.query.clan.findFirst())?.bank).toBe(changed === "bank" ? STRONGHOLD_REESTABLISH_COST - 1 : STRONGHOLD_REESTABLISH_COST * 2);
   });
 
   it("uses the same pricing for faction boosts and rejects stale duplicate purchases", async () => {
