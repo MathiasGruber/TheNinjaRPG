@@ -5,6 +5,8 @@ import {
   battle,
   battleHistory,
   item,
+  overworldAiPlacement,
+  overworldAiPlacementQuest,
   quest,
   questHistory,
   trainingLog,
@@ -15,10 +17,15 @@ import {
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { initiateBattle } from "@/server/api/routers/combat";
+import { overworldAiRouter } from "@/server/api/routers/overworldAi";
 import { questsRouter } from "@/server/api/routers/quests";
 import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
-import { DialogObjective } from "@/validators/objectives";
+import {
+  DefeatOpponents,
+  DialogObjective,
+  QuestTracker,
+} from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import {
   insertItems,
@@ -71,6 +78,8 @@ describeWithDatabase("managed quest battle and abandonment", () => {
       battleHistory,
       battle,
       aiProfile,
+      overworldAiPlacementQuest,
+      overworldAiPlacement,
       questHistory,
       quest,
       userItem,
@@ -155,6 +164,129 @@ describeWithDatabase("managed quest battle and abandonment", () => {
     }
     return snapshot();
   };
+
+  /** Bind an unticketed Pyramid floor to the player's current overworld NPC tile. */
+  const overworldFloorSnapshot = async () => {
+    const { client, attempt } = await floorSnapshot(false);
+    await client.insert(overworldAiPlacement).values({
+      id: "npc",
+      aiTemplateUserId: "foe",
+      interactionType: "FRIENDLY",
+      sectorList: [0],
+    });
+    await client
+      .update(quest)
+      .set({
+        content: {
+          ...attempt.quest.content,
+          objectives: [
+            DefeatOpponents.parse({
+              id: "floor",
+              task: "defeat_opponents",
+              overworldPlacementId: "npc",
+              opponentAIs: [{ ids: ["foe"], number: 1 }],
+              givePools: 40,
+            }),
+          ],
+        },
+      })
+      .where(eq(quest.id, "pyramid"));
+    const content = await client.query.quest.findFirst({
+      where: eq(quest.id, "pyramid"),
+    });
+    await Promise.all([
+      client
+        .update(questHistory)
+        .set({ questVersion: content!.updatedAt })
+        .where(eq(questHistory.id, "run")),
+      client
+        .update(userData)
+        .set({
+          sector: 0,
+          longitude: 0,
+          latitude: 0,
+          questData: [QuestTracker.parse({ id: "pyramid" })],
+        })
+        .where(eq(userData.userId, "hero")),
+    ]);
+    return snapshot();
+  };
+
+  it("starts an unticketed bound overworld floor without a transaction", async () => {
+    const { client } = await overworldFloorSnapshot();
+    const caller = callerForDatabase(
+      overworldAiRouter,
+      "hero",
+      withoutTransactions(client),
+    );
+    const result = await caller.interactWithOverworldAi({
+      placementId: "npc",
+      positionVersion: 0,
+    });
+    expect(result.success).toBe(true);
+    const saved = await client.query.battle.findFirst();
+    expect(saved?.extraState.questBattleSource).toEqual({
+      questId: "pyramid",
+      objectiveId: "floor",
+    });
+    expect(
+      saved?.usersState.find((user) => user.controllerId === "hero")?.curHealth,
+    ).toBe(400);
+    expect((await client.query.questHistory.findFirst())?.entryPaid).toBe(false);
+  });
+
+  for (const state of ["hidden", "edited", "ended", "abandoned"] as const) {
+    it(`compensates an unticketed NPC floor when its attempt is ${state} before the claim`, async () => {
+      const { client, attempt } = await overworldFloorSnapshot();
+      const raced = beforeStatements(withoutTransactions(client), userData, [
+        async () => {
+          if (state === "hidden")
+            await client
+              .update(quest)
+              .set({ hidden: true })
+              .where(eq(quest.id, "pyramid"));
+          if (state === "edited")
+            await client
+              .update(quest)
+              .set({ updatedAt: new Date(attempt.quest.updatedAt.getTime() + 1000) })
+              .where(eq(quest.id, "pyramid"));
+          if (state === "ended")
+            await client
+              .update(questHistory)
+              .set({ endAt: new Date() })
+              .where(eq(questHistory.id, "run"));
+          if (state === "abandoned") {
+            const caller = callerForDatabase(
+              questsRouter,
+              "hero",
+              withoutTransactions(client),
+            );
+            expect((await caller.abandon({ id: "pyramid" })).success).toBe(true);
+          }
+        },
+      ]);
+      const caller = callerForDatabase(overworldAiRouter, "hero", raced);
+      expect(
+        (
+          await caller.interactWithOverworldAi({
+            placementId: "npc",
+            positionVersion: 0,
+          })
+        ).success,
+      ).toBe(false);
+      expect(await client.query.battle.findMany()).toHaveLength(0);
+      expect(await client.query.battleHistory.findMany()).toHaveLength(0);
+      const hero = await client.query.userData.findFirst({
+        where: eq(userData.userId, "hero"),
+      });
+      expect(hero).toMatchObject({ status: "AWAKE", battleId: null });
+      if (state === "abandoned") {
+        expect(hero?.questData).toEqual([]);
+        expect((await client.query.questHistory.findFirst())?.endAt).toBeInstanceOf(Date);
+      }
+      expect((await client.query.questHistory.findFirst())?.entryPaid).toBe(false);
+    });
+  }
 
   for (const paid of [true, false]) {
     it(`starts successive ${paid ? "paid" : "no-ticket"} floors without a transaction`, async () => {

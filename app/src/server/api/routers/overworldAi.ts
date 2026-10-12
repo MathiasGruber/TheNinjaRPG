@@ -444,11 +444,13 @@ export const overworldAiRouter = createTRPCRouter({
                 : [],
             forceKeepPools:
               "keepOriginalPools" in full ? full.keepOriginalPools : false,
+            // Pyramid lifecycle/version guards apply even when the floor needs no ticket.
             questAttempt: activeUser.userQuests.find(
               (entry) =>
                 entry.questId === bound.questId &&
                 !entry.endAt &&
-                !!entry.quest.content.entryItems?.length,
+                (entry.questType === "battlepyramid" ||
+                  !!entry.quest.content.entryItems?.length),
             ),
             allyAiIds:
               "allyAIs" in full
