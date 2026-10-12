@@ -57,8 +57,10 @@ import {
   buildCombatTrackerTasks,
   calcBattleResult,
   didKageChallengerWin,
+  didUserTakeKageSeat,
   getBattleTeamWars,
   getItem,
+  getKageChallengeParticipants,
   getOpposingBattleWars,
   getVillage,
   hydrateUserForQuests,
@@ -543,18 +545,11 @@ export const updateKage = async (
   curBattle: CompleteBattle,
   result: CombatResult | null,
 ) => {
-  // Only care about Kage battles
-  if (!["KAGE_AI", "KAGE_PVP"].includes(curBattle.battleType)) return;
+  // Only care about Kage battles between members of the same village
   if (!result) return;
-
-  // In Kage challenges, the challenger is always the aggressor
-  const challenger = curBattle.usersState.find((u) => u.isAggressor && !u.isSummon);
-  const kage = curBattle.usersState.find((u) => !u.isAggressor && !u.isSummon);
-
-  // Guards
-  if (!challenger || !kage) return;
-  if (!challenger.villageId || !kage.villageId) return;
-  if (challenger.villageId !== kage.villageId) return;
+  const participants = getKageChallengeParticipants(curBattle);
+  if (!participants) return;
+  const { challenger, kage } = participants;
 
   const challengerDidWin = didKageChallengerWin(
     challenger,
@@ -1508,8 +1503,8 @@ export const updateUser = async (
       });
     }
 
-    // Is it a kage challenge
-    const isKageChallenge = ["KAGE_AI", "KAGE_PVP"].includes(curBattle.battleType);
+    // A kage cannot also be an elder, so only the winning challenger loses ELDER
+    const tookKageSeat = didUserTakeKageSeat(curBattle, userId);
 
     // Any jutsus to be updated
     const jUsage = user.usedActions.filter((a) => a.type === "jutsu").map((a) => a.id);
@@ -1756,7 +1751,7 @@ export const updateUser = async (
                 rankedBattles: sql`rankedBattles + 1`,
               }
             : {}),
-          ...(isKageChallenge
+          ...(tookKageSeat
             ? {
                 rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
               }
