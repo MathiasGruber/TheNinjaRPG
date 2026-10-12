@@ -34,6 +34,17 @@ describe("owned furniture layouts", () => {
     expect(getDefaultHomeLayout([roleFallback, ...furniture, duplicate]).map(({ id }) => id)).toEqual(furniture.map(({ id }) => id));
   });
 
+  it("uses a starter's current action without placing the same owned row twice", () => {
+    const changedBed = fixture("changed-bed", { itemId: "home-bed", action: "storage" });
+    const layout = getDefaultHomeLayout([changedBed, ...furniture.slice(2)]);
+    const storagePosition = HOME_FURNITURE_STARTERS[1]!;
+    expect(layout).toEqual([
+      { id: changedBed.id, x: storagePosition.x, y: storagePosition.y, rotation: 0 },
+      ...getDefaultHomeLayout(furniture.slice(2)),
+    ]);
+    expect(homeFurnitureSaveInputSchema.safeParse({ homeType: "NONE", revision: 0, placements: layout }).success).toBe(true);
+  });
+
   it("loads only complete positions into independent drafts and normalizes rotation", () => {
     const rows = [
       { id: "placed", homeX: 20, homeY: 40, homeRotation: 1 },

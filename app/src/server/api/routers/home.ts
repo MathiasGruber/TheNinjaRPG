@@ -258,16 +258,15 @@ export const homeRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [useritems, { user }] = await Promise.all([
-        fetchUserItems(ctx.drizzle, ctx.userId),
-        fetchUpdatedUser({
-          client: ctx.drizzle,
-          userId: ctx.userId,
-        }),
-      ]);
+      // Read the account snapshot before inventory so its CAS detects concurrent storage changes.
+      const { user } = await fetchUpdatedUser({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+      });
+      if (!user) return errorResponse("User not found");
+      const useritems = await fetchUserItems(ctx.drizzle, ctx.userId);
       const storedItems = useritems.filter((ui) => ui.storedAtHome);
       // Guard
-      if (!user) return errorResponse("User not found");
       if (user.isBanned) return errorResponse("You are banned");
       if (user.homeType === input.homeType)
         return errorResponse("You already own this home type");
@@ -283,16 +282,20 @@ export const homeRouter = createTRPCRouter({
           .set({
             money: sql`${userData.money} - ${upgradeCost}`,
             homeType: input.homeType,
+            updatedAt: getNextUserSnapshotAt(user.updatedAt),
           })
           .where(
             and(
               eq(userData.userId, ctx.userId),
               eq(userData.homeType, user.homeType),
+              eq(userData.updatedAt, user.updatedAt),
               gte(userData.money, upgradeCost),
             ),
           );
         if (result.rowsAffected === 0) {
-          return errorResponse("Not enough Ryo or home already changed");
+          return errorResponse(
+            "Not enough Ryo or home inventory changed. Refresh and try again",
+          );
         }
         return { success: true, message: `Upgraded to ${targetHome.name}` };
       } else {
@@ -336,12 +339,17 @@ export const homeRouter = createTRPCRouter({
           .set({
             homeType: input.homeType,
             money: sql`${userData.money} + ${downgradeRefund}`,
+            updatedAt: getNextUserSnapshotAt(user.updatedAt),
           })
           .where(
-            and(eq(userData.userId, ctx.userId), eq(userData.homeType, user.homeType)),
+            and(
+              eq(userData.userId, ctx.userId),
+              eq(userData.homeType, user.homeType),
+              eq(userData.updatedAt, user.updatedAt),
+            ),
           );
         if (result.rowsAffected === 0) {
-          return errorResponse("Home type changed during transaction");
+          return errorResponse("Home inventory changed. Refresh and try again");
         }
         return { success: true, message: `Downgraded to ${targetHome.name}` };
       }

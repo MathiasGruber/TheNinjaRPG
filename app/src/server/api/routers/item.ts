@@ -2288,6 +2288,9 @@ export const itemRouter = createTRPCRouter({
       if (useritem.isInAuction) {
         return errorResponse("Cannot repair items that are in auction");
       }
+      if (!needsInventoryRepair(useritem)) {
+        return errorResponse("This item cannot be repaired");
+      }
       // Calculate repair cost
       const repairCost = calcItemRepairCost(useritem);
       if (user.money < repairCost) {
@@ -2451,6 +2454,9 @@ export const itemRouter = createTRPCRouter({
       if (repairUserItem.quantity <= 0) {
         return errorResponse("You don't have any of this repair item");
       }
+      if (repairUserItem.item.itemType === "FURNITURE") {
+        return errorResponse("This item cannot be used as a repair kit");
+      }
       if (targetUserItem.durability >= targetUserItem.item.maxDurability) {
         return errorResponse("Item is already at full durability");
       }
@@ -2459,6 +2465,9 @@ export const itemRouter = createTRPCRouter({
       }
       if (targetUserItem.isInAuction) {
         return errorResponse("Cannot repair items that are in auction");
+      }
+      if (!needsInventoryRepair(targetUserItem)) {
+        return errorResponse("This item cannot be repaired");
       }
       // Check if repair item has repair tag
       const repairEffect = repairUserItem.item.effects.find((e) => e.type === "repair");

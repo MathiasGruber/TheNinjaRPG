@@ -95,6 +95,7 @@ export default function HomePage() {
     refetch: userHomeRefetch,
   } = api.home.getUserHome.useQuery(undefined, {
     enabled: !!userData && access && ownVillage,
+    staleTime: 0,
   });
   const {
     data: availableUpgrades,

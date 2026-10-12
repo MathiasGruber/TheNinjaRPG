@@ -20,8 +20,9 @@ export const getDefaultHomeLayout = (furniture: HomeFurniture[]): HomePlacement[
   const actions: HomeFurnitureAction[] = ["sleep", "storage", "kitchen", "farm"];
   return HOME_FURNITURE_STARTERS.flatMap((starter, index) => {
     const fixture =
-      furniture.find((piece) => piece.itemId === starter.itemId) ??
-      furniture.find((piece) => piece.action === actions[index]);
+      furniture.find(
+        (piece) => piece.itemId === starter.itemId && piece.action === actions[index],
+      ) ?? furniture.find((piece) => piece.action === actions[index]);
     return fixture
       ? [{ id: fixture.id, x: starter.x, y: starter.y, rotation: 0 as const }]
       : [];

@@ -9,7 +9,7 @@ import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { FURNITURE_ITEM_DEFAULTS } from "@/validators/itemFurniture";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
-import { failStatements } from "../../setup/statements";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const userId = "furniture-buyer";
@@ -110,6 +110,51 @@ describeWithDatabase("standard furniture purchases", () => {
     expect(after.inventory).toHaveLength(capacity);
     expect(after.inventory.filter(({ itemId }) => itemId === "furniture")).toHaveLength(1);
     expect(after.owner.money).toBe(money - price);
+  });
+
+  it("rejects checkout after a downgrade reduces the checked home capacity", async () => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({
+      homeType: "STUDIO_APARTMENT", regenAt: new Date(Date.now() + 60_000),
+    }).where(eq(userData.userId, userId));
+    await storedRows(capacity);
+    const before = await snapshot();
+    let downgrade: Awaited<ReturnType<ReturnType<typeof homeRouter.createCaller>["upgradeHome"]>> | undefined;
+    const raced = new Proxy(database, {
+      get(target, key, receiver) {
+        if (key !== "transaction") return Reflect.get(target, key, receiver);
+        return async (callback: Parameters<typeof database.transaction>[0]) => {
+          downgrade = await (await callerFor(homeRouter, userId)).upgradeHome({ homeType: "NONE" });
+          return database.transaction(callback);
+        };
+      },
+    });
+    const purchase = await callerForDatabase(itemRouter, userId, raced).buy({ itemId: "furniture", villageId, stack: 1 });
+    expect(downgrade?.success).toBe(true);
+    expect(purchase.success).toBe(false);
+    const after = await snapshot();
+    expect(after.owner.homeType).toBe("NONE");
+    expect(after.inventory).toEqual(before.inventory);
+    expect(after.owner.money).toBe(before.owner.money + Math.floor(HomeTypeDetails.STUDIO_APARTMENT.cost * 0.75));
+    expect(after.owner.updatedAt.getTime()).toBeGreaterThan(before.owner.updatedAt.getTime());
+  });
+
+  it("rejects a stale downgrade after checkout fills its target home capacity", async () => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({
+      homeType: "STUDIO_APARTMENT", regenAt: new Date(Date.now() + 60_000),
+    }).where(eq(userData.userId, userId));
+    await storedRows(capacity);
+    let purchase: Awaited<ReturnType<ReturnType<typeof itemRouter.createCaller>["buy"]>> | undefined;
+    const raced = beforeStatements(database, userData, [async () => { purchase = await buy(); }]);
+    const downgrade = await callerForDatabase(homeRouter, userId, raced).upgradeHome({ homeType: "NONE" });
+    expect(purchase?.success).toBe(true);
+    expect(downgrade.success).toBe(false);
+    const after = await snapshot();
+    expect(after.owner.homeType).toBe("STUDIO_APARTMENT");
+    expect(after.inventory).toHaveLength(capacity + 1);
+    expect(after.owner.money).toBe(money - price);
+    expect(after.inventory.filter(({ storedAtHome }) => storedAtHome).length).toBeLessThanOrEqual(HomeTypeDetails[after.owner.homeType].storage);
   });
 
   it("rejects insufficient funds and unsupported stacks without consuming quota", async () => {

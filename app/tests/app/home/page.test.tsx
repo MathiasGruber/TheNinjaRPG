@@ -84,6 +84,54 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
+it("refreshes a selected furniture variant when returning from inventory", async () => {
+  vi.spyOn(Image, "default").mockImplementation(({ alt, src }) => <img alt={alt} src={typeof src === "string" ? src : undefined} />);
+  let homeQueries = 0;
+  let selectedImage = "/base-chair.webp";
+  const chair: HomeFurniture = {
+    ...rug, id: "owned-chair", itemId: "chair", name: "Chair", isFloor: false,
+  };
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  });
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getUserHome") {
+      homeQueries++;
+      const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
+        homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+        furniture: [{ ...chair, image: selectedImage }], furnitureRevision: 3,
+        layout: [{ id: chair.id, x: 50, y: 50, rotation: 0 }],
+      };
+      observer.next({ result: { data: home } });
+    } else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") {
+      observer.next({ result: { data: [] } });
+    } else {
+      throw new Error(`Unexpected procedure ${op.path}`);
+    }
+    observer.complete();
+  })] });
+  const mount = () => render(
+    <testApi.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+    </testApi.Provider>,
+  );
+  try {
+    const firstVisit = mount();
+    await firstVisit.findByRole("button", { name: "Decorate" });
+    expect(firstVisit.container.querySelector('img[src="/base-chair.webp"]')).not.toBeNull();
+    firstVisit.unmount();
+    selectedImage = "/red-chair.webp";
+    // Variant selection refreshes inventory; the next home visit must fetch its selected appearance.
+    await queryClient.invalidateQueries({ queryKey: getQueryKey(testApi.item.getUserItemsWithVariants, undefined, "query") });
+    const secondVisit = mount();
+    await waitFor(() => expect(secondVisit.container.querySelector('img[src="/red-chair.webp"]')).not.toBeNull());
+    expect(homeQueries).toBe(2);
+    expect(secondVisit.container.querySelector('img[src="/base-chair.webp"]')).toBeNull();
+  } finally {
+    queryClient.clear();
+  }
+});
+
 for (const success of [true, false]) {
   it(`keeps the editor disabled through refreshing a ${success ? "successful" : "rejected"} save`, async () => {
     let finishRefresh = () => {};
