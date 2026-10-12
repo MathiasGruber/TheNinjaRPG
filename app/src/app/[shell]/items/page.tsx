@@ -952,14 +952,8 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     .sort(byItemName);
   const itemBadges = userItemActionBadges(useritems);
   const sellPrice = calcItemSellingPrice(userData, useritem, structures);
-  const repairItems = (useritems || []).filter(
-    (userItem: UserItemWithRelations) =>
-      userItem.item.itemType !== "FURNITURE" &&
-      userItem.item?.effects?.some((e: { type: string }) => e.type === "repair") &&
-      userItem.quantity > 0 &&
-      !userItem.storedAtHome &&
-      !userItem.isInAuction &&
-      (!userItem.craftingFinishedAt || userItem.craftingFinishedAt < new Date()),
+  const repairItems = getRepairKits(useritems, userData).map(
+    ({ userItem }) => userItem,
   );
 
   // Split stack handler
@@ -1392,14 +1386,8 @@ const Character: React.FC<CharacterProps> = (props) => {
     .sort(byItemName);
   const itemBadges = userItemActionBadges(useritems);
   const equipped = items?.find((item) => item.equipped === slot);
-  const repairItems = (useritems || []).filter(
-    (userItem: UserItemWithRelations) =>
-      userItem.item.itemType !== "FURNITURE" &&
-      userItem.item?.effects?.some((e: { type: string }) => e.type === "repair") &&
-      userItem.quantity > 0 &&
-      !userItem.storedAtHome &&
-      !userItem.isInAuction &&
-      (!userItem.craftingFinishedAt || userItem.craftingFinishedAt < new Date()),
+  const repairItems = getRepairKits(useritems, userData).map(
+    ({ userItem }) => userItem,
   );
 
   // tRPC utility
