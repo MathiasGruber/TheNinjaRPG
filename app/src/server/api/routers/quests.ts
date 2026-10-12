@@ -4118,12 +4118,20 @@ export const handleQuestConsequences = async (
   const collected = consequences.filter((c) => c.type === "add_item");
   // Items removed
   const removed = consequences.filter((c) => c.type === "remove_item");
-  const removedItemIds = [...new Set(removed.flatMap((c) => c.ids))];
-  const missingItemIds = removedItemIds.filter(
-    (id) => !user.items.some((item) => item.itemId === id),
-  );
+  // Each delivery retires one owned row per distinct item ID, including missed receipts.
+  const removedItemCounts = new Map<string, number>();
+  for (const consequence of removed) {
+    for (const id of new Set(consequence.ids)) {
+      removedItemCounts.set(id, (removedItemCounts.get(id) ?? 0) + 1);
+    }
+  }
+  const missingItemIds = [...removedItemCounts]
+    .filter(
+      ([id, count]) => user.items.filter((item) => item.itemId === id).length < count,
+    )
+    .map(([id]) => id);
   // Profile snapshots carry equipped items only; shared deliveries must also retire
-  // unequipped quest copies. Only missing rows require this consequence-dependent read.
+  // unequipped quest copies. Read additional rows only when the snapshot lacks enough.
   const additionalItems =
     missingItemIds.length > 0
       ? await client.query.userItem.findMany({
@@ -4139,9 +4147,13 @@ export const handleQuestConsequences = async (
         })
       : [];
   const ownedItems = [...user.items, ...additionalItems];
-  const removedUserItemIds = removedItemIds
-    .map((id) => ownedItems.find((item) => item.itemId === id)?.id)
-    .filter(Boolean) as string[];
+  const removedUserItemIds = [...removedItemCounts].flatMap(([id, count]) =>
+    [
+      ...new Set(
+        ownedItems.filter((item) => item.itemId === id).map((item) => item.id),
+      ),
+    ].slice(0, count),
+  );
   // Opponents to attack
   let opponent = consequences.find((c) => c.type === "combat");
   // Objective attackers ambush a player who is out travelling, so they are rolled only for the

@@ -538,6 +538,86 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     }
   }
 
+  for (const consecutiveObjectives of [true, false]) {
+    for (const mode of ["missed deliveries", "disbanded", "equipped copy", "distinct items", "refresh each delivery"] as const) {
+      it(`retires each shared delivery copy (${consecutiveObjectives ? "consecutive" : "parallel"}, ${mode})`, async () => {
+        const client = await getTestDatabase();
+        await insertItems([{ id: "scroll" }, { id: "second-scroll" }]);
+        const secondId = mode === "distinct items" ? "second-scroll" : "scroll";
+        const location = { item_name: "Scroll", sector: 50, latitude: 10, sectorType: "specific", locationType: "specific" };
+        const objectives = [
+          AllObjectives.parse({ ...location, id: "collect1", task: "collect_item", collectItemIds: ["scroll"], longitude: 11, nextObjectiveId: "collect2" }),
+          AllObjectives.parse({ ...location, id: "collect2", task: "collect_item", collectItemIds: [secondId], longitude: 13, nextObjectiveId: "deliver1" }),
+          AllObjectives.parse({ ...location, id: "deliver1", task: "deliver_item", deliverItemIds: ["scroll"], longitude: 14, nextObjectiveId: "deliver2" }),
+          AllObjectives.parse({ ...location, id: "deliver2", task: "deliver_item", deliverItemIds: [secondId], longitude: 15, nextObjectiveId: "wait" }),
+          AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+        ];
+        expect(verifyQuestContentForSave(objectives, consecutiveObjectives).check).toBe(true);
+        await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives, reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+        expect(QuestValidator.safeParse(await client.query.quest.findFirst()).success).toBe(true);
+        const leader = await callerFor(questPartyRouter, "leader");
+        expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+        const party = (await client.query.questParty.findFirst())!;
+        expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+        const leaderQuest = await callerFor(questsRouter, "leader");
+        for (const longitude of [11, 13]) {
+          await client.update(userData).set({ longitude }).where(eq(userData.userId, "leader"));
+          expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+        }
+        await fetchUpdatedUser({ client, userId: "helper" });
+        const copies = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+        expect(copies).toHaveLength(2);
+        if (mode === "equipped copy") await client.update(userItem).set({ equipped: "CHEST" }).where(eq(userItem.id, copies[0]!.id));
+        for (const longitude of [14, 15]) {
+          await client.update(userData).set({ longitude }).where(eq(userData.userId, "leader"));
+          expect((await leaderQuest.checkLocationQuest()).success).toBe(true);
+          if (mode === "refresh each delivery") await fetchUpdatedUser({ client, userId: "helper" });
+        }
+        expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "leader") })).toHaveLength(0);
+        if (mode === "disbanded") expect((await leader.disband({ partyId: party.id })).success).toBe(true);
+        for (let read = 0; read < 2; read++) {
+          await fetchUpdatedUser({ client, userId: "helper" });
+          expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toHaveLength(0);
+        }
+        const personal = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+        expect(personal.questData?.find((tracker) => tracker.id === "team-quest")?.goals.filter((goal) => ["collect1", "collect2", "deliver1", "deliver2"].includes(goal.id)).every((goal) => goal.done && goal.partyEffectsApplied)).toBe(true);
+      });
+    }
+  }
+
+  it("removes one owned row for duplicate IDs within an ordinary delivery", async () => {
+    const client = await getTestDatabase();
+    await insertItems([{ id: "scroll" }]);
+    await insertUserItems([
+      { id: "stack", userId: "helper", itemId: "scroll", quantity: 3, equipped: "CHEST" },
+      { id: "spare", userId: "helper", itemId: "scroll" },
+    ]);
+    const { user } = await fetchUpdatedUser({ client, userId: "helper" });
+    expect(user?.questPartyId).toBeNull();
+    expect((await handleQuestConsequences(client, user!, [{ type: "remove_item", ids: ["scroll", "scroll"] }], [])).claimed).toBe(true);
+    expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).toMatchObject([{ id: "spare", quantity: 1 }]);
+  });
+
+  it("allocates separate delivery rows without consuming unavailable inventory", async () => {
+    const client = await getTestDatabase();
+    await insertItems([{ id: "scroll" }]);
+    await insertUserItems([
+      { id: "copy1", userId: "helper", itemId: "scroll" },
+      { id: "copy2", userId: "helper", itemId: "scroll" },
+      { id: "home", userId: "helper", itemId: "scroll", storedAtHome: true },
+      { id: "auction", userId: "helper", itemId: "scroll", isInAuction: true },
+      { id: "crafting", userId: "helper", itemId: "scroll", craftingFinishedAt: new Date(Date.now() + 60_000) },
+      { id: "merge", userId: "helper", itemId: "scroll", quantity: -1 },
+      { id: "empty", userId: "helper", itemId: "scroll", quantity: 0 },
+    ]);
+    const { user } = await fetchUpdatedUser({ client, userId: "helper" });
+    expect((await handleQuestConsequences(client, user!, [
+      { type: "remove_item", ids: ["scroll", "scroll"] },
+      { type: "remove_item", ids: ["scroll"] },
+    ], [])).claimed).toBe(true);
+    expect((await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") })).map((copy) => copy.id).sort()).toEqual(["auction", "crafting", "empty", "home", "merge"]);
+  });
+
   for (const mode of ["form", "join", "replacement"] as const) {
     it(`preserves collection deliveries when entering a team (${mode})`, async () => {
       const client = await getTestDatabase();
