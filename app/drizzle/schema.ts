@@ -1933,6 +1933,8 @@ export const rankedPvpQueue = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     rankedLp: int("rankedLp").notNull(),
+    // Existing rows already own their queue status; new joins publish false until claimed.
+    hasClaimed: boolean("hasClaimed").default(true).notNull(),
     queueStartTime: datetime("queueStartTime", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

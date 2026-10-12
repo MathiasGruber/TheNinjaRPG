@@ -60,6 +60,7 @@ const HOURLY_TIMER_NAME = "cleaner-hourly";
 
 export const maxDuration = 300;
 
+/** Run cron-authenticated hourly cleanup, claiming daily maintenance separately. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;
@@ -382,11 +383,12 @@ export async function GET(request: Request) {
     );
 
     // Step 25: Set status to AWAKE for users who are QUEUED if they are not in any active battle systems
+    // Only claimed ranked rows own status; provisional joins must not keep an orphan queued.
     // This covers mpvp battles and ranked PVP (kage challenges now use KAGE_QUEUED status)
     await drizzleDB.execute(
       sql`UPDATE ${userData} a SET a.status="AWAKE" WHERE a.status="QUEUED" 
           AND NOT EXISTS (SELECT id FROM ${mpvpBattleUser} b WHERE b.userId = a.userId)
-          AND NOT EXISTS (SELECT id FROM ${rankedPvpQueue} d WHERE d.userId = a.userId)`,
+          AND NOT EXISTS (SELECT id FROM ${rankedPvpQueue} d WHERE d.userId = a.userId AND d.hasClaimed = true)`,
     );
 
     // Step 25b: Set status to AWAKE for users who are KAGE_QUEUED if their challenge has expired

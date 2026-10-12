@@ -19,7 +19,6 @@ import type {
 import {
   AutoBattleTypes,
   BATTLE_TAG_STACKING,
-  CLAN_BATTLE_REWARD_POINTS,
   CombatStatTypes,
   FRIENDLY_PRESTIGE_COST,
   getUserCaps,
@@ -2027,10 +2026,10 @@ export const calcBattleResult = (
         }
       }
 
-      // Check for clan points
-      if (didWin && !allOpponentsFled) {
+      // Clan battles pay the clan once through shared settlement, rather than
+      // awarding additional clan points for each participant's result.
+      if (didWin && !allOpponentsFled && battleType !== "CLAN_BATTLE") {
         if (user.clanId) clanPoints += 1;
-        if (battleType === "CLAN_BATTLE") clanPoints += CLAN_BATTLE_REWARD_POINTS;
       }
 
       // Check for prestige, tokens, etc.

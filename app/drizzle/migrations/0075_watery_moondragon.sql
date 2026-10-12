@@ -1,0 +1,1 @@
+ALTER TABLE `RankedPvpQueue` ADD `hasClaimed` boolean DEFAULT true NOT NULL;

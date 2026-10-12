@@ -67,6 +67,8 @@ import {
   gameSetting,
   item,
   jutsu,
+  mpvpBattleQueue,
+  mpvpBattleUser,
   quest,
   questHistory,
   raidParticipation,
@@ -1855,6 +1857,8 @@ export const initiateBattle = async (
     forceKeepPools?: boolean;
     raidQuestId?: string;
     topPlayersLP?: number[];
+    /** Reserved lobby/combat IDs used to reject participants after lobby deletion. */
+    clanBattle?: { queueId: string; battleId: string };
     /** Human users whose turns should be driven by their own AI profile (auto combat) */
     autoCombatUserIds?: string[];
   },
@@ -2702,7 +2706,7 @@ export const initiateBattle = async (
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
   // Insert battle entry into DB
-  const battleId = nanoid();
+  const battleId = info.clanBattle?.battleId ?? nanoid();
 
   // Rows the status update below is expected to claim, used as the CAS guard
   const allParticipantIds = getBattleClaimIds({
@@ -2880,7 +2884,7 @@ export const initiateBattle = async (
   }
 
   // Run battle creation and user status updates in parallel for performance
-  const [, , userResult] = await Promise.all([
+  const creationResults = await Promise.allSettled([
     client.insert(battle).values({
       id: battleId,
       battleType: battleType,
@@ -3017,21 +3021,46 @@ export const initiateBattle = async (
           // QUEUED specifically: a player who just left the queue (now AWAKE)
           // must not be pulled into a ranked battle by a poll whose snapshot
           // predated their leave.
-          battleType === "RANKED_PVP"
+          battleType === "CLAN_BATTLE" && info.clanBattle
             ? and(
                 eq(userData.status, "QUEUED"),
                 exists(
                   client
                     .select({ one: sql`1` })
-                    .from(rankedPvpQueue)
-                    .where(eq(rankedPvpQueue.userId, userData.userId)),
+                    .from(mpvpBattleUser)
+                    .innerJoin(
+                      mpvpBattleQueue,
+                      eq(mpvpBattleUser.clanBattleId, mpvpBattleQueue.id),
+                    )
+                    .where(
+                      and(
+                        eq(mpvpBattleUser.userId, userData.userId),
+                        eq(mpvpBattleQueue.id, info.clanBattle.queueId),
+                        eq(mpvpBattleQueue.battleId, battleId),
+                      ),
+                    ),
                 ),
               )
-            : or(
-                eq(userData.status, "AWAKE"),
-                eq(userData.status, "QUEUED"),
-                eq(userData.status, "KAGE_QUEUED"),
-              ),
+            : battleType === "RANKED_PVP"
+              ? and(
+                  eq(userData.status, "QUEUED"),
+                  exists(
+                    client
+                      .select({ one: sql`1` })
+                      .from(rankedPvpQueue)
+                      .where(
+                        and(
+                          eq(rankedPvpQueue.userId, userData.userId),
+                          eq(rankedPvpQueue.hasClaimed, true),
+                        ),
+                      ),
+                  ),
+                )
+              : or(
+                  eq(userData.status, "AWAKE"),
+                  eq(userData.status, "QUEUED"),
+                  eq(userData.status, "KAGE_QUEUED"),
+                ),
           ...(battleType === "COMBAT"
             ? [
                 and(
@@ -3065,6 +3094,15 @@ export const initiateBattle = async (
         ]
       : []),
   ]);
+
+  // Callers may compensate a failed start only after every sibling write has
+  // finished; Promise.all would reject while combat/history inserts still run.
+  const failedCreation = creationResults.find((entry) => entry.status === "rejected");
+  if (failedCreation?.status === "rejected") throw failedCreation.reason;
+  const userClaimResult = creationResults[2];
+  if (userClaimResult?.status !== "fulfilled")
+    throw new Error("Missing battle participant claim");
+  const userResult = userClaimResult.value;
 
   if (
     queuedParticipants.some(

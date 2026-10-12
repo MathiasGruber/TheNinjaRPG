@@ -49,6 +49,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ASSASSIN_MAX_PER_FACTION,
   CLAN_ASSASSIN_SLOTS,
+  CLAN_BATTLE_REWARD_POINTS,
+  CLAN_BATTLE_REWARD_RYO,
   CLAN_BOOST_MAX_LEVEL,
   CLAN_BOOST_PERCENT_PER_LEVEL,
   CLAN_COLOR_CHANGE_REP_COST,
@@ -65,6 +67,7 @@ import {
   CLAN_MISSION_BOOST_BASE_COST,
   CLAN_MISSION_BOOST_PER_LEVEL_COST,
   CLAN_MPVP_MAX_USERS_PER_SIDE,
+  CLAN_POINT_RYO_RATE,
   CLAN_RANK_REQUIREMENT,
   CLAN_REGEN_BOOST_BASE_COST,
   CLAN_REGEN_BOOST_PER_LEVEL_COST,
@@ -349,6 +352,13 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
   const { userData, timeDiff } = useRequireInVillage("/clanhall");
   const groupLabel = userData?.isOutlaw ? "Faction" : "Clan";
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
+  const [deletingBattleId, setDeletingBattleId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  // Hide successful deletions while a refetch can still expose its cached rows.
+  const [deletedBattleIds, setDeletedBattleIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const deleteSubmissionInFlight = useRef(false);
   const [joiningSlotKey, setJoiningSlotKey] = useState<string | null>(null);
   const [joinedBattleId, setJoinedBattleId] = useState<string | null>(null);
   const [leavingBattleIds, setLeavingBattleIds] = useState<Set<string>>(
@@ -378,6 +388,37 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
 
   // Get router
   const router = useRouter();
+
+  const { mutateAsync: removeBattle, isPending: isDeletingBattle } =
+    api.clan.deleteClanBattle.useMutation();
+  /** Keep rejection feedback in the dialog and refresh combat/profile after deletion. */
+  const onDeleteBattle = async () => {
+    if (!deletingBattleId || deleteSubmissionInFlight.current) return;
+    deleteSubmissionInFlight.current = true;
+    setDeleteError("");
+    try {
+      const result = await removeBattle({ clanBattleId: deletingBattleId });
+      showMutationToast(result);
+      if (!result.success) {
+        setDeleteError(result.message);
+        return;
+      }
+      setDeletedBattleIds((current) => new Set(current).add(deletingBattleId));
+      setDeletingBattleId(null);
+      if (joinedBattleId === deletingBattleId) setJoinedBattleId(null);
+      await Promise.all([
+        utils.clan.getClanBattles.invalidate(),
+        utils.profile.getUser.invalidate(),
+        utils.combat.getBattle.invalidate(),
+      ]);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "Could not delete battle",
+      );
+    } finally {
+      deleteSubmissionInFlight.current = false;
+    }
+  };
 
   // Mutations
   const { mutateAsync: challenge, isPending: isChallenging } =
@@ -775,6 +816,12 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
     resolver: zodResolver(clanSearchSchema),
     defaultValues: { name: "", clans: [] },
   });
+  useEffect(() => {
+    if (data && joinedBattleId && !data.some((entry) => entry.id === joinedBattleId)) {
+      setJoinedBattleId(null);
+    }
+  }, [data, joinedBattleId]);
+
   const targetClan = useWatch({
     control: clanSearchMethods.control,
     name: "clans",
@@ -810,7 +857,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
 
   // Prepare data for table
   const clanBattles = data
-    .filter((b) => b.attackerClan && b.defenderClan)
+    .filter((b) => b.attackerClan && b.defenderClan && !deletedBattleIds.has(b.id))
     .map((battle) => {
       // Use side field to determine attackers/defenders
       const visibleQueue = battle.queue.filter(
@@ -897,6 +944,18 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                 )}
               </div>
             )}
+            {(canCreate || canEditClans(userData.role)) && (
+              <Button
+                variant="destructive"
+                disabled={isDeletingBattle}
+                onClick={() => {
+                  setDeleteError("");
+                  setDeletingBattleId(battle.id);
+                }}
+              >
+                Delete battle
+              </Button>
+            )}
             <Countdown targetDate={startTime} timeDiff={timeDiff} onEndShow=" " />
           </div>
         ),
@@ -942,10 +1001,11 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
                 keepOpenOnAccept
                 onAccept={() => void onChallenge()}
               >
-                Challenge another {groupLabel.toLowerCase()} to a battle royale.{" "}
-                {groupLabel} battles can be up to 5 vs. 5 users; it will always be an
-                equal number of users battling each other, so if 5 join from one side
-                and 3 from the other, it will be a 3 vs. 3 battle.
+                Challenge another {groupLabel.toLowerCase()} to a battle royale. Both
+                sides field an equal number of participants. A victory awards the
+                winning {groupLabel.toLowerCase()}{" "}
+                {CLAN_BATTLE_REWARD_POINTS.toLocaleString()} points and{" "}
+                {CLAN_BATTLE_REWARD_RYO.toLocaleString()} ryo in its bank.
                 <fieldset
                   disabled={isChallenging}
                   aria-disabled={isChallenging}
@@ -967,6 +1027,29 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
         </div>
       }
     >
+      <Modal
+        id="delete-clan-battle"
+        title="Delete clan battle"
+        isOpen={!!deletingBattleId}
+        setIsOpen={(open) => {
+          if (!open) setDeletingBattleId(null);
+        }}
+        proceed_label="Delete battle"
+        proceed_loading_label="Deleting"
+        isLoading={isDeletingBattle}
+        keepOpenOnAccept
+        onAccept={() => void onDeleteBattle()}
+      >
+        <p>
+          Delete this battle and its combat record? All participants still queued or
+          fighting in this battle will be released. Completed rewards are kept.
+        </p>
+        {deleteError && (
+          <p role="alert" className="mt-2 text-red-600">
+            {deleteError}
+          </p>
+        )}
+      </Modal>
       {clanBattles?.length === 0 && (
         <p className="p-3 italic">No current {groupLabel.toLowerCase()} battles</p>
       )}
@@ -1830,7 +1913,12 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
             </div>
             <div>
               <p>PvP Activity: {clanData.pvpActivity}</p>
-              <p>Points: {clanData.points}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p>Points: {clanData.points.toLocaleString()}</p>
+                {leaderLike && userData.clanId === clanId && (
+                  <ClanPointConversion clanId={clanId} points={clanData.points} />
+                )}
+              </div>
               <div className="flex flex-row items-center">
                 <p>Bank: {clanData.bank}</p>{" "}
                 <Confirm
@@ -3286,3 +3374,90 @@ const BoostRow: React.FC<BoostRowProps> = ({
     </div>
   );
 };
+
+/** Confirm a clan-bank conversion and keep expected rejections visible for retry. */
+function ClanPointConversion({ clanId, points }: { clanId: string; points: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [amount, setAmount] = useState(1);
+  const [error, setError] = useState("");
+  // Modal callbacks can repeat before React renders the mutation's pending state.
+  const submitting = useRef(false);
+  const utils = api.useUtils();
+  const { mutateAsync: convert, isPending } = api.clan.convertPointsToRyo.useMutation();
+  const isValid = Number.isSafeInteger(amount) && amount > 0 && amount <= points;
+  const onConvert = async () => {
+    if (!isValid || submitting.current) return;
+    submitting.current = true;
+    setError("");
+    try {
+      const result = await convert({ clanId, points: amount });
+      showMutationToast(result);
+      if (!result.success) {
+        setError(result.message);
+        return;
+      }
+      setIsOpen(false);
+      setAmount(1);
+      // Profile data also embeds clan balances used outside the clan hall.
+      await Promise.all([
+        utils.clan.get.invalidate(),
+        utils.profile.getUser.invalidate(),
+      ]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not convert points");
+    } finally {
+      submitting.current = false;
+    }
+  };
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={points < 1}
+        onClick={() => {
+          setError("");
+          setIsOpen(true);
+        }}
+      >
+        Convert points to ryo
+      </Button>
+      <Modal
+        id="convert-clan-points"
+        title="Convert clan points to ryo"
+        isOpen={isOpen}
+        setIsOpen={setIsOpen}
+        proceed_label="Convert"
+        proceed_loading_label="Converting"
+        isLoading={isPending}
+        proceedDisabled={!isValid}
+        keepOpenOnAccept
+        onAccept={() => void onConvert()}
+      >
+        <p>
+          Each clan point adds {CLAN_POINT_RYO_RATE.toLocaleString()} ryo to the clan
+          bank. Banked ryo cannot be withdrawn.
+        </p>
+        <p className="my-2">Available: {points.toLocaleString()} clan points</p>
+        <label htmlFor="clan-points-to-convert">Clan points to convert</label>
+        <NumberInput
+          id="clan-points-to-convert"
+          value={amount}
+          onValueChange={setAmount}
+          min={1}
+          max={points}
+          disabled={isPending}
+        />
+        <p className="mt-2">
+          Clan bank receives:{" "}
+          {isValid ? (amount * CLAN_POINT_RYO_RATE).toLocaleString() : "0"} ryo
+        </p>
+        {error && (
+          <p role="alert" className="mt-2 text-red-600">
+            {error}
+          </p>
+        )}
+      </Modal>
+    </>
+  );
+}
