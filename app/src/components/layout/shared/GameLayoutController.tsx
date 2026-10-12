@@ -1,13 +1,21 @@
 "use client";
 
-import React, { startTransition, useEffect, useLayoutEffect, useState } from "react";
+import React, {
+  startTransition,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import ReactDOM from "react-dom";
+import { api } from "@/app/_trpc/client";
 import {
   safeLocalStorageGetItem,
   safeLocalStorageSetItem,
   useLocalStorage,
 } from "@/hooks/localstorage";
 import { FONT_SCALE_STORAGE_KEY } from "@/hooks/useFontScale";
+import { usePageActive } from "@/hooks/usePageActive";
 import { GlobalAudioProvider } from "@/layout/GameSettings";
 import TutorialAssistant from "@/layout/TutorialAssistant";
 import {
@@ -57,6 +65,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
     updateUser,
   } = useUserData();
   const pathname = usePublicPathname();
+  const isPageActive = usePageActive();
   const { systems, location } = useGameMenu(userData);
   const [leftSideBarOpen, setLeftSideBarOpen] = useState(false);
   const [rightSideBarOpen, setRightSideBarOpen] = useState(false);
@@ -84,6 +93,15 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
       lightLayout === true,
     );
   }, [lightLayout]);
+
+  const { data: rankedQueueCount = 0 } = api.pvpRank.getRankedQueueCount.useQuery(
+    undefined,
+    {
+      enabled: !!userId && isPageActive,
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
+  );
 
   useEffect(() => {
     // Deep links and notification taps navigate without clicking a sidebar item.
@@ -175,12 +193,28 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   };
 
   const navbarMenuItems = getMainNavbarLinks(notifications);
-  const shownNotifications = notifications?.filter(
-    (n) =>
-      n.color !== "toast" &&
-      n.color !== "hidden" &&
-      (n.alwaysShow || n.href !== pathname),
-  );
+  const shownNotifications = useMemo(() => {
+    const base =
+      notifications?.filter(
+        (n) =>
+          n.color !== "toast" &&
+          n.color !== "hidden" &&
+          (n.alwaysShow || n.href !== pathname),
+      ) ?? [];
+    if (!userId || rankedQueueCount <= 0) return base;
+    return [
+      ...base,
+      {
+        href: "/battlearena#PVP%20Rank",
+        name:
+          rankedQueueCount === 1
+            ? "1 player in ranked queue"
+            : `${rankedQueueCount} players in ranked queue`,
+        color: "blue" as const,
+        alwaysShow: true,
+      },
+    ];
+  }, [notifications, pathname, rankedQueueCount, userId]);
   const navbarMenuItemsLeft = navbarMenuItems.slice(0, 3);
   const navbarMenuItemsRight = navbarMenuItems.slice(3);
   const isSignedInLayout =

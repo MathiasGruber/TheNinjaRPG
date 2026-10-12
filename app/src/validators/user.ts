@@ -191,6 +191,7 @@ export const updateUserPreferencesSchema = z
     iframesMuted: z.boolean().optional(),
     tutorialOn: z.boolean().optional(),
     defaultAutoCombat: z.boolean().optional(),
+    showPvpRecord: z.boolean().optional(),
   })
   .refine(
     (data) => {

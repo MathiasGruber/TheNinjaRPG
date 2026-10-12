@@ -168,6 +168,30 @@ describeWithDatabase("CAS combat settlement", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
+  it("increments unranked PvP records once across settlement retries", async () => {
+    const snapshot = scenario(false);
+    snapshot.battleType = "COMBAT";
+    await (await getTestDatabase()).insert(battle).values(snapshot);
+    await settle(structuredClone(snapshot));
+    expect(await settle(structuredClone(snapshot))).toBeNull();
+    const stored = await (await getTestDatabase()).query.battle.findFirst({ where: eq(battle.id, snapshot.id) });
+    await settle(stored as CompleteBattle, "loser");
+    const users = await (await getTestDatabase()).query.userData.findMany();
+    expect(users.find((user) => user.userId === "winner")?.pvpWins).toBe(1);
+    expect(users.find((user) => user.userId === "loser")?.pvpLosses).toBe(1);
+  });
+
+  it("keeps AI combat out of player PvP records", async () => {
+    const snapshot = scenario(false);
+    snapshot.battleType = "COMBAT";
+    snapshot.usersState[1]!.isAi = true;
+    await (await getTestDatabase()).insert(battle).values(snapshot);
+    await settle(snapshot);
+    const user = await (await getTestDatabase()).query.userData.findFirst({ where: eq(userData.userId, "winner") });
+    expect(user?.pvpWins).toBe(0);
+    expect(user?.pvpLosses).toBe(0);
+  });
+
   it("keeps finished imbuement effects in the accepted compact profile after persisted battle settlement", async () => {
     const database = await getTestDatabase();
     await insertUsers([

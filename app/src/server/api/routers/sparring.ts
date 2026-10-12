@@ -17,6 +17,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { cleanRankedProhibitedSelections } from "@/server/utils/ranked";
 import { secondsFromNow } from "@/utils/time";
 import { idSchema } from "@/validators/misc";
 
@@ -110,22 +111,32 @@ export const sparringRouter = createTRPCRouter({
         }
 
         // Check that both loadouts have at least some items/jutsus equipped
-        const senderHasLoadout =
-          senderLoadout.loadout.jutsuIds.length > 0 ||
-          senderLoadout.loadout.weaponIds.length > 0 ||
-          senderLoadout.loadout.consumableIds.length > 0;
-        const receiverHasLoadout =
-          receiverLoadout.loadout.jutsuIds.length > 0 ||
-          receiverLoadout.loadout.weaponIds.length > 0 ||
-          receiverLoadout.loadout.consumableIds.length > 0;
-
-        if (!senderHasLoadout || !receiverHasLoadout) {
+        const hasEffectiveLoadout = (entry: RankedLoadout) =>
+          entry.loadout.jutsuIds.length > 0 ||
+          entry.loadout.weaponIds.length > 0 ||
+          entry.loadout.consumableIds.length > 0;
+        if (
+          !hasEffectiveLoadout(senderLoadout) ||
+          !hasEffectiveLoadout(receiverLoadout)
+        ) {
           return errorResponse(
             "Both players must have equipped items in their ranked loadouts for ranked rules sparring",
           );
         }
 
-        forceLoadouts = [senderLoadout, receiverLoadout];
+        const [cleanedSender, cleanedReceiver] = await Promise.all([
+          cleanRankedProhibitedSelections(ctx.drizzle, senderLoadout),
+          cleanRankedProhibitedSelections(ctx.drizzle, receiverLoadout),
+        ]);
+        if (
+          !hasEffectiveLoadout(cleanedSender.loadout) ||
+          !hasEffectiveLoadout(cleanedReceiver.loadout)
+        ) {
+          return errorResponse(
+            "A ranked loadout became empty because ranked rules do not allow those selections",
+          );
+        }
+        forceLoadouts = [cleanedSender.loadout, cleanedReceiver.loadout];
       }
 
       // Mutate

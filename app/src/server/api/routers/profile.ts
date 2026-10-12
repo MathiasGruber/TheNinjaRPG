@@ -537,32 +537,7 @@ export const profileRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.drizzle
         .update(userData)
-        .set({
-          ...(input.dashboardContentPriority !== undefined
-            ? { dashboardContentPriority: input.dashboardContentPriority }
-            : {}),
-          ...(input.rememberProfileTab !== undefined
-            ? { rememberProfileTab: input.rememberProfileTab }
-            : {}),
-          ...(input.tutorialOn !== undefined ? { tutorialOn: input.tutorialOn } : {}),
-          ...(input.musicOn !== undefined ? { musicOn: input.musicOn } : {}),
-          ...(input.sfxOn !== undefined ? { sfxOn: input.sfxOn } : {}),
-          ...(input.buttonSfxOn !== undefined
-            ? { buttonSfxOn: input.buttonSfxOn }
-            : {}),
-          ...(input.iframesMuted !== undefined
-            ? { iframesMuted: input.iframesMuted }
-            : {}),
-          ...(input.defaultAutoCombat !== undefined
-            ? { defaultAutoCombat: input.defaultAutoCombat }
-            : {}),
-          ...(input.preferredGeneral1 !== undefined
-            ? { preferredGeneral1: input.preferredGeneral1 }
-            : {}),
-          ...(input.preferredGeneral2 !== undefined
-            ? { preferredGeneral2: input.preferredGeneral2 }
-            : {}),
-        })
+        .set(input)
         .where(eq(userData.userId, ctx.userId));
       return {
         success: result.rowsAffected > 0,
@@ -2338,6 +2313,9 @@ export const profileRouter = createTRPCRouter({
             maxStamina: true,
             movedTooFastCount: true,
             pveFights: true,
+            pvpWins: true,
+            pvpLosses: true,
+            showPvpRecord: true,
             rank: true,
             rankedLp: true,
             reputationPoints: true,
@@ -2445,6 +2423,15 @@ export const profileRouter = createTRPCRouter({
           .update(userData)
           .set({ avatarLight: thumbnail })
           .where(eq(userData.userId, user.userId));
+      }
+      // Hide PvP W/L unless the owner opted in, the viewer is the owner, or staff.
+      // Null (not omit) so the public payload shape stays stable for clients.
+      const canSeePvpRecord =
+        isSelf ||
+        user.showPvpRecord ||
+        Boolean(requester && canSeeSecretData(requester.role));
+      if (!canSeePvpRecord) {
+        return { ...user, pvpWins: null, pvpLosses: null };
       }
       // Return
       return user;

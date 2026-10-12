@@ -620,10 +620,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
       const result = await updatePreferences(values);
       showMutationToast(result);
       if (result.success) {
-        await updateUser({
-          preferredGeneral1: values.preferredGeneral1,
-          preferredGeneral2: values.preferredGeneral2,
-        });
+        await updateUser(values);
       }
     } catch {
       // Mutation errors are surfaced by the shared tRPC error handler. Keep the draft.
@@ -755,6 +752,33 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
               {isUpdatingBattleDescription && (
                 <span
                   id="battle-description-pending"
+                  role="status"
+                  aria-live="polite"
+                  className="inline-flex items-center gap-1 text-muted-foreground text-sm"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Saving
+                </span>
+              )}
+            </div>
+            <br />
+            <div
+              className="flex min-h-8 items-center gap-2"
+              aria-busy={isUpdatingPreferences}
+            >
+              <Switch
+                id="show-pvp-record"
+                checked={userData?.showPvpRecord ?? false}
+                disabled={isUpdatingPreferences}
+                onCheckedChange={(checked) => {
+                  void onSubmit({ showPvpRecord: checked });
+                }}
+              />
+              <Label htmlFor="show-pvp-record">
+                Show PvP wins, losses, and win rate on public profile
+              </Label>
+              {isUpdatingPreferences && (
+                <span
                   role="status"
                   aria-live="polite"
                   className="inline-flex items-center gap-1 text-muted-foreground text-sm"

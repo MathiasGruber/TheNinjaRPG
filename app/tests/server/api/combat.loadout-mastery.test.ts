@@ -366,6 +366,29 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
     expect(await equippedIds()).toEqual(["gated", "usable"]);
   });
 
+  it.each(["COMBAT", "SPARRING"] as const)("restores skipped jutsu after selecting required items in a %s lobby", async (battleType) => {
+    await seedLobby();
+    const db = await getTestDatabase();
+    await db.update(battle).set({ battleType }).where(eq(battle.id, BATTLE));
+    const caller = await callerFor(combatRouter, USER);
+    expect((await caller.updateCombatLoadout({ battleId: BATTLE, jutsuLoadoutId: "new-jutsus" })).success).toBe(true);
+    expect(await equippedIds()).toEqual(["usable"]);
+    expect((await caller.updateCombatLoadout({ battleId: BATTLE, itemLoadoutId: "with-armor" })).success).toBe(true);
+    expect(await equippedIds()).toEqual(["gated", "usable"]);
+    const stored = await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) });
+    expect(stored?.usersState[0]?.jutsus.map((entry) => entry.jutsuId).sort()).toEqual(["gated", "usable"]);
+  });
+
+  it("rejects an invalid jutsu loadout before persisting the item loadout", async () => {
+    await seedLobby();
+    const result = await (await callerFor(combatRouter, USER)).updateCombatLoadout({
+      battleId: BATTLE, itemLoadoutId: "with-armor", jutsuLoadoutId: "missing-loadout",
+    });
+    expect(result.success).toBe(false);
+    const db = await getTestDatabase();
+    expect((await db.query.userItem.findFirst({ where: eq(userItem.id, "owned-armor") }))?.equipped).toBe("NONE");
+  });
+
   it("clears persisted jutsu equips after an item-only switch removes their mastery source", async () => {
     await seedLobby(true);
     const result = await (await callerFor(combatRouter, USER)).updateCombatLoadout({

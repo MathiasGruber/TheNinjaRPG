@@ -1,0 +1,182 @@
+import { beforeEach, expect, it, setSystemTime } from "bun:test";
+import { eq } from "drizzle-orm";
+import { RANKED_LOADOUT_MAX_HEAL_JUTSUS } from "@/drizzle/constants";
+import {
+  item,
+  jutsu,
+  rankedLoadout,
+  rankedPvpQueue,
+  rankedSeason,
+  userData,
+} from "@/drizzle/schema";
+import { pvpRankRouter } from "@/server/api/routers/pvprank";
+import { cleanRankedProhibitedSelections } from "@/server/utils/ranked";
+import { HealTag, PoisonTag } from "@/validators/combat";
+import { insertItems, insertUsers } from "../../setup/factories";
+import {
+  callerFor,
+  describeWithDatabase,
+  getTestDatabase,
+  resetTables,
+} from "../../setup/testDatabase";
+
+const USER = "ranked-cleanup-user";
+const FAVORITE_HEAL_IDS = Array.from(
+  { length: RANKED_LOADOUT_MAX_HEAL_JUTSUS },
+  (_, index) => `favorite-heal-${index}`,
+);
+const loadout = (jutsuIds: string[], weaponIds: string[] = []) => ({
+  jutsuIds,
+  weaponIds,
+  consumableIds: [],
+  favoriteJutsuIds: jutsuIds,
+  favoriteWeaponIds: weaponIds,
+  favoriteConsumableIds: [],
+});
+
+describeWithDatabase("ranked prohibited loadout cleanup", () => {
+  beforeEach(async () => {
+    await resetTables(
+      rankedPvpQueue,
+      rankedLoadout,
+      rankedSeason,
+      item,
+      jutsu,
+      userData,
+    );
+    await insertUsers([
+      { userId: USER, username: USER, rank: "JONIN", status: "AWAKE", rankedLp: 100 },
+    ]);
+    const db = await getTestDatabase();
+    await db.insert(jutsu).values(
+      [
+        ...["usable", "usable-two", ...FAVORITE_HEAL_IDS].map((id) => ({
+          id,
+          requiredSkillId: null,
+          villageId: null,
+          battleUsageType: "BOTH" as const,
+        })),
+        {
+          id: "skill-jutsu",
+          requiredSkillId: "skill",
+          villageId: null,
+          battleUsageType: "BOTH" as const,
+        },
+        {
+          id: "village-jutsu",
+          requiredSkillId: null,
+          villageId: "village",
+          battleUsageType: "BOTH" as const,
+        },
+        {
+          id: "pve-jutsu",
+          requiredSkillId: null,
+          villageId: null,
+          battleUsageType: "PVE" as const,
+        },
+      ].map((entry) => ({
+        ...entry,
+        name: entry.id,
+        description: entry.id,
+        battleDescription: entry.id,
+        effects:
+          entry.id.startsWith("usable") || FAVORITE_HEAL_IDS.includes(entry.id)
+            ? [HealTag.parse({})]
+            : [],
+        target: "SELF" as const,
+        range: 0,
+        jutsuType: "NORMAL" as const,
+        requiredRank: "GENIN" as const,
+        image: "",
+      })),
+    );
+    await insertItems([
+      { id: "weapon", itemType: "WEAPON", effects: [PoisonTag.parse({})] },
+      { id: "weapon-two", itemType: "WEAPON", effects: [PoisonTag.parse({})] },
+      { id: "favorite-consumable", itemType: "CONSUMABLE", effects: [PoisonTag.parse({})] },
+      { id: "bloodline-item", itemType: "WEAPON", bloodlineId: "bloodline" },
+      { id: "skill-item", itemType: "WEAPON", requiredSkillId: "skill" },
+    ]);
+    await db
+      .insert(rankedLoadout)
+      .values({
+        id: "ranked-loadout",
+        userId: USER,
+        loadout: loadout(
+          ["usable", "skill-jutsu", "village-jutsu", "pve-jutsu"],
+          ["weapon", "bloodline-item", "skill-item"],
+        ),
+      });
+  });
+
+  const storedLoadout = async () => {
+    const row = await (await getTestDatabase()).query.rankedLoadout.findFirst({
+      where: eq(rankedLoadout.userId, USER),
+    });
+    if (!row) throw new Error("Missing ranked loadout");
+    return row;
+  };
+
+  it("cleans equipped and favorite selections before queueing and reports removals", async () => {
+    const result = await (await callerFor(pvpRankRouter, USER)).queueForRankedPvp();
+    expect(result.success).toBe(true);
+    expect(result.removedJutsuIds?.sort()).toEqual([
+      "pve-jutsu",
+      "skill-jutsu",
+      "village-jutsu",
+    ]);
+    expect(result.removedItemIds?.sort()).toEqual(["bloodline-item", "skill-item"]);
+    expect((await storedLoadout()).loadout).toEqual(loadout(["usable"], ["weapon"]));
+    expect(await (await callerFor(pvpRankRouter, USER)).getRankedQueueCount()).toBe(1);
+  });
+
+  it.each([true, false])(
+    "excludes favorite-only heal and poison selections from queue caps (cleanup: %s)",
+    async (needsCleanup) => {
+      const original = await storedLoadout();
+      const selected = needsCleanup ? original.loadout : loadout(["usable"], ["weapon"]);
+      const favorites = {
+        favoriteJutsuIds: [...(selected.favoriteJutsuIds ?? []), ...FAVORITE_HEAL_IDS],
+        favoriteWeaponIds: [...(selected.favoriteWeaponIds ?? []), "weapon-two"],
+        favoriteConsumableIds: ["favorite-consumable"],
+      };
+      const db = await getTestDatabase();
+      await db
+        .update(rankedLoadout)
+        .set({ loadout: { ...selected, ...favorites } })
+        .where(eq(rankedLoadout.userId, USER));
+
+      const result = await (await callerFor(pvpRankRouter, USER)).queueForRankedPvp();
+
+      expect(result.success).toBe(true);
+      expect((await storedLoadout()).loadout).toEqual({
+        ...loadout(["usable"], ["weapon"]),
+        favoriteJutsuIds: ["usable", ...FAVORITE_HEAL_IDS],
+        favoriteWeaponIds: ["weapon", "weapon-two"],
+        favoriteConsumableIds: ["favorite-consumable"],
+      });
+    },
+  );
+
+  it.each([0, 2000])("preserves a valid selection saved after %i ms", async (offset) => {
+    const db = await getTestDatabase();
+    const original = await storedLoadout();
+    setSystemTime(new Date(original.updatedAt.getTime() + offset));
+    try {
+      const saved = await (await callerFor(pvpRankRouter, USER)).updateRankedLoadout(
+        loadout(["usable-two"], ["weapon-two"]),
+      );
+      expect(saved.success).toBe(true);
+      const cleaned = await cleanRankedProhibitedSelections(db, original);
+      expect(cleaned.loadout.loadout).toEqual(loadout(["usable-two"], ["weapon-two"]));
+      expect(cleaned.jutsus.map((entry) => entry.id)).toEqual(["usable-two"]);
+      expect(cleaned.items.map((entry) => entry.id)).toEqual(["weapon-two"]);
+      expect((await storedLoadout()).loadout).toEqual(loadout(["usable-two"], ["weapon-two"]));
+      expect((await storedLoadout()).updatedAt.getTime()).toBeGreaterThan(
+        original.updatedAt.getTime(),
+      );
+    } finally {
+      setSystemTime();
+    }
+  });
+});

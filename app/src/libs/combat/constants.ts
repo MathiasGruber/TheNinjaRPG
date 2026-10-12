@@ -7,7 +7,18 @@ import {
   DMG_EP_NORMALIZATION,
   DMG_GEN_WEIGHT,
   DMG_STATS_SCALING,
+  ElementNames,
+  RANKED_BLOODLINE_EFFECT_MULT,
 } from "@/drizzle/constants";
+import { IncreaseDamageGivenTag } from "@/validators/combat";
+
+/** Ranked bloodlines boost every damage element, including attacks outside Highest. */
+export const RANKED_BLOODLINE_DAMAGE_TAG = IncreaseDamageGivenTag.parse({
+  power: (RANKED_BLOODLINE_EFFECT_MULT - 1) * 100,
+  target: "SELF",
+  description: "Ranked bloodline simulation",
+  elements: [...ElementNames],
+});
 
 export const COMBAT_BORDER_LEFT = 2;
 export const COMBAT_BORDER_RIGHT = 2;

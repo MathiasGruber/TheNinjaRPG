@@ -1670,6 +1670,12 @@ export const updateUser = async (
           experience: sql`experience + ${result.experience}`,
           earnedExperience: sql`earnedExperience + ${result.earnedExperience}`,
           pvpStreak: result.pvpStreak,
+          ...(curBattle.battleType === "COMBAT" && hasHumanOpponent
+            ? {
+                pvpWins: sql`${userData.pvpWins} + ${result.outcome === "Won" ? 1 : 0}`,
+                pvpLosses: sql`${userData.pvpLosses} + ${result.outcome === "Lost" || result.outcome === "Fled" ? 1 : 0}`,
+              }
+            : {}),
           pvpExperience: sql`${userData.pvpExperience} + ${result.pvpExperience ?? 0}`,
           ...((result.weeklyPvpKills ?? 0) > 0
             ? {
