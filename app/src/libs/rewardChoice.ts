@@ -20,10 +20,11 @@ import {
 /**
  * Reward choice ("choose N") for quest completion rewards.
  *
- * Pickable units: every non-zero scalar reward (ryo, exp, prestige, ...) is one card, every
- * reward item id in a `reward_items` entry is one card carrying that entry's quantity, and every
- * jutsu, bloodline, sage mode and badge id is one card. Rank promotion, village membership and
- * the hunter/gathering material drops in direct rewards are structural outcomes rather than loot,
+ * Pickable units: every scalar reward (ryo, exp, prestige, ...) whose floored amount is
+ * positive is one card. Every reward item id in a `reward_items` entry is one card carrying
+ * that entry's quantity, and every jutsu, bloodline, sage mode and badge id is one card.
+ * Rank promotion, village membership and the hunter/gathering material drops in direct
+ * rewards are structural outcomes rather than loot,
  * so they are granted alongside the picked cards. Direct item cards are guaranteed. Package cards
  * retain their full payload, including structural outcomes and item chances, until that bundle
  * is picked. Cards for content the player already holds stay on
