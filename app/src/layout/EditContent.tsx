@@ -984,13 +984,16 @@ export const EditContent = <
                       </div>
                       {formEntry.resetButton && (
                         <Button
+                          aria-label={`Clear ${formEntry.label ?? id}`}
                           className="ml-1 w-8 p-0"
                           type="button"
                           variant="ghost"
                           onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            form.setValue(id, "" as PathValue<S, K>, {
+                            // Nullable enums represent an unset selection with null.
+                            const emptyValue = props.schema.shape[id]?.isNullable() ? null : "";
+                            form.setValue(id, emptyValue as PathValue<S, K>, {
                               shouldDirty: true,
                             });
                           }}
