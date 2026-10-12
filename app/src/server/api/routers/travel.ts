@@ -396,7 +396,7 @@ export const travelRouter = createTRPCRouter({
               inArray(village.type, [
                 "VILLAGE",
                 "OUTLAW",
-                "TOWN",
+                "STRONGHOLD",
                 "HIDEOUT",
                 "SAFEZONE",
               ]),

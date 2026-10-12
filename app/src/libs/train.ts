@@ -958,7 +958,7 @@ export const trainingBoost = (
   const trainSetting = getGameSettingBoost("trainingGainMultiplier", settings);
   const warSetting = getGameSettingBoost(`war-${user.villageId}-train`, settings);
   const boost = getStrucBoost("trainBoostPerLvl", user.village?.structures) / 100;
-  const clanBoost = user.isOutlaw ? 0 : (user.clan?.trainingBoost ?? 0) / 100;
+  const clanBoost = (user.clan?.trainingBoost ?? 0) / 100;
   return (
     ((trainSetting?.value ?? 1) *
       (1 + boost + clanBoost + shrineBoost) *

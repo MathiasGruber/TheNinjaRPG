@@ -15,7 +15,7 @@ import {
 describe("usesVillageWalls", () => {
   it("only enables walls for village and town settlements", () => {
     expect(usesVillageWalls("VILLAGE")).toBe(true);
-    expect(usesVillageWalls("TOWN")).toBe(true);
+    expect(usesVillageWalls("STRONGHOLD")).toBe(true);
     expect(usesVillageWalls("OUTLAW")).toBe(false);
     expect(usesVillageWalls("HIDEOUT")).toBe(false);
     expect(usesVillageWalls("SAFEZONE")).toBe(false);

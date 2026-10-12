@@ -1,7 +1,7 @@
-import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { TOWN_MONTHLY_MAINTENANCE } from "@/drizzle/constants";
+import { STRONGHOLD_MONTHLY_MAINTENANCE } from "@/drizzle/constants";
 import { clan, village } from "@/drizzle/schema";
 import {
   handleEndpointError,
@@ -10,6 +10,7 @@ import {
 } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 
 const ENDPOINT_NAME = "daily-hideout-downgrade";
 
@@ -25,71 +26,56 @@ export async function GET(request: Request) {
   if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
 
   try {
-    // Get all active bans and silences that have expired
-    const townsDueForMaintainance = await drizzleDB
+    // Fetch Strongholds whose monthly maintenance is due.
+    const strongholdsDueForMaintainance = await drizzleDB
       .select()
       .from(village)
       .innerJoin(clan, eq(village.id, clan.villageId))
       .where(
         and(
-          eq(village.type, "TOWN"),
+          eq(village.type, "STRONGHOLD"),
           lt(village.lastMaintenancePaidAt, sql`NOW() - INTERVAL 30 DAY`),
         ),
       );
 
-    // Split into those who have the points and those who do now
-    type TownJoinResult = (typeof townsDueForMaintainance)[number];
-    const hasFactionPoints = townsDueForMaintainance.filter(
-      (v: TownJoinResult) => v.Clan && v.Clan.points >= TOWN_MONTHLY_MAINTENANCE,
-    );
-    const missingFactionPoints = townsDueForMaintainance.filter(
-      (v: TownJoinResult) => v.Clan && v.Clan.points < TOWN_MONTHLY_MAINTENANCE,
-    );
-
-    // Mutation
-    await Promise.all([
-      ...(hasFactionPoints.length > 0
-        ? [
-            drizzleDB
-              .update(clan)
-              .set({
-                points: sql`${clan.points} - ${TOWN_MONTHLY_MAINTENANCE}`,
-              })
-              .where(
-                inArray(
-                  clan.id,
-                  hasFactionPoints.map((v: TownJoinResult) => v.Clan.id),
-                ),
-              ),
-          ]
-        : []),
-      ...(missingFactionPoints.length > 0
-        ? [
-            drizzleDB
-              .update(clan)
-              .set({ points: 0 })
-              .where(
-                inArray(
-                  clan.id,
-                  missingFactionPoints.map((v: TownJoinResult) => v.Clan.id),
-                ),
-              ),
-            drizzleDB
+    // The maintenance claim and charge commit together; a concurrent debit cannot overdraw faction points.
+    await Promise.all(
+      strongholdsDueForMaintainance.map(({ Clan: faction, Village: settlement }) =>
+        retryOnDeadlock(() =>
+          drizzleDB.transaction(async (tx) => {
+            const claimed = await tx
               .update(village)
-              .set({ type: "HIDEOUT" })
+              .set({ lastMaintenancePaidAt: new Date() })
               .where(
-                inArray(
-                  village.id,
-                  missingFactionPoints.map((v: TownJoinResult) => v.Village.id),
+                and(
+                  eq(village.id, settlement.id),
+                  eq(village.type, "STRONGHOLD"),
+                  eq(village.lastMaintenancePaidAt, settlement.lastMaintenancePaidAt),
                 ),
-              ),
-          ]
-        : []),
-    ]);
+              );
+            if (claimed.rowsAffected === 0) return;
+            const payment = await tx
+              .update(clan)
+              .set({ points: sql`${clan.points} - ${STRONGHOLD_MONTHLY_MAINTENANCE}` })
+              .where(
+                and(
+                  eq(clan.id, faction.id),
+                  gte(clan.points, STRONGHOLD_MONTHLY_MAINTENANCE),
+                ),
+              );
+            if (payment.rowsAffected === 0)
+              await tx
+                .update(village)
+                .set({ type: "HIDEOUT", wasDowngraded: true })
+                .where(eq(village.id, settlement.id));
+          }),
+        ),
+      ),
+    );
 
     return NextResponse.json({
       success: true,
-      message: `Processed ${townsDueForMaintainance.length} towns`,
+      message: `Processed ${strongholdsDueForMaintainance.length} strongholds`,
     });
   } catch (cause) {
     // Rollback

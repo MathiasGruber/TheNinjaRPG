@@ -35,6 +35,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  FACTION_RAID_BOOST_HOURS,
+  FACTION_RAID_BOOST_PERCENT,
+  FACTION_RAID_COST,
+  FACTION_RAID_DAILY_DRAIN,
+  FACTION_RAID_FAILURE_COOLDOWN_HOURS,
+  FACTION_RAID_MAX_DAYS,
+  FACTION_RAID_MIN_MEMBERS,
+  FACTION_RAID_REWARD,
+  FACTION_RAID_STRUCTURE_HP,
+  FACTION_RAID_STRUCTURE_ROUTES,
+  FACTION_RAID_TARGET_COOLDOWN_HOURS,
   MAP_RESERVED_SECTORS,
   MAP_SECTOR_ID_MAX,
   VILLAGE_SYNDICATE_ID,
@@ -49,7 +60,6 @@ import {
   WAR_SHRINE_CAPTURE_WARHEALTH_DMG,
   WAR_SHRINE_IMAGE,
   WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL,
-  WAR_VICTORY_TOKEN_BONUS,
 } from "@/drizzle/constants";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import { useMap } from "@/hooks/map";
@@ -136,6 +146,7 @@ export const WarRoom: React.FC<{
         if (data.success) {
           await Promise.all([
             utils.war.getActiveWars.invalidate(),
+            utils.war.getRaidOptions.invalidate(),
             utils.war.getEndedWars.invalidate(),
             utils.war.getAllyOffers.invalidate(),
           ]);
@@ -304,8 +315,11 @@ export const WarMap: React.FC<{
   // Globe data
   const { globe, mapError } = useMap();
   const [showModal, setShowModal] = useState<boolean>(false);
+  const [declarationError, setDeclarationError] = useState<string | null>(null);
   const [targetSector, setTargetSector] = useState<number | null>(null);
-  const [structureRoute, setStructureRoute] = useState("/townhall");
+  const [structureRoute, setStructureRoute] = useState<string>(
+    FACTION_RAID_STRUCTURE_ROUTES[0],
+  );
   const [focusSector, setFocusSector] = useState<number | null>(null);
 
   // Find sector form
@@ -324,14 +338,16 @@ export const WarMap: React.FC<{
   const utils = api.useUtils();
 
   // Derived
-  const canWar = ["VILLAGE", "TOWN", "HIDEOUT"].includes(userData?.village?.type ?? "");
+  const canWar = ["VILLAGE", "STRONGHOLD", "HIDEOUT"].includes(
+    userData?.village?.type ?? "",
+  );
   const userOwnedSectors = allSectors?.find((s) => s.villageId === user.villageId);
   const canDeclareWar = isKage && canWar;
   const sectorVillage = villages?.find(
     (v) =>
       v.sector === targetSector &&
-      ((v.type === "VILLAGE" && v.allianceSystem === true) ||
-        ["HIDEOUT", "TOWN"].includes(v.type)),
+      ((v.type === "VILLAGE" && (user.isOutlaw || v.allianceSystem === true)) ||
+        ["HIDEOUT", "STRONGHOLD"].includes(v.type)),
   );
   const sectorClaimed = villages?.find((v) => v.sector === targetSector);
   const sectorOwnerId = allSectors?.find((s) =>
@@ -346,7 +362,8 @@ export const WarMap: React.FC<{
   );
   const status =
     relationship?.status ||
-    (user.isOutlaw || ["TOWN", "HIDEOUT", "OUTLAW"].includes(sectorVillage?.type ?? "")
+    (user.isOutlaw ||
+    ["STRONGHOLD", "HIDEOUT", "OUTLAW"].includes(sectorVillage?.type ?? "")
       ? "ENEMY"
       : "NEUTRAL");
   let textColor = "text-slate-600";
@@ -359,6 +376,12 @@ export const WarMap: React.FC<{
     { villageId: sectorVillage?.id ?? "" },
     { enabled: !!sectorVillage?.id },
   );
+
+  const { data: raidOptions, isFetching: isLoadingRaidOptions } =
+    api.war.getRaidOptions.useQuery(
+      { userVillageId: user.villageId ?? "", targetVillageId: sectorVillage?.id ?? "" },
+      { enabled: !!sectorVillage && user.isOutlaw && showModal },
+    );
 
   // Mutations
   const { mutate: releaseSector, isPending: isReleasingSector } =
@@ -381,6 +404,7 @@ export const WarMap: React.FC<{
         if (data.success) {
           await Promise.all([
             utils.war.getActiveWars.invalidate(),
+            utils.war.getRaidOptions.invalidate(),
             utils.village.getSectorOwnerships.invalidate(),
           ]);
           setShowModal(false);
@@ -392,15 +416,21 @@ export const WarMap: React.FC<{
   const { mutate: declareVillageWarOrRaid, isPending: isDeclaringVillageWar } =
     api.war.declareVillageWarOrRaid.useMutation({
       onSuccess: async (data) => {
+        setDeclarationError(data.success ? null : data.message);
         showMutationToast(data);
         if (data.success) {
           await Promise.all([
             utils.war.getActiveWars.invalidate(),
+            utils.war.getRaidOptions.invalidate(),
             utils.village.getSectorOwnerships.invalidate(),
           ]);
           setShowModal(false);
         }
       },
+      onError: () =>
+        setDeclarationError(
+          "The declaration could not be completed. Please try again.",
+        ),
     });
 
   const { mutate: leaveAlliance, isPending: isLeavingAlliance } =
@@ -444,6 +474,7 @@ export const WarMap: React.FC<{
     structureRoute,
     structures,
     setStructureRoute,
+    raidOptions,
   };
 
   // What to show in the modal
@@ -453,17 +484,21 @@ export const WarMap: React.FC<{
   let modalContent: React.ReactNode | undefined;
   if (targetSector) {
     if (sectorVillage) {
-      if (user.isOutlaw || ["TOWN", "HIDEOUT", "OUTLAW"].includes(sectorVillage.type)) {
+      if (user.isOutlaw) {
         proceedLabel = "Start Raid";
         modalTitle = "Raid Sector";
         modalContent = <InitiateRaidDialogContent {...dialogContentProps} />;
         onAccept = () => {
+          setDeclarationError(null);
           declareVillageWarOrRaid({
             targetVillageId: sectorVillage.id,
             targetStructureRoute: structureRoute,
             userVillageId: user.villageId ?? "",
           });
         };
+      } else if (["HIDEOUT", "STRONGHOLD"].includes(sectorVillage.type)) {
+        proceedLabel = undefined;
+        modalContent = <p>Only factions can initiate raids.</p>;
       } else if (status === "ALLY" && relationship) {
         proceedLabel = "Break Alliance";
         modalTitle = "Break Alliance";
@@ -483,6 +518,7 @@ export const WarMap: React.FC<{
         modalTitle = "Declare War";
         modalContent = <InitiateVillageWarDialogContent {...dialogContentProps} />;
         onAccept = () => {
+          setDeclarationError(null);
           declareVillageWarOrRaid({
             targetVillageId: sectorVillage.id,
             targetStructureRoute: structureRoute,
@@ -519,6 +555,38 @@ export const WarMap: React.FC<{
   // Depending on which tile the user clicked, we're either declaring a sector war, village war, or faction raid
   return (
     <div className="relative">
+      {canDeclareWar && user.isOutlaw && (
+        <div className="mb-3 pr-12">
+          <Select
+            onValueChange={(villageId) => {
+              const target = villages?.find((v) => v.id === villageId);
+              if (target) {
+                setDeclarationError(null);
+                setTargetSector(target.sector);
+                setShowModal(true);
+              }
+            }}
+          >
+            <SelectTrigger aria-label="Choose a raid target">
+              <SelectValue placeholder="Choose a settlement to raid" />
+            </SelectTrigger>
+            <SelectContent>
+              {villages
+                ?.filter(
+                  (v) =>
+                    v.id !== user.villageId &&
+                    ["VILLAGE", "HIDEOUT", "STRONGHOLD"].includes(v.type),
+                )
+                .map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Find Sector Control */}
       <div className="absolute top-2 right-2 z-10">
         <Popover>
@@ -526,6 +594,7 @@ export const WarMap: React.FC<{
             <Button
               variant="outline"
               size="icon"
+              aria-label="Find sector"
               className={focusSector !== null ? "text-purple-500" : ""}
             >
               <Locate className="h-5 w-5" />
@@ -615,9 +684,23 @@ export const WarMap: React.FC<{
           setIsOpen={setShowModal}
           proceed_label={!isLoading ? proceedLabel : undefined}
           onAccept={onAccept}
+          keepOpenOnAccept
+          isLoading={isLoading}
+          proceedDisabled={
+            user.isOutlaw &&
+            !!sectorVillage &&
+            (isLoadingRaidOptions ||
+              !raidOptions ||
+              !!raidOptions.find((option) => option.route === structureRoute)?.block)
+          }
         >
           {isLoading && <Loader explanation="Execution Action" />}
           {!isLoading && modalContent}
+          {declarationError && (
+            <p role="alert" className="mt-2 text-destructive text-sm">
+              {declarationError}
+            </p>
+          )}
         </Modal>
       )}
     </div>
@@ -695,6 +778,7 @@ export const SectorWar: React.FC<{
         if (data.success) {
           await Promise.all([
             utils.war.getActiveWars.invalidate(),
+            utils.war.getRaidOptions.invalidate(),
             utils.village.getSectorOwnerships.invalidate(),
           ]);
         }
@@ -716,6 +800,7 @@ export const SectorWar: React.FC<{
         setShowAdminEndDialog(false);
         await Promise.all([
           utils.war.getActiveWars.invalidate(),
+          utils.war.getRaidOptions.invalidate(),
           utils.war.getEndedWars.invalidate(),
         ]);
       },
@@ -947,6 +1032,7 @@ export const SectorWar: React.FC<{
  * Props passed to all dialog content components
  */
 interface DialogContentProps {
+  raidOptions?: { route: string; block?: string }[];
   status: string;
   textColor: string;
   relationships: VillageAlliance[];
@@ -1109,15 +1195,27 @@ export const InitiateRaidDialogContent: React.FC<DialogContentProps> = (props) =
   return (
     <div className="relative rounded-lg border p-4 text-center">
       <SectorVillageDialogContent {...props} />
-      <div>
-        You have the option of initiating a raid in this sector, targeting a given
-        structure. The cost of starting a raid is{" "}
-        {WAR_DECLARATION_COST.toLocaleString()} tokens. Each day at war reduces your
-        tokens by {WAR_DAILY_TOKEN_DECAY_PERCENT_BASE}% (increasing to{" "}
-        {WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_5}% after 5 days and{" "}
-        {WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_8}% after 8 days). If you win, the structure
-        level will be reduced by 3 and you will receive{" "}
-        {WAR_VICTORY_TOKEN_BONUS.toLocaleString()} tokens.
+      <div className="space-y-2 py-3">
+        <p>
+          Factions with at least {FACTION_RAID_MIN_MEMBERS} members can start a raid for{" "}
+          {FACTION_RAID_COST.toLocaleString()} treasury tokens. Each side&apos;s
+          matching structure has {FACTION_RAID_STRUCTURE_HP.toLocaleString()} raid HP
+          and loses {FACTION_RAID_DAILY_DRAIN} HP daily.
+        </p>
+        <p>
+          Win within {FACTION_RAID_MAX_DAYS} days to earn{" "}
+          {FACTION_RAID_REWARD.toLocaleString()} treasury tokens and a{" "}
+          {FACTION_RAID_BOOST_PERCENT}% increase to your matching structure&apos;s
+          benefits for {FACTION_RAID_BOOST_HOURS} hours. A successful defender receives
+          the same structure bonus.
+        </p>
+        <p>
+          The target structure is protected for {FACTION_RAID_TARGET_COOLDOWN_HOURS}{" "}
+          hours after completion. An active bonus blocks another raid for that structure
+          category. A failed raid blocks the same target settlement for{" "}
+          {FACTION_RAID_FAILURE_COOLDOWN_HOURS} hours. Raids apply no war penalties,
+          exhaustion, or token decay.
+        </p>
       </div>
       <div className="space-y-2">
         <p className="font-semibold">Select Target Structure:</p>
@@ -1126,13 +1224,28 @@ export const InitiateRaidDialogContent: React.FC<DialogContentProps> = (props) =
             <SelectValue placeholder="Select a structure to raid" />
           </SelectTrigger>
           <SelectContent>
-            {props.structures?.map((structure) => (
-              <SelectItem key={structure.id} value={structure.route || structure.id}>
-                {structure.name}
-              </SelectItem>
-            ))}
+            {props.structures
+              ?.filter((structure) =>
+                (FACTION_RAID_STRUCTURE_ROUTES as readonly string[]).includes(
+                  structure.route,
+                ),
+              )
+              .map((structure) => (
+                <SelectItem key={structure.id} value={structure.route}>
+                  {structure.name}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
+        {props.raidOptions?.find((option) => option.route === props.structureRoute)
+          ?.block && (
+          <p role="status" className="text-destructive text-sm">
+            {
+              props.raidOptions.find((option) => option.route === props.structureRoute)
+                ?.block
+            }
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1499,6 +1612,7 @@ export const VillageWar: React.FC<{
         if (data.success) {
           await Promise.all([
             utils.war.getActiveWars.invalidate(),
+            utils.war.getRaidOptions.invalidate(),
             utils.war.getAllyOffers.invalidate(),
           ]);
         }
@@ -1550,6 +1664,7 @@ export const VillageWar: React.FC<{
         setShowSurrenderDialog(false);
         await Promise.all([
           utils.war.getActiveWars.invalidate(),
+          utils.war.getRaidOptions.invalidate(),
           utils.war.getEndedWars.invalidate(),
           utils.war.getAllyOffers.invalidate(),
         ]);
@@ -1575,6 +1690,7 @@ export const VillageWar: React.FC<{
         setShowAdminEndDialog(false);
         await Promise.all([
           utils.war.getActiveWars.invalidate(),
+          utils.war.getRaidOptions.invalidate(),
           utils.war.getEndedWars.invalidate(),
           utils.war.getAllyOffers.invalidate(),
         ]);
@@ -2054,7 +2170,16 @@ export const VillageWar: React.FC<{
         </div>
       </Modal>
 
-      {/* Town Halls Section */}
+      {war.type === "WAR_RAID" && (
+        <p className="mb-3 text-sm">
+          Raid: {FACTION_RAID_DAILY_DRAIN} HP daily decay. Ends after{" "}
+          {FACTION_RAID_MAX_DAYS} days. The winner receives a{" "}
+          {FACTION_RAID_BOOST_PERCENT}% structure bonus for {FACTION_RAID_BOOST_HOURS}{" "}
+          hours; an attacking victory also grants {FACTION_RAID_REWARD.toLocaleString()}{" "}
+          treasury tokens.
+        </p>
+      )}
+      {/* Structure health */}
       <div className="rounded-lg border border-border p-4">
         <div className="grid grid-cols-2 gap-4">
           <WarSideTownHall
@@ -2169,7 +2294,7 @@ export const VillageWar: React.FC<{
       )}
 
       {/* Supporting Forces Section */}
-      {["VILLAGE_WAR", "WAR_RAID"].includes(war.type) && (
+      {war.type === "VILLAGE_WAR" && (
         <div className="mt-4 rounded-lg border border-border p-4">
           <h6 className="mb-3 text-center font-semibold text-sm">Supporting Forces</h6>
           <div className="grid grid-cols-2 gap-4">
@@ -2185,86 +2310,84 @@ export const VillageWar: React.FC<{
         </div>
       )}
 
-      {isKage &&
-        war.status === "ACTIVE" &&
-        ["VILLAGE_WAR", "WAR_RAID"].includes(war.type) && (
-          <div className="mt-4">
-            <h5 className="mb-2 font-bold">Send War Alliance Offers</h5>
-            <p className="mb-4 text-muted-foreground text-sm">
-              Send offers to factions or allied villages to join your war effort.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {villagesThatCanJoin?.map((village) => (
-                <div
-                  key={village.id}
-                  className="rounded-lg border px-2 py-1 transition-colors hover:bg-popover"
-                >
-                  <div className="flex items-center space-x-2">
-                    <Image
-                      src={village.villageGraphic}
-                      alt={village.name}
-                      width={40}
-                      height={40}
-                      className="rounded-full"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-sm">{village.name}</p>
-                      <p className="text-sm">
-                        {village.type === "VILLAGE" ? "Ally" : "Faction"}
-                      </p>
-                    </div>
-                    <Confirm
-                      title={`Send Offer to ${village.name}`}
-                      disabled={isSurrendering || isAdminEnding}
-                      button={
-                        <Button
-                          size="sm"
-                          className="shrink-0"
-                          disabled={isSurrendering || isAdminEnding}
-                          onClick={(e) => e.preventDefault()}
-                        >
-                          <Handshake className="h-4 w-4" />
-                        </Button>
-                      }
-                      onAccept={onOfferSubmit(village.id)}
-                    >
-                      <Form {...offerForm}>
-                        <form className="space-y-4">
-                          <FormField
-                            control={offerForm.control}
-                            name="amount"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <NumberInput
-                                    disabled={isSurrendering || isAdminEnding}
-                                    placeholder={`Token offer (min ${WAR_ALLY_OFFER_MIN}, max ${userVillage?.tokens?.toLocaleString()})`}
-                                    {...field}
-                                    value={field.value as number}
-                                    onValueChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <FormMessage className="text-xs" />
-                              </FormItem>
-                            )}
-                          />
-                        </form>
-                      </Form>
-                      <p className="mt-4 text-muted-foreground text-sm">
-                        This will send an offer to {village.name} to join your side in
-                        the war against{" "}
-                        {war.attackerVillageId === user.villageId
-                          ? war.defenderVillage?.name
-                          : war.attackerVillage?.name}
-                        . They can choose to accept or reject this offer.
-                      </p>
-                    </Confirm>
+      {isKage && war.status === "ACTIVE" && war.type === "VILLAGE_WAR" && (
+        <div className="mt-4">
+          <h5 className="mb-2 font-bold">Send War Alliance Offers</h5>
+          <p className="mb-4 text-muted-foreground text-sm">
+            Send offers to factions or allied villages to join your war effort.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {villagesThatCanJoin?.map((village) => (
+              <div
+                key={village.id}
+                className="rounded-lg border px-2 py-1 transition-colors hover:bg-popover"
+              >
+                <div className="flex items-center space-x-2">
+                  <Image
+                    src={village.villageGraphic}
+                    alt={village.name}
+                    width={40}
+                    height={40}
+                    className="rounded-full"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-sm">{village.name}</p>
+                    <p className="text-sm">
+                      {village.type === "VILLAGE" ? "Ally" : "Faction"}
+                    </p>
                   </div>
+                  <Confirm
+                    title={`Send Offer to ${village.name}`}
+                    disabled={isSurrendering || isAdminEnding}
+                    button={
+                      <Button
+                        size="sm"
+                        className="shrink-0"
+                        disabled={isSurrendering || isAdminEnding}
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        <Handshake className="h-4 w-4" />
+                      </Button>
+                    }
+                    onAccept={onOfferSubmit(village.id)}
+                  >
+                    <Form {...offerForm}>
+                      <form className="space-y-4">
+                        <FormField
+                          control={offerForm.control}
+                          name="amount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <NumberInput
+                                  disabled={isSurrendering || isAdminEnding}
+                                  placeholder={`Token offer (min ${WAR_ALLY_OFFER_MIN}, max ${userVillage?.tokens?.toLocaleString()})`}
+                                  {...field}
+                                  value={field.value as number}
+                                  onValueChange={field.onChange}
+                                />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      </form>
+                    </Form>
+                    <p className="mt-4 text-muted-foreground text-sm">
+                      This will send an offer to {village.name} to join your side in the
+                      war against{" "}
+                      {war.attackerVillageId === user.villageId
+                        ? war.defenderVillage?.name
+                        : war.attackerVillage?.name}
+                      . They can choose to accept or reject this offer.
+                    </p>
+                  </Confirm>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      )}
       {!user.isOutlaw &&
         war.status === "ACTIVE" &&
         warRequests &&

@@ -6,6 +6,7 @@ import {
 import { userData, village, war } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { warRaidCombatGuard } from "@/server/utils/war";
 
 /** Atomic counters need no read, including in combat's final mutation phase. */
 export const recordVillageMissionProgress = async (
@@ -86,7 +87,7 @@ export const applyVillageMissionShrineDamage = async (
       ).as("shouldCapture"),
     })
     .from(war)
-    .where(and(eq(war.id, warId), isNull(war.endedAt)))
+    .where(and(eq(war.id, warId), isNull(war.endedAt), warRaidCombatGuard()))
     .limit(1)
     .for("update")
     .as("shrine_snapshot");
@@ -133,7 +134,7 @@ export const applyVillageMissionShrineDamage = async (
     INNER JOIN ${snapshot} ON ${eq(war.id, snapshot.id)}
     ${villageId ? sql`LEFT JOIN ${village} ON ${eligibleVillage}` : sql``}
     SET ${sql.join(assignments, sql`, `)}
-    WHERE ${and(eq(war.id, warId), isNull(war.endedAt))}
+    WHERE ${and(eq(war.id, warId), isNull(war.endedAt), warRaidCombatGuard())}
   `);
   return canCapture && result.rowsAffected > 0 && result.insertId === "1";
 };

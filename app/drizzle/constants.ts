@@ -1469,9 +1469,9 @@ export const COST_RESKIN_JUTSU = 60;
 export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";
 export const VILLAGE_REDUCED_GAINS_DAYS = 7;
 export const VILLAGE_SYNDICATE_ID = "ryBk0qD4EgvPPyav2K4OC";
-export const ALLIANCE_VILLAGE_TYPES = ["VILLAGE", "HIDEOUT", "TOWN"] as const;
+export const ALLIANCE_VILLAGE_TYPES = ["VILLAGE", "HIDEOUT", "STRONGHOLD"] as const;
 /** Village types owned by a faction (clan), led by its leader without an elder council */
-export const FACTION_VILLAGE_TYPES = ["HIDEOUT", "TOWN"] as const;
+export const FACTION_VILLAGE_TYPES = ["HIDEOUT", "STRONGHOLD"] as const;
 export type AllianceVillageType = (typeof ALLIANCE_VILLAGE_TYPES)[number];
 
 // ANBU config
@@ -1872,6 +1872,22 @@ export const WAR_ATTACKER_EXHAUSTION_MULTIPLIER = 1.1; // Attacker gets 10% more
 export const WAR_ALLY_OFFER_MIN = 1000; // Minimum token offer for allies
 export const WAR_ALLY_MAX_PAYMENT_PERCENTAGE = 0.2; // Maximum payment as percentage of village tokens (20%)
 
+// Faction raids share war combat with a separate outcome policy.
+export const FACTION_RAID_COST = 40_000;
+export const FACTION_RAID_MIN_MEMBERS = 20;
+export const FACTION_RAID_STRUCTURE_HP = 2_000;
+export const FACTION_RAID_DAILY_DRAIN = 300;
+export const FACTION_RAID_MAX_DAYS = 2;
+export const FACTION_RAID_REWARD = 100_000;
+export const FACTION_RAID_BOOST_PERCENT = 20;
+export const FACTION_RAID_BOOST_HOURS = 24;
+export const FACTION_RAID_TARGET_COOLDOWN_HOURS = 48;
+export const FACTION_RAID_FAILURE_COOLDOWN_HOURS = 72;
+export const FACTION_RAID_STRUCTURE_ROUTES = [
+  "/missionhall", "/traininggrounds", "/itemshop", "/battlearena",
+] as const;
+export const STRONGHOLD_MEMBER_GRACE_HOURS = 72;
+
 // War health system (per-instance health pools)
 export const WAR_INSTANCE_HEALTH = 10000; // Base war health per war instance
 
@@ -2173,13 +2189,12 @@ export type CLAN_ASSASSIN_SLOT = (typeof CLAN_ASSASSIN_SLOTS)[number];
 // Assassin config (factions only)
 export const ASSASSIN_MAX_PER_FACTION = 10;
 
-// Hideout and town costs
+// Faction settlement costs
 export const HIDEOUT_COST = 50_000_000;
-export const HIDEOUT_TOWN_UPGRADE = 2_000;
-export const TOWN_REESTABLISH_COST = 30_000_000; // Ryo
-export const TOWN_MONTHLY_MAINTENANCE = 30_000; // Faction points
-export const FACTION_MIN_POINTS_FOR_TOWN = 1_000_000;
-export const FACTION_MIN_MEMBERS_FOR_TOWN = 30;
+export const FACTION_REPUTATION_TREASURY_LIMIT = 2_000;
+export const STRONGHOLD_REESTABLISH_COST = 100_000_000; // Ryo
+export const STRONGHOLD_MONTHLY_MAINTENANCE = 30_000; // Faction points
+export const FACTION_MIN_MEMBERS_FOR_STRONGHOLD = 30;
 
 // Tournament Config
 export const TOURNAMENT_ROUND_SECONDS = 30 * 60;
@@ -2193,7 +2208,7 @@ export const SECTOR_TYPES = [
   "OUTLAW",
   "SAFEZONE",
   "HIDEOUT",
-  "TOWN",
+  "STRONGHOLD",
 ] as const;
 
 // Conversation config

@@ -107,3 +107,5 @@ export const getClanSearchSchema = (maxClans: number) =>
       .max(maxClans),
   });
 export type ClanSearchSchema = z.infer<ReturnType<typeof getClanSearchSchema>>;
+
+export const restoreStrongholdSchema = z.object({ clanId: z.string() });

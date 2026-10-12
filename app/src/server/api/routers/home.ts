@@ -56,7 +56,7 @@ export const homeRouter = createTRPCRouter({
         if (
           newStatus === "ASLEEP" &&
           sectorVillage &&
-          !["OUTLAW", "HIDEOUT", "TOWN"].includes(sectorVillage.type)
+          !["OUTLAW", "HIDEOUT", "STRONGHOLD"].includes(sectorVillage.type)
         ) {
           return errorResponse("You can't sleep in a village as an outlaw");
         }

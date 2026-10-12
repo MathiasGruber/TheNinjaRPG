@@ -23,3 +23,14 @@ export type WarSettlement = {
   structuresDelivered: boolean;
   notified: boolean;
 };
+
+export const declareVillageWarSchema = z.object({
+  targetVillageId: z.string(),
+  targetStructureRoute: z.string(),
+  userVillageId: z.string(),
+});
+
+export const raidOptionsSchema = z.object({
+  userVillageId: z.string(),
+  targetVillageId: z.string(),
+});

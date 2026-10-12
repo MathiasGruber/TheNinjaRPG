@@ -367,7 +367,7 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     if (reason === "outlaw") await db.update(userData).set({ isOutlaw: true }).where(eq(userData.userId, "member"));
     if (reason === "membership") await db.update(userData).set({ villageId: "v2" }).where(eq(userData.userId, "member"));
     if (reason === "inactive") await db.update(village).set({ activeMission: null }).where(eq(village.id, "v1"));
-    if (reason === "town") await db.update(village).set({ type: "TOWN" }).where(eq(village.id, "v1"));
+    if (reason === "town") await db.update(village).set({ type: "STRONGHOLD" }).where(eq(village.id, "v1"));
     const result = shrineResult(-20);
     await updateWars(db, {} as never, battle, result, "member");
     const saved = await db.query.war.findFirst({ where: eq(war.id, "w1") });
@@ -380,7 +380,7 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
 
   it("upgrades a town with clan points in one guarded write, charging only one concurrent upgrade", async () => {
     const db = await getTestDatabase();
-    await db.update(village).set({ type: "TOWN", leaderUpdatedAt: new Date("2020-01-01") }).where(eq(village.id, "v1"));
+    await db.update(village).set({ type: "STRONGHOLD", leaderUpdatedAt: new Date("2020-01-01") }).where(eq(village.id, "v1"));
     await db.insert(clan).values({ id: "c1", name: "Faction", image: "", villageId: "v1", founderId: "leader", leaderId: "leader", leaderOrderId: "order", points: 500_000 });
     await db.update(userData).set({ clanId: "c1" }).where(eq(userData.userId, "leader"));
     const noTransactions = new Proxy(db, {

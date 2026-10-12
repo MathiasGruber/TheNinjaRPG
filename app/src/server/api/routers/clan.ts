@@ -14,6 +14,7 @@ import {
   notExists,
   or,
   sql,
+  TransactionRollbackError,
 } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -33,14 +34,13 @@ import {
   CLANS_PER_STRUCTURE_LEVEL,
   ELDER_NOMINATION_CUTOFF_DAY,
   ELDER_NOMINATION_DEADLINE_DAY,
-  FACTION_MIN_MEMBERS_FOR_TOWN,
-  FACTION_MIN_POINTS_FOR_TOWN,
+  FACTION_MIN_MEMBERS_FOR_STRONGHOLD,
+  FACTION_REPUTATION_TREASURY_LIMIT,
   HIDEOUT_COST,
-  HIDEOUT_TOWN_UPGRADE,
   IMG_AVATAR_DEFAULT,
   IMG_VILLAGE_FACTION,
   KAGE_MAX_ELDERS,
-  TOWN_REESTABLISH_COST,
+  STRONGHOLD_REESTABLISH_COST,
   VILLAGE_SYNDICATE_ID,
 } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
@@ -82,6 +82,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { clearClanCombat, deleteClanBattle } from "@/server/utils/clanBattle";
+import { syncStrongholdMembership } from "@/server/utils/faction";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canEditClans } from "@/utils/permissions";
 import { checkForBadWords } from "@/utils/profanity";
@@ -97,6 +98,7 @@ import {
   clanGetRequestSchema,
   clanPointConversionSchema,
   factionEditSchema,
+  restoreStrongholdSchema,
   strictClanNameField,
 } from "@/validators/clan";
 import { idSchema } from "@/validators/misc";
@@ -197,9 +199,9 @@ export const clanRouter = createTRPCRouter({
       ]);
       return { success: true, message: "Hideout purchased successfully" };
     }),
-  upgradeHideoutToTown: protectedProcedure
-    .meta({ mcp: { description: "Upgrade hideout to town" } })
-    .input(z.object({ clanId: z.string() }))
+  upgradeHideoutToStronghold: protectedProcedure
+    .meta({ mcp: { description: "Upgrade hideout to stronghold" } })
+    .input(restoreStrongholdSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch
@@ -212,7 +214,8 @@ export const clanRouter = createTRPCRouter({
       if (!fetchedClan) return errorResponse("Faction not found");
       if (!user) return errorResponse("User not found");
       if (!clanHideout) return errorResponse("Clan village not found");
-      if (!user.isOutlaw) return errorResponse("Only outlaw factions can have towns");
+      if (!user.isOutlaw)
+        return errorResponse("Only outlaw factions can have strongholds");
       if (user.clanId !== input.clanId) return errorResponse("User not in clan");
       if (fetchedClan.leaderId !== user.userId) {
         return errorResponse("Not faction leader");
@@ -220,56 +223,58 @@ export const clanRouter = createTRPCRouter({
       if (fetchedClan.village?.type !== "HIDEOUT") {
         return errorResponse("Must have a hideout first");
       }
-      if (fetchedClan.points < FACTION_MIN_POINTS_FOR_TOWN) {
-        return errorResponse("Need more faction points");
-      }
-      if (fetchedClan.members.length < FACTION_MIN_MEMBERS_FOR_TOWN) {
+      if (fetchedClan.members.length < FACTION_MIN_MEMBERS_FOR_STRONGHOLD) {
         return errorResponse("Need more faction members");
       }
-      if (clanHideout.wasDowngraded) {
-        const missing = TOWN_REESTABLISH_COST - fetchedClan.bank;
-        if (missing > 0) {
-          return errorResponse(`Missing ${missing} ryo for re-establishing town.`);
-        }
-      } else {
-        const missing = HIDEOUT_TOWN_UPGRADE - fetchedClan.repTreasury;
-        if (missing > 0) {
-          return errorResponse(`Missing ${missing} reps for upgrading to town.`);
-        }
-      }
-      // Mutate - first pay up
-      const result = await ctx.drizzle
-        .update(clan)
-        .set({
-          ...(clanHideout.wasDowngraded
-            ? { bank: sql`${clan.bank} - ${TOWN_REESTABLISH_COST}` }
-            : {
-                repTreasury: sql`${clan.repTreasury} - ${HIDEOUT_TOWN_UPGRADE}`,
-                points: sql`${clan.points} - ${FACTION_MIN_POINTS_FOR_TOWN}`,
-              }),
-        })
-        .where(
-          and(
-            eq(clan.id, input.clanId),
-            ...(clanHideout.wasDowngraded
-              ? [gte(clan.bank, TOWN_REESTABLISH_COST)]
-              : [gte(clan.repTreasury, HIDEOUT_TOWN_UPGRADE)]),
-          ),
+      if (!clanHideout.wasDowngraded)
+        return errorResponse(
+          "New Stronghold upgrades are disabled; only former Strongholds can be restored",
         );
-      if (result.rowsAffected === 0) {
-        const action = clanHideout.wasDowngraded ? "re-establish" : "upgrade";
-        return errorResponse(`Failed to ${action} hideout as town`);
-      }
-      // Mutate 2 - second update the actual status
-      await ctx.drizzle
-        .update(village)
-        .set({
-          type: "TOWN",
-          lastMaintenancePaidAt: new Date(),
-        })
-        .where(eq(village.id, clanHideout.id));
-
-      return { success: true, message: "Hideout upgraded to town successfully" };
+      if (fetchedClan.bank < STRONGHOLD_REESTABLISH_COST)
+        return errorResponse(
+          `Restoring a Stronghold costs ${STRONGHOLD_REESTABLISH_COST.toLocaleString()} Ryo`,
+        );
+      // The settlement claim and payment must commit together to prevent duplicate charges.
+      const restored = await retryOnDeadlock(() =>
+        ctx.drizzle.transaction(async (tx) => {
+          const claim = await tx
+            .update(village)
+            .set({
+              type: "STRONGHOLD",
+              belowMemberMinimumSince: null,
+              lastMaintenancePaidAt: new Date(),
+            })
+            .where(
+              and(
+                eq(village.id, clanHideout.id),
+                eq(village.type, "HIDEOUT"),
+                eq(village.wasDowngraded, true),
+                eq(village.kageId, user.userId),
+                sql`(SELECT COUNT(*) FROM ${userData} WHERE ${userData.clanId} = ${fetchedClan.id} AND ${userData.isAi} = 0) >= ${FACTION_MIN_MEMBERS_FOR_STRONGHOLD}`,
+              ),
+            );
+          if (claim.rowsAffected === 0) return false;
+          const payment = await tx
+            .update(clan)
+            .set({ bank: sql`${clan.bank} - ${STRONGHOLD_REESTABLISH_COST}` })
+            .where(
+              and(
+                eq(clan.id, input.clanId),
+                gte(clan.bank, STRONGHOLD_REESTABLISH_COST),
+              ),
+            );
+          if (payment.rowsAffected === 0) tx.rollback();
+          return true;
+        }),
+      ).catch((error: unknown) => {
+        if (error instanceof TransactionRollbackError) return false;
+        throw error;
+      });
+      return restored
+        ? { success: true, message: "Stronghold restored successfully" }
+        : errorResponse(
+            "Stronghold could not be restored; refresh the faction and check its balance and membership",
+          );
     }),
   clanDonate: protectedProcedure
     .meta({
@@ -299,11 +304,11 @@ export const clanRouter = createTRPCRouter({
       // Derived - prevent people over-donating reputation points
       // TODO: Remove if these gain a permanent value for clans -
       // right now its only purpose is hideouts. We should implement
-      // it so that users can do aesthetics for their hideouts/towns,
+      // it so that users can do aesthetics for their hideouts/strongholds,
       // e.g. move around building, change skins, etc.
       const repsCost = Math.min(
         input.reputationPoints,
-        HIDEOUT_TOWN_UPGRADE - fetchedClan.repTreasury,
+        FACTION_REPUTATION_TREASURY_LIMIT - fetchedClan.repTreasury,
       );
       if (repsCost === 0) {
         return {
@@ -588,6 +593,8 @@ export const clanRouter = createTRPCRouter({
           })
           .where(eq(userData.userId, requester.userId)),
       ]);
+      if (fetchedClan.hasHideout)
+        await syncStrongholdMembership(ctx.drizzle, fetchedClan.villageId);
       void pusher.trigger(request.senderId, "event", {
         type: "userMessage",
         message: `You have been accepted to ${groupLabel}`,
@@ -826,7 +833,9 @@ export const clanRouter = createTRPCRouter({
       const isMemberColeader = checkCoLeader(input.memberId, fetchedClan);
       const canEdit = canEditClans(user.role);
       const isMemberLeader = input.memberId === fetchedClan?.leaderId;
-      const hadHideout = ["HIDEOUT", "TOWN"].includes(fetchedClan.village?.type ?? "");
+      const hadHideout = ["HIDEOUT", "STRONGHOLD"].includes(
+        fetchedClan.village?.type ?? "",
+      );
       // Guards
       if (!user) return errorResponse("User not found");
       if (!member) return errorResponse("Member not found");
@@ -1236,9 +1245,17 @@ export const clanRouter = createTRPCRouter({
           [input.boostType]: sql`${clan[input.boostType]} + ${CLAN_BOOST_PERCENT_PER_LEVEL}`,
           bank: sql`${clan.bank} - ${cost}`,
         })
-        .where(and(eq(clan.id, clanData.id), gte(clan.bank, cost)));
+        .where(
+          and(
+            eq(clan.id, clanData.id),
+            gte(clan.bank, cost),
+            eq(clan[input.boostType], currentBoost),
+          ),
+        );
       if (result.rowsAffected === 0) {
-        return errorResponse(`Not enough Ryo in ${groupLabel} bank`);
+        return errorResponse(
+          `The ${groupLabel} balance or boost changed; refresh and try again`,
+        );
       }
       return { success: true, message: `${config.label} purchased` };
     }),
@@ -1823,7 +1840,7 @@ export const clanRouter = createTRPCRouter({
             coLeader3: null,
           })
           .where(eq(clan.id, fetchedClan.id)),
-        ...(["HIDEOUT", "TOWN"].includes(fetchedClan.village?.type ?? "")
+        ...(["HIDEOUT", "STRONGHOLD"].includes(fetchedClan.village?.type ?? "")
           ? [
               ctx.drizzle
                 .update(village)
@@ -1833,6 +1850,7 @@ export const clanRouter = createTRPCRouter({
           : []),
       ]);
 
+      await syncStrongholdMembership(ctx.drizzle, fetchedClan.villageId);
       return {
         success: true,
         message: `You have instantly joined and taken leadership of ${fetchedClan.name}`,
@@ -2043,7 +2061,7 @@ export const removeFromClan = async (
       relatedMsg: `${user.username} removed from ${user.isOutlaw ? "faction" : "clan"}: ${clanData.name}`,
       relatedImage: clanData.image,
     }),
-    ...(!otherUser && ["HIDEOUT", "TOWN"].includes(clanData.village?.type)
+    ...(!otherUser && ["HIDEOUT", "STRONGHOLD"].includes(clanData.village?.type)
       ? [
           client.delete(village).where(eq(village.id, clanData.villageId)),
           client
@@ -2098,11 +2116,12 @@ export const removeFromClan = async (
             .where(
               and(
                 eq(village.id, user.villageId ?? VILLAGE_SYNDICATE_ID),
-                or(eq(village.type, "HIDEOUT"), eq(village.type, "TOWN")),
+                or(eq(village.type, "HIDEOUT"), eq(village.type, "STRONGHOLD")),
               ),
             ),
         ]),
   ]);
+  if (otherUser) await syncStrongholdMembership(client, clanData.villageId);
 };
 
 /**
@@ -2328,6 +2347,7 @@ export const fetchClan = async (client: DrizzleClient, clanId: string) => {
           id: true,
           name: true,
           wasDowngraded: true,
+          belowMemberMinimumSince: true,
           lastMaintenancePaidAt: true,
           type: true,
           sector: true,

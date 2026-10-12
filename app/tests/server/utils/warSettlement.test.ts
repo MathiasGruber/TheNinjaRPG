@@ -4,6 +4,7 @@ import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
 import mysql from "mysql2/promise";
 import {
+  FACTION_RAID_REWARD,
   WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS,
   WAR_DECLARATION_COST,
   WAR_MINIMUM_MEMBERS_REQUIRED,
@@ -437,27 +438,18 @@ describeWithDatabase("guarded war settlement and delivery", () => {
     ).toBe(true);
   });
 
-  it("a raid limits the losing penalty to its target and preserves all winner boosts", async () => {
+  it("a raid pays only the attacking treasury and applies percentage effects without war penalties", async () => {
     const db = await seed("WAR_RAID");
+    await db.update(war).set({ targetStructureRoute: "/traininggrounds" });
     await handleWarEnd(await snapshot(db), db);
+    expect(await balance(db, "attacker")).toBe(tokens + FACTION_RAID_REWARD);
+    expect(await balance(db, "defender")).toBe(tokens);
     const structures = await db.select().from(villageStructure);
-    expect(
-      structures
-        .filter(
-          (row) =>
-            row.villageId === "attacker" &&
-            WAR_VICTORY_BOOSTED_STRUCTURES.includes(row.route as never),
-        )
-        .every((row) => row.temporaryLevelBonus === WAR_VICTORY_STRUCTURE_BOOST_LEVELS),
-    ).toBe(true);
-    expect(
-      structures.find((row) => row.id === "defender/townhall")?.temporaryLevelBonus,
-    ).toBe(-WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS);
-    expect(
-      structures
-        .filter((row) => row.villageId === "defender" && row.route !== "/townhall")
-        .every((row) => row.temporaryLevelBonus === 0),
-    ).toBe(true);
+    expect(structures.every((row) => row.temporaryLevelBonus === 0)).toBe(true);
+    expect(structures.find((row) => row.id === "attacker/traininggrounds")?.raidBoostExpiresAt).toBeInstanceOf(Date);
+    expect(structures.find((row) => row.id === "defender/traininggrounds")?.raidProtectedUntil).toBeInstanceOf(Date);
+    expect((await db.select().from(gameSetting)).every((setting) => setting.value === 0)).toBe(true);
+    expect((await savedWar(db))?.settlementPending).toBe(false);
   });
 
   it("closing sibling sector wars clears participation after all their outcomes commit", async () => {

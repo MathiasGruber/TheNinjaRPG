@@ -837,11 +837,11 @@ export const fetchSectorVillage = async (
       : or(
           and(eq(village.sector, sector), eq(village.type, "SAFEZONE")),
           and(eq(village.sector, sector), eq(village.type, "HIDEOUT")),
-          and(eq(village.sector, sector), eq(village.type, "TOWN")),
+          and(eq(village.sector, sector), eq(village.type, "STRONGHOLD")),
           eq(village.type, "OUTLAW"),
         ),
     orderBy: (villages) =>
-      sql`FIELD(${villages.type}, 'SAFEZONE', 'HIDEOUT', 'TOWN', 'OUTLAW')`,
+      sql`FIELD(${villages.type}, 'SAFEZONE', 'HIDEOUT', 'STRONGHOLD', 'OUTLAW')`,
     with: {
       notice: true,
       relationshipA: true,

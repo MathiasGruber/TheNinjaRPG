@@ -1,10 +1,12 @@
 
-import { eq, getTableName } from "drizzle-orm";
+import { and, eq, getTableName } from "drizzle-orm";
 import { beforeEach, expect, it, vi } from "bun:test";
 import {
   ELDER_MIN_VOTING_COUNT,
   WAR_DECLARATION_COST,
-  WAR_MINIMUM_MEMBERS_REQUIRED,
+  FACTION_RAID_COST,
+  FACTION_RAID_MIN_MEMBERS,
+  FACTION_RAID_REWARD,
   WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE,
 } from "@/drizzle/constants";
 import {
@@ -17,9 +19,9 @@ import {
   war,
   warAlly,
 } from "@/drizzle/schema";
-import { warRouter } from "@/routers/war";
+import { warRouter, fetchActiveWar } from "@/routers/war";
 import * as serverSentry from "@/server/utils/sentry";
-import { startDeclaredWar } from "@/server/utils/war";
+import { startDeclaredWar, handleWarEnd, warRaidCombatGuard, applyRaidHealthDecay } from "@/server/utils/war";
 import { insertUsers } from "../../setup/factories";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -32,7 +34,7 @@ const TOKENS = WAR_DECLARATION_COST * 2 + 500_000;
 const declare = async (userId: string, userVillageId: string) =>
   (await callerFor(warRouter, userId)).declareVillageWarOrRaid({
     targetVillageId: TARGET,
-    targetStructureRoute: "/townhall",
+    targetStructureRoute: "/traininggrounds",
     userVillageId,
   });
 
@@ -66,15 +68,15 @@ const seedWorld = async (attackerType: "HIDEOUT" | "VILLAGE" = "HIDEOUT") => {
     villageIdB: TARGET,
     status: "ENEMY",
   });
-  await database.insert(villageStructure).values({
-    id: "target-townhall",
-    name: "Town Hall",
+  await database.insert(villageStructure).values([{
+    id: "target-training",
+    name: "Training Grounds",
     image: "/townhall.webp",
     villageId: TARGET,
-    route: "/townhall",
-  } as never);
+    route: "/traininggrounds",
+  }, { id: "own-training", name: "Training Grounds", image: "/training.webp", villageId: FACTION, route: "/traininggrounds", trainBoostPerLvl: 2 }] as never);
   const members = (villageId: string, prefix: string, outlaw: boolean) =>
-    Array.from({ length: WAR_MINIMUM_MEMBERS_REQUIRED }, (_, i) => ({
+    Array.from({ length: FACTION_RAID_MIN_MEMBERS }, (_, i) => ({
       userId: `${prefix}-${i}`,
       username: `${prefix}${i}`,
       villageId,
@@ -120,9 +122,9 @@ describeWithDatabase("faction war declarations", () => {
       defenderVillageId: TARGET,
       status: "ACTIVE",
       type: "WAR_RAID",
-      targetStructureRoute: "/townhall",
+      targetStructureRoute: "/traininggrounds",
     });
-    expect((await readFaction())?.tokens).toBe(TOKENS - WAR_DECLARATION_COST);
+    expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST);
     expect(await database.select().from(villageElderVote)).toHaveLength(0);
     const notified = (await database.select().from(notification)).map((n) => n.userId);
     expect(notified.sort()).toEqual([LEADER, TARGET_KAGE].sort());
@@ -151,12 +153,12 @@ describeWithDatabase("faction war declarations", () => {
         failingNotifications,
       ).declareVillageWarOrRaid({
         targetVillageId: TARGET,
-        targetStructureRoute: "/townhall",
+        targetStructureRoute: "/traininggrounds",
         userVillageId: FACTION,
       });
       expect(result.success).toBe(true);
       expect(await database.select().from(war)).toHaveLength(1);
-      expect((await readFaction())?.tokens).toBe(TOKENS - WAR_DECLARATION_COST);
+      expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST);
       expect(report).toHaveBeenCalledWith(
         failure,
         "Failed to notify leaders about a started war",
@@ -182,7 +184,7 @@ describeWithDatabase("faction war declarations", () => {
     const database = await getTestDatabase();
     await database
       .update(village)
-      .set({ tokens: WAR_DECLARATION_COST - 1 })
+      .set({ tokens: FACTION_RAID_COST - 1 })
       .where(eq(village.id, FACTION));
     const result = await declare(LEADER, FACTION);
     expect(result.success).toBe(false);
@@ -200,7 +202,10 @@ describeWithDatabase("faction war declarations", () => {
         sector: 103,
         kageId: LEADER,
         tokens: TOKENS,
+        type: "HIDEOUT",
       });
+      await insertUsers(Array.from({ length: FACTION_RAID_MIN_MEMBERS }, (_, i) => ({ userId: `other-${i}`, username: `Other${i}`, villageId: "other-village", isOutlaw: true })) as never);
+      await database.insert(villageStructure).values({ id: "other-training", name: "Training Grounds", route: "/traininggrounds", image: "/training.webp", villageId: "other-village" });
       const declaration = {
         attackerVillageId: FACTION,
         attackerVillageName: "Akatsuki",
@@ -208,7 +213,7 @@ describeWithDatabase("faction war declarations", () => {
         defenderVillageName: "Konoki",
         initiatedByUserId: LEADER,
         warType: "WAR_RAID" as const,
-        targetStructureRoute: "/townhall",
+        targetStructureRoute: "/traininggrounds",
       };
       const results = await Promise.all([
         startDeclaredWar(database, declaration),
@@ -224,7 +229,7 @@ describeWithDatabase("faction war declarations", () => {
       const balances = await database.select().from(village);
       const startingTokens = TOKENS * 2 + WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE;
       expect(balances.reduce((sum, row) => sum + row.tokens, 0)).toBe(
-        startingTokens - WAR_DECLARATION_COST,
+        startingTokens - FACTION_RAID_COST,
       );
     },
   );
@@ -238,4 +243,104 @@ describeWithDatabase("faction war declarations", () => {
     expect(await database.select().from(war)).toHaveLength(0);
     expect((await readFaction())?.tokens).toBe(TOKENS);
   });
+  it("requires 20 raiders and rejects unsupported structures without charging", async () => {
+    await seedWorld();
+    const db = await getTestDatabase();
+    await db.delete(userData).where(eq(userData.userId, "faction-19"));
+    expect((await declare(LEADER, FACTION)).message).toContain("20 members");
+    expect((await readFaction())?.tokens).toBe(TOKENS);
+    const result = await (await callerFor(warRouter, LEADER)).declareVillageWarOrRaid({ userVillageId: FACTION, targetVillageId: TARGET, targetStructureRoute: "/townhall" });
+    expect(result.success).toBe(false);
+  });
+
+  it("pays an attacking victory exactly once with no ordinary war effects", async () => {
+    await seedWorld();
+    await declare(LEADER, FACTION);
+    const db = await getTestDatabase();
+    const [raid] = await db.select().from(war);
+    expect(raid).toMatchObject({ attackerWarHealth: 2000, defenderWarHealth: 2000 });
+    await db.update(war).set({ defenderWarHealth: 0 }).where(eq(war.id, raid!.id));
+    const active = (await fetchActiveWar(db, raid!.id))!;
+    await Promise.all([handleWarEnd(active, db), handleWarEnd(active, db)]);
+    expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST + FACTION_RAID_REWARD);
+    expect((await readFaction())?.warExhaustionEndedAt).toBeNull();
+    const structures = await db.select().from(villageStructure);
+    expect(structures.find((row) => row.villageId === FACTION)?.raidBoostExpiresAt).toBeInstanceOf(Date);
+    expect(structures.find((row) => row.villageId === TARGET)?.raidProtectedUntil).toBeInstanceOf(Date);
+    expect(structures.every((row) => row.temporaryLevelBonus === 0)).toBe(true);
+    expect((await declare(LEADER, FACTION)).success).toBe(false);
+  });
+
+  it("times out in favor of the defender without draining treasuries and blocks the pair for 72 hours", async () => {
+    await seedWorld();
+    await declare(LEADER, FACTION);
+    const db = await getTestDatabase();
+    const [raid] = await db.select().from(war);
+    await db.update(war).set({ startedAt: new Date(Date.now() - 49 * 3600_000), attackerWarHealth: 1900, defenderWarHealth: 100 }).where(eq(war.id, raid!.id));
+    const lateHit = await db.update(war).set({ defenderWarHealth: 0 }).where(and(eq(war.id, raid!.id), warRaidCombatGuard()));
+    expect(lateHit.rowsAffected).toBe(0);
+    await (await callerFor(warRouter, LEADER)).getActiveWars({ villageId: FACTION });
+    const [ended] = await db.select().from(war);
+    expect(ended?.status).toBe("DEFENDER_VICTORY");
+    expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST);
+    expect((await readFaction())?.raidRetryCooldowns[TARGET]).toBeDefined();
+    expect((await readFaction())?.warExhaustionEndedAt).toBeNull();
+    const [target] = await db.select().from(village).where(eq(village.id, TARGET));
+    expect(target?.tokens).toBe(WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE);
+    const [structure] = await db.select().from(villageStructure).where(eq(villageStructure.villageId, TARGET));
+    expect(structure?.raidBoostExpiresAt).toBeInstanceOf(Date);
+  });
+
+  it("allows tiny, penniless hideout defenders and ignores empty treasury during an active raid", async () => {
+    await seedWorld();
+    const db = await getTestDatabase();
+    await db.update(village).set({ type: "HIDEOUT", tokens: 0 }).where(eq(village.id, TARGET));
+    await db.delete(userData).where(eq(userData.villageId, TARGET));
+    expect((await declare(LEADER, FACTION)).success).toBe(true);
+    expect(await (await callerFor(warRouter, LEADER)).getActiveWars({ villageId: FACTION })).toHaveLength(1);
+  });
+
+  it("does not settle a stale defeated snapshot after the structure has recovered", async () => {
+    await seedWorld();
+    await declare(LEADER, FACTION);
+    const db = await getTestDatabase();
+    const [raid] = await db.select().from(war);
+    const active = (await fetchActiveWar(db, raid!.id))!;
+    const stale = { ...active, attackerWarHealth: 0 };
+    const result = await handleWarEnd(stale, db);
+    expect(result.status).toBe("ACTIVE");
+    expect(result.endedAt).toBeNull();
+    expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST);
+    expect((await readFaction())?.raidRetryCooldowns).toEqual({});
+  });
+
+  it("preserves a victory achieved before the deadline when settlement runs later", async () => {
+    await seedWorld();
+    await declare(LEADER, FACTION);
+    const db = await getTestDatabase();
+    const [raid] = await db.select().from(war);
+    const hit = await db.update(war).set({ defenderWarHealth: 0 }).where(and(eq(war.id, raid!.id), warRaidCombatGuard()));
+    expect(hit.rowsAffected).toBe(1);
+    const healing = await db.update(war).set({ defenderWarHealth: 100 }).where(and(eq(war.id, raid!.id), warRaidCombatGuard()));
+    expect(healing.rowsAffected).toBe(0);
+    await db.update(war).set({ startedAt: new Date(Date.now() - 49 * 3600_000) }).where(eq(war.id, raid!.id));
+    await (await callerFor(warRouter, LEADER)).getActiveWars({ villageId: FACTION });
+    const [ended] = await db.select().from(war);
+    expect(ended?.status).toBe("ATTACKER_VICTORY");
+    expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST + FACTION_RAID_REWARD);
+  });
+
+  it("drains both structures by 300 per day once without touching treasury balances", async () => {
+    await seedWorld();
+    await declare(LEADER, FACTION);
+    const db = await getTestDatabase();
+    const [raid] = await db.select().from(war);
+    await db.update(war).set({ lastTokenReductionAt: new Date(Date.now() - 25 * 3600_000) }).where(eq(war.id, raid!.id));
+    const active = (await fetchActiveWar(db, raid!.id))!;
+    await Promise.all([applyRaidHealthDecay(db, active), applyRaidHealthDecay(db, active)]);
+    const [updated] = await db.select().from(war);
+    expect(updated).toMatchObject({ attackerWarHealth: 1700, defenderWarHealth: 1700 });
+    expect((await readFaction())?.tokens).toBe(TOKENS - FACTION_RAID_COST);
+  });
+
 });

@@ -15,6 +15,15 @@ import { nanoid } from "nanoid";
 import type { WarState, WarType } from "@/drizzle/constants";
 import {
   BRACKET_IMMUNITY_LIFT_SECS,
+  FACTION_RAID_BOOST_HOURS,
+  FACTION_RAID_COST,
+  FACTION_RAID_DAILY_DRAIN,
+  FACTION_RAID_FAILURE_COOLDOWN_HOURS,
+  FACTION_RAID_MAX_DAYS,
+  FACTION_RAID_MIN_MEMBERS,
+  FACTION_RAID_REWARD,
+  FACTION_RAID_STRUCTURE_HP,
+  FACTION_RAID_TARGET_COOLDOWN_HOURS,
   TERR_BOT_ID,
   WAR_ATTACKER_EXHAUSTION_MULTIPLIER,
   WAR_DECLARATION_COST,
@@ -47,7 +56,12 @@ import {
   war,
   warAlly,
 } from "@/drizzle/schema";
-import { isVillageInvolvedInAnyWar } from "@/libs/war";
+import {
+  getRaidDeclarationBlock,
+  isFactionVillage,
+  isVillageInvolvedInAnyWar,
+  shouldEndRaid,
+} from "@/libs/war";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { type DrizzleClient, drizzleDB } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
@@ -55,6 +69,10 @@ import { logError } from "@/server/utils/sentry";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { DAY_S, secondsFromDate } from "@/utils/time";
 import type { WarSettlement } from "@/validators/war";
+
+/** Raid combat closes at the deadline or the first defeated structure, even before settlement runs. */
+export const warRaidCombatGuard = () =>
+  sql`(${war.type} != 'WAR_RAID' OR (${war.startedAt} > NOW(3) - INTERVAL ${FACTION_RAID_MAX_DAYS * 24} HOUR AND ${war.attackerWarHealth} > 0 AND ${war.defenderWarHealth} > 0))`;
 
 /**
  * SQL fragment that extends `userData.warParticipantUntil` to the larger of its current
@@ -95,7 +113,14 @@ export const handleWarEnd = async (
     )
       return current;
 
+    const endedAt = new Date();
+    const isRaid = current.type === "WAR_RAID";
+    const canSurrenderRaid = isRaid && !shouldEndRaid(current, endedAt);
+    const losingVillageId =
+      !isRaid || canSurrenderRaid ? options.losingVillageId : undefined;
+    if (isRaid && !losingVillageId && !shouldEndRaid(current, endedAt)) return current;
     if (
+      !isRaid &&
       !options.losingVillageId &&
       !options.shrineBuilderId &&
       !options.resolveByHealth &&
@@ -106,27 +131,30 @@ export const handleWarEnd = async (
     )
       return current;
 
-    const endedAt = new Date();
     const isSector = current.type === "SECTOR_WAR";
     const attackerLost =
-      options.losingVillageId === current.attackerVillageId ||
-      current.attackerVillage.tokens <= 0 ||
+      losingVillageId === current.attackerVillageId ||
+      (!isRaid && current.attackerVillage.tokens <= 0) ||
       current.attackerWarHealth <= 0;
     const defenderLost =
       !!options.shrineBuilderId ||
-      options.losingVillageId === current.defenderVillageId ||
-      current.defenderVillage.tokens <= 0 ||
+      losingVillageId === current.defenderVillageId ||
+      (!isRaid && current.defenderVillage.tokens <= 0) ||
       current.defenderWarHealth <= 0;
     const isDraw =
-      (attackerLost && defenderLost) ||
-      (!attackerLost &&
-        !defenderLost &&
-        current.attackerWarHealth === current.defenderWarHealth);
-    const winnerId =
-      (attackerLost && !defenderLost) ||
-      (!attackerLost &&
-        !defenderLost &&
-        current.attackerWarHealth < current.defenderWarHealth)
+      !isRaid &&
+      ((attackerLost && defenderLost) ||
+        (!attackerLost &&
+          !defenderLost &&
+          current.attackerWarHealth === current.defenderWarHealth));
+    const winnerId = isRaid
+      ? defenderLost && !attackerLost
+        ? current.attackerVillageId
+        : current.defenderVillageId
+      : (attackerLost && !defenderLost) ||
+          (!attackerLost &&
+            !defenderLost &&
+            current.attackerWarHealth < current.defenderWarHealth)
         ? current.defenderVillageId
         : current.attackerVillageId;
     const loserId =
@@ -138,22 +166,28 @@ export const handleWarEnd = async (
       : winnerId === current.attackerVillageId
         ? "ATTACKER_VICTORY"
         : "DEFENDER_VICTORY";
-    const winningVillageIds = isDraw
-      ? []
-      : [
-          ...new Set([
-            winnerId,
-            ...current.warAllies
-              .filter((ally) => ally.supportVillageId === winnerId)
-              .map((ally) => ally.villageId),
-          ]),
-        ].sort();
-    const share = winningVillageIds.length
-      ? Math.floor(WAR_VICTORY_TOKEN_BONUS / winningVillageIds.length)
-      : 0;
+    const winningVillageIds = isRaid
+      ? [winnerId]
+      : isDraw
+        ? []
+        : [
+            ...new Set([
+              winnerId,
+              ...current.warAllies
+                .filter((ally) => ally.supportVillageId === winnerId)
+                .map((ally) => ally.villageId),
+            ]),
+          ].sort();
+    const share = isRaid
+      ? winnerId === current.attackerVillageId
+        ? FACTION_RAID_REWARD
+        : 0
+      : winningVillageIds.length
+        ? Math.floor(WAR_VICTORY_TOKEN_BONUS / winningVillageIds.length)
+        : 0;
     const winnerTokens =
       share +
-      (winningVillageIds.length
+      (!isRaid && winningVillageIds.length
         ? WAR_VICTORY_TOKEN_BONUS % winningVillageIds.length
         : 0);
     const sectorWars = isSector
@@ -186,11 +220,13 @@ export const handleWarEnd = async (
       villageIds,
       winningVillageIds,
       warIds: [...new Set([current.id, ...sectorWars.map((other) => other.id)])],
-      notificationContent: isSector
-        ? `Sector ${current.sector} has been claimed by ${winnerName}. `
-        : `War between ${current.attackerVillage.name} and ${current.defenderVillage.name} has ended. ${isDraw ? "The result was a draw." : `${winnerName} won the war and received ${winnerTokens} tokens. `}`,
-      boostsDelivered: isSector || isDraw,
-      structuresDelivered: isSector,
+      notificationContent: isRaid
+        ? `Raid between ${current.attackerVillage.name} and ${current.defenderVillage.name} has ended. ${winnerName} receives the structure raid bonus.${winnerTokens ? ` The attacking faction receives ${winnerTokens.toLocaleString()} tokens.` : ""}`
+        : isSector
+          ? `Sector ${current.sector} has been claimed by ${winnerName}. `
+          : `War between ${current.attackerVillage.name} and ${current.defenderVillage.name} has ended. ${isDraw ? "The result was a draw." : `${winnerName} won the war and received ${winnerTokens} tokens. `}`,
+      boostsDelivered: isRaid || isSector || isDraw,
+      structuresDelivered: isRaid || isSector,
       notified: false,
     };
     const attackerCooldown = secondsFromDate(
@@ -213,6 +249,7 @@ export const handleWarEnd = async (
     const related = alias(war, "related");
     const unlisted = alias(war, "unlisted");
     const membership = alias(warAlly, "wa");
+    const raidStructure = alias(villageStructure, "raid_structure");
     const rosterMatches = current.warAllies.length
       ? sql.join(
           current.warAllies.map(
@@ -248,6 +285,7 @@ export const handleWarEnd = async (
       `
           : sql``
       }
+      ${isRaid ? sql`LEFT JOIN ${villageStructure} AS raid_structure ON ${raidStructure.villageId} = ${recipient.id} AND ${raidStructure.route} = ${current.targetStructureRoute}` : sql``}
       SET ${war.status} = ${status}, ${war.endedAt} = ${endedAt},
           ${war.settlement} = JSON_SET(${JSON.stringify(settlement)}, '$.cleanupCutoff', CAST(UNIX_TIMESTAMP(SYSDATE(3)) * 1000 AS UNSIGNED)), ${war.settlementPending} = TRUE,
           ${recipient.tokens} = ${recipient.tokens} + ${
@@ -258,13 +296,18 @@ export const handleWarEnd = async (
                 : sql`0`
           }
           ${
-            !isSector
-              ? sql`, ${recipient.warExhaustionEndedAt} = CASE
+            isRaid
+              ? sql`,
+              ${raidStructure.raidProtectedUntil} = CASE WHEN ${raidStructure.villageId} = ${current.defenderVillageId} THEN ${secondsFromDate(FACTION_RAID_TARGET_COOLDOWN_HOURS * 3600, endedAt)} ELSE ${raidStructure.raidProtectedUntil} END,
+              ${raidStructure.raidBoostExpiresAt} = CASE WHEN ${raidStructure.villageId} = ${winnerId} AND (${raidStructure.raidBoostExpiresAt} IS NULL OR ${raidStructure.raidBoostExpiresAt} <= ${endedAt}) THEN ${secondsFromDate(FACTION_RAID_BOOST_HOURS * 3600, endedAt)} ELSE ${raidStructure.raidBoostExpiresAt} END,
+              ${recipient.raidRetryCooldowns} = CASE WHEN ${status === "DEFENDER_VICTORY"} AND ${recipient.id} = ${current.attackerVillageId} THEN JSON_SET(${recipient.raidRetryCooldowns}, ${`$.${JSON.stringify(current.defenderVillageId)}`}, ${secondsFromDate(FACTION_RAID_FAILURE_COOLDOWN_HOURS * 3600, endedAt).toISOString()}) ELSE ${recipient.raidRetryCooldowns} END`
+              : !isSector
+                ? sql`, ${recipient.warExhaustionEndedAt} = CASE
             WHEN ${recipient.id} = ${current.attackerVillageId} THEN ${attackerCooldown}
             WHEN ${recipient.id} = ${current.defenderVillageId} THEN ${defenderCooldown}
             ELSE ${recipient.warExhaustionEndedAt} END,
             ${recipient.lastWarEndedAt} = CASE WHEN ${inArray(recipient.id, [winnerId, loserId])} THEN ${endedAt} ELSE ${recipient.lastWarEndedAt} END`
-              : sql`,
+                : sql`,
             ${winnerId !== current.defenderVillageId ? sql`${sector.villageId} = ${winnerId}, ${sector.shrineLevel} = 1, ${sector.capturedAt} = ${endedAt},` : sql``}
             ${villageStructure.curSp} = GREATEST(${villageStructure.curSp} - ${WAR_SECTOR_LOSS_TOWNHALL_DAMAGE}, 0),
             ${related.status} = 'DEFENDER_VICTORY', ${related.endedAt} = ${endedAt}`
@@ -272,6 +315,7 @@ export const handleWarEnd = async (
       WHERE ${war.id} = ${current.id} AND ${war.status} = 'ACTIVE' AND ${war.endedAt} IS NULL
         AND ${war.attackerWarHealth} = ${current.attackerWarHealth} AND ${war.defenderWarHealth} = ${current.defenderWarHealth}
         AND ${attacker.tokens} = ${current.attackerVillage.tokens} AND ${defender.tokens} = ${current.defenderVillage.tokens}
+        ${isRaid && losingVillageId ? sql`AND ${warRaidCombatGuard()}` : sql``}
         ${options.shrineBuilderId ? sql`AND ${attacker.kageId} = ${options.shrineBuilderId} AND ${attacker.tokens} >= ${WAR_PURCHASE_SHRINE_TOKEN_COST} AND ${war.defenderShrineHp} <= 0` : sql``}
         ${isSector ? sql`AND ${sector.villageId} = ${current.defenderVillageId} AND ${unlisted.id} IS NULL` : sql``}
         AND (SELECT COUNT(*) FROM ${warAlly} wa WHERE ${membership.warId} = ${war.id} AND ${membership.acceptedAt} IS NOT NULL AND ${membership.endedAt} IS NULL) = ${current.warAllies.length}
@@ -494,13 +538,13 @@ export const startDeclaredWar = async (
 ) => {
   const started = await retryOnDeadlock(() =>
     client.transaction(async (tx) => {
-      // Shared village rows serialize overlapping declarations; sorted locks avoid inversion.
+      // Lock settlements before any consistent read so a waiting declaration sees the preceding commit. Sorted locks avoid inversion.
       const villageIds = [
         declaration.attackerVillageId,
         declaration.defenderVillageId,
       ].sort();
       const lockedVillages = await tx
-        .select({ id: village.id })
+        .select()
         .from(village)
         .where(inArray(village.id, villageIds))
         .orderBy(asc(village.id))
@@ -517,14 +561,46 @@ export const startDeclaredWar = async (
       if (villageIds.some((id) => isVillageInvolvedInAnyWar(activeWars, id)))
         return false;
 
+      const isRaid = declaration.warType === "WAR_RAID";
+      const cost = isRaid ? FACTION_RAID_COST : WAR_DECLARATION_COST;
+      if (isRaid) {
+        const attacker = lockedVillages.find(
+          (v) => v.id === declaration.attackerVillageId,
+        )!;
+        const defender = lockedVillages.find(
+          (v) => v.id === declaration.defenderVillageId,
+        )!;
+        if (
+          !isFactionVillage(attacker) ||
+          attacker.kageId !== declaration.initiatedByUserId ||
+          !["VILLAGE", "HIDEOUT", "STRONGHOLD"].includes(defender.type)
+        )
+          return false;
+        const [members] = await tx
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(userData)
+          .where(and(eq(userData.villageId, attacker.id), eq(userData.isAi, false)));
+        const structures = await tx
+          .select()
+          .from(villageStructure)
+          .where(inArray(villageStructure.villageId, villageIds));
+        if (
+          Number(members?.count ?? 0) < FACTION_RAID_MIN_MEMBERS ||
+          getRaidDeclarationBlock(
+            attacker,
+            structures.filter((s) => s.villageId === attacker.id),
+            structures.filter((s) => s.villageId === defender.id),
+            defender.id,
+            declaration.targetStructureRoute,
+          )
+        )
+          return false;
+      }
       const tokenResult = await tx
         .update(village)
-        .set({ tokens: sql`${village.tokens} - ${WAR_DECLARATION_COST}` })
+        .set({ tokens: sql`${village.tokens} - ${cost}` })
         .where(
-          and(
-            eq(village.id, declaration.attackerVillageId),
-            gte(village.tokens, WAR_DECLARATION_COST),
-          ),
+          and(eq(village.id, declaration.attackerVillageId), gte(village.tokens, cost)),
         );
       if (tokenResult.rowsAffected === 0) return false;
 
@@ -535,6 +611,14 @@ export const startDeclaredWar = async (
         status: "ACTIVE",
         type: declaration.warType,
         targetStructureRoute: declaration.targetStructureRoute,
+        ...(isRaid
+          ? {
+              attackerWarHealth: FACTION_RAID_STRUCTURE_HP,
+              defenderWarHealth: FACTION_RAID_STRUCTURE_HP,
+              attackerWarHealthMax: FACTION_RAID_STRUCTURE_HP,
+              defenderWarHealthMax: FACTION_RAID_STRUCTURE_HP,
+            }
+          : {}),
         attackerShrineHp: WAR_RAID_SHRINE_HP,
         attackerShrineMaxHp: WAR_RAID_SHRINE_HP,
         attackerShrineStatus: "ACTIVE",
@@ -547,7 +631,7 @@ export const startDeclaredWar = async (
   );
   if (!started) return false;
 
-  const warContent = `${declaration.attackerVillageName} has declared war on ${declaration.defenderVillageName}!`;
+  const warContent = `${declaration.attackerVillageName} has declared ${declaration.warType === "WAR_RAID" ? "a raid" : "war"} on ${declaration.defenderVillageName}!`;
   const notifyKageIds = [declaration.initiatedByUserId];
   if (declaration.defenderKageId) notifyKageIds.push(declaration.defenderKageId);
   try {
@@ -568,4 +652,46 @@ export const startDeclaredWar = async (
     });
   }
   return true;
+};
+
+/** A timestamp CAS makes retries of a daily raid drain harmless. Treasury tokens are unaffected. */
+export const applyRaidHealthDecay = async (
+  client: DrizzleClient,
+  raid: FetchActiveWarsReturnType,
+  now = new Date(),
+) => {
+  const intervals = Math.floor(
+    (now.getTime() - raid.lastTokenReductionAt.getTime()) / (DAY_S * 1000),
+  );
+  if (raid.type !== "WAR_RAID" || intervals <= 0) return;
+  const drain = intervals * FACTION_RAID_DAILY_DRAIN;
+  const result = await client
+    .update(war)
+    .set({
+      attackerWarHealth: sql`GREATEST(${war.attackerWarHealth} - ${drain}, 0)`,
+      defenderWarHealth: sql`GREATEST(${war.defenderWarHealth} - ${drain}, 0)`,
+      lastTokenReductionAt: new Date(
+        raid.lastTokenReductionAt.getTime() + intervals * DAY_S * 1000,
+      ),
+    })
+    .where(
+      and(
+        eq(war.id, raid.id),
+        isNull(war.endedAt),
+        eq(war.lastTokenReductionAt, raid.lastTokenReductionAt),
+        warRaidCombatGuard(),
+      ),
+    );
+  if (
+    result.rowsAffected > 0 &&
+    (raid.attackerWarHealth <= drain || raid.defenderWarHealth <= drain)
+  )
+    await handleWarEnd(
+      {
+        ...raid,
+        attackerWarHealth: Math.max(0, raid.attackerWarHealth - drain),
+        defenderWarHealth: Math.max(0, raid.defenderWarHealth - drain),
+      },
+      client,
+    );
 };

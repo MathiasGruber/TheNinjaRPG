@@ -1,4 +1,4 @@
-import { randomInt } from "crypto";
+import { randomInt } from "node:crypto";
 import {
   and,
   desc,
@@ -535,7 +535,7 @@ export const kageRouter = createTRPCRouter({
         userId: ctx.userId,
       });
       const village = user?.village;
-      // Apply 24-hour lockout to all kages (villages, hideouts, and towns)
+      // Apply 24-hour lockout to all kages (villages, hideouts, and strongholds)
       const lockout = KAGE_DELAY_SECS;
       // Guards
       if (!user) return errorResponse("User not found");
@@ -571,14 +571,16 @@ export const kageRouter = createTRPCRouter({
 
       // Derived
       const structure = userVillage?.structures.find((s) => s.id === input.structureId);
-      const isHideoutOrTown = ["HIDEOUT", "TOWN"].includes(userVillage?.type ?? "");
-      const lockout = isHideoutOrTown ? KAGE_DELAY_SECS : 0;
+      const isHideoutOrStronghold = ["HIDEOUT", "STRONGHOLD"].includes(
+        userVillage?.type ?? "",
+      );
+      const lockout = isHideoutOrStronghold ? KAGE_DELAY_SECS : 0;
 
       // Guards
       if (!user) return errorResponse("User not found");
       if (!userVillage) return errorResponse("Village not found");
       if (!structure) return errorResponse("Structure not found");
-      if (isHideoutOrTown && !clanData) return errorResponse("Faction not found");
+      if (isHideoutOrStronghold && !clanData) return errorResponse("Faction not found");
       if (userVillage.kageId !== user.userId) return errorResponse("Not the leader");
       if (structure.level === 0) return errorResponse("Can't upgrade from lvl 0 yet");
       if (structure.level >= structure.maxLevel)
@@ -587,7 +589,7 @@ export const kageRouter = createTRPCRouter({
       if (userVillage.type === "VILLAGE" && userVillage.structureMaintenanceDue > 0)
         return errorResponse("Pay outstanding structure maintenance before upgrading");
       if (user.villageId !== structure.villageId) return errorResponse("Wrong village");
-      if (!["VILLAGE", "TOWN"].includes(userVillage.type)) {
+      if (!["VILLAGE", "STRONGHOLD"].includes(userVillage.type)) {
         return errorResponse("Only for villages");
       }
       if (clanData && clanData.id !== user.clanId) {
@@ -599,15 +601,15 @@ export const kageRouter = createTRPCRouter({
       // Guard on cost & mutate
       const { total } = calcStructureUpgrade(structure, userVillage);
       if (
-        isHideoutOrTown && clanData
+        isHideoutOrStronghold && clanData
           ? clanData.points < total
           : userVillage.tokens < total
       ) {
         return errorResponse(
-          isHideoutOrTown ? "Not enough clan points" : "Not enough tokens",
+          isHideoutOrStronghold ? "Not enough clan points" : "Not enough tokens",
         );
       }
-      const fundingClan = isHideoutOrTown ? clanData : null;
+      const fundingClan = isHideoutOrStronghold ? clanData : null;
       const balance = fundingClan ? clan.points : village.tokens;
       const guards = and(
         eq(villageStructure.id, input.structureId),
@@ -826,7 +828,7 @@ export const kageRouter = createTRPCRouter({
       // Check 4-day kage action lock
       if (
         uVillage.leaderUpdatedAt instanceof Date &&
-        !isNaN(uVillage.leaderUpdatedAt.getTime())
+        !Number.isNaN(uVillage.leaderUpdatedAt.getTime())
       ) {
         const lockExpiry = new Date(
           uVillage.leaderUpdatedAt.getTime() + KAGE_ELDER_REMOVAL_LOCK_SECS * 1000,

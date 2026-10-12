@@ -47,7 +47,7 @@ export default function Tavern() {
   // Tavern name based on user village
   const localTavern = useMemo(() => {
     let tavern =
-      ["OUTLAW", "TOWN", "VILLAGE"].includes(userData?.village?.type ?? "") &&
+      ["OUTLAW", "STRONGHOLD", "VILLAGE"].includes(userData?.village?.type ?? "") &&
       userData?.village?.name
         ? userData?.village?.name
         : "Syndicate";
