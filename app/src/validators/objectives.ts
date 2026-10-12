@@ -53,6 +53,7 @@ import {
   LetterRanks,
   MasteryTypes,
   MEDNIN_RANKS,
+  QUEST_PARTY_TYPES,
   type QuestRewardMode,
   QuestTypes,
   RetryQuestDelays,
@@ -785,7 +786,7 @@ const questSuperRefine = (
   val: z.infer<typeof QuestValidatorRawSchema>,
   ctx: z.RefinementCtx,
 ) => {
-  if (val.teamEnabled && !["story", "event", "anbu"].includes(val.questType)) {
+  if (val.teamEnabled && !QUEST_PARTY_TYPES.some((type) => type === val.questType)) {
     ctx.addIssue({
       code: "custom",
       message: "Quest teams support Story, Event and ANBU quests",

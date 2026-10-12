@@ -164,7 +164,9 @@ export const projectPartyTracker = (
         : undefined;
       return {
         ...goal,
-        partyEffectsApplied: local?.partyEffectsApplied ?? false,
+        // Completed solo goals have already run their personal side effects.
+        partyEffectsApplied:
+          local?.partyEffectsApplied ?? (!personal?.party && !!local?.done),
         battleValues: local?.battleValues,
         timestamp: local?.timestamp,
         collected: local?.collected ?? false,
