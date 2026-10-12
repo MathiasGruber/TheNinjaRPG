@@ -194,6 +194,7 @@ import {
   elementalSnapshotConditions,
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
@@ -3119,8 +3120,6 @@ export const fetchUpdatedUser = async (props: {
             id: true,
             questId: true,
             completed: true,
-            isolated: true,
-            endAt: true,
           },
           where: gte(questHistory.completed, 1),
         },
@@ -3195,6 +3194,37 @@ export const fetchUpdatedUser = async (props: {
   let progressionQuestCandidates: NonNullable<typeof user>["userQuests"] = [];
   // Add in achievements (in-memory placeholders: `id === questId` until `QuestHistory` exists).
   if (user) {
+    const orphanedIsolatedIds = user.userQuests
+      .filter(
+        (entry) => !entry.quest && entry.isolated && !entry.endAt && !entry.completed,
+      )
+      .map((entry) => entry.id);
+    if (orphanedIsolatedIds.length > 0) {
+      // Persist retirement so middleware and mutation CAS guards release deleted runs too.
+      // A restored definition or a different live run must survive a stale profile read.
+      await retryOnDeadlock(() =>
+        client
+          .update(questHistory)
+          .set({ endAt: now })
+          .where(
+            and(
+              inArray(questHistory.id, orphanedIsolatedIds),
+              eq(questHistory.userId, userId),
+              eq(questHistory.isolated, true),
+              eq(questHistory.completed, 0),
+              isNull(questHistory.endAt),
+              notExists(
+                client
+                  .select({ one: sql`1` })
+                  .from(quest)
+                  .where(eq(quest.id, questHistory.questId)),
+              ),
+            ),
+          ),
+      );
+      requiresUserRefresh = true;
+      requiresProgressionRefresh = true;
+    }
     // Deleted quests can leave history behind; progression candidates need live definitions.
     user.userQuests = user.userQuests.filter((entry) => entry.quest);
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
@@ -3207,19 +3237,7 @@ export const fetchUpdatedUser = async (props: {
     );
     // Retired or deleted content cannot leave a player between floors indefinitely.
     // Recheck persisted isolation with the status claim so a fresh run wins the race.
-    if (
-      user.status === "BATTLE" &&
-      !user.battleId &&
-      !getIsolatedPyramid(user) &&
-      // Completion closes history before claiming its tracker; let that claim finish.
-      !user.completedQuests.some(
-        (entry) =>
-          entry.isolated &&
-          entry.endAt &&
-          entry.endAt > user.updatedAt &&
-          user.questData?.some((tracker) => tracker.id === entry.questId),
-      )
-    ) {
+    if (user.status === "BATTLE" && !user.battleId && !getIsolatedPyramid(user)) {
       const regeneration = calcActiveUserRegen(user, settings);
       const maxEnergy = calcMaxEnergy(user);
       const energy = Math.min(
@@ -3246,20 +3264,6 @@ export const fetchUpdatedUser = async (props: {
                   eq(questHistory.isolated, true),
                   eq(questHistory.completed, 0),
                   isNull(questHistory.endAt),
-                ),
-              ),
-          ),
-          notExists(
-            client
-              .select({ one: sql`1` })
-              .from(questHistory)
-              .where(
-                and(
-                  eq(questHistory.userId, userId),
-                  eq(questHistory.isolated, true),
-                  eq(questHistory.completed, 1),
-                  gt(questHistory.endAt, userData.updatedAt),
-                  sql`JSON_CONTAINS(${userData.questData}, JSON_OBJECT('id', ${questHistory.questId}))`,
                 ),
               ),
           ),

@@ -1232,7 +1232,7 @@ export const questsRouter = createTRPCRouter({
     .input(z.object({ questId: z.string(), nextObjectiveId: z.string().optional() }))
     .output(userDeltaResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      // Resolved path: questHistory CAS → snapshot claim → updateRewards (SQL deltas on userdata).
+      // Reward payout follows the history/account claim; isolated runs publish both together.
       const [
         {
           user,
@@ -1291,9 +1291,7 @@ export const questsRouter = createTRPCRouter({
         rewardChoice,
       } = getReward(user, input.questId, input.nextObjectiveId, settings);
 
-      // Persist completion before snapshot CAS so we cannot commit questData/updatedAt and then
-      // lose the completion race; if snapshot claim fails, revert completion below. Shared with
-      // the overworld friendly objective-target path so reward effects stay in one place.
+      // Share completion claims and reward effects with overworld objective interactions.
       const claim = await commitQuestObjectiveRewards({
         client: ctx.drizzle,
         userId: ctx.userId,
@@ -3328,11 +3326,10 @@ type CommitQuestObjectiveRewardsResult =
 /**
  * Shared post-`getReward` reward-claim sequence used by both `checkRewards` and the
  * overworld friendly objective-target path. Encapsulates, in order:
- *   1. The completion compare-and-swap (when `resolved`): insert a `completed=0` history row
- *      if none exists, then atomically flip it to `completed=1` so a parallel claim cannot
- *      double-pay the quest-level reward.
- *   2. `handleQuestConsequences` with `alwaysClaimUserState`, reverting the completion if the
- *      snapshot claim is lost.
+ *   1. The completion compare-and-swap (when `resolved`): insert history if needed, then
+ *      claim its completion. Isolated runs combine this with the account snapshot claim.
+ *   2. `handleQuestConsequences` with `alwaysClaimUserState`, reverting a separate completion
+ *      CAS if its account snapshot claim loses.
  *   3. Restoring the full trackers, the sensei +ryo mission bonus, the tier-bootstrap /
  *      repeatable-achievement re-arm prep, and `updateRewards` (run together).
  * Returns a discriminated outcome; the raw bytes of the reward names are mapped onto
@@ -3433,9 +3430,11 @@ export const commitQuestObjectiveRewards = async (info: {
     user.questData = removeQuestTrackerByQuestId(user.questData, userQuest.questId);
   }
 
-  // Persist completion before snapshot CAS so we cannot commit questData/updatedAt and then
-  // lose the completion race; if snapshot claim fails, revert completion below.
+  // Isolated completion publishes history and the account snapshot together, so a failed
+  // request cannot leave terminal history holding a player between floors indefinitely.
+  // Other completions retain their history CAS and revert it if the snapshot claim loses.
   let resolvedCompletionCommitted = false;
+  let claimIsolatedCompletion: typeof claimUserSnapshot | undefined;
   // The exact endAt stamped by the completion CAS, reused to anchor the revert below.
   let completedEndAt: Date | null = null;
   // Whether the completion CAS wrote the period counter (only for retryDelay !== "none"); the
@@ -3476,50 +3475,86 @@ export const commitQuestObjectiveRewards = async (info: {
       retryDelay === "none" ? undefined : periodStart(retryDelay, completedEndAt);
     periodCounterWritten = !!cps;
 
-    const questCompletionResult = await client
-      .update(questHistory)
-      .set({
-        completed: 1,
-        previousCompletes: sql`${questHistory.previousCompletes} + 1`,
-        endAt: completedEndAt,
-        ...(rewardChoice ? { pendingRewardChoice: rewardChoice } : {}),
-        // Reset the period counter when this completion opens a new period, else increment.
-        ...(cps
-          ? {
-              periodCompletes: sql`CASE WHEN ${questHistory.periodStartAt} IS NULL OR ${questHistory.periodStartAt} < ${cps} THEN 1 ELSE ${questHistory.periodCompletes} + 1 END`,
-              periodStartAt: sql`CASE WHEN ${questHistory.periodStartAt} IS NULL OR ${questHistory.periodStartAt} < ${cps} THEN ${cps} ELSE ${questHistory.periodStartAt} END`,
-            }
-          : {}),
-      })
-      .where(
-        and(
-          eq(questHistory.questId, userQuest?.questId ?? ""),
-          eq(questHistory.userId, userId),
-          eq(questHistory.completed, 0),
-          isNull(questHistory.endAt),
-          liveQuestCondition,
-          ...(rewardChoice ? [isNull(questHistory.pendingRewardChoice)] : []),
-        ),
-      );
+    const completionConditions = and(
+      eq(questHistory.questId, userQuest?.questId ?? ""),
+      eq(questHistory.userId, userId),
+      eq(questHistory.completed, 0),
+      isNull(questHistory.endAt),
+      liveQuestCondition,
+      ...(rewardChoice ? [isNull(questHistory.pendingRewardChoice)] : []),
+    );
+    if (isolatedRun) {
+      const completedAt = completedEndAt;
+      // Joined UPDATE assignment order is unspecified, so decide period rollover from
+      // the loaded history and guard those values instead of rereading a changed column.
+      const startsNewPeriod =
+        cps && (!isolatedRun.periodStartAt || isolatedRun.periodStartAt < cps);
+      claimIsolatedCompletion = async ({ set, where = [] }) => {
+        // Drizzle has no joined UPDATE builder. This single guarded write closes the run
+        // and removes its tracker atomically; no payout can precede a successful claim.
+        const result = await retryOnDeadlock(() =>
+          client.execute(sql`
+            UPDATE ${userData}
+            INNER JOIN ${questHistory} ON ${questHistory.userId} = ${userData.userId}
+            SET ${userData.updatedAt} = ${completedAt},
+                ${userData.questData} = CAST(${JSON.stringify(set?.questData ?? [])} AS JSON),
+                ${questHistory.completed} = 1,
+                ${questHistory.previousCompletes} = ${questHistory.previousCompletes} + 1,
+                ${questHistory.endAt} = ${completedAt}
+                ${rewardChoice ? sql`, ${questHistory.pendingRewardChoice} = CAST(${JSON.stringify(rewardChoice)} AS JSON)` : sql``}
+                ${
+                  cps
+                    ? sql`, ${questHistory.periodCompletes} = ${startsNewPeriod ? 1 : sql`${questHistory.periodCompletes} + 1`},
+                  ${questHistory.periodStartAt} = ${startsNewPeriod ? cps : sql`${questHistory.periodStartAt}`}`
+                    : sql``
+                }
+            WHERE ${userData.userId} = ${userId}
+              AND ${userData.updatedAt} = ${user.updatedAt}
+              AND ${questHistory.id} = ${isolatedRun.id}
+              AND ${completionConditions}
+              ${cps ? sql`AND ${questHistory.periodCompletes} = ${isolatedRun.periodCompletes} AND ${questHistory.periodStartAt} <=> ${isolatedRun.periodStartAt}` : sql``}
+              AND ${and(...where.filter(Boolean)) ?? sql`TRUE`}
+          `),
+        );
+        return { success: result.rowsAffected > 0, claimedAt: completedAt };
+      };
+    } else {
+      const questCompletionResult = await client
+        .update(questHistory)
+        .set({
+          completed: 1,
+          previousCompletes: sql`${questHistory.previousCompletes} + 1`,
+          endAt: completedEndAt,
+          ...(rewardChoice ? { pendingRewardChoice: rewardChoice } : {}),
+          // Reset the period counter when this completion opens a new period, else increment.
+          ...(cps
+            ? {
+                periodCompletes: sql`CASE WHEN ${questHistory.periodStartAt} IS NULL OR ${questHistory.periodStartAt} < ${cps} THEN 1 ELSE ${questHistory.periodCompletes} + 1 END`,
+                periodStartAt: sql`CASE WHEN ${questHistory.periodStartAt} IS NULL OR ${questHistory.periodStartAt} < ${cps} THEN ${cps} ELSE ${questHistory.periodStartAt} END`,
+              }
+            : {}),
+        })
+        .where(completionConditions);
 
-    if (questCompletionResult.rowsAffected === 0) {
-      const historyRow = await fetchUserQuestByQuestId(
-        client,
-        userId,
-        userQuest?.questId ?? "",
-      );
-      if (historyRow && historyRow.completed >= 1) {
-        return { outcome: "already_completed" };
+      if (questCompletionResult.rowsAffected === 0) {
+        const historyRow = await fetchUserQuestByQuestId(
+          client,
+          userId,
+          userQuest?.questId ?? "",
+        );
+        if (historyRow && historyRow.completed >= 1) {
+          return { outcome: "already_completed" };
+        }
+        if (!historyRow) {
+          return { outcome: "not_found" };
+        }
+        if (rewardChoice && historyRow.pendingRewardChoice) {
+          return { outcome: "choice_pending" };
+        }
+        return { outcome: "state_changed" };
       }
-      if (!historyRow) {
-        return { outcome: "not_found" };
-      }
-      if (rewardChoice && historyRow.pendingRewardChoice) {
-        return { outcome: "choice_pending" };
-      }
-      return { outcome: "state_changed" };
+      resolvedCompletionCommitted = true;
     }
-    resolvedCompletionCommitted = true;
   }
 
   const { notifications: postNotifications, claimed } = await handleQuestConsequences(
@@ -3529,6 +3564,7 @@ export const commitQuestObjectiveRewards = async (info: {
     notifications,
     {
       alwaysClaimUserState: true,
+      claimUserState: claimIsolatedCompletion,
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
       claimConditions: [
         liveQuestCondition,
@@ -3549,6 +3585,13 @@ export const commitQuestObjectiveRewards = async (info: {
   );
 
   if (!claimed) {
+    if (claimIsolatedCompletion && userQuest) {
+      const history = await fetchUserQuestByQuestId(client, userId, userQuest.questId);
+      if (!history) return { outcome: "not_found" };
+      if (history.completed >= 1) return { outcome: "already_completed" };
+      if (rewardChoice && history.pendingRewardChoice)
+        return { outcome: "choice_pending" };
+    }
     if (resolvedCompletionCommitted && userQuest && completedEndAt) {
       await revertQuestCompletionAfterFailedClaim(
         client,
@@ -3928,6 +3971,8 @@ export const handleQuestConsequences = async (
   notifications: string[],
   options?: {
     alwaysClaimUserState?: boolean;
+    /** Isolated terminal runs claim history and the account in one joined statement. */
+    claimUserState?: typeof claimUserSnapshot;
     /** Conditions that must still hold when the reward/consequence snapshot is claimed. */
     claimConditions?: QueryCondition[];
     /** Roll the active objectives' ambush attackers; only the travel movement check sets it. */
@@ -3992,7 +4037,7 @@ export const handleQuestConsequences = async (
     consequences.length > 0;
 
   if (shouldClaimUserState) {
-    const claimResult = await claimUserSnapshot({
+    const claimResult = await (options?.claimUserState ?? claimUserSnapshot)({
       client,
       userId: user.userId,
       updatedAt: user.updatedAt,

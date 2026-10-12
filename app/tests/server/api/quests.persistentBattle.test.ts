@@ -11,9 +11,10 @@ import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { questsRouter } from "@/server/api/routers/quests";
 import { createTRPCRouter } from "@/server/api/trpc";
 import { DialogObjective, InstantStartBattleObjective, QuestTracker, ResetQuestObjective } from "@/validators/objectives";
+import { periodStart } from "@/utils/time";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertQuestHistory, insertQuests, insertUsers } from "../../setup/factories";
-import { beforeStatements } from "../../setup/statements";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const router = createTRPCRouter({ quests: questsRouter, combat: combatRouter, bank: bankRouter });
@@ -159,7 +160,7 @@ describeWithDatabase("persistent isolated Pyramid battle status", () => {
     expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") })).toMatchObject({ completed: 0, endAt: null });
   });
 
-  it("lets completion finish when a profile reads the history after completion but before the account claim", async () => {
+  it("keeps completion and its account claim atomic when a profile reads before the write", async () => {
     const { client } = await start();
     // Snapshot stamps may be ahead of the wall clock after a same-millisecond claim.
     const stampedAt = new Date(Date.now() + 60_000);
@@ -167,7 +168,7 @@ describeWithDatabase("persistent isolated Pyramid battle status", () => {
     await finishTracker();
     const raced = beforeStatements(client, userData, [async () => {
       const completed = await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") });
-      expect(completed!.endAt!.getTime()).toBeGreaterThan(stampedAt.getTime());
+      expect(completed).toMatchObject({ completed: 0, endAt: null });
       const read = await fetchUpdatedUser({ client, userId: "hero" });
       expect(read.user).toMatchObject({ status: "BATTLE", battleId: null });
     }]);
@@ -220,4 +221,130 @@ describeWithDatabase("persistent isolated Pyramid battle status", () => {
       expect(released!.regenAt.getTime()).toBeGreaterThan(Date.now() - 5000);
     });
   }
+
+  it("serializes parallel completion claims and grants the reward once", async () => {
+    const { api, client } = await start();
+    await finishTracker();
+    await Promise.all([
+      api.quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` }),
+      api.quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` }),
+    ]);
+    expect(await hero()).toMatchObject({ status: "AWAKE", curEnergy: 10 + (ENERGY_QUEST_REWARDS.battlepyramid ?? 0) });
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") })).toMatchObject({ completed: 1, previousCompletes: 1 });
+  });
+
+  for (const period of ["missing", "expired", "current"] as const) {
+    it(`counts isolated completions with a ${period} retry period`, async () => {
+      const client = await getTestDatabase();
+      await client.update(quest).set({ retryDelay: "daily" }).where(eq(quest.id, "pyramid"));
+      const { api } = await start();
+      const current = periodStart("daily", new Date());
+      await client.update(questHistory).set({ periodCompletes: 2, periodStartAt: period === "missing" ? null : period === "expired" ? new Date(current.getTime() - 86_400_000) : current }).where(eq(questHistory.questId, "pyramid"));
+      await finishTracker();
+      expect((await api.quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` })).success).toBe(true);
+      expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") })).toMatchObject({ completed: 1, previousCompletes: 1, periodCompletes: period === "current" ? 3 : 1, periodStartAt: current });
+    });
+  }
+
+  it("stores an isolated completion's reward choice once and permits claiming it after release", async () => {
+    const client = await getTestDatabase();
+    await client.update(quest).set({ content: { ...content, rewardMode: "choose", rewardPickCount: 1, reward: ObjectiveReward.parse({ reward_money: 25, reward_exp: 100 }) } }).where(eq(quest.id, "pyramid"));
+    const { api } = await start();
+    const initialMoney = (await hero())!.money;
+    await finishTracker();
+    const finished = await api.quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` });
+    expect(finished).toMatchObject({ success: true, resolved: true, rewardChoicePending: true });
+    const pending = (await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") }))!.pendingRewardChoice!;
+    expect(pending.cards.map((entry) => entry.field)).toEqual(["reward_money", "reward_exp"]);
+    expect(await hero()).toMatchObject({ status: "AWAKE", money: initialMoney });
+    const pick = { questId: "pyramid", choiceId: pending.id, cardIds: ["reward_money"] };
+    expect((await api.quests.claimRewardChoice(pick)).success).toBe(true);
+    expect((await api.quests.claimRewardChoice(pick)).success).toBe(false);
+    expect(await hero()).toMatchObject({ money: initialMoney + 25 });
+  });
+
+  it("keeps a failed completion claim open and abandonable without granting rewards", async () => {
+    const { client, api } = await start();
+    await finishTracker();
+    const failing = failStatements(client, userData);
+    await expect(callerForDatabase(router, "hero", failing).quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` })).rejects.toThrow("Statement failed on purpose");
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") })).toMatchObject({ completed: 0, endAt: null, previousCompletes: 0 });
+    for (let i = 0; i < 3; i++) {
+      const read = await fetchUpdatedUser({ client, userId: "hero" });
+      expect(read.user).toMatchObject({ status: "BATTLE", battleId: null });
+      expect(read.user?.userQuests.map((entry) => entry.questId)).toEqual(["pyramid"]);
+    }
+    expect(await hero()).toMatchObject({ curEnergy: 10 });
+    expect((await api.quests.abandon({ id: "pyramid" })).success).toBe(true);
+    expect((await fetchUpdatedUser({ client, userId: "hero" })).user).toMatchObject({ status: "AWAKE", battleId: null });
+  });
+
+  it("allows a failed completion claim to retry and pays its reward once", async () => {
+    const { client, api } = await start();
+    await finishTracker();
+    await expect(callerForDatabase(router, "hero", failStatements(client, userData)).quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` })).rejects.toThrow("Statement failed on purpose");
+    expect((await api.quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` })).success).toBe(true);
+    await api.quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` });
+    expect(await hero()).toMatchObject({ status: "AWAKE", curEnergy: 10 + (ENERGY_QUEST_REWARDS.battlepyramid ?? 0) });
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") })).toMatchObject({ completed: 1, previousCompletes: 1 });
+  });
+
+  it("recovers after completion commits but its payout fails without replaying the reward", async () => {
+    const { client, api } = await start();
+    await finishTracker();
+    const failing = beforeStatements(client, userData, [async () => {}, async () => { throw new Error("Payout interrupted"); }]);
+    await expect(callerForDatabase(router, "hero", failing).quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` })).rejects.toThrow("Payout interrupted");
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") })).toMatchObject({ completed: 1, previousCompletes: 1 });
+    const read = await fetchUpdatedUser({ client, userId: "hero" });
+    expect(read.user).toMatchObject({ status: "AWAKE", battleId: null });
+    expect(read.user?.userQuests).toHaveLength(0);
+    await api.quests.checkRewards({ questId: "pyramid", nextObjectiveId: `${TERMINAL_DIALOG_PREFIX}finish` });
+    expect(await hero()).toMatchObject({ curEnergy: 10 });
+  });
+
+  it("releases an orphaned completion marker from a failed older claim", async () => {
+    const { client } = await start();
+    await finishTracker();
+    const saved = await hero();
+    await client.update(questHistory).set({ completed: 1, endAt: new Date(saved!.updatedAt.getTime() + 60_000) }).where(eq(questHistory.questId, "pyramid"));
+    expect((await fetchUpdatedUser({ client, userId: "hero" })).user).toMatchObject({ status: "AWAKE", battleId: null });
+  });
+
+  it("retires deleted-definition isolation so abandonment and outside activities recover", async () => {
+    const { client, api } = await start();
+    await client.delete(quest).where(eq(quest.id, "pyramid"));
+    expect((await api.quests.abandon({ id: "pyramid" })).success).toBe(true);
+    const recovered = await fetchUpdatedUser({ client, userId: "hero" });
+    expect(recovered.user).toMatchObject({ status: "AWAKE", battleId: null });
+    expect(recovered.user?.userQuests).toHaveLength(0);
+    expect((await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") }))?.endAt).not.toBeNull();
+    await client.update(quest).set({ questType: "battlepyramid" }).where(eq(quest.id, "other"));
+    expect((await api.quests.startQuest({ questId: "other", userSector: 0 })).success).toBe(true);
+  });
+
+  it("does not unlock a new live run while retiring deleted-definition history", async () => {
+    const { client } = await start();
+    await client.delete(quest).where(eq(quest.id, "pyramid"));
+    await insertQuests([{ id: "next-pyramid", name: "Next Pyramid", questType: "battlepyramid", hidden: false, maxAttempts: 100, maxCompletes: 100, content }]);
+    const raced = beforeStatements(client, userData, [async () => {
+      await fetchUpdatedUser({ client, userId: "hero" });
+      expect((await callerForDatabase(router, "hero", client).quests.startQuest({ questId: "next-pyramid", userSector: 0 })).success).toBe(true);
+    }]);
+    const recovered = await fetchUpdatedUser({ client: raced, userId: "hero" });
+    expect(recovered.user).toMatchObject({ status: "BATTLE", battleId: null });
+    expect(recovered.user?.userQuests.map((entry) => entry.questId)).toEqual(["next-pyramid"]);
+    expect((await callerForDatabase(router, "hero", client).quests.startQuest({ questId: "other", userSector: 0 })).success).toBe(false);
+  });
+
+  it("keeps a definition restored before orphan retirement locked and abandonable", async () => {
+    const { client, api } = await start();
+    const definition = await client.query.quest.findFirst({ where: eq(quest.id, "pyramid") });
+    await client.delete(quest).where(eq(quest.id, "pyramid"));
+    const raced = beforeStatements(client, questHistory, [async () => { await client.insert(quest).values(definition!); }]);
+    const recovered = await fetchUpdatedUser({ client: raced, userId: "hero" });
+    expect(recovered.user).toMatchObject({ status: "BATTLE", battleId: null });
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "pyramid") })).toMatchObject({ completed: 0, endAt: null });
+    expect((await api.quests.abandon({ id: "pyramid" })).success).toBe(true);
+    expect(await hero()).toMatchObject({ status: "AWAKE", battleId: null });
+  });
 });
