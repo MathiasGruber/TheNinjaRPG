@@ -155,9 +155,10 @@ export const NativeAccountDeletion = () => {
           <p className="text-[13px] text-muted-foreground leading-relaxed">
             Purchase records needed to prevent duplicate rewards and meet legal
             obligations may be retained. If the account has an active ban or silence, a
-            minimal record (hashed sign-in identifiers, the sanction type and its end
-            date) is kept until the sanction ends, so a new account serves the remaining
-            time. Backups and third-party retention follow our privacy policy.
+            minimal record (the account identifier, hashed sign-in identifiers, the
+            sanction type, its end date and a reference to the moderation case) is kept
+            until the sanction ends, so a new account serves the remaining time. Backups
+            and third-party retention follow our privacy policy.
           </p>
         </NativeFeatureCard>
         <NativeFeatureCard

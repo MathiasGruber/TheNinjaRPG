@@ -258,8 +258,8 @@ export const matchSanctionTombstones = (
       tombstones: [...(current?.tombstones ?? []), tombstone],
     });
   }
-  // A later deletion references its inherited report. Follow those links back to every
-  // source, even when the registering identity no longer matches an ancestor's hashes.
+  // Directly matched current reports set the deadline; ancestors preserve case links for
+  // later staff decisions, even when the identity no longer matches their hashes.
   for (const match of matches.values()) {
     const reportIds = new Set(match.reportIds);
     for (const source of match.tombstones) {

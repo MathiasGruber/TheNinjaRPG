@@ -205,7 +205,11 @@ describeWithDatabase("registration claims current sanction sources", () => {
     ]);
     await deleteAccount("Original");
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    // Registration in other suites must not meet this suite's unexpired tombstones.
+    await resetTables(sanctionTombstone);
+  });
 
   it.each(["clear", "silence", "ban", "unchanged"] as const)(
     "honors a completed %s decision during Clerk lookup, including later native recreation",

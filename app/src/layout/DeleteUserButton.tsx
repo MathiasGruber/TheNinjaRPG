@@ -126,9 +126,10 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
         character - this is to ensure no un-intentional character deletion.
         <p className="py-3 text-muted-foreground text-sm">
           A character with an active ban or silence can be deleted too. To enforce the
-          sanction, a minimal record (hashed sign-in identifiers, the sanction type and
-          its end date) is kept until the sanction ends, and a new character for the
-          same account serves the remaining time.
+          sanction, a minimal record (the account identifier, hashed sign-in
+          identifiers, the sanction type, its end date and a reference to the moderation
+          case) is kept until the sanction ends, and a new character for the same account
+          serves the remaining time.
         </p>
         {userData.deletionAt && (
           <Button
