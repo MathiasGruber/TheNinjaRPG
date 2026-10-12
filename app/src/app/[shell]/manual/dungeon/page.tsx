@@ -18,6 +18,7 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
+import { formatLocalDateTimeInput } from "@/utils/time";
 import { useUserData } from "@/utils/UserContext";
 import { type DungeonContent, dungeonContentSchema } from "@/validators/dungeon";
 
@@ -156,7 +157,9 @@ export default function DungeonEditor() {
           <Field label="Expiration (new lobbies only)">
             <Input
               type="datetime-local"
-              value={content.expiresAt ? localDateTime(content.expiresAt) : ""}
+              value={
+                content.expiresAt ? formatLocalDateTimeInput(content.expiresAt) : ""
+              }
               onChange={(e) =>
                 patch({ expiresAt: e.target.value ? new Date(e.target.value) : null })
               }
@@ -468,7 +471,3 @@ const newDungeon = (): DungeonContent => ({
   tiers: normalizeRooms([newTier()]),
   rewards: { money: 0, experience: 0, tokens: 0, prestige: 0, drops: [] },
 });
-const localDateTime = (date: Date) =>
-  new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);

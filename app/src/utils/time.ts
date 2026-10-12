@@ -229,6 +229,12 @@ export const formatDateTimeShort = (date: Date): string => {
   return date.toISOString().replace("T", " ").slice(0, 16);
 };
 
+/** Format local calendar time for a datetime-local input. */
+export const formatLocalDateTimeInput = (date: Date) =>
+  new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+
 export const formatTimeAgo = (date: Date) => {
   const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
 

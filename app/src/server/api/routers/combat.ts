@@ -2689,6 +2689,7 @@ export const initiateBattle = async (
         "aiProfiles",
         "relations",
         "clans",
+        "preBattleGearModifiers",
       ] as const) {
         Object.assign(extraState[key] ?? {}, prepared.extraState[key]);
       }
