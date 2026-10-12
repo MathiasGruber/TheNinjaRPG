@@ -162,7 +162,10 @@ export const questPartyRouter = createTRPCRouter({
               }),
             ),
             battleId: user.questParty.battleId,
-            completed: isQuestComplete(user.questParty.quest, user.questParty.tracker),
+            // Failed terminal goals are done but do not entitle members to final rewards.
+            completed:
+              !user.questParty.tracker.failed &&
+              isQuestComplete(user.questParty.quest, user.questParty.tracker),
             failed: user.questParty.tracker.failed ?? false,
           }
         : null,

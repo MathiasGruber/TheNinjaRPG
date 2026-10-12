@@ -197,13 +197,33 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     const location = await (await callerFor(questsRouter, "leader")).checkLocationQuest();
     expect(location.notifications?.some((message) => message.includes("destination was removed"))).toBe(true);
     expect((await client.query.questParty.findFirst({ where: eq(questParty.id, party.id) }))?.tracker.failed).toBe(true);
+    const overview = await (await callerFor(questPartyRouter, "leader")).overview();
+    expect(overview.current).toMatchObject({ failed: true, completed: false });
+    expect(overview.teams).toHaveLength(0);
     const teammate = await fetchUpdatedUser({ client, userId: "helper" });
     expect(teammate.user?.questData?.find((entry) => entry.id === "team-quest")?.failed).toBe(true);
-    await (await callerFor(questsRouter, "helper")).checkRewards({ questId: "team-quest" });
+    const claim = await (await callerFor(questsRouter, "helper")).checkRewards({ questId: "team-quest" });
+    expect(claim.rewards?.reward_money).toBe(0);
     const histories = await client.query.questHistory.findMany({ where: eq(questHistory.questId, "team-quest") });
     expect(histories).toHaveLength(2);
     expect(histories.every((entry) => entry.completed === 0 && entry.endAt !== null)).toBe(true);
     expect((await client.query.userData.findMany({ where: eq(userData.villageId, "home") })).map((entry) => entry.money)).toEqual([100, 100]);
+  });
+
+  it("reports a successful team completion and pays the eligible member", async () => {
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, retryDelay: "none", content: { objectives: [AllObjectives.parse({ id: "goal", task: "stats_trained", value: 1 })], reward: ObjectiveReward.parse({ reward_money: 100 }), sceneBackground: "", sceneCharacters: [] } }]);
+    const leader = await callerFor(questPartyRouter, "leader");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const client = await getTestDatabase();
+    const { user } = await fetchUpdatedUser({ client, userId: "leader" });
+    if (!user) throw new Error("Missing completed team fixture");
+    user.questData = getNewTrackers(user, [{ task: "stats_trained", increment: 1 }]).trackers;
+    const claim = await commitQuestObjectiveRewards({ client, userId: "leader", user, ...getReward(user, "team-quest") });
+    expect(claim.outcome).toBe("claimed");
+    const overview = await leader.overview();
+    expect(overview.current).toMatchObject({ failed: false, completed: true });
+    expect(overview.teams).toHaveLength(0);
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.money).toBe(200);
   });
 
   for (const mode of ["bound-other-tile", "bound-same-tile", "generic"] as const) {

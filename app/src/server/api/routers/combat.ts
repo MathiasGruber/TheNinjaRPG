@@ -3068,6 +3068,13 @@ export const initiateBattle = async (
           // Redundant with the claim list above, but kept so a drifting AI
           // classification fails the CAS guard instead of claiming a shared row.
           eq(userData.isAi, false),
+          // The team roster and awake status must survive preload until the atomic claim.
+          ...(info.questParty
+            ? [
+                eq(userData.questPartyId, info.questParty.id),
+                eq(userData.status, "AWAKE"),
+              ]
+            : []),
           // Ranked participants are claimed straight from the queue, so require
           // QUEUED specifically: a player who just left the queue (now AWAKE)
           // must not be pulled into a ranked battle by a poll whose snapshot
@@ -3112,7 +3119,8 @@ export const initiateBattle = async (
                   eq(userData.status, "QUEUED"),
                   eq(userData.status, "KAGE_QUEUED"),
                 ),
-          ...(battleType === "COMBAT"
+          // Team members must still occupy the original launch tile after combat preload.
+          ...(battleType === "COMBAT" || info.questParty
             ? [
                 and(
                   ...(sector !== undefined ? [eq(userData.sector, sector)] : []),
