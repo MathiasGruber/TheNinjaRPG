@@ -684,7 +684,9 @@ export const WarMap: React.FC<{
           setIsOpen={setShowModal}
           proceed_label={!isLoading ? proceedLabel : undefined}
           onAccept={onAccept}
-          keepOpenOnAccept
+          keepOpenOnAccept={
+            proceedLabel === "Start Raid" || proceedLabel === "Declare War"
+          }
           isLoading={isLoading}
           proceedDisabled={
             user.isOutlaw &&

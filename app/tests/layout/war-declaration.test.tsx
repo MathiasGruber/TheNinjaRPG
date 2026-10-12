@@ -1,13 +1,18 @@
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as dynamic from "next/dynamic";
-import type { ComponentProps } from "react";
+import {
+  type ComponentProps,
+  type Dispatch,
+  type SetStateAction,
+  useState,
+} from "react";
 import * as client from "@/app/_trpc/client";
 import * as select from "@/components/ui/select";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import * as map from "@/hooks/map";
 import * as Image from "@/layout/Image";
-import * as Modal from "@/layout/Modal";
+import * as toast from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
 import * as UserContext from "@/utils/UserContext";
 import { ensureDom } from "../setup-dom.mjs";
@@ -23,8 +28,47 @@ vi.spyOn(dynamic, "default").mockImplementation(
 );
 const { WarMap } = await import("@/layout/WarSystem");
 
-const declare = vi.fn();
-const mutation = () => ({ useMutation: () => ({ mutate: vi.fn(), isPending: false }) });
+type MutationResult = { success: boolean; message: string };
+type MutationCallbacks = {
+  onSuccess?: (result: MutationResult) => void | Promise<void>;
+  onError?: () => void;
+};
+
+const mutation = () => {
+  const mutate = vi.fn();
+  let callbacks: MutationCallbacks;
+  let setPending: Dispatch<SetStateAction<boolean>>;
+  return {
+    mutate,
+    useMutation: (options: MutationCallbacks) => {
+      const [isPending, setIsPending] = useState(false);
+      callbacks = options;
+      setPending = setIsPending;
+      return {
+        isPending,
+        mutate: (input: unknown) => {
+          mutate(input);
+          setPending(true);
+        },
+      };
+    },
+    respond: async (result: MutationResult) => {
+      await callbacks.onSuccess?.(result);
+      setPending(false);
+    },
+    fail: () => {
+      callbacks.onError?.();
+      setPending(false);
+    },
+  };
+};
+
+const declarations = mutation();
+const declare = declarations.mutate;
+const releaseSector = mutation();
+const leaveAlliance = mutation();
+const declareEnemy = mutation();
+const sectorWar = mutation();
 const own = {
   id: "own",
   name: "Own",
@@ -45,33 +89,48 @@ const structures = [
   { id: "town", name: "Town Hall", route: "/townhall" },
 ] as VillageStructure[];
 let user: NonNullable<UserWithRelations>;
+let ownsSector = false;
+let relationshipStatus: VillageAlliance["status"] = "ENEMY";
+const originalEvent = globalThis.Event;
+const originalCustomEvent = globalThis.CustomEvent;
 
 beforeEach(() => {
   ensureDom();
+  globalThis.Event = window.Event;
+  globalThis.CustomEvent = window.CustomEvent;
   vi.clearAllMocks();
+  ownsSector = false;
+  relationshipStatus = "ENEMY";
   user = {
     userId: "leader",
     villageId: own.id,
     village: own,
     isOutlaw: false,
   } as NonNullable<UserWithRelations>;
+  const invalidate = vi.fn(async () => {});
   Object.assign(vi.spyOn(client, "api" as never), {
-    useUtils: () => ({}),
-    travel: { getAllSectors: { useQuery: () => ({ data: [] }) } },
+    useUtils: () => ({
+      village: { getSectorOwnerships: { invalidate }, getAlliances: { invalidate } },
+      travel: { getAllSectors: { invalidate } },
+      war: { getActiveWars: { invalidate }, getRaidOptions: { invalidate } },
+    }),
+    travel: {
+      getAllSectors: {
+        useQuery: () => ({ data: ownsSector ? [{ villageId: own.id, sectors: [102] }] : [] }),
+      },
+    },
     village: {
       getVillageStructures: { useQuery: () => ({ data: structures }) },
-      releaseSector: mutation(),
-      leaveAlliance: mutation(),
-      declareEnemy: mutation(),
+      releaseSector,
+      leaveAlliance,
+      declareEnemy,
     },
     war: {
       getRaidOptions: {
         useQuery: () => ({ data: [], isFetching: false }),
       },
-      declareSectorWar: mutation(),
-      declareVillageWarOrRaid: {
-        useMutation: () => ({ mutate: declare, isPending: false }),
-      },
+      declareSectorWar: sectorWar,
+      declareVillageWarOrRaid: declarations,
     },
   });
   vi.spyOn(map, "useMap").mockReturnValue({ globe: {} as never, mapError: false });
@@ -79,21 +138,7 @@ beforeEach(() => {
     () => ({ data: user }) as never,
   );
   vi.spyOn(Image, "default").mockImplementation(() => <span />);
-  vi.spyOn(Modal, "default").mockImplementation(
-    ({
-      children,
-      onAccept,
-      proceed_label,
-      proceedDisabled,
-    }: ComponentProps<typeof Modal.default>) => (
-      <div role="dialog">
-        {children}
-        <button type="button" disabled={proceedDisabled} onClick={onAccept}>
-          {proceed_label}
-        </button>
-      </div>
-    ),
-  );
+  vi.spyOn(toast, "showMutationToast").mockImplementation(() => {});
   vi.spyOn(select, "Select").mockImplementation(
     ({ value, onValueChange, children }: ComponentProps<typeof select.Select>) => (
       <select
@@ -124,9 +169,13 @@ beforeEach(() => {
   );
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  // Radix restores focus in a deferred unmount callback before DOM constructors are reset.
+  await new Promise((resolve) => setTimeout(resolve, 0));
   vi.restoreAllMocks();
+  globalThis.Event = originalEvent;
+  globalThis.CustomEvent = originalCustomEvent;
 });
 
 const mount = () =>
@@ -134,13 +183,13 @@ const mount = () =>
     <WarMap
       user={user}
       isKage
-      villages={[user.village!, target]}
+      villages={ownsSector ? [user.village!] : [user.village!, target]}
       relationships={[
         {
           id: "enemies",
           villageIdA: own.id,
           villageIdB: target.id,
-          status: "ENEMY",
+          status: relationshipStatus,
         } as VillageAlliance,
       ]}
     />,
@@ -174,5 +223,65 @@ describe("war declaration targets", () => {
       targetVillageId: target.id,
       targetStructureRoute: "/traininggrounds",
     });
+  });
+});
+
+describe("war map confirmations", () => {
+  for (const scenario of [
+    { label: "Declare Enemy", status: "NEUTRAL", action: declareEnemy },
+    { label: "Break Alliance", status: "ALLY", action: leaveAlliance },
+    { label: "Release Sector", status: "ENEMY", action: releaseSector },
+  ] as const) {
+    it(`dismisses ${scenario.label} after acceptance and successful completion`, async () => {
+      relationshipStatus = scenario.status;
+      ownsSector = scenario.action === releaseSector;
+      const view = mount();
+      fireEvent.click(view.getByRole("button", { name: "Target tile" }));
+      expect(view.getByRole("dialog")).toBeDefined();
+      fireEvent.click(view.getByRole("button", { name: scenario.label }));
+      expect(scenario.action.mutate).toHaveBeenCalledTimes(1);
+      expect(view.queryByRole("dialog")).toBeNull();
+      await act(() => scenario.action.respond({ success: true, message: "Success" }));
+      expect(view.queryByRole("dialog")).toBeNull();
+    });
+  }
+
+  for (const isOutlaw of [false, true]) {
+    it(`keeps a rejected ${isOutlaw ? "raid" : "village war"} open for retry and closes on success`, async () => {
+      if (isOutlaw) user = { ...user, isOutlaw, village: { ...own, type: "HIDEOUT" } };
+      const label = isOutlaw ? "Start Raid" : "Declare War";
+      const view = mount();
+      fireEvent.click(view.getByRole("button", { name: "Target tile" }));
+      fireEvent.click(view.getByRole("button", { name: label }));
+      expect(view.getByRole("dialog").getAttribute("aria-busy")).toBe("true");
+      expect(
+        view.getAllByRole("button", { name: /^Close$/ })
+          .every((button) => (button as HTMLButtonElement).disabled),
+      ).toBe(true);
+      await act(() => declarations.respond({ success: false, message: "Declaration rejected" }));
+      expect(view.getByRole("alert").textContent).toBe("Declaration rejected");
+      expect(view.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
+      expect((view.getByRole("button", { name: label }) as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(view.getByRole("button", { name: label }));
+      expect(view.queryByRole("alert")).toBeNull();
+      expect(declare).toHaveBeenCalledTimes(2);
+      await act(() => declarations.respond({ success: true, message: "Success" }));
+      expect(view.queryByRole("dialog")).toBeNull();
+    });
+  }
+
+  it("keeps a transport failure open with feedback and usable controls", async () => {
+    const view = mount();
+    fireEvent.click(view.getByRole("button", { name: "Target tile" }));
+    fireEvent.click(view.getByRole("button", { name: "Declare War" }));
+    await act(() => declarations.fail());
+    expect(view.getByRole("alert").textContent).toBe(
+      "The declaration could not be completed. Please try again.",
+    );
+    expect((view.getByRole("button", { name: "Declare War" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      view.getAllByRole("button", { name: /^Close$/ })
+        .every((button) => !(button as HTMLButtonElement).disabled),
+    ).toBe(true);
   });
 });
