@@ -128,6 +128,7 @@ describeWithDatabase("home furniture inventory migration", () => {
   }, 30_000);
 });
 
+/** Reconstructs a pre-migration table from its snapshot as a connection-local temporary table. */
 const temporaryTableSql = (table: SnapshotTable) => {
   const definitions = Object.values(table.columns).map(
     (column) =>

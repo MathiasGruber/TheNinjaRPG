@@ -904,7 +904,8 @@ export const completeAuctionInternal = async (
           // has not necessarily unlocked this variant, and display/combat paths
           // trust activeVariantId. The buyer can re-select it if they own the unlock.
           activeVariantId: null,
-          // Room coordinates belong to the resident, so transferred furniture starts unplaced.
+          // Auction deliveries are carried; the seller's room placement does not transfer.
+          storedAtHome: false,
           homeX: null,
           homeY: null,
           homeRotation: 0,

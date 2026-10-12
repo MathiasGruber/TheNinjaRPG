@@ -1609,6 +1609,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
 export default ItemWithEffects;
 
+/** Shows furniture's home and shop metadata without equipment or battle statistics. */
 const FurnitureDetails = ({ item }: { item: Item }) => (
   <div className="my-2 grid grid-cols-2 rounded-lg bg-poppopover p-2 text-xs md:text-base">
     <p>

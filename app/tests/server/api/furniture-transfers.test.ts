@@ -1,5 +1,6 @@
 import { beforeEach, expect, it } from "bun:test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { HomeTypeDetails } from "@/drizzle/constants";
 import { auctionBid, auctionListing, item, userData, userItem } from "@/drizzle/schema";
 import { auctionRouter } from "@/server/api/routers/auction";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
@@ -15,7 +16,7 @@ describeWithDatabase("furniture auction transfers", () => {
     await resetTables(auctionBid, auctionListing, userItem, item, userData);
     await insertUsers([
       { userId: "seller", username: "Seller" },
-      { userId: "buyer", username: "Buyer" },
+      { userId: "buyer", username: "Buyer", homeType: "NONE" },
     ]);
     await insertItems([
       { id: "chair", name: "Chair", itemType: "FURNITURE", canBeTraded: true },
@@ -26,6 +27,7 @@ describeWithDatabase("furniture auction transfers", () => {
         userId: "seller",
         itemId: "chair",
         isInAuction: true,
+        storedAtHome: true,
         homeX: 24,
         homeY: 68,
         homeRotation: 1,
@@ -42,8 +44,16 @@ describeWithDatabase("furniture auction transfers", () => {
     });
   });
 
-  it("clears room coordinates when a winning bid changes furniture ownership", async () => {
+  it("delivers sold furniture unplaced and carried when the buyer's home is full", async () => {
     const database = await getTestDatabase();
+    await insertUserItems(
+      Array.from({ length: HomeTypeDetails.NONE.storage }, (_, index) => ({
+        id: `stored-chair-${index}`,
+        userId: "buyer",
+        itemId: "chair",
+        storedAtHome: true,
+      })),
+    );
     await database.insert(auctionBid).values({
       id: "winning-bid",
       auctionId: "chair-auction",
@@ -59,9 +69,15 @@ describeWithDatabase("furniture auction transfers", () => {
     expect(transferred).toMatchObject({
       userId: "buyer",
       isInAuction: false,
+      storedAtHome: false,
       homeX: null,
       homeY: null,
       homeRotation: 0,
     });
+    const storedItems = await database
+      .select({ id: userItem.id })
+      .from(userItem)
+      .where(and(eq(userItem.userId, "buyer"), eq(userItem.storedAtHome, true)));
+    expect(storedItems).toHaveLength(HomeTypeDetails.NONE.storage);
   });
 });

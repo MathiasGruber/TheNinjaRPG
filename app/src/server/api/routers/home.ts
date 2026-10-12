@@ -186,6 +186,7 @@ export const homeRouter = createTRPCRouter({
       );
       if (ownershipError) return errorResponse(ownershipError);
 
+      /** Maps placements to owned inventory rows and resets omitted furniture's coordinates. */
       const coordinateCase = (axis: "x" | "y" | "rotation") =>
         input.placements.length
           ? sql`CASE ${userItem.id} ${sql.join(
