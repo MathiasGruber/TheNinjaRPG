@@ -1,3 +1,7 @@
+/**
+ * Exercise the real AI route and form hook while isolating unrelated panels and transport.
+ * The reset test also renders the shared dropdown controls to verify the submitted values.
+ */
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as navigation from "next/navigation";
@@ -27,6 +31,7 @@ let ai: AiWithRelations;
 beforeEach(() => {
   ensureDom();
   vi.clearAllMocks();
+  // Only editor and validation inputs are needed; unrelated user columns stay absent.
   ai = {
     userId: "ai",
     username: "Test AI",
@@ -97,6 +102,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** Resolve App Router params and wait for the route to initialize its real AI form. */
 const mount = async () => {
   const params = Promise.resolve({ aiid: ai.userId });
   let view: ReturnType<typeof render>;

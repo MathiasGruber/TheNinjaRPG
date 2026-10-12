@@ -31,7 +31,7 @@ export default function ManualAisEdit(props: { params: Promise<{ aiid: string }>
   const router = useRouter();
   const { data: userData } = useRequiredUserData();
 
-  // Queries
+  // Keep fetched values intact: nullable enums must stay null for form validation.
   const { data, isPending, refetch } = api.profile.getAi.useQuery(
     { userId: aiId },
     { enabled: aiId !== undefined },

@@ -991,7 +991,7 @@ export const EditContent = <
                           onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            // Nullable enums represent an unset selection with null.
+                            // Nullable selections clear to null; string-only selections keep an empty string.
                             const emptyValue = props.schema.shape[id]?.isNullable() ? null : "";
                             form.setValue(id, emptyValue as PathValue<S, K>, {
                               shouldDirty: true,
