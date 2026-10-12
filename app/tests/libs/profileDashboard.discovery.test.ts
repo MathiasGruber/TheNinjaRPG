@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { MAP_WAKE_ISLAND_SECTOR, MISSIONS_PER_DAY } from "@/drizzle/constants";
-import { resolveDashboardContent } from "@/libs/profileDashboard";
+import { dashboardContentHref, dashboardContentRestriction, resolveDashboardContent } from "@/libs/profileDashboard";
 import { ObjectiveReward } from "@/validators/rewards";
 
 type Candidate = Parameters<typeof resolveDashboardContent>[0][number];
@@ -171,4 +171,32 @@ describe("dashboard discovery from shared profile data", () => {
 it("marks a banned player's content as view-only and preserves location guidance away from it", () => {
   expect(resolveDashboardContent([candidate()], user({ isBanned: true }))[0]).toMatchObject({ availability: "blocked", availabilityReason: "You are banned and cannot start quests" });
   expect(resolveDashboardContent([candidate()], user({ isBanned: true, sector: -1 }))[0]).toMatchObject({ availability: "travel", availabilityReason: expect.stringContaining("You are banned") });
+});
+
+
+describe("dashboard auto-travel destinations", () => {
+  it.each(["story", "event"] as const)("targets Wake Island for remote %s content", (questType) => {
+    const [entry] = resolveDashboardContent([candidate({ questType })], user({ sector: 12, status: "AWAKE" }));
+    expect(entry).toMatchObject({ availability: "travel", travelSector: MAP_WAKE_ISLAND_SECTOR, actionDisabled: false });
+    expect(dashboardContentHref(entry!)).toBe(`/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`);
+    expect(dashboardContentRestriction(entry!)).toBeNull();
+  });
+
+  it.each(["mission", "errand", "medical", "pvp", "battlepyramid"] as const)("targets the home village for remote %s assignments", (questType) => {
+    const [entry] = resolveDashboardContent([candidate({ questType })], user({ sector: 12, status: "AWAKE", village: { ...user().village!, sector: 40 } }));
+    expect(entry).toMatchObject({ availability: "travel", travelSector: 40 });
+    expect(dashboardContentHref(entry!)).toBe("/travel?sector=40");
+  });
+
+  it.each(["ASLEEP", "BATTLE", "HOSPITALIZED", "TRAVEL"] as const)("blocks auto-travel while %s", (status) => {
+    const [entry] = resolveDashboardContent([candidate()], user({ sector: 12, status }));
+    expect(entry?.actionDisabled).toBe(true);
+    expect(dashboardContentRestriction(entry!)).toContain("You must be awake to travel");
+  });
+
+  it("preserves the ban restriction for remote content", () => {
+    const [entry] = resolveDashboardContent([candidate()], user({ sector: 12, status: "AWAKE", isBanned: true }));
+    expect(entry?.actionDisabled).toBe(true);
+    expect(dashboardContentRestriction(entry!)).toContain("You are banned");
+  });
 });

@@ -55,6 +55,7 @@ import {
   type DashboardCatalogueEntry,
   dashboardContentActionLabel,
   dashboardContentHref,
+  dashboardContentRestriction,
   dashboardLevelProgress,
   dashboardRaidAction,
   dashboardTrainingAction,
@@ -739,7 +740,11 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {previewContent.map((entry) => (
-                <ContentCard key={`${entry.category}-${entry.id}`} entry={entry} />
+                <ContentCard
+                  key={`${entry.category}-${entry.id}`}
+                  entry={entry}
+                  isBanned={userData.isBanned}
+                />
               ))}
               {previewContent.length === 0 && (
                 <div className="col-span-full rounded-md border border-dashed p-5 text-muted-foreground text-sm">
@@ -785,17 +790,19 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                 </div>
                 <RowAction
                   href={dashboardContentHref(recommended)}
-                  icon={ArrowRight}
-                  restriction={recommended.availabilityReason}
+                  icon={recommended.availability === "travel" ? MapPin : ArrowRight}
+                  restriction={dashboardContentRestriction(recommended)}
                   restrictionLabel={
-                    recommended.availability === "travel"
-                      ? recommended.actionDisabled
+                    userData.isBanned
+                      ? "Cannot start quests"
+                      : recommended.availability === "travel"
                         ? "Must be awake"
-                        : "Travel required"
-                      : "Cannot start quests"
+                        : "Cannot start quests"
                   }
                 >
-                  View next activity
+                  {recommended.availability === "travel"
+                    ? "Travel"
+                    : "View next activity"}
                 </RowAction>
               </div>
             ) : (
@@ -1147,7 +1154,13 @@ function RetryPanel({ message, onRetry }: { message: string; onRetry?: () => voi
   );
 }
 
-function ContentCard({ entry }: { entry: DashboardCatalogueEntry }) {
+function ContentCard({
+  entry,
+  isBanned,
+}: {
+  entry: DashboardCatalogueEntry;
+  isBanned: boolean;
+}) {
   const destination = dashboardContentHref(entry);
   const actionLabel = dashboardContentActionLabel(entry);
   return (
@@ -1170,19 +1183,16 @@ function ContentCard({ entry }: { entry: DashboardCatalogueEntry }) {
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{categoryLabels[entry.category]}</Badge>
-          <Badge
-            variant="outline"
-            className={cn(
-              entry.availability === "available" && "border-green-500 text-green-500",
-              entry.availability === "travel" && "border-amber-500 text-amber-500",
-            )}
-          >
-            {entry.availability === "available"
-              ? "Available here"
-              : entry.availability === "travel"
-                ? "Travel required"
-                : "View only"}
-          </Badge>
+          {entry.availability !== "travel" && (
+            <Badge
+              variant="outline"
+              className={cn(
+                entry.availability === "available" && "border-green-500 text-green-500",
+              )}
+            >
+              {entry.availability === "available" ? "Available here" : "View only"}
+            </Badge>
+          )}
         </div>
         <CardTitle className="text-base">{entry.name}</CardTitle>
       </CardHeader>
@@ -1200,13 +1210,11 @@ function ContentCard({ entry }: { entry: DashboardCatalogueEntry }) {
         )}
         <RowAction
           href={destination}
-          icon={ArrowRight}
-          restriction={entry.availabilityReason}
+          icon={entry.availability === "travel" ? MapPin : ArrowRight}
+          restriction={dashboardContentRestriction(entry)}
           restrictionLabel={
-            entry.availability === "travel"
-              ? entry.actionDisabled
-                ? "Must be awake"
-                : "Travel required"
+            entry.availability === "travel" && !isBanned
+              ? "Must be awake"
               : "Cannot start quests"
           }
         >

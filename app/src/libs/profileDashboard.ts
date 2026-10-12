@@ -1,4 +1,4 @@
-import { getUserCaps } from "@/drizzle/constants";
+import { getUserCaps, MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import { craftingStartBlockMessage } from "@/libs/crafting";
 import {
@@ -91,6 +91,7 @@ export type DashboardContentSummary = {
   questType: string;
   location: string;
   destination: string;
+  travelSector?: number;
   availability: DashboardAvailability;
   availabilityReason: string | null;
   actionDisabled?: boolean;
@@ -260,8 +261,12 @@ export const dashboardContentHref = (entry: {
   category: string;
   availability: DashboardAvailability;
   destination: string;
+  travelSector?: number;
 }) => {
-  if (entry.availability === "travel") return "/travel";
+  if (entry.availability === "travel")
+    return entry.travelSector !== undefined
+      ? `/travel?sector=${entry.travelSector}`
+      : "/travel";
   if (entry.category === "battlePyramids") return "/battlearena#Battle%20Pyramid";
   return entry.destination;
 };
@@ -270,17 +275,30 @@ export const dashboardContentActionLabel = (entry: {
   availability: DashboardAvailability;
 }) => {
   if (entry.availability === "travel") {
-    return "Open travel";
+    return "Travel";
   }
   if (entry.availability === "blocked") return "View content";
   return "Open content";
 };
 
+/** Needing to travel is actionable; account and status restrictions still block it. */
+export const dashboardContentRestriction = (entry: {
+  availability: DashboardAvailability;
+  availabilityReason: string | null;
+  actionDisabled?: boolean;
+}) =>
+  entry.availability === "travel" && !entry.actionDisabled
+    ? null
+    : entry.availabilityReason;
+
 /** A raid with no sector is fought from Global ANBU HQ, same as one in the current sector. */
 export const raidContinueHref = (
   raidSector: number | null,
   userSector: number | null | undefined,
-) => (raidSector === null || raidSector === userSector ? "/globalanbuhq" : "/travel");
+) =>
+  raidSector === null || raidSector === userSector
+    ? "/globalanbuhq"
+    : `/travel?sector=${raidSector}`;
 
 /** The HQ overview remains accessible when the player cannot join a raid. */
 export const dashboardRaidAction = (
@@ -296,8 +314,9 @@ export const dashboardRaidAction = (
   const href = raidContinueHref(raidSector, user.sector);
   return {
     href,
-    action: href === "/travel" ? "Open travel" : "Continue raid",
-    reason: href === "/travel" ? `Travel to sector ${raidSector} to participate` : null,
+    action:
+      raidSector !== null && raidSector !== user.sector ? "Travel" : "Continue raid",
+    reason: null,
   };
 };
 
@@ -582,6 +601,10 @@ export const resolveDashboardContent = (
         questType: candidate.questType,
         location,
         destination,
+        travelSector:
+          category === "events" || category === "story"
+            ? MAP_WAKE_ISLAND_SECTOR
+            : user.village?.sector,
         availability: requiresVillageTravel
           ? ("travel" as const)
           : user.isBanned
@@ -593,7 +616,8 @@ export const resolveDashboardContent = (
             ? "You are banned and cannot start quests"
             : null,
         actionDisabled:
-          requiresVillageTravel && !!user.status && user.status !== "AWAKE",
+          requiresVillageTravel &&
+          (user.isBanned || (!!user.status && user.status !== "AWAKE")),
         endsAt: candidate.endsAt,
       },
     ];
@@ -617,7 +641,8 @@ export const buildDashboardCatalogue = (
     (raid) => {
       const action = dashboardRaidAction(raid.sector, user);
       const destination = action.href;
-      const travelRequired = destination === "/travel";
+      const travelRequired =
+        raid.sector !== null && raid.sector !== user.sector && !action.reason;
       return {
         id: raid.id,
         name: raid.name,
@@ -627,6 +652,7 @@ export const buildDashboardCatalogue = (
         questType: "raid",
         location: raid.sector === null ? "Global ANBU HQ" : `Sector ${raid.sector}`,
         destination,
+        travelSector: raid.sector ?? undefined,
         availability: travelRequired
           ? "travel"
           : action.reason
