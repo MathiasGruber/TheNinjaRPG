@@ -57,6 +57,10 @@ export const insertItems = async (items: Insert<typeof item.$inferInsert>[]) => 
     image: "/item.png",
     description: "test item",
     itemType: "MATERIAL",
+    furnitureAction: null,
+    furnitureWidth: 24,
+    furnitureGroundAnchor: 100,
+    furnitureIsFloor: false,
     rarity: "COMMON",
     slot: "ITEM",
     target: "CHARACTER",
@@ -76,6 +80,9 @@ export const insertUserItems = async (
     userId: "user-0",
     quantity: 1,
     equipped: "NONE",
+    homeX: null,
+    homeY: null,
+    homeRotation: 0,
     ...entry,
   }));
   await database.insert(userItem).values(rows as never);

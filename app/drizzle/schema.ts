@@ -54,7 +54,6 @@ import type {
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
 import type { WarSettlement } from "@/validators/war";
-import type { HomeFurnitureState } from "@/validators/home";
 
 export const vector = customType<{
   data: ArrayBuffer;
@@ -1408,6 +1407,11 @@ export const item = mysqlTable(
     expireFromStoreAt: date("expireFromStoreAt", { mode: "string" }),
     effects: json("effects").$type<ZodAllTags[]>().notNull(),
     itemType: mysqlEnum("itemType", consts.ItemTypes).notNull(),
+    // Content-authored sprite geometry and optional home action; furniture has no combat effects.
+    furnitureAction: mysqlEnum("furnitureAction", consts.HomeFurnitureActions),
+    furnitureWidth: double("furnitureWidth").default(24).notNull(),
+    furnitureGroundAnchor: double("furnitureGroundAnchor").default(100).notNull(),
+    furnitureIsFloor: boolean("furnitureIsFloor").default(false).notNull(),
     rarity: mysqlEnum("rarity", consts.ItemRarities).notNull(),
     slot: mysqlEnum("slot", consts.ItemSlotTypes).notNull(),
     cooldown: int("cooldown").default(0).notNull(),
@@ -2674,7 +2678,6 @@ export const userData = mysqlTable(
     tutorialStep: tinyint("tutorialStep", { unsigned: true }).default(0).notNull(),
     tutorialOn: boolean("tutorialOn").default(true).notNull(),
     homeType: mysqlEnum("homeType", consts.HomeTypes).default("NONE").notNull(),
-    homeFurniture: json("homeFurniture").$type<HomeFurnitureState>().default({ owned: [], layouts: {} }).notNull(),
     homeFurnitureRevision: int("homeFurnitureRevision", { unsigned: true }).default(0).notNull(),
     staffAccount: boolean("staffAccount").default(false).notNull(),
     rankedLp: int("rankedLp").default(0).notNull(),
@@ -2752,7 +2755,6 @@ export const userData = mysqlTable(
 );
 export const insertAiSchema = createInsertSchema(userData)
   .omit({
-    homeFurniture: true,
     homeFurnitureRevision: true,
     occupationSignupAt: true,
     masteryTrainingStartedAt: true,
@@ -3003,6 +3005,10 @@ export const userItem = mysqlTable(
       .default(consts.DURABILITY_MAX_DEFAULT)
       .notNull(),
     storedAtHome: boolean("storedAtHome").default(false).notNull(),
+    // Placement belongs to this owned copy and follows home upgrades; null coordinates mean unplaced.
+    homeX: double("homeX"),
+    homeY: double("homeY"),
+    homeRotation: tinyint("homeRotation", { unsigned: true }).default(0).notNull(),
     craftingFinishedAt: datetime("craftingFinishedAt", { mode: "date", fsp: 3 }),
     isInAuction: boolean("isInAuction").default(false).notNull(),
     activeVariantId: varchar("activeVariantId", { length: 191 }),

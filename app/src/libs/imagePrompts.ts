@@ -3,6 +3,9 @@ import type { ContentType } from "@/drizzle/constants";
 /** Content types whose generated images get their background removed */
 export const REMOVE_BG_TYPES = ["item", "ai", "mapAsset"];
 
+/** Match the painted residence artwork while leaving a clean, reusable furniture cutout. */
+export const FURNITURE_IMAGE_PROMPT = `Create one original furniture prop for a cozy ninja-fantasy residence. Use a close overhead three-quarter view matching hand-painted game interior artwork, with warm textured timber, natural muted colors, visible painted material detail, soft consistent lighting, and a clear silhouette. Frame the complete object in a 4:3 image, isolated against a uniform plain background that will be removed. Keep its base visible and leave only a little padding. No surrounding room, ground plane, characters, pixel art, text, logos, emblems, watermarks, Naruto imagery, or recognizable franchise symbols.`;
+
 /**
  * Default system prompt for the given content type. Map assets get a dedicated
  * prompt matching the existing world-map decoration sprites (small, cozy

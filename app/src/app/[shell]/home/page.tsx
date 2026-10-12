@@ -27,7 +27,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { HomeType } from "@/drizzle/constants";
 import {
-  type HomeFurniturePurchaseIds,
   HomeTypeDetails,
   ITEM_LEVEL_CAP,
   ItemRarities,
@@ -58,9 +57,12 @@ import { useRequireInVillage } from "@/utils/UserContext";
 import { getStrucBoost } from "@/utils/village";
 import type { HomePlacement } from "@/validators/home";
 
-// Load the full farm only when its home object is opened.
+// Load the full farm and furniture catalog only when their dialogs are opened.
 const HomeFarm = dynamic(() => import("@/layout/OccupationFarming"), {
   loading: () => <Loader explanation="Loading farm" />,
+});
+const Shop = dynamic(() => import("@/layout/Shop"), {
+  loading: () => <Loader explanation="Loading furniture shop" />,
 });
 
 /** Residence hub for shared sleep actions and owner-only storage and home management. */
@@ -88,6 +90,7 @@ export default function HomePage() {
   const {
     data: homeData,
     isLoading: isHomeLoading,
+    isFetching: isHomeFetching,
     isError: isHomeError,
     refetch: userHomeRefetch,
   } = api.home.getUserHome.useQuery(undefined, {
@@ -137,7 +140,6 @@ export default function HomePage() {
     });
 
   const { toggleSleep, isTogglingSleep } = useSleepToggle();
-  const utils = api.useUtils();
   const saveFurniture = api.home.saveFurnitureLayout.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
@@ -146,15 +148,6 @@ export default function HomePage() {
       await userHomeRefetch();
     },
   });
-  const buyFurniture = api.home.purchaseFurniture.useMutation({
-    onSuccess: async (result) => {
-      showMutationToast(result);
-      if (!result.success) setFurnitureError(result.message);
-      // Keep decorating disabled until ownership, revision and balance are refreshed.
-      await Promise.all([userHomeRefetch(), utils.profile.getUser.invalidate()]);
-    },
-  });
-
   /** Keep unsaved edits available on rejection and refresh the server revision for recovery. */
   const saveLayout = async (draft: {
     homeType: HomeType;
@@ -172,24 +165,6 @@ export default function HomePage() {
           : "Unable to save your layout. Try again.",
       );
       return false;
-    }
-  };
-
-  /** A purchase changes the account balance and puts the new piece in furniture storage. */
-  const purchaseFurniture = async (
-    furnitureId: (typeof HomeFurniturePurchaseIds)[number],
-  ) => {
-    if (!homeData) return;
-    setFurnitureError(null);
-    try {
-      await buyFurniture.mutateAsync({
-        furnitureId,
-        revision: homeData.furnitureRevision,
-      });
-    } catch (error) {
-      setFurnitureError(
-        error instanceof Error ? error.message : "Unable to buy furniture. Try again.",
-      );
     }
   };
 
@@ -306,7 +281,7 @@ export default function HomePage() {
             isTogglingSleep={isTogglingSleep}
             onSleep={() => toggleSleep()}
             layout={homeData?.layout}
-            owned={homeData?.furniture.owned}
+            furniture={homeData?.furniture}
             revision={homeData?.furnitureRevision}
             canDecorate={
               ownVillage &&
@@ -314,12 +289,24 @@ export default function HomePage() {
               !!homeData &&
               !isHomeError
             }
-            money={userData.money}
             isSaving={saveFurniture.isPending}
-            isBuying={buyFurniture.isPending}
+            isRefreshingFurniture={isHomeFetching}
             furnitureError={furnitureError}
             onSave={saveLayout}
-            onPurchase={purchaseFurniture}
+            shopContent={
+              <Shop
+                userData={userData}
+                defaultType="FURNITURE"
+                restrictTypes={["FURNITURE"]}
+                initialBreak={false}
+                title="Furniture"
+                catalog={{
+                  heroTitle: "Furniture for your home",
+                  heroDescription: "Choose a piece, then place it in your home editor.",
+                  listId: false,
+                }}
+              />
+            }
             onFarm={(trigger) => {
               farmTriggerRef.current = trigger;
               setIsFarmOpen(true);

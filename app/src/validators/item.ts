@@ -14,6 +14,13 @@ import {
 } from "@/drizzle/constants";
 import { statFilters } from "@/libs/train";
 
+export const itemCreateSchema = z.object({ type: z.enum(ItemTypes) });
+
+export {
+  FURNITURE_ITEM_DEFAULTS,
+  furnitureItemSchema,
+} from "@/validators/itemFurniture";
+
 export const itemBuySchema = z.object({
   itemId: z.string(),
   stack: z.number().int().min(1).max(MAX_ITEM_SHOP_PURCHASE_QUANTITY),

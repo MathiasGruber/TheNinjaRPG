@@ -1,50 +1,80 @@
 import { describe, expect, it } from "bun:test";
-import { getDefaultHomeLayout, getHomeLayout, homeLayoutOwnershipError } from "@/libs/home";
-import { homeFurnitureSaveInputSchema, type HomeFurnitureState } from "@/validators/home";
+import { HOME_FURNITURE_MAX_PLACEMENTS, HOME_FURNITURE_STARTERS } from "@/drizzle/constants";
+import { getDefaultHomeLayout, getHomeLayout, homeLayoutOwnershipError, type HomeFurniture } from "@/libs/home";
+import { homeFurnitureSaveInputSchema } from "@/validators/home";
 
-describe("home furniture layouts", () => {
-  it("provides the four movable actions before any furniture is purchased", () => {
-    const layout = getDefaultHomeLayout();
-    expect(layout.map(({ id }) => id)).toEqual(["bed", "armory", "kitchen", "garden"]);
-    expect(homeFurnitureSaveInputSchema.safeParse({ homeType: "NONE", revision: 0, placements: layout }).success).toBe(true);
-    expect(homeLayoutOwnershipError(layout, { owned: [], layouts: {} })).toBeNull();
+const fixture = (id: string, patch: Partial<HomeFurniture> = {}): HomeFurniture => ({
+  id, itemId: `content-${id}`, name: id, description: "Furniture", image: "/furniture.webp",
+  width: 24, groundAnchor: 100, action: null, isFloor: false, quantity: 1, ...patch,
+});
+const actions = ["sleep", "storage", "kitchen", "farm"] as const;
+const furniture = HOME_FURNITURE_STARTERS.map((starter, index) => fixture(`owned-${index}`, {
+  itemId: starter.itemId, action: actions[index],
+}));
+const placement = (id: string) => ({ id, x: 50, y: 50, rotation: 0 as const });
+
+describe("owned furniture layouts", () => {
+  it("resets owned fixtures using UserItem identities and starter positions", () => {
+    expect(getDefaultHomeLayout(furniture)).toEqual(HOME_FURNITURE_STARTERS.map((starter, index) => ({
+      id: `owned-${index}`, x: starter.x, y: starter.y, rotation: 0,
+    })));
+    expect(getDefaultHomeLayout([])).toEqual([]);
+    expect(homeLayoutOwnershipError(getDefaultHomeLayout(furniture), furniture)).toBeNull();
   });
 
-  it("preserves separate tier layouts and returns independent editing drafts", () => {
-    const tent = getDefaultHomeLayout();
-    tent[0]!.x = 30;
-    const furniture: HomeFurnitureState = { owned: ["rug"], layouts: { NONE: tent } };
-    const draft = getHomeLayout("NONE", furniture);
-    draft[0]!.x = 40;
-    expect(furniture.layouts.NONE?.[0]?.x).toBe(30);
-    expect(getHomeLayout("STUDIO_APARTMENT", furniture)).toEqual(getDefaultHomeLayout());
-    expect(getHomeLayout("NONE", furniture)[0]?.x).toBe(30);
+  it("uses content-authored action fixtures when starter content is unavailable", () => {
+    const custom = actions.map((action) => fixture(`custom-${action}`, { action }));
+    expect(getDefaultHomeLayout(custom).map(({ id }) => id)).toEqual(custom.map(({ id }) => id));
+    expect(getDefaultHomeLayout([fixture("custom-rug", { isFloor: true })])).toEqual([]);
   });
 
-  it("allows owned decorations to be placed or kept in storage", () => {
-    const furniture: HomeFurnitureState = { owned: ["rug"], layouts: {} };
-    const layout = [...getDefaultHomeLayout(), { id: "rug" as const, x: 50, y: 50, rotation: 1 as const }];
-    expect(homeLayoutOwnershipError(layout, furniture)).toBeNull();
-    expect(homeLayoutOwnershipError(getDefaultHomeLayout(), furniture)).toBeNull();
-    expect(homeLayoutOwnershipError(layout, { owned: [], layouts: {} })).toContain("Purchase");
+  it("prefers the starter content and leaves extra copies available in storage", () => {
+    const duplicate = fixture("extra-bed", { itemId: "home-bed", action: "sleep" });
+    const roleFallback = fixture("custom-bed", { action: "sleep" });
+    expect(getDefaultHomeLayout([roleFallback, ...furniture, duplicate]).map(({ id }) => id)).toEqual(furniture.map(({ id }) => id));
+  });
+
+  it("loads only complete positions into independent drafts and normalizes rotation", () => {
+    const rows = [
+      { id: "placed", homeX: 20, homeY: 40, homeRotation: 1 },
+      { id: "unplaced", homeX: null, homeY: null, homeRotation: 0 },
+      { id: "partial", homeX: 20, homeY: null, homeRotation: 0 },
+      { id: "normal-rotation", homeX: 70, homeY: 60, homeRotation: 4 },
+    ];
+    const draft = getHomeLayout(rows);
+    expect(draft).toEqual([
+      { id: "placed", x: 20, y: 40, rotation: 1 },
+      { id: "normal-rotation", x: 70, y: 60, rotation: 0 },
+    ]);
+    draft[0]!.x = 50;
+    expect(rows[0]!.homeX).toBe(20);
+    expect(getHomeLayout(rows)[0]!.x).toBe(20);
+  });
+
+  it("accepts independent owned copies and rejects foreign row IDs", () => {
+    const copies = [fixture("copy-a", { itemId: "cabinet" }), fixture("copy-b", { itemId: "cabinet" })];
+    expect(homeLayoutOwnershipError(copies.map(({ id }) => placement(id)), copies)).toBeNull();
+    expect(homeLayoutOwnershipError([placement("cabinet")], copies)).toContain("no longer available");
+    expect(homeLayoutOwnershipError([], [])).toBeNull();
+  });
+
+  it("permits an empty layout and bounds room size without mandatory core placements", () => {
+    const input = { homeType: "NONE", revision: 0, placements: [] };
+    expect(homeFurnitureSaveInputSchema.safeParse(input).success).toBe(true);
+    const placements = Array.from({ length: HOME_FURNITURE_MAX_PLACEMENTS }, (_, index) => placement(`owned-${index}`));
+    expect(homeFurnitureSaveInputSchema.safeParse({ ...input, placements }).success).toBe(true);
+    expect(homeFurnitureSaveInputSchema.safeParse({ ...input, placements: [...placements, placement("overflow")] }).success).toBe(false);
+    expect(homeFurnitureSaveInputSchema.safeParse({ ...input, placements: [placement("same"), placement("same")] }).success).toBe(false);
+    expect(homeFurnitureSaveInputSchema.safeParse({ ...input, owned: ["foreign"] }).success).toBe(false);
   });
 
   it.each([
-    { id: "bed", x: -1, y: 50, rotation: 0 },
-    { id: "bed", x: 50, y: 101, rotation: 0 },
-    { id: "bed", x: Number.NaN, y: 50, rotation: 0 },
-    { id: "bed", x: 50, y: 50, rotation: 2 },
-    { id: "unknown", x: 50, y: 50, rotation: 0 },
-  ])("rejects unsafe placement %j", (placement) => {
-    expect(homeFurnitureSaveInputSchema.safeParse({
-      homeType: "NONE", revision: 0, placements: [placement, ...getDefaultHomeLayout().slice(1)],
-    }).success).toBe(false);
-  });
-
-  it("rejects duplicated furniture, missing core actions and client-owned inventory", () => {
-    const input = { homeType: "NONE", revision: 0, placements: getDefaultHomeLayout() };
-    expect(homeFurnitureSaveInputSchema.safeParse({ ...input, placements: [...input.placements, input.placements[0]] }).success).toBe(false);
-    expect(homeFurnitureSaveInputSchema.safeParse({ ...input, placements: input.placements.slice(1) }).success).toBe(false);
-    expect(homeFurnitureSaveInputSchema.safeParse({ ...input, owned: ["sofa"] }).success).toBe(false);
+    { id: "row", x: -1, y: 50, rotation: 0 },
+    { id: "row", x: 50, y: 101, rotation: 0 },
+    { id: "row", x: Number.NaN, y: 50, rotation: 0 },
+    { id: "row", x: 50, y: 50, rotation: 2 },
+    { id: "", x: 50, y: 50, rotation: 0 },
+  ])("rejects unsafe placement %j", (invalid) => {
+    expect(homeFurnitureSaveInputSchema.safeParse({ homeType: "NONE", revision: 0, placements: [invalid] }).success).toBe(false);
   });
 });

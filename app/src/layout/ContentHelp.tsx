@@ -544,7 +544,9 @@ const renderEffectsGraphicsWarning = (effects: ZodAllTags[]) => {
 const isItemNoBattleUsage = (item: DeepPartial<ZodItemType>) => {
   return (
     !!item.preventBattleUsage ||
-    ["MATERIAL", "COOKING", "CRYSTAL"].includes((item.itemType as string) || "")
+    ["MATERIAL", "COOKING", "CRYSTAL", "FURNITURE"].includes(
+      (item.itemType as string) || "",
+    )
   );
 };
 

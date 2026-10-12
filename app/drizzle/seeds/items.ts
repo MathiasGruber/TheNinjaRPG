@@ -2,6 +2,7 @@ import { item } from "@/drizzle/schema";
 import { sql } from "drizzle-orm";
 import { promises as fs } from "fs";
 import type { DrizzleClient } from "@/server/db";
+import { seedHomeFurniture } from "./homeFurniture";
 
 // Delete anything not in above list, and insert those missing
 export const seedItems = async (client: DrizzleClient) => {
@@ -10,4 +11,5 @@ export const seedItems = async (client: DrizzleClient) => {
   await client.delete(item);
   console.log("Syncing items...");
   await client.execute(sql.raw(`${file}`));
+  await seedHomeFurniture(client);
 };

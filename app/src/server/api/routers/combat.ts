@@ -1309,6 +1309,9 @@ export const combatRouter = createTRPCRouter({
               createdAt: now,
               updatedAt: now,
               storedAtHome: false,
+              homeX: null,
+              homeY: null,
+              homeRotation: 0,
               isInAuction: false,
               activeVariantId: ref.activeVariantId ?? null,
               variantBattleDescription: ref.variantBattleDescription ?? null,
@@ -2281,6 +2284,9 @@ export const initiateBattle = async (
               equipped: "ITEM_1" as const,
               item: { ...item, variants: owned?.item?.variants ?? [] },
               storedAtHome: false,
+              homeX: null,
+              homeY: null,
+              homeRotation: 0,
               craftingFinishedAt: null,
               isInAuction: false,
               activeVariantId: owned?.activeVariantId ?? null,
@@ -3621,9 +3627,12 @@ export const processUsersForBattle = async (
       : requirementSkills
           .filter((skill) => skill.activated)
           .map((skill) => skill.skillId);
-    // Filter before mastery, weapon and bloodline-item gates read worn gear.
+    // Furniture never enters battle, even when old inventory rows still have an
+    // equipment slot or drop chance. Filter before mastery and jutsu item gates.
     user.items = user.items.filter(
-      (ui) => user.isAi || hasRequiredSkill(ui.item, { userSkills: requirementSkills }),
+      (ui) =>
+        ui.item.itemType !== "FURNITURE" &&
+        (user.isAi || hasRequiredSkill(ui.item, { userSkills: requirementSkills })),
     );
 
     // The mastery sources this battle applies; ranked battles skip bloodline and skills

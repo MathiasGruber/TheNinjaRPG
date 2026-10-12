@@ -191,6 +191,37 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     expect(await db.select().from(userItemImbuement)).toHaveLength(1);
   });
 
+  it("trades placed furniture without carrying its room position to the new owner", async () => {
+    await insertItems([{ id: "chair", name: "Chair", itemType: "FURNITURE", canBeTraded: true, canStack: false }]);
+    await insertUserItems([{ id: "supplier-chair", userId: "supplier", itemId: "chair", homeX: 24, homeY: 68, homeRotation: 1 }]);
+    const offer = await postTrade(50, "chair", 1);
+    const supplier = await callerFor(auctionRouter, "supplier");
+    expect((await supplier.acceptAuctionOffer({ offerId: offer.id, userItemId: "supplier-chair" })).success).toBe(true);
+    const [transferred] = await (await getTestDatabase()).select().from(userItem).where(eq(userItem.id, "supplier-chair"));
+    expect(transferred).toMatchObject({ userId: "owner", homeX: null, homeY: null, homeRotation: 0 });
+  });
+
+  it("preserves a concurrent room move when furniture is reserved and released by its owner", async () => {
+    await insertItems([{ id: "chair", name: "Chair", itemType: "FURNITURE", canBeTraded: true, canStack: false }]);
+    await insertUserItems([{ id: "owner-chair", userId: "owner", itemId: "chair", homeX: 24, homeY: 68 }]);
+    const database = await getTestDatabase();
+    const reservationDatabase = new Proxy(database, {
+      get(target, key, receiver) {
+        if (key !== "transaction") return Reflect.get(target, key, receiver);
+        return (work: Parameters<DrizzleClient["transaction"]>[0]) => target.transaction((tx) => work(beforeStatements(tx as DrizzleClient, userItem, [async () => {
+          await database.update(userItem).set({ homeX: 31, homeY: 72, homeRotation: 1 }).where(eq(userItem.id, "owner-chair"));
+        }]) as typeof tx));
+      },
+    });
+    const owner = callerForDatabase(auctionRouter, "owner", reservationDatabase);
+    expect((await owner.createAuctionOffer({ offerType: "TRADE", requestedItemId: "ore", requestedQuantity: 1, offeredUserItemId: "owner-chair", offeredQuantity: 1 })).success).toBe(true);
+    const [offer] = await database.select().from(auctionOffer);
+    const cancellation = await callerFor(auctionRouter, "owner");
+    expect((await cancellation.cancelAuctionOffer({ offerId: offer!.id })).success).toBe(true);
+    const [returned] = await database.select().from(userItem).where(eq(userItem.id, "owner-chair"));
+    expect(returned).toMatchObject({ userId: "owner", isInAuction: false, homeX: 31, homeY: 72, homeRotation: 1 });
+  });
+
   it("rejects unavailable inventory, insufficient quantities and mismatched items", async () => {
     const offer = await postRequest();
     const db = await getTestDatabase();

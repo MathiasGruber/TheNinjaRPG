@@ -24,15 +24,16 @@ export interface RepairKitCalculationResult {
 
 /**
  * Whether a user item is eligible for inventory / crafting-occupation repair flows.
- * Excludes home-stored and auction-listed items so bulk repair never charges for
- * items the player cannot see on the inventory page.
+ * Excludes furniture, home-stored and auction-listed items so bulk repair only
+ * charges for equipment available on the inventory page.
  */
 export const needsInventoryRepair = (ui: {
   storedAtHome: boolean;
   isInAuction: boolean;
   durability: number;
-  item: { maxDurability: number };
+  item: { maxDurability: number; itemType?: string };
 }): boolean =>
+  ui.item.itemType !== "FURNITURE" &&
   !ui.storedAtHome &&
   !ui.isInAuction &&
   ui.item.maxDurability > 0 &&
@@ -51,6 +52,7 @@ export const getRepairKits = (
   return (userItems || [])
     .filter(
       (userItem) =>
+        userItem.item?.itemType !== "FURNITURE" &&
         userItem.item?.effects?.some((e) => e.type === "repair") &&
         hasRequiredSkill(userItem.item, user) &&
         userItem.quantity > 0 &&

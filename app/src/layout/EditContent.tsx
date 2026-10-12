@@ -120,10 +120,16 @@ export type FormEntry<K> = {
   | { type: "textarea"; rows?: number }
   | { type: "richinput"; height?: string }
   | { type: "date" }
-  | { type: "number" }
+  | { type: "number"; min?: number; max?: number }
   | { type: "boolean" }
   | { type: "audio"; href?: string | null }
-  | { type: "avatar"; href?: string | null; size?: IMG_ORIENTATION; maxDim?: number }
+  | {
+      type: "avatar";
+      href?: string | null;
+      size?: IMG_ORIENTATION;
+      maxDim?: number;
+      preprompt?: string;
+    }
   | { type: "avatar3d"; modelUrl?: string | null; imgUrl?: string | null }
   | {
       type: "str_array";
@@ -683,6 +689,8 @@ export const EditContent = <
                                       : undefined
                                   }
                                   step="any"
+                                  min={"min" in formEntry ? formEntry.min : undefined}
+                                  max={"max" in formEntry ? formEntry.max : undefined}
                                 />
                               ) : (
                                 <Input
@@ -1181,6 +1189,7 @@ export const EditContent = <
                                   id={props.relationId ?? nanoid()}
                                   allowImageUpload={props.allowImageUpload}
                                   prompt={prompt}
+                                  preprompt={formEntry.preprompt}
                                   type={props.type}
                                   onUploadComplete={(url) => {
                                     field.onChange(url);

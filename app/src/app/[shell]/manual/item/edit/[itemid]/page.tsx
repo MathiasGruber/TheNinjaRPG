@@ -33,6 +33,7 @@ import { EditContent, EffectFormWrapper } from "@/layout/EditContent";
 import Image from "@/layout/Image";
 import Loader from "@/layout/Loader";
 import { SuggestChange } from "@/layout/SuggestChange";
+import { FURNITURE_IMAGE_PROMPT } from "@/libs/imagePrompts";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent, isStaffRole } from "@/utils/permissions";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
@@ -92,6 +93,13 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
     useItemEditForm(props.item, props.refetch);
 
   const itemType = useWatch({ control: form.control, name: "itemType" });
+  const isFurniture = itemType === "FURNITURE";
+  const furnitureImage = useWatch({ control: form.control, name: "image" });
+  const furnitureWidth = useWatch({ control: form.control, name: "furnitureWidth" });
+  const furnitureGroundAnchor = useWatch({
+    control: form.control,
+    name: "furnitureGroundAnchor",
+  });
 
   // Filter out any undefined effects from useWatch
   const validEffects = (effects?.filter((e): e is ZodAllTags => e !== undefined) ??
@@ -143,6 +151,37 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
               submitLoading={isUpdating}
               submitLoadingText="Saving"
             />
+            {isFurniture && (
+              <div className="mt-4 space-y-2">
+                <p className="text-muted-foreground text-sm">
+                  Width controls the prop's size in the residence. Set the ground anchor
+                  to the image's contact point with the floor; 100 uses its bottom edge.
+                  Floor decorations render beneath other furniture.
+                </p>
+                <div
+                  role="img"
+                  aria-label="Furniture scene preview"
+                  className="relative aspect-[4/3] overflow-hidden rounded-lg border bg-stone-200 dark:bg-stone-800"
+                >
+                  <div className="absolute inset-x-0 top-3/4 border-stone-500 border-t border-dashed" />
+                  <div
+                    className="absolute top-3/4 left-1/2"
+                    style={{
+                      width: `${Number(furnitureWidth) || 24}%`,
+                      transform: `translate(-50%, -${Number(furnitureGroundAnchor) || 0}%)`,
+                    }}
+                  >
+                    <Image
+                      src={furnitureImage || item.image}
+                      alt={item.name}
+                      width={768}
+                      height={576}
+                      className="h-auto w-full object-contain"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="mt-2 flex justify-end">
               <SuggestChange
                 entityType="ITEM"
@@ -153,10 +192,12 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
             </div>
           </>
         )}
-        {item && props.canSave && <ItemVariantsEditor itemId={item.id} />}
+        {item && props.canSave && (
+          <ItemVariantsEditor itemId={item.id} isFurniture={isFurniture} />
+        )}
       </ContentBox>
 
-      {validEffects.length === 0 && (
+      {!isFurniture && validEffects.length === 0 && (
         <ContentBox
           title={`Item Tags`}
           initialBreak={true}
@@ -165,52 +206,54 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
           Please add effects to this item
         </ContentBox>
       )}
-      {validEffects.map((tag, i) => {
-        return (
-          <ContentBox
-            key={`${tag.type}-${i}`}
-            title={`Item Tag #${i + 1}`}
-            subtitle="Control battle effects"
-            initialBreak={true}
-            topRightContent={
-              <div className="flex flex-row">
-                {AddTagIcon}
-                <FileMinus
-                  className={`h-6 w-6 ${isUpdating ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:text-orange-500"}`}
-                  aria-disabled={isUpdating}
-                  onClick={() => {
-                    if (isUpdating) return;
-                    const newEffects = [...validEffects];
-                    newEffects.splice(i, 1);
-                    setEffects(newEffects);
-                  }}
-                />
-              </div>
-            }
-          >
-            <EffectFormWrapper
-              idx={i}
-              type="item"
-              allowCoordinateTargeting={
-                !NonActionItemTypes.includes(
-                  itemType as (typeof NonActionItemTypes)[number],
-                )
+      {!isFurniture &&
+        validEffects.map((tag, i) => {
+          return (
+            <ContentBox
+              key={`${tag.type}-${i}`}
+              title={`Item Tag #${i + 1}`}
+              subtitle="Control battle effects"
+              initialBreak={true}
+              topRightContent={
+                <div className="flex flex-row">
+                  {AddTagIcon}
+                  <FileMinus
+                    className={`h-6 w-6 ${isUpdating ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:text-orange-500"}`}
+                    aria-disabled={isUpdating}
+                    onClick={() => {
+                      if (isUpdating) return;
+                      const newEffects = [...validEffects];
+                      newEffects.splice(i, 1);
+                      setEffects(newEffects);
+                    }}
+                  />
+                </div>
               }
-              tag={tag}
-              availableTags={tagTypes}
-              effects={validEffects}
-              setEffects={setEffects}
-              submitLoading={isUpdating}
-            />
-          </ContentBox>
-        );
-      })}
+            >
+              <EffectFormWrapper
+                idx={i}
+                type="item"
+                allowCoordinateTargeting={
+                  !NonActionItemTypes.includes(
+                    itemType as (typeof NonActionItemTypes)[number],
+                  )
+                }
+                tag={tag}
+                availableTags={tagTypes}
+                effects={validEffects}
+                setEffects={setEffects}
+                submitLoading={isUpdating}
+              />
+            </ContentBox>
+          );
+        })}
     </>
   );
 };
 
 interface ItemVariantsEditorProps {
   itemId: string;
+  isFurniture?: boolean;
 }
 
 type VariantFormInput = {
@@ -224,7 +267,10 @@ type VariantFormInput = {
   battleDescription?: string;
 };
 
-const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({ itemId }) => {
+const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
+  itemId,
+  isFurniture,
+}) => {
   const utils = api.useUtils();
   const [editingVariant, setEditingVariant] = React.useState<ZodItemVariantType | null>(
     null,
@@ -343,6 +389,8 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({ itemId }) => {
   }, [editingVariant, form, showForm]);
 
   const imageValue = useWatch({ control: form.control, name: "image" });
+  const variantName = useWatch({ control: form.control, name: "name" });
+  const variantDescription = useWatch({ control: form.control, name: "description" });
 
   const onSubmit = form.handleSubmit((data) => {
     if (variantOperationInFlightRef.current) return;
@@ -546,7 +594,11 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({ itemId }) => {
                 label="Image"
                 imageUrl={imageValue || null}
                 id={editingVariant?.id ?? itemId}
-                prompt="Item variant image"
+                prompt={
+                  [variantName, variantDescription].filter(Boolean).join(" ") ||
+                  "Item variant image"
+                }
+                preprompt={isFurniture ? FURNITURE_IMAGE_PROMPT : undefined}
                 allowImageUpload={true}
                 type="item"
                 onUploadComplete={(url) => {
@@ -555,8 +607,8 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({ itemId }) => {
                     shouldValidate: true,
                   });
                 }}
-                size="square"
-                maxDim={256}
+                size={isFurniture ? "landscape" : "square"}
+                maxDim={isFurniture ? 768 : 256}
               />
               {form.formState.errors.image && (
                 <p className="mt-1 text-destructive text-xs">
@@ -575,20 +627,22 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({ itemId }) => {
                 rows={3}
               />
             </div>
-            <div>
-              <label
-                htmlFor="variant-battle-description"
-                className="font-medium text-sm"
-              >
-                Battle Description (optional)
-              </label>
-              <Textarea
-                id="variant-battle-description"
-                {...form.register("battleDescription")}
-                placeholder="%user strikes with the Crimson Blade"
-                rows={2}
-              />
-            </div>
+            {!isFurniture && (
+              <div>
+                <label
+                  htmlFor="variant-battle-description"
+                  className="font-medium text-sm"
+                >
+                  Battle Description (optional)
+                </label>
+                <Textarea
+                  id="variant-battle-description"
+                  {...form.register("battleDescription")}
+                  placeholder="%user strikes with the Crimson Blade"
+                  rows={2}
+                />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 type="submit"

@@ -708,6 +708,7 @@ function ItemDurabilityRepairActions({
   isRepairingWithRyo = false,
 }: ItemDurabilityRepairActionsProps) {
   if (
+    useritem.item.itemType === "FURNITURE" ||
     useritem.durability >= useritem.item.maxDurability ||
     useritem.item.maxDurability <= 0
   ) {
@@ -953,6 +954,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
   const sellPrice = calcItemSellingPrice(userData, useritem, structures);
   const repairItems = (useritems || []).filter(
     (userItem: UserItemWithRelations) =>
+      userItem.item.itemType !== "FURNITURE" &&
       userItem.item?.effects?.some((e: { type: string }) => e.type === "repair") &&
       userItem.quantity > 0 &&
       !userItem.storedAtHome &&
@@ -1076,15 +1078,16 @@ const Backpack: React.FC<BackpackProps> = (props) => {
             )}
           {!isLoading && (
             <div className="flex flex-row flex-wrap gap-1">
-              {useritem.equipped === "NONE" && (
-                <Button
-                  variant="info"
-                  onClick={() => equip({ userItemId: useritem.id })}
-                >
-                  <Shirt className="mr-2 h-5 w-5" />
-                  Equip
-                </Button>
-              )}
+              {useritem.equipped === "NONE" &&
+                useritem.item.itemType !== "FURNITURE" && (
+                  <Button
+                    variant="info"
+                    onClick={() => equip({ userItemId: useritem.id })}
+                  >
+                    <Shirt className="mr-2 h-5 w-5" />
+                    Equip
+                  </Button>
+                )}
               {useritem.item.canStack && (
                 <>
                   <Button
@@ -1391,6 +1394,7 @@ const Character: React.FC<CharacterProps> = (props) => {
   const equipped = items?.find((item) => item.equipped === slot);
   const repairItems = (useritems || []).filter(
     (userItem: UserItemWithRelations) =>
+      userItem.item.itemType !== "FURNITURE" &&
       userItem.item?.effects?.some((e: { type: string }) => e.type === "repair") &&
       userItem.quantity > 0 &&
       !userItem.storedAtHome &&
@@ -1513,7 +1517,10 @@ const Character: React.FC<CharacterProps> = (props) => {
             {!isEquipping ? (
               <ActionSelector
                 items={items?.filter(
-                  (item) => slot?.includes(item.slot) && isEquippableUserItem(item),
+                  (item) =>
+                    item.itemType !== "FURNITURE" &&
+                    slot?.includes(item.slot) &&
+                    isEquippableUserItem(item),
                 )}
                 counts={itemBadges.counts}
                 levels={itemBadges.levels}

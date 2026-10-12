@@ -1,13 +1,17 @@
-import { and, eq, gt, gte, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { UserStatus } from "@/drizzle/constants";
 import {
-  HomeFurnitureDetails,
   HomeTypeDetails,
   HomeTypes,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
 } from "@/drizzle/constants";
-import { userData, userItem } from "@/drizzle/schema";
-import { getHomeLayout, homeLayoutOwnershipError } from "@/libs/home";
+import { item, userData, userItem } from "@/drizzle/schema";
+import { applyActiveVariant } from "@/libs/combat/util";
+import {
+  getHomeLayout,
+  type HomeFurniture,
+  homeLayoutOwnershipError,
+} from "@/libs/home";
 import {
   getHomeStorageBucket,
   getHomeStorageBucketCapacity,
@@ -30,7 +34,6 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import {
-  homeFurniturePurchaseInputSchema,
   homeFurnitureSaveInputSchema,
   homeSleepResponseSchema,
   homeStorageInputSchema,
@@ -131,64 +134,33 @@ export const homeRouter = createTRPCRouter({
   getUserHome: protectedProcedure
     .meta({ mcp: { description: "Get current user home info" } })
     .query(async ({ ctx }) => {
-      // Query
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
-      // Guard
+      // Revision and item positions come from one statement, keeping refetched layouts coherent.
+      const user = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
       if (!user) return null;
-      // Return
+      const furnitureItems = user.items.filter(
+        (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
+      );
       return {
         homeType: user.homeType,
         regen: HomeTypeDetails[user.homeType].regen,
         storage: HomeTypeDetails[user.homeType].storage,
-        furniture: user.homeFurniture,
+        furniture: furnitureItems.map((owned): HomeFurniture => {
+          const content = applyActiveVariant(owned);
+          return {
+            id: owned.id,
+            itemId: owned.itemId,
+            name: content.name,
+            description: content.description,
+            image: content.image,
+            width: content.furnitureWidth,
+            groundAnchor: content.furnitureGroundAnchor,
+            action: content.furnitureAction,
+            isFloor: content.furnitureIsFloor,
+            quantity: owned.quantity,
+          };
+        }),
         furnitureRevision: user.homeFurnitureRevision,
-        layout: getHomeLayout(user.homeType, user.homeFurniture),
-      };
-    }),
-
-  purchaseFurniture: protectedProcedure
-    .meta({ mcp: { description: "Buy a cosmetic home decoration" } })
-    .input(homeFurniturePurchaseInputSchema)
-    .output(baseServerResponse)
-    .mutation(async ({ ctx, input }) => {
-      const user = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
-      const block = homeFurnitureAccessError(user);
-      if (block || !user) return errorResponse(block ?? "User not found");
-      if (user.homeFurnitureRevision !== input.revision) {
-        return errorResponse("Your home changed. Refresh and try again");
-      }
-      if (user.homeFurniture.owned.includes(input.furnitureId)) {
-        return errorResponse("You already own this furniture");
-      }
-      const furniture = HomeFurnitureDetails[input.furnitureId];
-      if (user.money < furniture.price) return errorResponse("Not enough Ryo");
-
-      // Ownership and payment share one guarded row update; a concurrent layout cannot erase a purchase.
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          money: sql`${userData.money} - ${furniture.price}`,
-          homeFurniture: {
-            ...user.homeFurniture,
-            owned: [...user.homeFurniture.owned, input.furnitureId],
-          },
-          homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
-        })
-        .where(
-          and(
-            homeFurnitureWriteGuard(user, ctx.userId, input.revision),
-            gte(userData.money, furniture.price),
-          ),
-        );
-      if (result.rowsAffected !== 1) {
-        return errorResponse("Your home or balance changed. Refresh and try again");
-      }
-      return {
-        success: true,
-        message: `Purchased ${furniture.name}`,
+        layout: getHomeLayout(furnitureItems),
       };
     }),
 
@@ -208,25 +180,38 @@ export const homeRouter = createTRPCRouter({
       }
       const ownershipError = homeLayoutOwnershipError(
         input.placements,
-        user.homeFurniture,
+        user.items.filter(
+          (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
+        ),
       );
       if (ownershipError) return errorResponse(ownershipError);
 
-      // Merge only this tier's layout into the server snapshot; ownership and other rooms stay authoritative.
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          homeFurniture: {
-            ...user.homeFurniture,
-            layouts: {
-              ...user.homeFurniture.layouts,
-              [input.homeType]: input.placements,
-            },
-          },
-          homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
-        })
-        .where(homeFurnitureWriteGuard(user, ctx.userId, input.revision));
-      if (result.rowsAffected !== 1) {
+      const coordinateCase = (axis: "x" | "y" | "rotation") =>
+        input.placements.length
+          ? sql`CASE ${userItem.id} ${sql.join(
+              input.placements.map(
+                (placement) => sql`WHEN ${placement.id} THEN ${placement[axis]}`,
+              ),
+              sql` `,
+            )} ELSE ${axis === "rotation" ? 0 : null} END`
+          : sql`${axis === "rotation" ? 0 : null}`;
+      // Drizzle's update builder targets one table. A single joined update atomically
+      // publishes every placement and its revision without a transaction or partial room.
+      // A concurrent sale can only remove a cosmetic placement; this never recreates inventory.
+      const result = await ctx.drizzle.execute(sql`
+        UPDATE ${userData}
+        LEFT JOIN (${userItem} INNER JOIN ${item} ON ${item.id} = ${userItem.itemId})
+          ON ${userItem.userId} = ${userData.userId}
+          AND ${availableHomeFurnitureItems()}
+          AND ${item.itemType} = ${"FURNITURE"} AND ${item.hidden} = ${false}
+        SET ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1,
+            ${userItem.homeX} = ${coordinateCase("x")},
+            ${userItem.homeY} = ${coordinateCase("y")},
+            ${userItem.homeRotation} = ${coordinateCase("rotation")}
+        WHERE ${homeFurnitureWriteGuard(user, ctx.userId, input.revision)}
+      `);
+      // MySQL counts changed inventory rows as well as the account revision.
+      if (result.rowsAffected === 0) {
         return errorResponse("Your home changed. Refresh and try again");
       }
       return {
@@ -472,19 +457,34 @@ const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
     where: eq(userData.userId, userId),
     columns: {
       homeType: true,
-      homeFurniture: true,
       homeFurnitureRevision: true,
-      money: true,
       isBanned: true,
       status: true,
       sector: true,
       villageId: true,
       isOutlaw: true,
     },
-    with: { village: { columns: { sector: true } } },
+    with: {
+      village: { columns: { sector: true } },
+      items: {
+        where: availableHomeFurnitureItems(),
+        with: { item: { with: { variants: true } } },
+      },
+    },
   });
 
-/** Guests can use residence navigation but only the resident can buy or rearrange its furnishings. */
+/** Only available inventory can be placed; auction escrow and unfinished crafts remain inaccessible. */
+const availableHomeFurnitureItems = () =>
+  and(
+    gt(userItem.quantity, 0),
+    eq(userItem.isInAuction, false),
+    or(
+      isNull(userItem.craftingFinishedAt),
+      lte(userItem.craftingFinishedAt, new Date()),
+    ),
+  );
+
+/** Guests can use residence navigation but only the resident can rearrange its furnishings. */
 const homeFurnitureAccessError = (
   user: Awaited<ReturnType<typeof fetchHomeFurnitureUser>>,
 ) => {

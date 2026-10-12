@@ -51,7 +51,7 @@ export default function ManualItemBalance() {
       // Checks
       const noBattleUsage =
         item.preventBattleUsage ||
-        ["MATERIAL", "COOKING", "CRYSTAL"].includes(item.itemType);
+        ["MATERIAL", "COOKING", "CRYSTAL", "FURNITURE"].includes(item.itemType);
       const effects = item.effects.length === 0 && !noBattleUsage ? 1 : 0;
       const description = item.description === "New item description" ? 1 : 0;
       const missingGraphic =

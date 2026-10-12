@@ -30,6 +30,7 @@ interface ContentImageSelectorProps {
   imageUrl?: string | null;
   id: string;
   prompt: string;
+  preprompt?: string;
   allowImageUpload?: boolean;
   type: ContentType;
   onUploadComplete: (url: string) => void;
@@ -77,11 +78,21 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
   const promptForm = useForm<PromptFormSchema>({
     resolver: zodResolver(promptFormSchema),
     defaultValues: {
-      systemPrompt: getPrePrompts(type),
+      systemPrompt: props.preprompt ?? getPrePrompts(type),
       userPrompt: prompt,
       editPrompt: "",
     },
   });
+
+  useEffect(() => {
+    promptForm.setValue("systemPrompt", props.preprompt ?? getPrePrompts(type));
+  }, [promptForm, props.preprompt, type]);
+
+  useEffect(() => {
+    if (!promptForm.getFieldState("userPrompt").isDirty) {
+      promptForm.setValue("userPrompt", prompt);
+    }
+  }, [promptForm, prompt]);
 
   // Create image with AI mutation
   const { mutate: createImg, isPending: load } = api.generativeAi.createImg.useMutation(

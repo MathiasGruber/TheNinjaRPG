@@ -14,11 +14,13 @@ import type { UserRank, UserRole } from "@/drizzle/constants";
 import {
   activityStreakConfig,
   userData,
+  userItem,
   userStreakProgress,
   village,
 } from "@/drizzle/schema";
 import { env } from "@/env/server.mjs";
 import { drizzleDB } from "@/server/db";
+import { createStarterHomeItems } from "@/server/utils/homeFurniture";
 import type { AiTestUserProfile } from "@/validators/ai-test-user";
 import { sanitizeKey } from "@/validators/ai-test-user";
 
@@ -303,7 +305,10 @@ const upsertUserData = async ({
       isBanned,
       ...AGENT_FRIENDLY_SETTINGS,
     });
-    await suppressActivityStreakPopup(userId);
+    await Promise.all([
+      drizzleDB.insert(userItem).values(createStarterHomeItems(userId)),
+      suppressActivityStreakPopup(userId),
+    ]);
     return;
   }
 

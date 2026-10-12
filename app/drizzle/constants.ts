@@ -616,6 +616,7 @@ export const ItemTypes = [
   "COOKING",
   "KEYSTONE",
   "CRYSTAL",
+  "FURNITURE",
   "OTHER",
 ] as const;
 export type ItemType = (typeof ItemTypes)[number];
@@ -627,6 +628,7 @@ export const NonActionItemTypes: ItemType[] = [
   "ARMOR",
   "ACCESSORY",
   "KEYSTONE",
+  "FURNITURE",
 ];
 
 export const BanStates = [
@@ -3038,43 +3040,24 @@ export const HomeTypeDetails = {
 } as const;
 export type HomeTypeDetails = (typeof HomeTypeDetails)[keyof typeof HomeTypeDetails];
 
-/** Permanent home fixtures remain available regardless of decoration purchases. */
-export const HomeFurnitureCoreIds = ["bed", "armory", "kitchen", "garden"] as const;
-export const HomeFurniturePurchaseIds = [
-  "rug", "table", "bookshelf", "lantern", "bonsai", "sofa", "screen", "pond",
+/** Furniture definitions choose only existing home actions; a null action is decorative. */
+export const HomeFurnitureActions = ["sleep", "storage", "kitchen", "farm"] as const;
+export type HomeFurnitureAction = (typeof HomeFurnitureActions)[number];
+
+/** Every character starts with four movable fixtures, owned through ordinary inventory rows. */
+export const HOME_FURNITURE_STARTERS = [
+  { itemId: "home-bed", x: 22, y: 15.15 },
+  { itemId: "home-armory", x: 75, y: 15.15 },
+  { itemId: "home-kitchen", x: 76, y: 57.58 },
+  { itemId: "home-garden", x: 86, y: 90.91 },
 ] as const;
-export const HomeFurnitureIds = [...HomeFurnitureCoreIds, ...HomeFurniturePurchaseIds] as const;
-export type HomeFurnitureId = (typeof HomeFurnitureIds)[number];
-export type HomeFurnitureAction = "sleep" | "storage" | "kitchen" | "farm";
 
-/** Shared catalogue: prices are server-authoritative and decorations grant no gameplay bonuses. */
-export const HomeFurnitureDetails: Record<HomeFurnitureId, {
-  name: string;
-  price: number;
-  description: string;
-  width: number;
-  image: string;
-  /** Visible ground as a percentage of sprite height; raster cutouts have different padding. */
-  groundAnchor: number;
-  action?: HomeFurnitureAction;
-}> = {
-  bed: { name: "Bed", price: 0, description: "Rest here to sleep or wake up.", width: 34, image: "/images/home/furniture/bed.webp", groundAnchor: 91.1, action: "sleep" },
-  armory: { name: "Armory", price: 0, description: "Open your home storage.", width: 24, image: "/images/home/furniture/armory.webp", groundAnchor: 95.8, action: "storage" },
-  kitchen: { name: "Kitchen", price: 0, description: "Visit the ramen shop while cooking is being prepared.", width: 32, image: "/images/home/furniture/kitchen.webp", groundAnchor: 89.1, action: "kitchen" },
-  garden: { name: "Garden", price: 0, description: "Visit your farm.", width: 29, image: "/images/home/furniture/garden.webp", groundAnchor: 88.3, action: "farm" },
-  rug: { name: "Woven Rug", price: 25000, description: "A warm woven accent for your floor.", width: 25, image: "/images/home/furniture/rug.webp", groundAnchor: 88.5 },
-  table: { name: "Tea Table", price: 50000, description: "A low wooden table for quiet moments.", width: 19, image: "/images/home/furniture/table.webp", groundAnchor: 90.3 },
-  bookshelf: { name: "Bookshelf", price: 75000, description: "Keep your favorite stories close at hand.", width: 19, image: "/images/home/furniture/bookshelf.webp", groundAnchor: 89.6 },
-  lantern: { name: "Paper Lantern", price: 30000, description: "A soft light for your home.", width: 13, image: "/images/home/furniture/lantern.webp", groundAnchor: 93.6 },
-  bonsai: { name: "Bonsai", price: 40000, description: "A carefully tended miniature tree.", width: 16, image: "/images/home/furniture/bonsai.webp", groundAnchor: 95.9 },
-  sofa: { name: "Sofa", price: 100000, description: "A comfortable place to unwind.", width: 26, image: "/images/home/furniture/sofa.webp", groundAnchor: 88.4 },
-  screen: { name: "Folding Screen", price: 80000, description: "Divide your room with a wooden screen.", width: 24, image: "/images/home/furniture/screen.webp", groundAnchor: 86.6 },
-  pond: { name: "Stone Pond", price: 150000, description: "A peaceful water feature for your home.", width: 25, image: "/images/home/furniture/pond.webp", groundAnchor: 85.8 },
-};
-
-/** Floor-space coordinates leave a margin so furniture remains reachable at the scene edges. */
+/** Floor-space margins keep furniture reachable at scene edges on every home tier. */
 export const HOME_FURNITURE_POSITION_MIN = 8;
 export const HOME_FURNITURE_POSITION_MAX = 92;
+export const HOME_FURNITURE_MIN_WIDTH = 6;
+export const HOME_FURNITURE_MAX_WIDTH = 40;
+export const HOME_FURNITURE_MAX_PLACEMENTS = 50;
 
 // Auction system constants
 export const IMG_AUCTION_HOUSE =

@@ -8,6 +8,8 @@
  */
 import { afterAll, beforeAll } from "bun:test";
 import * as dialog from "@/components/ui/dialog";
+import Modal from "@/layout/Modal";
+import ItemWithEffects from "@/layout/ItemWithEffects";
 import {
   closeTestDatabase,
   hasTestDatabase,
@@ -17,8 +19,10 @@ import {
 // Load the toast module before any suite can hide exports needed by another suite.
 import "@/libs/toast";
 
-// Page integration suites can restore the real dialog after another suite mocks its module.
+// UI suites can restore real components after another suite mocks their module.
 export const actualDialog = { ...dialog };
+export const actualModal = Modal;
+export const actualItemWithEffects = ItemWithEffects;
 
 if (hasTestDatabase) {
   // Reconciling the schema is slower than a unit test's default budget.

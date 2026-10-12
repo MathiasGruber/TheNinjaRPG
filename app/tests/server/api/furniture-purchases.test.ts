@@ -1,0 +1,164 @@
+import { beforeEach, expect, it } from "bun:test";
+import { eq } from "drizzle-orm";
+import { HomeTypeDetails } from "@/drizzle/constants";
+import { item, itemPurchaseCounter, itemVariant, userData, userItem, userItemImbuement, userItemVariant, village } from "@/drizzle/schema";
+import { calcMaxItems } from "@/libs/item";
+import { homeRouter } from "@/server/api/routers/home";
+import { itemRouter } from "@/server/api/routers/item";
+import type { DrizzleClient } from "@/server/db";
+import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
+import { FURNITURE_ITEM_DEFAULTS } from "@/validators/itemFurniture";
+import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
+import { failStatements } from "../../setup/statements";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+
+const userId = "furniture-buyer";
+const villageId = "furniture-village";
+const price = 100;
+const money = 1_000;
+const capacity = HomeTypeDetails.NONE.storage;
+
+/** Standard item checkout delivers furniture into the same guarded home-storage economy. */
+describeWithDatabase("standard furniture purchases", () => {
+  beforeEach(async () => {
+    await resetTables(userItemImbuement, userItemVariant, itemVariant, itemPurchaseCounter, userItem, item, userData, village);
+    const database = await getTestDatabase();
+    await database.insert(village).values({ id: villageId, name: "Furniture", sector: 30, kageId: "kage" });
+    await insertUsers([{ userId, username: userId, villageId, sector: 30, status: "AWAKE", money }]);
+    await insertItems([
+      { ...FURNITURE_ITEM_DEFAULTS, id: "furniture", name: "Painted Cabinet", itemType: "FURNITURE", cost: price, inShop: true },
+      { id: "material", itemType: "MATERIAL" },
+      { id: "ordinary", itemType: "OTHER" },
+    ]);
+  });
+
+  const snapshot = async () => {
+    const database = await getTestDatabase();
+    const [owners, inventory, counters] = await Promise.all([
+      database.select().from(userData).where(eq(userData.userId, userId)),
+      database.select().from(userItem).where(eq(userItem.userId, userId)).orderBy(userItem.id),
+      database.select().from(itemPurchaseCounter),
+    ]);
+    return { owner: owners[0]!, inventory, counters };
+  };
+  const storedRows = async (count: number, itemId = "ordinary") => insertUserItems(
+    Array.from({ length: count }, (_, index) => ({ id: `stored-${itemId}-${index}`, userId, itemId, storedAtHome: true })),
+  );
+  const buy = async () => (await callerFor(itemRouter, userId)).buy({ itemId: "furniture", villageId, stack: 1 });
+
+  it("charges the standard item price and delivers an unplaced, unequipped home row", async () => {
+    // Checkout remains safe even for content authored before cosmetic guards existed.
+    const database = await getTestDatabase();
+    await database.update(item).set({ slot: "ITEM", maxEquips: 3, maxDurability: 100 }).where(eq(item.id, "furniture"));
+    const result = await buy();
+    expect(result).toMatchObject({ success: true, userDelta: { money: -price } });
+    const after = await snapshot();
+    expect(after.owner.money).toBe(money - price);
+    expect(after.inventory).toHaveLength(1);
+    expect(after.inventory[0]).toMatchObject({
+      itemId: "furniture", quantity: 1, storedAtHome: true, equipped: "NONE", durability: 0,
+      homeX: null, homeY: null, homeRotation: 0,
+    });
+    const home = await (await callerFor(homeRouter, userId)).getUserHome();
+    expect(home?.furniture.map(({ id }) => id)).toEqual([after.inventory[0]!.id]);
+    expect(home?.layout).toEqual([]);
+  });
+
+  it("creates distinct owned copies through normal repeated item purchases", async () => {
+    expect((await buy()).success).toBe(true);
+    expect((await buy()).success).toBe(true);
+    const after = await snapshot();
+    expect(after.owner.money).toBe(money - 2 * price);
+    expect(after.inventory).toHaveLength(2);
+    expect(new Set(after.inventory.map(({ id }) => id)).size).toBe(2);
+    expect(after.inventory.every(({ itemId, quantity, storedAtHome }) => itemId === "furniture" && quantity === 1 && storedAtHome)).toBe(true);
+  });
+
+  it("rejects a full normal home-storage bucket without payment or delivery", async () => {
+    await storedRows(capacity);
+    const before = await snapshot();
+    expect(await buy()).toMatchObject({ success: false, message: expect.stringContaining("storage is full") });
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("uses home capacity rather than a full carried inventory", async () => {
+    const { owner } = await snapshot();
+    await insertUserItems(Array.from({ length: calcMaxItems(owner) }, (_, index) => ({
+      id: `carried-${index}`, userId, itemId: "ordinary", storedAtHome: false,
+    })));
+    expect((await buy()).success).toBe(true);
+    expect((await snapshot()).inventory.filter(({ storedAtHome }) => storedAtHome)).toHaveLength(1);
+  });
+
+  it("keeps material home storage separate from ordinary furniture capacity", async () => {
+    await storedRows(capacity, "material");
+    await storedRows(capacity - 1);
+    expect((await buy()).success).toBe(true);
+    const after = await snapshot();
+    expect(after.inventory.filter(({ storedAtHome, itemId }) => storedAtHome && itemId !== "material")).toHaveLength(capacity);
+  });
+
+  it("delivers only one of two concurrent purchases into the final storage slot", async () => {
+    await storedRows(capacity - 1);
+    const api = await callerFor(itemRouter, userId);
+    const results = await Promise.all([
+      api.buy({ itemId: "furniture", villageId, stack: 1 }),
+      api.buy({ itemId: "furniture", villageId, stack: 1 }),
+    ]);
+    expect(results.filter(({ success }) => success)).toHaveLength(1);
+    const after = await snapshot();
+    expect(after.inventory).toHaveLength(capacity);
+    expect(after.inventory.filter(({ itemId }) => itemId === "furniture")).toHaveLength(1);
+    expect(after.owner.money).toBe(money - price);
+  });
+
+  it("rejects insufficient funds and unsupported stacks without consuming quota", async () => {
+    const database = await getTestDatabase();
+    await Promise.all([
+      database.update(userData).set({ money: price - 1 }).where(eq(userData.userId, userId)),
+      database.update(item).set({ purchaseLimit: 1, purchaseLimitPeriod: "DAILY" }).where(eq(item.id, "furniture")),
+    ]);
+    const before = await snapshot();
+    expect((await buy()).success).toBe(false);
+    expect(await snapshot()).toEqual(before);
+    const api = await callerFor(itemRouter, userId);
+    expect((await api.buy({ itemId: "furniture", villageId, stack: 2 })).success).toBe(false);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("rejects a stale balance snapshot before delivery", async () => {
+    const database = await getTestDatabase();
+    const before = await snapshot();
+    const raced = new Proxy(database, {
+      get(target, key, receiver) {
+        if (key !== "transaction") return Reflect.get(target, key, receiver);
+        return async (callback: Parameters<typeof database.transaction>[0]) => {
+          await database.update(userData).set({ money: 0, updatedAt: getNextUserSnapshotAt(before.owner.updatedAt) }).where(eq(userData.userId, userId));
+          return database.transaction(callback);
+        };
+      },
+    });
+    const api = callerForDatabase(itemRouter, userId, raced);
+    expect((await api.buy({ itemId: "furniture", villageId, stack: 1 })).success).toBe(false);
+    const after = await snapshot();
+    expect(after.owner.money).toBe(0);
+    expect(after.inventory).toEqual([]);
+    expect(after.counters).toEqual([]);
+  });
+
+  it("rolls back payment when inventory delivery fails", async () => {
+    const database = await getTestDatabase();
+    const before = await snapshot();
+    const failing = new Proxy(database, {
+      get(target, key, receiver) {
+        if (key !== "transaction") return Reflect.get(target, key, receiver);
+        return (callback: Parameters<typeof database.transaction>[0]) => database.transaction((transaction) =>
+          callback(failStatements(transaction as unknown as DrizzleClient, userItem) as typeof transaction),
+        );
+      },
+    });
+    const api = callerForDatabase(itemRouter, userId, failing);
+    await expect(api.buy({ itemId: "furniture", villageId, stack: 1 })).rejects.toThrow("Statement failed on purpose");
+    expect(await snapshot()).toEqual(before);
+  });
+});

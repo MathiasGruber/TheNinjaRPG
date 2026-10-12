@@ -4,6 +4,7 @@ import * as client from "@/app/_trpc/client";
 import type { Item } from "@/drizzle/schema";
 import { useItemEditForm } from "@/hooks/item";
 import { ItemValidator } from "@/validators/combat";
+import { FURNITURE_IMAGE_PROMPT } from "@/libs/imagePrompts";
 import { ensureDom } from "../setup-dom.mjs";
 
 ensureDom();
@@ -66,6 +67,37 @@ afterEach(() => {
 });
 
 describe("staff item economy editor", () => {
+  it("normalizes an existing combat item when switching to furniture and exposes placement controls", async () => {
+    const { result } = renderHook(() => useItemEditForm({
+      ...data,
+      itemType: "WEAPON",
+      maxEquips: 1,
+      slot: "HAND",
+      target: "CHARACTER",
+      canBeImbued: true,
+      effects: [{ type: "damage", description: "Attack", power: 1 }],
+    } as unknown as typeof data, async () => undefined));
+    expect(result.current.formData.some((field) => field.id === "furnitureAction")).toBe(false);
+    await act(async () => {
+      result.current.form.setValue("itemType", "FURNITURE");
+    });
+    expect(result.current.form.getValues()).toMatchObject({
+      effects: [], slot: "NONE", target: "SELF", maxEquips: 0,
+      preventBattleUsage: true, maxImbueNumber: 0, maxDurability: 0,
+      canBeImbued: false,
+    });
+    const ids = result.current.formData.map((field) => field.id);
+    expect(ids).toContain("furnitureAction");
+    expect(ids).toContain("furnitureWidth");
+    expect(ids).toContain("furnitureGroundAnchor");
+    expect(ids).toContain("furnitureIsFloor");
+    expect(ids).not.toContain("battleDescription");
+    expect(ids).not.toContain("slot");
+    expect(result.current.formData.find((field) => field.id === "image")).toMatchObject({
+      size: "landscape", maxDim: 768, preprompt: FURNITURE_IMAGE_PROMPT,
+    });
+    expect(await result.current.form.trigger()).toBe(true);
+  });
   it("starts unrestricted and places fields beside shop/trading settings", () => {
     const { result } = renderHook(() => useItemEditForm(data, async () => undefined));
     expect(result.current.form.getValues("purchaseLimitPeriod")).toBe("NONE");

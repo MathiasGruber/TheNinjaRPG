@@ -190,6 +190,13 @@ export const validateJutsuLoadout = (jutsus: Jutsu[]) => {
  * @returns An object with a check flag and a message if the loadout is invalid
  */
 export const validateItemLoadout = (items: Item[]) => {
+  const furnitureItem = items.find((item) => item.itemType === "FURNITURE");
+  if (furnitureItem) {
+    return {
+      check: false,
+      message: `${furnitureItem.name} belongs in your home and cannot be equipped in ranked PvP`,
+    };
+  }
   const skillGatedItem = items.find((item) => item.requiredSkillId);
   if (skillGatedItem) {
     return {

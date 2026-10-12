@@ -26,10 +26,10 @@ import {
   ANBU_ITEMSHOP_DISCOUNT_PERC,
   DURABILITY_MAX_DEFAULT,
   EVOLUTION_MAX_CHILDREN,
+  HomeTypeDetails,
   IMG_AVATAR_DEFAULT,
   ITEM_LEVEL_CAP,
   ItemSlots,
-  ItemTypes,
   MAX_EXTRA_RESKIN_SLOTS,
   MAX_ITEM_VARIANTS,
   MAX_MARRIAGE_SLOTS,
@@ -82,6 +82,9 @@ import {
   canEquipAdditional,
   computeAutoEquipAssignments,
   computeLoadoutAssignments,
+  getHomeStorageBucket,
+  getHomeStorageBucketCapacity,
+  getHomeStorageBucketFullMessage,
   getInventoryBucket,
   getInventoryBucketCapacity,
   getInventoryBucketFullMessage,
@@ -165,11 +168,13 @@ import type { ItemFilteringSchema } from "@/validators/item";
 import {
   adjustUserItemSchema,
   evolveItemSchema,
+  FURNITURE_ITEM_DEFAULTS,
   getItemEvolutionsSchema,
   getPublicUserItemsSchema,
   ItemVariantResponseSchema,
   ItemVariantValidator,
   itemBuySchema,
+  itemCreateSchema,
   itemFilteringSchema,
   UserUnlockedVariantResponseSchema,
 } from "@/validators/item";
@@ -285,7 +290,7 @@ export const itemRouter = createTRPCRouter({
     }),
   // Create new item
   create: protectedProcedure
-    .input(z.object({ type: z.enum(ItemTypes) }))
+    .input(itemCreateSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -304,6 +309,16 @@ export const itemRouter = createTRPCRouter({
           target: "CHARACTER",
           effects: [],
           hidden: true,
+          ...(input.type === "FURNITURE"
+            ? {
+                ...FURNITURE_ITEM_DEFAULTS,
+                effects: [],
+                inShop: false,
+                cost: 0,
+                repsCost: 0,
+                seichiSilverCost: 0,
+              }
+            : {}),
         });
         return { success: true, message: id };
       } else {
@@ -2767,11 +2782,31 @@ export const itemRouter = createTRPCRouter({
       if (info.hidden && !canChangeContent(user.role)) {
         return errorResponse("Item is hidden, cannot be bought");
       }
-      const purchaseBucket = getInventoryBucket(info);
-      if (
-        bucketCounts[purchaseBucket] >= getInventoryBucketCapacity(purchaseBucket, user)
-      ) {
-        return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
+      const isFurniture = info.itemType === "FURNITURE";
+      if (isFurniture) {
+        const homeBucket = getHomeStorageBucket(info);
+        const storedCount = useritems.filter(
+          (owned) =>
+            owned.storedAtHome && getHomeStorageBucket(owned.item) === homeBucket,
+        ).length;
+        if (
+          storedCount >=
+          getHomeStorageBucketCapacity(
+            homeBucket,
+            user,
+            HomeTypeDetails[user.homeType].storage,
+          )
+        ) {
+          return errorResponse(getHomeStorageBucketFullMessage(homeBucket));
+        }
+      } else {
+        const purchaseBucket = getInventoryBucket(info);
+        if (
+          bucketCounts[purchaseBucket] >=
+          getInventoryBucketCapacity(purchaseBucket, user)
+        ) {
+          return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
+        }
       }
       if (info.expireFromStoreAt && new Date(info.expireFromStoreAt) < new Date()) {
         return errorResponse("Item has expired");
@@ -2876,8 +2911,11 @@ export const itemRouter = createTRPCRouter({
         equipped,
         level: 1,
         experience: 0,
-        durability: DURABILITY_MAX_DEFAULT,
-        storedAtHome: false,
+        durability: isFurniture ? 0 : DURABILITY_MAX_DEFAULT,
+        storedAtHome: isFurniture,
+        homeX: null,
+        homeY: null,
+        homeRotation: 0,
         isInAuction: false,
         craftingFinishedAt: null,
         activeVariantId: null,

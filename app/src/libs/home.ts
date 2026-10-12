@@ -1,27 +1,62 @@
-import { HomeFurnitureCoreIds, type HomeType } from "@/drizzle/constants";
-import type { HomeFurnitureState, HomePlacement } from "@/validators/home";
+import { HOME_FURNITURE_STARTERS, type HomeFurnitureAction } from "@/drizzle/constants";
+import type { HomePlacement } from "@/validators/home";
 
-/** The shared overhead floor keeps the four existing home actions present on every tier. */
-export const getDefaultHomeLayout = (): HomePlacement[] => [
-  { id: "bed", x: 22, y: 20, rotation: 0 },
-  { id: "armory", x: 75, y: 20, rotation: 0 },
-  { id: "kitchen", x: 76, y: 76, rotation: 0 },
-  { id: "garden", x: 86, y: 92, rotation: 0 },
-];
+/** A furniture instance is an owned inventory row; content supplies its appearance and home action. */
+export type HomeFurniture = {
+  id: string;
+  itemId: string;
+  name: string;
+  description: string;
+  image: string;
+  width: number;
+  groundAnchor: number;
+  action: HomeFurnitureAction | null;
+  isFloor: boolean;
+  quantity: number;
+};
 
-/** Return an independent draft so rearranging a room never mutates cached ownership or layouts. */
-export const getHomeLayout = (homeType: HomeType, furniture: HomeFurnitureState) =>
-  (furniture.layouts[homeType] ?? getDefaultHomeLayout()).map((placement) => ({
-    ...placement,
-  }));
+/** Reset only owned action fixtures; additional decorations remain available in storage. */
+export const getDefaultHomeLayout = (furniture: HomeFurniture[]): HomePlacement[] => {
+  const actions: HomeFurnitureAction[] = ["sleep", "storage", "kitchen", "farm"];
+  return HOME_FURNITURE_STARTERS.flatMap((starter, index) => {
+    const fixture =
+      furniture.find((piece) => piece.itemId === starter.itemId) ??
+      furniture.find((piece) => piece.action === actions[index]);
+    return fixture
+      ? [{ id: fixture.id, x: starter.x, y: starter.y, rotation: 0 as const }]
+      : [];
+  });
+};
 
-/** Placement validation depends on server-owned inventory, never client-supplied ownership. */
+/** Null coordinates keep an owned item unplaced without a second inventory or layout document. */
+export const getHomeLayout = (
+  items: {
+    id: string;
+    homeX: number | null;
+    homeY: number | null;
+    homeRotation: number;
+  }[],
+): HomePlacement[] =>
+  items.flatMap((piece) =>
+    piece.homeX !== null && piece.homeY !== null
+      ? [
+          {
+            id: piece.id,
+            x: piece.homeX,
+            y: piece.homeY,
+            rotation: piece.homeRotation === 1 ? 1 : 0,
+          },
+        ]
+      : [],
+  );
+
+/** Server-owned row IDs prevent placing another account's item or a non-furniture item. */
 export const homeLayoutOwnershipError = (
   placements: HomePlacement[],
-  furniture: HomeFurnitureState,
+  furniture: Pick<HomeFurniture, "id">[],
 ) => {
-  const available = new Set<string>([...HomeFurnitureCoreIds, ...furniture.owned]);
+  const available = new Set(furniture.map((piece) => piece.id));
   return placements.some((placement) => !available.has(placement.id))
-    ? "Purchase furniture before placing it in your home"
+    ? "Furniture is no longer available. Reload your home and try again"
     : null;
 };

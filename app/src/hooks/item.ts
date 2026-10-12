@@ -6,6 +6,9 @@ import {
   AttackMethods,
   AttackTargets,
   BattleUsageTypes,
+  HOME_FURNITURE_MAX_WIDTH,
+  HOME_FURNITURE_MIN_WIDTH,
+  HomeFurnitureActions,
   ItemPurchaseLimitPeriods,
   ItemRarities,
   ItemSlotTypes,
@@ -15,10 +18,12 @@ import {
 import type { CraftingRequirement, Item } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
 import { EVOLUTION_STAT_FORM_FIELDS } from "@/libs/evolution";
+import { FURNITURE_IMAGE_PROMPT } from "@/libs/imagePrompts";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags, ZodItemInput, ZodItemType } from "@/validators/combat";
 import { ItemValidator } from "@/validators/combat";
+import { FURNITURE_ITEM_DEFAULTS } from "@/validators/item";
 
 /**
  * Hook used when creating frontend forms for editing items
@@ -129,6 +134,23 @@ export const useItemEditForm = (
     control: form.control,
     name: "itemType",
   });
+  const previousItemType = useRef(itemType);
+  const isFurniture = itemType === "FURNITURE";
+  useEffect(() => {
+    if (previousItemType.current !== "FURNITURE" && isFurniture) {
+      for (const [field, value] of Object.entries(FURNITURE_ITEM_DEFAULTS)) {
+        form.setValue(field as keyof ZodItemInput, field === "effects" ? [] : value, {
+          shouldDirty: true,
+        });
+      }
+      form.clearErrors();
+      void form.trigger();
+    } else if (previousItemType.current === "FURNITURE" && !isFurniture) {
+      form.setValue("maxImbueNumber", 1, { shouldDirty: true });
+      form.setValue("maxDurability", 100, { shouldDirty: true });
+    }
+    previousItemType.current = itemType;
+  }, [form, isFurniture, itemType]);
 
   // All item names, shared by the crafting, farming, and evolution pickers.
   const { data: allItemNames } = api.item.getAllNames.useQuery();
@@ -156,7 +178,14 @@ export const useItemEditForm = (
 
   const formData: FormEntry<keyof ZodItemType>[] = [
     { id: "name", label: "Item Name", type: "text" },
-    { id: "image", type: "avatar", href: imageUrl },
+    {
+      id: "image",
+      type: "avatar",
+      href: imageUrl,
+      ...(isFurniture
+        ? { size: "landscape" as const, maxDim: 768, preprompt: FURNITURE_IMAGE_PROMPT }
+        : {}),
+    },
     { id: "itemType", type: "str_array", values: ItemTypes },
     { id: "rarity", type: "str_array", values: ItemRarities },
     { id: "slot", type: "str_array", values: ItemSlotTypes },
@@ -321,13 +350,73 @@ export const useItemEditForm = (
     });
   }
 
+  const visibleFormData = isFurniture
+    ? formData.filter((field) => FURNITURE_FORM_FIELDS.has(field.id))
+    : formData;
+  if (isFurniture) {
+    visibleFormData.splice(
+      3,
+      0,
+      {
+        id: "furnitureWidth",
+        label: `Scene width (%) · ${HOME_FURNITURE_MIN_WIDTH}–${HOME_FURNITURE_MAX_WIDTH}`,
+        type: "number",
+        min: HOME_FURNITURE_MIN_WIDTH,
+        max: HOME_FURNITURE_MAX_WIDTH,
+      },
+      {
+        id: "furnitureGroundAnchor",
+        label: "Ground anchor (%) · 1–100",
+        type: "number",
+        min: 1,
+        max: 100,
+      },
+      {
+        id: "furnitureAction",
+        label: "Home action (blank for decoration)",
+        type: "str_array",
+        values: HomeFurnitureActions,
+        resetButton: true,
+      },
+      {
+        id: "furnitureIsFloor",
+        label: "Floor decoration",
+        type: "boolean",
+      },
+    );
+  }
+
   return {
     item,
     effects,
     form,
-    formData,
+    formData: visibleFormData,
     setEffects,
     handleItemSubmit,
     isUpdating,
   };
 };
+
+const FURNITURE_FORM_FIELDS = new Set<keyof ZodItemType>([
+  "name",
+  "image",
+  "itemType",
+  "rarity",
+  "description",
+  "cost",
+  "repsCost",
+  "seichiSilverCost",
+  "requiredLevel",
+  "hidden",
+  "isEventItem",
+  "inShop",
+  "purchaseLimitPeriod",
+  "purchaseLimit",
+  "canBeCrafted",
+  "canBeTraded",
+  "auctionMinPrice",
+  "auctionMaxPrice",
+  "craftingExperience",
+  "expireFromStoreAt",
+  "craftingRequirements",
+]);
