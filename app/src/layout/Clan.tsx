@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  AlertTriangle,
   ArrowBigDownDash,
   ArrowBigUpDash,
   CirclePlay,
@@ -1904,10 +1905,25 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
               </p>
               {village?.belowMemberMinimumSince && village.type === "STRONGHOLD" && (
                 <p role="status">
-                  Membership grace period: restore {FACTION_MIN_MEMBERS_FOR_STRONGHOLD}{" "}
-                  members within {STRONGHOLD_MEMBER_GRACE_HOURS} hours of{" "}
-                  {new Date(village.belowMemberMinimumSince).toLocaleString()} to retain
-                  this Stronghold.
+                  <Popover>
+                    <PopoverTrigger
+                      aria-label="Membership grace period"
+                      className="inline-flex items-center gap-1 whitespace-nowrap text-amber-700 text-sm hover:text-orange-500"
+                    >
+                      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                      Membership grace
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      aria-label="Membership grace period details"
+                      className="max-w-[calc(100vw-2rem)] text-sm"
+                    >
+                      Restore {FACTION_MIN_MEMBERS_FOR_STRONGHOLD} members within{" "}
+                      {STRONGHOLD_MEMBER_GRACE_HOURS} hours of{" "}
+                      {new Date(village.belowMemberMinimumSince).toLocaleString()} to
+                      retain this Stronghold.
+                    </PopoverContent>
+                  </Popover>
                 </p>
               )}
               <p>
