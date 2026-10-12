@@ -1239,9 +1239,6 @@ const delay = (ms: number): Promise<void> =>
  * @param userId - The ID of the user to delete.
  */
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
-  // Every deletion path ends here, before the reports below are removed: a running ban or
-  // silence leaves a tombstone so a new account cannot shed it.
-  await recordSanctionTombstone(client, userId);
   const MAX_RETRIES = 6;
   const BASE_DELAY_MS = 100;
   const MAX_JITTER_MS = 100;
@@ -1290,6 +1287,8 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
   // batch and the final UserData delete, so a concurrent staff rename cannot move the
   // identity midway through cleanup and overwrite its tombstone.
   await retireStoreUserId(client, userId, async (lockedClient) => {
+    // The marker makes moderation require this source before cleanup can remove reports.
+    await recordSanctionTombstone(lockedClient, userId);
     // Push writes check for the tombstone before they write; this removes what landed first.
     await lockedClient.delete(userDevice).where(eq(userDevice.userId, userId));
     await lockedClient

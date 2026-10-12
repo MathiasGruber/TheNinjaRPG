@@ -3,9 +3,11 @@ import * as clerk from "@clerk/nextjs/server";
 import { and, eq } from "drizzle-orm";
 import * as ids from "nanoid";
 import {
+  accountDeletion,
   actionLog,
   bloodline,
   sanctionTombstone,
+  storeUserIdAlias,
   userData,
   userReport,
   userReportComment,
@@ -17,6 +19,7 @@ import { registerRouter } from "@/server/api/routers/register";
 import { reportsRouter } from "@/server/api/routers/reports";
 import { deleteUser } from "@/server/api/routers/staff";
 import { removeAccountIdentity } from "@/server/utils/accountDeletion/identity";
+import { DELETED_STORE_USER_PREFIX } from "@/server/utils/purchases/grant";
 import * as sanctions from "@/server/utils/sanctionTombstone";
 import {
   hashSanctionIdentifier,
@@ -107,6 +110,29 @@ const tombstonesOf = async (userId: string) =>
     where: eq(sanctionTombstone.userId, userId),
   });
 
+/** Hold web deletion after capture, before any report cleanup can start. */
+const pauseWebDeletion = async () => {
+  const capture = sanctions.recordSanctionTombstone;
+  let enter!: () => void;
+  let release!: () => void;
+  const entered = new Promise<void>((resolve) => {
+    enter = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  vi.spyOn(sanctions, "recordSanctionTombstone").mockImplementation(async (...args) => {
+    await capture(...args);
+    enter();
+    await gate;
+  });
+  const deleting = (await callerFor(profileRouter, SANCTIONED)).confirmDeletion({
+    userId: SANCTIONED,
+  });
+  await entered;
+  return { deleting, release };
+};
+
 describe("sanction identifier normalization", () => {
   it("folds Gmail aliases and preserves distinct local parts at other providers", () => {
     expect(normalizeEmail(" J.Doe+alt@GoogleMail.com ")).toBe("jdoe@gmail.com");
@@ -120,9 +146,11 @@ describe("sanction identifier normalization", () => {
 describeWithDatabase("sanction tombstones", () => {
   beforeEach(async () => {
     await resetTables(
+      accountDeletion,
       actionLog,
       bloodline,
       sanctionTombstone,
+      storeUserIdAlias,
       userData,
       userReport,
       userReportComment,
@@ -150,8 +178,8 @@ describeWithDatabase("sanction tombstones", () => {
   });
   afterEach(async () => {
     vi.restoreAllMocks();
-    // Registration in other suites must not meet this suite's unexpired tombstones.
-    await resetTables(sanctionTombstone);
+    // Other suites must not inherit this suite's sanctions or deletion markers.
+    await resetTables(sanctionTombstone, storeUserIdAlias, accountDeletion);
   });
 
   it("records a running sanction with hashed identifiers only, before the reports go", async () => {
@@ -270,7 +298,7 @@ describeWithDatabase("sanction tombstones", () => {
     ["ban", true],
     ["unchanged", true],
   ] as const)(
-    "captures a completed %s decision during Clerk lookup with independent cases: %p",
+    "guards %s decisions before capture during Clerk lookup with independent cases: %p",
     async (decision, hasIndependentCases) => {
       const database = await getTestDatabase();
       const originalEnd = new Date(Date.now() + 10 * DAY);
@@ -302,10 +330,18 @@ describeWithDatabase("sanction tombstones", () => {
       vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue();
       const deleting = deleteUser(database, SANCTIONED);
       await entered;
-      let revisedEnd = originalEnd;
       try {
         expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+        expect(await database.query.storeUserIdAlias.findFirst()).toMatchObject({
+          oldUserId: SANCTIONED,
+          newUserId: expect.stringContaining(DELETED_STORE_USER_PREFIX),
+        });
         if (decision !== "unchanged") {
+          const before = await Promise.all([
+            database.query.userReport.findMany(),
+            database.query.userData.findMany(),
+            database.query.userReportComment.findMany(),
+          ]);
           expect(
             await (await callerFor(reportsRouter, "staff"))[decision]({
               object_id: "original-case",
@@ -313,16 +349,27 @@ describeWithDatabase("sanction tombstones", () => {
               banTime: 1,
               banTimeUnit: "days",
             }),
-          ).toMatchObject({ success: true });
+          ).toMatchObject({ success: decision === "clear" });
+          if (decision !== "clear")
+            expect(
+              await Promise.all([
+                database.query.userReport.findMany(),
+                database.query.userData.findMany(),
+                database.query.userReportComment.findMany(),
+              ]),
+            ).toEqual(before);
         }
         const revised = await database.query.userReport.findFirst({
           where: eq(userReport.id, "original-case"),
         });
-        revisedEnd = revised!.banEnd!;
+        expect(revised).toMatchObject({
+          status: decision === "clear" ? "REPORT_CLEARED" : "BAN_ACTIVATED",
+          banEnd: originalEnd,
+        });
       } finally {
         release();
+        await deleting;
       }
-      await deleting;
       expect(
         await database.query.userData.findFirst({
           where: eq(userData.userId, SANCTIONED),
@@ -337,8 +384,8 @@ describeWithDatabase("sanction tombstones", () => {
       if (decision === "clear") expect(original).toBeUndefined();
       else
         expect(original).toMatchObject({
-          sanction: decision === "silence" ? "SILENCE" : "BAN",
-          sanctionEndsAt: revisedEnd,
+          sanction: "BAN",
+          sanctionEndsAt: originalEnd,
         });
       for (const source of sources) {
         expect(source).toMatchObject({
@@ -367,16 +414,8 @@ describeWithDatabase("sanction tombstones", () => {
         where: eq(userReport.reportedUserId, SANCTIONED),
       });
       const banEnd =
-        hasIndependentCases && decision !== "unchanged"
-          ? shorterEnd
-          : decision === "ban" || decision === "unchanged"
-            ? revisedEnd
-            : null;
-      const expectedSilenceEnd = hasIndependentCases
-        ? silenceEnd
-        : decision === "silence"
-          ? revisedEnd
-          : null;
+        decision === "clear" ? (hasIndependentCases ? shorterEnd : null) : originalEnd;
+      const expectedSilenceEnd = hasIndependentCases ? silenceEnd : null;
       const expected = [
         ...(banEnd ? [{ status: "BAN_ACTIVATED", banEnd }] : []),
         ...(expectedSilenceEnd
@@ -1132,4 +1171,164 @@ describeWithDatabase("sanction tombstones", () => {
       expect(returned[0]!.banEnd).toEqual(revised!.banEnd);
     },
   );
+
+  describe("moderation during web deletion", () => {
+    const input = {
+      object_id: "original",
+      comment: "Revise a case while its character is being deleted",
+      banTime: 2,
+      banTimeUnit: "days" as const,
+    };
+    beforeEach(async () => {
+      await insertUsers([
+        { userId: SANCTIONED, isBanned: true, deletionAt: new Date(Date.now() - DAY) },
+        { userId: "staff", role: "OWNER" },
+      ]);
+      await addSanction(
+        SANCTIONED,
+        "BAN_ACTIVATED",
+        new Date(Date.now() + 10 * DAY),
+        "original",
+      );
+      stubClerk({ [SANCTIONED]: identity("web-cleanup@example.com") });
+      vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue();
+    });
+
+    it.each([
+      ["warn", "ban"],
+      ["warn", "silence"],
+      ["tradeBan", "ban"],
+      ["tradeBan", "silence"],
+    ] as const)(
+      "rejects reactivation from %s to %s during web deletion",
+      async (retiring, decision) => {
+        const database = await getTestDatabase();
+        const { deleting, release } = await pauseWebDeletion();
+        try {
+          expect(await tombstonesOf(SANCTIONED)).toHaveLength(1);
+          expect(await database.query.accountDeletion.findMany()).toHaveLength(0);
+          const staff = await callerFor(reportsRouter, "staff");
+          expect(await staff[retiring](input)).toMatchObject({ success: true });
+          expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+          const before = await Promise.all([
+            database.query.userReport.findMany(),
+            database.query.userData.findMany(),
+            database.query.userReportComment.findMany(),
+          ]);
+          expect(await staff[decision](input)).toEqual({
+            success: false,
+            message:
+              "Report or account is no longer available for this decision. Please refresh.",
+          });
+          expect(
+            await Promise.all([
+              database.query.userReport.findMany(),
+              database.query.userData.findMany(),
+              database.query.userReportComment.findMany(),
+            ]),
+          ).toEqual(before);
+          expect(await database.query.storeUserIdAlias.findFirst()).toMatchObject({
+            oldUserId: SANCTIONED,
+            newUserId: expect.stringContaining(DELETED_STORE_USER_PREFIX),
+          });
+        } finally {
+          release();
+          await deleting;
+        }
+        expect(await deleting).toMatchObject({ success: true });
+        expect(await database.query.userReport.findMany()).toHaveLength(0);
+        expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+        expect(await register(SANCTIONED)).toMatchObject({ success: true });
+        expect(await (await callerFor(reportsRouter, SANCTIONED)).getBan()).toBeNull();
+        expect(
+          await database.query.userData.findFirst({
+            where: eq(userData.userId, SANCTIONED),
+          }),
+        ).toMatchObject({
+          isBanned: false,
+          isSilenced: false,
+        });
+      },
+    );
+
+    it.each(["ban", "silence"] as const)(
+      "retains an accepted %s revision after capture",
+      async (decision) => {
+        const database = await getTestDatabase();
+        const { deleting, release } = await pauseWebDeletion();
+        let revised;
+        try {
+          expect(
+            await (await callerFor(reportsRouter, "staff"))[decision](input),
+          ).toMatchObject({ success: true });
+          revised = await database.query.userReport.findFirst({
+            where: eq(userReport.id, "original"),
+          });
+          expect(await tombstonesOf(SANCTIONED)).toMatchObject([
+            {
+              sourceId: "original",
+              sanction: decision === "ban" ? "BAN" : "SILENCE",
+              sanctionEndsAt: revised!.banEnd,
+            },
+          ]);
+        } finally {
+          release();
+          await deleting;
+        }
+        expect(await deleting).toMatchObject({ success: true });
+        expect(await register(SANCTIONED)).toMatchObject({ success: true });
+        expect(await database.query.userReport.findMany()).toMatchObject([
+          {
+            status: revised!.status,
+            banEnd: revised!.banEnd,
+          },
+        ]);
+        expect(
+          await database.query.userData.findFirst({
+            where: eq(userData.userId, SANCTIONED),
+          }),
+        ).toMatchObject({
+          isBanned: decision === "ban",
+          isSilenced: decision === "silence",
+        });
+      },
+    );
+
+    it.each([
+      null,
+      "renamed-user",
+      "__tnrXdeletedXstoreXuser__:lookalike",
+      "__TNR_DELETED_STORE_USER__:lookalike",
+    ])(
+      "allows ordinary moderation with alias %p without retaining identifiers",
+      async (newUserId) => {
+        const database = await getTestDatabase();
+        if (newUserId)
+          await database
+            .insert(storeUserIdAlias)
+            .values({ oldUserId: SANCTIONED, newUserId });
+        expect(
+          await (await callerFor(reportsRouter, "staff")).ban(input),
+        ).toMatchObject({ success: true });
+        expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+      },
+    );
+
+    it("verifies deletion ownership before capturing identifiers", async () => {
+      const database = await getTestDatabase();
+      await database
+        .insert(storeUserIdAlias)
+        .values({ oldUserId: SANCTIONED, newUserId: "renamed-user" });
+      await expect(deleteUser(database, SANCTIONED)).rejects.toThrow(
+        "is being renamed and cannot be deleted",
+      );
+      expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+      expect(await database.query.userReport.findMany()).toHaveLength(1);
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, SANCTIONED),
+        }),
+      ).toBeDefined();
+    });
+  });
 });

@@ -13,6 +13,7 @@ import {
   actionLog,
   type SanctionTombstone,
   sanctionTombstone,
+  storeUserIdAlias,
   type UserReport,
   userReport,
   userReportComment,
@@ -20,6 +21,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { getIpHashSecret } from "@/server/utils/ipHash";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { DELETED_STORE_USER_PREFIX } from "@/server/utils/purchases/grant";
 
 /**
  * Sanction tombstones let a banned or silenced player delete their account (GDPR Art. 17,
@@ -367,7 +369,7 @@ export const reapplySanctions = (
 /**
  * Commit a report decision and its retained sources atomically; omitted banEnd is preserved.
  * Cleared cases stay closed after their retained identifiers are pruned.
- * Active decisions during native deletion require the account's own captured source.
+ * Active decisions during deletion require the account's own captured source.
  * Return false when the report or account is unavailable so callers skip flags and comments.
  */
 export const updateSanctionReport = async (
@@ -399,11 +401,13 @@ export const updateSanctionReport = async (
   // LEFT JOIN revises only existing sources; ordinary moderation retains no identifiers.
   // QUEUED can already mean Clerk is gone while its response is pending. Linked ancestors
   // may hold different identity hashes, so only this account's exact source can retain it.
+  // Web deletion uses the exact store marker; rename aliases do not retire the account.
   const result = await retryOnDeadlock(() =>
     client.execute(sql`
     UPDATE ${userReport}
     LEFT JOIN ${sanctionTombstone} ON ${sources}
     LEFT JOIN ${accountDeletion} ON ${and(eq(accountDeletion.userId, userReport.reportedUserId), ne(accountDeletion.phase, "COMPLETE"))}
+    LEFT JOIN ${storeUserIdAlias} ON ${and(eq(storeUserIdAlias.oldUserId, userReport.reportedUserId), sql`LEFT(${storeUserIdAlias.newUserId}, ${DELETED_STORE_USER_PREFIX.length}) = BINARY ${DELETED_STORE_USER_PREFIX}`)}
     LEFT JOIN ${sanctionTombstone} capturedSource ON ${and(eq(capturedSource.userId, userReport.reportedUserId), eq(capturedSource.sourceId, userReport.id))}
     SET ${userReport.status} = ${decision.status},
         ${userReport.adminResolved} = ${decision.adminResolved},
@@ -411,7 +415,7 @@ export const updateSanctionReport = async (
         ${decision.banEnd !== undefined ? sql`${userReport.banEnd} = ${sql.param(decision.banEnd, userReport.banEnd)},` : sql``}
         ${sanctionTombstone.sanction} = ${activeEnd ? sql`${sanction}` : sanctionTombstone.sanction},
         ${sanctionTombstone.sanctionEndsAt} = ${sql.param(endsAt, sanctionTombstone.sanctionEndsAt)}
-    WHERE ${and(eq(userReport.id, report.id), ne(userReport.status, "REPORT_CLEARED"), activeEnd ? or(isNull(accountDeletion.userId), isNotNull(capturedSource.sourceId)) : undefined)}
+    WHERE ${and(eq(userReport.id, report.id), ne(userReport.status, "REPORT_CLEARED"), activeEnd ? or(and(isNull(accountDeletion.userId), isNull(storeUserIdAlias.oldUserId)), isNotNull(capturedSource.sourceId)) : undefined)}
   `),
   );
   if (result.rowsAffected === 0) return false;
