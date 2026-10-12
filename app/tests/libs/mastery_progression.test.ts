@@ -15,6 +15,7 @@ import { masteryQuestTemplates } from "@/libs/masteryQuests";
 import { jutsuMasteryTypes } from "@/libs/jutsuMastery";
 import { isAvailableUserQuests, collapseRewards } from "@/libs/quest";
 import { ObjectiveReward } from "@/validators/rewards";
+import { QuestReward } from "@/validators/rewardPackages";
 import type { UserData } from "@/drizzle/schema";
 
 const masteries = (value = 0) =>
@@ -144,6 +145,93 @@ describe("earned mastery progression", () => {
       false,
     );
   });
+  it("applies the same predecessor and configured minimum gates to packaged promotions", () => {
+    const template = masteryQuestTemplates()[1]!;
+    const direct = { ...template, hidden: false, requiredNinjutsuMastery: 0 };
+    const packaged = {
+      ...direct,
+      content: {
+        ...direct.content,
+        reward: QuestReward.parse({
+          reward_packages: [
+            {
+              id: "adept-snapshot",
+              packageId: "adept-package",
+              name: "Adept promotion",
+              description: "",
+              rewards: direct.content.reward,
+            },
+          ],
+        }),
+      },
+    };
+    for (const rank of ["NONE", "NOVICE", "ADEPT", "MASTER"] as const) {
+      const player = user({ masteryRanks: { ninjutsuMastery: rank } });
+      const result = isAvailableUserQuests(packaged, player);
+      expect(result).toEqual(isAvailableUserQuests(direct, player));
+      expect(result.check).toBe(rank === "NOVICE");
+      if (rank !== "NOVICE") expect(result.message).toContain("previous mastery rank");
+    }
+    expect(
+      isAvailableUserQuests(
+        { ...packaged, requiredNinjutsuMastery: 500000 },
+        user({ ninjutsuMastery: 499999, masteryRanks: { ninjutsuMastery: "NOVICE" } }),
+      ).check,
+    ).toBe(false);
+    expect(
+      isAvailableUserQuests(
+        { ...packaged, requiredNinjutsuMastery: 500000 },
+        user({
+          ninjutsuMastery: 599999.85,
+          masteryRanks: { ninjutsuMastery: "NOVICE" },
+          baseStatsForModifiers: { ninjutsuMastery: 499999 },
+        }),
+      ).check,
+    ).toBe(false);
+  });
+  it("checks the promotion selected by completion's direct and package merge order", () => {
+    const template = masteryQuestTemplates()[1]!;
+    const rewards = [
+      ObjectiveReward.parse({
+        reward_mastery_stat: "genjutsuMastery",
+        reward_mastery_rank: "NOVICE",
+      }),
+      template.content.reward,
+      ObjectiveReward.parse({ reward_money: 10 }),
+    ];
+    const packaged = {
+      ...template,
+      hidden: false,
+      requiredNinjutsuMastery: 0,
+      content: {
+        ...template.content,
+        reward: QuestReward.parse({
+          reward_mastery_stat: "ninjutsuMastery",
+          reward_mastery_rank: "MASTER",
+          reward_packages: rewards.map((reward, index) => ({
+            id: `snapshot-${index}`,
+            packageId: `package-${index}`,
+            name: "Promotion package",
+            description: "",
+            rewards: reward,
+          })),
+        }),
+      },
+    };
+    expect(
+      isAvailableUserQuests(
+        packaged,
+        user({ masteryRanks: { ninjutsuMastery: "NOVICE", genjutsuMastery: "NOVICE" } }),
+      ).check,
+    ).toBe(true);
+    expect(
+      isAvailableUserQuests(
+        packaged,
+        user({ masteryRanks: { ninjutsuMastery: "ADEPT" } }),
+      ).check,
+    ).toBe(false);
+  });
+
   it("keeps discipline XP separate from sage-mode XP while collapsing rewards", () => {
     const reward = collapseRewards([
       ObjectiveReward.parse({

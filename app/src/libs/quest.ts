@@ -1955,7 +1955,14 @@ export const isAvailableUserQuests = (
       !questAndUserQuestInfo[field] ||
       (baseMasteries[stat] ?? 0) >= (questAndUserQuestInfo[field] ?? 0),
   );
-  const promotion = questAndUserQuestInfo.content?.reward;
+  const completionReward = questAndUserQuestInfo.content?.reward;
+  // Match completion payout's merge order, including saved package snapshots.
+  const promotion = completionReward?.reward_packages?.length
+    ? collapseRewards([
+        completionReward,
+        ...completionReward.reward_packages.map((pack) => pack.rewards),
+      ])
+    : completionReward;
   const promotionCheck =
     !promotion?.reward_mastery_stat ||
     promotion.reward_mastery_stat === "None" ||

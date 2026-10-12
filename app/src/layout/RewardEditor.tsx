@@ -6,6 +6,7 @@ import { type UseFormReturn, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { ContentType } from "@/drizzle/constants";
 import { EditContent, type FormEntry, RewardFormWrapper } from "@/layout/EditContent";
 import { getRewardPreview } from "@/libs/objectives";
 import { getActiveRewardNodes } from "@/libs/rewardNodes";
@@ -20,12 +21,14 @@ import { ObjectiveReward, rewardFields } from "@/validators/rewards";
 export const RewardEditor = ({
   form,
   formData,
+  type,
   allowPackages = true,
   isObjectiveReward = false,
   hideFields = [],
 }: {
   form: UseFormReturn<any>;
   formData: FormEntry<any>[];
+  type?: ContentType;
   allowPackages?: boolean;
   isObjectiveReward?: boolean;
   hideFields?: string[];
@@ -190,6 +193,7 @@ export const RewardEditor = ({
         <details key={node.id} open className="rounded border p-2">
           <summary className="cursor-pointer font-semibold">{node.name}</summary>
           <EditContent
+            type={type}
             schema={QuestReward}
             form={form}
             formData={formData.filter((entry) => node.fields.includes(entry.id))}

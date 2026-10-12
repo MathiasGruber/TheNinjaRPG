@@ -268,7 +268,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
               submitLoading={isUpdating}
               submitLoadingText="Saving"
             >
-              <RewardEditor form={form} formData={formData} />
+              <RewardEditor type="quest" form={form} formData={formData} />
             </EditContent>
             <div className="mt-2 flex justify-end">
               <SuggestChange
