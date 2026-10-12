@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu } from "@/drizzle/schema";
 import { dungeonRouter } from "@/server/api/routers/dungeon";
@@ -10,12 +10,25 @@ import { makeCompleteBattle, makeUser } from "../../libs/combat/helpers/battleSc
 
 describeWithDatabase("Dungeon parties and settlement", () => {
   beforeEach(async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) {
+        throw new Error("Unexpected HTTP request in dungeon tests");
+      }
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({
+        result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1,
+      });
+      return Response.json(Array.isArray(commands[0])
+        ? commands.map((command) => resultFor(command as unknown[]))
+        : resultFor(commands));
+    });
     await resetTables(battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu);
     await insertUsers(["a", "b", "c", "outsider"].map((id) => ({userId: id, username: id, status: "AWAKE", sector: 1, money: 0, experience: 0, earnedExperience: 0, villagePrestige: 0, villageId: "village"})));
     const db = await getTestDatabase();
     await db.insert(village).values({id: "village", name: "Village", sector: 1, kageId: "a"});
     await db.insert(dungeon).values({id: "definition", content: dungeonContent(), updatedAt: new Date()});
   });
+  afterEach(() => vi.restoreAllMocks());
   const lobby = async () => {
     const a = await callerFor(dungeonRouter, "a");
     const result = await a.create({id: "definition"});

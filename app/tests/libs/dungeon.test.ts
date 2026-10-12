@@ -2,10 +2,12 @@ import { availableUserActions, calcActiveUser } from "@/libs/combat/actions";
 import type { ReturnedBattle } from "@/libs/combat/types";
 import { describe, expect, it } from "bun:test";
 import { advanceDungeonWave, dungeonBattleOutcome, dungeonNextState } from "@/libs/dungeon";
-import { alignBattle, calcBattleResult, maskBattle } from "@/libs/combat/util";
+import { alignBattle, calcBattleResult, findUser, maskBattle } from "@/libs/combat/util";
+import { applyEffects } from "@/libs/combat/process";
+import { getBattleSpawnLocations } from "@/libs/combat/participants";
 import { dungeonContentSchema } from "@/validators/dungeon";
 import { dungeonBattleState, dungeonContent } from "../setup/dungeon";
-import { makeCompleteBattle, makeUser } from "./combat/helpers/battleScenario";
+import { makeCompleteBattle, makeEffect, makeUser } from "./combat/helpers/battleScenario";
 
 const floorBattle = () => makeCompleteBattle({
   battleType: "QUEST", round: 0, width: 12, height: 10,
@@ -48,6 +50,27 @@ describe("dungeon combat rules", () => {
     battle.extraState.dungeon!.pendingWaves.push({users: [makeUser({userId: "next", isAi: true, direction: "right"})], effects: [], delayRounds: 0});
     advanceDungeonWave(battle);
     expect(battle.usersState.some((u) => u.userId === "template")).toBe(true);
+  });
+  it("keeps defeated enemy effects active and visible through the next wave", () => {
+    const battle = floorBattle();
+    battle.round = 1;
+    battle.activeUserId = "enemy";
+    battle.roundStartAt = new Date();
+    const spawn = getBattleSpawnLocations(battle.width, battle.height, "right")[0]!;
+    Object.assign(battle.usersState[3]!, {curHealth: 0, longitude: spawn.x, latitude: spawn.y});
+    battle.usersEffects.push(makeEffect("damage", {calculation: "static", power: 100, rounds: 5}, {creatorId: "enemy", targetId: "a", targetType: "user", fromType: "jutsu", createdRound: 0}));
+    battle.extraState.dungeon!.pendingWaves.push({users: [makeUser({userId: "next", isAi: true, direction: "right"})], effects: [], delayRounds: 0});
+    expect(applyEffects(structuredClone(battle), "a").newBattle.usersState[0]?.curHealth).toBe(4920);
+    expect(advanceDungeonWave(battle)).toBe(true);
+    expect(applyEffects(structuredClone(battle), "a").newBattle.usersState[0]?.curHealth).toBe(4920);
+    expect(dungeonBattleOutcome(battle)).toBeNull();
+    expect(calcBattleResult(battle, "a")).toBeNull();
+    const masked = maskBattle(battle, "a");
+    expect(masked.usersEffects).toEqual(expect.arrayContaining([expect.objectContaining({creatorId: "enemy", targetId: "a", rounds: 5})]));
+    expect(findUser(masked.usersState, spawn.x, spawn.y, masked.usersEffects)?.userId).toBe("next");
+    expect(calcActiveUser(masked, "a").actor.userId).toBe("a");
+    battle.usersState.at(-1)!.curHealth = 0;
+    expect(dungeonBattleOutcome(battle)).toBe("won");
   });
   it("hides future enemy state and removes the flee action from the masked client", () => {
     const battle=floorBattle();battle.extraState.dungeon!.pendingWaves.push({users:[makeUser({userId:"secret-enemy",isAi:true,direction:"right"})],effects:[],delayRounds:0});

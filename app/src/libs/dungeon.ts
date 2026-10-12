@@ -69,10 +69,10 @@ export const advanceDungeonWave = (battle: CompleteBattle) => {
   )
     return false;
   if (battle.round < state.waveStartedRound + next.delayRounds) return false;
-  const remaining = battle.usersState.filter(
-    (u) => u.direction === "left" || u.isSummonTemplate,
+  // Defeated enemies remain as effect sources until the floor settles.
+  const occupied = battle.usersState.filter((u) =>
+    stillInBattle(u, battle.usersEffects),
   );
-  const occupied = remaining.filter((u) => stillInBattle(u, battle.usersEffects));
   const locations = getBattleSpawnLocations(
     battle.width,
     battle.height,
@@ -100,12 +100,8 @@ export const advanceDungeonWave = (battle: CompleteBattle) => {
         (e) => e.longitude !== p.x || e.latitude !== p.y,
       );
     });
-  const retainedIds = new Set(remaining.map((u) => u.userId));
-  battle.usersEffects = [
-    ...battle.usersEffects.filter((e) => retainedIds.has(e.targetId)),
-    ...next.effects,
-  ];
-  battle.usersState = [...remaining, ...next.users];
+  battle.usersEffects = [...battle.usersEffects, ...next.effects];
+  battle.usersState = [...battle.usersState, ...next.users];
   state.pendingWaves.shift();
   state.wave += 1;
   state.waveStartedRound = battle.round;
