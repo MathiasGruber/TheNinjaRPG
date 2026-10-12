@@ -110,6 +110,39 @@ describe("Home scene", () => {
     expect(view.getByRole("button", { name: "Bed: Go to sleep" }).style.left).toBe(before);
   });
 
+  it.each(["Cancel", "Reload saved layout", "Reset arrangement"])(
+    "ends the captured drag when %s replaces the draft and permits a new drag",
+    (action) => {
+      const view = render(<HomeScene {...props} canDecorate />);
+      fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      const bed = view.getByRole("button", { name: "Move Bed" });
+      bed.setPointerCapture = vi.fn();
+      view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+        new DOMRect(0, 0, 1000, 1000);
+      const saved = furniturePosition(bed);
+      fireEvent.keyDown(bed, { key: "ArrowRight" });
+      const dragOrigin = furniturePosition(bed);
+      expect(dragOrigin).not.toEqual(saved);
+      firePointerEvent(bed, "pointerdown", 1);
+      firePointerEvent(bed, "pointermove", 1, 120, 120);
+      expect(furniturePosition(bed)).not.toEqual(dragOrigin);
+
+      fireEvent.click(view.getByRole("button", { name: action }));
+      if (action === "Cancel") {
+        fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      }
+      const replacement = view.getByRole("button", { name: "Move Bed" });
+      expect(furniturePosition(replacement)).toEqual(saved);
+      for (const type of ["pointermove", "pointercancel", "lostpointercapture"]) {
+        firePointerEvent(replacement, type, 1, 140, 140);
+        expect(furniturePosition(replacement)).toEqual(saved);
+      }
+      firePointerEvent(replacement, "pointerdown", 2);
+      firePointerEvent(replacement, "pointermove", 2, 160, 160);
+      expect(furniturePosition(replacement)).not.toEqual(saved);
+    },
+  );
+
   it.each(["pointerup", "pointercancel", "lostpointercapture"])(
     "ignores %s from another pointer or furniture while dragging",
     (type) => {

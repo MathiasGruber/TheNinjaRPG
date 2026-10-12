@@ -78,6 +78,16 @@ export const HomeScene = ({
       : "Go to sleep";
   const isTierChanged = draft !== null && draft.homeType !== homeType;
 
+  /** End the current drag before loading the saved layout's home tier and revision. */
+  const loadSavedLayout = () => {
+    dragRef.current = null;
+    setDraft({
+      homeType,
+      revision,
+      placements: layout.map((placement) => ({ ...placement })),
+    });
+  };
+
   /** Change the active draft's placements while preserving its home tier and revision. */
   const updatePlacements = (
     transform: (placements: HomePlacement[]) => HomePlacement[],
@@ -152,11 +162,7 @@ export const HomeScene = ({
               variant="outline"
               disabled={isBuying}
               onClick={() => {
-                setDraft({
-                  homeType,
-                  revision,
-                  placements: layout.map((placement) => ({ ...placement })),
-                });
+                loadSavedLayout();
                 setSelectedId("bed");
               }}
             >
@@ -464,27 +470,23 @@ export const HomeScene = ({
             <Button
               variant="outline"
               disabled={isSaving}
-              onClick={() => setDraft(null)}
+              onClick={() => {
+                dragRef.current = null;
+                setDraft(null);
+              }}
             >
               Cancel
             </Button>
-            <Button
-              variant="outline"
-              disabled={isSaving}
-              onClick={() =>
-                setDraft({
-                  homeType,
-                  revision,
-                  placements: layout.map((placement) => ({ ...placement })),
-                })
-              }
-            >
+            <Button variant="outline" disabled={isSaving} onClick={loadSavedLayout}>
               Reload saved layout
             </Button>
             <Button
               variant="ghost"
               disabled={isSaving}
-              onClick={() => updatePlacements(getDefaultHomeLayout)}
+              onClick={() => {
+                dragRef.current = null;
+                updatePlacements(getDefaultHomeLayout);
+              }}
             >
               Reset arrangement
             </Button>
