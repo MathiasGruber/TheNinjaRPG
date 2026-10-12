@@ -87,6 +87,7 @@ export default function DungeonEditor() {
       <div className="mb-4 flex flex-wrap gap-2">
         <Button
           variant="secondary"
+          disabled={save.isPending}
           onClick={() => {
             setId(undefined);
             setContent(newDungeon());
@@ -100,6 +101,7 @@ export default function DungeonEditor() {
         <select
           aria-label="Edit existing dungeon"
           className="rounded border bg-background p-2"
+          disabled={save.isPending}
           value={id ?? ""}
           onChange={(e) => {
             const row = definitions.data?.find((d) => d.id === e.target.value);

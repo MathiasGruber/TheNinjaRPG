@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { eq } from "drizzle-orm";
 import {
   aiProfile,
   battle,
   dungeon,
+  dungeonMember,
   dungeonRun,
   item,
   jutsu,
@@ -15,12 +17,13 @@ import { calcActiveUser } from "@/libs/combat/actions";
 import { getBattleGrid, maskBattle } from "@/libs/combat/util";
 import { advanceDungeonWave } from "@/libs/dungeon";
 import { Pusher } from "@/libs/pusher";
-import { initiateBattle } from "@/server/api/routers/combat";
+import { combatRouter, initiateBattle } from "@/server/api/routers/combat";
 import { ActionUseSpecificJutsu } from "@/validators/ai";
 import { makeTag } from "../../libs/combat/helpers/battleScenario";
 import { dungeonBattleState, dungeonContent } from "../../setup/dungeon";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import {
+  callerFor,
   describeWithDatabase,
   getTestDatabase,
   resetTables,
@@ -37,10 +40,56 @@ describeWithDatabase("dungeon wave preparation", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     await resetTables(
-      battle, aiProfile, dungeon, dungeonRun, userData, item, userItem, jutsu, userJutsu,
+      battle, aiProfile, dungeon, dungeonRun, dungeonMember, userData, item, userItem, jutsu, userJutsu,
     );
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("ends an initiated dungeon only after three completed missed rounds", async () => {
+    const client = await getTestDatabase();
+    const meta = dungeonBattleState({
+      runState: { ...dungeonBattleState().runState, memberIds: MEMBERS },
+    });
+    const content = dungeonContent();
+    const waves = [{ aiIds: [OPENER], delayRounds: 0 }];
+    content.tiers[0]![0]!.waves = waves;
+    await insertUsers([
+      ...MEMBERS.map((userId) => ({ userId, username: userId, status: "AWAKE" as const, level: 50, rank: "JONIN" as const })),
+      { userId: OPENER, username: "Enemy", isAi: true, level: 50, rank: "JONIN" as const },
+    ]);
+    await client.insert(aiProfile).values({ id: "Default", userId: OPENER, rules: [] });
+    await client.insert(dungeon).values({ id: "wave-definition", content, updatedAt: new Date() });
+    await client.insert(dungeonRun).values({
+      id: meta.runId, dungeonId: "wave-definition", leaderId: MEMBERS[0]!, content,
+      state: meta.runState, status: "FIGHTING", version: meta.runVersion,
+      battleId: "wave-fight", expiresAt: new Date(meta.expiresAt), createdAt: new Date(),
+    });
+    await client.insert(dungeonMember).values(MEMBERS.map((userId) => ({ runId: meta.runId, userId, activeUserId: userId })));
+    expect((await initiateBattle({
+      client, userIds: MEMBERS, targetIds: [OPENER],
+      dungeon: { ...meta, battleId: "wave-fight", waves },
+    }, "QUEST")).success).toBe(true);
+    const initial = (await client.query.battle.findFirst())!;
+    expect(initial.round).toBe(1);
+    expect(initial.extraState.dungeon?.lastActionRound).toEqual(Object.fromEntries(MEMBERS.map((id) => [id, 0])));
+    const caller = await callerFor(combatRouter, MEMBERS[0]!);
+    const missed: Record<string, number> = Object.fromEntries(MEMBERS.map((id) => [id, 0]));
+    let outcome: Awaited<ReturnType<typeof caller.getBattle>> | undefined;
+    for (let turn = 0; turn < 16; turn++) {
+      const saved = await client.query.battle.findFirst();
+      if (!saved) break;
+      if (saved.activeUserId && MEMBERS.includes(saved.activeUserId))
+        missed[saved.activeUserId] = (missed[saved.activeUserId] ?? 0) + 1;
+      await client.update(battle).set({ roundStartAt: new Date(Date.now() - 60000) }).where(eq(battle.id, saved.id));
+      outcome = await caller.getBattle({ battleId: saved.id });
+      if (outcome.result) break;
+    }
+    expect(outcome?.result?.outcome).toBe("Lost");
+    expect(outcome?.battle?.round).toBe(4);
+    expect(Object.values(missed)).toEqual([3, 3, 3]);
+    expect(outcome?.result?.notifications).toEqual([expect.stringContaining("took no actions for 3 rounds")]);
+    expect((await client.query.dungeonRun.findFirst())?.status).toBe("ENDED");
+  });
 
   it.each(["distinct", "equal"] as const)(
     "schedules incoming enemies by %s initiative without interrupting the active turn",

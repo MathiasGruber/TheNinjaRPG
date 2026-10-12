@@ -94,12 +94,34 @@ describe("dungeon combat rules", () => {
     const masked=maskBattle(battle,"a");expect(masked.extraState.dungeon).not.toHaveProperty("pendingWaves");
     expect(JSON.stringify(masked)).not.toContain("secret-enemy");expect(availableUserActions(masked,"a").some((a)=>a.id==="flee")).toBe(false);
   });
-  it("ends at the exact deadline and after three inactive rounds", () => {
+  it("ends at the exact deadline", () => {
     const battle = floorBattle();
     expect(dungeonBattleOutcome(battle, battle.extraState.dungeon!.expiresAt)).toBe("ended");
-    const idle = floorBattle(); idle.round = 2;
-    expect(dungeonBattleOutcome(idle)).toBeNull(); idle.round = 3;
-    expect(dungeonBattleOutcome(idle)).toBe("ended");
+  });
+  it.each([0, 5])("waits for three completed missed rounds after action round %s", (lastActionRound) => {
+    const battle = floorBattle();
+    battle.round = lastActionRound + 1;
+    battle.activeUserId = "a";
+    battle.usersState.forEach((user) => { user.round = lastActionRound; });
+    battle.extraState.dungeon!.lastActionRound = {a: lastActionRound, b: lastActionRound, c: lastActionRound};
+
+    for (let turn = 0; turn < battle.usersState.length * 3; turn++) {
+      expect(dungeonBattleOutcome(battle)).toBeNull();
+      battle.roundStartAt = new Date(Date.now() - 60000);
+      alignBattle(battle, [], "a");
+    }
+
+    expect(battle.round).toBe(lastActionRound + 4);
+    expect(dungeonBattleOutcome(battle)).toBe("ended");
+    expect(battle.extraState.dungeon!.failedReason).toContain("took no actions for 3 rounds");
+  });
+  it("excludes defeated members and summons from inactivity checks", () => {
+    const battle = floorBattle();
+    battle.round = 8;
+    battle.usersState[0]!.curHealth = 0;
+    battle.extraState.dungeon!.lastActionRound = {a: 0, b: 5, c: 5};
+    battle.usersState.push(makeUser({userId: "summon", controllerId: "b", isSummon: true, direction: "left"}));
+    expect(dungeonBattleOutcome(battle)).toBeNull();
   });
   it("retries the current tier on ordinary wipes and the same room on mini-boss wipes", () => {
     const state = {...dungeonBattleState().runState, floor: 7};

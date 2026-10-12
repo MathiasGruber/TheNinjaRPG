@@ -41,7 +41,7 @@ export const dungeonBattleOutcome = (battle: CompleteBattle, now = Date.now()) =
   const alive = humans.filter((u) => stillInBattle(u, battle.usersEffects));
   const inactive = alive.find(
     (u) =>
-      battle.round - (state.lastActionRound[u.userId] ?? 0) >= DUNGEON_INACTIVE_ROUNDS,
+      battle.round - (state.lastActionRound[u.userId] ?? 0) > DUNGEON_INACTIVE_ROUNDS,
   );
   if (inactive)
     state.failedReason = `${inactive.username} took no actions for ${DUNGEON_INACTIVE_ROUNDS} rounds. The dungeon ended.`;
