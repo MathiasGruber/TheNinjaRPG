@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { aiProfile, battle, battleHistory, quest, questHistory, questParty, overworldAiPlacement, item, userItem, userData, village, villageStructure } from "@/drizzle/schema";
+import { aiProfile, battle, battleHistory, quest, questHistory, questParty, overworldAiPlacement, item, userItem, userData, user2conversation, village, villageStructure } from "@/drizzle/schema";
 import * as Sentry from "@sentry/nextjs";
 import { getNewTrackers, getReward } from "@/libs/quest";
 import { projectPartyTracker } from "@/libs/questParty";
@@ -8,16 +8,17 @@ import { Pusher } from "@/libs/pusher";
 import { fetchUpdatedUser, profileRouter } from "@/routers/profile";
 import { questPartyRouter } from "@/routers/questParty";
 import { overworldAiRouter } from "@/routers/overworldAi";
-import { commitQuestObjectiveRewards, questsRouter } from "@/routers/quests";
+import { commitQuestObjectiveRewards, handleQuestConsequences, questsRouter } from "@/routers/quests";
 import type { DrizzleClient } from "@/server/db";
-import { AllObjectives } from "@/validators/objectives";
+import { type LoadedQuestParty, questPartyRelations, synchronizeQuestParty } from "@/server/utils/questParty";
+import { AllObjectives, QuestTracker } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertItems, insertQuestHistory, insertQuests, insertUsers, insertUserItems } from "../../setup/factories";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("quest team eligibility and terminal failure", () => {
   beforeEach(async () => {
-    await resetTables(questParty, quest, questHistory, userData, village, villageStructure, aiProfile, battle, battleHistory, overworldAiPlacement, item, userItem);
+    await resetTables(questParty, quest, questHistory, userData, user2conversation, village, villageStructure, aiProfile, battle, battleHistory, overworldAiPlacement, item, userItem);
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     const realFetch = globalThis.fetch;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -32,6 +33,148 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     await insertUsers(["leader", "helper"].map((userId) => ({ userId, username: userId, status: "AWAKE", rank: "JONIN", level: 50, experience: 20_000_000, villageId: "home", sector: 50, longitude: 10, latitude: 10, money: 100, regenAt: new Date(), updatedAt: new Date() })));
   });
   afterEach(() => vi.restoreAllMocks());
+
+  for (const failure of ["personal save", "personal contention", "chat removal", "party deletion"] as const) {
+    it(`retains the last member's shared progress through ${failure} failure and retry`, async () => {
+      const client = await getTestDatabase();
+      const { leader, party } = await lastMemberFixture();
+      const receipt = await client.query.questHistory.findFirst({ where: eq(questHistory.userId, "leader") });
+      let failedWrites = 0;
+      const failing = new Proxy(client, {
+        get(target, key, receiver) {
+          if (key === "update") return (table: unknown) => table === userData && failure.startsWith("personal") ? {
+            set: () => ({ where: async () => {
+              failedWrites++;
+              if (failure === "personal contention") return { rowsAffected: 0 };
+              throw new Error("Injected departure failure");
+            } }),
+          } : target.update(table as typeof questParty);
+          if (key === "delete") return (table: unknown) =>
+            (table === user2conversation && failure === "chat removal") || (table === questParty && failure === "party deletion")
+              ? { where: async () => { throw new Error("Injected departure failure"); } }
+              : target.delete(table as typeof questParty);
+          return Reflect.get(target, key, receiver);
+        },
+      }) as DrizzleClient;
+      await expect(callerForDatabase(questPartyRouter, "leader", failing).leave({ partyId: party.id })).rejects.toThrow(
+        failure === "personal contention" ? "Character changed repeatedly" : "Injected departure failure",
+      );
+      if (failure.startsWith("personal")) expect(failedWrites).toBe(failure === "personal contention" ? 5 : 1);
+      const retained = await client.query.questParty.findFirst();
+      expect(retained?.tracker.goals[0]?.value).toBe(40);
+      expect(retained?.battleId).toBeNull();
+      // A profile read may reconcile the now-detached roster before cleanup retries.
+      await fetchUpdatedUser({ client, userId: "leader" });
+      expect((await leader.leave({ partyId: party.id })).success).toBe(true);
+      const detached = await client.query.userData.findFirst({ where: eq(userData.userId, "leader") });
+      expect(detached?.questPartyId).toBeNull();
+      expect(detached?.money).toBe(100);
+      expect(detached?.questData?.find((entry) => entry.id === "team-quest")?.goals[0]?.value).toBe(40);
+      expect(detached?.questData?.find((entry) => entry.id === "team-quest")?.party).toBeUndefined();
+      expect(detached?.questData?.find((entry) => entry.id === "unrelated")?.goals[0]?.collected).toBe(true);
+      expect(await client.query.questHistory.findFirst({ where: eq(questHistory.userId, "leader") })).toEqual(receipt);
+      expect(await client.query.questParty.findFirst()).toBeUndefined();
+      expect(await client.query.user2conversation.findFirst({ where: eq(user2conversation.userId, "leader") })).toBeUndefined();
+    });
+  }
+
+  it("guards the last departure against joins and encounters until its personal save commits", async () => {
+    const client = await getTestDatabase();
+    const { leader, helper, party } = await lastMemberFixture();
+    let checked = false;
+    const paused = new Proxy(client, {
+      get(target, key, receiver) {
+        if (key === "update") return (table: unknown) => {
+          if (table !== userData) return target.update(table as typeof questParty);
+          const write = target.update(userData);
+          return { set: (...values: Parameters<typeof write.set>) => {
+            const pending = write.set(...values);
+            return { where: async (...conditions: Parameters<typeof pending.where>) => {
+              if (!checked) {
+                checked = true;
+                expect((await client.query.questParty.findFirst())?.battleId).toMatch(/^claiming:/);
+                expect((await helper.join({ partyId: party.id })).success).toBe(false);
+                expect((await leader.startEncounter({ partyId: party.id })).success).toBe(false);
+                expect((await leader.disband({ partyId: party.id })).success).toBe(false);
+              }
+              return pending.where(...conditions);
+            } };
+          } };
+        };
+        return Reflect.get(target, key, receiver);
+      },
+    }) as DrizzleClient;
+    expect((await callerForDatabase(questPartyRouter, "leader", paused).leave({ partyId: party.id })).success).toBe(true);
+    expect(checked).toBe(true);
+    expect(await client.query.questParty.findFirst()).toBeUndefined();
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.questData?.find((entry) => entry.id === "team-quest")?.goals[0]?.value).toBe(40);
+  });
+
+  it("keeps a concurrent progress sync from restoring a released departure claim", async () => {
+    const client = await getTestDatabase();
+    const { leader, party } = await lastMemberFixture();
+    const member = (await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))!;
+    const trackers = structuredClone(member.questData!);
+    const tracker = trackers.find((entry) => entry.id === "team-quest")!;
+    tracker.goals[0]!.value += 10;
+    tracker.party!.contributions = [{ ...tracker.goals[0]!, value: 10 }];
+    let concurrentSnapshot: LoadedQuestParty | undefined;
+    const failing = new Proxy(client, {
+      get(target, key, receiver) {
+        if (key === "update") return (table: unknown) => table === userData ? {
+          set: () => ({ where: async () => {
+            await client.update(userData).set({ questData: trackers, updatedAt: new Date() }).where(eq(userData.userId, "leader"));
+            concurrentSnapshot = await client.query.questParty.findFirst({ where: eq(questParty.id, party.id), with: questPartyRelations });
+            throw new Error("Injected departure failure");
+          } }),
+        } : target.update(table as typeof questParty);
+        return Reflect.get(target, key, receiver);
+      },
+    }) as DrizzleClient;
+    await expect(callerForDatabase(questPartyRouter, "leader", failing).leave({ partyId: party.id })).rejects.toThrow("Injected departure failure");
+    expect(concurrentSnapshot?.battleId).toMatch(/^claiming:/);
+    expect((await client.query.questParty.findFirst())?.battleId).toBeNull();
+    if (!concurrentSnapshot) throw new Error("Missing concurrent party snapshot");
+    const synchronized = await synchronizeQuestParty(client, concurrentSnapshot);
+    expect(synchronized.battleId).toBeNull();
+    expect(synchronized.tracker.goals[0]?.value).toBe(50);
+    expect((await leader.leave({ partyId: party.id })).success).toBe(true);
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.questData?.find((entry) => entry.id === "team-quest")?.goals[0]?.value).toBe(50);
+  });
+
+  it("recovers an abandoned departure claim after the personal save and roster reconciliation", async () => {
+    const client = await getTestDatabase();
+    const { leader, party } = await lastMemberFixture();
+    const interrupted = new Proxy(client, {
+      get(target, key, receiver) {
+        if (key === "update") return (table: unknown) => {
+          if (table !== questParty) return target.update(table as typeof userData);
+          const write = target.update(questParty);
+          return { set: (...values: Parameters<typeof write.set>) => values[0].battleId === null
+            ? { where: async () => { throw new Error("Injected claim recovery failure"); } }
+            : write.set(...values) };
+        };
+        if (key === "delete") return (table: unknown) => table === questParty
+          ? { where: async () => { throw new Error("Injected party deletion failure"); } }
+          : target.delete(table as typeof user2conversation);
+        return Reflect.get(target, key, receiver);
+      },
+    }) as DrizzleClient;
+    await expect(callerForDatabase(questPartyRouter, "leader", interrupted).leave({ partyId: party.id })).rejects.toThrow("Injected claim recovery failure");
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.questPartyId).toBeNull();
+    // A retry during the claim grace reconciles the detached roster but keeps its live lock.
+    expect((await leader.leave({ partyId: party.id })).success).toBe(false);
+    const reserved = (await client.query.questParty.findFirst())!;
+    expect(reserved.memberIds).toEqual([]);
+    expect(reserved.battleId).toMatch(/^claiming:/);
+    await client.update(questParty).set({
+      battleId: `claiming:${Date.now() - 120_000}:${reserved.battleId!.split(":")[2]}`,
+      version: reserved.version + 1,
+    }).where(eq(questParty.id, party.id));
+    expect((await leader.leave({ partyId: party.id })).success).toBe(true);
+    expect(await client.query.questParty.findFirst()).toBeUndefined();
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.questData?.find((entry) => entry.id === "team-quest")?.goals[0]?.value).toBe(40);
+  });
 
   it.each([false, true])("retries personal detachment after roster removal fails to save the member (completed helper=%p)", async (completed) => {
     const client = await getTestDatabase();
@@ -372,3 +515,30 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     });
   }
 });
+
+/** Leave the leader's durable snapshot behind progress actually contributed by a departed helper. */
+const lastMemberFixture = async () => {
+  const client = await getTestDatabase();
+  await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
+    AllObjectives.parse({ id: "goal", task: "stats_trained", value: 100 }),
+  ], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+  const leader = await callerFor(questPartyRouter, "leader");
+  const helper = await callerFor(questPartyRouter, "helper");
+  expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+  const party = (await client.query.questParty.findFirst())!;
+  expect((await helper.join({ partyId: party.id })).success).toBe(true);
+  const { user } = await fetchUpdatedUser({ client, userId: "helper" });
+  if (!user) throw new Error("Missing helper fixture");
+  const updated = getNewTrackers(user, [{ task: "stats_trained", increment: 40 }]);
+  user.questData = updated.trackers;
+  expect((await handleQuestConsequences(client, user, updated.consequences, updated.notifications, {
+    alwaysClaimUserState: true, partyTrackers: updated.trackers,
+  })).claimed).toBe(true);
+  expect((await client.query.questParty.findFirst())?.tracker.goals[0]?.value).toBe(40);
+  const personal = (await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))!;
+  expect(personal.questData?.[0]?.goals[0]?.value).toBe(0);
+  await client.update(userData).set({ questData: [...(personal.questData ?? []), QuestTracker.parse({ id: "unrelated", goals: [{ id: "paid", done: true, collected: true }] })] }).where(eq(userData.userId, "leader"));
+  expect((await helper.leave({ partyId: party.id })).success).toBe(true);
+  expect((await client.query.questParty.findFirst())?.memberIds).toEqual(["leader"]);
+  return { leader, helper, party };
+};

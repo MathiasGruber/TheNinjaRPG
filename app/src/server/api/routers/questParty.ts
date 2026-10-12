@@ -426,14 +426,19 @@ export const questPartyRouter = createTRPCRouter({
       if (!loaded) return errorResponse("You are not in this team");
       if (!loaded.memberIds.includes(ctx.userId)) {
         const member = loaded.members.find((entry) => entry.userId === ctx.userId);
-        // A saved tracker proves prior membership; otherwise allow the join reservation
-        // its existing grace period before treating the missing roster entry as abandoned.
+        const isEmptyLeader =
+          !loaded.memberIds.length && loaded.leaderId === ctx.userId;
+        // The last leader can finish empty-team cleanup after personal detachment.
+        // Otherwise a saved tracker proves membership; an unsaved join keeps its grace period.
         if (
-          !member ||
-          (!member.questData?.some((entry) => entry.party?.id === loaded.id) &&
-            secondsPassed(member.updatedAt) <= 60)
+          !isEmptyLeader &&
+          (!member ||
+            (!member.questData?.some((entry) => entry.party?.id === loaded.id) &&
+              secondsPassed(member.updatedAt) <= 60))
         )
           return errorResponse("You are not in this team");
+        if (isEmptyLeader && loaded.quest)
+          await synchronizeQuestParty(ctx.drizzle, loaded);
         return removeMember(ctx.drizzle, input.partyId, ctx.userId);
       }
       const party = loaded.quest
@@ -548,6 +553,18 @@ const removeMember = async (
       // The roster CAS may have committed before the personal save failed.
       await saveQuestPartyMember(client, party, userId, true);
       await leaveCoopChat(client, partyId, userId);
+      if (!party.memberIds.length) {
+        const deleted = await client
+          .delete(questParty)
+          .where(
+            and(
+              eq(questParty.id, partyId),
+              eq(questParty.version, party.version),
+              isNull(questParty.battleId),
+            ),
+          );
+        if (deleted.rowsAffected !== 1) continue;
+      }
       return { success: true, message: "Already left quest team" };
     }
     if (party.battleId && party.battleId !== joinClaimId)
@@ -563,37 +580,46 @@ const removeMember = async (
     );
     if (!transition.success) return errorResponse(transition.message);
     const members = transition.party.memberIds;
-
-    const saved =
-      members.length > 0
-        ? await client
-            .update(questParty)
-            .set({
-              memberIds: members,
-              battleId: null,
-              leaderId: transition.party.leaderId,
-              invitedUserIds: transition.party.invitedIds,
-              version: party.version + 1,
-            })
-            .where(
-              and(
-                eq(questParty.id, partyId),
-                eq(questParty.version, party.version),
-                battleGuard,
-              ),
-            )
-        : await client
-            .delete(questParty)
-            .where(
-              and(
-                eq(questParty.id, partyId),
-                eq(questParty.version, party.version),
-                battleGuard,
-              ),
-            );
+    const departureClaimId = members.length
+      ? null
+      : `claiming:${Date.now()}:${nanoid()}`;
+    // Retain the last roster and canonical progress while its personal save commits.
+    const saved = await client
+      .update(questParty)
+      .set({
+        memberIds: members.length ? members : party.memberIds,
+        battleId: departureClaimId,
+        leaderId: transition.party.leaderId,
+        invitedUserIds: transition.party.invitedIds,
+        version: party.version + 1,
+      })
+      .where(
+        and(
+          eq(questParty.id, partyId),
+          eq(questParty.version, party.version),
+          battleGuard,
+        ),
+      );
     if (saved.rowsAffected !== 1) continue;
-    await saveQuestPartyMember(client, party, userId, true);
-    await leaveCoopChat(client, partyId, userId);
+    try {
+      await saveQuestPartyMember(client, party, userId, true);
+      await leaveCoopChat(client, partyId, userId);
+      if (departureClaimId)
+        await client
+          .delete(questParty)
+          .where(
+            and(eq(questParty.id, partyId), eq(questParty.battleId, departureClaimId)),
+          );
+    } catch (error) {
+      if (departureClaimId)
+        await client
+          .update(questParty)
+          .set({ battleId: null, version: sql`${questParty.version} + 1` })
+          .where(
+            and(eq(questParty.id, partyId), eq(questParty.battleId, departureClaimId)),
+          );
+      throw error;
+    }
     return {
       success: true,
       message: "Left quest team. Remaining members keep the shared progress",

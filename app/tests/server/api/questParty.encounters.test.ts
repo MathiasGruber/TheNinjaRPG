@@ -51,6 +51,13 @@ describeWithDatabase("quest team encounter location claims", () => {
     );
     invalidatePublishedMapCache();
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    const realFetch = globalThis.fetch;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) return realFetch(input, init);
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({ result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1 });
+      return Response.json(Array.isArray(commands[0]) ? commands.map((command) => resultFor(command as unknown[])) : resultFor(commands));
+    });
     const client = await getTestDatabase();
     await client
       .insert(village)
