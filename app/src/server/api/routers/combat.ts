@@ -2635,28 +2635,7 @@ export const initiateBattle = async (
     });
 
   if (info.dungeon) {
-    // Keep pristine clone sources for enemies reused by summon jutsus, items or skills.
-    const sources = usersState.filter((u) => u.isAi && !u.isSummon);
-    for (const source of sources) {
-      const template = {
-        ...structuredClone(source),
-        userId: nanoid(),
-        isSummon: true,
-        isSummonTemplate: true,
-        curHealth: 0,
-      };
-      usersState.push(template);
-      userEffects.push(
-        ...userEffects
-          .filter((e) => e.targetId === source.userId)
-          .map((e) => ({
-            ...structuredClone(e),
-            id: nanoid(),
-            targetId: template.userId,
-            creatorId: e.creatorId === source.userId ? template.userId : e.creatorId,
-          })),
-      );
-    }
+    captureDungeonSummonTemplates(usersState, userEffects);
     let offset = userIds.length + (info.dungeon.waves[0]?.aiIds.length ?? 0);
     const pendingWaves: DungeonBattleState["pendingWaves"] = [];
     for (const wave of info.dungeon.waves.slice(1)) {
@@ -2675,6 +2654,7 @@ export const initiateBattle = async (
         isSummon: false,
       });
       offset += wave.aiIds.length;
+      captureDungeonSummonTemplates(prepared.usersState, prepared.userEffects);
       for (const key of [
         "jutsus",
         "jutsuReskins",
@@ -3328,6 +3308,34 @@ export const initiateBattle = async (
 
   // Return the battle
   return { success: true, message: "You have attacked", battleId };
+};
+
+/** Keep pristine summon sources from every wave, before their pool adjustments. */
+const captureDungeonSummonTemplates = (
+  usersState: BattleUserState[],
+  userEffects: UserEffect[],
+) => {
+  const sources = usersState.filter((u) => u.isAi && !u.isSummon);
+  for (const source of sources) {
+    const template = {
+      ...structuredClone(source),
+      userId: nanoid(),
+      isSummon: true,
+      isSummonTemplate: true,
+      curHealth: 0,
+    };
+    usersState.push(template);
+    userEffects.push(
+      ...userEffects
+        .filter((e) => e.targetId === source.userId)
+        .map((e) => ({
+          ...structuredClone(e),
+          id: nanoid(),
+          targetId: template.userId,
+          creatorId: e.creatorId === source.userId ? template.userId : e.creatorId,
+        })),
+    );
+  }
 };
 
 /**
