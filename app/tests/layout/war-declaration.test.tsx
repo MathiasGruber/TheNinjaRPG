@@ -9,11 +9,13 @@ import {
 } from "react";
 import * as client from "@/app/_trpc/client";
 import * as select from "@/components/ui/select";
+import { WAR_PURCHASE_SHRINE_TOKEN_COST } from "@/drizzle/constants";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import * as map from "@/hooks/map";
 import * as Image from "@/layout/Image";
 import * as toast from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
+import type { FetchActiveWarsReturnType } from "@/routers/war";
 import * as UserContext from "@/utils/UserContext";
 import { ensureDom } from "../setup-dom.mjs";
 
@@ -28,10 +30,13 @@ vi.spyOn(dynamic, "default").mockImplementation(
         <button type="button" onClick={() => props.onTileClick(103)}>
           Alliance tile
         </button>
+        <button type="button" onClick={() => props.onTileClick(105)}>
+          Sector tile
+        </button>
       </>
     )) as never,
 );
-const { WarMap } = await import("@/layout/WarSystem");
+const { WarMap, SectorWar } = await import("@/layout/WarSystem");
 
 type MutationResult = { success: boolean; message: string };
 type MutationCallbacks = {
@@ -74,6 +79,8 @@ const releaseSector = mutation();
 const leaveAlliance = mutation();
 const declareEnemy = mutation();
 const sectorWar = mutation();
+const buildShrine = mutation();
+const adminEndWar = mutation();
 const own = {
   id: "own",
   name: "Own",
@@ -137,6 +144,8 @@ beforeEach(() => {
       },
       declareSectorWar: sectorWar,
       declareVillageWarOrRaid: declarations,
+      buildShrine,
+      adminEndWar,
     },
   });
   vi.spyOn(map, "useMap").mockReturnValue({ globe: {} as never, mapError: false });
@@ -208,6 +217,36 @@ const mount = () =>
   );
 
 describe("war declaration targets", () => {
+  it.each(["HIDEOUT", "STRONGHOLD"] as const)(
+    "explains why %s cannot acquire another sector while retaining owned-sector release",
+    (type) => {
+      user = { ...user, isOutlaw: true, village: { ...own, type } };
+      const view = mount();
+      fireEvent.click(view.getByRole("button", { name: "Sector tile" }));
+      expect(view.getByText("Factions cannot purchase sectors.")).toBeDefined();
+      expect(view.queryByRole("button", { name: "Declare War" })).toBeNull();
+      expect(sectorWar.mutate).not.toHaveBeenCalled();
+      fireEvent.click(view.getAllByRole("button", { name: /^Close$/ })[0]!);
+      ownsSector = true;
+      view.rerender(
+        <WarMap user={user} isKage villages={[user.village!]} relationships={[]} />,
+      );
+      fireEvent.click(view.getByRole("button", { name: "Target tile" }));
+      fireEvent.click(view.getByRole("button", { name: "Release Sector" }));
+      expect(releaseSector.mutate).toHaveBeenCalledWith({ sector: 102 });
+    },
+  );
+
+  it("continues offering sector declarations to ordinary villages", () => {
+    const view = mount();
+    fireEvent.click(view.getByRole("button", { name: "Sector tile" }));
+    fireEvent.click(view.getByRole("button", { name: "Declare War" }));
+    expect(sectorWar.mutate).toHaveBeenCalledWith({
+      sectorId: 105,
+      userVillageId: own.id,
+    });
+  });
+
   it("declares ordinary village wars against the Town Hall", () => {
     const view = mount();
     fireEvent.click(view.getByRole("button", { name: "Target tile" }));
@@ -235,6 +274,72 @@ describe("war declaration targets", () => {
       targetVillageId: target.id,
       targetStructureRoute: "/traininggrounds",
     });
+  });
+});
+
+describe("paid sector shrine claims", () => {
+  const mountShrine = () =>
+    render(
+      <SectorWar
+        user={user}
+        isKage
+        war={
+          {
+            id: "claim-sector",
+            attackerVillageId: own.id,
+            defenderVillageId: target.id,
+            attackerVillage: { ...own, structures: [] },
+            defenderVillage: { ...target, structures: [] },
+            type: "SECTOR_WAR",
+            status: "ACTIVE",
+            sector: 105,
+            defenderShrineHp: 0,
+            startedAt: new Date(),
+            endedAt: null,
+            lastTokenReductionAt: new Date(),
+            warAllies: [],
+            attackerShrineHp: 0,
+            attackerShrineMaxHp: 0,
+            attackerShrineStatus: "CAPTURED",
+            defenderShrineMaxHp: 500,
+            defenderShrineStatus: "CAPTURED",
+            attackerWarHealth: 10000,
+            attackerWarHealthMax: 10000,
+            defenderWarHealth: 10000,
+            defenderWarHealthMax: 10000,
+            targetStructureRoute: "/townhall",
+            settlement: null,
+            settlementPending: false,
+          } satisfies FetchActiveWarsReturnType
+        }
+      />,
+    );
+
+  it.each(["HIDEOUT", "STRONGHOLD"] as const)(
+    "does not offer %s a paid shrine claim from an existing war",
+    (type) => {
+      user = {
+        ...user,
+        isOutlaw: true,
+        village: { ...own, type, tokens: WAR_PURCHASE_SHRINE_TOKEN_COST },
+      };
+      const view = mountShrine();
+      expect(
+        view.getByText(
+          "This shrine has been destroyed. Factions cannot purchase sectors.",
+        ),
+      ).toBeDefined();
+      expect(view.queryByRole("button", { name: /Build Shrine/ })).toBeNull();
+      expect(buildShrine.mutate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("continues offering ordinary villages a paid shrine claim", () => {
+    user = { ...user, village: { ...own, tokens: WAR_PURCHASE_SHRINE_TOKEN_COST } };
+    const view = mountShrine();
+    fireEvent.click(view.getAllByRole("button", { name: /Build Shrine/ })[0]!);
+    fireEvent.click(view.getByRole("button", { name: "Proceed" }));
+    expect(buildShrine.mutate).toHaveBeenCalledWith({ warId: "claim-sector" });
   });
 });
 

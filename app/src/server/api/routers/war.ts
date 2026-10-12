@@ -189,6 +189,9 @@ export const warRouter = createTRPCRouter({
       if (!user?.village) {
         return errorResponse("You must be in a village to build a shrine");
       }
+      if (isFactionVillage(user.village)) {
+        return errorResponse("Factions cannot purchase sectors");
+      }
       if (!user?.villageId) {
         return errorResponse("You must be in a village to build a shrine");
       }
@@ -291,6 +294,9 @@ export const warRouter = createTRPCRouter({
       // Guard
       if (!user?.village) {
         return errorResponse("You must be in a village to declare war");
+      }
+      if (isFactionVillage(user.village)) {
+        return errorResponse("Factions cannot purchase sectors");
       }
       if (sectorVillage) {
         return errorResponse("This sector is already occupied");

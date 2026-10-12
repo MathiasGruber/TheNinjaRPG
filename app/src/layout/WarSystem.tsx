@@ -76,7 +76,7 @@ import type { ColumnDefinitionType } from "@/layout/Table";
 import Table from "@/layout/Table";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import { showMutationToast } from "@/libs/toast";
-import { canJoinWar } from "@/libs/war";
+import { canJoinWar, isFactionVillage } from "@/libs/war";
 import type { UserWithRelations } from "@/routers/profile";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { calculateEnemyConsequences, findRelationship } from "@/utils/alliance";
@@ -541,6 +541,10 @@ export const WarMap: React.FC<{
       proceedLabel = undefined;
       modalTitle = "Sector Reserved";
       modalContent = <div>This sector is reserved and cannot be claimed.</div>;
+    } else if (user.village && isFactionVillage(user.village)) {
+      proceedLabel = undefined;
+      modalTitle = "Sector Ownership";
+      modalContent = <p>Factions cannot purchase sectors.</p>;
     } else {
       modalContent = <DeclareSectorWarDialogContent {...dialogContentProps} />;
       onAccept = () => {
@@ -869,8 +873,10 @@ export const SectorWar: React.FC<{
   if (war.status !== "ACTIVE") return null;
 
   // Derived
+  const isFaction = !!user.village && isFactionVillage(user.village);
   const canBuildShrine =
     isKage &&
+    !isFaction &&
     user.village?.tokens &&
     war.attackerVillageId === user.villageId &&
     war.defenderShrineHp <= 0 &&
@@ -934,6 +940,8 @@ export const SectorWar: React.FC<{
                     HP.
                   </p>
                 )
+              ) : isFaction ? (
+                <p>This shrine has been destroyed. Factions cannot purchase sectors.</p>
               ) : (
                 <p>
                   <strong>Note:</strong> This shrine has been destroyed, and your
