@@ -2067,13 +2067,13 @@ const RerollElement: React.FC = () => {
         <ElementRerollButton
           elementType="primary"
           canAfford={canAfford ?? false}
-          canChange={canChangeFirst ?? false}
+          canChange={canChangeFirst}
           onReroll={(elementType) => roll({ elementType })}
         />
         <ElementRerollButton
           elementType="secondary"
           canAfford={canAfford ?? false}
-          canChange={canChangeSecond ?? false}
+          canChange={canChangeSecond}
           onReroll={(elementType) => roll({ elementType })}
         />
       </div>
