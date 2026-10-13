@@ -67,12 +67,16 @@ describe("reading preferences", () => {
   });
 
   it("synchronizes mounted settings and persists a reset", () => {
-    const first = renderPreferences();
-    const second = renderPreferences();
+    let second!: ReturnType<typeof useReadingPreferences>;
+    const Second = () => {
+      second = useReadingPreferences();
+      return null;
+    };
+    const first = renderHook(() => useReadingPreferences(), { wrapper: ({ children }) => <ReadingPreferencesProvider>{children}<Second /></ReadingPreferencesProvider> });
     act(() => first.result.current.updatePreferences(saved));
-    expect(second.result.current.preferences).toEqual(saved);
+    expect(second.preferences).toEqual(saved);
     expect(parseReadingPreferences(window.localStorage.getItem(READING_PREFERENCES_STORAGE_KEY))).toEqual(saved);
-    act(() => second.result.current.updatePreferences(DEFAULT_READING_PREFERENCES));
+    act(() => second.updatePreferences(DEFAULT_READING_PREFERENCES));
     expect(first.result.current.preferences).toEqual(DEFAULT_READING_PREFERENCES);
   });
 
@@ -87,8 +91,12 @@ describe("reading preferences", () => {
   });
 
   it("keeps inaccessible-storage changes temporary and synchronizes a successful retry", () => {
-    const first = renderPreferences();
-    const second = renderPreferences();
+    let second!: ReturnType<typeof useReadingPreferences>;
+    const Second = () => {
+      second = useReadingPreferences();
+      return null;
+    };
+    const first = renderHook(() => useReadingPreferences(), { wrapper: ({ children }) => <ReadingPreferencesProvider>{children}<Second /></ReadingPreferencesProvider> });
     const write = spyOn(Object.getPrototypeOf(window.localStorage), "setItem").mockImplementation(() => {
       throw new Error("Storage is full");
     });
@@ -96,16 +104,16 @@ describe("reading preferences", () => {
     try {
       act(() => first.result.current.updatePreferences(saved));
       expect(first.result.current.isPersisted).toBe(false);
-      expect(second.result.current.isPersisted).toBe(false);
-      expect(second.result.current.preferences).toEqual(saved);
+      expect(second.isPersisted).toBe(false);
+      expect(second.preferences).toEqual(saved);
       expect(window.localStorage.getItem(READING_PREFERENCES_STORAGE_KEY)).toBeNull();
     } finally {
       write.mockRestore();
       warn.mockRestore();
     }
-    act(() => second.result.current.updatePreferences(saved));
+    act(() => second.updatePreferences(saved));
     expect(first.result.current.isPersisted).toBe(true);
-    expect(second.result.current.isPersisted).toBe(true);
+    expect(second.isPersisted).toBe(true);
     expect(parseReadingPreferences(window.localStorage.getItem(READING_PREFERENCES_STORAGE_KEY))).toEqual(saved);
   });
 
@@ -139,10 +147,10 @@ describe("reading preferences", () => {
     window.localStorage.setItem(READING_PREFERENCES_STORAGE_KEY, JSON.stringify(saved));
     // Run the literal head script against the DOM, independent of the client helper.
     runHeadScript();
-    const before = document.documentElement.outerHTML;
-    applyReadingPreferences(saved);
-    expect(document.documentElement.outerHTML).toBe(before);
-    applyReadingPreferences(DEFAULT_READING_PREFERENCES);
+    const before = { ...document.documentElement.dataset };
+    const hook = renderPreferences();
+    expect({ ...document.documentElement.dataset }).toEqual(before);
+    act(() => hook.result.current.updatePreferences(DEFAULT_READING_PREFERENCES));
     for (const attribute of Object.values(READING_ATTRIBUTES)) {
       expect(document.documentElement.hasAttribute(attribute)).toBe(false);
     }

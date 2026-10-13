@@ -10,6 +10,7 @@ import {
 } from "react";
 import { safeLocalStorageGetItem, safeLocalStorageSetItem } from "@/hooks/localstorage";
 import {
+  applyReadingPreferences,
   DEFAULT_READING_PREFERENCES,
   parseReadingPreferences,
   READING_PREFERENCES_STORAGE_KEY,
@@ -58,25 +59,15 @@ const useStoredReadingPreferences = () => {
         setIsPersisted(true);
       }
     };
-    const onSync = (event: Event) => {
-      const {
-        key,
-        value,
-        isPersisted: saved,
-      } = (event as CustomEvent<{ key: string; value: string; isPersisted?: boolean }>)
-        .detail;
-      if (key === READING_PREFERENCES_STORAGE_KEY) {
-        setPreferences(parseReadingPreferences(value));
-        setIsPersisted(saved !== false);
-      }
-    };
     window.addEventListener("storage", onStorage);
-    window.addEventListener("localStorageSync", onSync);
     return () => {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener("localStorageSync", onSync);
     };
   }, []);
+
+  useEffect(() => {
+    if (isLoaded) applyReadingPreferences(preferences);
+  }, [preferences, isLoaded]);
 
   const updatePreferences = useCallback((next: ReadingPreferences) => {
     const serialized = JSON.stringify(next);
@@ -84,16 +75,7 @@ const useStoredReadingPreferences = () => {
     const saved = safeLocalStorageSetItem(READING_PREFERENCES_STORAGE_KEY, serialized);
     setPreferences(validated);
     setIsPersisted(saved);
-    window.dispatchEvent(
-      new window.CustomEvent("localStorageSync", {
-        detail: {
-          key: READING_PREFERENCES_STORAGE_KEY,
-          value: serialized,
-          isPersisted: saved,
-        },
-      }),
-    );
   }, []);
 
-  return { preferences, updatePreferences, isLoaded, isPersisted };
+  return { preferences, updatePreferences, isPersisted };
 };
