@@ -12,6 +12,7 @@ export const homePlacementSchema = z.strictObject({
   id: z.string().min(1).max(191),
   x: z.number().min(HOME_FURNITURE_POSITION_MIN).max(HOME_FURNITURE_POSITION_MAX),
   y: z.number().min(HOME_FURNITURE_POSITION_MIN).max(HOME_FURNITURE_POSITION_MAX),
+  /** The painted view is either unchanged (0) or flipped horizontally (1). */
   rotation: z.union([z.literal(0), z.literal(1)]),
 });
 export type HomePlacement = z.infer<typeof homePlacementSchema>;

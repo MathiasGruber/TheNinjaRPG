@@ -79,10 +79,12 @@ describe("Home scene", () => {
     const scene = within(view.getByRole("group", { name: "Home scene" }));
     fireEvent.click(scene.getByRole("button", { name: "Bed: Go to sleep" }));
     fireEvent.click(scene.getByRole("button", { name: "Armory: Open home storage" }));
-    fireEvent.click(view.getByRole("button", { name: "Manage home" }));
+    const manage = view.getByRole("button", { name: "Manage home" });
+    fireEvent.click(manage);
     expect(props.onSleep).toHaveBeenCalledTimes(1);
     expect(props.onStorage).toHaveBeenCalledTimes(1);
     expect(props.onManage).toHaveBeenCalledTimes(1);
+    expect(props.onManage).toHaveBeenCalledWith(manage);
     expect(scene.getByRole("link", { name: "Kitchen: Visit ramen shop" }).getAttribute("href")).toBe("/ramenshop");
     expect(scene.getByRole("button", { name: "Garden: Open farm" })).toBeTruthy();
   });
@@ -154,6 +156,42 @@ describe("Home scene", () => {
     expect(props.onSleep).not.toHaveBeenCalled();
     fireEvent.click(view.getByRole("button", { name: "Cancel" }));
     expect(view.getByRole("button", { name: "Bed: Go to sleep" }).style.left).toBe(before);
+  });
+
+  it("keeps icon controls named and blocks decoration until inventory refresh finishes", () => {
+    const view = render(<HomeScene {...props} canDecorate isRefreshingFurniture />);
+    for (const name of ["Decorate", "House shop", "Manage home"]) {
+      const button = view.getByRole("button", { name }) as HTMLButtonElement;
+      expect(button.textContent).toBe("");
+      expect(button.getAttribute("aria-label")).toBe(name);
+    }
+    const decorate = view.getByRole("button", { name: "Decorate" }) as HTMLButtonElement;
+    expect(decorate.disabled).toBe(true);
+    fireEvent.click(decorate);
+    expect(view.queryByRole("button", { name: "Save layout" })).toBeNull();
+    view.rerender(<HomeScene {...props} canDecorate />);
+    fireEvent.click(decorate);
+    expect((view.getByRole("button", { name: "Manage home" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(view.queryByRole("button", { name: "House shop" })).toBeNull();
+  });
+
+  it("flips a furniture sprite horizontally without rotating or moving its floor anchor", () => {
+    const view = render(<HomeScene {...props} canDecorate />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    const image = bed.querySelector("img")!;
+    const position = furniturePosition(bed);
+    const original = image.style.transform;
+    const controls = within(view.getByRole("group", { name: "Furniture controls" }));
+    const flip = controls.getByRole("button", { name: "Flip horizontally" });
+    expect(view.queryByRole("button", { name: "Rotate" })).toBeNull();
+    expect(view.getByText(/Flip mirrors it horizontally/)).toBeTruthy();
+    fireEvent.click(flip);
+    expect(image.style.transform).toBe(original.replace("scaleX(1)", "scaleX(-1)"));
+    expect(furniturePosition(bed)).toEqual(position);
+    fireEvent.click(flip);
+    expect(image.style.transform).toBe(original);
+    expect(furniturePosition(bed)).toEqual(position);
   });
 
   it.each([
@@ -344,7 +382,7 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     expect(onSave).toHaveBeenCalledTimes(1);
     expect((bed as HTMLButtonElement).disabled).toBe(true);
-    for (const name of ["Move Bed right", "Rotate", "Store", "Reset arrangement", "Reload saved layout", "Cancel"]) {
+    for (const name of ["Move Bed right", "Flip horizontally", "Store", "Reset arrangement", "Reload saved layout", "Cancel"]) {
       const control = view.getByRole("button", { name }) as HTMLButtonElement;
       expect(control.disabled).toBe(true);
       fireEvent.click(control);
@@ -422,11 +460,12 @@ describe("Home scene", () => {
     const view = render(<HomeScene {...props} furniture={copies} layout={[]} canDecorate onSave={onSave} />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     const tray = within(view.getByRole("group", { name: "Owned furniture" }));
-    const cards = tray.getAllByRole("button", { name: /Woven Rug.*Quantity: 1.*In inventory/ });
+    const cards = tray.getAllByRole("button", { name: /Woven Rug.*Copy.*In inventory/ });
+    expect(tray.queryByText("Quantity: 1")).toBeNull();
     fireEvent.click(cards[0]!);
     fireEvent.keyDown(view.getByRole("button", { name: "Move Woven Rug" }), { key: "ArrowRight" });
     fireEvent.click(cards[1]!);
-    fireEvent.click(view.getByRole("button", { name: "Rotate" }));
+    fireEvent.click(view.getByRole("button", { name: "Flip horizontally" }));
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0]![0].placements).toEqual([

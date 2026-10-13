@@ -7,9 +7,11 @@ import {
   ArrowUp,
   BedDouble,
   ChefHat,
+  FlipHorizontal,
   House,
   Package,
   Pencil,
+  RefreshCw,
   RotateCcw,
   Save,
   ShoppingBag,
@@ -153,32 +155,53 @@ export const HomeScene = ({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-muted-foreground text-xs">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 flex-1 text-muted-foreground text-xs">
           {isEditing
             ? "Arrange your furniture, then save your layout."
             : "Select an object to use your home."}
         </p>
-        {canDecorate && !isEditing && (
-          <div className="flex gap-2">
+        <div className="flex shrink-0 gap-1">
+          {canDecorate && !isEditing && (
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11"
+                aria-label="Decorate"
+                hoverText="Decorate"
+                disabled={isRefreshingFurniture}
+                onClick={loadSavedLayout}
+              >
+                <Pencil className="h-4 w-4" aria-hidden />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11"
+                aria-label="House shop"
+                hoverText="House shop"
+                ref={shopTriggerRef}
+                onClick={() => setIsShopOpen(true)}
+              >
+                <ShoppingBag className="h-4 w-4" aria-hidden />
+              </Button>
+            </>
+          )}
+          {!isGuest && (
             <Button
               variant="outline"
-              className="min-h-11"
-              disabled={isRefreshingFurniture}
-              onClick={loadSavedLayout}
+              size="icon"
+              className="h-11 w-11"
+              aria-label="Manage home"
+              hoverText="Manage home"
+              disabled={isEditing}
+              onClick={(event) => onManage(event.currentTarget)}
             >
-              <Pencil className="mr-2 h-4 w-4" aria-hidden /> Decorate
+              <House className="h-4 w-4" aria-hidden />
             </Button>
-            <Button
-              variant="outline"
-              className="min-h-11"
-              ref={shopTriggerRef}
-              onClick={() => setIsShopOpen(true)}
-            >
-              <ShoppingBag className="mr-2 h-4 w-4" aria-hidden /> House shop
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <fieldset
         ref={sceneRef}
@@ -186,7 +209,7 @@ export const HomeScene = ({
         className="relative mx-auto aspect-[4/3] w-full max-w-3xl overflow-hidden rounded-lg border border-stone-700/40 bg-[#24211c] shadow-md"
       >
         {!hasImageError && (
-          <picture>
+          <picture className="pointer-events-none absolute inset-0">
             {/* Next images are unoptimized; the browser selects a Bunny rendition for its viewport and pixel density. */}
             <source
               srcSet={[480, 768, 1024, 1448]
@@ -388,7 +411,7 @@ export const HomeScene = ({
         )}
       {isEditing && (
         <div className="space-y-3 rounded-xl border bg-muted/40 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="space-y-2">
             <div>
               <p className="font-semibold">
                 {selectedFurniture?.name ?? "Choose furniture"}
@@ -399,19 +422,23 @@ export const HomeScene = ({
                 </p>
               )}
               <p className="text-muted-foreground text-xs">
-                Drag an object or use the arrows. Rotate changes its facing.
+                Drag an object or use the arrows. Flip mirrors it horizontally.
               </p>
             </div>
             {selected && selectedFurniture && (
-              <div className="flex flex-wrap gap-1">
+              <fieldset
+                aria-label="Furniture controls"
+                className="grid w-full min-w-0 max-w-xs grid-cols-6 gap-1"
+              >
                 {FURNITURE_DIRECTIONS.map(({ icon: Icon, label, dx, dy }) => (
                   <Button
                     key={label}
                     variant="outline"
                     size="icon"
-                    className="h-11 w-11"
+                    className="h-11 w-full min-w-0"
                     disabled={isMovementDisabled}
                     aria-label={`Move ${selectedFurniture.name} ${label}`}
+                    hoverText={`Move ${label}`}
                     onClick={() =>
                       moveFurniture(selected.id, selected.x + dx, selected.y + dy)
                     }
@@ -421,6 +448,10 @@ export const HomeScene = ({
                 ))}
                 <Button
                   variant="outline"
+                  size="icon"
+                  className="h-11 w-full min-w-0"
+                  aria-label="Flip horizontally"
+                  hoverText="Flip horizontally"
                   disabled={isMovementDisabled}
                   onClick={() =>
                     updatePlacements((placements) =>
@@ -435,10 +466,14 @@ export const HomeScene = ({
                     )
                   }
                 >
-                  <RotateCcw className="mr-2 h-4 w-4" aria-hidden /> Rotate
+                  <FlipHorizontal className="h-4 w-4" aria-hidden />
                 </Button>
                 <Button
                   variant="outline"
+                  size="icon"
+                  className="h-11 w-full min-w-0"
+                  aria-label="Store"
+                  hoverText="Store in inventory"
                   disabled={isMovementDisabled}
                   onClick={() => {
                     dragRef.current = null;
@@ -447,9 +482,9 @@ export const HomeScene = ({
                     );
                   }}
                 >
-                  <Package className="mr-2 h-4 w-4" aria-hidden /> Store
+                  <Package className="h-4 w-4" aria-hidden />
                 </Button>
-              </div>
+              </fieldset>
             )}
           </div>
           <fieldset
@@ -468,27 +503,27 @@ export const HomeScene = ({
                   aria-pressed={selectedId === piece.id}
                   disabled={isMovementDisabled || (hasPlacementLimit && !isPlaced)}
                   className={cn(
-                    "w-24 shrink-0 rounded-lg border bg-background p-2 text-xs focus-visible:outline-2 focus-visible:outline-primary",
+                    "flex w-24 shrink-0 flex-col rounded-lg border bg-background p-2 text-xs focus-visible:outline-2 focus-visible:outline-primary",
                     selectedId === piece.id && "border-primary ring-1 ring-primary",
                   )}
                   onClick={() => selectFurniture(piece.id)}
                 >
-                  <div className="aspect-[4/3]">
+                  <div className="aspect-[4/3] w-full">
                     <FurnitureImage furniture={piece} rotation={0} />
                   </div>
-                  <span>{piece.name}</span>
+                  <span className="line-clamp-2 min-h-8">{piece.name}</span>
                   {copies.length > 1 && (
                     <span className="block text-muted-foreground">
                       Copy {copies.findIndex((other) => other.id === piece.id) + 1} of{" "}
                       {copies.length}
                     </span>
                   )}
-                  {(piece.quantity > 1 || copies.length > 1) && (
+                  {piece.quantity > 1 && (
                     <span className="block text-muted-foreground">
                       Quantity: {piece.quantity}
                     </span>
                   )}
-                  <span className="block text-muted-foreground">
+                  <span className="mt-auto block pt-1 text-muted-foreground">
                     {isPlaced ? "Placed" : "In inventory · Place"}
                   </span>
                 </button>
@@ -522,16 +557,19 @@ export const HomeScene = ({
               {furnitureError}
             </p>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-[1fr_auto_2.75rem_2.75rem] gap-1 sm:gap-2">
             <Button
+              className="h-11 min-w-0 px-3"
+              aria-label={isSaving ? "Saving layout" : "Save layout"}
               onClick={() => void saveLayout()}
               disabled={isMovementDisabled || hasMissingFurniture}
             >
               <Save className="mr-2 h-4 w-4" aria-hidden />
-              {isSaving ? "Saving…" : "Save layout"}
+              {isSaving ? "Saving…" : "Save"}
             </Button>
             <Button
               variant="outline"
+              className="h-11 px-3"
               disabled={isSaving}
               onClick={() => {
                 dragRef.current = null;
@@ -540,18 +578,30 @@ export const HomeScene = ({
             >
               Cancel
             </Button>
-            <Button variant="outline" disabled={isSaving} onClick={loadSavedLayout}>
-              Reload saved layout
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-11 w-11"
+              aria-label="Reload saved layout"
+              hoverText="Reload saved layout"
+              disabled={isSaving}
+              onClick={loadSavedLayout}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden />
             </Button>
             <Button
               variant="ghost"
+              size="icon"
+              className="h-11 w-11"
+              aria-label="Reset arrangement"
+              hoverText="Reset arrangement"
               disabled={isSaving}
               onClick={() => {
                 dragRef.current = null;
                 updatePlacements(() => getDefaultHomeLayout(furniture));
               }}
             >
-              Reset arrangement
+              <RotateCcw className="h-4 w-4" aria-hidden />
             </Button>
           </div>
           <p className="text-muted-foreground text-xs">
@@ -573,53 +623,42 @@ export const HomeScene = ({
           className="grid grid-cols-2 gap-2 sm:grid-cols-4"
         >
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={onSleep}
             disabled={isTogglingSleep}
-            className="min-h-11"
+            className="h-11 px-2"
           >
             <BedDouble className="mr-2 h-4 w-4" aria-hidden />
             {sleepLabel}
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={(event) => onStorage(event.currentTarget)}
             disabled={isGuest}
-            className="min-h-11"
+            className="h-11 px-2"
           >
             <Package className="mr-2 h-4 w-4" aria-hidden />
             Home storage
           </Button>
-          <Button variant="outline" asChild className="min-h-11">
+          <Button variant="ghost" asChild className="h-11 px-2">
             <Link href="/ramenshop">
               <ChefHat className="mr-2 h-4 w-4" aria-hidden />
               Kitchen
             </Link>
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={(event) => onFarm(event.currentTarget)}
-            className="min-h-11"
+            className="h-11 px-2"
           >
             <Sprout className="mr-2 h-4 w-4" aria-hidden />
             Farm
           </Button>
         </fieldset>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-sm">
-        <span>Kitchen serves ramen while cooking is being prepared.</span>
-        {!isGuest && (
-          <Button
-            variant="outline"
-            disabled={isEditing}
-            onClick={(event) => onManage(event.currentTarget)}
-            className="min-h-11"
-          >
-            <House className="mr-2 h-4 w-4" aria-hidden />
-            Manage home
-          </Button>
-        )}
-      </div>
+      <p className="text-muted-foreground text-xs">
+        Kitchen serves ramen while cooking is being prepared.
+      </p>
       <Modal
         title="House Shop"
         isOpen={isShopOpen}
