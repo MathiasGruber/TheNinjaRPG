@@ -167,6 +167,7 @@ import { HealTag, ItemValidator, NonCombatGainSkill } from "@/validators/combat"
 import type { ItemFilteringSchema } from "@/validators/item";
 import {
   adjustUserItemSchema,
+  DEFAULT_FURNITURE_DATA,
   evolveItemSchema,
   FURNITURE_ITEM_DEFAULTS,
   getItemEvolutionsSchema,
@@ -312,6 +313,7 @@ export const itemRouter = createTRPCRouter({
           ...(input.type === "FURNITURE"
             ? {
                 ...FURNITURE_ITEM_DEFAULTS,
+                furnitureData: { ...DEFAULT_FURNITURE_DATA },
                 effects: [],
                 inShop: false,
                 cost: 0,

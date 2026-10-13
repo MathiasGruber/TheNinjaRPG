@@ -77,7 +77,7 @@ describe("staff item economy editor", () => {
       canBeImbued: true,
       effects: [{ type: "damage", description: "Attack", power: 1 }],
     } as unknown as typeof data, async () => undefined));
-    expect(result.current.formData.some((field) => field.id === "furnitureAction")).toBe(false);
+    expect(result.current.formData.some((field) => field.id === "furnitureData.action")).toBe(false);
     await act(async () => {
       result.current.form.setValue("itemType", "FURNITURE");
     });
@@ -85,17 +85,36 @@ describe("staff item economy editor", () => {
       effects: [], slot: "NONE", target: "SELF", maxEquips: 0,
       preventBattleUsage: true, maxImbueNumber: 0, maxDurability: 0,
       canBeImbued: false,
+      furnitureData: { action: null, width: 24, groundAnchor: 100, isFloor: false },
     });
     const ids = result.current.formData.map((field) => field.id);
-    expect(ids).toContain("furnitureAction");
-    expect(ids).toContain("furnitureWidth");
-    expect(ids).toContain("furnitureGroundAnchor");
-    expect(ids).toContain("furnitureIsFloor");
+    expect(ids).toContain("furnitureData.action");
+    expect(ids).toContain("furnitureData.width");
+    expect(ids).toContain("furnitureData.groundAnchor");
+    expect(ids).toContain("furnitureData.isFloor");
     expect(ids).not.toContain("battleDescription");
     expect(ids).not.toContain("slot");
     expect(result.current.formData.find((field) => field.id === "image")).toMatchObject({
       size: "landscape", maxDim: 768, preprompt: FURNITURE_IMAGE_PROMPT,
     });
+    expect(await result.current.form.trigger()).toBe(true);
+  });
+  it("saves nested furniture settings and clears them when changing to another item type", async () => {
+    const { result } = renderHook(() => useItemEditForm(data, async () => undefined));
+    await act(async () => {
+      result.current.form.setValue("itemType", "FURNITURE");
+    });
+    await act(async () => {
+      result.current.form.setValue("furnitureData.width", 32);
+      result.current.form.setValue("furnitureData.action", "storage");
+    });
+    expect(ItemValidator.parse(result.current.form.getValues()).furnitureData).toMatchObject({
+      width: 32, action: "storage",
+    });
+    await act(async () => {
+      result.current.form.setValue("itemType", "MATERIAL");
+    });
+    expect(result.current.form.getValues("furnitureData")).toBeNull();
     expect(await result.current.form.trigger()).toBe(true);
   });
   it("clears seed extraction when an extractable crop becomes furniture", async () => {

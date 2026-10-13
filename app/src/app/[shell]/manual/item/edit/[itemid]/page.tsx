@@ -95,10 +95,13 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
   const itemType = useWatch({ control: form.control, name: "itemType" });
   const isFurniture = itemType === "FURNITURE";
   const furnitureImage = useWatch({ control: form.control, name: "image" });
-  const furnitureWidth = useWatch({ control: form.control, name: "furnitureWidth" });
+  const furnitureWidth = useWatch({
+    control: form.control,
+    name: "furnitureData.width",
+  });
   const furnitureGroundAnchor = useWatch({
     control: form.control,
-    name: "furnitureGroundAnchor",
+    name: "furnitureData.groundAnchor",
   });
 
   // Filter out any undefined effects from useWatch

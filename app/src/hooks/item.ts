@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { type Path, useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import {
   AttackMethods,
@@ -23,7 +23,7 @@ import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags, ZodItemInput, ZodItemType } from "@/validators/combat";
 import { ItemValidator } from "@/validators/combat";
-import { FURNITURE_ITEM_DEFAULTS } from "@/validators/item";
+import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS } from "@/validators/item";
 
 /**
  * Hook used when creating frontend forms for editing items
@@ -143,9 +143,15 @@ export const useItemEditForm = (
           shouldDirty: true,
         });
       }
+      form.setValue(
+        "furnitureData",
+        { ...DEFAULT_FURNITURE_DATA },
+        { shouldDirty: true },
+      );
       form.clearErrors();
       void form.trigger();
     } else if (previousItemType.current === "FURNITURE" && !isFurniture) {
+      form.setValue("furnitureData", null, { shouldDirty: true });
       form.setValue("maxImbueNumber", 1, { shouldDirty: true });
       form.setValue("maxDurability", 100, { shouldDirty: true });
     }
@@ -176,7 +182,7 @@ export const useItemEditForm = (
     previousTargetingMethod.current = targetingMethod;
   }, [targetingMethod, form]);
 
-  const formData: FormEntry<keyof ZodItemType>[] = [
+  const formData: FormEntry<Path<ZodItemType>>[] = [
     { id: "name", label: "Item Name", type: "text" },
     {
       id: "image",
@@ -249,7 +255,7 @@ export const useItemEditForm = (
           id: field.id,
           label: field.label,
           type: "number",
-        }) as FormEntry<keyof ZodItemType>,
+        }) as FormEntry<Path<ZodItemType>>,
     ),
     { id: "destroyOnUse", type: "boolean" },
     { id: "canStack", type: "boolean" },
@@ -358,28 +364,28 @@ export const useItemEditForm = (
       3,
       0,
       {
-        id: "furnitureWidth",
+        id: "furnitureData.width",
         label: `Scene width (%) · ${HOME_FURNITURE_MIN_WIDTH}–${HOME_FURNITURE_MAX_WIDTH}`,
         type: "number",
         min: HOME_FURNITURE_MIN_WIDTH,
         max: HOME_FURNITURE_MAX_WIDTH,
       },
       {
-        id: "furnitureGroundAnchor",
+        id: "furnitureData.groundAnchor",
         label: "Ground anchor (%) · 1–100",
         type: "number",
         min: 1,
         max: 100,
       },
       {
-        id: "furnitureAction",
+        id: "furnitureData.action",
         label: "Home action (blank for decoration)",
         type: "str_array",
         values: HomeFurnitureActions,
         resetButton: true,
       },
       {
-        id: "furnitureIsFloor",
+        id: "furnitureData.isFloor",
         label: "Floor decoration",
         type: "boolean",
       },
@@ -397,7 +403,7 @@ export const useItemEditForm = (
   };
 };
 
-const FURNITURE_FORM_FIELDS = new Set<keyof ZodItemType>([
+const FURNITURE_FORM_FIELDS = new Set<Path<ZodItemType>>([
   "name",
   "image",
   "itemType",

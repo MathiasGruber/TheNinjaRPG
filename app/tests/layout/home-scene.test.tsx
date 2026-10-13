@@ -1,11 +1,11 @@
 import { ensureDom } from "../setup-dom.mjs";
 const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { existsSync } from "node:fs";
 import { type ImgHTMLAttributes, type AnchorHTMLAttributes, type ComponentProps, useState } from "react";
 import { HOME_FURNITURE_MAX_PLACEMENTS, HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
 import { HomeScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
 import { getDefaultHomeLayout, type HomeFurniture } from "@/libs/home";
+import { bunnyImageUrl } from "@/utils/image";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
 
 // Wrapper stubs isolate the scene's routing destinations and image-failure handling.
@@ -20,10 +20,10 @@ vi.mock("@/layout/Link", () => ({
 }));
 
 const starterFurniture: HomeFurniture[] = [
-  { id: "owned-bed", itemId: "home-bed", name: "Bed", description: "Rest", image: "/images/home/furniture/bed.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1 },
-  { id: "owned-armory", itemId: "home-armory", name: "Armory", description: "Storage", image: "/images/home/furniture/armory.webp", width: 24, groundAnchor: 95.8, action: "storage", isFloor: false, quantity: 1 },
-  { id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen", description: "Ramen", image: "/images/home/furniture/kitchen.webp", width: 32, groundAnchor: 89.1, action: "kitchen", isFloor: false, quantity: 1 },
-  { id: "owned-garden", itemId: "home-garden", name: "Garden", description: "Farm", image: "/images/home/furniture/garden.webp", width: 29, groundAnchor: 88.3, action: "farm", isFloor: false, quantity: 1 },
+  { id: "owned-bed", itemId: "home-bed", name: "Bed", description: "Rest", image: "https://ui0arpl8sm.ufs.sh/f/V2umBvRsN1p0ECHU5FA5r.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1 },
+  { id: "owned-armory", itemId: "home-armory", name: "Armory", description: "Storage", image: "https://ui0arpl8sm.ufs.sh/f/EyNeihgG6GdMTMBcOC9JA.webp", width: 24, groundAnchor: 95.8, action: "storage", isFloor: false, quantity: 1 },
+  { id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen", description: "Ramen", image: "https://ui0arpl8sm.ufs.sh/f/i520XbXoRXRYIZrNImg62.webp", width: 32, groundAnchor: 89.1, action: "kitchen", isFloor: false, quantity: 1 },
+  { id: "owned-garden", itemId: "home-garden", name: "Garden", description: "Farm", image: "https://ui0arpl8sm.ufs.sh/f/cInj_p_PE20tF9FWO_frE.webp", width: 29, groundAnchor: 88.3, action: "farm", isFloor: false, quantity: 1 },
 ];
 const rugDefinition: HomeFurniture = {
   id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", description: "A floor decoration", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1,
@@ -50,11 +50,28 @@ describe("Home scene", () => {
   });
   afterEach(cleanup);
 
-  it("ships distinct artwork for every existing home tier", () => {
+  it("uses distinct uploaded artwork for every existing home tier", () => {
     expect(new Set(Object.values(HOME_SCENE_IMAGES)).size).toBe(HomeTypes.length);
     for (const tier of HomeTypes) {
-      expect(existsSync(`public${HOME_SCENE_IMAGES[tier]}`)).toBe(true);
+      const image = new URL(HOME_SCENE_IMAGES[tier]);
+      expect(image.hostname).toBe("ui0arpl8sm.ufs.sh");
+      expect(image.pathname).toMatch(/^\/f\/.+\.webp$/);
     }
+  });
+
+  it("offers CDN renditions sized for the room, furniture, and inventory previews", () => {
+    const view = render(<HomeScene {...props} canDecorate />);
+    const room = view.getByAltText(`${HomeTypeDetails.NONE.name} interior`);
+    expect(room.getAttribute("src")).toBe(bunnyImageUrl(HOME_SCENE_IMAGES.NONE, 768));
+    const roomSource = room.closest("picture")?.querySelector("source");
+    expect(roomSource?.getAttribute("srcset")).toContain(`${bunnyImageUrl(HOME_SCENE_IMAGES.NONE, 480)} 480w`);
+    expect(roomSource?.getAttribute("sizes")).toBe("(max-width: 768px) 100vw, 768px");
+    const bedSource = view.getByRole("button", { name: "Bed: Go to sleep" }).querySelector("source");
+    expect(bedSource?.getAttribute("srcset")).toContain(`${bunnyImageUrl(starterFurniture[0]!.image, 128)} 128w`);
+    expect(bedSource?.getAttribute("sizes")).toBe("(max-width: 768px) 34vw, 261px");
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const previews = view.getByRole("group", { name: "Owned furniture" });
+    expect(previews.querySelector("source")?.getAttribute("sizes")).toBe("80px");
   });
 
   it("opens home actions and links to the existing kitchen and farm destinations", () => {
@@ -121,7 +138,7 @@ describe("Home scene", () => {
     const trigger = view.getByRole("button", { name: "Manage home" });
     fireEvent.error(view.getByAltText(`${HomeTypeDetails.NONE.name} interior`));
     view.rerender(<HomeScene {...props} homeType="PALACE" />);
-    expect(view.getByAltText("Palace interior").getAttribute("src")).toBe(HOME_SCENE_IMAGES.PALACE);
+    expect(view.getByAltText("Palace interior").getAttribute("src")).toBe(bunnyImageUrl(HOME_SCENE_IMAGES.PALACE, 768));
     expect(view.queryByText(/Home artwork is unavailable/)).toBeNull();
     expect(view.getByRole("button", { name: "Manage home" })).toBe(trigger);
   });
@@ -390,8 +407,9 @@ describe("Home scene", () => {
     fireEvent.click(farmButton);
     expect(props.onFarm).toHaveBeenCalledTimes(1);
     const customImage = view.container.querySelector('img[src="/custom-rug.webp"]')!;
-    expect((customImage.parentElement as HTMLElement).style.width).toBe("17%");
-    expect((customImage.parentElement as HTMLElement).style.zIndex).toBe("1");
+    const customPlacement = customImage.closest<HTMLDivElement>("div")!;
+    expect(customPlacement.style.width).toBe("17%");
+    expect(customPlacement.style.zIndex).toBe("1");
     expect((customImage as HTMLElement).style.transform).toBe("translateY(30%) scaleX(-1)");
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     expect(view.getByRole("button", { name: "Move Cloud Mat" })).toBeTruthy();

@@ -6,18 +6,28 @@ import {
 } from "@/drizzle/constants";
 import type { Item } from "@/drizzle/schema";
 
-export const furnitureItemSchema = z.object({
-  furnitureAction: z
+/** Content-authored sprite geometry and optional home action, stored together for extension. */
+export const furnitureDataSchema = z.object({
+  action: z
     .union([z.enum(HomeFurnitureActions), z.literal("")])
     .nullish()
     .transform((value) => value || null),
-  furnitureWidth: z.coerce
+  width: z.coerce
     .number()
     .min(HOME_FURNITURE_MIN_WIDTH)
     .max(HOME_FURNITURE_MAX_WIDTH)
     .prefault(24),
-  furnitureGroundAnchor: z.coerce.number().min(1).max(100).prefault(100),
-  furnitureIsFloor: z.coerce.boolean().prefault(false),
+  groundAnchor: z.coerce.number().min(1).max(100).prefault(100),
+  isFloor: z.coerce.boolean().prefault(false),
+});
+
+export type FurnitureData = z.output<typeof furnitureDataSchema>;
+
+/** New furniture starts as a decoration with its image anchored to the floor. */
+export const DEFAULT_FURNITURE_DATA = furnitureDataSchema.parse({});
+
+export const furnitureItemSchema = z.object({
+  furnitureData: furnitureDataSchema.nullable().prefault(null),
 });
 
 /** Furniture is scene content; these defaults also normalize item-type changes in the editor. */

@@ -39,6 +39,7 @@ import {
   homeStorageInputSchema,
   homeUpgradeInputSchema,
 } from "@/validators/home";
+import { DEFAULT_FURNITURE_DATA } from "@/validators/itemFurniture";
 
 export const homeRouter = createTRPCRouter({
   toggleSleep: protectedProcedure
@@ -146,16 +147,17 @@ export const homeRouter = createTRPCRouter({
         storage: HomeTypeDetails[user.homeType].storage,
         furniture: furnitureItems.map((owned): HomeFurniture => {
           const content = applyActiveVariant(owned);
+          const furnitureData = content.furnitureData ?? DEFAULT_FURNITURE_DATA;
           return {
             id: owned.id,
             itemId: owned.itemId,
             name: content.name,
             description: content.description,
             image: content.image,
-            width: content.furnitureWidth,
-            groundAnchor: content.furnitureGroundAnchor,
-            action: content.furnitureAction,
-            isFloor: content.furnitureIsFloor,
+            width: furnitureData.width,
+            groundAnchor: furnitureData.groundAnchor,
+            action: furnitureData.action,
+            isFloor: furnitureData.isFloor,
             quantity: owned.quantity,
           };
         }),

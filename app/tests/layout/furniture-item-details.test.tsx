@@ -16,7 +16,7 @@ const ItemWithEffects = actualItemWithEffects;
 const furniture = {
   id: "custom-rug", name: "Painted Rug", description: "A warm woven decoration.",
   image: "/custom-rug.webp", createdAt: new Date(), updatedAt: new Date(),
-  itemType: "FURNITURE", rarity: "COMMON", furnitureAction: null, furnitureIsFloor: true,
+  itemType: "FURNITURE", rarity: "COMMON", furnitureData: { action: null, width: 24, groundAnchor: 100, isFloor: true },
   requiredLevel: 1, canBeCrafted: true, canBeTraded: true, hidden: false,
   cost: 500, repsCost: 0, seichiSilverCost: 0, purchaseLimitPeriod: "NONE",
   // Display stays cosmetic even if a stale catalog row still carries gameplay fields.

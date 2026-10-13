@@ -1620,12 +1620,12 @@ const FurnitureDetails = ({ item }: { item: Item }) => (
     </p>
     <p>
       <b>Home action</b>:{" "}
-      {item.furnitureAction
-        ? capitalizeFirstLetter(item.furnitureAction)
+      {item.furnitureData?.action
+        ? capitalizeFirstLetter(item.furnitureData?.action)
         : "Decoration"}
     </p>
     <p>
-      <b>Floor decoration</b>: {item.furnitureIsFloor ? "yes" : "no"}
+      <b>Floor decoration</b>: {item.furnitureData?.isFloor ? "yes" : "no"}
     </p>
     <p>
       <b>Required Level</b>: {item.requiredLevel}

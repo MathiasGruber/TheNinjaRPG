@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { HomeTypeDetails } from "@/drizzle/constants";
 import { item, itemVariant, userData, userItem, userItemVariant, village } from "@/drizzle/schema";
 import { homeRouter } from "@/server/api/routers/home";
-import { FURNITURE_ITEM_DEFAULTS } from "@/validators/itemFurniture";
+import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS } from "@/validators/itemFurniture";
 import type { HomePlacement } from "@/validators/home";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
@@ -28,9 +28,9 @@ describeWithDatabase("owned furniture persistence", () => {
       { userId: "other-owner", username: "other-owner", villageId: homeVillage, sector: 30, status: "AWAKE" },
     ]);
     await insertItems([
-      { ...FURNITURE_ITEM_DEFAULTS, id: "cabinet", name: "Painted Cabinet", description: "Timber cabinet", image: "/cabinet.webp", itemType: "FURNITURE", furnitureWidth: 28, furnitureGroundAnchor: 92, furnitureIsFloor: false },
-      { ...FURNITURE_ITEM_DEFAULTS, id: "rug", name: "Woven Rug", itemType: "FURNITURE", furnitureIsFloor: true },
-      { ...FURNITURE_ITEM_DEFAULTS, id: "home-bed", name: "Bed", itemType: "FURNITURE", furnitureAction: "sleep", inShop: false, cost: 0 },
+      { ...FURNITURE_ITEM_DEFAULTS, id: "cabinet", name: "Painted Cabinet", description: "Timber cabinet", image: "/cabinet.webp", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, width: 28, groundAnchor: 92 } },
+      { ...FURNITURE_ITEM_DEFAULTS, id: "rug", name: "Woven Rug", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, isFloor: true } },
+      { ...FURNITURE_ITEM_DEFAULTS, id: "home-bed", name: "Bed", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, action: "sleep" }, inShop: false, cost: 0 },
       { id: "material", name: "Material", itemType: "MATERIAL" },
     ]);
     await insertUserItems([

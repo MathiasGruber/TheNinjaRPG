@@ -53,6 +53,7 @@ import type {
 } from "@/validators/towerDefense";
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
+import type { FurnitureData } from "@/validators/itemFurniture";
 import type { WarSettlement } from "@/validators/war";
 
 export const vector = customType<{
@@ -1407,11 +1408,7 @@ export const item = mysqlTable(
     expireFromStoreAt: date("expireFromStoreAt", { mode: "string" }),
     effects: json("effects").$type<ZodAllTags[]>().notNull(),
     itemType: mysqlEnum("itemType", consts.ItemTypes).notNull(),
-    // Content-authored sprite geometry and optional home action; furniture has no combat effects.
-    furnitureAction: mysqlEnum("furnitureAction", consts.HomeFurnitureActions),
-    furnitureWidth: double("furnitureWidth").default(24).notNull(),
-    furnitureGroundAnchor: double("furnitureGroundAnchor").default(100).notNull(),
-    furnitureIsFloor: boolean("furnitureIsFloor").default(false).notNull(),
+    furnitureData: json("furnitureData").$type<FurnitureData>(),
     rarity: mysqlEnum("rarity", consts.ItemRarities).notNull(),
     slot: mysqlEnum("slot", consts.ItemSlotTypes).notNull(),
     cooldown: int("cooldown").default(0).notNull(),

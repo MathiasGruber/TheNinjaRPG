@@ -1365,6 +1365,13 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
  */
 const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
   if (data.itemType === "FURNITURE") {
+    if (!data.furnitureData) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["furnitureData"],
+        message: "Furniture requires scene configuration",
+      });
+    }
     for (const [field, expected] of Object.entries(FURNITURE_ITEM_DEFAULTS)) {
       const actual = data[field as keyof ItemValidatorType];
       if (
@@ -1382,6 +1389,13 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
       }
     }
   } else {
+    if (data.furnitureData) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["furnitureData"],
+        message: "Scene configuration is only available for furniture",
+      });
+    }
     for (const field of ["maxImbueNumber", "maxDurability"] as const) {
       if (data[field] < 1) {
         ctx.addIssue({

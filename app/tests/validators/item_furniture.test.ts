@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { ItemValidator } from "@/validators/combat";
-import { FURNITURE_ITEM_DEFAULTS, furnitureItemSchema, itemCreateSchema } from "@/validators/item";
+import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS, furnitureDataSchema, furnitureItemSchema, itemCreateSchema } from "@/validators/item";
 
 const furniture = {
   ...FURNITURE_ITEM_DEFAULTS,
   itemType: "FURNITURE",
+  furnitureData: DEFAULT_FURNITURE_DATA,
   name: "Painted tea cabinet",
   image: "/images/home/furniture/table.webp",
   description: "A cabinet for the residence.",
@@ -72,16 +73,27 @@ describe("furniture item content", () => {
   });
 
   it("validates scene bounds and optional supported home actions", () => {
-    expect(furnitureItemSchema.parse({ furnitureAction: "" })).toEqual({
-      furnitureAction: null, furnitureWidth: 24, furnitureGroundAnchor: 100, furnitureIsFloor: false,
-    });
-    expect(furnitureItemSchema.safeParse({ furnitureAction: "storage", furnitureWidth: 6, furnitureGroundAnchor: 1 }).success).toBe(true);
-    expect(furnitureItemSchema.safeParse({ furnitureWidth: 40, furnitureGroundAnchor: 100 }).success).toBe(true);
-    expect(furnitureItemSchema.parse({ furnitureIsFloor: true }).furnitureIsFloor).toBe(true);
+    expect(furnitureDataSchema.parse({ action: "" })).toEqual(DEFAULT_FURNITURE_DATA);
+    expect(furnitureDataSchema.safeParse({ action: "storage", width: 6, groundAnchor: 1 }).success).toBe(true);
+    expect(furnitureDataSchema.safeParse({ width: 40, groundAnchor: 100 }).success).toBe(true);
+    expect(furnitureDataSchema.parse({ isFloor: true }).isFloor).toBe(true);
     for (const patch of [
-      { furnitureWidth: 5 }, { furnitureWidth: 41 },
-      { furnitureGroundAnchor: 0 }, { furnitureGroundAnchor: 101 },
-      { furnitureAction: "awardRyo" },
-    ]) expect(furnitureItemSchema.safeParse(patch).success).toBe(false);
+      { width: 5 }, { width: 41 },
+      { groundAnchor: 0 }, { groundAnchor: 101 },
+      { action: "awardRyo" },
+    ]) expect(ItemValidator.safeParse({ ...furniture, furnitureData: patch }).success).toBe(false);
+  });
+
+  it("keeps typed scene configuration on furniture and null on other item types", () => {
+    expect(furnitureItemSchema.parse({})).toEqual({ furnitureData: null });
+    expect(ItemValidator.safeParse({ ...furniture, furnitureData: null }).success).toBe(false);
+    expect(ItemValidator.safeParse({ ...furniture, furnitureData: "not-an-object" }).success).toBe(false);
+    expect(ItemValidator.parse({ ...furniture, furnitureData: {} }).furnitureData).toEqual(DEFAULT_FURNITURE_DATA);
+    expect(ItemValidator.safeParse({
+      ...furniture, itemType: "MATERIAL", cost: 1, maxDurability: 100, maxImbueNumber: 1,
+    }).success).toBe(false);
+    expect(ItemValidator.parse({
+      ...furniture, itemType: "MATERIAL", cost: 1, maxDurability: 100, maxImbueNumber: 1, furnitureData: null,
+    }).furnitureData).toBeNull();
   });
 });

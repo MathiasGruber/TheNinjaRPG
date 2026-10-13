@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, it } from "bun:test";
 import mysql from "mysql2/promise";
@@ -9,33 +10,51 @@ describeWithDatabase("home furniture inventory migration", () => {
       uri: process.env.TEST_MYSQL_URL,
       multipleStatements: true,
     });
+    const prefix = `home_migration_${randomUUID().replaceAll("-", "")}_`;
+    const names = ["Item", "UserItem", "UserData"];
+    const query = <T extends mysql.QueryResult = mysql.QueryResult>(statement: string, values?: unknown[]) =>
+      connection.query<T>(statement.replace(/\b(Item|UserItem|UserData)\b/g, `${prefix}$1`), values);
     try {
-      // Connection-local temporary tables isolate the baseline schema from other suites.
+      // Unique tables isolate the baseline schema. MySQL temporary tables cannot be
+      // both the insert target and the inventory read used to skip existing starter copies.
       const snapshot = JSON.parse(
         await readFile("drizzle/migrations/meta/0077_snapshot.json", "utf8"),
       ) as { tables: Record<string, SnapshotTable> };
-      for (const name of ["Item", "UserItem", "UserData"])
-        await connection.query(temporaryTableSql(snapshot.tables[name]!));
+      for (const name of names)
+        await query(baselineTableSql(snapshot.tables[name]!));
       for (const [userId, homeType] of [
         ["resident", "PALACE"],
         ["fresh", "NONE"],
         ["u".repeat(191), "STUDIO_APARTMENT"],
       ]) {
-        await connection.query(
+        await query(
           "INSERT INTO UserData (userId, username, gender, homeType, money, bank) VALUES (?, ?, 'Other', ?, 100000, 54321)",
           [userId, userId, homeType],
         );
       }
-      await connection.query(
+      await query(
         "INSERT INTO Item (id, name, description, image, effects, itemType, rarity, slot, target) VALUES ('gear', 'Existing gear', 'Existing gear', '/gear.webp', JSON_ARRAY(), 'WEAPON', 'COMMON', 'ITEM', 'CHARACTER'); INSERT INTO UserItem (id, userId, itemId, quantity, level, experience, durability, equipped) VALUES ('owned-gear', 'resident', 'gear', 2, 7, 45, 55, 'ITEM_1');",
       );
       const migration = await readFile(
-        "drizzle/migrations/0078_icy_princess_powerful.sql",
+        "drizzle/migrations/0078_fixed_harrier.sql",
         "utf8",
       );
       expect(migration).not.toMatch(/JSON_(EXTRACT|SEARCH|CONTAINS|SET)/i);
-      await connection.query(migration);
-      const [columns] = await connection.query<mysql.RowDataPacket[]>(
+      const backfillStart = migration.indexOf("INSERT INTO `UserItem`");
+      const backfillSql = migration.slice(backfillStart);
+      await query(migration.slice(0, backfillStart));
+      const catalogue = (await readFile("data/item.sql", "utf8")).split(
+        "-- Furniture catalogue imports preserve content-team edits when repeated.",
+      )[1]!;
+      // Existing accounts receive only published furniture; a missing catalogue creates no rows.
+      await query(backfillSql);
+      const [unseededInventory] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserItem");
+      expect(unseededInventory).toHaveLength(1);
+      await query(catalogue);
+      // Registration uses independent row IDs; the backfill must preserve its starter copy.
+      await query("INSERT INTO UserItem (id, userId, itemId, quantity, equipped, storedAtHome, homeX, homeY) VALUES ('registered-bed', 'fresh', 'home-bed', 1, 'NONE', true, 35, 45)");
+      await query(backfillSql);
+      const [columns] = await query<mysql.RowDataPacket[]>(
         "SHOW COLUMNS FROM UserData",
       );
       expect(
@@ -43,7 +62,7 @@ describeWithDatabase("home furniture inventory migration", () => {
           .filter((column) => !snapshot.tables.UserData!.columns[column.Field])
           .map((column) => column.Field),
       ).toEqual(["homeFurnitureRevision"]);
-      const [inventory] = await connection.query<mysql.RowDataPacket[]>(
+      const [inventory] = await query<mysql.RowDataPacket[]>(
         "SELECT * FROM UserItem",
       );
       expect(inventory).toHaveLength(13);
@@ -64,7 +83,7 @@ describeWithDatabase("home furniture inventory migration", () => {
           .sort(),
       ).toEqual([
         ["home-armory", 75, 15.15, 0],
-        ["home-bed", 22, 15.15, 0],
+        ["home-bed", 35, 45, 0],
         ["home-garden", 86, 90.91, 0],
         ["home-kitchen", 76, 57.58, 0],
       ]);
@@ -73,21 +92,18 @@ describeWithDatabase("home furniture inventory migration", () => {
           .filter((row) => row.id !== "owned-gear")
           .every(
             (row) =>
-              row.id.length === 64 &&
+              (row.id.length === 64 || row.id === "registered-bed") &&
               row.quantity === 1 &&
               row.storedAtHome === 1 &&
               row.equipped === "NONE",
           ),
       ).toBe(true);
-      await connection.query(
+      await query(
         "UPDATE Item SET name = 'Staff Rug', cost = 33333 WHERE id = 'home-rug'; UPDATE UserItem SET homeX = 44, homeY = 66 WHERE userId = 'resident' AND itemId = 'home-bed';",
       );
-      await connection.query(
-        migration.slice(
-          migration.indexOf("-- Furnishings use the ordinary content catalogue;"),
-        ),
-      );
-      const [retriedInventory] = await connection.query<mysql.RowDataPacket[]>(
+      await query(catalogue);
+      await query(backfillSql);
+      const [retriedInventory] = await query<mysql.RowDataPacket[]>(
         "SELECT * FROM UserItem",
       );
       expect(retriedInventory).toHaveLength(13);
@@ -96,14 +112,14 @@ describeWithDatabase("home furniture inventory migration", () => {
           (row) => row.userId === "resident" && row.itemId === "home-bed",
         ),
       ).toMatchObject({ homeX: 44, homeY: 66 });
-      const [definitions] = await connection.query<mysql.RowDataPacket[]>(
+      const [definitions] = await query<mysql.RowDataPacket[]>(
         "SELECT * FROM Item WHERE itemType = 'FURNITURE'",
       );
       expect(definitions).toHaveLength(12);
       expect(definitions.find((row) => row.id === "home-rug")).toMatchObject({
         name: "Staff Rug",
         cost: 33333,
-        furnitureIsFloor: 1,
+        furnitureData: { action: null, width: 25, groundAnchor: 88.5, isFloor: true },
       });
       expect(definitions.filter((row) => row.cost === 0)).toHaveLength(4);
       expect(
@@ -111,7 +127,7 @@ describeWithDatabase("home furniture inventory migration", () => {
           .filter((row) => row.cost === 0)
           .every((row) => !row.inShop && !row.canBeTraded),
       ).toBe(true);
-      const [residents] = await connection.query<mysql.RowDataPacket[]>(
+      const [residents] = await query<mysql.RowDataPacket[]>(
         "SELECT money, bank, homeFurnitureRevision FROM UserData",
       );
       expect(
@@ -123,13 +139,14 @@ describeWithDatabase("home furniture inventory migration", () => {
         ),
       ).toBe(true);
     } finally {
+      await connection.query(`DROP TABLE IF EXISTS ${names.map((name) => quoteIdentifier(prefix + name)).join(", ")}`);
       await connection.end();
     }
   }, 30_000);
 });
 
-/** Reconstructs a pre-migration table from its snapshot as a connection-local temporary table. */
-const temporaryTableSql = (table: SnapshotTable) => {
+/** Reconstructs a pre-migration table from its snapshot for isolated migration validation. */
+const baselineTableSql = (table: SnapshotTable) => {
   const definitions = Object.values(table.columns).map(
     (column) =>
       `${quoteIdentifier(column.name)} ${column.type}${column.notNull ? " NOT NULL" : ""}${column.default !== undefined ? ` DEFAULT ${String(column.default).replaceAll("\\'", "'")}` : ""}`,
@@ -142,7 +159,7 @@ const temporaryTableSql = (table: SnapshotTable) => {
       `UNIQUE KEY ${quoteIdentifier(index.name)} (${index.columns.map(quoteIdentifier).join(", ")})`,
     );
   }
-  return `CREATE TEMPORARY TABLE ${quoteIdentifier(table.name)} (${definitions.join(", ")})`;
+  return `CREATE TABLE ${quoteIdentifier(table.name)} (${definitions.join(", ")})`;
 };
 
 const quoteIdentifier = (name: string) => `\`${name.replaceAll("`", "``")}\``;

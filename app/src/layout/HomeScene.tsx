@@ -29,6 +29,7 @@ import Link from "@/layout/Link";
 import Modal from "@/layout/Modal";
 import { getDefaultHomeLayout, type HomeFurniture } from "@/libs/home";
 import { cn } from "@/libs/shadui";
+import { bunnyImageUrl } from "@/utils/image";
 import type { HomePlacement } from "@/validators/home";
 
 /** A furnished residence with a reversible editor; the page owns persistence and game actions. */
@@ -185,15 +186,27 @@ export const HomeScene = ({
         className="relative mx-auto aspect-[4/3] w-full max-w-3xl overflow-hidden rounded-lg border border-stone-700/40 bg-[#24211c] shadow-md"
       >
         {!hasImageError && (
-          <Image
-            src={HOME_SCENE_IMAGES[homeType]}
-            alt={`${HomeTypeDetails[homeType].name} interior`}
-            fill
-            sizes="(max-width: 768px) 100vw, 768px"
-            className="pointer-events-none object-contain"
-            preload
-            onError={() => setFailedHomeType(homeType)}
-          />
+          <picture>
+            {/* Next images are unoptimized; the browser selects a Bunny rendition for its viewport and pixel density. */}
+            <source
+              srcSet={[480, 768, 1024, 1448]
+                .map(
+                  (width) =>
+                    `${bunnyImageUrl(HOME_SCENE_IMAGES[homeType], width)} ${width}w`,
+                )
+                .join(", ")}
+              sizes="(max-width: 768px) 100vw, 768px"
+            />
+            <Image
+              src={bunnyImageUrl(HOME_SCENE_IMAGES[homeType], 768)}
+              alt={`${HomeTypeDetails[homeType].name} interior`}
+              fill
+              className="pointer-events-none object-contain"
+              loading="eager"
+              fetchPriority="high"
+              onError={() => setFailedHomeType(homeType)}
+            />
+          </picture>
         )}
         {hasImageError && (
           <p
@@ -635,17 +648,29 @@ const FurnitureImage = ({
 }) => {
   const groundOffset = isGroundAnchored ? 100 - furniture.groundAnchor : 0;
   return (
-    <Image
-      src={furniture.image}
-      alt=""
-      width={400}
-      height={300}
-      className="pointer-events-none h-auto w-full select-none object-contain"
-      style={{
-        transform: `translateY(${groundOffset}%) scaleX(${rotation === 1 ? -1 : 1})`,
-      }}
-      draggable={false}
-    />
+    <picture>
+      <source
+        srcSet={[128, 256, 400, 768]
+          .map((width) => `${bunnyImageUrl(furniture.image, width)} ${width}w`)
+          .join(", ")}
+        sizes={
+          isGroundAnchored
+            ? `(max-width: 768px) ${furniture.width}vw, ${Math.round(furniture.width * 7.68)}px`
+            : "80px"
+        }
+      />
+      <Image
+        src={furniture.image}
+        alt=""
+        width={400}
+        height={300}
+        className="pointer-events-none h-auto w-full select-none object-contain"
+        style={{
+          transform: `translateY(${groundOffset}%) scaleX(${rotation === 1 ? -1 : 1})`,
+        }}
+        draggable={false}
+      />
+    </picture>
   );
 };
 
@@ -679,16 +704,16 @@ const FURNITURE_DIRECTIONS = [
 
 /** Unfurnished room shells share the editor's overhead floor projection. */
 export const HOME_SCENE_IMAGES = {
-  NONE: "/images/home/tent.webp",
-  STUDIO_APARTMENT: "/images/home/studio-apartment.webp",
-  ONE_BED_APARTMENT: "/images/home/one-bed-apartment.webp",
-  TWO_BED_HOUSE: "/images/home/two-bed-house.webp",
-  TOWN_HOUSE: "/images/home/town-house.webp",
-  SMALL_MANSION: "/images/home/small-mansion.webp",
-  SMALL_ESTATE: "/images/home/small-estate.webp",
-  LARGE_ESTATE: "/images/home/large-estate.webp",
-  PALACE: "/images/home/palace.webp",
-  MARSHMALLOWOPOLIS: "/images/home/marshmallowopolis.webp",
+  NONE: "https://ui0arpl8sm.ufs.sh/f/Wn3b08fT6eLPpAlBHGmOT.webp",
+  STUDIO_APARTMENT: "https://ui0arpl8sm.ufs.sh/f/f4UiNvK2MUR1t4jryeYVP.webp",
+  ONE_BED_APARTMENT: "https://ui0arpl8sm.ufs.sh/f/9hq1imSs_I40NmFQhl6sV.webp",
+  TWO_BED_HOUSE: "https://ui0arpl8sm.ufs.sh/f/tWAQ50J2WaslX7Cgo2kKI.webp",
+  TOWN_HOUSE: "https://ui0arpl8sm.ufs.sh/f/bLmh_Na-sWSSS3xJKKssa.webp",
+  SMALL_MANSION: "https://ui0arpl8sm.ufs.sh/f/Pet3rpFBBOgHMOgSfRjoe.webp",
+  SMALL_ESTATE: "https://ui0arpl8sm.ufs.sh/f/wQN5IE2zpgd2-C1n8Y0Mg.webp",
+  LARGE_ESTATE: "https://ui0arpl8sm.ufs.sh/f/5IN8T8Hd4oR8J2vtBciPj.webp",
+  PALACE: "https://ui0arpl8sm.ufs.sh/f/WDu6t6mmPUhMf-md-xPio.webp",
+  MARSHMALLOWOPOLIS: "https://ui0arpl8sm.ufs.sh/f/IYFSPADWRNvdav7MrmsFO.webp",
 } satisfies Record<HomeType, string>;
 
 type HomeDraft = { homeType: HomeType; revision: number; placements: HomePlacement[] };

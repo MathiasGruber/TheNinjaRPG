@@ -17,7 +17,9 @@ import { statFilters } from "@/libs/train";
 export const itemCreateSchema = z.object({ type: z.enum(ItemTypes) });
 
 export {
+  DEFAULT_FURNITURE_DATA,
   FURNITURE_ITEM_DEFAULTS,
+  furnitureDataSchema,
   furnitureItemSchema,
 } from "@/validators/itemFurniture";
 
