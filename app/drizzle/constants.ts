@@ -2629,14 +2629,6 @@ export const IMG_REPSHOP_GOLD =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJebK38NyV3OvUJQExAi0bGoIZDF74LqSnHRdp.webp";
 export const IMG_EQUIP_SILHOUETTE =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ6e2pEi7DfT5pyNCaUruzhPtAJqb8Kj9mc1nl.webp";
-export const IMG_HOME_TRAIN =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ25o9TnMXlcRpYmJ5do0zKw4Qx6PVEtBa9b8C.webp";
-export const IMG_HOME_EAT =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJbZ8Rz1xAtYUndMi56GkX19q0A4PzyeIloBrE.webp";
-export const IMG_HOME_SLEEP =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJu8FpvZCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b.webp";
-export const IMG_HOME_AWAKE =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ1BKctL6bo95WClq4K0wxZUmJcvThgdVenO3P.webp";
 export const IMG_MANUAL_ACTIVITY_STREAK =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJTPVewE5IU29dZYJPoOKSh5vmlqatMub3EigH.webp";
 export const IMG_MANUAL_TOWER_UPGRADES =
