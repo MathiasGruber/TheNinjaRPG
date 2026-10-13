@@ -11,6 +11,7 @@ interface JutsuLoadoutSelectorProps {
   size?: "small" | "large";
   label?: string;
   variant?: "sheet" | "dropdown";
+  compact?: boolean;
   onSelectOverride?: (loadoutId: string, displayName: string) => void;
   selectedOverrideId?: string | null;
 }
