@@ -317,9 +317,6 @@ const Shop: React.FC<ShopProps> = (props) => {
       minSeichiSilverCost,
       eventItems: props.eventItems,
       ...getShopFilter(filteringState),
-      ...(props.restrictTypes?.length === 1
-        ? { itemType: props.restrictTypes[0] }
-        : {}),
       onlyInShop: true,
       excludeExpiredFromStore: true,
       limit: SHOP_CATALOG_PAGE_SIZE,
@@ -336,11 +333,7 @@ const Shop: React.FC<ShopProps> = (props) => {
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
   const allItems = items?.pages
     .flatMap((page) => page.data)
-    .filter(
-      (row) =>
-        isItemAvailableInStore(row.expireFromStoreAt) &&
-        (!props.restrictTypes?.length || props.restrictTypes.includes(row.itemType)),
-    );
+    .filter((row) => isItemAvailableInStore(row.expireFromStoreAt));
 
   const pathname = usePublicPathname();
   const { currentStep, handleNextStep } = useTutorialStep();

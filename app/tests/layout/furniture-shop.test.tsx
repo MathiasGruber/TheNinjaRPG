@@ -82,8 +82,8 @@ beforeEach(() => {
     isOpen ? <div role="dialog">{children}<button type="button" onClick={onAccept}>{proceed_label}</button></div> : null,
   );
   vi.spyOn(ItemShopFiltering, "ItemShopFiltering").mockImplementation(() => null);
-  vi.spyOn(ItemShopFiltering, "useShopFiltering").mockReturnValue({ itemType: "WEAPON", name: "", setName: vi.fn(), setItemType } as never);
-  vi.spyOn(ItemShopFiltering, "getShopFilter").mockReturnValue({ itemType: "WEAPON" });
+  vi.spyOn(ItemShopFiltering, "useShopFiltering").mockImplementation((defaultType) => ({ itemType: defaultType, name: "", setName: vi.fn(), setItemType }) as never);
+  vi.spyOn(ItemShopFiltering, "getShopFilter").mockImplementation((state) => ({ itemType: state.itemType }));
 });
 afterEach(() => {
   cleanup();
@@ -98,17 +98,11 @@ describe("furniture catalog integration", () => {
     expect(setItemType).toHaveBeenCalledWith("FURNITURE");
   });
 
-  it("restricts the existing item query and stale catalog rows to furniture", () => {
-    const view = render(<Shop userData={user} defaultType="FURNITURE" restrictTypes={["FURNITURE"]} />);
+  it("purchases through item.buy and refreshes the residence after delivery", async () => {
+    const view = render(<Shop userData={user} defaultType="FURNITURE" />);
     expect(catalogQuery).toHaveBeenCalledWith(expect.objectContaining({
       itemType: "FURNITURE", onlyInShop: true, excludeExpiredFromStore: true, hidden: false,
     }), expect.anything());
-    expect(view.getByText("Painted Cabinet")).toBeTruthy();
-    expect(view.queryByText("Sword")).toBeNull();
-  });
-
-  it("purchases through item.buy and refreshes the residence after delivery", async () => {
-    const view = render(<Shop userData={user} defaultType="FURNITURE" restrictTypes={["FURNITURE"]} />);
     fireEvent.click(view.getByRole("button", { name: /Painted Cabinet/ }));
     expect(view.getByText("Furniture is delivered to your home storage.")).toBeTruthy();
     await act(async () => fireEvent.click(view.getByRole("button", { name: "Buy for 100 ryo" })));
@@ -120,7 +114,7 @@ describe("furniture catalog integration", () => {
 
   it("retains a rejected purchase with an inline message and does not refresh ownership", async () => {
     purchaseResult = { success: false, message: "Inventory is full" };
-    const view = render(<Shop userData={user} defaultType="FURNITURE" restrictTypes={["FURNITURE"]} />);
+    const view = render(<Shop userData={user} defaultType="FURNITURE" />);
     fireEvent.click(view.getByRole("button", { name: /Painted Cabinet/ }));
     await act(async () => fireEvent.click(view.getByRole("button", { name: "Buy for 100 ryo" })));
     expect(view.getByRole("alert").textContent).toBe("Inventory is full");
