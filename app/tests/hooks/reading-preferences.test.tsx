@@ -8,6 +8,7 @@ import {
   DEFAULT_READING_PREFERENCES,
   parseReadingPreferences,
   READING_ATTRIBUTES,
+  READING_OPTIONS,
   READING_PREFERENCES_SCRIPT,
   READING_PREFERENCES_STORAGE_KEY,
 } from "@/libs/readingPreferences";
@@ -22,6 +23,17 @@ const saved = {
 const Probe = () => {
   const { preferences } = useReadingPreferences();
   return <span>{preferences.font}</span>;
+};
+
+const runHeadScript = () => {
+  const script = document.createElement("script");
+  script.setAttribute("data-storage-key", READING_PREFERENCES_STORAGE_KEY);
+  script.setAttribute("data-options", JSON.stringify(READING_OPTIONS));
+  script.setAttribute("data-attributes", JSON.stringify(READING_ATTRIBUTES));
+  new Function("document", "localStorage", READING_PREFERENCES_SCRIPT)(
+    { currentScript: script, documentElement: document.documentElement },
+    window.localStorage,
+  );
 };
 
 describe("reading preferences", () => {
@@ -75,7 +87,7 @@ describe("reading preferences", () => {
   it("applies the same allowlisted attributes before paint and after hydration", () => {
     window.localStorage.setItem(READING_PREFERENCES_STORAGE_KEY, JSON.stringify(saved));
     // Run the literal head script against the DOM, independent of the client helper.
-    new Function("document", "localStorage", READING_PREFERENCES_SCRIPT)(document, window.localStorage);
+    runHeadScript();
     const before = document.documentElement.outerHTML;
     applyReadingPreferences(saved);
     expect(document.documentElement.outerHTML).toBe(before);
@@ -84,7 +96,7 @@ describe("reading preferences", () => {
       expect(document.documentElement.hasAttribute(attribute)).toBe(false);
     }
     window.localStorage.setItem(READING_PREFERENCES_STORAGE_KEY, '{"font":"invalid","palette":["cream"]}');
-    new Function("document", "localStorage", READING_PREFERENCES_SCRIPT)(document, window.localStorage);
+    runHeadScript();
     for (const attribute of Object.values(READING_ATTRIBUTES)) {
       expect(document.documentElement.hasAttribute(attribute)).toBe(false);
     }
