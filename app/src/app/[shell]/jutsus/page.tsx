@@ -453,6 +453,20 @@ export default function MyJutsu() {
           )
         }
       >
+        {/* Loadout switcher & actions, kept above the list so they are reachable without scrolling */}
+        <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
+            {!isOpen && <JutsuLoadoutSelector />}
+          </div>
+          <Button
+            className="ml-auto shrink-0"
+            onClick={() => unequipAll()}
+            disabled={isUnequipping}
+          >
+            <OctagonX className="mr-2 h-6 w-6" />
+            {isUnequipping ? "Unequipping" : "Unequip All"}
+          </Button>
+        </div>
         <JutsuStatQuickFilters state={state} />
         {isFetching && <Loader explanation="Loading Jutsu" />}
 
@@ -1170,19 +1184,6 @@ export default function MyJutsu() {
           </Modal>
         )}
       </ContentBox>
-      <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap gap-2">
-          {!isOpen && <JutsuLoadoutSelector />}
-        </div>
-        <Button
-          className="ml-auto shrink-0"
-          onClick={() => unequipAll()}
-          disabled={isUnequipping}
-        >
-          <OctagonX className="mr-2 h-6 w-6" />
-          {isUnequipping ? "Unequipping" : "Unequip All"}
-        </Button>
-      </div>
       {/* Free Transfer Timer */}
       {freeTransferResetTime &&
         freeTransferResetTime > new Date() &&
