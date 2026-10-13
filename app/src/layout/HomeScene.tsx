@@ -560,7 +560,7 @@ export const HomeScene = ({
           <div className="grid grid-cols-[1fr_auto_2.75rem_2.75rem] gap-1 sm:gap-2">
             <Button
               className="h-11 min-w-0 px-3"
-              aria-label={isSaving ? "Saving layout" : "Save layout"}
+              aria-label={isSaving ? "Saving…" : "Save layout"}
               onClick={() => void saveLayout()}
               disabled={isMovementDisabled || hasMissingFurniture}
             >

@@ -18,7 +18,7 @@ describeWithDatabase("home furniture inventory migration", () => {
       // Unique tables isolate the baseline schema. MySQL temporary tables cannot be
       // both the insert target and the inventory read used to skip existing starter copies.
       const snapshot = JSON.parse(
-        await readFile("drizzle/migrations/meta/0077_snapshot.json", "utf8"),
+        await readFile("drizzle/migrations/meta/0078_snapshot.json", "utf8"),
       ) as { tables: Record<string, SnapshotTable> };
       for (const name of names)
         await query(baselineTableSql(snapshot.tables[name]!));
@@ -36,7 +36,7 @@ describeWithDatabase("home furniture inventory migration", () => {
         "INSERT INTO Item (id, name, description, image, effects, itemType, rarity, slot, target) VALUES ('gear', 'Existing gear', 'Existing gear', '/gear.webp', JSON_ARRAY(), 'WEAPON', 'COMMON', 'ITEM', 'CHARACTER'); INSERT INTO UserItem (id, userId, itemId, quantity, level, experience, durability, equipped) VALUES ('owned-gear', 'resident', 'gear', 2, 7, 45, 55, 'ITEM_1');",
       );
       const migration = await readFile(
-        "drizzle/migrations/0078_fixed_harrier.sql",
+        "drizzle/migrations/0079_dizzy_alex_power.sql",
         "utf8",
       );
       expect(migration).not.toMatch(/JSON_(EXTRACT|SEARCH|CONTAINS|SET)/i);
