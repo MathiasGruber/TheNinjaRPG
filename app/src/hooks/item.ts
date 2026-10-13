@@ -45,6 +45,7 @@ export const useItemEditForm = (
     effects: data.effects,
     expireFromStoreAt: expireFromStoreAt,
     crystalTargetTypes: data.crystalTargetTypes || null,
+    furnitureData: data.furnitureData || null,
     craftingRequirements: data.craftingRequirements.map((req) => ({
       ids: [req.requirementItemId],
       number: req.quantity,

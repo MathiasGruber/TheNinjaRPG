@@ -5,6 +5,7 @@ import type { Item } from "@/drizzle/schema";
 import { useItemEditForm } from "@/hooks/item";
 import { ItemValidator } from "@/validators/combat";
 import { FURNITURE_IMAGE_PROMPT } from "@/libs/imagePrompts";
+import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { ensureDom } from "../setup-dom.mjs";
 
 ensureDom();
@@ -50,12 +51,14 @@ const data = {
   updatedAt: new Date(),
   craftingRequirements: [],
 } as Item & { craftingRequirements: [] };
+const updateItem = vi.fn();
 
 beforeEach(() => {
+  updateItem.mockReset();
   Object.assign(vi.spyOn(client, "api" as never), {
     item: {
       getAllNames: { useQuery: () => ({ data: [] }) },
-      update: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
+      update: { useMutation: () => ({ mutateAsync: updateItem, isPending: false }) },
     },
     skillTree: { getAllNames: { useQuery: () => ({ data: [] }) } },
     bloodline: { getAllNames: { useQuery: () => ({ data: [] }) } },
@@ -67,6 +70,22 @@ afterEach(() => {
 });
 
 describe("staff item economy editor", () => {
+  it("saves ordinary items after the page converts nullable fields to empty strings", async () => {
+    const pageData = { ...data, furnitureData: null };
+    setNullsToEmptyStrings(pageData);
+    const { result } = renderHook(() => useItemEditForm(pageData, async () => undefined));
+    await act(async () => {
+      result.current.form.setValue("name", "Renamed shop item", { shouldDirty: true });
+      await result.current.handleItemSubmit();
+    });
+    expect(result.current.form.getFieldState("furnitureData").error).toBeUndefined();
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    expect(updateItem).toHaveBeenCalledWith(expect.objectContaining({
+      id: data.id,
+      data: expect.objectContaining({ name: "Renamed shop item", furnitureData: null }),
+    }));
+    expect(ItemValidator.safeParse(result.current.form.getValues()).success).toBe(true);
+  });
   it("normalizes an existing combat item when switching to furniture and exposes placement controls", async () => {
     const { result } = renderHook(() => useItemEditForm({
       ...data,
