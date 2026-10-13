@@ -408,22 +408,21 @@ export const staffRouter = createTRPCRouter({
             `Cleared queue entries: mpvpBattleUser=${queueEntry ? "yes" : "no"}`,
           ],
         }),
-        ctx.drizzle
-          .update(userData)
-          .set({ status: "AWAKE", travelFinishAt: null, battleId: null })
-          .where(eq(userData.userId, targetUser.userId)),
-        // Pulling a stranded player out of a Pyramid cancels that attempt.
-        ctx.drizzle
-          .update(questHistory)
-          .set({ endAt: new Date(), completed: 0 })
-          .where(
-            and(
-              eq(questHistory.userId, input.userId),
-              eq(questHistory.questType, "battlepyramid"),
-              eq(questHistory.completed, 0),
-              isNull(questHistory.endAt),
-            ),
-          ),
+        // Drizzle has no joined UPDATE builder. Cancel the run and release its status
+        // together; LEFT JOIN also recovers players without any Pyramid history.
+        ctx.drizzle.execute(sql`
+          UPDATE ${userData}
+          LEFT JOIN ${questHistory} ON ${and(
+            eq(questHistory.userId, userData.userId),
+            eq(questHistory.questType, "battlepyramid"),
+            eq(questHistory.completed, 0),
+            isNull(questHistory.endAt),
+          )}
+          SET ${userData.status} = 'AWAKE', ${userData.travelFinishAt} = NULL,
+              ${userData.battleId} = NULL, ${questHistory.completed} = 0,
+              ${questHistory.endAt} = ${new Date()}
+          WHERE ${userData.userId} = ${targetUser.userId}
+        `),
         // Clean up raid/clan/shrine battle queue
         ctx.drizzle
           .delete(mpvpBattleUser)

@@ -3841,7 +3841,23 @@ const executeClaimedQuestConsequences = async ({
 }) => {
   user.updatedAt = claimedAt;
   const collectedItems = collected.flatMap(({ ids }) => ids);
+  const closeQuests =
+    endedQuestIds.length > 0
+      ? client
+          .update(questHistory)
+          .set({ completed: 0, endAt: new Date() })
+          .where(
+            and(
+              inArray(questHistory.questId, endedQuestIds),
+              eq(questHistory.userId, user.userId),
+            ),
+          )
+      : undefined;
+  // Ending a run frees its Pyramid slot before a replacement can claim it. Completed
+  // history may already be closed while the caller's quest projection is still open.
+  if (startedQuestIds.length > 0) await closeQuests;
   await Promise.all([
+    startedQuestIds.length === 0 ? closeQuests : undefined,
     ...(startedQuestIds.length > 0
       ? [
           (async () => {
@@ -3857,30 +3873,65 @@ const executeClaimedQuestConsequences = async ({
                 q.questType !== "village_mission" &&
                 !(q.questType === "mission" && q.questRank === "S"),
             );
-            if (startable.length > 0) {
-              notifications.push(
-                `Started new quest: ${startable.map((q) => q.name).join(", ")}`,
-              );
+            // Assignments share trackers. Isolated grants use their publication transaction
+            // to claim the Pyramid slot before inserting history, even with a stale projection.
+            for (const nextQuest of startable) {
+              if (
+                nextQuest.questType === "battlepyramid" &&
+                nextQuest.content.isolated
+              ) {
+                const assigned = await retryOnDeadlock(() =>
+                  client.transaction(async (tx) => {
+                    const database = tx as unknown as DrizzleClient;
+                    const claim = await claimUserSnapshot({
+                      client: database,
+                      userId: user.userId,
+                      updatedAt: user.updatedAt,
+                      where: [
+                        inArray(userData.status, ["AWAKE", "BATTLE"]),
+                        isNull(userData.battleId),
+                        notExists(
+                          database
+                            .select({ one: sql`1` })
+                            .from(questHistory)
+                            .where(
+                              and(
+                                eq(questHistory.userId, user.userId),
+                                eq(questHistory.questType, "battlepyramid"),
+                                ne(questHistory.questId, nextQuest.id),
+                                eq(questHistory.completed, 0),
+                                isNull(questHistory.endAt),
+                              ),
+                            ),
+                        ),
+                      ],
+                    });
+                    if (!claim.success) return undefined;
+                    const claimedUser = { ...user, updatedAt: claim.claimedAt };
+                    await upsertQuestEntry(
+                      database,
+                      claimedUser,
+                      nextQuest,
+                      "quest_objective",
+                      undefined,
+                      true,
+                    );
+                    return claimedUser;
+                  }),
+                );
+                if (!assigned) {
+                  notifications.push(
+                    `Could not start ${nextQuest.name}: your account changed or another Pyramid is active.`,
+                  );
+                  continue;
+                }
+                Object.assign(user, assigned);
+              } else {
+                await upsertQuestEntry(client, user, nextQuest, "quest_objective");
+              }
+              notifications.push(`Started new quest: ${nextQuest.name}`);
             }
-            await Promise.all(
-              startable.map((quest) =>
-                upsertQuestEntry(client, user, quest, "quest_objective"),
-              ),
-            );
           })(),
-        ]
-      : []),
-    ...(endedQuestIds.length > 0
-      ? [
-          client
-            .update(questHistory)
-            .set({ completed: 0, endAt: new Date() })
-            .where(
-              and(
-                inArray(questHistory.questId, endedQuestIds),
-                eq(questHistory.userId, user.userId),
-              ),
-            ),
         ]
       : []),
     ...(collectedItems.length > 0
