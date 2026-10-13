@@ -25,6 +25,7 @@ export const ReadingPreferencesProvider = ({ children }: { children: ReactNode }
   );
 };
 
+/** Reads the shared preferences and save status; requires ReadingPreferencesProvider. */
 export const useReadingPreferences = () => {
   const value = use(ReadingPreferencesContext);
   if (!value) {
@@ -37,6 +38,7 @@ const ReadingPreferencesContext = createContext<ReturnType<
   typeof useStoredReadingPreferences
 > | null>(null);
 
+/** Owns browser persistence, cross-tab updates, and document styling for one provider. */
 const useStoredReadingPreferences = () => {
   // Keep the first render identical to SSR; the head script already styles the page.
   const [preferences, setPreferences] = useState(DEFAULT_READING_PREFERENCES);
@@ -51,6 +53,7 @@ const useStoredReadingPreferences = () => {
 
     const onStorage = (event: StorageEvent) => {
       if (event.key === READING_PREFERENCES_STORAGE_KEY || event.key === null) {
+        // A null key represents clear(); read current storage even for queued events.
         setPreferences(
           parseReadingPreferences(
             safeLocalStorageGetItem(READING_PREFERENCES_STORAGE_KEY),
@@ -66,6 +69,7 @@ const useStoredReadingPreferences = () => {
   }, []);
 
   useEffect(() => {
+    // Preserve the head script's saved styles until browser preferences are loaded.
     if (isLoaded) applyReadingPreferences(preferences);
   }, [preferences, isLoaded]);
 
@@ -73,6 +77,7 @@ const useStoredReadingPreferences = () => {
     const serialized = JSON.stringify(next);
     const validated = parseReadingPreferences(serialized);
     const saved = safeLocalStorageSetItem(READING_PREFERENCES_STORAGE_KEY, serialized);
+    // Failed writes still apply in memory; settings expose the shared status and retry.
     setPreferences(validated);
     setIsPersisted(saved);
   }, []);

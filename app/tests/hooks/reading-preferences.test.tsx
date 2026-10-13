@@ -20,13 +20,16 @@ const saved = {
   palette: "cream",
 } as const;
 
+/** Exposes the context value in markup to compare server and browser renders. */
 const Probe = () => {
   const { preferences } = useReadingPreferences();
   return <span>{preferences.font}</span>;
 };
 
+/** Mounts the public hook under its real provider, including persistence effects. */
 const renderPreferences = () => renderHook(() => useReadingPreferences(), { wrapper: ReadingPreferencesProvider });
 
+/** Executes the literal bootstrap with the same script attributes as the root layout. */
 const runHeadScript = () => {
   const script = document.createElement("script");
   script.setAttribute("data-storage-key", READING_PREFERENCES_STORAGE_KEY);
@@ -145,7 +148,6 @@ describe("reading preferences", () => {
 
   it("applies the same allowlisted attributes before paint and after hydration", () => {
     window.localStorage.setItem(READING_PREFERENCES_STORAGE_KEY, JSON.stringify(saved));
-    // Run the literal head script against the DOM, independent of the client helper.
     runHeadScript();
     const before = { ...document.documentElement.dataset };
     const hook = renderPreferences();

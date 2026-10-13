@@ -989,12 +989,15 @@ html[data-reading-line-height="relaxed"] {
 html[data-reading-line-height="spacious"] {
   --reading-line-height: 2;
 }
-/* Keep fixed-height navigation and icon buttons intact while opening up reading text. */
+/* data-reading-text marks rich descriptions that may contain bare text or inline tags.
+   Keep fixed-height navigation and icon buttons intact while opening up reading text. */
 html[data-reading-line-height] :where(p, li, blockquote, dd, dt, td, th, textarea, [contenteditable="true"], [data-reading-text], [data-reading-text] *),
 html[data-reading-line-height] :where(p, li, blockquote, dd, dt, td, th) :where(span, a, strong, em, b, i) {
   line-height: var(--reading-line-height) !important;
 }
 
+/* Semantic colors cover shared components; surface/heading markers below also cover
+   shell containers and headings whose utility classes specify their own colors. */
 html[data-reading-palette="cream"] {
   --reading-background: 42 50% 91%;
   --reading-card: 42 55% 94%;

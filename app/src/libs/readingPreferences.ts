@@ -1,5 +1,6 @@
 export const READING_PREFERENCES_STORAGE_KEY = "tnr_reading_preferences";
 
+/** Single allowlist for settings controls, stored values, and the first-paint script. */
 export const READING_OPTIONS = {
   font: [
     { value: "default", label: "Game default" },
@@ -25,6 +26,7 @@ export const READING_OPTIONS = {
   ],
 } as const;
 
+/** Supported browser-local values; "default" preserves the game's existing styles. */
 export type ReadingPreferences = {
   [Key in keyof typeof READING_OPTIONS]: (typeof READING_OPTIONS)[Key][number]["value"];
 };
@@ -74,6 +76,9 @@ export const applyReadingPreferences = (preferences: ReadingPreferences) => {
   }
 };
 
-// Apply only allowlisted values before first paint, avoiding a typography reflow during
-// hydration. The client hook restores these attributes when the shell remounts.
+/**
+ * Applies saved, allowlisted styles before first paint without changing server markup.
+ * Configuration comes from HTML-escaped data attributes, keeping executable code static.
+ * Inaccessible or malformed storage leaves game defaults; the provider takes over on mount.
+ */
 export const READING_PREFERENCES_SCRIPT = `(function(){try{var s=document.currentScript;var p=JSON.parse(localStorage.getItem(s.getAttribute("data-storage-key")));if(!p||typeof p!=="object"||Array.isArray(p))return;var o=JSON.parse(s.getAttribute("data-options")),a=JSON.parse(s.getAttribute("data-attributes"));Object.keys(a).forEach(function(k){if(p[k]!=="default"&&o[k].some(function(v){return v.value===p[k]}))document.documentElement.setAttribute(a[k],p[k])})}catch(e){}})()`;
