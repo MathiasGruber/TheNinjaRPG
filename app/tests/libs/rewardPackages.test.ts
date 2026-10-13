@@ -300,7 +300,7 @@ describe("reward packages", () => {
     expect(copyUsingEditor([objective], true)).toEqual({ objectives: [objective], selected: null });
     expect(copyUsingEditor([objective], false, 3)).toEqual({ objectives: [objective], selected: null });
   });
-  for (const role of ["HEAD_CONTENT", "HEAD_EVENT"] as const) {
+  for (const role of ["CONTENT", "HEAD_CONTENT", "HEAD_EVENT"] as const) {
     it(`preserves ${role}'s saved reputation approval on editable copies after catalog changes or deletion`, () => {
       const pack = packageReward("saved", { reward_money: 100, reward_reputation: 5 });
       const objective = SimpleObjective.parse({ id: "original", task: "user_level", value: 1, reward_packages: [pack] });

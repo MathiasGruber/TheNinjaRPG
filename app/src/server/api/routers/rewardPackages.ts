@@ -16,7 +16,7 @@ import { idSchema } from "@/validators/misc";
 import type { QuestContentType } from "@/validators/objectives";
 import { SaveRewardNode, SaveRewardPackage } from "@/validators/rewardPackages";
 
-/** Staff catalog reads and leadership maintenance; reward delivery stays in the quest claim path. */
+/** Staff reward catalog maintenance; reward delivery stays in the quest claim path. */
 export const rewardPackagesRouter = createTRPCRouter({
   /** Load both catalogs in parallel after checking staff visibility. */
   getCatalog: protectedProcedure.query(async ({ ctx }) => {

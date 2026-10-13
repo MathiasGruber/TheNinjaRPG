@@ -22,7 +22,7 @@ import {
   rewardFields,
 } from "@/validators/rewards";
 
-/** Staff catalog browsing and leadership-only editing through the shared reward form. */
+/** Staff catalog browsing and permitted editing through the shared reward form. */
 export default function RewardsPage() {
   const { data: user } = useRequiredUserData();
   const { data, isPending, isError, refetch } = api.rewardPackages.getCatalog.useQuery(

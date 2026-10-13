@@ -3,10 +3,12 @@ import type { UserRole } from "@/drizzle/constants";
 import { UserRoles } from "@/drizzle/constants";
 import {
   canApproveApplications,
+  canAwardReputation,
   canChangeContent,
   canDeleteConceptArt,
   canDeletePollOptions,
   canEditSeichiSilver,
+  canManageRewards,
   canModifyCombatSettings,
   canModifyEventGains,
   canRemoveBloodlineFromPool,
@@ -106,6 +108,21 @@ test("combat settings use balance/content permissions instead of event gain perm
   expect(canModifyCombatSettings("CODER")).toBe(true);
   expect(canModifyCombatSettings("EVENT")).toBe(true);
   expect(canModifyCombatSettings("HEAD_EVENT")).toBe(true);
+});
+
+test("content editors can manage reward sources without reputation authoring access", () => {
+  const allowed: readonly UserRole[] = [
+    "CONTENT",
+    "CONTENT-ADMIN",
+    "EVENT-ADMIN",
+    "HEAD_CONTENT",
+    "HEAD_EVENT",
+    "OWNER",
+  ];
+  for (const role of UserRoles) {
+    expect(canManageRewards(role)).toBe(allowed.includes(role));
+  }
+  expect(canAwardReputation("CONTENT")).toBe(false);
 });
 
 test("seichi silver + bloodline-pool admin actions gate to their own admin role set", () => {
