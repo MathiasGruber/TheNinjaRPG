@@ -433,6 +433,26 @@ export const HomeScene = ({
               }}
             >
               {image}
+              {isAsleep && !isEditing && details.action === "sleep" && (
+                // A decorative cue follows the bed's painted bounds; reduced motion keeps the letters still.
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute bottom-full left-1/2 flex -translate-x-1/2 items-end font-bold text-amber-100 text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] sm:text-2xl"
+                >
+                  {["z", "z", "Z"].map((letter, index) => (
+                    <span
+                      key={index}
+                      className="inline-block motion-safe:animate-home-sleep"
+                      style={{
+                        animationDelay: `${-index}s`,
+                        fontSize: `${0.7 + index * 0.2}em`,
+                      }}
+                    >
+                      {letter}
+                    </span>
+                  ))}
+                </span>
+              )}
             </button>
           );
         })}
