@@ -1,13 +1,20 @@
 import { ensureDom } from "../setup-dom.mjs";
 const { act, cleanup, fireEvent, render } = await import("@testing-library/react");
+import * as elementSize from "@radix-ui/react-use-size";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import * as navigation from "next/navigation";
 import type { ComponentProps } from "react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import type { UseFormReturn } from "react-hook-form";
 import { useController } from "react-hook-form";
 import * as client from "@/app/_trpc/client";
+import type { RouterOutputs } from "@/app/_trpc/client";
+import ActivityStreakEditPage from "@/app/[shell]/manual/activityStreak/edit/[configid]/page";
 import * as dialog from "@/components/ui/dialog";
 import * as Avatar from "@/layout/Avatar";
+import * as ContentBox from "@/layout/ContentBox";
 import * as ContentImageSelector from "@/layout/ContentImageSelector";
+import * as EditContent from "@/layout/EditContent";
 import { FurnitureViewsEditor } from "@/layout/FurnitureViewsEditor";
 import * as Image from "@/layout/Image";
 import * as ProfileEdit from "@/layout/ProfileEdit";
@@ -15,6 +22,8 @@ import * as RichInput from "@/layout/RichInput";
 import { FURNITURE_IMAGE_PROMPT, furnitureViewPrompt } from "@/libs/imagePrompts";
 import * as toast from "@/libs/toast";
 import * as uploadthing from "@/utils/uploadthing";
+import * as UserContext from "@/utils/UserContext";
+import type { ActivityStreakFormType } from "@/validators/activityStreak";
 import type { FurnitureViews } from "@/validators/itemFurniture";
 import { actualContentImageSelector as ActualContentImageSelector, actualDialog } from "../setup/preload";
 
@@ -39,6 +48,7 @@ const mutate = vi.fn((input: Record<string, unknown>) => {
 const invalidate = vi.fn(async () => {});
 const onUploadComplete = vi.fn();
 const showToast = vi.fn();
+const ActualEditContent = EditContent.EditContent;
 const original = "https://example.com/original.webp";
 const current = "https://example.com/current-90.webp";
 const props: SelectorProps = {
@@ -123,6 +133,64 @@ afterEach(async () => {
 const open = (view: ReturnType<typeof render>) =>
   fireEvent.click(view.getByRole("button", { name: "Edit 90° image" }));
 const generated = { success: true, url: "https://example.com/generated.webp" };
+
+it("keeps a pending activity-streak image when the same config changes streak type", async () => {
+  const config: NonNullable<RouterOutputs["activityStreak"]["getConfig"]> = {
+    id: "event-config",
+    name: "Event",
+    description: "Daily activity rewards",
+    image: original,
+    totalDays: 14,
+    streakType: "RECURRING",
+    isActive: true,
+    ryoCost: 0,
+    repsCost: 0,
+    seichiSilverCost: 0,
+    startDate: null,
+    endDate: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdByUserId: null,
+    rewards: [],
+  };
+  let form: UseFormReturn<ActivityStreakFormType> | undefined;
+  Object.assign(client.api, {
+    activityStreak: {
+      getConfig: { useQuery: () => ({ data: config, isPending: false }) },
+      updateConfig: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+    },
+    gameAsset: {
+      getNameTags: { useQuery: () => ({ data: [] }) },
+      getSceneAssets: { useQuery: () => ({ data: [] }) },
+      getAll: { useInfiniteQuery: () => ({ data: { pages: [] } }) },
+    },
+  });
+  vi.spyOn(navigation, "useRouter").mockReturnValue({ push: vi.fn() } as never);
+  vi.spyOn(elementSize, "useSize").mockReturnValue({ width: 0, height: 0 });
+  vi.spyOn(UserContext, "useRequiredUserData").mockReturnValue({ data: { role: "CONTENT-ADMIN" } } as never);
+  vi.spyOn(ContentBox, "default").mockImplementation(({ children }) => <div>{children}</div>);
+  vi.spyOn(EditContent, "EditContent").mockImplementation((props) => {
+    form = props.form as unknown as UseFormReturn<ActivityStreakFormType>;
+    return <ActualEditContent {...props} />;
+  });
+  const params = Promise.resolve({ configid: config.id });
+  let view: ReturnType<typeof render>;
+  await act(async () => {
+    view = render(<Suspense fallback={null}><ActivityStreakEditPage params={params} /></Suspense>);
+  });
+  fireEvent.click(view!.getByRole("button", { name: "Edit Image" }));
+  fireEvent.click(view!.getByRole("button", { name: "Generate AI Image" }));
+  expect(requests).toHaveLength(1);
+  fireEvent.click(view!.getByRole("button", { name: "Close" }));
+  act(() => form!.setValue("streakType", "EVENT_PASS"));
+  expect(view!.getByText("Ryo Cost")).toBeTruthy();
+  await act(() => requests[0]!.complete(generated));
+  expect(showToast).toHaveBeenCalledWith(generated);
+  expect(form!.getValues("image")).toBe(generated.url);
+  expect(view!.getByRole("img").getAttribute("src")).toBe(generated.url);
+  expect(invalidate).toHaveBeenCalledTimes(1);
+  expect(requests[0]!.input.relationId).toBe(config.id);
+});
 
 describe("content furniture image generation", () => {
   for (const [rotation, degrees] of [[1, 90], [2, 180], [3, 270]] as const) {
