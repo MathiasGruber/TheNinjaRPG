@@ -103,14 +103,19 @@ describeWithDatabase("persistent isolated Pyramid battle status", () => {
   });
 
   it("keeps a defeat at one HP in BATTLE so its authored checkpoint can resume", async () => {
-    const { api } = await start();
+    const { api, client } = await start();
     await api.quests.checkRewards({ questId: "pyramid", nextObjectiveId: "floor1" });
     await fetchUpdatedUser({ client: await getTestDatabase(), userId: "hero" });
     await settleFloor(false);
     expect(await hero()).toMatchObject({ status: "BATTLE", battleId: null, curHealth: 1 });
     const retry = await api.quests.retryBattle({ questId: "pyramid" });
-    expect(retry.success).toBe(true);
-    expect((await hero())?.status).toBe("BATTLE");
+    expect(retry).toMatchObject({ success: false, message: "There is no lost battle to retry in this quest" });
+    await fetchUpdatedUser({ client, userId: "hero" });
+    const saved = await hero();
+    expect(saved).toMatchObject({ status: "BATTLE", curHealth: 1 });
+    expect(saved?.battleId).toBeString();
+    const checkpoint = await fetchBattle(client, saved!.battleId!);
+    expect(checkpoint?.extraState.questBattleSource).toEqual({ questId: "pyramid", objectiveId: "floor1" });
   });
 
   it("rejects other quest rewards, retries and abandonment while between its own floors", async () => {

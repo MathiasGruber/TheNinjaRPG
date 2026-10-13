@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { questsRouter } from "@/routers/quests";
 import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
+import { withEmptyIsolationHistory } from "../../setup/testDatabase";
 
 type Goal = { id: string; done: boolean; recentlyDied: boolean };
 
-/** Caller whose user has one quest tracker; any database access fails the test. */
+/** Caller without isolation and with one quest tracker; other database access fails. */
 const makeCaller = (goals: Goal[] | null) => {
   const user =
     goals === null
@@ -13,9 +14,10 @@ const makeCaller = (goals: Goal[] | null) => {
   const fetchUpdatedUser = vi.fn().mockResolvedValue({ user });
   stubProfile("fetchUpdatedUser", fetchUpdatedUser as never);
   const drizzle = new Proxy(
-    {},
+    withEmptyIsolationHistory({}),
     {
       get: (_target, prop) => {
+        if (prop === "query") return Reflect.get(_target, prop);
         throw new Error(`unexpected database access: ${String(prop)}`);
       },
     },
