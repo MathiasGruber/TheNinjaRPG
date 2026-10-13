@@ -5,8 +5,8 @@ import {
   ArrowRightLeft,
   ChevronsDown,
   CircleFadingArrowUp,
+  ListX,
   Loader2,
-  OctagonX,
   Palette,
   SquareChevronLeft,
   SquareChevronRight,
@@ -417,12 +417,37 @@ export default function MyJutsu() {
   return (
     <>
       <ContentBox
-        title="Jutsu Management"
+        title="My Jutsu"
         subtitle={subtitle}
         topRightContent={
           !isOpen && (
-            <div className="flex flex-row items-center gap-2">
+            <div className="flex min-w-0 flex-row items-center gap-2">
+              <JutsuLoadoutSelector compact />
               <JutsuFiltering state={state} />
+              <Confirm
+                title="Unequip all jutsu"
+                proceed_label={isUnequipping ? undefined : "Unequip all"}
+                isValid={!isUnequipping}
+                disabled={isUnequipping || !curEquip}
+                button={
+                  <Button
+                    hoverText="Unequip all jutsu"
+                    aria-label="Unequip all jutsu"
+                    disabled={isUnequipping || !curEquip}
+                  >
+                    <ListX className="h-6 w-6 hover:text-orange-500" />
+                  </Button>
+                }
+                onAccept={(e) => {
+                  e.preventDefault();
+                  unequipAll();
+                }}
+              >
+                <p>
+                  Remove all {curEquip} equipped jutsu from your current loadout? You
+                  can equip them again at any time.
+                </p>
+              </Confirm>
               {userData.extraJutsuSlots < MAX_EXTRA_JUTSU_SLOTS && (
                 <Confirm
                   title="Extra Jutsu Slot"
@@ -453,20 +478,6 @@ export default function MyJutsu() {
           )
         }
       >
-        {/* Loadout switcher & actions, kept above the list so they are reachable without scrolling */}
-        <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap gap-2">
-            {!isOpen && <JutsuLoadoutSelector />}
-          </div>
-          <Button
-            className="ml-auto shrink-0"
-            onClick={() => unequipAll()}
-            disabled={isUnequipping}
-          >
-            <OctagonX className="mr-2 h-6 w-6" />
-            {isUnequipping ? "Unequipping" : "Unequip All"}
-          </Button>
-        </div>
         <JutsuStatQuickFilters state={state} />
         {isFetching && <Loader explanation="Loading Jutsu" />}
 

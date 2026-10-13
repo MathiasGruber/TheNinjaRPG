@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -42,6 +43,8 @@ interface LoadoutSelectorProps<T extends LoadoutData> {
   label?: string;
   /** "sheet" lists named loadouts under a chip; "dropdown" uses a compact select */
   variant?: "sheet" | "dropdown";
+  /** Sheet chip sized for a toolbar: icon instead of "Change", shorter name on mobile */
+  compact?: boolean;
   onSelectOverride?: (loadoutId: string, displayName: string) => void;
   selectedOverrideId?: string | null;
   config: LoadoutSelectorConfig<T>;
@@ -139,7 +142,11 @@ const LoadoutSelector = <T extends LoadoutData>(
       ? `${props.label} · ${selectedName}`
       : selectedName;
   const chipClass =
-    props.size === "small" ? "h-8 gap-2 px-2 text-xs" : "h-9 gap-3 px-3 text-sm";
+    props.size === "small"
+      ? "h-8 gap-2 px-2 text-xs"
+      : props.compact
+        ? "h-9 gap-1 px-2 text-sm"
+        : "h-9 gap-3 px-3 text-sm";
 
   return (
     <Popover
@@ -155,16 +162,28 @@ const LoadoutSelector = <T extends LoadoutData>(
             type="button"
             className={`flex min-w-0 items-center justify-between rounded-md border border-input bg-background text-left ${chipClass} ${isPending ? "opacity-50" : ""}`}
             disabled={isPending}
+            aria-label={props.compact ? `Change loadout (${chipText})` : undefined}
+            title={props.compact ? "Change loadout" : undefined}
           >
-            <span className="min-w-0 truncate">{chipText}</span>
-            <span className="shrink-0 text-muted-foreground text-xs">
-              {open ? "Close" : "Change"}
+            <span
+              className={`min-w-0 truncate ${props.compact ? "max-w-[5.5rem] sm:max-w-[10rem]" : ""}`}
+            >
+              {chipText}
             </span>
+            {props.compact ? (
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+              />
+            ) : (
+              <span className="shrink-0 text-muted-foreground text-xs">
+                {open ? "Close" : "Change"}
+              </span>
+            )}
           </button>
         </PopoverTrigger>
       </div>
       <PopoverContent
-        align="start"
+        align={props.compact ? "end" : "start"}
         side="bottom"
         sideOffset={8}
         collisionPadding={{ top: 72, right: 8, bottom: 88, left: 8 }}
