@@ -59,7 +59,8 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
   const operationGenerationRef = useRef(0);
   const imageGenerationRef = useRef<number | null>(null);
   const uploadGenerationRef = useRef<number | null>(null);
-  const operationIdentity = `${id}:${props.referenceImageUrl ?? ""}`;
+  // Replacing or removing the selected image invalidates pending image operations.
+  const operationIdentity = `${id}:${props.referenceImageUrl ?? ""}:${imageUrl ?? ""}`;
   const operationIdentityRef = useRef(operationIdentity);
   if (operationIdentityRef.current !== operationIdentity) {
     operationGenerationRef.current += 1;

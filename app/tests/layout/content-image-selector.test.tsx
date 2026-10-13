@@ -2,16 +2,20 @@ import { ensureDom } from "../setup-dom.mjs";
 const { act, cleanup, fireEvent, render } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import type { ComponentProps } from "react";
+import { useState } from "react";
 import { useController } from "react-hook-form";
 import * as client from "@/app/_trpc/client";
 import * as dialog from "@/components/ui/dialog";
 import * as Avatar from "@/layout/Avatar";
 import type ContentImageSelector from "@/layout/ContentImageSelector";
+import { FurnitureViewsEditor } from "@/layout/FurnitureViewsEditor";
+import * as Image from "@/layout/Image";
 import * as ProfileEdit from "@/layout/ProfileEdit";
 import * as RichInput from "@/layout/RichInput";
 import { FURNITURE_IMAGE_PROMPT, furnitureViewPrompt } from "@/libs/imagePrompts";
 import * as toast from "@/libs/toast";
 import * as uploadthing from "@/utils/uploadthing";
+import type { FurnitureViews } from "@/validators/itemFurniture";
 import { actualContentImageSelector as ActualContentImageSelector, actualDialog } from "../setup/preload";
 
 type SelectorProps = ComponentProps<typeof ContentImageSelector>;
@@ -85,6 +89,10 @@ beforeEach(() => {
   vi.spyOn(Avatar, "default").mockImplementation(({ href, alt }) => (
     // biome-ignore lint/performance/noImgElement: isolated content image preview stub
     <img src={href ?? undefined} alt={alt} />
+  ));
+  vi.spyOn(Image, "default").mockImplementation(({ src, alt }) => (
+    // biome-ignore lint/performance/noImgElement: isolated furniture preview stub
+    <img src={typeof src === "string" ? src : undefined} alt={alt} />
   ));
   vi.spyOn(RichInput, "default").mockImplementation(({ id, label, control, disabled }) => {
     const { field } = useController({ name: id, control });
@@ -166,6 +174,73 @@ describe("content furniture image generation", () => {
     expect(view.getAllByRole("img").some((image) => image.getAttribute("src") === generated.url)).toBe(true);
   });
 
+  it("accepts subsequent generations after its own successful parent image update", async () => {
+    function UpdatingSelector() {
+      const [imageUrl, setImageUrl] = useState(current);
+      return (
+        <ActualContentImageSelector
+          {...props}
+          imageUrl={imageUrl}
+          onUploadComplete={(url) => {
+            onUploadComplete(url);
+            setImageUrl(url);
+          }}
+        />
+      );
+    }
+    const view = render(<UpdatingSelector />);
+    open(view);
+    fireEvent.click(view.getByRole("button", { name: "Generate AI Image" }));
+    await act(() => requests[0]!.complete(generated));
+    expect(view.getAllByRole("img").every((image) => image.getAttribute("src") === generated.url)).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Generate AI Image" }));
+    const next = { success: true, url: "https://example.com/next-generation.webp" };
+    await act(() => requests[1]!.complete(next));
+    expect(onUploadComplete).toHaveBeenLastCalledWith(next.url);
+    expect(onUploadComplete).toHaveBeenCalledTimes(2);
+    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(view.getAllByRole("img").every((image) => image.getAttribute("src") === next.url)).toBe(true);
+  });
+
+  it("does not restore a removed furniture view when a pending generation completes", async () => {
+    const onViewsChange = vi.fn();
+    function UpdatingFurnitureViews() {
+      const [views, setViews] = useState<FurnitureViews>({ "90": { image: current } });
+      return (
+        <FurnitureViewsEditor
+          id="table"
+          name="Tea table"
+          description="Two cups"
+          image={original}
+          width={30}
+          groundAnchor={90}
+          views={views}
+          canEdit
+          onBaseChange={onUploadComplete}
+          onViewsChange={(next) => {
+            onViewsChange(next);
+            setViews(next);
+          }}
+        />
+      );
+    }
+    const view = render(<UpdatingFurnitureViews />);
+    fireEvent.mouseDown(view.getByRole("tab", { name: "90°" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    open(view);
+    fireEvent.click(view.getByRole("button", { name: "Generate AI Image" }));
+    fireEvent.click(view.getByRole("button", { name: "Close" }));
+    fireEvent.click(view.getByRole("button", { name: "Remove this view" }));
+    expect(onViewsChange).toHaveBeenLastCalledWith({});
+    await act(() => requests[0]!.complete(generated));
+    expect(onViewsChange).toHaveBeenCalledTimes(1);
+    expect(view.queryByRole("button", { name: "Remove this view" })).toBeNull();
+    expect(view.getByText("Generate or upload this view.")).toBeTruthy();
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
   it("shows missing-view guidance in the picker and dialog instead of a character avatar", () => {
     const view = render(<ActualContentImageSelector {...props} imageUrl="" emptyImageLabel="Generate or upload this view" />);
     expect(view.getByText("Generate or upload this view")).toBeTruthy();
@@ -175,7 +250,7 @@ describe("content furniture image generation", () => {
     expect(view.queryByRole("img")).toBeNull();
   });
 
-  it.each(["id", "referenceImageUrl"] as const)(
+  it.each(["id", "referenceImageUrl", "imageUrl"] as const)(
     "rejects a delayed generation when the form's %s changes",
     async (field) => {
       const view = render(<ActualContentImageSelector {...props} />);
@@ -183,7 +258,7 @@ describe("content furniture image generation", () => {
       fireEvent.click(view.getByRole("button", { name: "Generate AI Image" }));
       const replacement = vi.fn();
       view.rerender(<ActualContentImageSelector {...props} {...{
-        [field]: field === "id" ? "other-item:furniture:90" : "https://example.com/new-original.webp",
+        [field]: field === "id" ? "other-item:furniture:90" : "https://example.com/replacement.webp",
       }} onUploadComplete={replacement} />);
       await act(() => requests[0]!.complete(generated));
       expect(onUploadComplete).not.toHaveBeenCalled();
