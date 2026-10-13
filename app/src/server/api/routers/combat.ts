@@ -194,8 +194,8 @@ import {
   getNewTrackers,
   mockAchievementHistoryEntries,
 } from "@/libs/quest";
-import { getIsolatedPyramid, isBetweenPyramidBattles } from "@/libs/questRun";
 import { projectPartyTracker } from "@/libs/questParty";
+import { getIsolatedPyramid, isBetweenPyramidBattles } from "@/libs/questRun";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
@@ -2242,6 +2242,9 @@ export const initiateBattle = async (
           periodCompletes: 0,
           periodStartAt: null,
           pendingRewardChoice: null,
+          entryPaid: false,
+          isolated: false,
+          questVersion: null,
           quest: structuredClone(party.quest),
         });
     }

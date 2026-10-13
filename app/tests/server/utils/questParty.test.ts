@@ -57,7 +57,7 @@ describeWithDatabase("quest teams on real SQL", () => {
     expect(saved?.version).toBe(1);
   });
 
-  it("a completed helper's failure cannot reopen its reward receipt", async () => {
+  it.each([true, false])("a completed helper's failure cannot reopen its reward receipt (loaded party: %s)", async (hasLoadedParty) => {
     await resetTables(questParty, quest, questHistory, userData);
     const client = await getTestDatabase();
     await insertQuests([{ id: "helper-quest", questType: "event" }]);
@@ -68,7 +68,7 @@ describeWithDatabase("quest teams on real SQL", () => {
     if (!helper || !party) throw new Error("Missing helper fixture");
     const projection = { id: "party-team", userId: "helper", questId: "helper-quest", questType: "event", completed: 0, startedAt: new Date(), endAt: null, previousCompletes: 0, previousAttempts: 0, quest: party.quest } as const;
     const tracker = projectPartyTracker(party);
-    const user = { ...helper, questParty: party, questData: [tracker], userQuests: [projection], completedQuests: [{ id: "receipt", questId: "helper-quest", completed: 1 }], items: [] } as NonNullable<UserWithRelations>;
+    const user = { ...helper, questParty: hasLoadedParty ? party : undefined, questData: [tracker], userQuests: [projection], completedQuests: [{ id: "receipt", questId: "helper-quest", completed: 1 }], items: [] } as NonNullable<UserWithRelations>;
     const result = await commitQuestObjectiveRewards({ client, userId: helper.userId, user, userQuest: projection, trackers: [tracker], rewards: PostProcessedRewardSchema.parse({}), resolved: false, notifications: [], consequences: [{ type: "fail_quest", ids: ["helper-quest"] }] });
     expect(result.outcome).toBe("claimed");
     const receipt = await client.query.questHistory.findFirst({ where: eq(questHistory.id, "receipt") });

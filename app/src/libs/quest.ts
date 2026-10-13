@@ -738,7 +738,6 @@ export type QuestConsequence = {
     | "reset_quest"
     | "update_user";
   ids: string[];
-  questId?: string;
   info?: string;
   scaleStats?: boolean;
   scaleGains?: number;

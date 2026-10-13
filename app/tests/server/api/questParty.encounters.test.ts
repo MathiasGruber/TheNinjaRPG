@@ -23,6 +23,7 @@ import { travelRouter } from "@/routers/travel";
 import type { DrizzleClient } from "@/server/db";
 import { invalidatePublishedMapCache } from "@/server/utils/sectorMap";
 import { AllObjectives } from "@/validators/objectives";
+import { getTagSchema } from "@/validators/combat";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertQuests, insertUsers } from "../../setup/factories";
 import {
@@ -130,6 +131,26 @@ describeWithDatabase("quest team encounter location claims", () => {
     invalidatePublishedMapCache();
   });
 
+  it("preloads authored starting pools and effects for every quest teammate", async () => {
+    const client = await getTestDatabase();
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, retryDelay: "none", content: {
+      objectives: [AllObjectives.parse({ id: "encounter", task: "start_battle", opponentAIs: [{ ids: ["enemy"], number: 1 }], givePools: 25, applyBuffs: [getTagSchema("shield").parse({ power: 100, health: 500, rounds: 3 })] })],
+      reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [],
+    } }]);
+    const leader = await callerFor(questPartyRouter, "leader");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    expect((await leader.startEncounter({ partyId: party.id })).success).toBe(true);
+    const fight = (await client.query.battle.findFirst())!;
+    expect(fight.extraState.questBattleSource).toEqual({ questId: "team-quest", objectiveId: "encounter" });
+    for (const player of fight.usersState.filter((entry) => !entry.isAi && !entry.isSummon)) {
+      expect(player.curHealth).toBe(player.maxHealth / 4);
+      expect(player.curChakra).toBe(player.maxChakra / 4);
+      expect(player.curStamina).toBe(player.maxStamina / 4);
+      expect(fight.usersEffects).toContainEqual(expect.objectContaining({ targetId: player.userId, type: "shield", power: 500, rounds: 3 }));
+    }
+  });
   it("releases a settled team encounter when a member enters unrelated PvP", async () => {
     const client = await getTestDatabase();
     await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, retryDelay: "none", content: {

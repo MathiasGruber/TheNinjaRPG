@@ -483,6 +483,9 @@ const teamQuestBlock = (
     !QUEST_PARTY_TYPES.some((type) => type === definition.questType)
   )
     return "Content staff have not enabled teams for this quest";
+  // Entry receipts belong to personal runs; a shared projection must not bypass their fee.
+  if (definition.content.entryItems?.length)
+    return "Quests with entry items require a solo run";
   return null;
 };
 
@@ -707,8 +710,9 @@ export const startQuestPartyEncounter = async ({
   const party = user?.questParty;
   if (!user || !party || party.id !== partyId || party.leaderId !== userId)
     return errorResponse("Only the team leader can start encounters");
-  if (user.isBanned || !party.quest.teamEnabled || party.tracker.failed)
-    return errorResponse("This team cannot start encounters");
+  const block = teamQuestBlock(user, party.quest);
+  if (block || party.tracker.failed)
+    return errorResponse(block ?? "This team cannot start encounters");
   if (party.battleId)
     return errorResponse("The team's encounter is already starting or in progress");
   const objectiveIds = new Set(party.quest.content.objectives.map((entry) => entry.id));
@@ -789,6 +793,14 @@ export const startQuestPartyEncounter = async ({
           scaleTarget: ambush?.scaleStats ?? objective?.opponent_scaled_to_user,
           forceKeepPools:
             ambush?.forceKeepPools ?? objective?.keepOriginalPools ?? false,
+          questBattleSource: objective
+            ? { questId: party.questId, objectiveId: objective.id }
+            : undefined,
+          givePools: ambush?.givePools ?? objective?.givePools,
+          startingEffects: ambush?.startingEffects ?? [
+            ...(objective?.applyBuffs ?? []),
+            ...(objective?.applyDebuffs ?? []),
+          ],
           autoCombatUserIds: party.members
             .filter((member) => member.defaultAutoCombat)
             .map((member) => member.userId),

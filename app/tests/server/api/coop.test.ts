@@ -32,6 +32,23 @@ describeWithDatabase("co-op activity adapters", () => {
     await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [AllObjectives.parse({ id: "train", task: "stats_trained", value: 100 })], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
   });
   afterEach(() => vi.restoreAllMocks());
+  it("rejects personal entry items before creating a team or joining an edited quest", async () => {
+    const db = await getTestDatabase();
+    const caller = await callerFor(coopRouter, "leader");
+    const definition = (await db.query.quest.findFirst({ where: eq(quest.id, "team-quest") }))!;
+    const paidContent = { ...definition.content, entryItems: [{ ids: ["ticket"], number: 1 }] };
+    await db.update(quest).set({ content: paidContent }).where(eq(quest.id, definition.id));
+    expect(await caller.quest.create({ questId: definition.id, isPublic: true })).toMatchObject({ success: false, message: expect.stringContaining("solo") });
+    expect(await db.query.questParty.findFirst()).toBeUndefined();
+    await db.update(quest).set({ content: definition.content }).where(eq(quest.id, definition.id));
+    expect((await caller.quest.create({ questId: definition.id, isPublic: true })).success).toBe(true);
+    const party = (await db.query.questParty.findFirst())!;
+    await insertUsers([{ userId: "joiner", username: "joiner", status: "AWAKE" }]);
+    await db.update(quest).set({ content: paidContent }).where(eq(quest.id, definition.id));
+    expect(await (await callerFor(coopRouter, "joiner")).quest.join({ partyId: party.id })).toMatchObject({ success: false, message: expect.stringContaining("solo") });
+    expect(await caller.quest.startEncounter({ partyId: party.id })).toMatchObject({ success: false, message: expect.stringContaining("solo") });
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "joiner") }))?.questPartyId).toBeNull();
+  });
   it.each(["quest", "dungeon"] as const)("retains independent membership scopes when %s is created first", async (first) => {
     const caller = await callerFor(coopRouter, "leader");
     const createQuest = () => caller.quest.create({ questId: "team-quest", isPublic: true });

@@ -3895,6 +3895,12 @@ const executeClaimedQuestConsequences = async ({
 }) => {
   user.updatedAt = claimedAt;
   const collectedItems = collected.flatMap(({ ids }) => ids);
+  // Combat preloads trackers without the live party relation; both carry receipt ownership.
+  const partyQuestId =
+    user.questParty?.questId ??
+    user.questData?.find(
+      (tracker) => tracker.party && tracker.party.id === user.questPartyId,
+    )?.id;
   const closeQuests =
     endedQuestIds.length > 0
       ? client
@@ -3904,6 +3910,15 @@ const executeClaimedQuestConsequences = async ({
             and(
               inArray(questHistory.questId, endedQuestIds),
               eq(questHistory.userId, user.userId),
+              // Team helpers and finished members retain their personal reward receipts.
+              ...(partyQuestId
+                ? [
+                    or(
+                      ne(questHistory.questId, partyQuestId),
+                      eq(questHistory.completed, 0),
+                    ),
+                  ]
+                : []),
             ),
           )
       : undefined;
@@ -3923,12 +3938,15 @@ const executeClaimedQuestConsequences = async ({
             // edges to quests that cannot be personally assigned; skip those destinations.
             const startable = quests.filter(
               (q) =>
-                !user.userQuests.some(
-                  (entry) =>
-                    entry.questId === q.id &&
-                    !entry.endAt &&
-                    entry.id !== `party-${user.questPartyId}`,
-                ) &&
+                // Managed runs must reach upsertQuestEntry's persisted recovery guards.
+                (q.questType === "battlepyramid" ||
+                  q.content.entryItems?.length ||
+                  !user.userQuests.some(
+                    (entry) =>
+                      entry.questId === q.id &&
+                      !entry.endAt &&
+                      entry.id !== `party-${user.questPartyId}`,
+                  )) &&
                 !isNpcOnlyQuestType(q.questType) &&
                 q.questType !== "village_mission" &&
                 !(q.questType === "mission" && q.questRank === "S"),

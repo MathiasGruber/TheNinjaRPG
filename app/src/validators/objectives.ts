@@ -864,10 +864,14 @@ const questSuperRefine = (
       message: "Entry items require a battle objective",
     });
   }
-  if (val.teamEnabled && !QUEST_PARTY_TYPES.some((type) => type === val.questType)) {
+  if (
+    val.teamEnabled &&
+    (!QUEST_PARTY_TYPES.some((type) => type === val.questType) ||
+      val.content.entryItems.length > 0)
+  ) {
     ctx.addIssue({
       code: "custom",
-      message: "Quest teams support Story, Event and ANBU quests",
+      message: "Quest teams support Story, Event and ANBU quests without entry items",
       path: ["teamEnabled"],
     });
   }
