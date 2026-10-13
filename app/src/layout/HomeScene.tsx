@@ -32,6 +32,7 @@ import Modal from "@/layout/Modal";
 import { getDefaultHomeLayout, type HomeFurniture } from "@/libs/home";
 import { cn } from "@/libs/shadui";
 import { bunnyImageUrl } from "@/utils/image";
+import { clamp } from "@/utils/math";
 import type { HomePlacement } from "@/validators/home";
 
 /** A furnished residence with a reversible editor; the page owns persistence and game actions. */
@@ -728,9 +729,10 @@ const HOME_FLOOR_PROJECTION = {
 
 /** Keep a furniture anchor inside the usable floor, including keyboard and cancelled drags. */
 const clampPosition = (value: number) =>
-  Math.max(
+  clamp(
+    Math.round(value * 100) / 100,
     HOME_FURNITURE_POSITION_MIN,
-    Math.min(HOME_FURNITURE_POSITION_MAX, Math.round(value * 100) / 100),
+    HOME_FURNITURE_POSITION_MAX,
   );
 
 /** Keyboard and toolbar movement follow the overhead camera's horizontal and vertical axes. */
