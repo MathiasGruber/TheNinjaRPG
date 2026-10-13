@@ -410,6 +410,7 @@ export const staffRouter = createTRPCRouter({
         }),
         // Drizzle has no joined UPDATE builder. Cancel the run and release its status
         // together; LEFT JOIN also recovers players without any Pyramid history.
+        // Advance the live snapshot so in-flight objectives cannot restart the cancelled run.
         ctx.drizzle.execute(sql`
           UPDATE ${userData}
           LEFT JOIN ${questHistory} ON ${and(
@@ -420,7 +421,8 @@ export const staffRouter = createTRPCRouter({
           )}
           SET ${userData.status} = 'AWAKE', ${userData.travelFinishAt} = NULL,
               ${userData.battleId} = NULL, ${questHistory.completed} = 0,
-              ${questHistory.endAt} = ${new Date()}
+              ${questHistory.endAt} = ${new Date()},
+              ${userData.updatedAt} = GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))
           WHERE ${userData.userId} = ${targetUser.userId}
         `),
         // Clean up raid/clan/shrine battle queue

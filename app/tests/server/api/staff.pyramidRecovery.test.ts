@@ -5,10 +5,11 @@ import { Pusher } from "@/libs/pusher";
 import { getIsolatedPyramid } from "@/libs/questRun";
 import { profileRouter } from "@/server/api/routers/profile";
 import { staffRouter } from "@/server/api/routers/staff";
+import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { DialogObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertQuestHistory, insertQuests, insertUsers } from "../../setup/factories";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables, runRawSql } from "../../setup/testDatabase";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables, runRawSql } from "../../setup/testDatabase";
 
 describeWithDatabase("staff Pyramid recovery", () => {
   beforeEach(async () => {
@@ -34,6 +35,7 @@ describeWithDatabase("staff Pyramid recovery", () => {
   for (const table of [userData, questHistory]) {
     it(`keeps isolation and status intact when ${getTableName(table)} fails`, async () => {
       const client = await getTestDatabase();
+      const snapshot = await client.query.userData.findFirst({ where: eq(userData.userId, "hero") });
       await runRawSql(`CREATE TRIGGER staff_recovery_failure BEFORE UPDATE ON \`${getTableName(table)}\` FOR EACH ROW BEGIN IF OLD.userId = 'hero' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Recovery write failed'; END IF; END`);
       const caller = await callerFor(staffRouter, "staff");
       await expect(caller.forceAwake({ userId: "hero", reason: "Recover a stranded player" })).rejects.toThrow("Failed query");
@@ -42,6 +44,7 @@ describeWithDatabase("staff Pyramid recovery", () => {
         client.query.questHistory.findFirst({ where: eq(questHistory.id, "attempt") }),
       ]);
       expect(stored).toMatchObject({ status: "BATTLE", battleId: null, curHealth: 100 });
+      expect(stored?.updatedAt).toEqual(snapshot?.updatedAt);
       expect(history).toMatchObject({ completed: 0, endAt: null, isolated: true });
       await runRawSql("DROP TRIGGER staff_recovery_failure");
       const profile = await (await callerFor(profileRouter, "hero")).getUser();
@@ -54,10 +57,13 @@ describeWithDatabase("staff Pyramid recovery", () => {
     it(`recovers a player ${hasRun ? "with" : "without"} Pyramid history and preserves logging and queue cleanup`, async () => {
       const client = await getTestDatabase();
       if (!hasRun) await resetTables(questHistory);
+      const snapshot = await client.query.userData.findFirst({ where: eq(userData.userId, "hero") });
       await client.insert(rankedPvpQueue).values({ id: "queued", userId: "hero", rankedLp: 100 });
       const result = await (await callerFor(staffRouter, "staff")).forceAwake({ userId: "hero", reason: "Recover a stranded player" });
       expect(result.success).toBe(true);
-      expect(await client.query.userData.findFirst({ where: eq(userData.userId, "hero") })).toMatchObject({ status: "AWAKE", battleId: null, travelFinishAt: null });
+      const stored = await client.query.userData.findFirst({ where: eq(userData.userId, "hero") });
+      expect(stored).toMatchObject({ status: "AWAKE", battleId: null, travelFinishAt: null });
+      expect(stored!.updatedAt.getTime()).toBeGreaterThan(snapshot!.updatedAt.getTime());
       if (hasRun) {
         const history = await client.query.questHistory.findFirst({ where: eq(questHistory.id, "attempt") });
         expect(history?.completed).toBe(0);
@@ -67,4 +73,29 @@ describeWithDatabase("staff Pyramid recovery", () => {
       expect(await client.query.actionLog.findMany()).toEqual([expect.objectContaining({ userId: "staff", relatedId: "hero" })]);
     });
   }
+
+  it.each([false, true])("invalidates the live snapshot ahead of the wall clock with concurrent claim=%s", async concurrentClaim => {
+    const db = await getTestDatabase();
+    const snapshotAt = new Date(Date.now() + 60_000);
+    await db.update(userData).set({ updatedAt: snapshotAt }).where(eq(userData.userId, "hero"));
+    let liveSnapshotAt = snapshotAt;
+    const client = new Proxy(db, { get(target, property, receiver) {
+      if (property === "execute") return async (...args: Parameters<typeof target.execute>) => {
+        if (concurrentClaim) {
+          // Advance after staff's initial read so recovery must use the persisted version.
+          const claim = await claimUserSnapshot({ client: target, userId: "hero", updatedAt: snapshotAt });
+          expect(claim.success).toBe(true);
+          liveSnapshotAt = claim.claimedAt;
+        }
+        return target.execute(...args);
+      };
+      return Reflect.get(target, property, receiver);
+    } });
+    const result = await callerForDatabase(staffRouter, "staff", client).forceAwake({ userId: "hero", reason: "Recover a stranded player" });
+    const stored = await db.query.userData.findFirst({ where: eq(userData.userId, "hero") });
+    expect(result.success).toBe(true);
+    expect(stored?.status).toBe("AWAKE");
+    expect(stored?.updatedAt.getTime()).toBe(liveSnapshotAt.getTime() + 1);
+    expect((await claimUserSnapshot({ client: db, userId: "hero", updatedAt: liveSnapshotAt, set: { status: "BATTLE" } })).success).toBe(false);
+  });
 });

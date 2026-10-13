@@ -4,6 +4,7 @@ import { quest, questHistory, userData } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { questsRouter, handleQuestConsequences } from "@/server/api/routers/quests";
+import { staffRouter } from "@/server/api/routers/staff";
 import { createTRPCRouter } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { DialogObjective, InstantNewQuestObjective, QuestTracker, SimpleObjective } from "@/validators/objectives";
@@ -76,5 +77,35 @@ describeWithDatabase("Pyramid consequence publication", () => {
     const name = active[0]!.questId === "p1" ? "P1" : "P2";
     expect(result.notifications.filter(message => message.startsWith("Started new quest:"))).toEqual([`Started new quest: ${name}`]);
     expect(result.notifications.filter(message => message.startsWith("Could not start"))).toHaveLength(1);
+  });
+
+  it.each(["p1", "p2"])("staff recovery prevents an in-flight objective from restarting %s", async destination => {
+    const db = await getTestDatabase();
+    await insertUsers([{ userId: "staff", username: "recovery-staff", role: "OWNER" }]);
+    const grant = InstantNewQuestObjective.parse({ id: "grant", task: "new_quest", newQuestIds: [destination], nextObjectiveId: "hold" });
+    await db.update(quest).set({ content: { ...base, objectives: [entry, grant, hold, later] } }).where(eq(quest.id, "p1"));
+    const p1 = await db.query.quest.findFirst({ where: eq(quest.id, "p1") });
+    await db.update(questHistory).set({ questVersion: p1!.updatedAt }).where(eq(questHistory.id, "p1-attempt"));
+    await db.update(userData).set({ questData: [QuestTracker.parse({ id: "p1", startAt: new Date().toISOString(), goals: [{ id: "entry", value: 0 }] })] }).where(eq(userData.userId, "hero"));
+    let rescued = false;
+    const client = new Proxy(db, { get(target, property, receiver) {
+      if (property === "query") return { ...target.query, quest: { ...target.query.quest, findMany: async (...args: Parameters<typeof target.query.quest.findMany>) => {
+        const rows = await target.query.quest.findMany(...args);
+        if (!rescued && rows.some(row => row.id === destination)) {
+          rescued = true;
+          expect((await (await callerFor(staffRouter, "staff")).forceAwake({ userId: "hero", reason: "Cancel a stranded Pyramid" })).success).toBe(true);
+          expect(await activeRows(db)).toHaveLength(0);
+          expect((await state(db))?.status).toBe("AWAKE");
+        }
+        return rows;
+      } } };
+      return Reflect.get(target, property, receiver);
+    } });
+    const result = await callerForDatabase(router, "hero", client).quests.checkRewards({ questId: "p1", nextObjectiveId: "grant" });
+    expect(rescued).toBe(true);
+    expect(await activeRows(db)).toHaveLength(0);
+    expect((await state(db))?.status).toBe("AWAKE");
+    expect(result.success).toBe(true);
+    expect(result.notifications).toEqual([expect.stringContaining(`Could not start ${destination === "p1" ? "P1" : "P2"}`)]);
   });
 });
