@@ -155,18 +155,81 @@ describe("furniture directional content editor", () => {
     expect(view.queryByRole("spinbutton")).toBeNull();
   });
 
-  it.each([{ disabled: true }, { canEdit: false }])(
-    "blocks image and framing changes while unavailable: %j",
-    (unavailable) => {
-      const view = render(<FurnitureViewsEditor {...props} {...unavailable} />);
-      selectTurn(view, 90);
-      expect(selector.disabled).toBe(true);
-      selector.onUploadComplete("https://example.com/stale.webp");
-      fireEvent.input(view.getByRole("spinbutton", { name: "Scene width (%)" }), {
-        target: { value: "20" },
-      });
-      fireEvent.click(view.queryByRole("button", { name: "Remove this view" }) ??
-        view.getByRole("tab", { name: "90°" }));
+  it("lets staff prepare framing suggestions without permission to change images", () => {
+    const view = render(<FurnitureViewsEditor {...props} canEdit={false} />);
+    expect(selector.allowImageUpload).toBe(false);
+    expect(selector.disabled).toBe(true);
+    selector.onUploadComplete("https://example.com/blocked-original.webp");
+    expect(onBaseChange).not.toHaveBeenCalled();
+
+    const originalWidth = view.getByRole("spinbutton", {
+      name: "Scene width (%)",
+    }) as HTMLInputElement;
+    const originalAnchor = view.getByRole("spinbutton", {
+      name: "Ground anchor (%)",
+    }) as HTMLInputElement;
+    expect(originalWidth.disabled).toBe(false);
+    expect(originalAnchor.disabled).toBe(false);
+    fireEvent.input(originalWidth, { target: { value: "32" } });
+    expect(onBaseChange).toHaveBeenLastCalledWith({ width: 32 });
+    fireEvent.input(originalAnchor, { target: { value: "91" } });
+    expect(onBaseChange).toHaveBeenLastCalledWith({ groundAnchor: 91 });
+
+    selectTurn(view, 90);
+    expect(selector.imageUrl).toBe(turns["90"]?.image);
+    expect(selector.allowImageUpload).toBe(false);
+    expect(selector.disabled).toBe(true);
+    expect(view.queryByRole("button", { name: "Remove this view" })).toBeNull();
+    selector.onUploadComplete("https://example.com/blocked-turn.webp");
+    expect(onViewsChange).not.toHaveBeenCalled();
+
+    const turnWidth = view.getByRole("spinbutton", {
+      name: "Scene width (%)",
+    }) as HTMLInputElement;
+    const turnAnchor = view.getByRole("spinbutton", {
+      name: "Ground anchor (%)",
+    }) as HTMLInputElement;
+    expect(turnWidth.value).toBe("17");
+    expect(turnAnchor.value).toBe("86");
+    expect(turnWidth.disabled).toBe(false);
+    expect(turnAnchor.disabled).toBe(false);
+    fireEvent.input(turnWidth, { target: { value: "19.5" } });
+    expect(onViewsChange).toHaveBeenLastCalledWith({
+      ...turns,
+      "90": { ...turns["90"], width: 19.5 },
+    });
+    fireEvent.input(turnAnchor, { target: { value: "88" } });
+    expect(onViewsChange).toHaveBeenLastCalledWith({
+      ...turns,
+      "90": { ...turns["90"], groundAnchor: 88 },
+    });
+    expect(onViewsChange).toHaveBeenCalledTimes(2);
+    expect(onBaseChange).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([true, false])(
+    "blocks image and framing changes while saving (canEdit=%s)",
+    (canEdit) => {
+      const view = render(
+        <FurnitureViewsEditor {...props} canEdit={canEdit} disabled />,
+      );
+      for (const degrees of [0, 90]) {
+        if (degrees) selectTurn(view, degrees);
+        expect(selector.disabled).toBe(true);
+        selector.onUploadComplete("https://example.com/stale.webp");
+        for (const name of ["Scene width (%)", "Ground anchor (%)"]) {
+          const input = view.getByRole("spinbutton", { name }) as HTMLInputElement;
+          expect(input.disabled).toBe(true);
+          fireEvent.input(input, { target: { value: "20" } });
+        }
+        const remove = view.queryByRole("button", {
+          name: "Remove this view",
+        }) as HTMLButtonElement | null;
+        if (remove) {
+          expect(remove.disabled).toBe(true);
+          fireEvent.click(remove);
+        }
+      }
       expect(onViewsChange).not.toHaveBeenCalled();
       expect(onBaseChange).not.toHaveBeenCalled();
     },

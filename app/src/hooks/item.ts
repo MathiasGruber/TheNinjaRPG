@@ -16,7 +16,6 @@ import {
 import type { CraftingRequirement, Item } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
 import { EVOLUTION_STAT_FORM_FIELDS } from "@/libs/evolution";
-import { FURNITURE_IMAGE_PROMPT } from "@/libs/imagePrompts";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags, ZodItemInput, ZodItemType } from "@/validators/combat";
@@ -183,14 +182,7 @@ export const useItemEditForm = (
 
   const formData: FormEntry<Path<ZodItemType>>[] = [
     { id: "name", label: "Item Name", type: "text" },
-    {
-      id: "image",
-      type: "avatar",
-      href: imageUrl,
-      ...(isFurniture
-        ? { size: "landscape" as const, maxDim: 768, preprompt: FURNITURE_IMAGE_PROMPT }
-        : {}),
-    },
+    { id: "image", type: "avatar", href: imageUrl },
     { id: "itemType", type: "str_array", values: ItemTypes },
     { id: "rarity", type: "str_array", values: ItemRarities },
     { id: "slot", type: "str_array", values: ItemSlotTypes },

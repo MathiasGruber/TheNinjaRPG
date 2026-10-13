@@ -40,10 +40,11 @@ export function FurnitureViewsEditor({
   const viewKey = degrees === 0 ? null : degrees;
   const selectedImage = viewKey ? views[viewKey]?.image : image;
   const framing = getHomeFurnitureView({ image, width, groundAnchor, views }, rotation);
-  const isDisabled = disabled || !canEdit;
+  const isImageDisabled = disabled || !canEdit;
 
+  // Staff can adjust framing in suggestion drafts without permission to change images.
   const changeFraming = (field: "width" | "groundAnchor", value: number) => {
-    if (isDisabled) return;
+    if (disabled) return;
     if (viewKey) {
       const view = views[viewKey];
       if (view) onViewsChange({ ...views, [viewKey]: { ...view, [field]: value } });
@@ -110,12 +111,12 @@ export function FurnitureViewsEditor({
             emptyImageLabel="Generate or upload this view"
             referenceImageUrl={rotation === 0 ? undefined : image || undefined}
             allowImageUpload={canEdit}
-            disabled={isDisabled || (rotation !== 0 && !image)}
+            disabled={isImageDisabled || (rotation !== 0 && !image)}
             type="item"
             size={rotation === 1 || rotation === 3 ? "portrait" : "landscape"}
             maxDim={768}
             onUploadComplete={(url) => {
-              if (isDisabled) return;
+              if (isImageDisabled) return;
               if (viewKey)
                 onViewsChange({
                   ...views,
@@ -134,7 +135,7 @@ export function FurnitureViewsEditor({
                   min={HOME_FURNITURE_MIN_WIDTH}
                   max={HOME_FURNITURE_MAX_WIDTH}
                   step="any"
-                  disabled={isDisabled}
+                  disabled={disabled}
                   onValueChange={(value) => changeFraming("width", value)}
                 />
               </div>
@@ -146,7 +147,7 @@ export function FurnitureViewsEditor({
                   min={1}
                   max={100}
                   step="any"
-                  disabled={isDisabled}
+                  disabled={disabled}
                   onValueChange={(value) => changeFraming("groundAnchor", value)}
                 />
               </div>
