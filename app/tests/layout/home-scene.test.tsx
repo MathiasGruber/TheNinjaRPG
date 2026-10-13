@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { type ImgHTMLAttributes, type ComponentProps, useState } from "react";
 import { HOME_FURNITURE_MAX_PLACEMENTS, HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
 import { HomeScene as ResidenceScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
-import { getDefaultHomeLayout, homeLayoutPlacementError, type HomeFurniture, unprojectHomePlacement } from "@/libs/home";
+import { homeLayoutPlacementError, type HomeFurniture, unprojectHomePlacement } from "@/libs/home";
 import { HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
 import { bunnyImageUrl } from "@/utils/image";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
@@ -52,7 +52,12 @@ const props = {
   onKitchen: vi.fn(),
   onFarm: vi.fn(),
   furniture: starterFurniture,
-  layout: getDefaultHomeLayout(starterFurniture),
+  layout: [
+    { id: "owned-bed", x: 22, y: 15.15, rotation: 0 as const },
+    { id: "owned-armory", x: 75, y: 15.15, rotation: 0 as const },
+    { id: "owned-kitchen", x: 76, y: 57.58, rotation: 0 as const },
+    { id: "owned-garden", x: 86, y: 90.91, rotation: 0 as const },
+  ],
 };
 
 /** Regression coverage for residence navigation, owner access, and artwork recovery. */
@@ -216,14 +221,14 @@ describe("Home scene", () => {
   it("skips missing directions and recovers removed artwork through the canonical view", async () => {
     const bedDefinition = { ...starterFurniture[0]!, views: { "180": { image: "/bed-180.webp", width: 20 } } };
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
-    const view = render(<HomeScene {...props} furniture={[bedDefinition]} layout={getDefaultHomeLayout([bedDefinition])} canDecorate onSave={onSave} />);
+    const view = render(<HomeScene {...props} furniture={[bedDefinition]} layout={[props.layout[0]!]} canDecorate onSave={onSave} />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     const bed = view.getByRole("button", { name: "Move Bed" });
     const rotate = view.getByRole("button", { name: "Rotate clockwise" }) as HTMLButtonElement;
     fireEvent.click(rotate);
     expect(rotate.getAttribute("aria-description")).toContain("180°");
     expect(bed.querySelector("img")?.getAttribute("src")).toBe("/bed-180.webp");
-    view.rerender(<HomeScene {...props} furniture={[{ ...bedDefinition, views: {} }]} layout={getDefaultHomeLayout([bedDefinition])} canDecorate onSave={onSave} />);
+    view.rerender(<HomeScene {...props} furniture={[{ ...bedDefinition, views: {} }]} layout={[props.layout[0]!]} canDecorate onSave={onSave} />);
     expect(bed.querySelector("img")?.getAttribute("src")).toBe(bunnyImageUrl(bedDefinition.image, 400));
     expect(rotate.disabled).toBe(false);
     fireEvent.click(rotate);

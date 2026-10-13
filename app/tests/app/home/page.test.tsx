@@ -14,7 +14,7 @@ import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
 import * as Link from "@/layout/Link";
 import * as Modal from "@/layout/Modal";
-import { getDefaultHomeLayout, type HomeFurniture } from "@/libs/home";
+import type { HomeFurniture } from "@/libs/home";
 import * as RamenShop from "@/layout/RamenShop";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
@@ -157,7 +157,7 @@ for (const success of [true, false]) {
       storage: HomeTypeDetails.NONE.storage,
       furniture,
       furnitureRevision: 3,
-      layout: getDefaultHomeLayout(furniture),
+      layout: [{ id: "owned-bed", x: 22, y: 15.15, rotation: 0 }],
     };
     const save = vi.fn((draft: RouterInputs["home"]["saveFurnitureLayout"]) => {
       if (success) {
@@ -264,7 +264,7 @@ it("opens home management from the header and waits for refreshed inventory befo
   let homeQueries = 0;
   const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
     homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-    furniture: [...furniture], furnitureRevision: 3, layout: getDefaultHomeLayout(furniture),
+    furniture: [...furniture], furnitureRevision: 3, layout: [{ id: "owned-bed", x: 22, y: 15.15, rotation: 0 }],
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
@@ -329,7 +329,7 @@ it("opens the kitchen with owned artwork or its fallback and returns focus to it
       if (op.path === "home.getUserHome") {
         observer.next({ result: { data: {
           homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-          furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, layout: hasKitchen ? getDefaultHomeLayout([kitchen]) : [],
+          furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, layout: hasKitchen ? [{ id: kitchen.id, x: 76, y: 57.58, rotation: 0 }] : [],
         } } });
       } else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") {
         observer.next({ result: { data: [] } });

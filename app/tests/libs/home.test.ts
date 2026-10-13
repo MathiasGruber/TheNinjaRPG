@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { HOME_FURNITURE_MAX_PLACEMENTS, HOME_FURNITURE_STARTERS } from "@/drizzle/constants";
-import { DEFAULT_HOME_FURNITURE_GEOMETRY, clampHomeFurniturePlacement, fitHomeFurniturePlacement, getDefaultHomeLayout, getHomeLayout, getHomeFurnitureGeometry, getHomeFurnitureRotations, getHomeFurnitureView, homeLayoutOrientationError, homeLayoutOwnershipError, homeLayoutPlacementError, projectHomePlacement, recoverHomeLayout, unprojectHomePlacement, type HomeFurniture } from "@/libs/home";
+import { HOME_FURNITURE_MAX_PLACEMENTS } from "@/drizzle/constants";
+import { DEFAULT_HOME_FURNITURE_GEOMETRY, clampHomeFurniturePlacement, fitHomeFurniturePlacement, getHomeLayout, getHomeFurnitureGeometry, getHomeFurnitureRotations, getHomeFurnitureView, homeLayoutOrientationError, homeLayoutOwnershipError, homeLayoutPlacementError, projectHomePlacement, recoverHomeLayout, unprojectHomePlacement, type HomeFurniture } from "@/libs/home";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
 import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 
@@ -8,10 +8,6 @@ const fixture = (id: string, patch: Partial<HomeFurniture> = {}): HomeFurniture 
   id, itemId: `content-${id}`, name: id, description: "Furniture", image: "/furniture.webp",
   width: 24, groundAnchor: 100, action: null, isFloor: false, quantity: 1, views: {}, ...patch,
 });
-const actions = ["sleep", "storage", "kitchen", "farm"] as const;
-const furniture = HOME_FURNITURE_STARTERS.map((starter, index) => fixture(`owned-${index}`, {
-  itemId: starter.itemId, action: actions[index],
-}));
 const placement = (id: string) => ({ id, x: 50, y: 50, rotation: 0 as const });
 
 describe("owned furniture layouts", () => {
@@ -27,37 +23,6 @@ describe("owned furniture layouts", () => {
     expect(getHomeFurnitureView(piece, 3)).toEqual({ image: "/cabinet-270.webp", width: 24, groundAnchor: 85, geometry: DEFAULT_HOME_FURNITURE_GEOMETRY });
     expect(homeLayoutOrientationError([{ ...placement(piece.id), rotation: 1 }], [piece])).toBeNull();
     expect(homeLayoutOrientationError([{ ...placement(piece.id), rotation: 2 }], [piece])).toContain("no longer available");
-  });
-
-  it("resets owned fixtures using UserItem identities and starter positions", () => {
-    expect(getDefaultHomeLayout(furniture)).toEqual(HOME_FURNITURE_STARTERS.map((starter, index) => ({
-      id: `owned-${index}`, x: starter.x, y: starter.y, rotation: 0,
-    })));
-    expect(getDefaultHomeLayout([])).toEqual([]);
-    expect(homeLayoutOwnershipError(getDefaultHomeLayout(furniture), furniture)).toBeNull();
-  });
-
-  it("uses content-authored action fixtures when starter content is unavailable", () => {
-    const custom = actions.map((action) => fixture(`custom-${action}`, { action }));
-    expect(getDefaultHomeLayout(custom).map(({ id }) => id)).toEqual(custom.map(({ id }) => id));
-    expect(getDefaultHomeLayout([fixture("custom-rug", { isFloor: true })])).toEqual([]);
-  });
-
-  it("prefers the starter content and leaves extra copies available in storage", () => {
-    const duplicate = fixture("extra-bed", { itemId: "home-bed", action: "sleep" });
-    const roleFallback = fixture("custom-bed", { action: "sleep" });
-    expect(getDefaultHomeLayout([roleFallback, ...furniture, duplicate]).map(({ id }) => id)).toEqual(furniture.map(({ id }) => id));
-  });
-
-  it("uses a starter's current action without placing the same owned row twice", () => {
-    const changedBed = fixture("changed-bed", { itemId: "home-bed", action: "storage" });
-    const layout = getDefaultHomeLayout([changedBed, ...furniture.slice(2)]);
-    const storagePosition = HOME_FURNITURE_STARTERS[1]!;
-    expect(layout).toEqual([
-      { id: changedBed.id, x: storagePosition.x, y: storagePosition.y, rotation: 0 },
-      ...getDefaultHomeLayout(furniture.slice(2)),
-    ]);
-    expect(homeFurnitureSaveInputSchema.safeParse({ homeType: "NONE", revision: 0, placements: layout }).success).toBe(true);
   });
 
   it("loads only complete positions into independent drafts and normalizes rotation", () => {

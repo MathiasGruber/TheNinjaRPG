@@ -3,7 +3,6 @@ import {
   HOME_FURNITURE_POSITION_MIN,
   HOME_FURNITURE_ROTATION_DEGREES,
   HOME_FURNITURE_ROTATIONS,
-  HOME_FURNITURE_STARTERS,
   type HomeFurnitureAction,
   type HomeFurnitureRotation,
   type HomeType,
@@ -246,20 +245,6 @@ export const recoverHomeLayout = (
     if (fitted) recovered.push(fitted);
   }
   return recovered;
-};
-
-/** Reset only owned action fixtures; additional decorations remain available in storage. */
-export const getDefaultHomeLayout = (furniture: HomeFurniture[]): HomePlacement[] => {
-  const actions: HomeFurnitureAction[] = ["sleep", "storage", "kitchen", "farm"];
-  return HOME_FURNITURE_STARTERS.flatMap((starter, index) => {
-    const fixture =
-      furniture.find(
-        (piece) => piece.itemId === starter.itemId && piece.action === actions[index],
-      ) ?? furniture.find((piece) => piece.action === actions[index]);
-    return fixture
-      ? [{ id: fixture.id, x: starter.x, y: starter.y, rotation: 0 as const }]
-      : [];
-  });
 };
 
 /** Null coordinates keep an owned item unplaced without a second inventory or layout document. */
