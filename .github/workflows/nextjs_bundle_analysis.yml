@@ -127,6 +127,10 @@ jobs:
         if: success() && github.event.number
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         run: |
+          # The analyzer leaves the report empty when bundle sizes are unchanged.
+          if [ ! -s .next/analyze/__bundle_analysis_comment.txt ]; then
+            exit 0
+          fi
           {
             echo "body<<EOF"
             cat .next/analyze/__bundle_analysis_comment.txt
@@ -136,22 +140,23 @@ jobs:
 
       - name: Find Comment
         uses: peter-evans/find-comment@v4
-        if: success() && github.event.number
+        if: success() && github.event.number && steps.get-comment-body.outputs.body != ''
         id: fc
         with:
           issue-number: ${{ github.event.number }}
-          body-includes: "<!-- __NEXTJS_BUNDLE -->"
+          comment-author: "github-actions[bot]"
+          body-includes: "<!-- __NEXTJS_BUNDLE_tnr -->"
 
       - name: Create Comment
         uses: peter-evans/create-or-update-comment@v5
-        if: success() && github.event.number && steps.fc.outputs.comment-id == 0
+        if: success() && github.event.number && steps.get-comment-body.outputs.body != '' && steps.fc.outputs.comment-id == 0
         with:
           issue-number: ${{ github.event.number }}
           body: ${{ steps.get-comment-body.outputs.body }}
 
       - name: Update Comment
         uses: peter-evans/create-or-update-comment@v5
-        if: success() && github.event.number && steps.fc.outputs.comment-id != 0
+        if: success() && github.event.number && steps.get-comment-body.outputs.body != '' && steps.fc.outputs.comment-id != 0
         with:
           issue-number: ${{ github.event.number }}
           body: ${{ steps.get-comment-body.outputs.body }}
