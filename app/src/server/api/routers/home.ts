@@ -501,7 +501,6 @@ const homeFurnitureDetails = (
     id: owned.id,
     itemId: owned.itemId,
     name: content.name,
-    description: content.description,
     image: content.image,
     width: data.width,
     groundAnchor: data.groundAnchor,

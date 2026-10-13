@@ -21,7 +21,6 @@ export type HomeFurniture = {
   id: string;
   itemId: string;
   name: string;
-  description: string;
   image: string;
   width: number;
   groundAnchor: number;

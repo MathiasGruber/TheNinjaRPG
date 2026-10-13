@@ -65,7 +65,7 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(home?.furniture).toHaveLength(4);
     expect(home?.furniture.find(({ id }) => id === "cabinet-a")).toMatchObject({
       itemId: "cabinet", name: "Crimson Cabinet", image: "/crimson-cabinet.webp",
-      description: "A cabinet with red lacquer", width: 28, groundAnchor: 92, quantity: 1, views: {},
+      width: 28, groundAnchor: 92, quantity: 1, views: {},
     });
     expect(home?.furniture.find(({ id }) => id === "cabinet-b")?.image).toBe("/cabinet.webp");
     expect(home?.furniture.find(({ id }) => id === "rug-row")?.isFloor).toBe(true);

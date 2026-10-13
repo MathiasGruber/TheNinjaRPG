@@ -33,13 +33,13 @@ const HomeScene = (props: Omit<ComponentProps<typeof ResidenceScene>, "isDecorat
 };
 
 const starterFurniture: HomeFurniture[] = [
-  { id: "owned-bed", itemId: "home-bed", name: "Bed", description: "Rest", image: "https://ui0arpl8sm.ufs.sh/f/V2umBvRsN1p0ECHU5FA5r.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1, views: {} },
-  { id: "owned-armory", itemId: "home-armory", name: "Armory", description: "Storage", image: "https://ui0arpl8sm.ufs.sh/f/EyNeihgG6GdMTMBcOC9JA.webp", width: 24, groundAnchor: 95.8, action: "storage", isFloor: false, quantity: 1, views: {} },
-  { id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen", description: "Ramen", image: "https://ui0arpl8sm.ufs.sh/f/i520XbXoRXRYIZrNImg62.webp", width: 32, groundAnchor: 89.1, action: "kitchen", isFloor: false, quantity: 1, views: {} },
-  { id: "owned-garden", itemId: "home-garden", name: "Garden", description: "Farm", image: "https://ui0arpl8sm.ufs.sh/f/cInj_p_PE20tF9FWO_frE.webp", width: 10, groundAnchor: 88.3, geometry: { aspectRatio: 4 / 3, visibleBounds: { x: 0, y: 40, width: 100, height: 60 }, footprint: { x: 10, y: 85, width: 80, height: 15 } }, action: "farm", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-bed", itemId: "home-bed", name: "Bed", image: "https://ui0arpl8sm.ufs.sh/f/V2umBvRsN1p0ECHU5FA5r.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-armory", itemId: "home-armory", name: "Armory", image: "https://ui0arpl8sm.ufs.sh/f/EyNeihgG6GdMTMBcOC9JA.webp", width: 24, groundAnchor: 95.8, action: "storage", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen", image: "https://ui0arpl8sm.ufs.sh/f/i520XbXoRXRYIZrNImg62.webp", width: 32, groundAnchor: 89.1, action: "kitchen", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-garden", itemId: "home-garden", name: "Garden", image: "https://ui0arpl8sm.ufs.sh/f/cInj_p_PE20tF9FWO_frE.webp", width: 10, groundAnchor: 88.3, geometry: { aspectRatio: 4 / 3, visibleBounds: { x: 0, y: 40, width: 100, height: 60 }, footprint: { x: 10, y: 85, width: 80, height: 15 } }, action: "farm", isFloor: false, quantity: 1, views: {} },
 ];
 const rugDefinition: HomeFurniture = {
-  id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", description: "A floor decoration", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1, views: { "90": { image: "/custom-rug-90.webp" } },
+  id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1, views: { "90": { image: "/custom-rug-90.webp" } },
 };
 
 const props = {
@@ -611,7 +611,7 @@ describe("Home scene", () => {
 
   it.each([0, 3])("keeps overlapping artwork placed when clicking or moving only %s pixels over the armory", async (displacement) => {
     const geometry = { aspectRatio: 4 / 3, visibleBounds: { x: 0, y: 0, width: 100, height: 100 }, footprint: { x: 0, y: 85, width: 100, height: 15 } };
-    const base = { itemId: "custom", name: "Bonsai", description: "", image: "/bonsai.webp", width: 20, groundAnchor: 100, geometry, action: null, isFloor: false, quantity: 1, views: {} } satisfies Omit<HomeFurniture, "id">;
+    const base = { itemId: "custom", name: "Bonsai", image: "/bonsai.webp", width: 20, groundAnchor: 100, geometry, action: null, isFloor: false, quantity: 1, views: {} } satisfies Omit<HomeFurniture, "id">;
     const furniture: HomeFurniture[] = [{ ...base, id: "armory", name: "Armory", action: "storage" }, { ...base, id: "bonsai" }];
     const layout = [{ id: "armory", ...unprojectHomePlacement({ x: 50, y: 55 }), rotation: 0 as const }, { id: "bonsai", ...unprojectHomePlacement({ x: 50, y: 62 }), rotation: 0 as const }];
     expect(homeLayoutPlacementError(layout, furniture, "NONE")).toBeNull();

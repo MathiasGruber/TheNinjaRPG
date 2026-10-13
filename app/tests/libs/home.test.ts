@@ -5,7 +5,7 @@ import { homeFurnitureSaveInputSchema } from "@/validators/home";
 import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 
 const fixture = (id: string, patch: Partial<HomeFurniture> = {}): HomeFurniture => ({
-  id, itemId: `content-${id}`, name: id, description: "Furniture", image: "/furniture.webp",
+  id, itemId: `content-${id}`, name: id, image: "/furniture.webp",
   width: 24, groundAnchor: 100, action: null, isFloor: false, quantity: 1, views: {}, ...patch,
 });
 const placement = (id: string) => ({ id, x: 50, y: 50, rotation: 0 as const });

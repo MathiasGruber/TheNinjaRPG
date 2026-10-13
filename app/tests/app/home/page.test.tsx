@@ -22,10 +22,10 @@ import { ensureDom } from "../../setup-dom.mjs";
 import { actualDialog, actualModal } from "../../setup/preload";
 
 const furniture: HomeFurniture[] = [{
-  id: "owned-bed", itemId: "home-bed", name: "Bed", description: "Rest", image: "/images/home/furniture/bed.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1, views: {},
+  id: "owned-bed", itemId: "home-bed", name: "Bed", image: "/images/home/furniture/bed.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1, views: {},
 }];
 const rug: HomeFurniture = {
-  id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", description: "A floor decoration", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1, views: {},
+  id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1, views: {},
 };
 
 const testApi = createTRPCReact<AppRouter>();
