@@ -5,6 +5,7 @@ import { collapseRewards } from "@/libs/rewards";
 import { capitalizeFirstLetter } from "@/utils/string";
 import {
   type AllObjectivesType,
+  type ObjectiveTrackerType,
   objectiveImageMap,
   type QuestTrackerType,
 } from "@/validators/objectives";
@@ -31,6 +32,15 @@ export const isObjectiveComplete = (
   const canCollect = !status?.collected && done;
   return { value, done, canCollect, status };
 };
+
+/**
+ * Whether a lost start_battle objective can be fought again. A loss that completed the
+ * objective (a `completionOutcome` of "Lose"/"Any", or routing to a `failObjectiveId`
+ * branch) has already moved the quest on, so there is nothing left to retry.
+ */
+export const canRetryQuestBattle = (
+  goal: Pick<ObjectiveTrackerType, "recentlyDied" | "done"> | undefined,
+) => !!goal?.recentlyDied && !goal.done;
 
 /**
  * Finds the predecessor objective for a given target objective id.

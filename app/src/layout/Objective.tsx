@@ -12,7 +12,11 @@ import Link from "@/layout/Link";
 import Modal from "@/layout/Modal";
 import StatusBar from "@/layout/StatusBar";
 import { masteryRewardLabels } from "@/libs/masteryRewards";
-import { getObjectiveImage, isObjectiveComplete } from "@/libs/objectives";
+import {
+  canRetryQuestBattle,
+  getObjectiveImage,
+  isObjectiveComplete,
+} from "@/libs/objectives";
 import { collapseRewards } from "@/libs/rewards";
 import { showMutationToast } from "@/libs/toast";
 import { parseHtml } from "@/utils/parse";
@@ -47,11 +51,11 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   // Derived status of the objective
   const { done, value, canCollect } = isObjectiveComplete(tracker, parsed);
 
-  // Check if this is a start_battle objective with recentlyDied flag
+  // Offer a retry only for a lost start_battle objective the loss did not already resolve
   const status = tracker?.goals.find((g) => g.id === objective.id);
   const goalTarget = status?.target ?? ("value" in parsed ? parsed.value : undefined);
-  const isStartBattleWithRecentlyDied =
-    objective.task === "start_battle" && status?.recentlyDied;
+  const canRetryBattle =
+    objective.task === "start_battle" && canRetryQuestBattle(status);
 
   // Retry battle mutation
   const { mutate: retryBattle, isPending: isRetrying } =
@@ -213,8 +217,8 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
               <div>{indicatorIcons}</div>
             </div>
           )}
-          {/* Retry button for start_battle objectives with recentlyDied flag */}
-          {isStartBattleWithRecentlyDied && (
+          {/* Retry button for lost start_battle objectives that are still open */}
+          {canRetryBattle && (
             <div className="mt-2 flex flex-row items-center justify-end">
               <Button
                 size="sm"
