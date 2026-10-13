@@ -7,7 +7,7 @@ import type {
   ExtraState,
   UserEffect,
 } from "@/libs/combat/types";
-import { applyPoolAdjustmentsToBase } from "@/libs/combat/util";
+import { applyPoolAdjustmentsToBase, mergeExtraState } from "@/libs/combat/util";
 import type { EncounterWave } from "@/validators/coop";
 
 /**
@@ -94,24 +94,13 @@ export const prepareEncounterWaves = async (
   for (const wave of waves.slice(1)) {
     const prepared = await prepare(wave);
     captureEncounterSummonTemplates(prepared.usersState, prepared.userEffects);
-    for (const key of [
-      "jutsus",
-      "jutsuReskins",
-      "items",
-      "bloodlines",
-      "enemySkills",
-      "sageModes",
-      "villages",
-      "anbuSquads",
-      "keystoneItems",
-      "wars",
-      "aiProfiles",
-      "relations",
-      "clans",
-      "preBattleGearModifiers",
-    ] as const) {
-      Object.assign(opening.extraState[key] ?? {}, prepared.extraState[key]);
-    }
+    mergeExtraState(opening.extraState, prepared.extraState);
+    // Gear modifiers belong to each combatant, outside the static catalog merge.
+    opening.extraState.preBattleGearModifiers ??= {};
+    Object.assign(
+      opening.extraState.preBattleGearModifiers,
+      prepared.extraState.preBattleGearModifiers,
+    );
     prepared.usersState.forEach((user) => {
       applyPoolAdjustmentsToBase(user, prepared.userEffects);
     });
