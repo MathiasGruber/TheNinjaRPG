@@ -191,7 +191,8 @@
     "budget": null,
     "budgetPercentIncreaseRed": 20,
     "minimumChangeThreshold": 0,
-    "showDetails": true
+    "showDetails": true,
+    "skipCommentIfEmpty": true
   },
   "packageManager": "bun@1.4.2",
   "overrides": {
