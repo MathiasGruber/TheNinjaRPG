@@ -1277,7 +1277,9 @@ export const questsRouter = createTRPCRouter({
           (activeAttempt.quest.hidden && !canPlayHiddenQuests(user.role)))
       )
         return errorResponse(
-          "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it.",
+          activeAttempt.questType === "battlepyramid"
+            ? "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it."
+            : "This quest is currently unavailable.",
         );
 
       // Figure out if any finished quests & get rewards
@@ -1719,7 +1721,9 @@ export const questsRouter = createTRPCRouter({
           (activeAttempt.quest.hidden && !canPlayHiddenQuests(user.role)))
       )
         return errorResponse(
-          "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it.",
+          activeAttempt.questType === "battlepyramid"
+            ? "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it."
+            : "This quest is currently unavailable.",
         );
       // Get updated quest information with start_battle task and retry flag
       const { notifications, consequences } = getNewTrackers(user, [
