@@ -2647,6 +2647,9 @@ export const IMG_MANUAL_RANKED =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJAa3ucxOoZUC4muiGcQNzjfEndY5y1w20B8hT.jpg";
 export const IMG_MANUAL_AWARDS =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJD2QXqVzEwoh0WXMnscL279N8ayVQUCbRzS3p.webp";
+/** Supply chest representing reward packages and grouped reward nodes. */
+export const IMG_MANUAL_REWARDS =
+  "https://uploadthing.b-cdn.net/f/orgABef23sCbtFgzqE1ZY.webp";
 export const IMG_MANUAL_COMBAT =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJUvE8xxILCIhwPniJ69VxpvAbTDWkOyGzS8rM.webp";
 export const IMG_MANUAL_TRAVEL =
