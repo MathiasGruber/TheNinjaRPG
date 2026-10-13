@@ -7,7 +7,7 @@ import { useController } from "react-hook-form";
 import * as client from "@/app/_trpc/client";
 import * as dialog from "@/components/ui/dialog";
 import * as Avatar from "@/layout/Avatar";
-import type ContentImageSelector from "@/layout/ContentImageSelector";
+import * as ContentImageSelector from "@/layout/ContentImageSelector";
 import { FurnitureViewsEditor } from "@/layout/FurnitureViewsEditor";
 import * as Image from "@/layout/Image";
 import * as ProfileEdit from "@/layout/ProfileEdit";
@@ -18,7 +18,7 @@ import * as uploadthing from "@/utils/uploadthing";
 import type { FurnitureViews } from "@/validators/itemFurniture";
 import { actualContentImageSelector as ActualContentImageSelector, actualDialog } from "../setup/preload";
 
-type SelectorProps = ComponentProps<typeof ContentImageSelector>;
+type SelectorProps = ComponentProps<typeof ContentImageSelector.default>;
 type GenerationResult = { success: boolean; url?: string; message?: string };
 type GenerationOptions = {
   onSuccess: (result: GenerationResult) => Promise<void>;
@@ -63,6 +63,7 @@ const eventDescriptors = ["Event", "CustomEvent", "requestAnimationFrame", "canc
 beforeEach(() => {
   ensureDom();
   vi.clearAllMocks();
+  vi.spyOn(ContentImageSelector, "default").mockImplementation(ActualContentImageSelector);
   requests.length = 0;
   Object.defineProperties(globalThis, {
     Event: { configurable: true, value: window.Event },
