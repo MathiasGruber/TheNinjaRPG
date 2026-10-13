@@ -35,7 +35,7 @@ import {
   ItemRarities,
   ItemTypes,
 } from "@/drizzle/constants";
-import type { UserItemWithItem } from "@/drizzle/schema";
+import type { UserItemWithItem, UserItemWithRelations } from "@/drizzle/schema";
 import { useSleepToggle } from "@/hooks/sleep";
 import BanInfo from "@/layout/BanInfo";
 import { ActionSelector } from "@/layout/CombatActions";
@@ -50,6 +50,7 @@ import {
   byItemName,
   calcMaxHouseCookingItems,
   calcMaxHouseMaterials,
+  finishedImbuementItems,
   getHomeStorageBucket,
   showsItemLevelBadge,
   userItemActionBadges,
@@ -63,7 +64,7 @@ export default function HomePage() {
   const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
 
   // State
-  const [selectedItem, setSelectedItem] = useState<UserItemWithItem | undefined>(
+  const [selectedItem, setSelectedItem] = useState<UserItemWithRelations | undefined>(
     undefined,
   );
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -588,7 +589,7 @@ export default function HomePage() {
                               (item) => item.id === id,
                             );
                             if (item) {
-                              setSelectedItem(item as UserItemWithItem);
+                              setSelectedItem(item);
                               setIsModalOpen(true);
                             }
                           }
@@ -629,7 +630,7 @@ export default function HomePage() {
                                   (item) => item.id === id,
                                 );
                                 if (item) {
-                                  setSelectedItem(item as UserItemWithItem);
+                                  setSelectedItem(item);
                                   setIsModalOpen(true);
                                 }
                               }
@@ -672,7 +673,7 @@ export default function HomePage() {
                                   (item) => item.id === id,
                                 );
                                 if (item) {
-                                  setSelectedItem(item as UserItemWithItem);
+                                  setSelectedItem(item);
                                   setIsModalOpen(true);
                                 }
                               }
@@ -722,7 +723,7 @@ export default function HomePage() {
                               } else {
                                 const item = userItems?.find((item) => item.id === id);
                                 if (item) {
-                                  setSelectedItem(item as UserItemWithItem);
+                                  setSelectedItem(item);
                                   setIsModalOpen(true);
                                 }
                               }
@@ -758,7 +759,7 @@ export default function HomePage() {
                               } else {
                                 const item = userItems?.find((item) => item.id === id);
                                 if (item) {
-                                  setSelectedItem(item as UserItemWithItem);
+                                  setSelectedItem(item);
                                   setIsModalOpen(true);
                                 }
                               }
@@ -794,7 +795,7 @@ export default function HomePage() {
                               } else {
                                 const item = userItems?.find((item) => item.id === id);
                                 if (item) {
-                                  setSelectedItem(item as UserItemWithItem);
+                                  setSelectedItem(item);
                                   setIsModalOpen(true);
                                 }
                               }
@@ -838,6 +839,7 @@ export default function HomePage() {
                 <ItemWithEffects
                   item={{
                     ...selectedItem.item,
+                    imbuements: finishedImbuementItems(selectedItem),
                     curDurability: selectedItem.durability,
                     level: selectedItem.level,
                     experience: selectedItem.experience,

@@ -358,6 +358,18 @@ export const isImbuing = (
   ui.imbuements.some((im) => im.craftingFinishedAt && im.craftingFinishedAt > now);
 
 /**
+ * Items of a user item's finished imbuements, in the shape item detail views pass
+ * to ItemWithEffects. Imbuements still being crafted at `now` are left out.
+ */
+export const finishedImbuementItems = <T>(
+  ui: { imbuements: { craftingFinishedAt: Date | null; item: T }[] },
+  now: Date = new Date(),
+): T[] =>
+  ui.imbuements
+    .filter((im) => !im.craftingFinishedAt || im.craftingFinishedAt <= now)
+    .map((im) => im.item);
+
+/**
  * Locale-aware comparator for displayed item names.
  * Prefers top-level `name` (e.g. after applyActiveVariant flatten) so variant
  * overrides match what ActionSelector renders; falls back to nested `item.name`.
