@@ -1,48 +1,40 @@
 "use client";
 
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   BedDouble,
   ChefHat,
-  House,
   Package,
-  Pencil,
-  RefreshCw,
   RotateCcw,
   RotateCw,
   Save,
-  ShoppingBag,
   Sprout,
 } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   HOME_FURNITURE_MAX_PLACEMENTS,
-  HOME_FURNITURE_POSITION_MAX,
-  HOME_FURNITURE_POSITION_MIN,
   HOME_FURNITURE_ROTATION_DEGREES,
   type HomeFurnitureRotation,
   type HomeType,
   HomeTypeDetails,
 } from "@/drizzle/constants";
 import Image from "@/layout/Image";
-import Link from "@/layout/Link";
-import Modal from "@/layout/Modal";
 import {
-  getDefaultHomeLayout,
+  fitHomeFurniturePlacement,
+  getHomeFurnitureGeometry,
   getHomeFurnitureRotations,
   getHomeFurnitureView,
   type HomeFurniture,
+  projectHomePlacement,
+  recoverHomeLayout,
+  unprojectHomePlacement,
 } from "@/libs/home";
+import { HOME_FLOOR_PROJECTION, HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 import { cn } from "@/libs/shadui";
 import { bunnyImageUrl } from "@/utils/image";
-import { clamp } from "@/utils/math";
 import type { HomePlacement } from "@/validators/home";
 
-/** A furnished residence with a reversible editor; the page owns persistence and game actions. */
+/** A furnished residence with a reversible draft; the page owns persistence and game actions. */
 export const HomeScene = ({
   homeType,
   isGuest,
@@ -50,8 +42,10 @@ export const HomeScene = ({
   isTogglingSleep,
   onSleep,
   onStorage,
-  onManage,
+  onKitchen,
   onFarm,
+  isDecorating,
+  onDecoratingChange,
   layout = [],
   furniture = [],
   revision = 0,
@@ -60,187 +54,222 @@ export const HomeScene = ({
   isRefreshingFurniture = false,
   furnitureError,
   onSave,
-  shopContent,
 }: HomeSceneProps) => {
   const sceneRef = useRef<HTMLFieldSetElement>(null);
-  const shopTriggerRef = useRef<HTMLButtonElement>(null);
   const dragRef = useRef<{
     placement: HomePlacement;
     clientX: number;
     clientY: number;
     pointerId: number;
   } | null>(null);
+  const foregroundId = useId();
   const [failedHomeType, setFailedHomeType] = useState<HomeType | null>(null);
   const [draft, setDraft] = useState<HomeDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isShopOpen, setIsShopOpen] = useState(false);
-  const placements = draft?.placements ?? layout;
+  const [storageTargetId, setStorageTargetId] = useState<string | null>(null);
+  const [placementError, setPlacementError] = useState<string | null>(null);
   const furnitureById = new Map(furniture.map((piece) => [piece.id, piece]));
+  const placements =
+    draft?.placements ?? recoverHomeLayout(layout, furniture, homeType);
   const selectedFurniture = selectedId ? furnitureById.get(selectedId) : undefined;
-  const selected = selectedFurniture
-    ? placements.find((placement) => placement.id === selectedId)
-    : undefined;
-  const selectedRotations = selectedFurniture
-    ? getHomeFurnitureRotations(selectedFurniture)
-    : [];
-  const isEditing = draft !== null;
+  const selected = placements.find((placement) => placement.id === selectedId);
+  const isEditing = isDecorating && draft !== null;
+  const isTierChanged = draft !== null && draft.homeType !== homeType;
+  const hasMissingFurniture =
+    isEditing && placements.some((placement) => !furnitureById.has(placement.id));
+  const isMovementDisabled = isSaving || isTierChanged || !canDecorate;
+  const hasPlacementLimit = placements.length >= HOME_FURNITURE_MAX_PLACEMENTS;
   const hasImageError = failedHomeType === homeType;
   const sleepLabel = isTogglingSleep
     ? "Please wait…"
     : isAsleep
       ? "Wake up"
       : "Go to sleep";
-  const isTierChanged = draft !== null && draft.homeType !== homeType;
-  const hasMissingFurniture =
-    isEditing && placements.some((placement) => !furnitureById.has(placement.id));
-  const isMovementDisabled = isSaving || isTierChanged || !canDecorate;
-  const hasPlacementLimit = placements.length >= HOME_FURNITURE_MAX_PLACEMENTS;
 
-  /** End the current drag before loading the saved layout's home tier and revision. */
-  const loadSavedLayout = () => {
-    dragRef.current = null;
-    setSelectedId(
-      layout.find((placement) => furnitureById.has(placement.id))?.id ??
-        furniture[0]?.id ??
-        null,
-    );
-    setDraft({
-      homeType,
-      revision,
-      placements: layout.map((placement) => ({ ...placement })),
-    });
-  };
+  // Capture the revision only when editing begins; subsequent query refreshes must not rebase unsaved edits.
+  useEffect(() => {
+    if (isDecorating && !draft && !isRefreshingFurniture) {
+      const placements = recoverHomeLayout(layout, furniture, homeType);
+      setDraft({ homeType, revision, placements });
+      setSelectedId(placements[0]?.id ?? null);
+      setPlacementError(null);
+    } else if (!isDecorating && draft) {
+      dragRef.current = null;
+      setDraft(null);
+      setStorageTargetId(null);
+    }
+  }, [
+    isDecorating,
+    draft,
+    layout,
+    furniture,
+    homeType,
+    revision,
+    isRefreshingFurniture,
+  ]);
 
-  /** Change the active draft's placements while preserving its home tier and revision. */
+  /** Change placements without replacing the draft's optimistic concurrency snapshot. */
   const updatePlacements = (
     transform: (placements: HomePlacement[]) => HomePlacement[],
   ) => {
     if (isMovementDisabled) return;
+    setPlacementError(null);
     setDraft(
-      (current) =>
-        current && {
-          ...current,
-          placements: transform(current.placements),
-        },
+      (current) => current && { ...current, placements: transform(current.placements) },
     );
   };
 
-  /** Apply the shared floor bounds to pointer, keyboard, toolbar, and cancellation movement. */
+  /** Pointer and keyboard moves use the same painted floor and collision rules as saving. */
   const moveFurniture = (id: string, x: number, y: number) => {
+    const piece = furnitureById.get(id);
+    if (!piece) return;
     updatePlacements((placements) =>
       placements.map((placement) =>
         placement.id === id
-          ? { ...placement, x: clampPosition(x), y: clampPosition(y) }
+          ? (fitHomeFurniturePlacement(
+              { ...placement, x, y },
+              piece,
+              placements,
+              furniture,
+              homeType,
+            ) ?? placement)
           : placement,
       ),
     );
   };
 
-  /** Finish only the active drag, restoring its original position on cancellation. */
-  const finishDrag = (id: string, pointerId: number, shouldRestoreOrigin = false) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== pointerId || drag.placement.id !== id) return;
-    if (shouldRestoreOrigin) moveFurniture(id, drag.placement.x, drag.placement.y);
+  /** Removing a placement keeps the owned inventory row and its quantity unchanged. */
+  const storeFurniture = (id: string) => {
     dragRef.current = null;
-  };
-
-  /** Select an owned instance, reusing its placement or placing it at the floor's center. */
-  const selectFurniture = (id: string) => {
-    setSelectedId(id);
+    setStorageTargetId(null);
     updatePlacements((placements) =>
-      placements.some((placement) => placement.id === id) ||
-      placements.length >= HOME_FURNITURE_MAX_PLACEMENTS
-        ? placements
-        : [...placements, { id, x: 50, y: 50, rotation: 0 }],
+      placements.filter((placement) => placement.id !== id),
     );
   };
 
-  /** Retain a rejected draft and leave the editor only after its snapshot is accepted. */
+  /** A drop onto another storage fixture takes precedence over floor collision fitting. */
+  const findStorageTarget = (id: string, clientX: number, clientY: number) => {
+    const drag = dragRef.current;
+    // Tall art can cover the armory; selecting it must not count as a storage drop.
+    if (!drag || Math.hypot(clientX - drag.clientX, clientY - drag.clientY) < 4)
+      return null;
+    const scene = sceneRef.current?.getBoundingClientRect();
+    if (!scene?.width || !scene.height) return null;
+    const x = ((clientX - scene.left) / scene.width) * 100;
+    const y = ((clientY - scene.top) / scene.height) * 100;
+    return (
+      placements.find((placement) => {
+        const piece = furnitureById.get(placement.id);
+        if (placement.id === id || piece?.action !== "storage") return false;
+        const bounds = getHomeFurnitureGeometry(piece, placement).visibleBounds;
+        return (
+          x >= bounds.x &&
+          x <= bounds.x + bounds.width &&
+          y >= bounds.y &&
+          y <= bounds.y + bounds.height
+        );
+      })?.id ?? null
+    );
+  };
+
+  /** Cancellation restores the starting placement; a completed armory drop returns it to inventory. */
+  const finishDrag = (
+    id: string,
+    pointerId: number,
+    shouldRestore = false,
+    targetId: string | null = null,
+  ) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== pointerId || drag.placement.id !== id) return;
+    dragRef.current = null;
+    setStorageTargetId(null);
+    if (shouldRestore)
+      updatePlacements((placements) =>
+        placements.map((placement) =>
+          placement.id === id ? drag.placement : placement,
+        ),
+      );
+    else if (targetId) storeFurniture(id);
+  };
+
+  /** Place an owned piece on nearby free ground; a full room leaves it safely in inventory. */
+  const selectFurniture = (id: string) => {
+    setSelectedId(id);
+    const piece = furnitureById.get(id);
+    if (
+      !piece ||
+      placements.some((placement) => placement.id === id) ||
+      hasPlacementLimit ||
+      isMovementDisabled
+    )
+      return;
+    const placement = fitHomeFurniturePlacement(
+      { id, x: 50, y: piece.action === "farm" ? 95 : 50, rotation: 0 },
+      piece,
+      placements,
+      furniture,
+      homeType,
+    );
+    if (placement) updatePlacements((placements) => [...placements, placement]);
+    else
+      setPlacementError(
+        `${piece.name} does not fit. Store or move another piece to make room.`,
+      );
+  };
+
+  /** Keep the occupied floor center steady when changing between independently painted directions. */
+  const rotateFurniture = () => {
+    if (!selected || !selectedFurniture || isMovementDisabled) return;
+    const rotations = getHomeFurnitureRotations(selectedFurniture);
+    const rotation =
+      rotations[(rotations.indexOf(selected.rotation) + 1) % rotations.length] ?? 0;
+    const next = { ...selected, rotation };
+    const before = getHomeFurnitureGeometry(selectedFurniture, selected).footprint;
+    const after = getHomeFurnitureGeometry(selectedFurniture, next).footprint;
+    const anchor = projectHomePlacement(next);
+    const candidate = {
+      ...next,
+      ...unprojectHomePlacement({
+        x: anchor.x + before.x + before.width / 2 - after.x - after.width / 2,
+        y: anchor.y + before.y + before.height / 2 - after.y - after.height / 2,
+      }),
+    };
+    const fitted = fitHomeFurniturePlacement(
+      candidate,
+      selectedFurniture,
+      placements,
+      furniture,
+      homeType,
+    );
+    if (fitted)
+      updatePlacements((placements) =>
+        placements.map((placement) =>
+          placement.id === selected.id ? fitted : placement,
+        ),
+      );
+    else
+      setPlacementError(
+        "This view does not fit here. Move or store another piece first.",
+      );
+  };
+
+  /** Preserve rejected drafts; only an accepted guarded save closes the editor. */
   const saveLayout = async () => {
     if (!draft || !onSave || isMovementDisabled || hasMissingFurniture) return;
-    // End the drag so captured events cannot move the draft away from its submitted snapshot.
     dragRef.current = null;
-    // Keep the exact editing revision: a stale tab must not overwrite another saved layout.
-    if (await onSave(draft)) setDraft(null);
+    setStorageTargetId(null);
+    if (await onSave(draft)) onDecoratingChange(false);
   };
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 text-muted-foreground text-xs">
-          {isEditing
-            ? "Arrange your furniture, then save your layout."
-            : "Select an object to use your home."}
-        </p>
-        <div className="flex shrink-0 gap-1">
-          {canDecorate && !isEditing && (
-            <>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-11 w-11"
-                aria-label="Decorate"
-                hoverText="Decorate"
-                disabled={isRefreshingFurniture}
-                onClick={loadSavedLayout}
-              >
-                <Pencil className="h-4 w-4" aria-hidden />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-11 w-11"
-                aria-label="House shop"
-                hoverText="House shop"
-                ref={shopTriggerRef}
-                onClick={() => setIsShopOpen(true)}
-              >
-                <ShoppingBag className="h-4 w-4" aria-hidden />
-              </Button>
-            </>
-          )}
-          {!isGuest && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-11 w-11"
-              aria-label="Manage home"
-              hoverText="Manage home"
-              disabled={isEditing}
-              onClick={(event) => onManage(event.currentTarget)}
-            >
-              <House className="h-4 w-4" aria-hidden />
-            </Button>
-          )}
-        </div>
-      </div>
       <fieldset
         ref={sceneRef}
         aria-label="Home scene"
         className="relative mx-auto aspect-[4/3] w-full max-w-3xl overflow-hidden rounded-lg border border-stone-700/40 bg-[#24211c] shadow-md"
       >
         {!hasImageError && (
-          <picture className="pointer-events-none absolute inset-0">
-            {/* Next images are unoptimized; the browser selects a Bunny rendition for its viewport and pixel density. */}
-            <source
-              srcSet={[480, 768, 1024, 1448]
-                .map(
-                  (width) =>
-                    `${bunnyImageUrl(HOME_SCENE_IMAGES[homeType], width)} ${width}w`,
-                )
-                .join(", ")}
-              sizes="(max-width: 768px) 100vw, 768px"
-            />
-            <Image
-              src={bunnyImageUrl(HOME_SCENE_IMAGES[homeType], 768)}
-              alt={`${HomeTypeDetails[homeType].name} interior`}
-              fill
-              className="pointer-events-none object-contain"
-              loading="eager"
-              fetchPriority="high"
-              onError={() => setFailedHomeType(homeType)}
-            />
-          </picture>
+          <RoomImage homeType={homeType} onError={() => setFailedHomeType(homeType)} />
         )}
         {hasImageError && (
           <p
@@ -251,83 +280,61 @@ export const HomeScene = ({
           </p>
         )}
         {isEditing && (
-          <span className="pointer-events-none absolute top-3 left-3 rounded-full bg-slate-950/85 px-3 py-1 font-semibold text-amber-200 text-xs">
-            Decorating · unsaved
+          <span className="pointer-events-none absolute top-3 left-3 z-[140] rounded-full bg-slate-950/85 px-3 py-1 font-semibold text-amber-200 text-xs">
+            Decorating
           </span>
         )}
         {placements.map((placement) => {
           const details = furnitureById.get(placement.id);
-          // Inventory can change while a draft is open; keep its edits without rendering missing pieces.
+          // Inventory can change while editing; preserve the draft and give a recoverable save error below.
           if (!details) return null;
-          const view = getHomeFurnitureView(details, placement.rotation);
+          const bounds = getHomeFurnitureGeometry(details, placement).visibleBounds;
           const isSelected = isEditing && selectedId === placement.id;
-          const x =
-            HOME_FLOOR_PROJECTION.x + placement.x * HOME_FLOOR_PROJECTION.scaleX;
-          const y =
-            HOME_FLOOR_PROJECTION.y + placement.y * HOME_FLOOR_PROJECTION.scaleY;
           const label = isEditing
             ? `Move ${details.name}`
             : details.action === "sleep"
               ? `${details.name}: ${sleepLabel}`
               : details.action === "storage"
-                ? isGuest
-                  ? `${details.name}: Home storage is in your own village`
-                  : `${details.name}: Open home storage`
+                ? `${details.name}: ${isGuest ? "Home storage is in your own village" : "Open home storage"}`
                 : details.action === "kitchen"
-                  ? `${details.name}: Visit ramen shop`
+                  ? `${details.name}: Open kitchen`
                   : details.action === "farm"
                     ? `${details.name}: Open farm`
                     : details.name;
-          const image = (
-            <>
-              <FurnitureImage
-                furniture={details}
-                rotation={placement.rotation}
-                isGroundAnchored
-              />
-              {details.action && !isEditing && (
-                <span className="pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/85 px-2 py-1 text-white text-xs opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                  {details.name}
-                  {details.action === "sleep" && isAsleep ? " · asleep" : ""}
-                </span>
-              )}
-            </>
-          );
+          const style = {
+            left: `${bounds.x}%`,
+            top: `${bounds.y}%`,
+            width: `${bounds.width}%`,
+            height: `${bounds.height}%`,
+            zIndex: details.isFloor
+              ? 1
+              : Math.round(projectHomePlacement(placement).y) + 2,
+          };
           const className = cn(
-            "group absolute min-h-11 min-w-11 -translate-x-1/2 -translate-y-full cursor-pointer rounded-lg border-2 border-transparent outline-none focus-visible:border-white",
+            "group absolute rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-white",
             isEditing
               ? "cursor-grab touch-none active:cursor-grabbing"
-              : "transition-[filter] hover:brightness-125",
-            isSelected && "border-amber-300 bg-amber-300/10",
+              : "cursor-pointer transition-[filter] hover:brightness-125",
+            isSelected && "ring-2 ring-amber-300",
+            storageTargetId === placement.id && "ring-4 ring-emerald-400",
             "disabled:cursor-not-allowed disabled:opacity-60",
           );
-          const style = {
-            left: `${x}%`,
-            top: `${y}%`,
-            width: `${view.width}%`,
-            zIndex: details.isFloor ? 1 : Math.round(y) + 2,
-          };
+          const image = (
+            <FurnitureImage
+              furniture={details}
+              rotation={placement.rotation}
+              isInScene
+            />
+          );
           if (!isEditing && !details.action)
             return (
               <div
                 key={placement.id}
-                className="pointer-events-none absolute -translate-x-1/2 -translate-y-full"
+                className="pointer-events-none absolute"
                 style={style}
               >
                 {image}
               </div>
-            );
-          if (!isEditing && details.action === "kitchen")
-            return (
-              <Link
-                key={placement.id}
-                href="/ramenshop"
-                aria-label={label}
-                className={className}
-                style={style}
-              >
-                {image}
-              </Link>
             );
           return (
             <button
@@ -335,6 +342,11 @@ export const HomeScene = ({
               type="button"
               aria-label={label}
               aria-pressed={isEditing ? isSelected : undefined}
+              aria-description={
+                isEditing && details.action === "storage"
+                  ? "Drop furniture here to store it"
+                  : undefined
+              }
               disabled={
                 (isEditing && isMovementDisabled) ||
                 (!isEditing &&
@@ -347,6 +359,7 @@ export const HomeScene = ({
                 if (isEditing) setSelectedId(placement.id);
                 else if (details.action === "sleep") onSleep();
                 else if (details.action === "storage") onStorage(event.currentTarget);
+                else if (details.action === "kitchen") onKitchen(event.currentTarget);
                 else if (details.action === "farm") onFarm(event.currentTarget);
               }}
               onPointerDown={(event) => {
@@ -368,25 +381,36 @@ export const HomeScene = ({
               }}
               onPointerMove={(event) => {
                 const drag = dragRef.current;
-                const bounds = sceneRef.current?.getBoundingClientRect();
+                const scene = sceneRef.current?.getBoundingClientRect();
                 if (
                   isMovementDisabled ||
                   !drag ||
                   drag.pointerId !== event.pointerId ||
                   drag.placement.id !== placement.id ||
-                  !bounds
+                  !scene
                 )
                   return;
-                // Scale each viewport axis separately to match the room camera projection.
-                const dx = ((event.clientX - drag.clientX) / bounds.width) * 100;
-                const dy = ((event.clientY - drag.clientY) / bounds.height) * 100;
+                setStorageTargetId(
+                  findStorageTarget(placement.id, event.clientX, event.clientY),
+                );
                 moveFurniture(
                   placement.id,
-                  drag.placement.x + dx / HOME_FLOOR_PROJECTION.scaleX,
-                  drag.placement.y + dy / HOME_FLOOR_PROJECTION.scaleY,
+                  drag.placement.x +
+                    (((event.clientX - drag.clientX) / scene.width) * 100) /
+                      HOME_FLOOR_PROJECTION.scaleX,
+                  drag.placement.y +
+                    (((event.clientY - drag.clientY) / scene.height) * 100) /
+                      HOME_FLOOR_PROJECTION.scaleY,
                 );
               }}
-              onPointerUp={(event) => finishDrag(placement.id, event.pointerId)}
+              onPointerUp={(event) =>
+                finishDrag(
+                  placement.id,
+                  event.pointerId,
+                  false,
+                  findStorageTarget(placement.id, event.clientX, event.clientY),
+                )
+              }
               onPointerCancel={(event) =>
                 finishDrag(placement.id, event.pointerId, true)
               }
@@ -412,107 +436,84 @@ export const HomeScene = ({
             </button>
           );
         })}
-      </fieldset>
-      {!isEditing &&
-        canDecorate &&
-        !placements.some((placement) => furnitureById.has(placement.id)) && (
-          <p className="text-center text-muted-foreground text-sm">
-            Your room is empty. Open Decorate to place owned furniture, or visit the
-            house shop.
-          </p>
-        )}
-      {isEditing && (
-        <div className="space-y-3 rounded-xl border bg-muted/40 p-3">
-          <div className="space-y-2">
-            <div>
-              <p className="font-semibold">
-                {selectedFurniture?.name ?? "Choose furniture"}
-              </p>
-              {selectedFurniture && (
-                <p className="text-muted-foreground text-sm">
-                  {selectedFurniture.description}
-                </p>
-              )}
-              <p className="text-muted-foreground text-xs">
-                Drag an object or use the arrows. Rotate selects the next available
-                view.
-              </p>
+        {!hasImageError && (
+          <>
+            <svg aria-hidden className="absolute h-0 w-0">
+              <defs>
+                <clipPath id={foregroundId} clipPathUnits="objectBoundingBox">
+                  {HOME_ROOM_GEOMETRY[homeType].foreground.map((polygon, index) => (
+                    <polygon
+                      key={index}
+                      points={polygon
+                        .map(({ x, y }) => `${x / 100},${y / 100}`)
+                        .join(" ")}
+                    />
+                  ))}
+                </clipPath>
+              </defs>
+            </svg>
+            {/* Reuse the room painting to put its front curtains above indoor sprites, without a second downloaded asset. */}
+            <div
+              className="pointer-events-none absolute inset-0 z-[100]"
+              style={{ clipPath: `url(#${foregroundId})` }}
+            >
+              <RoomImage homeType={homeType} isForeground />
             </div>
-            {selected && selectedFurniture && (
+          </>
+        )}
+        {isEditing &&
+          selected &&
+          selectedFurniture &&
+          (() => {
+            const bounds = getHomeFurnitureGeometry(
+              selectedFurniture,
+              selected,
+            ).visibleBounds;
+            const rotations = getHomeFurnitureRotations(selectedFurniture);
+            return (
               <fieldset
                 aria-label="Furniture controls"
-                className="grid w-full min-w-0 max-w-xs grid-cols-6 gap-1"
+                className="absolute z-[150] flex gap-1 rounded-md bg-slate-950/85 p-1 shadow-md"
+                style={{
+                  left: `clamp(0px, calc(${bounds.x + bounds.width}% - 5.75rem), calc(100% - 5.75rem))`,
+                  top: `max(0px, calc(${bounds.y}% - 3rem))`,
+                }}
               >
-                {FURNITURE_DIRECTIONS.map(({ icon: Icon, label, dx, dy }) => (
-                  <Button
-                    key={label}
-                    variant="outline"
-                    size="icon"
-                    className="h-11 w-full min-w-0"
-                    disabled={isMovementDisabled}
-                    aria-label={`Move ${selectedFurniture.name} ${label}`}
-                    hoverText={`Move ${label}`}
-                    onClick={() =>
-                      moveFurniture(selected.id, selected.x + dx, selected.y + dy)
-                    }
-                  >
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </Button>
-                ))}
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-11 w-full min-w-0"
+                  className="h-10 w-10"
                   aria-label="Rotate clockwise"
                   aria-description={`Current orientation: ${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°`}
-                  hoverText={`Rotate clockwise (${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°)`}
+                  hoverText="Rotate clockwise"
                   disabled={
                     isMovementDisabled ||
-                    (selectedRotations.length === 1 &&
-                      selectedRotations.includes(selected.rotation))
+                    (rotations.length === 1 && rotations.includes(selected.rotation))
                   }
-                  onClick={() =>
-                    updatePlacements((placements) =>
-                      placements.map((placement) =>
-                        placement.id === selectedId
-                          ? {
-                              ...placement,
-                              // A removed view returns to the canonical image, even when no other views remain.
-                              rotation:
-                                selectedRotations[
-                                  (selectedRotations.indexOf(placement.rotation) + 1) %
-                                    selectedRotations.length
-                                ] ?? 0,
-                            }
-                          : placement,
-                      ),
-                    )
-                  }
+                  onClick={rotateFurniture}
                 >
                   <RotateCw className="h-4 w-4" aria-hidden />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-11 w-full min-w-0"
+                  className="h-10 w-10"
                   aria-label="Store"
                   hoverText="Store in inventory"
                   disabled={isMovementDisabled}
-                  onClick={() => {
-                    dragRef.current = null;
-                    updatePlacements((placements) =>
-                      placements.filter((placement) => placement.id !== selectedId),
-                    );
-                  }}
+                  onClick={() => storeFurniture(selected.id)}
                 >
                   <Package className="h-4 w-4" aria-hidden />
                 </Button>
               </fieldset>
-            )}
-          </div>
+            );
+          })()}
+      </fieldset>
+      {isEditing && (
+        <div className="space-y-3 rounded-lg border bg-muted/40 p-3">
           <fieldset
             aria-label="Owned furniture"
-            className="flex min-w-0 gap-2 overflow-x-auto pb-2"
+            className="flex min-w-0 gap-2 overflow-x-auto pb-1"
           >
             {furniture.map((piece) => {
               const copies = furniture.filter((other) => other.itemId === piece.itemId);
@@ -531,37 +532,37 @@ export const HomeScene = ({
                   )}
                   onClick={() => selectFurniture(piece.id)}
                 >
-                  <div className="aspect-[4/3] w-full">
+                  <div className="relative mb-1 aspect-[4/3] w-full">
                     <FurnitureImage furniture={piece} rotation={0} />
                   </div>
                   <span className="line-clamp-2 min-h-8">{piece.name}</span>
                   {copies.length > 1 && (
-                    <span className="block text-muted-foreground">
-                      Copy {copies.findIndex((other) => other.id === piece.id) + 1} of{" "}
+                    <span className="text-muted-foreground">
+                      {copies.findIndex((other) => other.id === piece.id) + 1} /{" "}
                       {copies.length}
                     </span>
                   )}
                   {piece.quantity > 1 && (
-                    <span className="block text-muted-foreground">
+                    <span className="text-muted-foreground">
                       Quantity: {piece.quantity}
                     </span>
                   )}
-                  <span className="mt-auto block pt-1 text-muted-foreground">
-                    {isPlaced ? "Placed" : "In inventory · Place"}
+                  <span className="mt-auto pt-1 text-muted-foreground">
+                    {isPlaced ? "Placed" : "Place"}
                   </span>
                 </button>
               );
             })}
             {furniture.length === 0 && (
               <p className="text-muted-foreground text-sm">
-                Your furniture inventory is empty. Visit the house shop to find a piece.
+                Buy furniture in the item shop to furnish your home.
               </p>
             )}
           </fieldset>
           {hasPlacementLimit && (
             <p role="status" className="text-muted-foreground text-sm">
-              Your home can display up to {HOME_FURNITURE_MAX_PLACEMENTS} pieces of
-              furniture. Store a placed piece to make room.
+              Your home can display up to {HOME_FURNITURE_MAX_PLACEMENTS} pieces. Store
+              a piece to make room.
             </p>
           )}
           {isTierChanged && (
@@ -571,69 +572,54 @@ export const HomeScene = ({
           )}
           {hasMissingFurniture && (
             <p role="alert" className="text-destructive text-sm">
-              Some furniture is no longer in your inventory. Reload saved layout to
-              continue.
+              Some furniture is no longer in your inventory. Undo changes to continue.
             </p>
           )}
-          {furnitureError && (
+          {(furnitureError || placementError) && (
             <p role="alert" className="text-destructive text-sm">
-              {furnitureError}
+              {furnitureError || placementError}
             </p>
           )}
-          <div className="grid grid-cols-[1fr_auto_2.75rem_2.75rem] gap-1 sm:gap-2">
-            <Button
-              className="h-11 min-w-0 px-3"
-              aria-label={isSaving ? "Saving…" : "Save layout"}
-              onClick={() => void saveLayout()}
-              disabled={isMovementDisabled || hasMissingFurniture}
-            >
-              <Save className="mr-2 h-4 w-4" aria-hidden />
-              {isSaving ? "Saving…" : "Save"}
-            </Button>
-            <Button
-              variant="outline"
-              className="h-11 px-3"
-              disabled={isSaving}
-              onClick={() => {
-                dragRef.current = null;
-                setDraft(null);
-              }}
-            >
-              Cancel
-            </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
             <Button
               variant="outline"
               size="icon"
-              className="h-11 w-11"
-              aria-label="Reload saved layout"
-              hoverText="Reload saved layout"
-              disabled={isSaving}
-              onClick={loadSavedLayout}
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11"
-              aria-label="Reset arrangement"
-              hoverText="Reset arrangement"
+              className="h-10 w-10"
+              aria-label="Undo changes"
+              hoverText="Undo changes"
               disabled={isSaving}
               onClick={() => {
                 dragRef.current = null;
-                updatePlacements(() => getDefaultHomeLayout(furniture));
+                setStorageTargetId(null);
+                setPlacementError(null);
+                const placements = recoverHomeLayout(layout, furniture, homeType);
+                setDraft({ homeType, revision, placements });
+                setSelectedId(placements[0]?.id ?? null);
               }}
             >
               <RotateCcw className="h-4 w-4" aria-hidden />
             </Button>
+            <Button
+              variant="outline"
+              className="h-10"
+              disabled={isSaving}
+              onClick={() => onDecoratingChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-10"
+              aria-label={isSaving ? "Saving…" : "Save layout"}
+              disabled={isMovementDisabled || hasMissingFurniture}
+              onClick={() => void saveLayout()}
+            >
+              <Save className="mr-2 h-4 w-4" aria-hidden />
+              {isSaving ? "Saving…" : "Save changes"}
+            </Button>
           </div>
-          <p className="text-muted-foreground text-xs">
-            Your arrangement follows home upgrades. Unplaced furniture stays in your
-            inventory. Home actions are available through the text controls.
-          </p>
         </div>
       )}
-      <p role="status" aria-live="polite" className="text-center text-sm">
+      <p role="status" aria-live="polite" className="sr-only">
         {isTogglingSleep
           ? "Changing sleep status…"
           : isAsleep
@@ -645,17 +631,11 @@ export const HomeScene = ({
           aria-label="Home actions"
           className="grid grid-cols-2 gap-2 sm:grid-cols-4"
         >
-          <Button
-            variant="ghost"
-            onClick={onSleep}
-            disabled={isTogglingSleep}
-            className="h-11 px-2"
-          >
+          <Button onClick={onSleep} disabled={isTogglingSleep} className="h-11 px-2">
             <BedDouble className="mr-2 h-4 w-4" aria-hidden />
             {sleepLabel}
           </Button>
           <Button
-            variant="ghost"
             onClick={(event) => onStorage(event.currentTarget)}
             disabled={isGuest}
             className="h-11 px-2"
@@ -663,14 +643,14 @@ export const HomeScene = ({
             <Package className="mr-2 h-4 w-4" aria-hidden />
             Home storage
           </Button>
-          <Button variant="ghost" asChild className="h-11 px-2">
-            <Link href="/ramenshop">
-              <ChefHat className="mr-2 h-4 w-4" aria-hidden />
-              Kitchen
-            </Link>
+          <Button
+            onClick={(event) => onKitchen(event.currentTarget)}
+            className="h-11 px-2"
+          >
+            <ChefHat className="mr-2 h-4 w-4" aria-hidden />
+            Kitchen
           </Button>
           <Button
-            variant="ghost"
             onClick={(event) => onFarm(event.currentTarget)}
             className="h-11 px-2"
           >
@@ -679,91 +659,107 @@ export const HomeScene = ({
           </Button>
         </fieldset>
       )}
-      <p className="text-muted-foreground text-xs">
-        Kitchen serves ramen while cooking is being prepared.
-      </p>
-      <Modal
-        title="House Shop"
-        isOpen={isShopOpen}
-        setIsOpen={setIsShopOpen}
-        returnFocusRef={shopTriggerRef}
-        className="sm:max-w-2xl"
-      >
-        <p className="text-muted-foreground text-sm">
-          Purchases go into your home storage. Place furniture with the home editor.
-        </p>
-        {isShopOpen && shopContent}
-      </Modal>
     </div>
   );
 };
 
-/** Anchor the selected painted view despite transparent padding; previews retain its complete frame. */
+/** Tight alpha bounds crop transparent margins in CSS; every painted direction keeps its native proportions. */
 const FurnitureImage = ({
   furniture,
   rotation,
-  isGroundAnchored = false,
+  isInScene = false,
 }: {
   furniture: HomeFurniture;
   rotation: HomeFurnitureRotation;
-  isGroundAnchored?: boolean;
+  isInScene?: boolean;
 }) => {
   const view = getHomeFurnitureView(furniture, rotation);
-  const groundOffset = isGroundAnchored ? 100 - view.groundAnchor : 0;
+  const bounds = view.geometry.visibleBounds;
+  const aspectRatio = (view.geometry.aspectRatio * bounds.width) / bounds.height;
   return (
-    <picture>
-      <source
-        srcSet={[128, 256, 400, 768]
-          .map((width) => `${bunnyImageUrl(view.image, width)} ${width}w`)
-          .join(", ")}
-        sizes={
-          isGroundAnchored
-            ? `(max-width: 768px) ${view.width}vw, ${Math.round(view.width * 7.68)}px`
-            : "80px"
-        }
-      />
-      <Image
-        src={view.image}
-        alt=""
-        width={400}
-        height={300}
-        className="pointer-events-none h-auto w-full select-none object-contain"
+    <div
+      className={cn(
+        "pointer-events-none relative overflow-hidden",
+        isInScene ? "h-full w-full" : "mx-auto max-h-full max-w-full",
+      )}
+      style={
+        isInScene
+          ? undefined
+          : {
+              aspectRatio,
+              width: aspectRatio < 4 / 3 ? `${(aspectRatio / (4 / 3)) * 100}%` : "100%",
+            }
+      }
+    >
+      <picture
+        className="absolute"
         style={{
-          transform: `translateY(${groundOffset}%)`,
+          width: `${10000 / bounds.width}%`,
+          height: `${10000 / bounds.height}%`,
+          left: `${(-bounds.x / bounds.width) * 100}%`,
+          top: `${(-bounds.y / bounds.height) * 100}%`,
         }}
-        draggable={false}
-      />
-    </picture>
+      >
+        <source
+          srcSet={[128, 256, 400, 768]
+            .map((width) => `${bunnyImageUrl(view.image, width)} ${width}w`)
+            .join(", ")}
+          sizes={
+            isInScene
+              ? `(max-width: 768px) ${view.width}vw, ${Math.round(view.width * 7.68)}px`
+              : "80px"
+          }
+        />
+        <Image
+          src={bunnyImageUrl(view.image, isInScene ? 400 : 128)}
+          alt=""
+          width={400}
+          height={Math.round(400 / view.geometry.aspectRatio)}
+          className="h-full w-full select-none"
+          draggable={false}
+        />
+      </picture>
+    </div>
   );
 };
 
-/**
- * Every room uses the same overhead camera. Its inset floor leaves room for walls
- * and reachable furniture edges. Its placement plane extends into the front yard,
- * so furniture can sit indoors or outside.
- * These screen percentages preserve normalized saved placements across home tiers.
- */
-const HOME_FLOOR_PROJECTION = {
-  x: 18,
-  y: 30,
-  scaleX: 0.64,
-  scaleY: 0.66,
-} as const;
+/** Background and foreground reuse identical responsive URLs so the browser shares the downloaded image. */
+const RoomImage = ({
+  homeType,
+  isForeground = false,
+  onError,
+}: {
+  homeType: HomeType;
+  isForeground?: boolean;
+  onError?: () => void;
+}) => (
+  <picture className="pointer-events-none absolute inset-0">
+    <source
+      srcSet={[480, 768, 1024, 1448]
+        .map(
+          (width) => `${bunnyImageUrl(HOME_SCENE_IMAGES[homeType], width)} ${width}w`,
+        )
+        .join(", ")}
+      sizes="(max-width: 768px) 100vw, 768px"
+    />
+    <Image
+      src={bunnyImageUrl(HOME_SCENE_IMAGES[homeType], 768)}
+      alt={isForeground ? "" : `${HomeTypeDetails[homeType].name} interior`}
+      fill
+      className="object-contain"
+      loading="eager"
+      fetchPriority={isForeground ? undefined : "high"}
+      onError={onError}
+    />
+  </picture>
+);
 
-/** Keep a furniture anchor inside the usable floor, including keyboard and cancelled drags. */
-const clampPosition = (value: number) =>
-  clamp(
-    Math.round(value * 100) / 100,
-    HOME_FURNITURE_POSITION_MIN,
-    HOME_FURNITURE_POSITION_MAX,
-  );
-
-/** Keyboard and toolbar movement follow the overhead camera's horizontal and vertical axes. */
+/** Keyboard users retain precise movement without a second visible movement toolbar. */
 const FURNITURE_DIRECTIONS = [
-  { key: "ArrowLeft", icon: ArrowLeft, label: "left", dx: -2, dy: 0 },
-  { key: "ArrowUp", icon: ArrowUp, label: "up", dx: 0, dy: -2 },
-  { key: "ArrowDown", icon: ArrowDown, label: "down", dx: 0, dy: 2 },
-  { key: "ArrowRight", icon: ArrowRight, label: "right", dx: 2, dy: 0 },
+  { key: "ArrowLeft", dx: -2, dy: 0 },
+  { key: "ArrowUp", dx: 0, dy: -2 },
+  { key: "ArrowDown", dx: 0, dy: 2 },
+  { key: "ArrowRight", dx: 2, dy: 0 },
 ] as const;
 
 /** Unfurnished room shells share the editor's overhead floor projection. */
@@ -782,15 +778,17 @@ export const HOME_SCENE_IMAGES = {
 
 type HomeDraft = { homeType: HomeType; revision: number; placements: HomePlacement[] };
 
-/** Existing game actions and server-owned furniture state; draft edits never grant ownership. */
+/** Draft editing changes placements only; game actions and persistence retain their existing page contracts. */
 type HomeSceneProps = {
   homeType: HomeType;
   isGuest: boolean;
   isAsleep: boolean;
   isTogglingSleep: boolean;
+  isDecorating: boolean;
+  onDecoratingChange: (isDecorating: boolean) => void;
   onSleep: () => void;
   onStorage: (trigger: HTMLButtonElement) => void;
-  onManage: (trigger: HTMLButtonElement) => void;
+  onKitchen: (trigger: HTMLButtonElement) => void;
   onFarm: (trigger: HTMLButtonElement) => void;
   layout?: HomePlacement[];
   furniture?: HomeFurniture[];
@@ -801,5 +799,4 @@ type HomeSceneProps = {
   furnitureError?: string | null;
   /** Return success only after the guarded server save; rejection preserves the draft. */
   onSave?: (draft: HomeDraft) => Promise<boolean>;
-  shopContent?: ReactNode;
 };

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { HomeTypeDetails } from "@/drizzle/constants";
 import { item, itemVariant, userData, userItem, userItemVariant, village } from "@/drizzle/schema";
 import { homeRouter } from "@/server/api/routers/home";
+import { clampHomeFurniturePlacement } from "@/libs/home";
 import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS } from "@/validators/itemFurniture";
 import type { HomePlacement } from "@/validators/home";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
@@ -99,6 +100,50 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain("orientation");
     expect(await snapshot()).toEqual(before);
+  });
+
+  it.each([
+    [{ id: "cabinet-a", x: 0, y: 40, rotation: 0 }],
+    [{ id: "cabinet-a", x: 50, y: 80, rotation: 0 }],
+    [{ id: "cabinet-a", x: 50, y: 100, rotation: 0 }],
+    [{ id: "cabinet-a", x: 50, y: 40, rotation: 0 }, { id: "cabinet-b", x: 50, y: 40, rotation: 0 }],
+  ].map((placements) => ({ placements: placements as HomePlacement[] })))("rejects walls, curtains, outdoor furniture and overlapping footprints before writing %j", async ({ placements }) => {
+    const api = await callerFor(homeRouter, userId);
+    const before = await snapshot();
+    const result = await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/floor|overlaps/);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("accepts a rug beneath furniture without allowing the solid pieces to overlap", async () => {
+    const api = await callerFor(homeRouter, userId);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [
+      { id: "cabinet-a", x: 50, y: 40, rotation: 0 },
+      { id: "rug-row", x: 50, y: 40, rotation: 0 },
+    ] })).success).toBe(true);
+  });
+
+  it("requires the entire farm artwork to fit in outdoor ground using the joined content metadata", async () => {
+    const database = await getTestDatabase();
+    const geometry = {
+      aspectRatio: 2,
+      visibleBounds: { x: 10, y: 10, width: 80, height: 80 },
+      footprint: { x: 20, y: 75, width: 60, height: 15 },
+    };
+    await database.update(item).set({ furnitureData: { ...DEFAULT_FURNITURE_DATA, action: "farm", width: 12, geometry } }).where(eq(item.id, "home-bed"));
+    const api = await callerFor(homeRouter, userId);
+    const home = await api.getUserHome();
+    const piece = home!.furniture.find(({ id }) => id === "bed-row")!;
+    expect(piece.geometry).toEqual(geometry);
+    const before = await snapshot();
+    const rejected = await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [{ id: piece.id, x: 50, y: 40, rotation: 0 }] });
+    expect(rejected.success).toBe(false);
+    expect(rejected.message).toContain("outside");
+    expect(await snapshot()).toEqual(before);
+    const outdoor = clampHomeFurniturePlacement({ id: piece.id, x: 50, y: 100, rotation: 0 }, piece, "NONE");
+    expect(outdoor).not.toBeNull();
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [outdoor!] })).success).toBe(true);
   });
 
   it("validates saved directions against the selected skin instead of mixing base artwork", async () => {

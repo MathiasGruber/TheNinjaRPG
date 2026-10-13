@@ -12,6 +12,7 @@ import {
   type HomeFurniture,
   homeLayoutOrientationError,
   homeLayoutOwnershipError,
+  homeLayoutPlacementError,
 } from "@/libs/home";
 import {
   getHomeStorageBucket,
@@ -146,23 +147,7 @@ export const homeRouter = createTRPCRouter({
         homeType: user.homeType,
         regen: HomeTypeDetails[user.homeType].regen,
         storage: HomeTypeDetails[user.homeType].storage,
-        furniture: furnitureItems.map((owned): HomeFurniture => {
-          const content = applyActiveVariant(owned);
-          const furnitureData = content.furnitureData ?? DEFAULT_FURNITURE_DATA;
-          return {
-            id: owned.id,
-            itemId: owned.itemId,
-            name: content.name,
-            description: content.description,
-            image: content.image,
-            width: furnitureData.width,
-            groundAnchor: furnitureData.groundAnchor,
-            action: furnitureData.action,
-            isFloor: furnitureData.isFloor,
-            quantity: owned.quantity,
-            views: furnitureData.views ?? {},
-          };
-        }),
+        furniture: furnitureItems.map(homeFurnitureDetails),
         furnitureRevision: user.homeFurnitureRevision,
         layout: getHomeLayout(furnitureItems),
       };
@@ -187,14 +172,15 @@ export const homeRouter = createTRPCRouter({
       );
       const ownershipError = homeLayoutOwnershipError(input.placements, furniture);
       if (ownershipError) return errorResponse(ownershipError);
-      const orientationError = homeLayoutOrientationError(
-        input.placements,
-        furniture.map((owned) => ({
-          id: owned.id,
-          views: applyActiveVariant(owned).furnitureData?.views ?? {},
-        })),
-      );
+      const pieces = furniture.map(homeFurnitureDetails);
+      const orientationError = homeLayoutOrientationError(input.placements, pieces);
       if (orientationError) return errorResponse(orientationError);
+      const placementError = homeLayoutPlacementError(
+        input.placements,
+        pieces,
+        user.homeType,
+      );
+      if (placementError) return errorResponse(placementError);
 
       /** Maps placements to owned inventory rows and resets omitted furniture's coordinates. */
       const coordinateCase = (axis: "x" | "y" | "rotation") =>
@@ -502,6 +488,30 @@ const availableHomeFurnitureItems = () =>
       lte(userItem.craftingFinishedAt, new Date()),
     ),
   );
+
+/** The joined inventory snapshot supplies the same active-view geometry to reads and save guards. */
+const homeFurnitureDetails = (
+  owned: NonNullable<
+    Awaited<ReturnType<typeof fetchHomeFurnitureUser>>
+  >["items"][number],
+): HomeFurniture => {
+  const content = applyActiveVariant(owned);
+  const data = content.furnitureData ?? DEFAULT_FURNITURE_DATA;
+  return {
+    id: owned.id,
+    itemId: owned.itemId,
+    name: content.name,
+    description: content.description,
+    image: content.image,
+    width: data.width,
+    groundAnchor: data.groundAnchor,
+    geometry: data.geometry,
+    action: data.action,
+    isFloor: data.isFloor,
+    quantity: owned.quantity,
+    views: data.views ?? {},
+  };
+};
 
 /** Guests can use residence navigation but only the resident can rearrange its furnishings. */
 const homeFurnitureAccessError = (

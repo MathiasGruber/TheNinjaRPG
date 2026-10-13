@@ -6,8 +6,10 @@ import {
   ChefHat,
   Hammer,
   Home,
+  House,
   MinusCircle,
   Package,
+  Pencil,
   PlusCircle,
   ShoppingBag,
 } from "lucide-react";
@@ -28,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { HomeType } from "@/drizzle/constants";
 import {
   HomeTypeDetails,
+  IMG_HOME_KITCHEN,
   ITEM_LEVEL_CAP,
   ItemRarities,
   ItemTypes,
@@ -57,13 +60,16 @@ import { useRequireInVillage } from "@/utils/UserContext";
 import { getStrucBoost } from "@/utils/village";
 import type { HomePlacement } from "@/validators/home";
 
-// Load the full farm and furniture catalog only when their dialogs are opened.
+// Load the farm and food menu only when their dialogs are opened.
 const HomeFarm = dynamic(() => import("@/layout/OccupationFarming"), {
   loading: () => <Loader explanation="Loading farm" />,
 });
-const Shop = dynamic(() => import("@/layout/Shop"), {
-  loading: () => <Loader explanation="Loading furniture shop" />,
-});
+const HomeKitchen = dynamic(
+  () => import("@/layout/RamenShop").then((mod) => mod.RamenMenu),
+  {
+    loading: () => <Loader explanation="Loading kitchen" />,
+  },
+);
 
 /** Residence hub for shared sleep actions and owner-only storage and home management. */
 export default function HomePage() {
@@ -77,11 +83,14 @@ export default function HomePage() {
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [isManagementOpen, setIsManagementOpen] = useState(false);
   const [isFarmOpen, setIsFarmOpen] = useState(false);
+  const [isKitchenOpen, setIsKitchenOpen] = useState(false);
+  const [isDecorating, setIsDecorating] = useState(false);
   const [furnitureError, setFurnitureError] = useState<string | null>(null);
   // Either a scene hotspot or a text control can open each dialog.
   const storageTriggerRef = useRef<HTMLButtonElement>(null);
   const managementTriggerRef = useRef<HTMLButtonElement>(null);
   const farmTriggerRef = useRef<HTMLButtonElement>(null);
+  const kitchenTriggerRef = useRef<HTMLButtonElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState("ALL");
   const [rarityFilter, setRarityFilter] = useState("ALL");
@@ -260,6 +269,14 @@ export default function HomePage() {
   // Filter upgrades and downgrades
   const upgrades = availableUpgrades?.filter((upgrade) => upgrade.isUpgrade) || [];
   const downgrades = availableUpgrades?.filter((upgrade) => !upgrade.isUpgrade) || [];
+  const canDecorate =
+    ownVillage &&
+    userData.sector === userData.village?.sector &&
+    !!homeData &&
+    !isHomeError;
+  const kitchenImage =
+    homeData?.furniture.find((piece) => piece.action === "kitchen")?.image ??
+    IMG_HOME_KITCHEN;
 
   return (
     <>
@@ -271,6 +288,38 @@ export default function HomePage() {
             : "Rest during your visit. Your home storage is in your own village."
         }
         defaultBackHref="/village"
+        topRightContent={
+          ownVillage && (
+            <div className="flex gap-1 pb-1 pl-2">
+              {canDecorate && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11"
+                  aria-label="Decorate"
+                  hoverText="Decorate"
+                  aria-pressed={isDecorating}
+                  disabled={isHomeFetching || isDecorating}
+                  onClick={() => setIsDecorating(true)}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11"
+                aria-label="Manage home"
+                hoverText="Manage home"
+                ref={managementTriggerRef}
+                disabled={isDecorating}
+                onClick={() => setIsManagementOpen(true)}
+              >
+                <House className="h-4 w-4" aria-hidden />
+              </Button>
+            </div>
+          )
+        }
       >
         {isHomeLoading ? (
           <Loader explanation="Loading your home" />
@@ -284,30 +333,13 @@ export default function HomePage() {
             layout={homeData?.layout}
             furniture={homeData?.furniture}
             revision={homeData?.furnitureRevision}
-            canDecorate={
-              ownVillage &&
-              userData.sector === userData.village?.sector &&
-              !!homeData &&
-              !isHomeError
-            }
+            canDecorate={canDecorate}
+            isDecorating={isDecorating}
+            onDecoratingChange={setIsDecorating}
             isSaving={saveFurniture.isPending}
             isRefreshingFurniture={isHomeFetching}
             furnitureError={furnitureError}
             onSave={saveLayout}
-            shopContent={
-              <Shop
-                userData={userData}
-                defaultType="FURNITURE"
-                restrictTypes={["FURNITURE"]}
-                initialBreak={false}
-                title="Furniture"
-                catalog={{
-                  heroTitle: "Furniture for your home",
-                  heroDescription: "Choose a piece, then place it in your home editor.",
-                  listId: false,
-                }}
-              />
-            }
             onFarm={(trigger) => {
               farmTriggerRef.current = trigger;
               setIsFarmOpen(true);
@@ -316,9 +348,9 @@ export default function HomePage() {
               storageTriggerRef.current = trigger;
               setIsStorageOpen(true);
             }}
-            onManage={(trigger) => {
-              managementTriggerRef.current = trigger;
-              setIsManagementOpen(true);
+            onKitchen={(trigger) => {
+              kitchenTriggerRef.current = trigger;
+              setIsKitchenOpen(true);
             }}
           />
         )}
@@ -331,6 +363,20 @@ export default function HomePage() {
           </div>
         )}
       </ContentBox>
+      <Modal
+        title="Kitchen"
+        isOpen={isKitchenOpen}
+        setIsOpen={setIsKitchenOpen}
+        returnFocusRef={kitchenTriggerRef}
+        className="sm:max-w-xl md:max-w-xl"
+      >
+        {isKitchenOpen && (
+          <HomeKitchen
+            image={kitchenImage}
+            imageClassName="mx-auto h-40 w-auto max-w-full object-contain"
+          />
+        )}
+      </Modal>
       <Modal
         title="Your Farm"
         isOpen={isFarmOpen}

@@ -19,6 +19,7 @@ const furniture = {
 const homeInvalidation = vi.fn(async () => undefined);
 const invalidate = vi.fn(async () => undefined);
 const updateUser = vi.fn(async () => undefined);
+const setItemType = vi.fn();
 const catalogQuery = vi.fn(() => ({
   data: { pages: [{ data: [furniture, { ...furniture, id: "weapon", name: "Sword", itemType: "WEAPON" }] }] },
   isFetching: false, hasNextPage: false, fetchNextPage: vi.fn(),
@@ -81,7 +82,7 @@ beforeEach(() => {
     isOpen ? <div role="dialog">{children}<button type="button" onClick={onAccept}>{proceed_label}</button></div> : null,
   );
   vi.spyOn(ItemShopFiltering, "ItemShopFiltering").mockImplementation(() => null);
-  vi.spyOn(ItemShopFiltering, "useShopFiltering").mockReturnValue({ itemType: "WEAPON", name: "", setName: vi.fn(), setItemType: vi.fn() } as never);
+  vi.spyOn(ItemShopFiltering, "useShopFiltering").mockReturnValue({ itemType: "WEAPON", name: "", setName: vi.fn(), setItemType } as never);
   vi.spyOn(ItemShopFiltering, "getShopFilter").mockReturnValue({ itemType: "WEAPON" });
 });
 afterEach(() => {
@@ -90,6 +91,13 @@ afterEach(() => {
 });
 
 describe("furniture catalog integration", () => {
+  it("offers Furniture alongside ordinary item categories", () => {
+    const view = render(<Shop userData={user} defaultType="WEAPON" />);
+    expect(view.getByRole("tab", { name: "Weapon" })).toBeTruthy();
+    fireEvent.click(view.getByRole("tab", { name: "Furniture" }));
+    expect(setItemType).toHaveBeenCalledWith("FURNITURE");
+  });
+
   it("restricts the existing item query and stale catalog rows to furniture", () => {
     const view = render(<Shop userData={user} defaultType="FURNITURE" restrictTypes={["FURNITURE"]} />);
     expect(catalogQuery).toHaveBeenCalledWith(expect.objectContaining({

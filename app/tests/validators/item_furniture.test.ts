@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { ItemValidator } from "@/validators/combat";
 import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS, furnitureDataSchema, furnitureItemSchema, itemCreateSchema } from "@/validators/item";
-import { furnitureVariantDataSchema } from "@/validators/itemFurniture";
+import { furnitureGeometrySchema, furnitureVariantDataSchema } from "@/validators/itemFurniture";
 
 const furniture = {
   ...FURNITURE_ITEM_DEFAULTS,
@@ -22,6 +22,25 @@ const furniture = {
 };
 
 describe("furniture item content", () => {
+  it("validates visible art and floor footprints in normalized image coordinates", () => {
+    const geometry = {
+      aspectRatio: 0.75,
+      visibleBounds: { x: 15, y: 10, width: 70, height: 80 },
+      footprint: { x: 20, y: 70, width: 60, height: 20 },
+    };
+    expect(furnitureDataSchema.parse({ geometry }).geometry).toEqual(geometry);
+    expect(furnitureVariantDataSchema.parse({ geometry }).geometry).toEqual(geometry);
+    expect(furnitureDataSchema.parse({ views: { "90": { image: "/side.webp", geometry } } }).views["90"]?.geometry).toEqual(geometry);
+    for (const invalid of [
+      { ...geometry, aspectRatio: 0 },
+      { ...geometry, visibleBounds: { ...geometry.visibleBounds, x: -1 } },
+      { ...geometry, visibleBounds: { ...geometry.visibleBounds, width: 90 } },
+      { ...geometry, footprint: { ...geometry.footprint, height: 31 } },
+      { ...geometry, footprint: { ...geometry.footprint, width: 0 } },
+      { ...geometry, footprint: { ...geometry.footprint, extra: true } },
+    ]) expect(furnitureGeometrySchema.safeParse(invalid).success).toBe(false);
+  });
+
   it("keeps directions optional while validating their images and per-view geometry", () => {
     const views = { "90": { image: "/furniture-90.webp", width: "18", groundAnchor: "85" } };
     expect(furnitureDataSchema.parse({ views }).views).toEqual({ "90": { image: "/furniture-90.webp", width: 18, groundAnchor: 85 } });

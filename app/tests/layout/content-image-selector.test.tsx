@@ -82,6 +82,8 @@ beforeEach(() => {
     cancelAnimationFrame: { configurable: true, value: (id: number) => clearTimeout(id) },
   });
   Object.assign(vi.spyOn(client, "api" as never), {
+    item: { getFurnitureImageGeometry: { useQuery: () => ({ data: undefined, isFetching: false }) } },
+    useQueries: () => [0, 1, 2].map(() => ({ data: undefined, isFetching: false })),
     useUtils: () => ({ avatar: { getHistoricalAvatars: { invalidate } } }),
     generativeAi: {
       createImg: {
@@ -283,6 +285,7 @@ describe("content furniture image generation", () => {
           image={original}
           width={30}
           groundAnchor={90}
+          geometry={{ aspectRatio: 4 / 3, visibleBounds: { x: 0, y: 0, width: 100, height: 100 }, footprint: { x: 10, y: 85, width: 80, height: 15 } }}
           views={views}
           canEdit
           onBaseChange={onUploadComplete}

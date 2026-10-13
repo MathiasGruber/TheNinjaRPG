@@ -168,6 +168,7 @@ export const applyActiveVariant = <
             groundAnchor:
               variant.furnitureData?.groundAnchor ??
               userItem.item.furnitureData.groundAnchor,
+            geometry: variant.furnitureData?.geometry,
             views: variant.furnitureData?.views ?? {},
           },
         }

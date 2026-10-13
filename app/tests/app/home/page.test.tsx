@@ -8,14 +8,14 @@ import * as client from "@/app/_trpc/client";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
 import HomePage from "@/app/[shell]/home/page";
 import * as dialog from "@/components/ui/dialog";
-import { HomeTypeDetails } from "@/drizzle/constants";
+import { HomeTypeDetails, IMG_HOME_KITCHEN } from "@/drizzle/constants";
 import * as sleep from "@/hooks/sleep";
 import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
 import * as Link from "@/layout/Link";
 import * as Modal from "@/layout/Modal";
 import { getDefaultHomeLayout, type HomeFurniture } from "@/libs/home";
-import * as Shop from "@/layout/Shop";
+import * as RamenShop from "@/layout/RamenShop";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
 import { ensureDom } from "../../setup-dom.mjs";
@@ -31,6 +31,8 @@ const rug: HomeFurniture = {
 const testApi = createTRPCReact<AppRouter>();
 let savedEvent: typeof Event;
 let savedCustomEvent: typeof CustomEvent;
+let savedAnimationFrame: PropertyDescriptor | undefined;
+let savedCancelAnimationFrame: PropertyDescriptor | undefined;
 
 beforeEach(() => {
   ensureDom();
@@ -38,6 +40,12 @@ beforeEach(() => {
   savedCustomEvent = globalThis.CustomEvent;
   globalThis.Event = window.Event;
   globalThis.CustomEvent = window.CustomEvent;
+  savedAnimationFrame = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame");
+  savedCancelAnimationFrame = Object.getOwnPropertyDescriptor(globalThis, "cancelAnimationFrame");
+  Object.defineProperties(globalThis, {
+    requestAnimationFrame: { configurable: true, value: (callback: FrameRequestCallback) => Number(setTimeout(() => callback(Date.now()), 0)) },
+    cancelAnimationFrame: { configurable: true, value: (id: number) => clearTimeout(id) },
+  });
   vi.spyOn(Modal, "default").mockImplementation(actualModal);
   vi.spyOn(dialog, "Dialog").mockImplementation(actualDialog.Dialog);
   vi.spyOn(dialog, "DialogContent").mockImplementation(actualDialog.DialogContent);
@@ -65,14 +73,14 @@ beforeEach(() => {
     toggleSleep: vi.fn(),
     isTogglingSleep: false,
   } as never);
-  vi.spyOn(ContentBox, "default").mockImplementation(({ children }) => (
-    <div>{children}</div>
+  vi.spyOn(ContentBox, "default").mockImplementation(({ children, topRightContent }) => (
+    <div><div data-testid="home-header-controls">{topRightContent}</div>{children}</div>
   ));
   vi.spyOn(Image, "default").mockImplementation(({ alt }) => <img alt={alt} />);
   vi.spyOn(Link, "default").mockImplementation(({ children, href }) => (
     <a href={String(href)}>{children}</a>
   ));
-  vi.spyOn(Shop, "default").mockImplementation(() => <p>Furniture catalog</p>);
+  vi.spyOn(RamenShop, "RamenMenu").mockImplementation(() => <p>Kitchen menu</p>);
   vi.spyOn(toast, "showMutationToast").mockImplementation(() => undefined);
 });
 afterEach(async () => {
@@ -81,6 +89,10 @@ afterEach(async () => {
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
   globalThis.Event = savedEvent;
   globalThis.CustomEvent = savedCustomEvent;
+  for (const [key, descriptor] of [["requestAnimationFrame", savedAnimationFrame], ["cancelAnimationFrame", savedCancelAnimationFrame]] as const) {
+    if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+    else Reflect.deleteProperty(globalThis, key);
+  }
   vi.restoreAllMocks();
 });
 
@@ -209,7 +221,7 @@ for (const success of [true, false]) {
         (view.getByRole("button", { name: "Saving…" }) as HTMLButtonElement).disabled,
       ).toBe(true),
     );
-    for (const name of ["Cancel", "Move Bed right", "Reload saved layout"]) {
+    for (const name of ["Cancel", "Undo changes"]) {
       expect((view.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(
         true,
       );
@@ -245,8 +257,8 @@ for (const success of [true, false]) {
   });
 }
 
-// Real dialog focus, lazy catalog loading and query refresh need an integration-test budget.
-it("opens the standard furniture catalog and waits for refreshed inventory before decorating", async () => {
+// Real dialog focus and query refresh need an integration-test budget.
+it("opens home management from the header and waits for refreshed inventory before decorating", async () => {
   let finishRefresh = () => {};
   const refreshed = new Promise<void>((resolve) => { finishRefresh = resolve; });
   let homeQueries = 0;
@@ -273,13 +285,15 @@ it("opens the standard furniture catalog and waits for refreshed inventory befor
         <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
       </testApi.Provider>,
     );
-    const trigger = await view.findByRole("button", { name: "House shop" });
+    const trigger = await view.findByRole("button", { name: "Manage home" });
+    await view.findByRole("button", { name: "Decorate" });
+    const header = within(view.getByTestId("home-header-controls"));
+    expect(header.getByRole("button", { name: "Manage home" })).toBe(trigger);
+    expect(header.getByRole("button", { name: "Decorate" })).toBeTruthy();
+    expect(view.queryByRole("button", { name: "House shop" })).toBeNull();
     fireEvent.click(trigger);
-    const houseShop = within(view.getByRole("dialog"));
-    expect(await houseShop.findByText("Furniture catalog")).toBeTruthy();
-    expect(Shop.default).toHaveBeenLastCalledWith(expect.objectContaining({
-      defaultType: "FURNITURE", restrictTypes: ["FURNITURE"], initialBreak: false, title: "Furniture",
-    }), undefined);
+    const management = within(view.getByRole("dialog"));
+    expect(management.getByText("Home Management")).toBeTruthy();
     // Ordinary item purchases invalidate this query; a fresh draft must use the delivered rows and revision.
     home.furniture = [...furniture, rug];
     home.furnitureRevision++;
@@ -287,7 +301,7 @@ it("opens the standard furniture catalog and waits for refreshed inventory befor
       invalidated = queryClient.invalidateQueries({ queryKey: getQueryKey(testApi.home.getUserHome, undefined, "query") });
     });
     await waitFor(() => expect(homeQueries).toBe(2));
-    fireEvent.click(houseShop.getAllByRole("button", { name: "Close" })[0]!);
+    fireEvent.click(management.getAllByRole("button", { name: "Close" })[0]!);
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     const decorate = view.getByRole("button", { name: "Decorate" }) as HTMLButtonElement;
     expect(decorate.disabled).toBe(true);
@@ -296,10 +310,55 @@ it("opens the standard furniture catalog and waits for refreshed inventory befor
     await act(async () => { finishRefresh(); await Promise.all([refreshed, invalidated]); });
     await waitFor(() => expect(decorate.disabled).toBe(false));
     fireEvent.click(decorate);
-    expect(view.getByRole("button", { name: /Woven Rug.*In inventory/ })).toBeTruthy();
+    expect(view.getByRole("button", { name: /Woven Rug.*Place$/ })).toBeTruthy();
   } finally {
     finishRefresh();
     await invalidated;
     queryClient.clear();
+  }
+}, 20_000);
+
+it("opens the kitchen with owned artwork or its fallback and returns focus to its action", async () => {
+  for (const hasKitchen of [true, false]) {
+    const kitchen: HomeFurniture = {
+      ...rug, id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen",
+      image: "/kitchen.webp", isFloor: false, action: "kitchen",
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      if (op.path === "home.getUserHome") {
+        observer.next({ result: { data: {
+          homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+          furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, layout: hasKitchen ? getDefaultHomeLayout([kitchen]) : [],
+        } } });
+      } else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") {
+        observer.next({ result: { data: [] } });
+      } else {
+        throw new Error(`Unexpected procedure ${op.path}`);
+      }
+      observer.complete();
+    })] });
+    try {
+      const view = render(
+        <testApi.Provider client={trpcClient} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+        </testApi.Provider>,
+      );
+      const trigger = await view.findByRole("button", { name: "Kitchen" });
+      expect(view.queryByRole("link", { name: /ramen shop/i })).toBeNull();
+      fireEvent.click(trigger);
+      const kitchenDialog = within(view.getByRole("dialog"));
+      expect(await kitchenDialog.findByText("Kitchen menu")).toBeTruthy();
+      expect(RamenShop.RamenMenu).toHaveBeenLastCalledWith({
+        image: hasKitchen ? "/kitchen.webp" : IMG_HOME_KITCHEN,
+        imageClassName: "mx-auto h-40 w-auto max-w-full object-contain",
+      }, undefined);
+      fireEvent.click(kitchenDialog.getAllByRole("button", { name: "Close" })[0]!);
+      await waitFor(() => expect(document.activeElement).toBe(trigger));
+    } finally {
+      queryClient.clear();
+      cleanup();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
   }
 }, 20_000);

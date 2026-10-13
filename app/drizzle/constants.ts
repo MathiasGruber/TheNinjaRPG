@@ -2615,6 +2615,8 @@ export const IMG_PROFILE_LEVELUPGUY =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJaeS5LnYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk.webp";
 export const IMG_RAMEN_WELCOME =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJmd2fWKHE4IMO5Goa7cgLxPJ0VC6lU8vbt1Ap.webp";
+export const IMG_HOME_KITCHEN =
+  "https://ui0arpl8sm.ufs.sh/f/i520XbXoRXRYIZrNImg62.webp";
 export const IMG_RAMEN_SMALL =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJj7ESnm4XzPI8f1v96qBot0Q3wsUp2nxu7SMb.webp";
 export const IMG_RAMEN_MEDIUM =
@@ -3050,11 +3052,14 @@ export const HOME_FURNITURE_STARTERS = [
 ] as const;
 
 /** Floor-space margins keep furniture reachable at scene edges on every home tier. */
-export const HOME_FURNITURE_POSITION_MIN = 8;
-export const HOME_FURNITURE_POSITION_MAX = 92;
+export const HOME_FURNITURE_POSITION_MIN = 0;
+export const HOME_FURNITURE_POSITION_MAX = 100;
 export const HOME_FURNITURE_MIN_WIDTH = 6;
 export const HOME_FURNITURE_MAX_WIDTH = 40;
 export const HOME_FURNITURE_MAX_PLACEMENTS = 50;
+
+/** The fixed room camera foreshortens furniture facing along the front-to-back floor axis. */
+export const HOME_FURNITURE_FLOOR_DEPTH_RATIO = 0.7;
 
 // Auction system constants
 export const IMG_AUCTION_HOUSE =

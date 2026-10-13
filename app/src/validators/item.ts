@@ -17,6 +17,12 @@ import { furnitureVariantDataSchema } from "@/validators/itemFurniture";
 
 export const itemCreateSchema = z.object({ type: z.enum(ItemTypes) });
 
+/** Furniture measurements always describe the original uploaded image, never a CDN rendition. */
+export const furnitureImageMeasurementSchema = z.object({
+  image: z.url().max(512),
+  useFullFootprint: z.boolean(),
+});
+
 export {
   DEFAULT_FURNITURE_DATA,
   FURNITURE_ITEM_DEFAULTS,

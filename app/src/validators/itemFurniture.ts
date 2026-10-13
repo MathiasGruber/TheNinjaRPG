@@ -6,6 +6,32 @@ import {
 } from "@/drizzle/constants";
 import type { Item } from "@/drizzle/schema";
 
+/** Source-image percentages keep geometry independent of image resolution and CDN renditions. */
+export const furnitureImageBoundsSchema = z
+  .strictObject({
+    x: z.coerce.number().min(0).max(100),
+    y: z.coerce.number().min(0).max(100),
+    width: z.coerce.number().positive().max(100),
+    height: z.coerce.number().positive().max(100),
+  })
+  .refine((bounds) => bounds.x + bounds.width <= 100, {
+    message: "Bounds must fit inside the image width",
+    path: ["width"],
+  })
+  .refine((bounds) => bounds.y + bounds.height <= 100, {
+    message: "Bounds must fit inside the image height",
+    path: ["height"],
+  });
+export type FurnitureImageBounds = z.output<typeof furnitureImageBoundsSchema>;
+
+/** Visible art frames selection; only its painted ground footprint occupies floor space. */
+export const furnitureGeometrySchema = z.strictObject({
+  aspectRatio: z.coerce.number().positive().max(10),
+  visibleBounds: furnitureImageBoundsSchema,
+  footprint: furnitureImageBoundsSchema,
+});
+export type FurnitureGeometry = z.output<typeof furnitureGeometrySchema>;
+
 /** Each painted direction can correct its own floor footprint without changing item mechanics. */
 export const furnitureViewSchema = z.strictObject({
   image: z.string().min(1, "Image required").max(512),
@@ -15,6 +41,7 @@ export const furnitureViewSchema = z.strictObject({
     .max(HOME_FURNITURE_MAX_WIDTH)
     .optional(),
   groundAnchor: z.coerce.number().min(1).max(100).optional(),
+  geometry: furnitureGeometrySchema.optional(),
 });
 export type FurnitureView = z.output<typeof furnitureViewSchema>;
 
@@ -47,6 +74,7 @@ export const furnitureDataSchema = z.object({
     .prefault(24),
   groundAnchor: z.coerce.number().min(1).max(100).prefault(100),
   isFloor: z.coerce.boolean().prefault(false),
+  geometry: furnitureGeometrySchema.optional(),
   views: furnitureViewsSchema,
 });
 

@@ -47,6 +47,7 @@ import {
   type FurnitureData,
   type FurnitureVariantData,
   type FurnitureViews,
+  furnitureGeometrySchema,
 } from "@/validators/itemFurniture";
 
 export default function ItemEdit(props: { params: Promise<{ itemid: string }> }) {
@@ -102,6 +103,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
   const isFurniture = itemType === "FURNITURE";
   const furnitureImage = useWatch({ control: form.control, name: "image" });
   const furnitureData = useWatch({ control: form.control, name: "furnitureData" });
+  const [isFurnitureMeasuring, setIsFurnitureMeasuring] = React.useState(false);
   const itemName = useWatch({ control: form.control, name: "name" });
   const itemDescription = useWatch({ control: form.control, name: "description" });
 
@@ -151,9 +153,13 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
               type="item"
               relationId={item.id}
               allowImageUpload={props.canSave}
-              onAccept={handleItemSubmit}
-              submitLoading={isUpdating}
-              submitLoadingText="Saving"
+              onAccept={async (values) => {
+                if (!isFurnitureMeasuring) await handleItemSubmit(values);
+              }}
+              submitLoading={isUpdating || isFurnitureMeasuring}
+              submitLoadingText={
+                isFurnitureMeasuring ? "Measuring furniture" : "Saving"
+              }
             />
             {isFurniture && (
               <Controller
@@ -170,8 +176,16 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
                       furnitureData?.groundAnchor ??
                         DEFAULT_FURNITURE_DATA.groundAnchor,
                     )}
+                    geometry={
+                      furnitureGeometrySchema.safeParse(furnitureData?.geometry).data
+                    }
+                    useFullFootprint={
+                      Boolean(furnitureData?.isFloor) ||
+                      furnitureData?.action === "sleep"
+                    }
                     views={(field.value ?? {}) as FurnitureViews}
                     onViewsChange={field.onChange}
+                    onMeasurementPendingChange={setIsFurnitureMeasuring}
                     onBaseChange={(change) => {
                       if (change.image !== undefined)
                         form.setValue("image", change.image, {
@@ -189,6 +203,11 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
                           change.groundAnchor,
                           { shouldDirty: true, shouldValidate: true },
                         );
+                      if ("geometry" in change)
+                        form.setValue("furnitureData.geometry", change.geometry, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
                     }}
                     canEdit={props.canSave}
                     disabled={isUpdating}
@@ -217,6 +236,8 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
                       furnitureData?.groundAnchor ??
                         DEFAULT_FURNITURE_DATA.groundAnchor,
                     ),
+                    isFloor: Boolean(furnitureData?.isFloor),
+                    action: furnitureData?.action || null,
                   }
                 : null
             }
@@ -280,7 +301,10 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
 
 interface ItemVariantsEditorProps {
   itemId: string;
-  furnitureData?: Pick<FurnitureData, "width" | "groundAnchor"> | null;
+  furnitureData?: Pick<
+    FurnitureData,
+    "width" | "groundAnchor" | "isFloor" | "action"
+  > | null;
 }
 
 type VariantFormInput = {
@@ -311,6 +335,7 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
   >(() => new Set());
   const variantOperationInFlightRef = React.useRef(false);
   const [variantOperationPending, setVariantOperationPending] = React.useState(false);
+  const [isFurnitureMeasuring, setIsFurnitureMeasuring] = React.useState(false);
 
   const setVariantDeleting = (variantId: string, deleting: boolean) => {
     const next = new Set(deletingVariantIdsRef.current);
@@ -426,7 +451,7 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
 
   const onSubmit = form.handleSubmit(
     (data) => {
-      if (variantOperationInFlightRef.current) return;
+      if (variantOperationInFlightRef.current || isFurnitureMeasuring) return;
       variantOperationInFlightRef.current = true;
       setVariantOperationPending(true);
       try {
@@ -649,10 +674,16 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
                         furnitureData?.groundAnchor ??
                         DEFAULT_FURNITURE_DATA.groundAnchor
                       }
+                      geometry={variantFurniture?.geometry}
+                      useFullFootprint={
+                        Boolean(furnitureData?.isFloor) ||
+                        furnitureData?.action === "sleep"
+                      }
                       views={field.value?.views ?? {}}
                       onViewsChange={(views) =>
                         field.onChange({ ...field.value, views })
                       }
+                      onMeasurementPendingChange={setIsFurnitureMeasuring}
                       onBaseChange={(change) => {
                         if (change.image !== undefined)
                           form.setValue("image", change.image, {
@@ -732,12 +763,17 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
                 type="submit"
                 disabled={
                   variantOperationPending ||
+                  isFurnitureMeasuring ||
                   (editingVariant?.id
                     ? deletingVariantIds.has(editingVariant.id)
                     : false)
                 }
               >
-                {upsert.isPending ? "Saving" : "Save Variant"}
+                {isFurnitureMeasuring
+                  ? "Measuring furniture"
+                  : upsert.isPending
+                    ? "Saving"
+                    : "Save Variant"}
               </Button>
               <Button
                 type="button"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { api } from "@/app/_trpc/client";
 import {
   IMG_RAMEN_LARGE,
@@ -26,12 +27,41 @@ interface RamenShopProps {
 }
 
 const RamenShop: React.FC<RamenShopProps> = (props) => {
+  return (
+    <ContentBox
+      title="Ramen Shop"
+      subtitle="Healthy food to regain chakra & stamina"
+      defaultBackHref={props.defaultBackHref}
+      padding={false}
+      initialBreak={props.initialBreak}
+    >
+      <RamenMenu
+        image={props.showImage ? IMG_RAMEN_WELCOME : undefined}
+        imageAlt="Ramen shop"
+      />
+    </ContentBox>
+  );
+};
+
+export default RamenShop;
+
+/** Shared food menu for village counters and home kitchens, using the same purchase flow. */
+export const RamenMenu = ({
+  image,
+  imageAlt = "Kitchen",
+  imageClassName = "w-full",
+}: RamenMenuProps) => {
   const { data: userData, prepareUserUpdate, updateUser } = useRequiredUserData();
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const { mutate, isPending } = api.village.buyFood.useMutation({
-    onMutate: prepareUserUpdate,
+    onMutate: () => {
+      setPurchaseError(null);
+      return prepareUserUpdate();
+    },
     onSuccess: async (data, _variables, revision) => {
       showMutationToast(data);
+      if (!data.success) setPurchaseError(data.message);
       if (data.success && userData) {
         await updateUser(
           (current) => ({
@@ -48,6 +78,7 @@ const RamenShop: React.FC<RamenShopProps> = (props) => {
         );
       }
     },
+    onError: (error) => setPurchaseError(error.message),
   });
 
   useAwake(userData);
@@ -56,21 +87,20 @@ const RamenShop: React.FC<RamenShopProps> = (props) => {
   if (userData.isBanned) return <BanInfo />;
 
   return (
-    <ContentBox
-      title="Ramen Shop"
-      subtitle="Healthy food to regain chakra & stamina"
-      defaultBackHref={props.defaultBackHref}
-      padding={false}
-      initialBreak={props.initialBreak}
-    >
-      {props.showImage && (
+    <>
+      {image && (
         <Image
-          alt="welcome"
-          src={IMG_RAMEN_WELCOME}
+          alt={imageAlt}
+          src={image}
           width={512}
           height={221}
-          className="w-full"
+          className={imageClassName}
         />
+      )}
+      {purchaseError && (
+        <p role="alert" className="px-3 text-destructive text-sm">
+          {purchaseError}
+        </p>
       )}
       {isPending && <Loader explanation="Purchasing food" />}
       <div
@@ -81,6 +111,7 @@ const RamenShop: React.FC<RamenShopProps> = (props) => {
           entry="small"
           image={IMG_RAMEN_SMALL}
           userData={userData}
+          isPending={isPending}
           onPurchase={() => mutate({ ramen: "small" })}
         />
         <MenuEntry
@@ -88,6 +119,7 @@ const RamenShop: React.FC<RamenShopProps> = (props) => {
           entry="medium"
           image={IMG_RAMEN_MEDIUM}
           userData={userData}
+          isPending={isPending}
           onPurchase={() => mutate({ ramen: "medium" })}
         />
         <MenuEntry
@@ -95,26 +127,33 @@ const RamenShop: React.FC<RamenShopProps> = (props) => {
           entry="large"
           image={IMG_RAMEN_LARGE}
           userData={userData}
+          isPending={isPending}
           onPurchase={() => mutate({ ramen: "large" })}
         />
       </div>
-    </ContentBox>
+    </>
   );
 };
 
-export default RamenShop;
+type RamenMenuProps = {
+  image?: string;
+  imageAlt?: string;
+  /** Kitchens use a compact illustration while public counters retain their full-width banner. */
+  imageClassName?: string;
+};
 
 interface MenuEntryProps {
   title: string;
   entry: RamenOption;
   image: string;
   userData: NonNullable<UserWithRelations>;
+  isPending: boolean;
   onPurchase: () => void;
 }
 
 const MenuEntry: React.FC<MenuEntryProps> = (props) => {
   // Destructure
-  const { title, entry, image, userData, onPurchase } = props;
+  const { title, entry, image, userData, isPending, onPurchase } = props;
 
   // Get current village
   const { data: sectorVillage } = api.travel.getVillageInSector.useQuery(
@@ -150,7 +189,12 @@ const MenuEntry: React.FC<MenuEntryProps> = (props) => {
   };
 
   return (
-    <button type="button" className="text-left hover:cursor-pointer" onClick={onClick}>
+    <button
+      type="button"
+      className="text-left hover:cursor-pointer"
+      disabled={isPending}
+      onClick={onClick}
+    >
       <Image
         alt={title}
         src={image}

@@ -10,6 +10,20 @@ const baseItem = {
 };
 
 describe("applyActiveVariant", () => {
+  it("uses the skin's sprite geometry without inheriting another image's transparent padding", () => {
+    const geometry = {
+      aspectRatio: 2,
+      visibleBounds: { x: 10, y: 20, width: 80, height: 70 },
+      footprint: { x: 20, y: 70, width: 60, height: 20 },
+    };
+    const furnitureData = { ...DEFAULT_FURNITURE_DATA, geometry };
+    const variant = { id: "red", image: "/red.webp", furnitureData: { geometry: { ...geometry, aspectRatio: 1 }, views: {} } };
+    const item = { ...baseItem, furnitureData, variants: [variant] };
+    expect(applyActiveVariant({ activeVariantId: "red", item }).furnitureData.geometry?.aspectRatio).toBe(1);
+    expect(applyActiveVariant({ activeVariantId: "red", item: { ...item, variants: [{ id: "red", image: "/red.webp" }] } }).furnitureData.geometry).toBeUndefined();
+    expect(applyActiveVariant({ activeVariantId: null, item }).furnitureData.geometry).toBe(geometry);
+  });
+
   it("replaces furniture directions with the active skin's complete set without mutating mechanics", () => {
     const furnitureData: FurnitureData = { ...DEFAULT_FURNITURE_DATA, action: "storage", views: { "90": { image: "/base-90.webp" } } };
     const item = { ...baseItem, furnitureData, variants: [{
