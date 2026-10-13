@@ -28,6 +28,10 @@ const catalogue = [
   line("hidden", "A", true),
 ];
 
+/**
+ * Build a collector with one validated objective and no hydrated collection counts.
+ * Tests supply ownership snapshots for the chosen rank and S-rank exclusion setting.
+ */
 const makeUser = (bloodlineRank = "ALL", excludeSRank = false) => {
   const objective = BloodlineCollection.parse({
     id: "collect",

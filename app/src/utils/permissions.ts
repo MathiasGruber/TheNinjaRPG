@@ -44,7 +44,10 @@ export const isStaffRole = (role?: UserRole | null) => {
   return !!role && role !== "USER";
 };
 
-/** Allow non-moderation staff to suggest content using the shared staff eligibility rule. */
+/**
+ * Allow non-moderation staff to suggest content using the shared staff eligibility rule.
+ * Missing roles and ordinary players cannot submit suggestions.
+ */
 export const canSuggestContent = (role?: UserRole | null) => {
   return canAccessHiddenSkillTree(role);
 };
