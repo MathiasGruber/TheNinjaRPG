@@ -1,9 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
-import { IMG_ORIENTATIONS } from "@/drizzle/constants";
 import { historicalAvatar } from "@/drizzle/schema";
-import { txt2imgNanoBanana } from "@/libs/replicate";
+import { txt2imgGPT, txt2imgNanoBanana } from "@/libs/replicate";
 import { fetchUser } from "@/routers/profile";
 import {
   baseServerResponse,
@@ -12,20 +11,11 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import { canChangeContent } from "@/utils/permissions";
+import { contentImageInputSchema } from "@/validators/ai";
 
 export const generativeAiRouter = createTRPCRouter({
   createImg: protectedProcedure
-    .input(
-      z.object({
-        preprompt: z.string(),
-        prompt: z.string(),
-        previousImg: z.string().optional(),
-        removeBg: z.boolean(),
-        relationId: z.string(),
-        size: z.enum(IMG_ORIENTATIONS),
-        maxDim: z.number(),
-      }),
-    )
+    .input(contentImageInputSchema)
     .output(baseServerResponse.extend({ url: z.url().optional().nullable() }))
     .mutation(async ({ ctx, input }) => {
       // Query
@@ -56,7 +46,9 @@ export const generativeAiRouter = createTRPCRouter({
       // unhandled 500; anything else (bad token, Replicate outage) still throws.
       let resultUrls: string[] = [];
       try {
-        resultUrls = await txt2imgNanoBanana({
+        // Directional furniture edits can opt into OpenAI for camera and object fidelity.
+        const generate = input.provider === "OPENAI" ? txt2imgGPT : txt2imgNanoBanana;
+        resultUrls = await generate({
           preprompt: input.preprompt,
           prompt: input.prompt,
           previousImg: input.previousImg,

@@ -6,8 +6,6 @@ import {
   AttackMethods,
   AttackTargets,
   BattleUsageTypes,
-  HOME_FURNITURE_MAX_WIDTH,
-  HOME_FURNITURE_MIN_WIDTH,
   HomeFurnitureActions,
   ItemPurchaseLimitPeriods,
   ItemRarities,
@@ -365,20 +363,6 @@ export const useItemEditForm = (
       3,
       0,
       {
-        id: "furnitureData.width",
-        label: `Scene width (%) · ${HOME_FURNITURE_MIN_WIDTH}–${HOME_FURNITURE_MAX_WIDTH}`,
-        type: "number",
-        min: HOME_FURNITURE_MIN_WIDTH,
-        max: HOME_FURNITURE_MAX_WIDTH,
-      },
-      {
-        id: "furnitureData.groundAnchor",
-        label: "Ground anchor (%) · 1–100",
-        type: "number",
-        min: 1,
-        max: 100,
-      },
-      {
         id: "furnitureData.action",
         label: "Home action (blank for decoration)",
         type: "str_array",
@@ -406,7 +390,6 @@ export const useItemEditForm = (
 
 const FURNITURE_FORM_FIELDS = new Set<Path<ZodItemType>>([
   "name",
-  "image",
   "itemType",
   "rarity",
   "description",

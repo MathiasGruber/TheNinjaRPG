@@ -28,7 +28,7 @@ describeWithDatabase("owned furniture persistence", () => {
       { userId: "other-owner", username: "other-owner", villageId: homeVillage, sector: 30, status: "AWAKE" },
     ]);
     await insertItems([
-      { ...FURNITURE_ITEM_DEFAULTS, id: "cabinet", name: "Painted Cabinet", description: "Timber cabinet", image: "/cabinet.webp", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, width: 28, groundAnchor: 92 } },
+      { ...FURNITURE_ITEM_DEFAULTS, id: "cabinet", name: "Painted Cabinet", description: "Timber cabinet", image: "/cabinet.webp", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, width: 28, groundAnchor: 92, views: { "90": { image: "/cabinet-90.webp" }, "180": { image: "/cabinet-180.webp", width: 18 }, "270": { image: "/cabinet-270.webp", groundAnchor: 85 } } } },
       { ...FURNITURE_ITEM_DEFAULTS, id: "rug", name: "Woven Rug", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, isFloor: true } },
       { ...FURNITURE_ITEM_DEFAULTS, id: "home-bed", name: "Bed", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, action: "sleep" }, inShop: false, cost: 0 },
       { id: "material", name: "Material", itemType: "MATERIAL" },
@@ -64,7 +64,7 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(home?.furniture).toHaveLength(4);
     expect(home?.furniture.find(({ id }) => id === "cabinet-a")).toMatchObject({
       itemId: "cabinet", name: "Crimson Cabinet", image: "/crimson-cabinet.webp",
-      description: "A cabinet with red lacquer", width: 28, groundAnchor: 92, quantity: 1,
+      description: "A cabinet with red lacquer", width: 28, groundAnchor: 92, quantity: 1, views: {},
     });
     expect(home?.furniture.find(({ id }) => id === "cabinet-b")?.image).toBe("/cabinet.webp");
     expect(home?.furniture.find(({ id }) => id === "rug-row")?.isFloor).toBe(true);
@@ -85,6 +85,37 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(saved.owner.money).toBe(initialMoney);
     expect(saved.inventory.find(({ id }) => id === "material-row")?.homeX).toBeNull();
     expect(saved.inventory.find(({ id }) => id === "foreign-cabinet")?.homeX).toBeNull();
+  });
+
+  it("persists all four quarter turns while rejecting directions without published art", async () => {
+    const api = await callerFor(homeRouter, userId);
+    for (const rotation of [0, 1, 2, 3] as const) {
+      const placements = [{ id: "cabinet-a", x: 30, y: 40, rotation }];
+      expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: rotation, placements })).success).toBe(true);
+      expect((await api.getUserHome())?.layout).toEqual(placements);
+    }
+    const before = await snapshot();
+    const result = await api.saveFurnitureLayout({ homeType: "NONE", revision: 4, placements: [{ id: "rug-row", x: 30, y: 40, rotation: 1 }] });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("orientation");
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("validates saved directions against the selected skin instead of mixing base artwork", async () => {
+    const database = await getTestDatabase();
+    await database.insert(itemVariant).values({
+      id: "red-cabinet", itemId: "cabinet", name: "Crimson Cabinet", image: "/crimson-cabinet.webp",
+      costType: "MONEY", order: 1, furnitureData: { views: { "180": { image: "/red-180.webp", width: 18 } } },
+    });
+    await database.update(userItem).set({ activeVariantId: "red-cabinet" }).where(eq(userItem.id, "cabinet-a"));
+    const api = await callerFor(homeRouter, userId);
+    const piece = (await api.getUserHome())?.furniture.find(({ id }) => id === "cabinet-a");
+    expect(piece?.views).toEqual({ "180": { image: "/red-180.webp", width: 18 } });
+    const before = await snapshot();
+    const unsupported = await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [{ id: "cabinet-a", x: 30, y: 40, rotation: 1 }] });
+    expect(unsupported.success).toBe(false);
+    expect(await snapshot()).toEqual(before);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [{ id: "cabinet-a", x: 30, y: 40, rotation: 2 }] })).success).toBe(true);
   });
 
   it("serializes overlapping layouts without mixing their positions", async () => {

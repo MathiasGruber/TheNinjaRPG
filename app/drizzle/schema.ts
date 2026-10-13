@@ -53,7 +53,7 @@ import type {
 } from "@/validators/towerDefense";
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
-import type { FurnitureData } from "@/validators/itemFurniture";
+import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurniture";
 import type { WarSettlement } from "@/validators/war";
 
 export const vector = customType<{
@@ -1573,6 +1573,7 @@ export const itemVariant = mysqlTable(
     order: smallint("order", { unsigned: true }).default(1).notNull(),
     description: text("description"),
     battleDescription: text("battleDescription"),
+    furnitureData: json("furnitureData").$type<FurnitureVariantData>(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),

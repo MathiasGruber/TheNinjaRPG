@@ -4,7 +4,6 @@ import * as client from "@/app/_trpc/client";
 import type { Item } from "@/drizzle/schema";
 import { useItemEditForm } from "@/hooks/item";
 import { ItemValidator } from "@/validators/combat";
-import { FURNITURE_IMAGE_PROMPT } from "@/libs/imagePrompts";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { ensureDom } from "../setup-dom.mjs";
 
@@ -108,14 +107,12 @@ describe("staff item economy editor", () => {
     });
     const ids = result.current.formData.map((field) => field.id);
     expect(ids).toContain("furnitureData.action");
-    expect(ids).toContain("furnitureData.width");
-    expect(ids).toContain("furnitureData.groundAnchor");
+    expect(ids).not.toContain("furnitureData.width");
+    expect(ids).not.toContain("furnitureData.groundAnchor");
     expect(ids).toContain("furnitureData.isFloor");
     expect(ids).not.toContain("battleDescription");
     expect(ids).not.toContain("slot");
-    expect(result.current.formData.find((field) => field.id === "image")).toMatchObject({
-      size: "landscape", maxDim: 768, preprompt: FURNITURE_IMAGE_PROMPT,
-    });
+    expect(ids).not.toContain("image");
     expect(await result.current.form.trigger()).toBe(true);
   });
   it("saves nested furniture settings and clears them when changing to another item type", async () => {

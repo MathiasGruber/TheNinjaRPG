@@ -10,6 +10,7 @@ import { applyActiveVariant } from "@/libs/combat/util";
 import {
   getHomeLayout,
   type HomeFurniture,
+  homeLayoutOrientationError,
   homeLayoutOwnershipError,
 } from "@/libs/home";
 import {
@@ -159,6 +160,7 @@ export const homeRouter = createTRPCRouter({
             action: furnitureData.action,
             isFloor: furnitureData.isFloor,
             quantity: owned.quantity,
+            views: furnitureData.views ?? {},
           };
         }),
         furnitureRevision: user.homeFurnitureRevision,
@@ -180,13 +182,19 @@ export const homeRouter = createTRPCRouter({
       ) {
         return errorResponse("Your home changed. Refresh and try again");
       }
-      const ownershipError = homeLayoutOwnershipError(
-        input.placements,
-        user.items.filter(
-          (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
-        ),
+      const furniture = user.items.filter(
+        (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
       );
+      const ownershipError = homeLayoutOwnershipError(input.placements, furniture);
       if (ownershipError) return errorResponse(ownershipError);
+      const orientationError = homeLayoutOrientationError(
+        input.placements,
+        furniture.map((owned) => ({
+          id: owned.id,
+          views: applyActiveVariant(owned).furnitureData?.views ?? {},
+        })),
+      );
+      if (orientationError) return errorResponse(orientationError);
 
       /** Maps placements to owned inventory rows and resets omitted furniture's coordinates. */
       const coordinateCase = (axis: "x" | "y" | "rotation") =>

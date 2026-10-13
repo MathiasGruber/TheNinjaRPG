@@ -6,6 +6,34 @@ import {
 } from "@/drizzle/constants";
 import type { Item } from "@/drizzle/schema";
 
+/** Each painted direction can correct its own floor footprint without changing item mechanics. */
+export const furnitureViewSchema = z.strictObject({
+  image: z.string().min(1, "Image required").max(512),
+  width: z.coerce
+    .number()
+    .min(HOME_FURNITURE_MIN_WIDTH)
+    .max(HOME_FURNITURE_MAX_WIDTH)
+    .optional(),
+  groundAnchor: z.coerce.number().min(1).max(100).optional(),
+});
+export type FurnitureView = z.output<typeof furnitureViewSchema>;
+
+/** The canonical zero-degree view remains Item.image; absent directions are unavailable. */
+export const furnitureViewsSchema = z
+  .strictObject({
+    "90": furnitureViewSchema.optional(),
+    "180": furnitureViewSchema.optional(),
+    "270": furnitureViewSchema.optional(),
+  })
+  .prefault({});
+export type FurnitureViews = z.output<typeof furnitureViewsSchema>;
+
+/** Cosmetic variants own their directional art and optional framing, sharing the item's mechanics. */
+export const furnitureVariantDataSchema = furnitureViewSchema
+  .omit({ image: true })
+  .extend({ views: furnitureViewsSchema });
+export type FurnitureVariantData = z.output<typeof furnitureVariantDataSchema>;
+
 /** Content-authored sprite geometry and optional home action, stored together for extension. */
 export const furnitureDataSchema = z.object({
   action: z
@@ -19,6 +47,7 @@ export const furnitureDataSchema = z.object({
     .prefault(24),
   groundAnchor: z.coerce.number().min(1).max(100).prefault(100),
   isFloor: z.coerce.boolean().prefault(false),
+  views: furnitureViewsSchema,
 });
 
 export type FurnitureData = z.output<typeof furnitureDataSchema>;

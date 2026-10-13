@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "8b8be7ac-0084-4350-a90e-3258b5045dd7",
+  "id": "3e448165-dfb8-4590-b7a2-db9c30e0c9eb",
   "prevId": "99414c14-0166-4fc1-a977-34482793c483",
   "tables": {
     "AbEvent": {
@@ -6712,6 +6712,13 @@
         "battleDescription": {
           "name": "battleDescription",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "furnitureData": {
+          "name": "furnitureData",
+          "type": "json",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { ItemValidator } from "@/validators/combat";
 import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS, furnitureDataSchema, furnitureItemSchema, itemCreateSchema } from "@/validators/item";
+import { furnitureVariantDataSchema } from "@/validators/itemFurniture";
 
 const furniture = {
   ...FURNITURE_ITEM_DEFAULTS,
@@ -21,6 +22,20 @@ const furniture = {
 };
 
 describe("furniture item content", () => {
+  it("keeps directions optional while validating their images and per-view geometry", () => {
+    const views = { "90": { image: "/furniture-90.webp", width: "18", groundAnchor: "85" } };
+    expect(furnitureDataSchema.parse({ views }).views).toEqual({ "90": { image: "/furniture-90.webp", width: 18, groundAnchor: 85 } });
+    expect(furnitureVariantDataSchema.parse({})).toEqual({ views: {} });
+    expect(furnitureVariantDataSchema.parse({ width: "18", groundAnchor: "85" })).toEqual({ width: 18, groundAnchor: 85, views: {} });
+    for (const invalid of [
+      { "90": { image: "" } },
+      { "90": { image: "/piece.webp", width: 41 } },
+      { "180": { image: "/piece.webp", groundAnchor: 0 } },
+      { "45": { image: "/piece.webp" } },
+    ]) expect(furnitureDataSchema.safeParse({ views: invalid }).success).toBe(false);
+    expect(furnitureVariantDataSchema.safeParse({ action: "sleep", views: {} }).success).toBe(false);
+  });
+
   it("creates furniture through the standard item type input", () => {
     expect(itemCreateSchema.parse({ type: "FURNITURE" })).toEqual({ type: "FURNITURE" });
   });

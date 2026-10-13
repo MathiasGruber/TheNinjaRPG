@@ -1,11 +1,11 @@
 ALTER TABLE `Item` MODIFY COLUMN `itemType` enum('WEAPON','CONSUMABLE','ARMOR','ACCESSORY','MATERIAL','COOKING','KEYSTONE','CRYSTAL','FURNITURE','OTHER') NOT NULL;
 ALTER TABLE `Item` MODIFY COLUMN `crystalTargetTypes` enum('WEAPON','CONSUMABLE','ARMOR','ACCESSORY','MATERIAL','COOKING','KEYSTONE','CRYSTAL','FURNITURE','OTHER');
 ALTER TABLE `Item` ADD `furnitureData` json;
+ALTER TABLE `ItemVariant` ADD `furnitureData` json;
 ALTER TABLE `UserData` ADD `homeFurnitureRevision` int unsigned DEFAULT 0 NOT NULL;
 ALTER TABLE `UserItem` ADD `homeX` double;
 ALTER TABLE `UserItem` ADD `homeY` double;
 ALTER TABLE `UserItem` ADD `homeRotation` tinyint unsigned DEFAULT 0 NOT NULL;
-
 -- Starter fixtures belong to ordinary inventory. Import the furniture catalogue from
 -- data/item.sql after schema deployment, then run this backfill before serving the app.
 -- PlanetScale schema deploys do not run data statements. Repeating the backfill preserves

@@ -173,11 +173,11 @@ import {
   getItemEvolutionsSchema,
   getPublicUserItemsSchema,
   ItemVariantResponseSchema,
-  ItemVariantValidator,
   itemBuySchema,
   itemCreateSchema,
   itemFilteringSchema,
   UserUnlockedVariantResponseSchema,
+  upsertItemVariantInputSchema,
 } from "@/validators/item";
 import { renameLoadoutSchema } from "@/validators/loadout";
 import { idSchema } from "@/validators/misc";
@@ -1112,7 +1112,7 @@ export const itemRouter = createTRPCRouter({
     }),
   // Admin: create or update a variant
   upsertItemVariant: protectedProcedure
-    .input(z.object({ itemId: z.string(), variant: ItemVariantValidator }))
+    .input(upsertItemVariantInputSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const [user, existing, parentItem] = await Promise.all([
@@ -1122,12 +1122,15 @@ export const itemRouter = createTRPCRouter({
         }),
         ctx.drizzle.query.item.findFirst({
           where: eq(item.id, input.itemId),
-          columns: { id: true },
+          columns: { id: true, name: true, itemType: true },
         }),
       ]);
       if (user.isBanned) return errorResponse("You are banned");
       if (!canChangeContent(user.role)) return errorResponse("Not allowed");
       if (!parentItem) return errorResponse("Item not found");
+      if (parentItem.itemType !== "FURNITURE" && input.variant.furnitureData) {
+        return errorResponse("Only furniture variants can define orientation images");
+      }
       if (!input.variant.id && existing.length >= MAX_ITEM_VARIANTS) {
         return errorResponse(`Items can have at most ${MAX_ITEM_VARIANTS} variants`);
       }
@@ -1159,6 +1162,7 @@ export const itemRouter = createTRPCRouter({
             order: input.variant.order,
             description: safeDescription,
             battleDescription: safeBattleDescription,
+            furnitureData: input.variant.furnitureData,
             updatedAt: new Date(),
           })
           .where(
@@ -1182,6 +1186,7 @@ export const itemRouter = createTRPCRouter({
             order: input.variant.order,
             description: safeDescription,
             battleDescription: safeBattleDescription,
+            furnitureData: input.variant.furnitureData,
           })
           .onDuplicateKeyUpdate({ set: { id: sql`id` } });
         if (insertResult.rowsAffected === 0) {
@@ -1197,6 +1202,12 @@ export const itemRouter = createTRPCRouter({
           return errorResponse(`Items can have at most ${MAX_ITEM_VARIANTS} variants`);
         }
       }
+      await outdateProposalsFor(
+        ctx.drizzle,
+        "ITEM",
+        [parentItem.id],
+        editedReason("ITEM", parentItem.name, user.username),
+      );
       return { success: true, message: "Variant saved" };
     }),
   // Admin: delete a variant
@@ -1204,7 +1215,13 @@ export const itemRouter = createTRPCRouter({
     .input(z.object({ variantId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, variant] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.itemVariant.findFirst({
+          where: eq(itemVariant.id, input.variantId),
+          with: { item: { columns: { id: true, name: true } } },
+        }),
+      ]);
       if (user.isBanned) return errorResponse("You are banned");
       if (!canChangeContent(user.role)) return errorResponse("Not allowed");
       // Step 1: remove user unlock records and clear active variant references in parallel
@@ -1219,6 +1236,14 @@ export const itemRouter = createTRPCRouter({
       ]);
       // Step 2: delete the variant row itself (after FK dependents are cleared)
       await ctx.drizzle.delete(itemVariant).where(eq(itemVariant.id, input.variantId));
+      if (variant?.item) {
+        await outdateProposalsFor(
+          ctx.drizzle,
+          "ITEM",
+          [variant.item.id],
+          editedReason("ITEM", variant.item.name, user.username),
+        );
+      }
       return { success: true, message: "Variant deleted" };
     }),
   // Purchase a variant with in-game currency

@@ -1,5 +1,12 @@
-import { HOME_FURNITURE_STARTERS, type HomeFurnitureAction } from "@/drizzle/constants";
+import {
+  HOME_FURNITURE_ROTATION_DEGREES,
+  HOME_FURNITURE_ROTATIONS,
+  HOME_FURNITURE_STARTERS,
+  type HomeFurnitureAction,
+  type HomeFurnitureRotation,
+} from "@/drizzle/constants";
 import type { HomePlacement } from "@/validators/home";
+import type { FurnitureViews } from "@/validators/itemFurniture";
 
 /** A furniture instance is an owned inventory row; content supplies its appearance and home action. */
 export type HomeFurniture = {
@@ -13,6 +20,29 @@ export type HomeFurniture = {
   action: HomeFurnitureAction | null;
   isFloor: boolean;
   quantity: number;
+  views: FurnitureViews;
+};
+
+/** Only published directions can be selected; the canonical image is always available. */
+export const getHomeFurnitureRotations = (furniture: Pick<HomeFurniture, "views">) =>
+  HOME_FURNITURE_ROTATIONS.filter(
+    (rotation) =>
+      rotation === 0 ||
+      !!furniture.views?.[HOME_FURNITURE_ROTATION_DEGREES[rotation]]?.image,
+  );
+
+/** Removed or incomplete directions render the canonical art until the player saves a new facing. */
+export const getHomeFurnitureView = (
+  furniture: Pick<HomeFurniture, "image" | "width" | "groundAnchor" | "views">,
+  rotation: HomeFurnitureRotation,
+) => {
+  const degrees = HOME_FURNITURE_ROTATION_DEGREES[rotation];
+  const view = degrees === 0 ? undefined : furniture.views?.[degrees];
+  return {
+    image: view?.image ?? furniture.image,
+    width: view?.width ?? furniture.width,
+    groundAnchor: view?.groundAnchor ?? furniture.groundAnchor,
+  };
 };
 
 /** Reset only owned action fixtures; additional decorations remain available in storage. */
@@ -45,7 +75,11 @@ export const getHomeLayout = (
             id: piece.id,
             x: piece.homeX,
             y: piece.homeY,
-            rotation: piece.homeRotation === 1 ? 1 : 0,
+            rotation: HOME_FURNITURE_ROTATIONS.includes(
+              piece.homeRotation as HomeFurnitureRotation,
+            )
+              ? (piece.homeRotation as HomeFurnitureRotation)
+              : 0,
           },
         ]
       : [],
@@ -59,5 +93,20 @@ export const homeLayoutOwnershipError = (
   const available = new Set(furniture.map((piece) => piece.id));
   return placements.some((placement) => !available.has(placement.id))
     ? "Furniture is no longer available. Reload your home and try again"
+    : null;
+};
+
+/** A stale editor cannot save a direction whose art was removed or belongs to another skin. */
+export const homeLayoutOrientationError = (
+  placements: HomePlacement[],
+  furniture: Pick<HomeFurniture, "id" | "views">[],
+) => {
+  const available = new Map(
+    furniture.map((piece) => [piece.id, getHomeFurnitureRotations(piece)]),
+  );
+  return placements.some(
+    (placement) => !available.get(placement.id)?.includes(placement.rotation),
+  )
+    ? "A furniture orientation is no longer available. Reload your home and try again"
     : null;
 };

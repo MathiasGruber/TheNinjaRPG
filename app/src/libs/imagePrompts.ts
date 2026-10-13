@@ -1,10 +1,23 @@
-import type { ContentType } from "@/drizzle/constants";
+import {
+  type ContentType,
+  HOME_FURNITURE_ROTATION_DEGREES,
+  type HomeFurnitureRotation,
+} from "@/drizzle/constants";
 
 /** Content types whose generated images get their background removed */
 export const REMOVE_BG_TYPES = ["item", "ai", "mapAsset"];
 
 /** Match the painted residence artwork while leaving a clean, reusable furniture cutout. */
-export const FURNITURE_IMAGE_PROMPT = `Create one original furniture prop for a cozy ninja-fantasy residence. Use a close overhead three-quarter view matching hand-painted game interior artwork, with warm textured timber, natural muted colors, visible painted material detail, soft consistent lighting, and a clear silhouette. Frame the complete object in a 4:3 image, isolated against a uniform plain background that will be removed. Keep its base visible and leave only a little padding. No surrounding room, ground plane, characters, pixel art, text, logos, emblems, watermarks, Naruto imagery, or recognizable franchise symbols.`;
+export const FURNITURE_IMAGE_PROMPT = `Create one original furniture prop for a cozy ninja-fantasy residence. Use a fixed, steep overhead camera centered on the object, matching hand-painted game interior artwork, with warm textured timber, natural muted colors, visible painted material detail, soft consistent lighting, and a clear silhouette. Frame the complete upright object with minimal padding, isolated against a uniform plain background that will be removed. Keep its base visible. No surrounding room, ground plane, characters, pixel art, text, logos, emblems, watermarks, Naruto imagery, or recognizable franchise symbols.`;
+
+/** Turn the object on the floor while retaining the canonical image's camera and design. */
+export const furnitureViewPrompt = (
+  description: string,
+  rotation: HomeFurnitureRotation,
+) =>
+  rotation === 0
+    ? description
+    : `${description}\nUse the supplied original 0-degree image as the exact design reference. Turn the furniture ${HOME_FURNITURE_ROTATION_DEGREES[rotation]} degrees clockwise around its vertical axis on the floor. Keep the camera, elevation, materials, colors, dimensions and every feature unchanged. Draw the appropriate side or back, with correct visibility and occlusion. Keep vertical parts upright. Do not rotate or mirror the flat image, tilt the camera, or redesign the object.`;
 
 /**
  * Default system prompt for the given content type. Map assets get a dedicated

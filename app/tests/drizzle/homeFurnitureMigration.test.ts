@@ -11,9 +11,9 @@ describeWithDatabase("home furniture inventory migration", () => {
       multipleStatements: true,
     });
     const prefix = `home_migration_${randomUUID().replaceAll("-", "")}_`;
-    const names = ["Item", "UserItem", "UserData"];
+    const names = ["Item", "ItemVariant", "UserItem", "UserData"];
     const query = <T extends mysql.QueryResult = mysql.QueryResult>(statement: string, values?: unknown[]) =>
-      connection.query<T>(statement.replace(/\b(Item|UserItem|UserData)\b/g, `${prefix}$1`), values);
+      connection.query<T>(statement.replace(/\b(Item|ItemVariant|UserItem|UserData)\b/g, `${prefix}$1`), values);
     try {
       // Unique tables isolate the baseline schema. MySQL temporary tables cannot be
       // both the insert target and the inventory read used to skip existing starter copies.
@@ -36,7 +36,7 @@ describeWithDatabase("home furniture inventory migration", () => {
         "INSERT INTO Item (id, name, description, image, effects, itemType, rarity, slot, target) VALUES ('gear', 'Existing gear', 'Existing gear', '/gear.webp', JSON_ARRAY(), 'WEAPON', 'COMMON', 'ITEM', 'CHARACTER'); INSERT INTO UserItem (id, userId, itemId, quantity, level, experience, durability, equipped) VALUES ('owned-gear', 'resident', 'gear', 2, 7, 45, 55, 'ITEM_1');",
       );
       const migration = await readFile(
-        "drizzle/migrations/0080_same_the_order.sql",
+        "drizzle/migrations/0080_curious_snowbird.sql",
         "utf8",
       );
       expect(migration).not.toMatch(/JSON_(EXTRACT|SEARCH|CONTAINS|SET)/i);

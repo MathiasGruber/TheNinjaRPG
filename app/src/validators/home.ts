@@ -3,6 +3,7 @@ import {
   HOME_FURNITURE_MAX_PLACEMENTS,
   HOME_FURNITURE_POSITION_MAX,
   HOME_FURNITURE_POSITION_MIN,
+  HOME_FURNITURE_ROTATIONS,
   HomeTypes,
 } from "@/drizzle/constants";
 import { baseServerResponse } from "@/validators/base";
@@ -12,8 +13,8 @@ export const homePlacementSchema = z.strictObject({
   id: z.string().min(1).max(191),
   x: z.number().min(HOME_FURNITURE_POSITION_MIN).max(HOME_FURNITURE_POSITION_MAX),
   y: z.number().min(HOME_FURNITURE_POSITION_MIN).max(HOME_FURNITURE_POSITION_MAX),
-  /** The painted view is either unchanged (0) or flipped horizontally (1). */
-  rotation: z.union([z.literal(0), z.literal(1)]),
+  /** Clockwise quarter turns select content-authored views, rather than transforming a sprite. */
+  rotation: z.union(HOME_FURNITURE_ROTATIONS.map((rotation) => z.literal(rotation))),
 });
 export type HomePlacement = z.infer<typeof homePlacementSchema>;
 

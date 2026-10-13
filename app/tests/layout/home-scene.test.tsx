@@ -20,13 +20,13 @@ vi.mock("@/layout/Link", () => ({
 }));
 
 const starterFurniture: HomeFurniture[] = [
-  { id: "owned-bed", itemId: "home-bed", name: "Bed", description: "Rest", image: "https://ui0arpl8sm.ufs.sh/f/V2umBvRsN1p0ECHU5FA5r.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1 },
-  { id: "owned-armory", itemId: "home-armory", name: "Armory", description: "Storage", image: "https://ui0arpl8sm.ufs.sh/f/EyNeihgG6GdMTMBcOC9JA.webp", width: 24, groundAnchor: 95.8, action: "storage", isFloor: false, quantity: 1 },
-  { id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen", description: "Ramen", image: "https://ui0arpl8sm.ufs.sh/f/i520XbXoRXRYIZrNImg62.webp", width: 32, groundAnchor: 89.1, action: "kitchen", isFloor: false, quantity: 1 },
-  { id: "owned-garden", itemId: "home-garden", name: "Garden", description: "Farm", image: "https://ui0arpl8sm.ufs.sh/f/cInj_p_PE20tF9FWO_frE.webp", width: 29, groundAnchor: 88.3, action: "farm", isFloor: false, quantity: 1 },
+  { id: "owned-bed", itemId: "home-bed", name: "Bed", description: "Rest", image: "https://ui0arpl8sm.ufs.sh/f/V2umBvRsN1p0ECHU5FA5r.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-armory", itemId: "home-armory", name: "Armory", description: "Storage", image: "https://ui0arpl8sm.ufs.sh/f/EyNeihgG6GdMTMBcOC9JA.webp", width: 24, groundAnchor: 95.8, action: "storage", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen", description: "Ramen", image: "https://ui0arpl8sm.ufs.sh/f/i520XbXoRXRYIZrNImg62.webp", width: 32, groundAnchor: 89.1, action: "kitchen", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-garden", itemId: "home-garden", name: "Garden", description: "Farm", image: "https://ui0arpl8sm.ufs.sh/f/cInj_p_PE20tF9FWO_frE.webp", width: 29, groundAnchor: 88.3, action: "farm", isFloor: false, quantity: 1, views: {} },
 ];
 const rugDefinition: HomeFurniture = {
-  id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", description: "A floor decoration", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1,
+  id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", description: "A floor decoration", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1, views: { "90": { image: "/custom-rug-90.webp" } },
 };
 
 const props = {
@@ -175,23 +175,57 @@ describe("Home scene", () => {
     expect(view.queryByRole("button", { name: "House shop" })).toBeNull();
   });
 
-  it("flips a furniture sprite horizontally without rotating or moving its floor anchor", () => {
-    const view = render(<HomeScene {...props} canDecorate />);
+  it("cycles four painted views clockwise with their geometry while preserving the floor anchor", () => {
+    const furniture = [{ ...starterFurniture[0]!, views: {
+      "90": { image: "https://ui0arpl8sm.ufs.sh/f/bed-90.webp", width: 20, groundAnchor: 85 },
+      "180": { image: "/bed-180.webp" },
+      "270": { image: "/bed-270.webp", width: 21 },
+    } }, ...starterFurniture.slice(1)];
+    const view = render(<HomeScene {...props} furniture={furniture} canDecorate />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     const bed = view.getByRole("button", { name: "Move Bed" });
-    const image = bed.querySelector("img")!;
     const position = furniturePosition(bed);
-    const original = image.style.transform;
-    const controls = within(view.getByRole("group", { name: "Furniture controls" }));
-    const flip = controls.getByRole("button", { name: "Flip horizontally" });
-    expect(view.queryByRole("button", { name: "Rotate" })).toBeNull();
-    expect(view.getByText(/Flip mirrors it horizontally/)).toBeTruthy();
-    fireEvent.click(flip);
-    expect(image.style.transform).toBe(original.replace("scaleX(1)", "scaleX(-1)"));
-    expect(furniturePosition(bed)).toEqual(position);
-    fireEvent.click(flip);
-    expect(image.style.transform).toBe(original);
-    expect(furniturePosition(bed)).toEqual(position);
+    const rotate = view.getByRole("button", { name: "Rotate clockwise" }) as HTMLButtonElement;
+    expect(rotate.disabled).toBe(false);
+    for (const [angle, image, width, offset] of [
+      [90, "https://ui0arpl8sm.ufs.sh/f/bed-90.webp", 20, 15],
+      [180, "/bed-180.webp", 34, 8.9],
+      [270, "/bed-270.webp", 21, 8.9],
+      [0, furniture[0]!.image, 34, 8.9],
+    ] as const) {
+      fireEvent.click(rotate);
+      expect(bed.querySelector("img")?.getAttribute("src")).toBe(image);
+      expect(bed.style.width).toBe(`${width}%`);
+      expect(Number.parseFloat(bed.querySelector("img")!.style.transform.replace("translateY(", ""))).toBeCloseTo(offset);
+      expect(bed.querySelector("img")!.style.transform).not.toContain("scaleX");
+      expect(bed.querySelector("source")?.getAttribute("srcset")).toContain(`${bunnyImageUrl(image, 128)} 128w`);
+      expect(bed.querySelector("source")?.getAttribute("sizes")).toBe(`(max-width: 768px) ${width}vw, ${Math.round(width * 7.68)}px`);
+      expect(rotate.getAttribute("aria-description")).toBe(`Current orientation: ${angle}°`);
+      expect(furniturePosition(bed)).toEqual(position);
+    }
+    expect(view.getByText(/Rotate selects the next available view/)).toBeTruthy();
+  });
+
+  it("skips missing directions and recovers removed artwork through the canonical view", async () => {
+    const bedDefinition = { ...starterFurniture[0]!, views: { "180": { image: "/bed-180.webp", width: 20 } } };
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} furniture={[bedDefinition]} layout={getDefaultHomeLayout([bedDefinition])} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    const rotate = view.getByRole("button", { name: "Rotate clockwise" }) as HTMLButtonElement;
+    fireEvent.click(rotate);
+    expect(rotate.getAttribute("aria-description")).toContain("180°");
+    expect(bed.querySelector("img")?.getAttribute("src")).toBe("/bed-180.webp");
+    view.rerender(<HomeScene {...props} furniture={[{ ...bedDefinition, views: {} }]} layout={getDefaultHomeLayout([bedDefinition])} canDecorate onSave={onSave} />);
+    expect(bed.querySelector("img")?.getAttribute("src")).toBe(bedDefinition.image);
+    expect(bed.style.width).toBe("34%");
+    expect(rotate.disabled).toBe(false);
+    fireEvent.click(rotate);
+    expect(rotate.getAttribute("aria-description")).toContain("0°");
+    expect(rotate.disabled).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements.find(({ id }) => id === "owned-bed")?.rotation).toBe(0);
   });
 
   it.each([
@@ -382,7 +416,7 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     expect(onSave).toHaveBeenCalledTimes(1);
     expect((bed as HTMLButtonElement).disabled).toBe(true);
-    for (const name of ["Move Bed right", "Flip horizontally", "Store", "Reset arrangement", "Reload saved layout", "Cancel"]) {
+    for (const name of ["Move Bed right", "Rotate clockwise", "Store", "Reset arrangement", "Reload saved layout", "Cancel"]) {
       const control = view.getByRole("button", { name }) as HTMLButtonElement;
       expect(control.disabled).toBe(true);
       fireEvent.click(control);
@@ -444,11 +478,11 @@ describe("Home scene", () => {
     expect(farmButton.style.top).toBe("63%");
     fireEvent.click(farmButton);
     expect(props.onFarm).toHaveBeenCalledTimes(1);
-    const customImage = view.container.querySelector('img[src="/custom-rug.webp"]')!;
+    const customImage = view.container.querySelector('img[src="/custom-rug-90.webp"]')!;
     const customPlacement = customImage.closest<HTMLDivElement>("div")!;
     expect(customPlacement.style.width).toBe("17%");
     expect(customPlacement.style.zIndex).toBe("1");
-    expect((customImage as HTMLElement).style.transform).toBe("translateY(30%) scaleX(-1)");
+    expect((customImage as HTMLElement).style.transform).toBe("translateY(30%)");
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     expect(view.getByRole("button", { name: "Move Cloud Mat" })).toBeTruthy();
     expect(view.getByText("A floor decoration")).toBeTruthy();
@@ -465,7 +499,7 @@ describe("Home scene", () => {
     fireEvent.click(cards[0]!);
     fireEvent.keyDown(view.getByRole("button", { name: "Move Woven Rug" }), { key: "ArrowRight" });
     fireEvent.click(cards[1]!);
-    fireEvent.click(view.getByRole("button", { name: "Flip horizontally" }));
+    fireEvent.click(view.getByRole("button", { name: "Rotate clockwise" }));
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0]![0].placements).toEqual([

@@ -7,12 +7,12 @@ import {
   ArrowUp,
   BedDouble,
   ChefHat,
-  FlipHorizontal,
   House,
   Package,
   Pencil,
   RefreshCw,
   RotateCcw,
+  RotateCw,
   Save,
   ShoppingBag,
   Sprout,
@@ -23,13 +23,20 @@ import {
   HOME_FURNITURE_MAX_PLACEMENTS,
   HOME_FURNITURE_POSITION_MAX,
   HOME_FURNITURE_POSITION_MIN,
+  HOME_FURNITURE_ROTATION_DEGREES,
+  type HomeFurnitureRotation,
   type HomeType,
   HomeTypeDetails,
 } from "@/drizzle/constants";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import Modal from "@/layout/Modal";
-import { getDefaultHomeLayout, type HomeFurniture } from "@/libs/home";
+import {
+  getDefaultHomeLayout,
+  getHomeFurnitureRotations,
+  getHomeFurnitureView,
+  type HomeFurniture,
+} from "@/libs/home";
 import { cn } from "@/libs/shadui";
 import { bunnyImageUrl } from "@/utils/image";
 import { clamp } from "@/utils/math";
@@ -73,6 +80,9 @@ export const HomeScene = ({
   const selected = selectedFurniture
     ? placements.find((placement) => placement.id === selectedId)
     : undefined;
+  const selectedRotations = selectedFurniture
+    ? getHomeFurnitureRotations(selectedFurniture)
+    : [];
   const isEditing = draft !== null;
   const hasImageError = failedHomeType === homeType;
   const sleepLabel = isTogglingSleep
@@ -249,6 +259,7 @@ export const HomeScene = ({
           const details = furnitureById.get(placement.id);
           // Inventory can change while a draft is open; keep its edits without rendering missing pieces.
           if (!details) return null;
+          const view = getHomeFurnitureView(details, placement.rotation);
           const isSelected = isEditing && selectedId === placement.id;
           const x =
             HOME_FLOOR_PROJECTION.x + placement.x * HOME_FLOOR_PROJECTION.scaleX;
@@ -293,7 +304,7 @@ export const HomeScene = ({
           const style = {
             left: `${x}%`,
             top: `${y}%`,
-            width: `${details.width}%`,
+            width: `${view.width}%`,
             zIndex: details.isFloor ? 1 : Math.round(y) + 2,
           };
           if (!isEditing && !details.action)
@@ -423,7 +434,8 @@ export const HomeScene = ({
                 </p>
               )}
               <p className="text-muted-foreground text-xs">
-                Drag an object or use the arrows. Flip mirrors it horizontally.
+                Drag an object or use the arrows. Rotate selects the next available
+                view.
               </p>
             </div>
             {selected && selectedFurniture && (
@@ -451,23 +463,33 @@ export const HomeScene = ({
                   variant="outline"
                   size="icon"
                   className="h-11 w-full min-w-0"
-                  aria-label="Flip horizontally"
-                  hoverText="Flip horizontally"
-                  disabled={isMovementDisabled}
+                  aria-label="Rotate clockwise"
+                  aria-description={`Current orientation: ${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°`}
+                  hoverText={`Rotate clockwise (${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°)`}
+                  disabled={
+                    isMovementDisabled ||
+                    (selectedRotations.length === 1 &&
+                      selectedRotations.includes(selected.rotation))
+                  }
                   onClick={() =>
                     updatePlacements((placements) =>
                       placements.map((placement) =>
                         placement.id === selectedId
                           ? {
                               ...placement,
-                              rotation: placement.rotation === 0 ? 1 : 0,
+                              // A removed view returns to the canonical image, even when no other views remain.
+                              rotation:
+                                selectedRotations[
+                                  (selectedRotations.indexOf(placement.rotation) + 1) %
+                                    selectedRotations.length
+                                ] ?? 0,
                             }
                           : placement,
                       ),
                     )
                   }
                 >
-                  <FlipHorizontal className="h-4 w-4" aria-hidden />
+                  <RotateCw className="h-4 w-4" aria-hidden />
                 </Button>
                 <Button
                   variant="outline"
@@ -676,37 +698,38 @@ export const HomeScene = ({
   );
 };
 
-/** Align visible ground despite transparent padding; previews retain the complete sprite frame. */
+/** Anchor the selected painted view despite transparent padding; previews retain its complete frame. */
 const FurnitureImage = ({
   furniture,
   rotation,
   isGroundAnchored = false,
 }: {
   furniture: HomeFurniture;
-  rotation: 0 | 1;
+  rotation: HomeFurnitureRotation;
   isGroundAnchored?: boolean;
 }) => {
-  const groundOffset = isGroundAnchored ? 100 - furniture.groundAnchor : 0;
+  const view = getHomeFurnitureView(furniture, rotation);
+  const groundOffset = isGroundAnchored ? 100 - view.groundAnchor : 0;
   return (
     <picture>
       <source
         srcSet={[128, 256, 400, 768]
-          .map((width) => `${bunnyImageUrl(furniture.image, width)} ${width}w`)
+          .map((width) => `${bunnyImageUrl(view.image, width)} ${width}w`)
           .join(", ")}
         sizes={
           isGroundAnchored
-            ? `(max-width: 768px) ${furniture.width}vw, ${Math.round(furniture.width * 7.68)}px`
+            ? `(max-width: 768px) ${view.width}vw, ${Math.round(view.width * 7.68)}px`
             : "80px"
         }
       />
       <Image
-        src={furniture.image}
+        src={view.image}
         alt=""
         width={400}
         height={300}
         className="pointer-events-none h-auto w-full select-none object-contain"
         style={{
-          transform: `translateY(${groundOffset}%) scaleX(${rotation === 1 ? -1 : 1})`,
+          transform: `translateY(${groundOffset}%)`,
         }}
         draggable={false}
       />

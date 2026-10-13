@@ -30,11 +30,11 @@ import ContentBox from "@/layout/ContentBox";
 import { ItemHelper } from "@/layout/ContentHelp";
 import ContentImageSelector from "@/layout/ContentImageSelector";
 import { EditContent, EffectFormWrapper } from "@/layout/EditContent";
+import { FurnitureViewsEditor } from "@/layout/FurnitureViewsEditor";
 import Image from "@/layout/Image";
 import Loader from "@/layout/Loader";
 import { SuggestChange } from "@/layout/SuggestChange";
-import { FURNITURE_IMAGE_PROMPT } from "@/libs/imagePrompts";
-import { showMutationToast } from "@/libs/toast";
+import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { canChangeContent, isStaffRole } from "@/utils/permissions";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -42,6 +42,12 @@ import type { ZodAllTags, ZodItemType } from "@/validators/combat";
 import { DamageTag, ItemValidatorRawSchema, tagTypes } from "@/validators/combat";
 import type { ZodItemVariantType } from "@/validators/item";
 import { displayCostType, ItemVariantValidator } from "@/validators/item";
+import {
+  DEFAULT_FURNITURE_DATA,
+  type FurnitureData,
+  type FurnitureVariantData,
+  type FurnitureViews,
+} from "@/validators/itemFurniture";
 
 export default function ItemEdit(props: { params: Promise<{ itemid: string }> }) {
   const params = use(props.params);
@@ -95,14 +101,9 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
   const itemType = useWatch({ control: form.control, name: "itemType" });
   const isFurniture = itemType === "FURNITURE";
   const furnitureImage = useWatch({ control: form.control, name: "image" });
-  const furnitureWidth = useWatch({
-    control: form.control,
-    name: "furnitureData.width",
-  });
-  const furnitureGroundAnchor = useWatch({
-    control: form.control,
-    name: "furnitureData.groundAnchor",
-  });
+  const furnitureData = useWatch({ control: form.control, name: "furnitureData" });
+  const itemName = useWatch({ control: form.control, name: "name" });
+  const itemDescription = useWatch({ control: form.control, name: "description" });
 
   // Filter out any undefined effects from useWatch
   const validEffects = (effects?.filter((e): e is ZodAllTags => e !== undefined) ??
@@ -155,35 +156,45 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
               submitLoadingText="Saving"
             />
             {isFurniture && (
-              <div className="mt-4 space-y-2">
-                <p className="text-muted-foreground text-sm">
-                  Width controls the prop's size in the residence. Set the ground anchor
-                  to the image's contact point with the floor; 100 uses its bottom edge.
-                  Floor decorations render beneath other furniture.
-                </p>
-                <div
-                  role="img"
-                  aria-label="Furniture scene preview"
-                  className="relative aspect-[4/3] overflow-hidden rounded-lg border bg-stone-200 dark:bg-stone-800"
-                >
-                  <div className="absolute inset-x-0 top-3/4 border-stone-500 border-t border-dashed" />
-                  <div
-                    className="absolute top-3/4 left-1/2"
-                    style={{
-                      width: `${Number(furnitureWidth) || 24}%`,
-                      transform: `translate(-50%, -${Number(furnitureGroundAnchor) || 0}%)`,
+              <Controller
+                control={form.control}
+                name="furnitureData.views"
+                render={({ field }) => (
+                  <FurnitureViewsEditor
+                    id={item.id}
+                    name={itemName}
+                    description={itemDescription}
+                    image={furnitureImage || ""}
+                    width={Number(furnitureData?.width ?? DEFAULT_FURNITURE_DATA.width)}
+                    groundAnchor={Number(
+                      furnitureData?.groundAnchor ??
+                        DEFAULT_FURNITURE_DATA.groundAnchor,
+                    )}
+                    views={(field.value ?? {}) as FurnitureViews}
+                    onViewsChange={field.onChange}
+                    onBaseChange={(change) => {
+                      if (change.image !== undefined)
+                        form.setValue("image", change.image, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      if (change.width !== undefined)
+                        form.setValue("furnitureData.width", change.width, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      if (change.groundAnchor !== undefined)
+                        form.setValue(
+                          "furnitureData.groundAnchor",
+                          change.groundAnchor,
+                          { shouldDirty: true, shouldValidate: true },
+                        );
                     }}
-                  >
-                    <Image
-                      src={furnitureImage || item.image}
-                      alt={item.name}
-                      width={768}
-                      height={576}
-                      className="h-auto w-full object-contain"
-                    />
-                  </div>
-                </div>
-              </div>
+                    canEdit={props.canSave}
+                    disabled={isUpdating}
+                  />
+                )}
+              />
             )}
             <div className="mt-2 flex justify-end">
               <SuggestChange
@@ -196,7 +207,20 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
           </>
         )}
         {item && props.canSave && (
-          <ItemVariantsEditor itemId={item.id} isFurniture={isFurniture} />
+          <ItemVariantsEditor
+            itemId={item.id}
+            furnitureData={
+              isFurniture
+                ? {
+                    width: Number(furnitureData?.width ?? DEFAULT_FURNITURE_DATA.width),
+                    groundAnchor: Number(
+                      furnitureData?.groundAnchor ??
+                        DEFAULT_FURNITURE_DATA.groundAnchor,
+                    ),
+                  }
+                : null
+            }
+          />
         )}
       </ContentBox>
 
@@ -256,7 +280,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
 
 interface ItemVariantsEditorProps {
   itemId: string;
-  isFurniture?: boolean;
+  furnitureData?: Pick<FurnitureData, "width" | "groundAnchor"> | null;
 }
 
 type VariantFormInput = {
@@ -268,12 +292,14 @@ type VariantFormInput = {
   order: number | string;
   description?: string;
   battleDescription?: string;
+  furnitureData?: FurnitureVariantData | null;
 };
 
 const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
   itemId,
-  isFurniture,
+  furnitureData,
 }) => {
+  const isFurniture = Boolean(furnitureData);
   const utils = api.useUtils();
   const [editingVariant, setEditingVariant] = React.useState<ZodItemVariantType | null>(
     null,
@@ -369,6 +395,7 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
       costType: "MONEY",
       cost: 0,
       order: 1,
+      furnitureData: null,
     },
   });
 
@@ -384,6 +411,7 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
         order: (variants?.length ?? 0) + 1,
         description: "",
         battleDescription: "",
+        furnitureData: null,
       });
     }
     // variants?.length intentionally omitted: order is computed once at form-open time,
@@ -394,19 +422,26 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
   const imageValue = useWatch({ control: form.control, name: "image" });
   const variantName = useWatch({ control: form.control, name: "name" });
   const variantDescription = useWatch({ control: form.control, name: "description" });
+  const variantFurniture = useWatch({ control: form.control, name: "furnitureData" });
 
-  const onSubmit = form.handleSubmit((data) => {
-    if (variantOperationInFlightRef.current) return;
-    variantOperationInFlightRef.current = true;
-    setVariantOperationPending(true);
-    try {
-      upsert.mutate({ itemId, variant: data });
-    } catch (error) {
-      variantOperationInFlightRef.current = false;
-      setVariantOperationPending(false);
-      throw error;
-    }
-  });
+  const onSubmit = form.handleSubmit(
+    (data) => {
+      if (variantOperationInFlightRef.current) return;
+      variantOperationInFlightRef.current = true;
+      setVariantOperationPending(true);
+      try {
+        upsert.mutate({
+          itemId,
+          variant: { ...data, furnitureData: isFurniture ? data.furnitureData : null },
+        });
+      } catch (error) {
+        variantOperationInFlightRef.current = false;
+        setVariantOperationPending(false);
+        throw error;
+      }
+    },
+    (errors) => showFormErrorsToast(errors),
+  );
 
   return (
     <div className="mt-6">
@@ -593,26 +628,72 @@ const ItemVariantsEditor: React.FC<ItemVariantsEditorProps> = ({
               </div>
             </div>
             <div>
-              <ContentImageSelector
-                label="Image"
-                imageUrl={imageValue || null}
-                id={editingVariant?.id ?? itemId}
-                prompt={
-                  [variantName, variantDescription].filter(Boolean).join(" ") ||
-                  "Item variant image"
-                }
-                preprompt={isFurniture ? FURNITURE_IMAGE_PROMPT : undefined}
-                allowImageUpload={true}
-                type="item"
-                onUploadComplete={(url) => {
-                  form.setValue("image", url, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                }}
-                size={isFurniture ? "landscape" : "square"}
-                maxDim={isFurniture ? 768 : 256}
-              />
+              {isFurniture ? (
+                <Controller
+                  control={form.control}
+                  name="furnitureData"
+                  render={({ field }) => (
+                    <FurnitureViewsEditor
+                      key={editingVariant?.id ?? `${itemId}:new-variant`}
+                      id={editingVariant?.id ?? `${itemId}:new-variant`}
+                      name={variantName || "Item variant"}
+                      description={variantDescription}
+                      image={imageValue || ""}
+                      width={
+                        variantFurniture?.width ??
+                        furnitureData?.width ??
+                        DEFAULT_FURNITURE_DATA.width
+                      }
+                      groundAnchor={
+                        variantFurniture?.groundAnchor ??
+                        furnitureData?.groundAnchor ??
+                        DEFAULT_FURNITURE_DATA.groundAnchor
+                      }
+                      views={field.value?.views ?? {}}
+                      onViewsChange={(views) =>
+                        field.onChange({ ...field.value, views })
+                      }
+                      onBaseChange={(change) => {
+                        if (change.image !== undefined)
+                          form.setValue("image", change.image, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          });
+                        const { image: _image, ...framing } = change;
+                        if (Object.keys(framing).length > 0)
+                          field.onChange({
+                            ...field.value,
+                            views: field.value?.views ?? {},
+                            ...framing,
+                          });
+                      }}
+                      canEdit
+                      disabled={variantOperationPending}
+                    />
+                  )}
+                />
+              ) : (
+                <ContentImageSelector
+                  label="Image"
+                  imageUrl={imageValue || null}
+                  id={editingVariant?.id ?? itemId}
+                  prompt={
+                    [variantName, variantDescription].filter(Boolean).join(" ") ||
+                    "Item variant image"
+                  }
+                  allowImageUpload={true}
+                  disabled={variantOperationPending}
+                  type="item"
+                  onUploadComplete={(url) =>
+                    form.setValue("image", url, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                  size="square"
+                  maxDim={256}
+                />
+              )}
               {form.formState.errors.image && (
                 <p className="mt-1 text-destructive text-xs">
                   {form.formState.errors.image.message}

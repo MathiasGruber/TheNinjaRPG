@@ -9,6 +9,7 @@
 import { afterAll, beforeAll } from "bun:test";
 import * as dialog from "@/components/ui/dialog";
 import Modal from "@/layout/Modal";
+import ContentImageSelector from "@/layout/ContentImageSelector";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import {
   closeTestDatabase,
@@ -23,6 +24,7 @@ import "@/libs/toast";
 export const actualDialog = { ...dialog };
 export const actualModal = Modal;
 export const actualItemWithEffects = ItemWithEffects;
+export const actualContentImageSelector = ContentImageSelector;
 
 if (hasTestDatabase) {
   // Reconciling the schema is slower than a unit test's default budget.

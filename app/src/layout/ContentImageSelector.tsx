@@ -23,7 +23,11 @@ import RichInput from "@/layout/RichInput";
 import { getPrePrompts, REMOVE_BG_TYPES } from "@/libs/imagePrompts";
 import { showMutationToast } from "@/libs/toast";
 import { UploadButton } from "@/utils/uploadthing";
-import { type PromptFormSchema, promptFormSchema } from "@/validators/ai";
+import {
+  type ContentImageProvider,
+  type PromptFormSchema,
+  promptFormSchema,
+} from "@/validators/ai";
 
 interface ContentImageSelectorProps {
   label: string;
@@ -31,6 +35,11 @@ interface ContentImageSelectorProps {
   id: string;
   prompt: string;
   preprompt?: string;
+  /** Generate a new view from a canonical image; editing still uses the current view. */
+  referenceImageUrl?: string;
+  /** Furniture uses a generator that preserves the fixed camera across painted views. */
+  provider?: ContentImageProvider;
+  emptyImageLabel?: string;
   allowImageUpload?: boolean;
   type: ContentType;
   onUploadComplete: (url: string) => void;
@@ -50,29 +59,50 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
   const operationGenerationRef = useRef(0);
   const imageGenerationRef = useRef<number | null>(null);
   const uploadGenerationRef = useRef<number | null>(null);
+  const operationIdentity = `${id}:${props.referenceImageUrl ?? ""}`;
+  const operationIdentityRef = useRef(operationIdentity);
+  if (operationIdentityRef.current !== operationIdentity) {
+    operationGenerationRef.current += 1;
+    operationIdentityRef.current = operationIdentity;
+  }
   disabledRef.current = Boolean(props.disabled);
   if (props.disabled && !wasDisabledRef.current) {
     operationGenerationRef.current += 1;
   }
   wasDisabledRef.current = Boolean(props.disabled);
+  const operationGeneration = operationGenerationRef.current;
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Tracks the URL of the most recently uploaded image so the dialog preview
   // reflects the upload immediately (before the parent re-renders with the new prop).
-  const [localImageUrl, setLocalImageUrl] = useState<string | null>(null);
+  const [localImage, setLocalImage] = useState<{
+    url: string;
+    generation: number;
+  } | null>(null);
 
   // Clear local override when the parent updates imageUrl (e.g. form reset or variant switch).
   useEffect(() => {
-    setLocalImageUrl(null);
-  }, [imageUrl]);
+    setLocalImage(null);
+  }, [imageUrl, operationIdentity]);
+
+  useEffect(
+    () => () => {
+      // A delayed generation must not write into a form that replaced this editor.
+      operationGenerationRef.current += 1;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (props.disabled) setIsModalOpen(false);
   }, [props.disabled]);
 
   // The displayed URL: prefer the locally-tracked upload, then the prop from the parent.
-  const displayUrl = localImageUrl ?? imageUrl;
+  const displayUrl =
+    localImage?.generation === operationGenerationRef.current
+      ? localImage.url
+      : imageUrl;
 
   // Form for the prompt inputs
   const promptForm = useForm<PromptFormSchema>({
@@ -102,7 +132,7 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
           imageGenerationRef.current === operationGenerationRef.current &&
           !disabledRef.current;
         if (data.success && data.url && isCurrentOperation) {
-          setLocalImageUrl(data.url);
+          setLocalImage({ url: data.url, generation: operationGenerationRef.current });
           onUploadComplete(data.url);
           await utils.avatar.getHistoricalAvatars.invalidate();
         }
@@ -120,7 +150,12 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
       imageGenerationRef.current = operationGenerationRef.current;
       createImg({
         preprompt: data.systemPrompt,
-        prompt: data.userPrompt,
+        provider: props.provider,
+        // Reference edits receive one prompt in both providers, so include the style contract.
+        prompt: props.referenceImageUrl
+          ? `${data.systemPrompt}\n${data.userPrompt}`
+          : data.userPrompt,
+        previousImg: props.referenceImageUrl,
         removeBg: REMOVE_BG_TYPES.includes(props.type ?? ""),
         relationId: id,
         size: size,
@@ -141,7 +176,11 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
       imageGenerationRef.current = operationGenerationRef.current;
       createImg({
         preprompt: data.systemPrompt,
-        prompt: data.editPrompt,
+        provider: props.provider,
+        prompt:
+          props.preprompt || props.referenceImageUrl
+            ? `${data.systemPrompt}\nKeep the camera and design consistent. Preserve the viewing direction unless the correction explicitly changes it. ${data.editPrompt}`
+            : data.editPrompt,
         previousImg: displayUrl,
         removeBg: REMOVE_BG_TYPES.includes(props.type ?? ""),
         relationId: id,
@@ -160,7 +199,7 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
         open={isModalOpen}
         onOpenChange={(open) => {
           if (props.disabled) return;
-          if (!open) setLocalImageUrl(null);
+          if (!open) setLocalImage(null);
           setIsModalOpen(open);
         }}
       >
@@ -171,14 +210,20 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
             aria-label={`Edit ${label}`}
             className="group relative cursor-pointer disabled:cursor-wait disabled:opacity-60"
           >
-            <AvatarImage
-              href={displayUrl ?? IMG_AVATAR_DEFAULT}
-              alt={`${id}-avatar`}
-              size={100}
-              hover_effect={true}
-              className={size === "square" ? "aspect-square" : "aspect-auto"}
-              priority
-            />
+            {!displayUrl && props.emptyImageLabel ? (
+              <div className="flex aspect-[4/3] max-w-[300px] items-center justify-center rounded-lg border p-4 text-muted-foreground text-sm">
+                {props.emptyImageLabel}
+              </div>
+            ) : (
+              <AvatarImage
+                href={displayUrl ?? IMG_AVATAR_DEFAULT}
+                alt={`${id}-avatar`}
+                size={100}
+                hover_effect={true}
+                className={size === "square" ? "aspect-square" : "aspect-auto"}
+                priority
+              />
+            )}
             {allowImageUpload && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-opacity-0 transition-all duration-200 group-hover:bg-opacity-50">
                 <Edit
@@ -191,7 +236,7 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
         </DialogTrigger>
 
         {allowImageUpload && (
-          <DialogContent className="max-h-[90vh] max-w-6xl overflow-hidden">
+          <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit {label}</DialogTitle>
             </DialogHeader>
@@ -199,14 +244,20 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
             <div className="flex h-full flex-col gap-6 md:flex-row">
               {/* Left side - Image */}
               <div className="flex flex-shrink-0 flex-col items-center">
-                <AvatarImage
-                  href={displayUrl ?? IMG_AVATAR_DEFAULT}
-                  alt={`${id}-avatar`}
-                  size={300}
-                  hover_effect={false}
-                  className={size === "square" ? "aspect-square" : "aspect-auto"}
-                  priority
-                />
+                {!displayUrl && props.emptyImageLabel ? (
+                  <div className="flex aspect-[4/3] w-64 items-center justify-center rounded-lg border p-4 text-center text-muted-foreground text-sm">
+                    {props.emptyImageLabel}
+                  </div>
+                ) : (
+                  <AvatarImage
+                    href={displayUrl ?? IMG_AVATAR_DEFAULT}
+                    alt={`${id}-avatar`}
+                    size={300}
+                    hover_effect={false}
+                    className={size === "square" ? "aspect-square" : "aspect-auto"}
+                    priority
+                  />
+                )}
 
                 {/* Upload button */}
                 <div className="mt-4 flex flex-row gap-2">
@@ -232,7 +283,10 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
                       }
                       const url = serverData?.fileUrl;
                       if (url) {
-                        setLocalImageUrl(url);
+                        setLocalImage({
+                          url,
+                          generation: operationGenerationRef.current,
+                        });
                         onUploadComplete(url);
                         setIsModalOpen(false);
                       }
@@ -248,7 +302,11 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
               <div className="flex flex-1 flex-col gap-4 overflow-hidden">
                 <Tabs defaultValue="create" className="flex flex-1 flex-col">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="create">Create new</TabsTrigger>
+                    <TabsTrigger value="create">
+                      {props.referenceImageUrl
+                        ? "Recreate from original"
+                        : "Create new"}
+                    </TabsTrigger>
                     <TabsTrigger value="edit">Edit current</TabsTrigger>
                   </TabsList>
 
@@ -336,10 +394,14 @@ const ContentImageSelector: React.FC<ContentImageSelectorProps> = (props) => {
               relationId={id}
               contentType={type}
               disabled={props.disabled}
-              operationGeneration={operationGenerationRef.current}
+              operationGeneration={operationGeneration}
               onUpdate={(url) => {
-                if (disabledRef.current) return;
-                setLocalImageUrl(url);
+                if (
+                  disabledRef.current ||
+                  operationGeneration !== operationGenerationRef.current
+                )
+                  return;
+                setLocalImage({ url, generation: operationGenerationRef.current });
                 onUploadComplete(url);
               }}
               size={size}
