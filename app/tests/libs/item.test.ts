@@ -21,6 +21,7 @@ import {
   type EquipConstraintInfo,
   type EquippedAssignment,
   type EquippedConstraintState,
+  finishedImbuementItems,
   getItemStackMergeBucketKey,
   getHomeStorageBucket,
   getHomeStorageBucketFullMessage,
@@ -1034,5 +1035,25 @@ describe("getItemStackMergeBucketKey", () => {
         getItemStackMergeBucketKey(item, other),
       );
     }
+  });
+});
+
+describe("finishedImbuementItems", () => {
+  it("returns the items of finished imbuements and skips ones still crafting", () => {
+    const ui = {
+      imbuements: [
+        { craftingFinishedAt: null, item: { name: "Fire Seal" } },
+        { craftingFinishedAt: new Date(NOW.getTime() - 1000), item: { name: "Wind Seal" } },
+        { craftingFinishedAt: new Date(NOW.getTime() + 1000), item: { name: "Water Seal" } },
+      ],
+    };
+    expect(finishedImbuementItems(ui, NOW).map((i) => i.name)).toEqual([
+      "Fire Seal",
+      "Wind Seal",
+    ]);
+  });
+
+  it("returns an empty list for items without imbuements", () => {
+    expect(finishedImbuementItems({ imbuements: [] }, NOW)).toEqual([]);
   });
 });
