@@ -1,4 +1,5 @@
 import { bloodrightRouter } from "@/server/api/routers/bloodright";
+import { rewardPackagesRouter } from "@/server/api/routers/rewardPackages";
 import { accountDeletionRouter } from "./routers/accountDeletion";
 import { activityStreakRouter } from "./routers/activityStreak";
 import { aiRouter } from "./routers/ai";
@@ -110,6 +111,7 @@ export const appRouter = createTRPCRouter({
   push: pushRouter,
   purchases: purchasesRouter,
   quests: questsRouter,
+  rewardPackages: rewardPackagesRouter,
   register: registerRouter,
   reports: reportsRouter,
   sensei: senseiRouter,

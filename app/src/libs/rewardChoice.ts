@@ -1,6 +1,13 @@
 import { QUEST_REWARD_PICK_MAX } from "@/drizzle/constants";
-import type { QuestContentType } from "@/validators/objectives";
 import {
+  canPromoteMastery,
+  type MasteryProgressionSource,
+} from "@/libs/masteryProgression";
+import { collapseRewards } from "@/libs/rewards";
+import type { QuestContentType } from "@/validators/objectives";
+import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
+import {
+  hasReward,
   ObjectiveReward,
   type ObjectiveRewardType,
   type PendingRewardChoice,
@@ -13,13 +20,16 @@ import {
 /**
  * Reward choice ("choose N") for quest completion rewards.
  *
- * Pickable units: every non-zero scalar reward (ryo, exp, prestige, ...) is one card, every
- * reward item id in a `reward_items` entry is one card carrying that entry's quantity, and every
- * jutsu, bloodline, sage mode and badge id is one card. Rank promotion, village membership and
- * the hunter/gathering material drops are structural outcomes rather than loot, so they are always
- * granted alongside the picked cards. Picked items are guaranteed: the editor's drop chance only
- * applies to quests that grant every reward. Cards for content the player already holds stay on
- * the offer but cannot be picked, and one pick holds at most one sage mode.
+ * Pickable units: every scalar reward (ryo, exp, prestige, ...) whose floored amount is
+ * positive is one card. Every reward item id in a `reward_items` entry is one card carrying
+ * that entry's quantity, and every jutsu, bloodline, sage mode and badge id is one card.
+ * Rank promotion, village membership and the hunter/gathering material drops in direct
+ * rewards are structural outcomes rather than loot,
+ * so they are granted alongside the picked cards. Direct item cards are guaranteed. Package cards
+ * retain their full payload, including structural outcomes and item chances, until that bundle
+ * is picked. Cards for content the player already holds stay on
+ * the offer but cannot be picked, and one selection holds at most one sage mode and one
+ * mastery promotion.
  */
 
 /** Whether the quest grants a player-picked subset of its completion reward. */
@@ -51,10 +61,8 @@ export const getFixedChoiceRewards = (
     reward_gathering_items_ids: reward.reward_gathering_items_ids,
   });
 
-/** Splits a reward into pickable cards, in a stable order with stable ids. */
-export const buildRewardChoiceCards = (
-  reward: ObjectiveRewardType,
-): RewardChoiceCard[] => {
+/** Split direct fields into cards and each saved package into one bundle, with stable ids/order. */
+export const buildRewardChoiceCards = (reward: QuestRewardType): RewardChoiceCard[] => {
   const cards: RewardChoiceCard[] = [];
   for (const field of REWARD_CHOICE_AMOUNT_FIELDS) {
     const amount = Math.floor(Number(reward[field] ?? 0));
@@ -77,20 +85,52 @@ export const buildRewardChoiceCards = (
       cards.push({ id: `${field}:${contentId}`, field, amount: 1, contentId });
     }
   }
+  for (const pack of reward.reward_packages ?? []) {
+    if (!hasReward(pack.rewards)) continue;
+    cards.push({
+      id: `reward_package:${pack.id}`,
+      field: "reward_package",
+      amount: 1,
+      packageName: pack.name,
+      rewards: pack.rewards,
+    });
+  }
   return cards;
 };
 
 /** Sage modes fill the single equipped slot, so one pick holds at most one of them. */
-export const isSageModeCard = (card: Pick<RewardChoiceCard, "field">) =>
-  card.field === "reward_sage_modes";
+export const isSageModeCard = (card: Pick<RewardChoiceCard, "field" | "rewards">) =>
+  card.field === "reward_sage_modes" ||
+  (card.rewards?.reward_sage_modes.length ?? 0) > 0;
 
-/** Most cards one pick can hold: every non-sage card plus a single sage mode. */
-export const maxRewardPicks = (cards: Pick<RewardChoiceCard, "field">[]) => {
-  const sageModes = cards.filter(isSageModeCard).length;
-  return cards.length - sageModes + Math.min(sageModes, 1);
+/** The reward payload carries one mastery promotion, so promotion bundles are alternatives. */
+export const isMasteryPromotionCard = (card: Pick<RewardChoiceCard, "rewards">) =>
+  !!card.rewards?.reward_mastery_stat &&
+  card.rewards.reward_mastery_stat !== "None" &&
+  !!card.rewards.reward_mastery_rank &&
+  card.rewards.reward_mastery_rank !== "NONE";
+
+/** Most compatible cards: unrestricted cards plus one sage mode and one mastery promotion. */
+export const maxRewardPicks = (
+  cards: Pick<RewardChoiceCard, "field" | "rewards">[],
+) => {
+  const sageModes = cards.filter(isSageModeCard);
+  const promotions = cards.filter(isMasteryPromotionCard);
+  const both = sageModes.filter(isMasteryPromotionCard).length;
+  // A bundle occupying both slots competes with a separate card for each slot.
+  return (
+    cards.length -
+    sageModes.length -
+    promotions.length +
+    both +
+    Math.max(
+      Math.min(sageModes.length - both, 1) + Math.min(promotions.length - both, 1),
+      Math.min(both, 1),
+    )
+  );
 };
 
-/** Content the player already holds, used to find cards that would grant nothing. */
+/** Owned content and stored progression used to find unavailable cards. */
 export type RewardChoiceOwnership = {
   jutsuIds: ReadonlySet<string>;
   bloodlineIds: ReadonlySet<string>;
@@ -99,6 +139,8 @@ export type RewardChoiceOwnership = {
   sageModeIds: ReadonlySet<string>;
   /** The player has a sage mode equipped, so no sage mode card can be granted. */
   hasSageMode: boolean;
+  /** Stored discipline ranks used to enforce each bundle's immediately preceding promotion rank. */
+  masteryRanks?: MasteryProgressionSource["masteryRanks"];
 };
 
 export const REWARD_CHOICE_OWNED_REASON = "Already owned";
@@ -106,8 +148,8 @@ export const REWARD_CHOICE_SAGE_EQUIPPED_REASON = "Sage mode already equipped";
 
 /**
  * Cards this player cannot receive, keyed by card id with the reason shown on the card. Mirrors
- * the skips in `updateRewards`, which never inserts an owned jutsu, bloodline or badge and only
- * rolls a sage mode for a player without one.
+ * the guards in `updateRewards`: owned content is skipped, sage modes need an empty slot and
+ * mastery promotions require the immediately preceding stored rank.
  */
 export const getUnavailableRewardCards = (
   cards: RewardChoiceCard[],
@@ -115,6 +157,33 @@ export const getUnavailableRewardCards = (
 ): Map<string, string> => {
   const unavailable = new Map<string, string>();
   for (const card of cards) {
+    if (card.field === "reward_package" && card.rewards) {
+      const { reward_mastery_stat: stat, reward_mastery_rank: rank } = card.rewards;
+      if (
+        stat &&
+        stat !== "None" &&
+        rank &&
+        rank !== "NONE" &&
+        !canPromoteMastery(ownership, stat, rank)
+      ) {
+        unavailable.set(card.id, "Requires the previous mastery rank");
+        continue;
+      }
+      if (!hasReward(card.rewards)) {
+        unavailable.set(card.id, "No rewards available");
+        continue;
+      }
+      const childCards = buildRewardChoiceCards(card.rewards);
+      const blocked = getUnavailableRewardCards(childCards, ownership);
+      const fixed = getFixedChoiceRewards(card.rewards);
+      if (
+        childCards.length > 0 &&
+        blocked.size === childCards.length &&
+        !hasReward(fixed)
+      )
+        unavailable.set(card.id, REWARD_CHOICE_OWNED_REASON);
+      continue;
+    }
     const id = card.contentId;
     if (!id) continue;
     if (card.field === "reward_sage_modes" && ownership.hasSageMode) {
@@ -135,7 +204,7 @@ type CardIdLookup = Pick<ReadonlySet<string>, "has">;
 
 /**
  * How many cards the player must pick: the configured count, capped by what can still be
- * granted (cards the player cannot receive are left out and at most one sage mode counts).
+ * granted (unavailable cards are left out, with one sage mode and one mastery promotion).
  * Zero means nothing on the offer can be granted any more; claiming it with no picks clears it.
  */
 export const requiredRewardPicks = (
@@ -149,8 +218,8 @@ export const requiredRewardPicks = (
 
 /**
  * Validates a pick against the frozen offer: distinct ids, all offered, none the player cannot
- * receive, at most one sage mode, exactly the required count. Returns the picked cards in
- * offer order.
+ * receive, at most one sage mode and one mastery promotion, exactly the required count.
+ * Returns the picked cards in offer order; run this before consuming the offer's CAS.
  */
 export const validateRewardPicks = (
   choice: PendingRewardChoice,
@@ -177,6 +246,9 @@ export const validateRewardPicks = (
   if (cards.filter(isSageModeCard).length > 1) {
     return { success: false, message: "Only one sage mode can be picked" };
   }
+  if (cards.filter(isMasteryPromotionCard).length > 1) {
+    return { success: false, message: "Only one mastery promotion can be picked" };
+  }
   const required = requiredRewardPicks(choice, unavailable);
   if (picked.size !== required) {
     return {
@@ -189,33 +261,48 @@ export const validateRewardPicks = (
 
 /**
  * Next selection after the player clicks a card: clicking a selected card deselects it, a
- * single-pick offer swaps the selection, a second sage mode replaces the selected one, and a
- * full multi-pick selection ignores new cards.
+ * single-pick offer swaps the selection, a sage mode or mastery promotion replaces conflicting
+ * cards, and a full compatible multi-pick selection ignores new cards.
  */
 export const toggleRewardPick = (
   selected: string[],
   cardId: string,
   required: number,
-  cards: Pick<RewardChoiceCard, "id" | "field">[] = [],
+  cards: Pick<RewardChoiceCard, "id" | "field" | "rewards">[] = [],
 ): string[] => {
   if (selected.includes(cardId)) return selected.filter((id) => id !== cardId);
   if (required === 1) return [cardId];
-  const sageIds = new Set(cards.filter(isSageModeCard).map((card) => card.id));
-  const selectedSage = selected.find((id) => sageIds.has(id));
-  if (selectedSage && sageIds.has(cardId)) {
-    return selected.map((id) => (id === selectedSage ? cardId : id));
+  const card = cards.find((candidate) => candidate.id === cardId);
+  const conflicts = new Set(
+    cards
+      .filter(
+        (candidate) =>
+          card &&
+          ((isSageModeCard(card) && isSageModeCard(candidate)) ||
+            (isMasteryPromotionCard(card) && isMasteryPromotionCard(candidate))),
+      )
+      .map((candidate) => candidate.id),
+  );
+  const firstConflict = selected.find((id) => conflicts.has(id));
+  if (firstConflict) {
+    return selected
+      .filter((id) => !conflicts.has(id) || id === firstConflict)
+      .map((id) => (id === firstConflict ? cardId : id));
   }
   if (selected.length >= required) return selected;
   return [...selected, cardId];
 };
 
-/** Turns picked cards into a reward; items carry a 100% drop chance. */
+/** Merge picked bundles unchanged; only individually picked item cards receive a 100% chance. */
 export const rewardFromChoiceCards = (
   cards: RewardChoiceCard[],
 ): ObjectiveRewardType => {
-  const reward = ObjectiveReward.parse({});
+  let reward = ObjectiveReward.parse({});
   for (const card of cards) {
     switch (card.field) {
+      case "reward_package":
+        if (card.rewards) reward = collapseRewards([reward, card.rewards]);
+        break;
       case "reward_items":
         if (card.contentId) {
           reward.reward_items.push({
@@ -240,21 +327,21 @@ export const rewardFromChoiceCards = (
 
 /**
  * Save-time check for "choose" quests: the player must have more cards to choose from than
- * picks, otherwise the mode would just grant everything. Several sage mode cards are allowed
- * (choose one of them) but count as a single pickable reward.
+ * picks, otherwise the mode would just grant everything. Sage modes and mastery promotions
+ * each occupy a single slot; a bundle containing both occupies both slots.
  */
 export const verifyRewardChoiceForSave = (
   content: Pick<QuestContentType, "reward" | "rewardMode" | "rewardPickCount">,
 ): { check: boolean; message: string } => {
   if (!isRewardChoiceQuest(content)) return { check: true, message: "" };
   const pickable = maxRewardPicks(
-    buildRewardChoiceCards(ObjectiveReward.parse(content.reward)),
+    buildRewardChoiceCards(QuestReward.parse(content.reward)),
   );
   const pickCount = getRewardPickCount(content);
   if (pickable <= pickCount) {
     return {
       check: false,
-      message: `Reward choice needs more pickable rewards than picks (sage modes count once): ${pickable} reward${pickable === 1 ? "" : "s"} for ${pickCount} pick${pickCount === 1 ? "" : "s"}`,
+      message: `Reward choice needs more pickable rewards than picks (one sage mode and one mastery promotion): ${pickable} reward${pickable === 1 ? "" : "s"} for ${pickCount} pick${pickCount === 1 ? "" : "s"}`,
     };
   }
   return { check: true, message: "" };
@@ -313,4 +400,5 @@ export const REWARD_CHOICE_CATEGORY_LABELS: Record<RewardChoiceCard["field"], st
     reward_bloodlines: "Bloodline",
     reward_sage_modes: "Sage Mode",
     reward_badges: "Badge",
+    reward_package: "Reward Package",
   } as Record<RewardChoiceCard["field"], string>;

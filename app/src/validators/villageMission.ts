@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { VILLAGE_MISSION_TASKS } from "@/drizzle/constants";
+import { collapseRewards } from "@/libs/rewards";
+import type { QuestRewardType } from "@/validators/rewardPackages";
+import { hasReward, ObjectiveReward } from "@/validators/rewards";
 
 export const villageMissionActionSchema = z.object({
   villageId: z.string().min(1),
@@ -30,11 +33,11 @@ export const villageMissionSchema = z.object({
 });
 export type VillageMission = z.infer<typeof villageMissionSchema>;
 
-/** Village missions use simultaneous shared counters and one village-token payout. */
+/** Validate simultaneous shared objectives and a token-only completion payout, including packages. */
 export const villageMissionContentError = (
   content: {
     objectives: unknown[];
-    reward: { reward_tokens?: number };
+    reward: Partial<QuestRewardType>;
     rewardMode?: string;
   },
   consecutiveObjectives: boolean,
@@ -42,10 +45,28 @@ export const villageMissionContentError = (
   if (consecutiveObjectives) return "Village mission objectives must be simultaneous";
   if (content.rewardMode === "choose")
     return "Village missions cannot use reward choices";
+  const reward = collapseRewards([
+    ObjectiveReward.parse(content.reward),
+    ...(content.reward.reward_packages ?? []).map((pack) => pack.rewards),
+  ]);
   if (
-    !Number.isSafeInteger(content.reward.reward_tokens) ||
-    (content.reward.reward_tokens ?? 0) <= 0
-  ) {
+    (content.reward.reward_packages ?? []).some((pack) =>
+      hasReward({ ...pack.rewards, reward_tokens: 0 }),
+    )
+  )
+    return "Village Mission packages may only contain village tokens";
+  if (
+    content.objectives.some(
+      (objective) =>
+        typeof objective === "object" &&
+        objective !== null &&
+        "reward_packages" in objective &&
+        Array.isArray(objective.reward_packages) &&
+        objective.reward_packages.length > 0,
+    )
+  )
+    return "Village Missions only support packages on the completed quest";
+  if (!Number.isSafeInteger(reward.reward_tokens) || (reward.reward_tokens ?? 0) <= 0) {
     return "Village missions require a positive whole-number token reward";
   }
   if (

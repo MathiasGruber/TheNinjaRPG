@@ -547,6 +547,13 @@
       "when": 1791818939465,
       "tag": "0077_thick_doorman",
       "breakpoints": false
+    },
+    {
+      "idx": 78,
+      "version": "5",
+      "when": 1791863560704,
+      "tag": "0078_ambiguous_mister_sinister",
+      "breakpoints": false
     }
   ]
 }

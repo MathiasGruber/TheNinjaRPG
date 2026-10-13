@@ -1,6 +1,7 @@
 import { and, eq, exists, gte, isNull, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { quest, userData, village } from "@/drizzle/schema";
+import { collapseRewards } from "@/libs/rewards";
 import {
   getVillageMissionProgress,
   isVillageMissionAvailable,
@@ -91,7 +92,12 @@ export const villageMissionRouter = createTRPCRouter({
         questId: candidate.id,
         name: candidate.name,
         description: candidate.description,
-        rewardTokens: candidate.content.reward.reward_tokens,
+        rewardTokens: collapseRewards([
+          candidate.content.reward,
+          ...(candidate.content.reward.reward_packages ?? []).map(
+            (pack) => pack.rewards,
+          ),
+        ]).reward_tokens,
         objectives: candidate.content.objectives.map((objective) =>
           villageMissionObjectiveSchema.parse(objective),
         ),

@@ -20,6 +20,7 @@ import { QuestHelper } from "@/layout/ContentHelp";
 import { EditContent, ObjectiveFormWrapper } from "@/layout/EditContent";
 import Loader from "@/layout/Loader";
 import { RaidThresholdEditor } from "@/layout/RaidThresholdEditor";
+import { RewardEditor } from "@/layout/RewardEditor";
 import { SuggestChange } from "@/layout/SuggestChange";
 import { buildObjectiveEdges, getObjectiveImage } from "@/libs/objectives";
 import { verifyQuestObjectiveFlow } from "@/libs/quest";
@@ -122,6 +123,7 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
     setSelectedObjectiveId(null);
   };
 
+  /** Duplicate an objective with fresh attachment ids while retaining each package's source. */
   const copyObjective = (idx: number) => {
     if (isUpdating) return;
     const objectiveToCopy = objectives[idx];
@@ -130,6 +132,10 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
     const copiedObjective = {
       ...objectiveToCopy,
       id: nanoid(5),
+      reward_packages: objectiveToCopy.reward_packages?.map((pack) => ({
+        ...pack,
+        id: nanoid(),
+      })),
     };
 
     const newObjectives = [...objectives];
@@ -254,7 +260,9 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
             <EditContent
               schema={QuestFormRawSchema}
               form={form as UseFormReturn<ZodQuestFormType>}
-              formData={formData}
+              formData={formData.filter(
+                (entry) => !String(entry.id).startsWith("reward_"),
+              )}
               showSubmit={props.canSave}
               buttonTxt="Save to Database"
               type="quest"
@@ -264,7 +272,9 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
               submitDisabled={currentValues.consecutiveObjectives && !isFlowValid}
               submitLoading={isUpdating}
               submitLoadingText="Saving"
-            />
+            >
+              <RewardEditor type="quest" form={form} formData={formData} />
+            </EditContent>
             <div className="mt-2 flex justify-end">
               <SuggestChange
                 entityType="QUEST"

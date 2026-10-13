@@ -3,6 +3,9 @@ import { createToastMock } from "../setup/toastMock";
 const { cleanup, fireEvent, render, waitFor } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { RewardEditor } from "@/layout/RewardEditor";
+import { ObjectiveReward } from "@/validators/rewards";
 import {
   DamageTag,
   HealTag,
@@ -29,6 +32,9 @@ vi.mock("@/app/_trpc/client", () => ({
     skillTree: { getAllNames: names },
     badge: { getAll: names },
     misc: { getAllGameAssetNames: names },
+    rewardPackages: {
+      getCatalog: { useQuery: () => ({ data: { packages: [], nodes: [] } }) },
+    },
     gameAsset: {
       getNameTags: names,
       getSceneAssets: names,
@@ -51,6 +57,95 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 afterEach(cleanup);
+
+/** Render real form controls to verify quest-specific and generic-package material visibility. */
+const MaterialRewardForm = ({
+  questType,
+  allowPackages = true,
+}: {
+  questType: string;
+  allowPackages?: boolean;
+}) => {
+  const form = useForm({
+    defaultValues: {
+      ...ObjectiveReward.parse({
+        reward_hunter_items: true,
+        reward_hunter_items_ids: ["hunter-material"],
+        reward_gathering_items: true,
+        reward_gathering_items_ids: ["gathering-material"],
+      }),
+      questType,
+    },
+  });
+  return (
+    <RewardEditor
+      type="quest"
+      form={form}
+      allowPackages={allowPackages}
+      formData={[
+        { id: "reward_hunter_items", label: "Hunting material drops", type: "boolean" },
+        {
+          id: "reward_hunter_items_ids",
+          label: "Hunting materials",
+          type: "db_values",
+          multiple: true,
+          values: [{ id: "hunter-material", name: "Hunter Feather" }],
+        },
+        {
+          id: "reward_gathering_items",
+          label: "Gathering material drops",
+          type: "boolean",
+        },
+        {
+          id: "reward_gathering_items_ids",
+          label: "Gathering materials",
+          type: "db_values",
+          multiple: true,
+          values: [{ id: "gathering-material", name: "Gathered Herb" }],
+        },
+      ]}
+    />
+  );
+};
+
+describe("grouped material rewards", () => {
+  it.each([
+    [
+      "hunting",
+      "Hunting material drops",
+      "Hunting materials",
+      "Gathering material drops",
+    ],
+    [
+      "gathering",
+      "Gathering material drops",
+      "Gathering materials",
+      "Hunting material drops",
+    ],
+  ])(
+    "preserves direct material controls for %s quests",
+    (questType, label, materials, otherLabel) => {
+      const view = render(<MaterialRewardForm questType={questType!} />);
+      const toggle = view.getByRole("switch", { name: label! });
+      expect(toggle.getAttribute("aria-checked")).toBe("true");
+      expect(view.getByText(materials!)).toBeDefined();
+      expect(view.queryByRole("switch", { name: otherLabel! })).toBeNull();
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-checked")).toBe("false");
+    },
+  );
+
+  it("keeps quest material restrictions and the package editor's material allowance", () => {
+    const view = render(<MaterialRewardForm questType="mission" />);
+    expect(view.queryByRole("switch", { name: "Hunting material drops" })).toBeNull();
+    expect(view.queryByRole("switch", { name: "Gathering material drops" })).toBeNull();
+    view.rerender(<MaterialRewardForm questType="mission" allowPackages={false} />);
+    expect(view.getByRole("switch", { name: "Hunting material drops" })).toBeDefined();
+    expect(
+      view.getByRole("switch", { name: "Gathering material drops" }),
+    ).toBeDefined();
+  });
+});
 
 describe("MassEffectEditor numeric drafts", () => {
   for (const kind of ["item", "jutsu", "bloodline"] as const) {

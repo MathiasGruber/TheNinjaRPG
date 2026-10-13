@@ -1,3 +1,5 @@
+"use client";
+
 import { Check, CircleHelp, Gift, Loader2, RotateCcw, X } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
@@ -11,13 +13,14 @@ import Modal from "@/layout/Modal";
 import StatusBar from "@/layout/StatusBar";
 import { masteryRewardLabels } from "@/libs/masteryRewards";
 import { getObjectiveImage, isObjectiveComplete } from "@/libs/objectives";
+import { collapseRewards } from "@/libs/rewards";
 import { showMutationToast } from "@/libs/toast";
 import { parseHtml } from "@/utils/parse";
 import { secondsFromDate } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
 import { getObjectiveSchema } from "@/validators/objectives";
-import type { ObjectiveRewardType } from "@/validators/rewards";
+import type { QuestRewardType } from "@/validators/rewardPackages";
 import { hasReward } from "@/validators/rewards";
 
 interface ObjectiveProps {
@@ -232,14 +235,24 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
 };
 
 interface RewardProps {
-  info?: AllObjectivesType | ObjectiveRewardType | null;
+  info?: AllObjectivesType | QuestRewardType | null;
   rewardMultiplier?: number;
   /** Set for "choose" quests: the player picks this many rewards on completion. */
   pickCount?: number;
 }
 
+/** Show combined direct/package totals, with pick-count context for reward-choice quests. */
 export const Reward: React.FC<RewardProps> = (props) => {
-  const { info, rewardMultiplier, pickCount } = props;
+  const { rewardMultiplier, pickCount } = props;
+  const info = props.info
+    ? {
+        ...props.info,
+        ...collapseRewards([
+          props.info,
+          ...(props.info.reward_packages ?? []).map((pack) => pack.rewards),
+        ]),
+      }
+    : props.info;
   let rewards = `${info?.reward_money ? `${info.reward_money} Ryo` : ""}`;
   if (info?.reward_tokens) {
     rewards += `${rewards ? ", " : ""} ${info.reward_tokens} Tokens`;

@@ -1051,3 +1051,14 @@ export const canRollPrimaryElement = (user: UserData) => {
 export const canRollSecondaryElement = (user: UserData) => {
   return !["STUDENT", "GENIN", "NONE"].includes(user.rank);
 };
+
+/** Allow content editors, content/event leadership and OWNER to maintain reward sources. */
+export const canManageRewards = (role: UserRole) =>
+  [
+    "CONTENT",
+    "CONTENT-ADMIN",
+    "EVENT-ADMIN",
+    "HEAD_CONTENT",
+    "HEAD_EVENT",
+    "OWNER",
+  ].includes(role);

@@ -1,13 +1,15 @@
 import type { ElementDefinition } from "cytoscape";
 import type { Quest } from "@/drizzle/schema";
 import { masteryRewardLabels } from "@/libs/masteryRewards";
+import { collapseRewards } from "@/libs/rewards";
 import { capitalizeFirstLetter } from "@/utils/string";
 import {
   type AllObjectivesType,
   objectiveImageMap,
   type QuestTrackerType,
 } from "@/validators/objectives";
-import { ObjectiveReward, type ObjectiveRewardType } from "@/validators/rewards";
+import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
+import { ObjectiveReward } from "@/validators/rewards";
 
 export const getObjectiveImage = (objective: AllObjectivesType) => {
   return objectiveImageMap[objective.task] ?? { image: "", title: "???" };
@@ -291,14 +293,17 @@ export const buildObjectiveEdges = (
 };
 
 /**
- * Returns a string array of rewards from an objective reward object.
- * @param reward - The objective reward object.
- * @returns A string array of rewards.
+ * Summarize direct and packaged rewards in the same composition used for payout.
+ * @param reward - Quest or objective rewards, including editable snapshots.
+ * @returns Display entries for the combined reward payload, or an empty list.
  */
-export const getRewardArray = (reward?: ObjectiveRewardType) => {
+export const getRewardArray = (reward?: QuestRewardType) => {
   const rewards: string[] = [];
   if (!reward) return rewards;
-  const questReward = ObjectiveReward.parse(reward);
+  const questReward = collapseRewards([
+    ObjectiveReward.parse(reward),
+    ...(reward.reward_packages ?? []).map((pack) => pack.rewards),
+  ]);
   if (questReward.reward_items.length > 0) {
     rewards.push(`${questReward.reward_items.length} items`);
   }
@@ -389,14 +394,13 @@ export const getRewardArray = (reward?: ObjectiveRewardType) => {
 };
 
 /**
- * Returns a comma-separated string preview of rewards, or null if no rewards.
- * @param reward - The objective reward object.
- * @returns A string preview of rewards or null.
+ * Preview direct and packaged rewards while keeping invalid editor drafts recoverable.
+ * @returns A comma-separated summary, an invalid-draft message, or null for empty rewards.
  */
-export const getRewardPreview = (
-  reward?: ObjectiveRewardType | null,
-): string | null => {
+export const getRewardPreview = (reward?: QuestRewardType | null): string | null => {
   if (!reward) return null;
-  const rewardsList = getRewardArray(reward);
+  const parsed = QuestReward.safeParse(reward);
+  if (!parsed.success) return "Correct the invalid reward values before saving";
+  const rewardsList = getRewardArray(parsed.data);
   return rewardsList.length > 0 ? rewardsList.join(", ") : null;
 };

@@ -13,7 +13,9 @@ import {
   userQueue,
 } from "@/drizzle/schema";
 import { questsRouter } from "@/server/api/routers/quests";
+import { requiredRewardPicks } from "@/libs/rewardChoice";
 import type { PendingRewardChoice } from "@/validators/rewards";
+import { ObjectiveReward } from "@/validators/rewards";
 import {
   insertItems,
   insertQuestHistory,
@@ -191,6 +193,88 @@ describeWithDatabase("quest reward choice against a real MySQL", () => {
     );
     expect(results.filter((result) => result.success)).toHaveLength(1);
     expect(await playerState()).toMatchObject({ money: 500, exp: 1000, pending: null });
+  });
+
+  it("retains an ineligible promotion offer and grants an eligible bundle exactly once", async () => {
+    const database = await getTestDatabase();
+    const choice: PendingRewardChoice = { id: "mastery-offer", pickCount: 1, cards: [
+      { id: "ninjutsu", field: "reward_package", amount: 1, packageName: "Ninjutsu Adept",
+        rewards: ObjectiveReward.parse({ reward_mastery_stat: "ninjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 100 }) },
+      { id: "genjutsu", field: "reward_package", amount: 1, packageName: "Genjutsu Adept",
+        rewards: ObjectiveReward.parse({ reward_mastery_stat: "genjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 200 }) },
+    ] };
+    await database.update(userData).set({ masteryRanks: { genjutsuMastery: "NOVICE" } }).where(eq(userData.userId, PLAYER));
+    await database.update(questHistory).set({ pendingRewardChoice: choice }).where(eq(questHistory.userId, PLAYER));
+    const offers = await (await caller()).getPendingRewardChoices();
+    expect(offers[0]?.cards[0]?.unavailableReason).toContain("previous mastery rank");
+    expect(offers[0]?.cards[1]?.unavailableReason).toBeNull();
+    const rejected = await (await caller()).claimRewardChoice({ questId: QUEST, choiceId: choice.id, cardIds: ["ninjutsu"] });
+    expect(rejected.success).toBe(false);
+    expect(rejected.message).toContain("previous mastery rank");
+    expect(await playerState()).toMatchObject({ money: 0, pending: choice });
+    const pick = { questId: QUEST, choiceId: choice.id, cardIds: ["genjutsu"] };
+    const accepted = await (await caller()).claimRewardChoice(pick);
+    expect(accepted.success).toBe(true);
+    expect(await playerState()).toMatchObject({ money: 200, pending: null });
+    const player = await database.query.userData.findFirst({ where: eq(userData.userId, PLAYER) });
+    expect(player?.masteryRanks).toEqual({ genjutsuMastery: "ADEPT" });
+    expect((await (await caller()).claimRewardChoice(pick)).success).toBe(false);
+    expect(await playerState()).toMatchObject({ money: 200, pending: null });
+  });
+
+  for (const reversed of [false, true]) {
+    it(`retains incompatible promotion picks and grants a compatible pair (${reversed ? "reversed" : "original"} order)`, async () => {
+      const database = await getTestDatabase();
+      const promotions: PendingRewardChoice["cards"] = [
+        { id: "ninjutsu", field: "reward_package", amount: 1,
+          rewards: ObjectiveReward.parse({ reward_mastery_stat: "ninjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 100 }) },
+        { id: "genjutsu", field: "reward_package", amount: 1,
+          rewards: ObjectiveReward.parse({ reward_mastery_stat: "genjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 200 }) },
+      ];
+      if (reversed) promotions.reverse();
+      const ranks = { ninjutsuMastery: "NOVICE" as const, genjutsuMastery: "NOVICE" as const };
+      const choice: PendingRewardChoice = { id: "two-promotion-offer", pickCount: 2, cards: [
+        ...promotions,
+        { id: "reward_money", field: "reward_money", amount: 10 },
+        { id: "reward_exp", field: "reward_exp", amount: 20 },
+      ] };
+      await database.update(userData).set({ masteryRanks: ranks }).where(eq(userData.userId, PLAYER));
+      await database.update(questHistory).set({ pendingRewardChoice: choice }).where(eq(questHistory.userId, PLAYER));
+      const offers = await (await caller()).getPendingRewardChoices();
+      expect(offers[0]?.pickCount).toBe(2);
+      expect(offers[0]?.cards.every((card) => card.unavailableReason === null)).toBe(true);
+      const rejected = await (await caller()).claimRewardChoice({ questId: QUEST, choiceId: choice.id, cardIds: promotions.map((card) => card.id) });
+      expect(rejected).toEqual({ success: false, message: "Only one mastery promotion can be picked" });
+      expect(await playerState()).toMatchObject({ money: 0, exp: 0, pending: choice });
+      expect((await database.query.userData.findFirst({ where: eq(userData.userId, PLAYER) }))?.masteryRanks).toEqual(ranks);
+      const selected = promotions[0]!;
+      const pick = { questId: QUEST, choiceId: choice.id, cardIds: [selected.id, "reward_money"] };
+      expect((await (await caller()).claimRewardChoice(pick)).success).toBe(true);
+      const saved = await database.query.userData.findFirst({ where: eq(userData.userId, PLAYER) });
+      expect(saved?.masteryRanks).toEqual({ ...ranks, [selected.rewards!.reward_mastery_stat!]: "ADEPT" });
+      const money = selected.rewards!.reward_money + 10;
+      expect(await playerState()).toMatchObject({ money, exp: 0, pending: null });
+      expect((await (await caller()).claimRewardChoice(pick)).success).toBe(false);
+      expect(await playerState()).toMatchObject({ money, exp: 0, pending: null });
+    });
+  }
+
+  it("caps an already-pending two-promotion offer to one compatible pick", async () => {
+    const database = await getTestDatabase();
+    const choice: PendingRewardChoice = { id: "legacy-two-promotions", pickCount: 2, cards: [
+      { id: "ninjutsu", field: "reward_package", amount: 1,
+        rewards: ObjectiveReward.parse({ reward_mastery_stat: "ninjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 100 }) },
+      { id: "genjutsu", field: "reward_package", amount: 1,
+        rewards: ObjectiveReward.parse({ reward_mastery_stat: "genjutsuMastery", reward_mastery_rank: "ADEPT", reward_money: 200 }) },
+    ] };
+    await database.update(userData).set({ masteryRanks: { ninjutsuMastery: "NOVICE", genjutsuMastery: "NOVICE" } }).where(eq(userData.userId, PLAYER));
+    await database.update(questHistory).set({ pendingRewardChoice: choice }).where(eq(questHistory.userId, PLAYER));
+    const display = (await (await caller()).getPendingRewardChoices())[0]!;
+    expect(display.pickCount).toBe(2);
+    expect(requiredRewardPicks(display)).toBe(1);
+    expect((await (await caller()).claimRewardChoice({ questId: QUEST, choiceId: choice.id, cardIds: ["genjutsu"] })).success).toBe(true);
+    expect(await playerState()).toMatchObject({ money: 200, pending: null });
+    expect((await database.query.userData.findFirst({ where: eq(userData.userId, PLAYER) }))?.masteryRanks).toEqual({ ninjutsuMastery: "NOVICE", genjutsuMastery: "ADEPT" });
   });
 
   describe("rewards the player already holds", () => {

@@ -22,6 +22,7 @@ import {
   IMG_MANUAL_RANKED,
   IMG_MANUAL_RECRUITMENT,
   IMG_MANUAL_REVIEW,
+  IMG_MANUAL_REWARDS,
   IMG_MANUAL_SAGE_MODE,
   IMG_MANUAL_SKILLTREE,
   IMG_MANUAL_STAFF,
@@ -84,7 +85,11 @@ export default function ManualMain() {
     : withRecruitment;
   // Staff suggest content changes here; content staff review them.
   const entries = isStaffRole(role)
-    ? [{ name: "review", img: IMG_MANUAL_REVIEW }, ...withBackups]
+    ? [
+        { name: "review", img: IMG_MANUAL_REVIEW },
+        { name: "rewards", img: IMG_MANUAL_REWARDS },
+        ...withBackups,
+      ]
     : withBackups;
 
   return (

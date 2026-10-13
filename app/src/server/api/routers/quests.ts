@@ -104,6 +104,7 @@ import {
 } from "@/libs/quest";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
+  buildRewardChoiceCards,
   getUnavailableRewardCards,
   REWARD_CHOICE_AMOUNT_LABELS,
   REWARD_CHOICE_PENDING_MESSAGE,
@@ -113,6 +114,7 @@ import {
   validateRewardPicks,
   verifyRewardChoiceForSave,
 } from "@/libs/rewardChoice";
+import { collapseRewards } from "@/libs/rewards";
 import { getSageMasteryDisplayRank, sageRanksAtOrBelow } from "@/libs/sageMode";
 import { callDiscordContent } from "@/libs/socials";
 import { availableQuestLetterRanks, availableRanks } from "@/libs/train";
@@ -129,6 +131,7 @@ import {
 import { deleteRequests } from "@/routers/sensei";
 import { fetchSectorVillage } from "@/routers/village";
 import { fetchActiveWars } from "@/routers/war";
+import { validateQuestRewardPackages } from "@/server/api/routers/rewardPackages";
 import {
   baseServerResponse,
   createTRPCRouter,
@@ -716,10 +719,11 @@ export const questsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       setEmptyStringsToNulls(input.data, quest);
       // Query
-      const [user, entry, tierQuests] = await Promise.all([
+      const [user, entry, tierQuests, packages] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchQuest(ctx.drizzle, input.id),
         ctx.drizzle.select().from(quest).where(eq(quest.questType, "tier")),
+        ctx.drizzle.query.rewardPackage.findMany(),
       ]);
       // Guards
       if (user.isBanned) {
@@ -764,10 +768,6 @@ export const questsRouter = createTRPCRouter({
         if (!check) {
           return { success: false, message: `Objective flow invalid: ${message}` };
         }
-        const rewardChoiceCheck = verifyRewardChoiceForSave(input.data.content);
-        if (!rewardChoiceCheck.check) {
-          return errorResponse(rewardChoiceCheck.message);
-        }
         // Shared Village Mission progress has no quest scenes to populate.
         const hasMainSceneCharacters = input.data.content.sceneCharacters.length > 0;
         const allObjectivesHaveSceneCharacters = input.data.content.objectives.every(
@@ -786,6 +786,13 @@ export const questsRouter = createTRPCRouter({
         }
         // Prepare data for insertion into database
         const data = input.data;
+        const packageError = validateQuestRewardPackages(
+          data.content,
+          entry.content,
+          packages,
+          user.role,
+        );
+        if (packageError) return errorResponse(packageError);
         // Server-side enforcement: preserve existing reward_reputation if user lacks permission
         if (!canAwardReputation(user.role)) {
           data.content.reward.reward_reputation =
@@ -802,16 +809,29 @@ export const questsRouter = createTRPCRouter({
             };
           });
         }
+        const rewardChoiceCheck = verifyRewardChoiceForSave(input.data.content);
+        if (!rewardChoiceCheck.check) {
+          return errorResponse(rewardChoiceCheck.message);
+        }
         // Check we only give ranks with exams
         let rankError = false;
         if (
-          data.content.reward.reward_rank !== "NONE" &&
+          collapseRewards([
+            data.content.reward,
+            ...(data.content.reward.reward_packages ?? []).map((pack) => pack.rewards),
+          ]).reward_rank !== "NONE" &&
           !["starter", "exam"].includes(data.questType)
         ) {
           rankError = true;
         }
         data.content.objectives.forEach((objective) => {
-          if (objective.reward_rank !== "NONE" && data.questType !== "exam") {
+          if (
+            collapseRewards([
+              objective,
+              ...(objective.reward_packages ?? []).map((pack) => pack.rewards),
+            ]).reward_rank !== "NONE" &&
+            data.questType !== "exam"
+          ) {
             rankError = true;
           }
         });
@@ -1239,7 +1259,7 @@ export const questsRouter = createTRPCRouter({
     .query(async ({ ctx }) => {
       const [user, rows] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
-          columns: { userId: true, sageModeId: true },
+          columns: { userId: true, sageModeId: true, masteryRanks: true },
           where: eq(userData.userId, ctx.userId),
         }),
         ctx.drizzle.query.questHistory.findMany({
@@ -1281,7 +1301,7 @@ export const questsRouter = createTRPCRouter({
       if (offer.data.id !== input.choiceId) {
         return errorResponse("This reward choice is no longer available");
       }
-      // Refuse picks that would grant nothing (owned content, a second sage mode) while the
+      // Refuse unavailable picks (owned content, a second sage mode, ineligible promotion) while the
       // offer is still stored, so the player can choose again.
       const ownership = await fetchRewardChoiceOwnership(
         ctx.drizzle,
@@ -1338,8 +1358,8 @@ export const questsRouter = createTRPCRouter({
           );
         return errorResponse("Your character changed while claiming, please try again");
       }
-      // Mutations. Scalars are SQL increments and a pick never carries rank or village, so the
-      // payout leaves questData to the snapshot claim above instead of writing back this read.
+      // Payout leaves questData to the snapshot claim above instead of writing back this read.
+      // Package cards can also carry promotions and membership, handled by updateRewards.
       const { items, jutsus, bloodlines, badges, sageModes } = await updateRewards({
         pvpBoostApplied: true,
         client: ctx.drizzle,
@@ -3730,11 +3750,12 @@ export const sageQuestFilters = (
 
 /**
  * Resolves pending reward-choice offers for display: one query per referenced content type,
- * run together. Offers that no longer parse are skipped rather than failing the list.
+ * run together. Packages keep their original cards while child rewards supply lookup ids.
+ * Offers that no longer parse are skipped rather than failing the list.
  */
 export const resolveRewardChoiceDisplays = async (
   client: DrizzleClient,
-  user: Pick<UserData, "userId" | "sageModeId">,
+  user: Pick<UserData, "userId" | "sageModeId" | "masteryRanks">,
   rows: {
     questId: string;
     pendingRewardChoice: unknown;
@@ -3753,12 +3774,15 @@ export const resolveRewardChoiceDisplays = async (
         ]
       : [];
   });
+  const expandedCards = offers.flatMap((offer) =>
+    offer.cards.flatMap((card) =>
+      card.rewards ? buildRewardChoiceCards(card.rewards) : [card],
+    ),
+  );
   const idsFor = (field: RewardChoiceCard["field"]) => [
     ...new Set(
-      offers.flatMap((offer) =>
-        offer.cards.flatMap((card) =>
-          card.field === field && card.contentId ? [card.contentId] : [],
-        ),
+      expandedCards.flatMap((card) =>
+        card.field === field && card.contentId ? [card.contentId] : [],
       ),
     ),
   ];
@@ -3865,6 +3889,18 @@ export const resolveRewardChoiceDisplays = async (
       pickCount: offer.pickCount,
       cards: offer.cards.map((card) => {
         const unavailableReason = unavailable.get(card.id) ?? null;
+        if (card.field === "reward_package")
+          return {
+            ...card,
+            name: card.packageName ?? "Reward Package",
+            image: null,
+            rarity: null,
+            description: null,
+            includedRewards: card.rewards
+              ? describePackageRewards(card.rewards, content)
+              : [],
+            unavailableReason,
+          };
         if (!card.contentId) {
           const field = card.field as RewardChoiceAmountField;
           return {
@@ -3892,16 +3928,20 @@ export const resolveRewardChoiceDisplays = async (
 
 /**
  * Which of the offered jutsus, bloodlines, badges and sage modes the player already holds, using
- * the same ownership tables `updateRewards` checks before granting them.
+ * the same ownership tables `updateRewards` checks before granting them. Package children
+ * participate in those queries; stored mastery ranks supply promotion eligibility.
  */
 export const fetchRewardChoiceOwnership = async (
   client: DrizzleClient,
-  user: Pick<UserData, "userId" | "sageModeId">,
+  user: Pick<UserData, "userId" | "sageModeId" | "masteryRanks">,
   cards: RewardChoiceCard[],
 ): Promise<RewardChoiceOwnership> => {
+  const expandedCards = cards.flatMap((card) =>
+    card.rewards ? buildRewardChoiceCards(card.rewards) : [card],
+  );
   const idsFor = (field: RewardChoiceCard["field"]) => [
     ...new Set(
-      cards.flatMap((card) =>
+      expandedCards.flatMap((card) =>
         card.field === field && card.contentId ? [card.contentId] : [],
       ),
     ),
@@ -3964,6 +4004,7 @@ export const fetchRewardChoiceOwnership = async (
     badgeIds: toSet(badges),
     sageModeIds: toSet(sageModes),
     hasSageMode: !!user.sageModeId,
+    masteryRanks: user.masteryRanks,
   };
 };
 
@@ -4057,4 +4098,31 @@ export const getRewardUserDelta = (
     reputationPointsTotal: rewards.reward_reputation,
     villagePrestige: rewards.reward_prestige,
   };
+};
+
+/** Describe complete bundle contents with resolved names and original item quantities/chances. */
+const describePackageRewards = (
+  reward: import("@/validators/rewards").ObjectiveRewardType,
+  content: ReadonlyMap<string, { name: string }>,
+) => {
+  const entries = buildRewardChoiceCards(reward)
+    .filter((card) => card.field !== "reward_items")
+    .map((card) =>
+      card.contentId
+        ? (content.get(`${card.field}:${card.contentId}`)?.name ?? "Unknown reward")
+        : `${card.amount.toLocaleString()} ${REWARD_CHOICE_AMOUNT_LABELS[card.field as RewardChoiceAmountField]}`,
+    );
+  for (const item of reward.reward_items)
+    for (const id of item.ids)
+      entries.push(
+        `${item.quantity ?? 1} × ${content.get(`reward_items:${id}`)?.name ?? "Unknown item"} (${item.number}% chance)`,
+      );
+  if (reward.reward_rank !== "NONE") entries.push(`Rank: ${reward.reward_rank}`);
+  if (reward.reward_village_membership !== "NONE")
+    entries.push(`Village: ${reward.reward_village_membership}`);
+  if (reward.reward_mastery_rank && reward.reward_mastery_rank !== "NONE")
+    entries.push(`${reward.reward_mastery_stat}: ${reward.reward_mastery_rank}`);
+  if (reward.reward_hunter_items) entries.push("Hunting material drops");
+  if (reward.reward_gathering_items) entries.push("Gathering material drops");
+  return entries;
 };
