@@ -1,8 +1,8 @@
 import { ensureDom } from "../setup-dom.mjs";
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { renderToString } from "react-dom/server";
-import { useReadingPreferences } from "@/hooks/useReadingPreferences";
+import { ReadingPreferencesProvider, useReadingPreferences } from "@/hooks/useReadingPreferences";
 import {
   applyReadingPreferences,
   DEFAULT_READING_PREFERENCES,
@@ -24,6 +24,8 @@ const Probe = () => {
   const { preferences } = useReadingPreferences();
   return <span>{preferences.font}</span>;
 };
+
+const renderPreferences = () => renderHook(() => useReadingPreferences(), { wrapper: ReadingPreferencesProvider });
 
 const runHeadScript = () => {
   const script = document.createElement("script");
@@ -58,15 +60,15 @@ describe("reading preferences", () => {
   it("keeps server markup stable without overwriting saved settings on mount", () => {
     const serialized = JSON.stringify(saved);
     window.localStorage.setItem(READING_PREFERENCES_STORAGE_KEY, serialized);
-    expect(renderToString(<Probe />)).toBe("<span>default</span>");
-    const hook = renderHook(() => useReadingPreferences());
+    expect(renderToString(<ReadingPreferencesProvider><Probe /></ReadingPreferencesProvider>)).toBe("<span>default</span>");
+    const hook = renderPreferences();
     expect(hook.result.current.preferences).toEqual(saved);
     expect(window.localStorage.getItem(READING_PREFERENCES_STORAGE_KEY)).toBe(serialized);
   });
 
   it("synchronizes mounted settings and persists a reset", () => {
-    const first = renderHook(() => useReadingPreferences());
-    const second = renderHook(() => useReadingPreferences());
+    const first = renderPreferences();
+    const second = renderPreferences();
     act(() => first.result.current.updatePreferences(saved));
     expect(second.result.current.preferences).toEqual(saved);
     expect(parseReadingPreferences(window.localStorage.getItem(READING_PREFERENCES_STORAGE_KEY))).toEqual(saved);
@@ -75,13 +77,62 @@ describe("reading preferences", () => {
   });
 
   it("restores defaults when storage is cleared in another tab", () => {
-    const hook = renderHook(() => useReadingPreferences());
+    const hook = renderPreferences();
     act(() => hook.result.current.updatePreferences(saved));
     act(() => {
       window.localStorage.clear();
       window.dispatchEvent(new window.StorageEvent("storage", { key: null }));
     });
     expect(hook.result.current.preferences).toEqual(DEFAULT_READING_PREFERENCES);
+  });
+
+  it("keeps inaccessible-storage changes temporary and synchronizes a successful retry", () => {
+    const first = renderPreferences();
+    const second = renderPreferences();
+    const write = spyOn(Object.getPrototypeOf(window.localStorage), "setItem").mockImplementation(() => {
+      throw new Error("Storage is full");
+    });
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      act(() => first.result.current.updatePreferences(saved));
+      expect(first.result.current.isPersisted).toBe(false);
+      expect(second.result.current.isPersisted).toBe(false);
+      expect(second.result.current.preferences).toEqual(saved);
+      expect(window.localStorage.getItem(READING_PREFERENCES_STORAGE_KEY)).toBeNull();
+    } finally {
+      write.mockRestore();
+      warn.mockRestore();
+    }
+    act(() => second.result.current.updatePreferences(saved));
+    expect(first.result.current.isPersisted).toBe(true);
+    expect(second.result.current.isPersisted).toBe(true);
+    expect(parseReadingPreferences(window.localStorage.getItem(READING_PREFERENCES_STORAGE_KEY))).toEqual(saved);
+  });
+
+  it("retains temporary values and retry feedback when a settings panel remounts", () => {
+    let current!: ReturnType<typeof useReadingPreferences>;
+    const Capture = () => {
+      current = useReadingPreferences();
+      return null;
+    };
+    const view = render(<ReadingPreferencesProvider><Capture /></ReadingPreferencesProvider>);
+    const write = spyOn(Object.getPrototypeOf(window.localStorage), "setItem").mockImplementation(() => {
+      throw new Error("Storage is full");
+    });
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      act(() => current.updatePreferences(saved));
+      view.rerender(<ReadingPreferencesProvider><span>Settings closed</span></ReadingPreferencesProvider>);
+      view.rerender(<ReadingPreferencesProvider><Capture /></ReadingPreferencesProvider>);
+      expect(current.preferences).toEqual(saved);
+      expect(current.isPersisted).toBe(false);
+    } finally {
+      write.mockRestore();
+      warn.mockRestore();
+    }
+    act(() => current.updatePreferences(current.preferences));
+    expect(current.isPersisted).toBe(true);
+    expect(parseReadingPreferences(window.localStorage.getItem(READING_PREFERENCES_STORAGE_KEY))).toEqual(saved);
   });
 
   it("applies the same allowlisted attributes before paint and after hydration", () => {

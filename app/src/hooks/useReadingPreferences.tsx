@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  use,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { safeLocalStorageGetItem, safeLocalStorageSetItem } from "@/hooks/localstorage";
 import {
   DEFAULT_READING_PREFERENCES,
@@ -9,10 +16,31 @@ import {
   type ReadingPreferences,
 } from "@/libs/readingPreferences";
 
+/** Keeps temporary preferences and save feedback available when settings panels remount. */
+export const ReadingPreferencesProvider = ({ children }: { children: ReactNode }) => {
+  const value = useStoredReadingPreferences();
+  return (
+    <ReadingPreferencesContext value={value}>{children}</ReadingPreferencesContext>
+  );
+};
+
 export const useReadingPreferences = () => {
+  const value = use(ReadingPreferencesContext);
+  if (!value) {
+    throw new Error("useReadingPreferences requires ReadingPreferencesProvider");
+  }
+  return value;
+};
+
+const ReadingPreferencesContext = createContext<ReturnType<
+  typeof useStoredReadingPreferences
+> | null>(null);
+
+const useStoredReadingPreferences = () => {
   // Keep the first render identical to SSR; the head script already styles the page.
   const [preferences, setPreferences] = useState(DEFAULT_READING_PREFERENCES);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isPersisted, setIsPersisted] = useState(true);
 
   useEffect(() => {
     setPreferences(
@@ -27,13 +55,19 @@ export const useReadingPreferences = () => {
             safeLocalStorageGetItem(READING_PREFERENCES_STORAGE_KEY),
           ),
         );
+        setIsPersisted(true);
       }
     };
     const onSync = (event: Event) => {
-      const { key, value } = (event as CustomEvent<{ key: string; value: string }>)
+      const {
+        key,
+        value,
+        isPersisted: saved,
+      } = (event as CustomEvent<{ key: string; value: string; isPersisted?: boolean }>)
         .detail;
       if (key === READING_PREFERENCES_STORAGE_KEY) {
         setPreferences(parseReadingPreferences(value));
+        setIsPersisted(saved !== false);
       }
     };
     window.addEventListener("storage", onStorage);
@@ -47,14 +81,19 @@ export const useReadingPreferences = () => {
   const updatePreferences = useCallback((next: ReadingPreferences) => {
     const serialized = JSON.stringify(next);
     const validated = parseReadingPreferences(serialized);
+    const saved = safeLocalStorageSetItem(READING_PREFERENCES_STORAGE_KEY, serialized);
     setPreferences(validated);
-    safeLocalStorageSetItem(READING_PREFERENCES_STORAGE_KEY, serialized);
+    setIsPersisted(saved);
     window.dispatchEvent(
       new window.CustomEvent("localStorageSync", {
-        detail: { key: READING_PREFERENCES_STORAGE_KEY, value: serialized },
+        detail: {
+          key: READING_PREFERENCES_STORAGE_KEY,
+          value: serialized,
+          isPersisted: saved,
+        },
       }),
     );
   }, []);
 
-  return { preferences, updatePreferences, isLoaded };
+  return { preferences, updatePreferences, isLoaded, isPersisted };
 };

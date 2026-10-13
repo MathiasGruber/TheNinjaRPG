@@ -12,6 +12,7 @@ import PWAManager from "@/components/pwa/PWAManager";
 import { Toaster } from "@/components/ui/toaster";
 import { env } from "@/env/server.mjs";
 import { InstallPromptProvider } from "@/hooks/useInstallPrompt";
+import { ReadingPreferencesProvider } from "@/hooks/useReadingPreferences";
 import AcceptWarning from "@/layout/AcceptWarning";
 import { ActiveSessionBoundary } from "@/layout/ActiveSessionBoundary";
 import ActivityStreakPopup from "@/layout/ActivityStreakPopup";
@@ -154,13 +155,15 @@ export default async function RootLayout({
                     process.env.NODE_ENV === "production" && (
                       <WebAnalytics gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
                     )}
-                  <LayoutSwitcher
-                    initialIsSignedIn={initialIsSignedIn}
-                    initialLayout={initialLayout}
-                    wallpaper={variant.wallpaper}
-                  >
-                    <PyramidRunBoundary>{children}</PyramidRunBoundary>
-                  </LayoutSwitcher>
+                  <ReadingPreferencesProvider>
+                    <LayoutSwitcher
+                      initialIsSignedIn={initialIsSignedIn}
+                      initialLayout={initialLayout}
+                      wallpaper={variant.wallpaper}
+                    >
+                      <PyramidRunBoundary>{children}</PyramidRunBoundary>
+                    </LayoutSwitcher>
+                  </ReadingPreferencesProvider>
                   <Toaster />
                   <AcceptWarning />
                   <ActivityStreakPopup />

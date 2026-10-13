@@ -43,6 +43,7 @@ export const READING_ATTRIBUTES = {
   palette: "data-reading-palette",
 } as const;
 
+/** Restores each supported field independently; malformed storage uses game defaults. */
 export const parseReadingPreferences = (stored: string | null): ReadingPreferences => {
   const preferences = { ...DEFAULT_READING_PREFERENCES };
   try {
@@ -62,6 +63,7 @@ export const parseReadingPreferences = (stored: string | null): ReadingPreferenc
   return preferences;
 };
 
+/** Sets opt-in styles on the document; default values restore the component's own CSS. */
 export const applyReadingPreferences = (preferences: ReadingPreferences) => {
   for (const key of Object.keys(READING_ATTRIBUTES) as (keyof ReadingPreferences)[]) {
     if (preferences[key] === "default") {

@@ -19,7 +19,7 @@ import {
 
 export const ReadingSettings = () => {
   const id = useId();
-  const { preferences, updatePreferences } = useReadingPreferences();
+  const { preferences, updatePreferences, isPersisted } = useReadingPreferences();
 
   return (
     <section className="space-y-3" aria-labelledby={`${id}-title`}>
@@ -27,9 +27,24 @@ export const ReadingSettings = () => {
         Reading accessibility
       </h3>
       <p className="text-muted-foreground text-xs">
-        Choose what feels comfortable to read. Changes apply immediately and are saved
-        in this browser. System fonts use a fallback if unavailable.
+        Choose what feels comfortable to read. Changes apply immediately. System fonts
+        use a fallback if unavailable.
       </p>
+      <p className="text-muted-foreground text-xs" role="status">
+        {isPersisted
+          ? "Preferences are saved in this browser."
+          : "Your browser could not save these preferences. They apply temporarily and may reset when you reload."}
+      </p>
+      {!isPersisted && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => updatePreferences(preferences)}
+        >
+          Try saving again
+        </Button>
+      )}
       {Object.entries(READING_LABELS).map(([field, label]) => {
         const key = field as keyof ReadingPreferences;
         return (
