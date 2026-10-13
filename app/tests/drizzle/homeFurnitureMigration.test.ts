@@ -12,7 +12,7 @@ describeWithDatabase("home furniture inventory migration", () => {
     try {
       // Connection-local temporary tables isolate the baseline schema from other suites.
       const snapshot = JSON.parse(
-        await readFile("drizzle/migrations/meta/0076_snapshot.json", "utf8"),
+        await readFile("drizzle/migrations/meta/0077_snapshot.json", "utf8"),
       ) as { tables: Record<string, SnapshotTable> };
       for (const name of ["Item", "UserItem", "UserData"])
         await connection.query(temporaryTableSql(snapshot.tables[name]!));
@@ -30,7 +30,7 @@ describeWithDatabase("home furniture inventory migration", () => {
         "INSERT INTO Item (id, name, description, image, effects, itemType, rarity, slot, target) VALUES ('gear', 'Existing gear', 'Existing gear', '/gear.webp', JSON_ARRAY(), 'WEAPON', 'COMMON', 'ITEM', 'CHARACTER'); INSERT INTO UserItem (id, userId, itemId, quantity, level, experience, durability, equipped) VALUES ('owned-gear', 'resident', 'gear', 2, 7, 45, 55, 'ITEM_1');",
       );
       const migration = await readFile(
-        "drizzle/migrations/0077_charming_lethal_legion.sql",
+        "drizzle/migrations/0078_icy_princess_powerful.sql",
         "utf8",
       );
       expect(migration).not.toMatch(/JSON_(EXTRACT|SEARCH|CONTAINS|SET)/i);
