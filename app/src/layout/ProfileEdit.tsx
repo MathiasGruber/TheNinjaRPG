@@ -776,7 +776,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                 }}
               />
               <Label htmlFor="show-pvp-record">
-                Show PvP wins, losses, and win rate on public profile
+                Show PvP wins, losses, and win rate on profile
               </Label>
               {isUpdatingPreferences && (
                 <span

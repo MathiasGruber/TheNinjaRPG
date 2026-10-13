@@ -28,11 +28,12 @@ const catalogue = [
   line("hidden", "A", true),
 ];
 
-const makeUser = (bloodlineRank = "ALL") => {
+const makeUser = (bloodlineRank = "ALL", excludeSRank = false) => {
   const objective = BloodlineCollection.parse({
     id: "collect",
     task: "bloodline_collection",
     bloodlineRank,
+    excludeSRank,
   });
   const quest = {
     id: "collection",
@@ -96,6 +97,7 @@ describe("bloodline collection achievements", () => {
       BloodlineCollection.parse({ id: "c", task: "bloodline_collection" })
         .bloodlineRank,
     ).toBe("ALL");
+    expect(BloodlineCollection.parse({ id: "c", task: "bloodline_collection" }).excludeSRank).toBe(false);
     expect(
       BloodlineCollection.safeParse({
         id: "c",
@@ -197,6 +199,27 @@ describe("bloodline collection achievements", () => {
       "h1",
     ]);
     expect(goal(withH).goal).toMatchObject({ value: 3, target: 3, done: true });
+  });
+
+  it("optionally excludes S from ALL without counting owned S or H toward the goal", () => {
+    const user = makeUser("ALL", true);
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["a1", "s1", "h1"]);
+    expect(goal(user).goal).toMatchObject({ value: 1, target: 2, done: false });
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["a1", "a2"]);
+    expect(goal(user).goal).toMatchObject({ value: 2, target: 2, done: true });
+
+    const inclusive = makeUser();
+    inclusive.bloodlineCollectionProgress = user.bloodlineCollectionProgress;
+    expect(goal(inclusive).goal).toMatchObject({ value: 2, target: 3, done: false });
+  });
+
+  it("preserves explicit S goals and cannot complete an excluded-only catalogue", () => {
+    const user = makeUser("S", true);
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["s1"]);
+    expect(goal(user).goal).toMatchObject({ value: 1, target: 1, done: true });
+    const all = makeUser("ALL", true);
+    all.bloodlineCollectionProgress = buildBloodlineCollectionProgress([line("s1", "S"), line("h1", "H")], ["s1", "h1"]);
+    expect(goal(all).goal).toMatchObject({ value: 0, target: 0, done: false });
   });
 
   it("keeps explicit H-rank collection goals and does not complete ALL from H alone", () => {

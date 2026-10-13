@@ -24,6 +24,8 @@ import {
 import Modal from "@/layout/Modal";
 import { CATEGORY_LABELS } from "@/libs/contentReview/labels";
 import { showMutationToast } from "@/libs/toast";
+import { canSuggestContent } from "@/utils/permissions";
+import { useRequiredUserData } from "@/utils/UserContext";
 
 interface SuggestChangeProps {
   entityType: ContentProposalEntityType;
@@ -43,6 +45,7 @@ interface SuggestChangeProps {
  */
 export const SuggestChange: React.FC<SuggestChangeProps> = (props) => {
   const { entityType, entityId, getData, label = "Suggest a change" } = props;
+  const { data: userData } = useRequiredUserData();
   const [category, setCategory] = useState<ContentProposalCategory>("CONSISTENCY");
   const [title, setTitle] = useState("");
   const [rationale, setRationale] = useState("");
@@ -67,6 +70,8 @@ export const SuggestChange: React.FC<SuggestChangeProps> = (props) => {
   const isValid =
     title.trim().length >= CONTENT_PROPOSAL_TITLE_LENGTH.min &&
     rationale.trim().length >= CONTENT_PROPOSAL_RATIONALE_LENGTH.min;
+
+  if (!canSuggestContent(userData?.role)) return null;
 
   return (
     <>

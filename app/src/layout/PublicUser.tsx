@@ -1500,9 +1500,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             <p>
               PVE Fights: {`${profile.pveFights} (+${profile.battleHistory.length})`}
             </p>
-            {(profile.showPvpRecord ||
-              userData?.userId === profile.userId ||
-              canSeeSecrets) &&
+            {(profile.showPvpRecord || canSeeSecrets) &&
               profile.pvpWins != null &&
               profile.pvpLosses != null && (
                 <>

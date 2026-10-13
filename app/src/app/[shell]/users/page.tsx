@@ -128,7 +128,7 @@ export default function Users() {
   } else if (activeTab === "Medical") {
     columns.push({ key: "medicalExperience", header: "Medical", type: "string" });
   } else if (activeTab === "PvP") {
-    columns.push({ key: "pvpStreak", header: "PvP Streak", type: "string" });
+    columns.push({ key: "pvpExperience", header: "PvP XP", type: "number" });
   } else if (activeTab === "Ranked") {
     columns.push({ key: "rankedLp", header: "Ranked PvP LP", type: "string" });
     columns.push({ key: "pvpRank", header: "PvP Rank", type: "string" });

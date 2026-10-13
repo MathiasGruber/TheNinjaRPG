@@ -1108,9 +1108,22 @@ export const getNewTrackers = (
 
           // General updates we want to apply every time
           if (objective.task === "bloodline_collection") {
-            const progress = user.bloodlineCollectionProgress?.find(
+            const rankProgress = user.bloodlineCollectionProgress?.find(
               (entry) => entry.rank === objective.bloodlineRank,
             );
+            const sRankProgress = user.bloodlineCollectionProgress?.find(
+              (entry) => entry.rank === "S",
+            );
+            // ALL already exempts H; subtract S ownership and catalogue size together.
+            const progress =
+              rankProgress &&
+              objective.bloodlineRank === "ALL" &&
+              objective.excludeSRank
+                ? sRankProgress && {
+                    collected: rankProgress.collected - sRankProgress.collected,
+                    total: rankProgress.total - sRankProgress.total,
+                  }
+                : rankProgress;
             if (progress) {
               const isComplete =
                 progress.total > 0 && progress.collected === progress.total;

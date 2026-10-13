@@ -56,7 +56,7 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
-import { canChangeContent, isStaffRole } from "@/utils/permissions";
+import { canChangeContent, canSuggestContent, isStaffRole } from "@/utils/permissions";
 import { getUtcDayWindowStart } from "@/utils/time";
 import type { gameAssetValidator } from "@/validators/asset";
 import type { BadgeValidator } from "@/validators/badge";
@@ -306,8 +306,8 @@ export const contentReviewRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");
-      if (!isStaffRole(user.role))
-        return errorResponse("Only staff can suggest content changes");
+      if (!canSuggestContent(user.role))
+        return errorResponse("Your role cannot suggest content changes");
       const result = await createStaffProposal(ctx.drizzle, ctx.userId, input);
       if (!result.ok) return errorResponse(result.reason);
       return { success: true, message: "Sent for review" };
