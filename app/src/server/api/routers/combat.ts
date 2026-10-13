@@ -117,7 +117,10 @@ import {
   consolidatePreBattleDamageModifiers,
   emptyPreBattleGearModifiers,
 } from "@/libs/combat/process";
-import { summonActionBlockedReason } from "@/libs/combat/summon";
+import {
+  mergeLoadoutParticipants,
+  summonActionBlockedReason,
+} from "@/libs/combat/summon";
 import { realizeTag } from "@/libs/combat/tags";
 import type {
   ActionEffect,
@@ -145,6 +148,7 @@ import {
   getTurnControl,
   isEffectActive,
   maskBattle,
+  mergeExtraState,
   reconcileLobbyPools,
   refreshMasteries,
   resetMasteriesToBase,
@@ -1365,27 +1369,21 @@ export const combatRouter = createTRPCRouter({
         usersState[0].isAggressor = user.isAggressor;
       }
 
-      // Merge the user's state with the other user's state
-      userBattle.usersState = [...otherUserState, ...usersState];
+      // Merge the user's state with the other user's state. Reprocessing also loads
+      // the summon templates the new loadout needs; keep only those the battle does
+      // not hold yet (templates are keyed by controllerId = their source AI id).
+      const newParticipants = mergeLoadoutParticipants(otherUserState, usersState);
+      userBattle.usersState = [...otherUserState, ...newParticipants];
       userBattle.usersEffects = completeUserEffects;
       refreshMasteries(userBattle.usersState, userBattle.usersEffects);
 
-      // Merge extraState: add new jutsus/items from the updated loadout to existing extraState
-      // This ensures new jutsus/items can be looked up by ID during battle
-      // Defensively initialize extraState and its nested maps to avoid undefined errors
+      // Merge every static lookup map the reprocessing produced (jutsus, items,
+      // and the aiProfiles/bloodlines of newly loaded summon templates) so new
+      // actions and summons resolve during battle.
       userBattle.extraState = userBattle.extraState || {};
-      userBattle.extraState.jutsus = userBattle.extraState.jutsus || {};
-      userBattle.extraState.jutsuReskins = userBattle.extraState.jutsuReskins || {};
-      userBattle.extraState.items = userBattle.extraState.items || {};
       userBattle.extraState.preBattleGearModifiers =
         userBattle.extraState.preBattleGearModifiers || {};
-      userBattle.extraState.sageModes = userBattle.extraState.sageModes || {};
-      Object.assign(userBattle.extraState.jutsus, extraState.jutsus);
-      Object.assign(userBattle.extraState.jutsuReskins, extraState.jutsuReskins);
-      Object.assign(userBattle.extraState.items, extraState.items);
-      userBattle.extraState.enemySkills ??= {};
-      Object.assign(userBattle.extraState.enemySkills, extraState.enemySkills);
-      Object.assign(userBattle.extraState.sageModes, extraState.sageModes);
+      mergeExtraState(userBattle.extraState, extraState);
       const updatedBattleUserId = usersState[0]?.userId;
       if (updatedBattleUserId) {
         userBattle.extraState.preBattleGearModifiers[updatedBattleUserId] =
@@ -1393,7 +1391,7 @@ export const combatRouter = createTRPCRouter({
           emptyPreBattleGearModifiers();
       }
 
-      for (const participant of usersState) {
+      for (const participant of newParticipants) {
         participant.skillLockedJutsuIds =
           participant.activeSkillIds === undefined
             ? []
@@ -4174,22 +4172,7 @@ export const processUsersForBattle = async (
   if (summonUsersState.length > 0) {
     convertedUsersState.push(...summonUsersState);
   }
-  if (summonExtraState) {
-    Object.assign(extraState.jutsus, summonExtraState.jutsus);
-    Object.assign(extraState.jutsuReskins, summonExtraState.jutsuReskins);
-    Object.assign(extraState.items, summonExtraState.items);
-    Object.assign(extraState.bloodlines, summonExtraState.bloodlines);
-    extraState.enemySkills ??= {};
-    Object.assign(extraState.enemySkills, summonExtraState.enemySkills);
-    Object.assign(extraState.sageModes, summonExtraState.sageModes);
-    Object.assign(extraState.villages, summonExtraState.villages);
-    Object.assign(extraState.anbuSquads, summonExtraState.anbuSquads);
-    Object.assign(extraState.keystoneItems, summonExtraState.keystoneItems);
-    Object.assign(extraState.wars, summonExtraState.wars);
-    Object.assign(extraState.aiProfiles, summonExtraState.aiProfiles);
-    Object.assign(extraState.relations, summonExtraState.relations);
-    Object.assign(extraState.clans, summonExtraState.clans);
-  }
+  mergeExtraState(extraState, summonExtraState);
 
   const userIds = convertedUsersState.map((u) => u.userId);
   const { preBattleGearModifiers, filteredEffects } =

@@ -111,6 +111,7 @@ import type {
   CompleteBattle,
   Consequence,
   DroppedItem,
+  ExtraState,
   ReturnedBattle,
   ReturnedExtraState,
   ReturnedUserState,
@@ -352,6 +353,47 @@ export const getRelationsArray = (
   return (user.relationIds ?? [])
     .map((id) => battle.extraState.relations?.[id])
     .filter((r): r is VillageAlliance => Boolean(r));
+};
+
+/**
+ * The static lookup maps processUsersForBattle fills from its participants (and the
+ * summon templates it loads alongside them). Any caller merging one processed
+ * extraState into another must carry all of them: a summon template whose
+ * aiProfile or bloodline is dropped still spawns, but then has no rules to act on.
+ */
+const STATIC_EXTRA_STATE_KEYS = [
+  "jutsus",
+  "jutsuReskins",
+  "items",
+  "bloodlines",
+  "enemySkills",
+  "sageModes",
+  "villages",
+  "anbuSquads",
+  "keystoneItems",
+  "wars",
+  "aiProfiles",
+  "relations",
+  "clans",
+] as const satisfies readonly (keyof ExtraState)[];
+
+/**
+ * Copy every static lookup map from `source` into `target`, initializing missing
+ * maps on `target`. Entries in `source` win on key collisions. Per-user and
+ * battle-specific fields (quests, preBattleGearModifiers, ...) are left alone.
+ */
+export const mergeExtraState = (
+  target: Partial<ExtraState>,
+  source: Partial<ExtraState> | null | undefined,
+) => {
+  if (!source) return target;
+  for (const key of STATIC_EXTRA_STATE_KEYS) {
+    const entries = source[key];
+    if (!entries) continue;
+    target[key] ??= {};
+    Object.assign(target[key] as Record<string, unknown>, entries);
+  }
+  return target;
 };
 
 /**

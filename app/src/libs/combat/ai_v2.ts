@@ -158,8 +158,13 @@ export const performAIaction = (
     );
     astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
 
-    // Get AI profile from static data - clone to avoid mutating the shared reference
-    const aiProfileRef = getAiProfile(battle, user.aiProfileId);
+    // Get AI profile from static data - clone to avoid mutating the shared reference.
+    // A summon whose profile is missing from extraState (e.g. a template loaded by
+    // a path that dropped its profile) falls back to the Default profile rather
+    // than running no rules at all and giving up on its first turn.
+    const aiProfileRef =
+      getAiProfile(battle, user.aiProfileId) ??
+      (user.isSummon ? getAiProfile(battle, "Default") : undefined);
     const aiProfile = aiProfileRef
       ? { ...aiProfileRef, rules: structuredClone(aiProfileRef.rules) }
       : undefined;
@@ -513,9 +518,16 @@ export const performAIaction = (
     /** ******************************* */
     // Auto-combat humans are excluded: their turn simply times out and passes,
     // letting the player take back control rather than dying to a stuck rule set.
+    // Summons and clones are a player's resource, not an opponent to defeat: one
+    // that cannot act forfeits the rest of its turn instead of dying.
     if (!nextAction && !user.isPiloted && !user.isAutoCombat) {
-      aiDescriptions.push(`${user.username} is exhausted and has to give up`);
-      user.curHealth = 0;
+      if (user.isSummon) {
+        aiDescriptions.push(`${user.username} hesitates and ends its turn`);
+        user.actionPoints = 0;
+      } else {
+        aiDescriptions.push(`${user.username} is exhausted and has to give up`);
+        user.curHealth = 0;
+      }
     }
     if (debug) {
       console.log(">> Performed action: ", nextAction);

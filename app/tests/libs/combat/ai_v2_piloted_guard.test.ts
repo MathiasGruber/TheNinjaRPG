@@ -129,7 +129,7 @@ describe("performAIaction piloted-summon defensive guard", () => {
     expect(after?.curHealth).toBe(50);
   });
 
-  it("DOES self-kill a non-piloted AI summon that has no affordable action", () => {
+  it("ends the turn of a non-piloted AI summon that has no affordable action", () => {
     const grid = new Grid(TerrainHex, rectangle({ width: 5, height: 5 }));
 
     const aiSummon = mkUser({
@@ -157,7 +157,9 @@ describe("performAIaction piloted-summon defensive guard", () => {
     const battle = makeBattle([aiSummon, enemy]);
     const { nextBattle } = performAIaction(battle, grid, "summon2");
     const after = nextBattle.usersState.find((u) => u.userId === "summon2");
-    // Non-piloted AI with no affordable action self-kills (existing behavior preserved)
-    expect(after?.curHealth).toBe(0);
+    // A summon is its owner's resource: with no affordable action it forfeits the
+    // rest of its turn instead of self-killing like a stuck AI opponent.
+    expect(after?.curHealth).toBe(50);
+    expect(after?.actionPoints).toBe(0);
   });
 });
