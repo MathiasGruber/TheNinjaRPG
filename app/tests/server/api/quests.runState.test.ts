@@ -6,10 +6,12 @@ import { Pusher } from "@/libs/pusher";
 import * as socials from "@/libs/socials";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { assignQuestToUser, questsRouter } from "@/server/api/routers/quests";
+import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { DialogObjective, InstantStartBattleObjective, QuestTracker, SimpleObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertQuestHistory, insertQuests, insertUsers } from "../../setup/factories";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { beforeStatements } from "../../setup/statements";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const floor = InstantStartBattleObjective.parse({ id: "floor", task: "start_battle", opponentAIs: [{ ids: ["foe"], number: 1 }] });
 const content = {
@@ -27,6 +29,36 @@ describeWithDatabase("quest run state preservation", () => {
     await insertQuests([{ id: "pyramid", name: "Pyramid", questType: "battlepyramid", hidden: true, maxAttempts: 100, maxCompletes: 100, content }, { id: "mission", questType: "mission", questRank: "A", hidden: false, content: { ...content, objectives: [SimpleObjective.parse({ id: "train", task: "stats_trained", value: 100 })] } }]);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each(["story", "event", "mission", "battlepyramid"] as const)("keeps hidden %s guidance appropriate after a regeneration snapshot loss", async (questType) => {
+    const client = await getTestDatabase();
+    const oldSnapshotAt = new Date(Date.now() - 350_000);
+    await insertQuests([{ id: "hidden-quest", questType, hidden: true, maxAttempts: 100, maxCompletes: 100, content }]);
+    const authored = await client.query.quest.findFirst({ where: eq(quest.id, "hidden-quest") });
+    await insertQuestHistory([{ id: "hidden-attempt", userId: "hero", questId: "hidden-quest", questType, questVersion: authored!.updatedAt }]);
+    await client.update(userData).set({ updatedAt: oldSnapshotAt, regenAt: new Date(Date.now() - 125_000), money: 1000, questData: [QuestTracker.parse({ id: "hidden-quest", goals: [{ id: "floor", done: false, recentlyDied: true }] })] }).where(eq(userData.userId, "hero"));
+    // A competing account claim makes regeneration reload history after availability filtering.
+    let competingClaimed = false;
+    const raced = beforeStatements(client, userData, [async () => {
+      const claim = await claimUserSnapshot({ client, userId: "hero", updatedAt: oldSnapshotAt });
+      expect(claim.success).toBe(true);
+      competingClaimed = true;
+    }]);
+    const result = await callerForDatabase(questsRouter, "hero", raced).checkRewards({ questId: "hidden-quest" });
+    expect(competingClaimed).toBe(true);
+    expect(result).toMatchObject({
+      success: false,
+      message: questType === "battlepyramid"
+        ? "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it."
+        : "This quest is currently unavailable.",
+    });
+    const [hero, history] = await Promise.all([
+      client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
+      client.query.questHistory.findFirst({ where: eq(questHistory.id, "hidden-attempt") }),
+    ]);
+    expect(hero?.money).toBe(1000);
+    expect(history).toMatchObject({ completed: 0, endAt: null });
+  });
 
   it("persists a frozen hidden checkpoint through an unrelated assignment and resumes it on unhide", async () => {
     const client = await getTestDatabase();
