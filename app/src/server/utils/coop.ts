@@ -104,4 +104,5 @@ export const cleanupCoopBattleStart = async (
     if (failure?.status === "rejected") throw failure.reason;
   });
 
+/** Launch identity; the timestamped claim encodes the battle ID used for publication and recovery. */
 type CoopLaunch = { claimId: string; battleId: string };

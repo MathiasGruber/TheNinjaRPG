@@ -141,6 +141,7 @@ export const captureEncounterSummonTemplates = (
   }
 };
 
+/** Processed wave snapshot; preparation mutates its arrays to retain pristine summon templates. */
 type PreparedEncounterWave = {
   usersState: BattleUserState[];
   userEffects: UserEffect[];

@@ -192,6 +192,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
   );
 };
 
+/** Existing activity conversation; its router owns membership and sending permissions. */
 interface TeamChatPanelProps {
   title?: string;
   conversationId: string;

@@ -14,4 +14,5 @@ export const dungeonBattleState = (overrides: Partial<DungeonBattleState> = {}):
   lastActionRound: {a: 0, b: 0, c: 0}, ...overrides,
 });
 
+/** Opening-wave fixture with no queued enemies; tests add pending waves when needed. */
 export const encounterWaveState = (): import("@/libs/combat/encounters").EncounterWaveState => ({ wave: 1, waveStartedRound: 0, pendingWaves: [] });

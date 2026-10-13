@@ -33,6 +33,7 @@ export const PartyRoster = ({
   </ul>
 );
 
+/** Activity-owned roster display; omit removal outside editable phases and enforce permissions server-side. */
 type PartyRosterProps = {
   members: { userId: string; username: string; details?: string }[];
   leaderId: string;
