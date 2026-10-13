@@ -71,6 +71,7 @@ import {
 import { getFarmingLevel, qualifiesForFarmActivityReward } from "@/libs/farming";
 import { getGatheringItemDrops } from "@/libs/gathering";
 import { getHuntingItemDrops } from "@/libs/hunting";
+import { canRetryQuestBattle } from "@/libs/objectives";
 import {
   deriveOverworldOpponents,
   isSupportedOverworldBindingTask,
@@ -1538,7 +1539,7 @@ export const questsRouter = createTRPCRouter({
     .meta({ mcp: { description: "Retry a quest battle after failure" } })
     .input(z.object({ questId: z.string() }))
     .output(baseServerResponse)
-    .mutation(async ({ ctx }) => {
+    .mutation(async ({ ctx, input }) => {
       // Fetch
       const { user } = await fetchUpdatedUser({
         client: ctx.drizzle,
@@ -1547,6 +1548,10 @@ export const questsRouter = createTRPCRouter({
       });
       // Guard
       if (!user) return errorResponse("User does not exist");
+      const tracker = user.questData?.find((t) => t.id === input.questId);
+      if (!tracker?.goals.some((goal) => canRetryQuestBattle(goal))) {
+        return errorResponse("There is no lost battle to retry in this quest");
+      }
       // Get updated quest information with start_battle task and retry flag
       const { notifications, consequences } = getNewTrackers(user, [
         { task: "start_battle", text: "retry" },
