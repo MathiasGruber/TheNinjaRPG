@@ -57,6 +57,17 @@ export default function AccountDeletionInformation() {
             again. Account deletion does not erase transaction records independently
             held by Apple, Google or other payment providers.
           </p>
+          <p>
+            If the account has an active ban or silence when it is deleted, we keep a
+            minimal record: the account identifier, hashed versions of its email address
+            and linked sign-in providers, the sanction type, its end date and a
+            reference to the moderation case. It holds no character, chat or IP data. It
+            is used only to apply the remaining sanction to a new account registered by
+            the same person, and it is deleted automatically when the sanction ends. The
+            legal basis is our legitimate interest in preventing abuse of the game (GDPR
+            Art. 6(1)(f)). You can object or ask us about it at the email above, and you
+            can complain to the Danish Data Protection Agency (Datatilsynet).
+          </p>
         </section>
         <section className="space-y-2">
           <h2 className="font-bold text-lg">Subscriptions</h2>

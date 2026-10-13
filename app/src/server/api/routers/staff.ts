@@ -106,6 +106,7 @@ import {
   migrateStorePurchaseTransfers,
   retireStoreUserId,
 } from "@/server/utils/purchases/grant";
+import { recordSanctionTombstone } from "@/server/utils/sanctionTombstone";
 import {
   canClearSectors,
   canCloneUser,
@@ -1286,6 +1287,8 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
   // batch and the final UserData delete, so a concurrent staff rename cannot move the
   // identity midway through cleanup and overwrite its tombstone.
   await retireStoreUserId(client, userId, async (lockedClient) => {
+    // The marker makes moderation require this source before cleanup can remove reports.
+    await recordSanctionTombstone(lockedClient, userId);
     // Push writes check for the tombstone before they write; this removes what landed first.
     await lockedClient.delete(userDevice).where(eq(userDevice.userId, userId));
     await lockedClient

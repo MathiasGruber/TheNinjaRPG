@@ -15,7 +15,6 @@ interface DeleteUserButtonProps {
   label?: string;
   userData: {
     userId: string;
-    isBanned: boolean;
     deletionAt: Date | null;
   };
 }
@@ -73,11 +72,7 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
     });
 
   // Derived
-  const canDelete =
-    userData &&
-    !userData.isBanned &&
-    userData.deletionAt &&
-    new Date(userData.deletionAt) < new Date();
+  const canDelete = userData?.deletionAt && new Date(userData.deletionAt) < new Date();
 
   if (isTogglingDelete || isDeleting) {
     return (
@@ -129,16 +124,17 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
         This feature is intended for marking the character for deletion. Toggling this
         feature enables a timer of 2 days, after which you will be able to delete the
         character - this is to ensure no un-intentional character deletion.
-        {userData.isBanned && (
-          <p className="py-3 font-bold">
-            NOTE: Account is banned, and cannot delete the account until the ban is
-            over!
-          </p>
-        )}
+        <p className="py-3 text-muted-foreground text-sm">
+          A character with an active ban or silence can be deleted too. To enforce the
+          sanction, a minimal record (the account identifier, hashed sign-in
+          identifiers, the sanction type, its end date and a reference to the moderation
+          case) is kept until the sanction ends, and a new character for the same
+          account serves the remaining time.
+        </p>
         {userData.deletionAt && (
           <Button
             id="create"
-            disabled={userData.deletionAt > new Date() || userData.isBanned}
+            disabled={userData.deletionAt > new Date()}
             className="mt-3 w-full"
             variant="destructive"
             onClick={(e) => {

@@ -19,7 +19,11 @@ export const hashIpWithKey = (ip: string, key: string): string =>
     .update(key + ip)
     .digest("hex");
 
-const getIpHashSecret = (): string => {
+/**
+ * The app-wide hashing key. Sanction tombstones (`sanctionTombstone.ts`) also key their
+ * identifier HMACs with it, under their own label, so rotating it makes those unmatchable too.
+ */
+export const getIpHashSecret = (): string => {
   if (env.IP_HASH_SECRET) return env.IP_HASH_SECRET;
   if (env.NODE_ENV === "production") {
     throw new Error("IP_HASH_SECRET must be configured in production");

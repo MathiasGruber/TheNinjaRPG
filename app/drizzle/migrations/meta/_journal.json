@@ -540,6 +540,13 @@
       "when": 1791783020204,
       "tag": "0076_brave_nico_minoru",
       "breakpoints": false
+    },
+    {
+      "idx": 77,
+      "version": "5",
+      "when": 1791818939465,
+      "tag": "0077_thick_doorman",
+      "breakpoints": false
     }
   ]
 }

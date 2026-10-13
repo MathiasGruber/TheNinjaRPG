@@ -54,6 +54,7 @@ import { processAccountDeletions } from "@/server/utils/accountDeletion/process"
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { reconcileFederalStatuses } from "@/server/utils/purchases/grant";
+import { removeExpiredSanctionTombstones } from "@/server/utils/sanctionTombstone";
 import { getBankInterestDateRange, secondsFromNow } from "@/utils/time";
 
 const HOURLY_TIMER_NAME = "cleaner-hourly";
@@ -543,6 +544,9 @@ export async function GET(request: Request) {
     await cleanupContentProposals(drizzleDB).catch((cause: unknown) => {
       console.error("Content review cleanup failed", cause);
     });
+
+    // A sanction tombstone exists only to enforce its sanction; drop it once that ends.
+    await removeExpiredSanctionTombstones(drizzleDB);
 
     // Finish due permanent-account deletions alongside the other hourly cleanup.
     const deletions = await processAccountDeletions();

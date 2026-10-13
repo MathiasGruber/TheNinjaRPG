@@ -2546,10 +2546,8 @@ export const profileRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, ctx.userId),
         fetchUser(ctx.drizzle, input.userId),
       ]);
-      // Guard
-      if (target.isBanned || target.isSilenced) {
-        return errorResponse("User has to serve the ban/silence first");
-      }
+      // Guard. A running ban or silence does not block deletion: deleteUser leaves a
+      // sanction tombstone that a new account inherits.
       if (ctx.userId !== input.userId && !canDeleteUsers(user.role)) {
         return errorResponse("You can't delete other users");
       }
@@ -2578,9 +2576,6 @@ export const profileRouter = createTRPCRouter({
       // Guard
       if (!target.deletionAt || target.deletionAt > new Date()) {
         return errorResponse("Deletion timer not passed yet");
-      }
-      if (target.isBanned || target.isSilenced) {
-        return errorResponse("You have to serve your ban first");
       }
       if (ctx.userId !== input.userId && !canSeeSecretData(user.role)) {
         return errorResponse("You can't delete other users");
