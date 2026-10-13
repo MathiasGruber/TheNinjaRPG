@@ -168,6 +168,7 @@ export const CollapsibleNotifications: React.FC<CollapsibleNotificationsProps> =
       <button
         type="button"
         data-sidebar-keep-open="true"
+        data-reading-heading
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="flex w-full cursor-pointer items-center justify-between px-1 pt-2 font-bold text-orange-100 text-xl transition-colors duration-200 hover:text-orange-300"
         aria-label={isCollapsed ? `Show ${count} notifications` : "Hide notifications"}

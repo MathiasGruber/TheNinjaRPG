@@ -349,7 +349,9 @@ const BaseComment: React.FC<BaseCommentProps> = (props) => {
         </form>
       ) : (
         <>
-          <div className="mb-6">{props.children}</div>
+          <div data-reading-text className="mb-6">
+            {props.children}
+          </div>
           <div className="absolute right-2 bottom-0 flex flex-row items-end gap-1">
             {/* Rendered on the server for forum threads, so the server's locale and
                 timezone format it first and the browser's reformats it on hydrate.

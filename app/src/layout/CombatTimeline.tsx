@@ -387,7 +387,10 @@ const CombatTimeline: React.FC<CombatTimelineProps> = ({
                   <span className="font-medium text-muted-foreground text-xs">
                     Round {selected.entry.battleRound}
                   </span>
-                  <span className="font-normal text-muted-foreground text-sm">
+                  <span
+                    data-reading-text
+                    className="font-normal text-muted-foreground text-sm"
+                  >
                     {parseHtml(selected.entry.description ?? "")}
                   </span>
                 </DialogTitle>

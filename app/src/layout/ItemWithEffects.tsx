@@ -677,7 +677,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 
             <hr className="py-1" />
             {!hideDetails && "description" in item && item.description && (
-              <div>{parseHtml(item.description)}</div>
+              <div data-reading-text>{parseHtml(item.description)}</div>
             )}
             {!hideDetails &&
               "itemType" in item &&

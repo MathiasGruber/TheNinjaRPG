@@ -92,7 +92,9 @@ export const VillageMission = ({
                 {mission.completed ? "Ready to claim" : "In progress"}
               </Badge>
             </div>
-            <div className="text-sm">{parseHtml(mission.description ?? "")}</div>
+            <div data-reading-text className="text-sm">
+              {parseHtml(mission.description ?? "")}
+            </div>
             <p className="inline-flex items-center gap-2 font-semibold text-sm">
               <Coins className="size-4 shrink-0" aria-hidden="true" />
               {mission.rewardTokens.toLocaleString()} village tokens
@@ -110,7 +112,9 @@ export const VillageMission = ({
                 </span>
               </div>
               {objective.description && (
-                <div className="text-sm">{parseHtml(objective.description)}</div>
+                <div data-reading-text className="text-sm">
+                  {parseHtml(objective.description)}
+                </div>
               )}
               <Progress
                 value={(100 * objective.current) / objective.value}

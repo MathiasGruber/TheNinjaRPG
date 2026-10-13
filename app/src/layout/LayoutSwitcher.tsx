@@ -7,6 +7,7 @@ import LayoutCore4Landing from "@/components/layout/core4_landing";
 import LayoutCore4Pixel from "@/components/layout/core4_pixel";
 import ParticleProvider from "@/components/ui/particles";
 import { safeLocalStorageGetItem } from "@/hooks/localstorage";
+import { useReadingPreferences } from "@/hooks/useReadingPreferences";
 import {
   applyFontScaleCookie,
   type EffectiveLayout,
@@ -14,6 +15,7 @@ import {
   persistLayoutPreferenceCookie,
   storedValueToLayout,
 } from "@/libs/layoutPreference";
+import { applyReadingPreferences } from "@/libs/readingPreferences";
 import type { WallpaperVariant } from "@/libs/wallpaperExperiment";
 import { LayoutContextProvider } from "@/utils/LayoutContext";
 import { usePublicPathname } from "@/utils/routing";
@@ -39,6 +41,11 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
 }) => {
   const pathname = usePublicPathname();
   const { data: userData, isClerkLoaded, userId } = useUserData();
+  const { preferences, isLoaded } = useReadingPreferences();
+
+  useEffect(() => {
+    if (isLoaded) applyReadingPreferences(preferences);
+  }, [preferences, isLoaded]);
 
   // The server picks the layout from the cookie; localStorage is only a recovery source
   // for when that cookie is lost (Safari caps JS-set cookies at 7 days, so it expires

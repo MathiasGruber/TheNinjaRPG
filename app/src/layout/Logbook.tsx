@@ -421,7 +421,10 @@ export const QuestDialogScene: React.FC<QuestDialogSceneProps> = ({
     ))}
     {description && (
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex max-h-1/3 flex-col items-center">
-        <div className="pointer-events-auto mb-2 max-h-32 min-h-10 w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-lg border-2 bg-poppopover p-2">
+        <div
+          data-reading-text
+          className="pointer-events-auto mb-2 max-h-32 min-h-10 w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-lg border-2 bg-poppopover p-2"
+        >
           {parseHtml(description)}
         </div>
       </div>
@@ -764,7 +767,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               <EventTimer quest={quest} tracker={tracker} />
             </div>
             {!["tier", "daily"].includes(quest.questType) && quest.description && (
-              <div>{parseHtml(quest.description)}</div>
+              <div data-reading-text>{parseHtml(quest.description)}</div>
             )}
           </>
         )}
