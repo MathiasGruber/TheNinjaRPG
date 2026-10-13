@@ -1,0 +1,104 @@
+import { describe, expect, it } from "bun:test";
+import { Grid, rectangle } from "honeycomb-grid";
+import { performAIaction } from "@/libs/combat/ai_v2";
+import type { BattleUserState, CompleteBattle } from "@/libs/combat/types";
+import { TerrainHex } from "@/libs/hexgrid";
+import { ActionEndTurn, AiRule } from "@/validators/ai";
+
+/**
+ * Safety nets for summons whose AI cannot pick an action. A summon is the
+ * player's resource: it must never be killed by the "exhausted" fallback that
+ * ends stuck AI opponents.
+ */
+
+const WIDTH = 10;
+const HEIGHT = 8;
+
+const mkUser = (over: Partial<BattleUserState>): BattleUserState =>
+  ({
+    userId: "x", username: "x", controllerId: "x",
+    isAi: false, isSummon: false, isPiloted: false,
+    curHealth: 5000, maxHealth: 5000, curChakra: 5000, maxChakra: 5000,
+    curStamina: 5000, maxStamina: 5000, villageId: "v",
+    fledBattle: false, leftBattle: false, longitude: 0, latitude: 0,
+    actionPoints: 100, effects: [], jutsus: [], items: [], basicActions: [],
+    round: 0, direction: "left", isAggressor: false, rank: "JONIN",
+    highestGenerals: [], iAmHere: true, level: 60,
+    originalLevel: 60, originalMoney: 0, originalLongitude: 0, originalLatitude: 0,
+    isOriginal: true, usedGenerals: {}, usedStats: {}, moneyStolen: 0,
+    allyVillage: false, usedActions: [], usedTagTypes: [], initiative: 0,
+    relationIds: [],
+    offence: 100, defence: 100, ninjutsuMastery: 100, genjutsuMastery: 100,
+    taijutsuMastery: 100, bukijutsuMastery: 100, bloodlineMastery: 100, sageMastery: 100,
+    strength: 100, intelligence: 100, willpower: 100, speed: 100,
+    ...over,
+  }) as unknown as BattleUserState;
+
+const mkBattle = (
+  summon: Partial<BattleUserState>,
+  aiProfiles: Record<string, unknown>,
+): CompleteBattle =>
+  ({
+    id: "b1", battleType: "COMBAT", round: 1, version: 1, activeUserId: "summon",
+    createdAt: new Date(0), updatedAt: new Date(0), roundStartAt: new Date(),
+    background: "", width: WIDTH, height: HEIGHT, rewardScaling: 1, forceKeepPools: false,
+    usersState: [
+      mkUser({ userId: "user_owner", username: "Owner", controllerId: "user_owner",
+        longitude: 4, latitude: 3 }),
+      mkUser({ userId: "user_foe", username: "Foe", controllerId: "user_foe",
+        direction: "right", longitude: 8, latitude: 3 }),
+      mkUser({ userId: "summon", username: "Tor Tor", controllerId: "user_owner",
+        isAi: true, isSummon: true, longitude: 5, latitude: 3, ...summon }),
+    ],
+    usersEffects: [], groundEffects: [],
+    extraState: {
+      jutsus: {}, jutsuReskins: {}, items: {}, bloodlines: {}, villages: {}, anbuSquads: {},
+      keystoneItems: {}, wars: {}, relations: {}, clans: {}, aiProfiles,
+      userQuests: {}, completedQuests: {}, questData: {}, bounties: {}, bountySignups: {},
+    },
+  }) as unknown as CompleteBattle;
+
+const defaultProfile = {
+  id: "Default", name: "Default", includeDefaultRules: true,
+  rules: [AiRule.parse({ conditions: [], action: ActionEndTurn.parse({}) })],
+};
+
+describe("performAIaction for a summon", () => {
+  it("falls back to the Default profile when its own profile is missing", () => {
+    const grid = new Grid(TerrainHex, rectangle({ width: WIDTH, height: HEIGHT }));
+    const battle = mkBattle({ aiProfileId: "missing-profile" }, { Default: defaultProfile });
+    const { nextBattle, aiDescriptions, nextActionId } = performAIaction(
+      battle,
+      grid,
+      "summon",
+    );
+    expect(nextActionId).toBeDefined();
+    expect(aiDescriptions.join(" ")).not.toMatch(/give up|hesitates/);
+    const summon = nextBattle.usersState.find((u) => u.userId === "summon");
+    expect(summon?.curHealth).toBe(5000);
+  });
+
+  it("ends its turn instead of dying when no action is possible", () => {
+    const grid = new Grid(TerrainHex, rectangle({ width: WIDTH, height: HEIGHT }));
+    // No profile at all and no Default either: nothing can be chosen.
+    const battle = mkBattle({ aiProfileId: "missing-profile" }, {});
+    const { nextBattle, aiDescriptions, nextActionId } = performAIaction(
+      battle,
+      grid,
+      "summon",
+    );
+    expect(nextActionId).toBeUndefined();
+    expect(aiDescriptions).toEqual(["Tor Tor hesitates and ends its turn"]);
+    const summon = nextBattle.usersState.find((u) => u.userId === "summon");
+    expect(summon?.curHealth).toBe(5000);
+    expect(summon?.actionPoints).toBe(0);
+  });
+
+  it("still lets a stuck non-summon AI give up", () => {
+    const grid = new Grid(TerrainHex, rectangle({ width: WIDTH, height: HEIGHT }));
+    const battle = mkBattle({ isSummon: false, aiProfileId: "missing-profile" }, {});
+    const { nextBattle, aiDescriptions } = performAIaction(battle, grid, "summon");
+    expect(aiDescriptions).toEqual(["Tor Tor is exhausted and has to give up"]);
+    expect(nextBattle.usersState.find((u) => u.userId === "summon")?.curHealth).toBe(0);
+  });
+});

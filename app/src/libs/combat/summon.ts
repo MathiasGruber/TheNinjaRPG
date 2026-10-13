@@ -208,3 +208,19 @@ export const spliceOrphanedSummons = (
   usersState.push(...survivors);
   return orphans;
 };
+
+/** The participants a mid-battle loadout reprocess adds to the battle. Reprocessing
+ *  one player also loads every summon template their new loadout can cast; a
+ *  template the battle already holds (matched on controllerId, the source AI id)
+ *  is dropped so summon() keeps a single clone source per creature. */
+export const mergeLoadoutParticipants = (
+  existing: BattleUserState[],
+  processed: BattleUserState[],
+): BattleUserState[] =>
+  processed.filter(
+    (u) =>
+      !u.isSummonTemplate ||
+      !existing.some(
+        (e) => isSummonTemplate(e, existing) && e.controllerId === u.controllerId,
+      ),
+  );
